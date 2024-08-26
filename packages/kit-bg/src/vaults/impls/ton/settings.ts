@@ -20,11 +20,11 @@ export type IAccountDeriveInfoMapTon = IAccountDeriveInfoMapBase & {
 const accountDeriveInfo: IAccountDeriveInfoMapTon = {
   default: {
     namePrefix: '',
-    label: EAddressEncodings.V4R2,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    label: EAddressEncodings.TON_V4R2,
+    template: `m/44'/${COINTYPE_TON}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V4R2,
-    idSuffix: EAddressEncodings.V4R2,
+    addressEncoding: EAddressEncodings.TON_V4R2,
+    idSuffix: EAddressEncodings.TON_V4R2,
   },
 };
 

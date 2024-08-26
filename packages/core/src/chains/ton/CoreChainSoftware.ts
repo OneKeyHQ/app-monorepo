@@ -71,7 +71,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const hash = await signingMessage.hash();
     const [signature] = await signer.sign(Buffer.from(hash));
     const signedTx = serializeSignedTx({
-      fromAddress: encodedTx.fromAddress,
+      fromAddress: encodedTx.from,
       signingMessage,
       signature,
       stateInit: getStateInitFromEncodedTx(encodedTx),
