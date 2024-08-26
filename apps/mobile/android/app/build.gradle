@@ -90,7 +90,7 @@ android {
 
     namespace 'so.onekey.app.wallet'
     defaultConfig {
-        applicationId 'so.onekey.app.wallet.dev1'
+        applicationId 'so.onekey.app.wallet.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
