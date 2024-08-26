@@ -13,7 +13,7 @@
         }
       },
       "ios": {
-        "image": "macos-sonoma-14.4-xcode-15.3",
+        "image": "macos-sonoma-14.5-xcode-15.4",
         "resourceClass": "large",
         "env": { 
           "PLATFORM": "ios"
