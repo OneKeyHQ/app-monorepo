@@ -21,7 +21,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapTon = {
   default: {
     namePrefix: '',
     label: EAddressEncodings.TON_V4R2,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    template: `m/44'/${COINTYPE_TON}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_TON,
     addressEncoding: EAddressEncodings.TON_V4R2,
     idSuffix: EAddressEncodings.TON_V4R2,
