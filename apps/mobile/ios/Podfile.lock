@@ -1525,27 +1525,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-metrix (0.6.3):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
   - react-native-mmkv (3.0.0-beta.7):
     - DoubleConversion
     - glog
@@ -2398,7 +2377,6 @@ DEPENDENCIES:
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
-  - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
@@ -2631,8 +2609,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-lite-card:
     :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
-  react-native-metrix:
-    :path: "../../../node_modules/react-native-metrix"
   react-native-mmkv:
     :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
@@ -2843,7 +2819,6 @@ SPEC CHECKSUMS:
   react-native-compat: 8b1b60b3f3509779926490bc247ac3b7d510dc53
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: 093c4d7325a5b5ac56a92c3606c5aaf9ecd5157c
-  react-native-metrix: 179ba4a171ba0f5210ec2f2dde3f0325b1d5d396
   react-native-mmkv: 64fa7d7a7c264ff821808a333f0c9691a9a69ada
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846

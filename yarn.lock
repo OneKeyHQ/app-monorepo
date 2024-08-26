@@ -6851,7 +6851,6 @@ __metadata:
     react-native-image-crop-picker: "npm:^0.41.2"
     react-native-keyboard-manager: "npm:^6.5.11-1"
     react-native-level-fs: "npm:^3.0.1"
-    react-native-metrix: "npm:^0.6.3"
     react-native-mmkv: "npm:3.0.0-beta.7"
     react-native-modal: "npm:^13.0.1"
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn73"
@@ -30974,16 +30973,6 @@ __metadata:
     react: ">=16.2.0"
     react-native: ">=0.50.4"
   checksum: 10/d7fb3eb7797cc5ba136fd76326c163d83e8dc3ce318891fd4749ac484f74741527c98654d405379e5c8115f9fb935f164710f89601102048bd2f07dd5767ef0c
-  languageName: node
-  linkType: hard
-
-"react-native-metrix@npm:^0.6.3":
-  version: 0.6.3
-  resolution: "react-native-metrix@npm:0.6.3"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/e6609de42a5957435ea08b26c9a80de631d9e0cb92f4748604a12e78b20fddf51ee55df96ae5ed94ec4a235932200a74d71b087c96ef0a329ce002aaa6154f9c
   languageName: node
   linkType: hard
 

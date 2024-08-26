@@ -1,0 +1,93 @@
+diff --git a/node_modules/react-native-fast-image/android/src/main/java/com/dylanvann/fastimage/FastImageSource.java b/node_modules/react-native-fast-image/android/src/main/java/com/dylanvann/fastimage/FastImageSource.java
+index d9dbd99..1c67401 100644
+--- a/node_modules/react-native-fast-image/android/src/main/java/com/dylanvann/fastimage/FastImageSource.java
++++ b/node_modules/react-native-fast-image/android/src/main/java/com/dylanvann/fastimage/FastImageSource.java
+@@ -11,7 +11,7 @@ import com.facebook.react.views.imagehelper.ImageSource;
+ 
+ import javax.annotation.Nullable;
+ 
+-public class FastImageSource extends ImageSource {
++public class FastImageSource {
+     private static final String DATA_SCHEME = "data";
+     private static final String LOCAL_RESOURCE_SCHEME = "res";
+     private static final String ANDROID_RESOURCE_SCHEME = "android.resource";
+@@ -19,6 +19,7 @@ public class FastImageSource extends ImageSource {
+     private static final String LOCAL_FILE_SCHEME = "file";
+     private final Headers mHeaders;
+     private Uri mUri;
++    private final ImageSource imageSource; // Composition instead of inheritance
+ 
+     public static boolean isBase64Uri(Uri uri) {
+         return DATA_SCHEME.equals(uri.getScheme());
+@@ -49,9 +50,9 @@ public class FastImageSource extends ImageSource {
+     }
+ 
+     public FastImageSource(Context context, String source, double width, double height, @Nullable Headers headers) {
+-        super(context, source, width, height);
++        imageSource = new ImageSource(context, source, width, height); // Create ImageSource instance
+         mHeaders = headers == null ? Headers.DEFAULT : headers;
+-        mUri = super.getUri();
++        mUri = imageSource.getUri(); // Get URI from ImageSource
+ 
+         if (isResource() && TextUtils.isEmpty(mUri.toString())) {
+             throw new Resources.NotFoundException("Local Resource Not Found. Resource: '" + getSource() + "'.");
+@@ -59,12 +60,11 @@ public class FastImageSource extends ImageSource {
+ 
+         if (isLocalResourceUri(mUri)) {
+             // Convert res:/ scheme to android.resource:// so
+-            // glide can understand the uri.
++            // Glide can understand the URI.
+             mUri = Uri.parse(mUri.toString().replace("res:/", ANDROID_RESOURCE_SCHEME + "://" + context.getPackageName() + "/"));
+         }
+     }
+ 
+-
+     public boolean isBase64Resource() {
+         return mUri != null && FastImageSource.isBase64Uri(mUri);
+     }
+@@ -97,7 +97,6 @@ public class FastImageSource extends ImageSource {
+         return getGlideUrl();
+     }
+ 
+-    @Override
+     public Uri getUri() {
+         return mUri;
+     }
+@@ -109,4 +108,8 @@ public class FastImageSource extends ImageSource {
+     public GlideUrl getGlideUrl() {
+         return new GlideUrl(getUri().toString(), getHeaders());
+     }
++
++    public String getSource() {
++        return imageSource.getSource(); // Delegate to ImageSource
++    }
+ }
+\ No newline at end of file
+diff --git a/node_modules/react-native-fast-image/ios/FastImage/FFFastImageView.m b/node_modules/react-native-fast-image/ios/FastImage/FFFastImageView.m
+index f710081..e3ef94a 100644
+--- a/node_modules/react-native-fast-image/ios/FastImage/FFFastImageView.m
++++ b/node_modules/react-native-fast-image/ios/FastImage/FFFastImageView.m
+@@ -73,12 +73,17 @@ - (void) setImageColor: (UIColor*)imageColor {
+ 
+ - (UIImage*) makeImage: (UIImage*)image withTint: (UIColor*)color {
+     UIImage* newImage = [image imageWithRenderingMode: UIImageRenderingModeAlwaysTemplate];
+-    UIGraphicsBeginImageContextWithOptions(image.size, NO, newImage.scale);
+-    [color set];
+-    [newImage drawInRect: CGRectMake(0, 0, image.size.width, newImage.size.height)];
+-    newImage = UIGraphicsGetImageFromCurrentImageContext();
+-    UIGraphicsEndImageContext();
+-    return newImage;
++
++    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
++    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format];
++
++    UIImage *resultImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
++        CGRect rect = CGRectMake(0, 0, image.size.width, image.size.height);
++        [color set];
++        [newImage drawInRect:rect];
++    }];
++
++    return resultImage;
+ }
+ 
+ - (void) setImage: (UIImage*)image {
