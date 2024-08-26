@@ -2449,7 +2449,6 @@ const scdo: IServerNetwork = {
 
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
-  ton,
 ];
 
 export const presetNetworksMap = {
@@ -2556,6 +2555,7 @@ export const presetNetworksMap = {
   ckb,
   tatom,
   scdo,
+  ton,
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
@@ -2660,5 +2660,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   sui,
   ckb,
   scdo,
+  ton,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
