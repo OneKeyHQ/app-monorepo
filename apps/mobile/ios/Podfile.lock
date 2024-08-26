@@ -1962,7 +1962,51 @@ PODS:
     - TOCropViewController (~> 2.7.4)
   - RNPermissions (4.1.5):
     - React-Core
-  - RNReanimated (3.10.1):
+  - RNReanimated (3.15.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNReanimated/reanimated (= 3.15.0)
+    - RNReanimated/worklets (= 3.15.0)
+    - Yoga
+  - RNReanimated/reanimated (3.15.0):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - RNReanimated/worklets (3.15.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2609,7 +2653,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: 83ce633ccd37ebfdbddb6a205ff5ed0ba0ebfabd
   RNImageCropPicker: 771e2ca319d2cf92e04ebf334ece892ee9a6728f
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
-  RNReanimated: 1dfcb4e4a0baf87b64b74facfe5cace4c6717af4
+  RNReanimated: 0ae0900c1bac7ffdd3af67740f83f7d503f10e00
   RNScreens: 34aa4d4c145a1a112c9ebe52524a7bfe5d8dc58d
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
