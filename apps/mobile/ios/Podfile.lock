@@ -1559,7 +1559,7 @@ PODS:
     - React-Core
   - react-native-restart (0.0.27):
     - React-Core
-  - react-native-safe-area-context (4.7.2):
+  - react-native-safe-area-context (4.10.9):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1572,8 +1572,8 @@ PODS:
     - React-featureflags
     - React-graphics
     - React-ImageManager
-    - react-native-safe-area-context/common (= 4.7.2)
-    - react-native-safe-area-context/fabric (= 4.7.2)
+    - react-native-safe-area-context/common (= 4.10.9)
+    - react-native-safe-area-context/fabric (= 4.10.9)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-rendererdebug
@@ -1582,7 +1582,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-safe-area-context/common (4.7.2):
+  - react-native-safe-area-context/common (4.10.9):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1603,7 +1603,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-safe-area-context/fabric (4.7.2):
+  - react-native-safe-area-context/fabric (4.10.9):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2198,7 +2198,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNScreens (3.28.0):
+  - RNScreens (3.34.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2213,14 +2213,15 @@ PODS:
     - React-ImageManager
     - React-NativeModulesApple
     - React-RCTFabric
+    - React-RCTImage
     - React-rendererdebug
     - React-utils
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNScreens/common (= 3.28.0)
+    - RNScreens/common (= 3.34.0)
     - Yoga
-  - RNScreens/common (3.28.0):
+  - RNScreens/common (3.34.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2235,6 +2236,7 @@ PODS:
     - React-ImageManager
     - React-NativeModulesApple
     - React-RCTFabric
+    - React-RCTImage
     - React-rendererdebug
     - React-utils
     - ReactCodegen
@@ -2845,7 +2847,7 @@ SPEC CHECKSUMS:
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
-  react-native-safe-area-context: fee492785c12495777347ca1b38e526ca674c6cf
+  react-native-safe-area-context: 239da0d2f91e1ef34c09aec9a738faebb742cd37
   react-native-slider: 70eaa2041688b4e6a525ffea88d7f1dbf7977f88
   react-native-tab-page-view: e624dca7419a6a3f1bd38ffd49ffbfb036fb0418
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
@@ -2896,7 +2898,7 @@ SPEC CHECKSUMS:
   RNImageCropPicker: 771e2ca319d2cf92e04ebf334ece892ee9a6728f
   RNPermissions: 66d8ec3e64d4a4bf6b3fc9d4fc6c23f686ec11c9
   RNReanimated: 639729c07a0445a91a2bfe3741f2c9aeb672c142
-  RNScreens: 9f44c1c143033ad3218388a60ba2d4009702d5d7
+  RNScreens: 47d5b0b48402f5a2da5b2dd543deae3c9083a5ac
   RNShare: 0463c31e8c1883bb80afed64066cff3dc7ed4e1a
   RNSVG: 640c9b86742c95a7d1884616a0f9a89c65ed14b1
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801

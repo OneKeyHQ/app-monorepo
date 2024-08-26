@@ -7000,11 +7000,11 @@ __metadata:
     react-native-randombytes: "npm:^3.6.1"
     react-native-reanimated: "npm:3.16.0-nightly-20240825-fe5e5e7e3"
     react-native-restart: "npm:0.0.27"
-    react-native-safe-area-context: "npm:4.7.2"
-    react-native-screens: "npm:3.28.0"
+    react-native-safe-area-context: "npm:4.10.9"
+    react-native-screens: "npm:3.34.0"
     react-native-share: "npm:^10.2.1"
     react-native-spotlight-tour: "npm:^3.0.1"
-    react-native-svg: "npm:^13.9.0"
+    react-native-svg: "npm:15.6.0"
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.4.5"
     react-native-view-shot: "npm:3.1.2"
@@ -31298,26 +31298,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-safe-area-context@npm:4.7.2":
-  version: 4.7.2
-  resolution: "react-native-safe-area-context@npm:4.7.2"
+"react-native-safe-area-context@npm:4.10.9":
+  version: 4.10.9
+  resolution: "react-native-safe-area-context@npm:4.10.9"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/b1e5b20ea3ea0da010af67b33187ef559d76c8b39c0f20030e434d409affa8b1ddae44337cfb6d256cb3dc602f7c76e620cea45d3a9b4eb2c6d4db1fc542e451
+  checksum: 10/c7ec6e42a16bc5a497c5187858152854aa702b01e13a273a43c870975c7faa11f3691035558973e19359c616bc7ee326c68905f63e8a1f25f7dcea1a1f009927
   languageName: node
   linkType: hard
 
-"react-native-screens@npm:3.28.0":
-  version: 3.28.0
-  resolution: "react-native-screens@npm:3.28.0"
+"react-native-screens@npm:3.34.0":
+  version: 3.34.0
+  resolution: "react-native-screens@npm:3.34.0"
   dependencies:
     react-freeze: "npm:^1.0.0"
     warn-once: "npm:^0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/8694490e83106a2b5cf1206f6bcbef0112abef0a825dc1e68a5c6bd5295d9d1f5f17e3904d53f3a276d436864e9355ca7fc63cd205a6fcbb5453611f0c7f9f1d
+  checksum: 10/dfcbde7de4aae27980191bc64861190b2edece8f0e3988ef7e83ee6a7895df35fe006024d8fa0611cefc1e7dd6d574ce598f1dcb036750dc6b0a5fca073dd2b9
   languageName: node
   linkType: hard
 
@@ -31362,6 +31362,20 @@ __metadata:
     react-native-svg:
       optional: false
   checksum: 10/219319ec63a99bb8351e4a2684ace3380dff8de316a59d57d2e5c08c7c59898ecb9a353ced4b0d8fe85ac55f15e2ac83db00f3b6e08e1276231dd6b5c5093532
+  languageName: node
+  linkType: hard
+
+"react-native-svg@npm:15.6.0":
+  version: 15.6.0
+  resolution: "react-native-svg@npm:15.6.0"
+  dependencies:
+    css-select: "npm:^5.1.0"
+    css-tree: "npm:^1.1.3"
+    warn-once: "npm:0.1.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/e778b61b249988e063a3f740383583a910a16159d92ac4fd385452b5572e02c6547db27d181fe1edf6097389e521fa763fe867483419c7ad4b989c191e6c500e
   languageName: node
   linkType: hard
 
@@ -36417,7 +36431,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"warn-once@npm:^0.1.0":
+"warn-once@npm:0.1.1, warn-once@npm:^0.1.0":
   version: 0.1.1
   resolution: "warn-once@npm:0.1.1"
   checksum: 10/e6a5a1f5a8dba7744399743d3cfb571db4c3947897875d4962a7c5b1bf2195ab4518c838cb4cea652e71729f21bba2e98dc75686f5fccde0fabbd894e2ed0c0d
