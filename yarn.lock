@@ -6972,7 +6972,7 @@ __metadata:
     folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
     lottie-react: "npm:^2.4.0"
-    lottie-react-native: "npm:6.3.1"
+    lottie-react-native: "npm:6.7.2"
     path-browserify: "npm:^1.0.1"
     react: "npm:18.3.1"
     react-native: "npm:0.75.2"
@@ -26601,17 +26601,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lottie-react-native@npm:6.3.1":
-  version: 6.3.1
-  resolution: "lottie-react-native@npm:6.3.1"
+"lottie-react-native@npm:6.7.2":
+  version: 6.7.2
+  resolution: "lottie-react-native@npm:6.7.2"
   peerDependencies:
+    "@dotlottie/react-player": ^1.6.1
+    "@lottiefiles/react-lottie-player": ^3.5.3
     react: "*"
     react-native: ">=0.46"
     react-native-windows: ">=0.63.x"
   peerDependenciesMeta:
+    "@dotlottie/react-player":
+      optional: true
+    "@lottiefiles/react-lottie-player":
+      optional: true
     react-native-windows:
       optional: true
-  checksum: 10/32563df5b3acbaeb4399913d48cd89ee8ca14f30007c4873e96b7b6b92d0d090949e782c488df7bad37ce08e8c27f190c26afb6e38f774e8fee8c73a5e1d7865
+  checksum: 10/51a39a65c2b35fdb744cd1fb61f4a2c62738a0415442c66bbef718b788d341bcf0af9e5bc2baffe9ac0d5f7dac345c5a420c7c463a3bffc97b7375110c2424cc
   languageName: node
   linkType: hard
 
