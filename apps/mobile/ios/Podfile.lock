@@ -11,7 +11,7 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (5.9.1):
     - ExpoModulesCore
-  - EXBarCodeScanner (12.7.0):
+  - EXBarCodeScanner (13.0.1):
     - EXImageLoader
     - ExpoModulesCore
     - ZXingObjC/OneD
@@ -2071,7 +2071,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNDeviceInfo (10.11.0):
+  - RNDeviceInfo (11.1.0):
     - React-Core
   - RNFastImage (8.6.3):
     - React-Core
@@ -2759,7 +2759,7 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
   DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
   EXApplication: c08200c34daca7af7fd76ac4b9d606077410e8ad
-  EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
+  EXBarCodeScanner: e2dd9b42c1b522a2adc9202b1dfbc64cb34456d1
   EXConstants: 409690fbfd5afea964e5e9d6c4eb2c2b59222c59
   EXImageLoader: ab589d67d6c5f2c33572afea9917304418566334
   EXNotifications: b1b174716b287e161350a18de1d253aabceeea2d
@@ -2887,7 +2887,7 @@ SPEC CHECKSUMS:
   ReactNativeSecureWindow: b9dcbfe769995b0e0f499c4558819b440987afb9
   RealmJS: 325a7b621587dd9945306d4cbfd6b641bc20e2dd
   RNCAsyncStorage: 3b1baf024cf72476c5aa0e9d46989c532c3145cd
-  RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
+  RNDeviceInfo: b899ce37a403a4dea52b7cb85e16e49c04a5b88e
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
   RNFBAnalytics: 0918525a3908267fd4cf0f71c231f04f9f9a6dfd
   RNFBApp: 9acbe359ef3559d6f8ca5c350db471f2b352f98a

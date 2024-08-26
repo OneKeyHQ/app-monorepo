@@ -6810,7 +6810,7 @@ __metadata:
     burnt: "npm:0.12.2"
     expo: "npm:51.0.31"
     expo-application: "npm:5.9.1"
-    expo-barcode-scanner: "npm:12.7.0"
+    expo-barcode-scanner: "npm:13.0.1"
     expo-blur: "npm:13.0.2"
     expo-clipboard: "npm:6.0.3"
     expo-device: "npm:6.0.2"
@@ -6842,7 +6842,7 @@ __metadata:
     react-native-canvas: "npm:^0.1.39"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.2"
     react-native-crypto: "npm:^2.2.0"
-    react-native-device-info: "npm:10.11.0"
+    react-native-device-info: "npm:11.1.0"
     react-native-fast-image: "npm:8.6.3"
     react-native-file-logger: "npm:^0.4.1"
     react-native-fs: "npm:^2.20.0"
@@ -20968,14 +20968,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-barcode-scanner@npm:12.7.0":
-  version: 12.7.0
-  resolution: "expo-barcode-scanner@npm:12.7.0"
+"expo-barcode-scanner@npm:13.0.1":
+  version: 13.0.1
+  resolution: "expo-barcode-scanner@npm:13.0.1"
   dependencies:
-    expo-image-loader: "npm:~4.4.0"
+    expo-image-loader: "npm:~4.7.0"
   peerDependencies:
     expo: "*"
-  checksum: 10/90329a4c72a220a6a0465e91719060adc1dc334c12e18ef25957d6e559a2f1a6a0b76d11608bbba84b6f2ac4179c3a32b636df1ba0d7b1b75ab4590b5db86a87
+  checksum: 10/8218ef88fb7fd8eef7a8e17bef21ec087158426c9ccc2842ff9dd2346486ed27023b909a9717207140e0965e3bc272dda1dd888548e3723d38d7c8be0fedea86
   languageName: node
   linkType: hard
 
@@ -21058,15 +21058,6 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/2ed8d292f89208b21fece50c2d21c4272833fd37cb769e382365a9502b844c33f582ceee374ad8d3c184cc75418ca9a6daf54005de281c0a952c7f2a39b026c9
-  languageName: node
-  linkType: hard
-
-"expo-image-loader@npm:~4.4.0":
-  version: 4.4.0
-  resolution: "expo-image-loader@npm:4.4.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 10/e872e45a807cd867c5a8e8fc5665de33de5d467ea533222037b09b70268d0166012769bfcd340ab8922dbf826a3e4f0498ff73973ad62f21134764b4bc8b1f5a
   languageName: node
   linkType: hard
 
@@ -30810,12 +30801,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-device-info@npm:10.11.0":
-  version: 10.11.0
-  resolution: "react-native-device-info@npm:10.11.0"
+"react-native-device-info@npm:11.1.0":
+  version: 11.1.0
+  resolution: "react-native-device-info@npm:11.1.0"
   peerDependencies:
     react-native: "*"
-  checksum: 10/16104ba7120e44960371d1c83362214cd36de8e9fcd3f7fddbd519ff21a5abefaa7e5d2ca9974f519f6e795bc01a4638cce4fbade3dd7a2d4a8d5656d15e4d60
+  checksum: 10/bfed9b513af471e1ecca578403695a78df4d05619cb85a075ecbc29ac380eb469bccafd08d681c9b14d61c31ff75824cc9eaa2a03801af4ac41151615c5295ab
   languageName: node
   linkType: hard
 
