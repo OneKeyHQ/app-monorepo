@@ -550,7 +550,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
-              index,
               item,
               section,
               index,
