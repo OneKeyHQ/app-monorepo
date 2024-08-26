@@ -2251,7 +2251,7 @@ PODS:
     - React-Core
     - React-RCTFabric
     - ReactCommon/turbomodule/core
-  - RNSVG (13.14.0):
+  - RNSVG (15.6.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2271,9 +2271,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 13.14.0)
+    - RNSVG/common (= 15.6.0)
     - Yoga
-  - RNSVG/common (13.14.0):
+  - RNSVG/common (15.6.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2900,7 +2900,7 @@ SPEC CHECKSUMS:
   RNReanimated: 639729c07a0445a91a2bfe3741f2c9aeb672c142
   RNScreens: 47d5b0b48402f5a2da5b2dd543deae3c9083a5ac
   RNShare: 0463c31e8c1883bb80afed64066cff3dc7ed4e1a
-  RNSVG: 640c9b86742c95a7d1884616a0f9a89c65ed14b1
+  RNSVG: 37319fae975daec6b51befc9509abb52913b07c1
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
