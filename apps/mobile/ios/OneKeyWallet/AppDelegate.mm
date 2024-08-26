@@ -47,6 +47,12 @@
   #endif
 }
 
+- (BOOL)bridgelessEnabled
+{
+  // If you want to enable then use below code
+  return YES;
+}
+
 - (BOOL)concurrentRootEnabled
 {
   // Switch this bool to turn on and off the concurrent root
