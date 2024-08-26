@@ -39,7 +39,7 @@
     "@onekeyhq/shared": "*",
     "@react-native-async-storage/async-storage": "1.22.0",
     "@react-native-community/netinfo": "^9.4.1",
-    "@react-native-community/slider": "4.4.3",
+    "@react-native-community/slider": "4.5.2",
     "@react-native-firebase/analytics": "20.1.0",
     "@react-native-firebase/app": "20.1.0",
     "@react-native-firebase/crashlytics": "20.1.0",

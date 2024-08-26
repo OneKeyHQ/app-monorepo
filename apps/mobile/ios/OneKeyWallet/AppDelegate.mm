@@ -47,12 +47,18 @@
   #endif
 }
 
-- (BOOL)bridgelessEnabled
-{
-  // If you want to enable then use below code
-  return YES;
+- (BOOL)turboModuleEnabled {
+  return true;
 }
 
+- (BOOL)fabricEnabled{
+  return true;
+}
+
+- (BOOL)bridgelessEnabled
+{
+    return YES;
+}
 - (BOOL)concurrentRootEnabled
 {
   // Switch this bool to turn on and off the concurrent root
