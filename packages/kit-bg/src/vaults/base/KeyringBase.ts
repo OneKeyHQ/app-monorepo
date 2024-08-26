@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -147,7 +148,8 @@ export abstract class KeyringBase extends VaultContext {
     if (!walletId) {
       throw new Error('walletId is undefined');
     }
-    const { indexes, deriveInfo, names, skipCheckAccountExist } = params;
+    // v5 do not check prev account used, so skipCheckAccountExist is always true
+    const { indexes, deriveInfo, names, skipCheckAccountExist = true } = params;
     const { coinType, template, namePrefix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
@@ -168,10 +170,13 @@ export abstract class KeyringBase extends VaultContext {
     // check first prev non-zero index account existing
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
 
+    defaultLogger.account.accountCreatePerf.utxoBuildAddressesInfo();
     const addressesInfo = await buildAddressesInfo({
       usedIndexes,
     });
+    defaultLogger.account.accountCreatePerf.utxoBuildAddressesInfoDone();
 
+    defaultLogger.account.accountCreatePerf.buildDBUtxoAccounts();
     const ret: IDBUtxoAccount[] = [];
     let idx = 0;
     for (const {
@@ -243,6 +248,8 @@ export abstract class KeyringBase extends VaultContext {
 
       idx += 1;
     }
+    defaultLogger.account.accountCreatePerf.buildDBUtxoAccountsDone();
+
     return ret;
   }
 

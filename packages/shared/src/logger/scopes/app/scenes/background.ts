@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 import { NO_LOG_OUTPUT } from '../../../types';
 
 export class BackgroundScene extends BaseScene {

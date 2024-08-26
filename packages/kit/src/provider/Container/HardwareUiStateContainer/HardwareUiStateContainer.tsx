@@ -230,6 +230,9 @@ const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const { serviceHardwareUI } = backgroundApiProxy;
 
   const toastQueueManagerRef = useRef(new ActionsQueueManager('toast'));
@@ -511,6 +514,19 @@ function HardwareUiStateContainerCmp() {
     },
     [],
   );
+
+  useEffect(() => {
+    const fn = async () => {
+      if (!stateRef.current) {
+        await toastQueueManagerRef.current?.closeAll();
+        await dialogQueueManagerRef.current?.closeAll();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.HardCloseHardwareUiStateDialog, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HardCloseHardwareUiStateDialog, fn);
+    };
+  }, []);
 
   useEffect(() => {
     const handleStateChange = async () => {

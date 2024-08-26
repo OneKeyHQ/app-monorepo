@@ -1,41 +1,85 @@
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
+import { useDebouncedCallback } from 'use-debounce';
 
-import { Checkbox, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Input,
+  SizableText,
+  Stack,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-interface ILoggingConfig {
-  [key: string]: boolean | ILoggingConfig;
+interface ILoggingEnabledConfig {
+  [key: string]: boolean | ILoggingEnabledConfig;
 }
 
 const LoggingConfigCheckbox = () => {
   noop(defaultLogger.account.getName());
-  const [config, setConfig] = useState<ILoggingConfig>({});
+
+  const [highlightDurationGt, setHighlightDurationGt] = useState('');
+  const highlightDurationGtRef = useRef(highlightDurationGt);
+  highlightDurationGtRef.current = highlightDurationGt;
+
+  const [enabledConfig, setEnabledConfig] = useState<ILoggingEnabledConfig>({});
+  const enabledConfigRef = useRef(enabledConfig);
+  enabledConfigRef.current = enabledConfig;
+
+  const [config, setConfig] = useState<ILoggerConfig>({
+    highlightDurationGt: '',
+    enabled: {},
+  });
+  const configRef = useRef(config);
+  configRef.current = config;
 
   useEffect(() => {
     void (async () => {
       const savedConfig = await defaultLoggerConfig.getSavedLoggerConfig();
       setConfig(savedConfig);
+      setEnabledConfig(savedConfig.enabled);
+      setHighlightDurationGt(savedConfig.highlightDurationGt || '');
     })();
   }, []);
 
+  const saveLoggerConfig = useDebouncedCallback(
+    async () => {
+      // use debounce to wait state update
+      await timerUtils.wait(0);
+      void defaultLoggerConfig.saveLoggerConfig({
+        ...configRef.current,
+        highlightDurationGt: highlightDurationGtRef.current,
+        enabled: enabledConfigRef.current as any,
+      });
+    },
+    300,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   const handleChange = (path: string[], value: boolean) => {
-    const newConfig = { ...config };
-    let current: ILoggingConfig | boolean = newConfig;
+    const newConfig = { ...enabledConfig };
+    let current: ILoggingEnabledConfig | boolean = newConfig;
     for (let i = 0; i < path.length - 1; i += 1) {
       // @ts-ignore
       current = current[path[i]] as any;
     }
     // @ts-ignore
     current[path[path.length - 1]] = value;
-    setConfig(newConfig);
-    void defaultLoggerConfig.saveLoggerConfig(newConfig as any);
+    setEnabledConfig(newConfig);
+    void saveLoggerConfig();
   };
 
-  const isGroupChecked = (group: ILoggingConfig): boolean =>
+  const isGroupChecked = (group: ILoggingEnabledConfig): boolean =>
     Object.values(group).every((value) => {
       if (typeof value === 'object') {
         return isGroupChecked(value);
@@ -44,7 +88,7 @@ const LoggingConfigCheckbox = () => {
     });
 
   const renderCheckBoxes = (
-    obj: ILoggingConfig,
+    obj: ILoggingEnabledConfig,
     path: string[] = [],
   ): ReactNode =>
     Object.entries(obj).map(([key, value]) => {
@@ -95,19 +139,50 @@ const LoggingConfigCheckbox = () => {
 
   return (
     <Stack>
+      <SizableText>
+        Highlight Duration Greater Than ({config.highlightDurationGt}ms)
+      </SizableText>
+
+      {config.highlightDurationGt ? (
+        <Input
+          value={highlightDurationGt}
+          onBlur={() => {
+            void saveLoggerConfig();
+          }}
+          onChangeText={(text) => {
+            setHighlightDurationGt(text);
+          }}
+        />
+      ) : null}
+
+      <Stack py="$4" flexDirection="row" alignItems="center" gap="$2">
+        <Switch
+          value={config.colorfulLog}
+          onChange={(v) => {
+            setConfig((prev) => ({
+              ...prev,
+              colorfulLog: v,
+            }));
+            void saveLoggerConfig();
+          }}
+        />
+        <SizableText>Colorful log original message objects</SizableText>
+      </Stack>
+
       <XStack alignItems="center" mb="$4">
         <Checkbox
-          value={isGroupChecked(config)}
+          value={isGroupChecked(enabledConfig)}
           onChange={(checked) => {
-            const newConfig = { ...config };
+            const newConfig = { ...enabledConfig };
             Object.keys(newConfig).forEach((key) => {
               if (
                 typeof newConfig[key] === 'object' &&
                 newConfig[key] !== null
               ) {
-                Object.keys(newConfig[key] as ILoggingConfig).forEach(
+                Object.keys(newConfig[key] as ILoggingEnabledConfig).forEach(
                   (subKey) => {
-                    (newConfig[key] as ILoggingConfig)[subKey] = !!checked;
+                    (newConfig[key] as ILoggingEnabledConfig)[subKey] =
+                      !!checked;
                   },
                 );
               } else {
@@ -123,7 +198,7 @@ const LoggingConfigCheckbox = () => {
           }}
         />
       </XStack>
-      {renderCheckBoxes(config)}
+      {renderCheckBoxes(enabledConfig)}
     </Stack>
   );
 };

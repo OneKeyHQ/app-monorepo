@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 

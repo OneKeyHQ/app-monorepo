@@ -13,10 +13,17 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'chainAdaLegacy') {
       return new (await import('../WebEmbedApiChainAdaLegacy')).default();
     }
+    if (name === 'secret') {
+      return new (await import('../WebEmbedApiSecret')).default();
+    }
     if (name === 'test') {
       return new (await import('../WebEmbedApiTest')).default();
     }
-    throw new Error(`Unknown WebEmbed API module: ${name as string}`);
+    throw new Error(
+      `Unknown WebEmbed API module: ${
+        name as string
+      } , please run "yarn app:web-embed:build" again`,
+    );
   },
   {
     promise: true,
@@ -26,6 +33,7 @@ const getOrCreateWebEmbedApiModule = memoizee(
 const callWebEmbedApiMethod =
   buildCallRemoteApiMethod<IBackgroundApiWebembedCallMessage>(
     getOrCreateWebEmbedApiModule,
+    'webEmbedApi',
   );
 
 export default { callWebEmbedApiMethod };

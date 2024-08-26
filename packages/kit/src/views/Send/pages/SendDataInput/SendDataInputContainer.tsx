@@ -37,6 +37,7 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -410,7 +411,7 @@ function SendDataInputContainer() {
   ]);
   const handleOnConfirm = useCallback(
     async () =>
-      errorUtils.withErrorAutoToast(async () => {
+      errorToastUtils.withErrorAutoToast(async () => {
         try {
           if (!account) return;
           const toAddress = form.getValues('to').resolved;

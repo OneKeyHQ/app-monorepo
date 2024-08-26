@@ -1,7 +1,7 @@
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })

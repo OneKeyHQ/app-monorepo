@@ -6,7 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class NormalScene extends BaseScene {
   @LogToLocal({ level: 'error' })

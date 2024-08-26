@@ -9,6 +9,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -357,10 +358,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       buildAddressesInfo: async ({ usedIndexes }) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;
+
+        defaultLogger.account.accountCreatePerf.getCredentialsInfo();
+
         const credentials = await this.baseGetCredentialsInfo({ password });
         if (!this.coreApi) {
           throw new Error('coreApi is undefined');
         }
+
+        defaultLogger.account.accountCreatePerf.getAddressesFromHd();
+
         const { addresses: addressesInfo } =
           await this.coreApi.getAddressesFromHd({
             networkInfo: await this.getCoreApiNetworkInfo(),
@@ -374,6 +381,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         if (addressesInfo.length !== usedIndexes.length) {
           throw new OneKeyInternalError('Unable to get address');
         }
+
+        defaultLogger.account.accountCreatePerf.getAddressesFromHdDone();
+
         return addressesInfo;
       },
     });

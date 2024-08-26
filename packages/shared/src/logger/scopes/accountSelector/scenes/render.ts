@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole } from '../../../decorators';
+import { LogToConsole } from '../../../base/decorators';
 
 export class AccountSelectorRenderScene extends BaseScene {
   @LogToConsole()

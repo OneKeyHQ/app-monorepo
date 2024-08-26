@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class NetworkScene extends BaseScene {
   @LogToLocal({ level: 'debug' })

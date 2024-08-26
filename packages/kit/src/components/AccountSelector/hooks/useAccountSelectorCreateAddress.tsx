@@ -1,14 +1,18 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -18,9 +22,13 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount, serviceQrWallet, serviceBatchCreateAccount } =
-    backgroundApiProxy;
-
+  const {
+    serviceAccount,
+    serviceQrWallet,
+    serviceBatchCreateAccount,
+    serviceHardwareUI,
+  } = backgroundApiProxy;
+  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
 
@@ -53,6 +61,19 @@ export function useAccountSelectorCreateAddress() {
         return;
       }
 
+      let connectId: string | undefined;
+      if (
+        account.walletId &&
+        accountUtils.isHwWallet({
+          walletId: account.walletId,
+        })
+      ) {
+        const device = await serviceAccount.getWalletDevice({
+          walletId: account.walletId,
+        });
+        connectId = device?.connectId;
+      }
+
       const handleAddAccounts = async (
         result:
           | {
@@ -76,6 +97,12 @@ export function useAccountSelectorCreateAddress() {
         return result;
       };
 
+      const hwUiControlParams: IWithHardwareProcessingControlParams = {
+        skipDeviceCancelAtFirst: true,
+        skipWaitingAnimationAtFirst: true,
+        skipCloseHardwareUiStateDialog: true,
+      };
+
       const addAccountsForAllNetwork = async () => {
         if (account?.walletId) {
           await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet(
@@ -86,9 +113,11 @@ export function useAccountSelectorCreateAddress() {
           );
         }
 
+        // TODO: cancel creating workflow by close checking device UI dialog
         await serviceBatchCreateAccount.addDefaultNetworkAccounts({
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
+          ...hwUiControlParams,
         });
         return handleAddAccounts({
           walletId: account?.walletId,
@@ -98,17 +127,27 @@ export function useAccountSelectorCreateAddress() {
       };
 
       const addAccounts = async () => {
-        if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
-          await addAccountsForAllNetwork();
-          return;
+        try {
+          if (networkUtils.isAllNetwork({ networkId: account.networkId })) {
+            await addAccountsForAllNetwork();
+            return;
+          }
+          const result = await serviceAccount.addHDOrHWAccounts({
+            walletId: account?.walletId,
+            indexedAccountId: account?.indexedAccountId,
+            networkId: account?.networkId,
+            deriveType: account?.deriveType,
+            ...hwUiControlParams,
+          });
+          return await handleAddAccounts(result);
+        } finally {
+          if (connectId) {
+            // as skipCloseHardwareUiStateDialog is true, so we need to close the dialog manually
+            await serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId,
+            });
+          }
         }
-        const result = await serviceAccount.addHDOrHWAccounts({
-          walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
-          networkId: account?.networkId,
-          deriveType: account?.deriveType,
-        });
-        return handleAddAccounts(result);
       };
 
       const isAirGapAccountNotFound = (error: Error | unknown) =>
@@ -187,6 +226,7 @@ export function useAccountSelectorCreateAddress() {
       createQrWalletByUr,
       serviceAccount,
       serviceBatchCreateAccount,
+      serviceHardwareUI,
       serviceQrWallet,
     ],
   );

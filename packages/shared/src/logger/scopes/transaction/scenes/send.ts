@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class SendScene extends BaseScene {
   @LogToServer()

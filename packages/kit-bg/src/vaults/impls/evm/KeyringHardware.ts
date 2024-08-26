@@ -21,6 +21,7 @@ import {
   convertDeviceError,
   convertDeviceResponse,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
@@ -283,7 +284,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }) => {
             const sdk = await this.getHardwareSDKInstance();
 
-            console.log('evm-getAddress', { connectId, deviceId });
+            defaultLogger.account.accountCreatePerf.sdkEvmGetAddress();
             const response = await sdk.evmGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
@@ -298,6 +299,13 @@ export class KeyringHardware extends KeyringHardwareBase {
                 chainId: Number(chainId),
               })),
             });
+            defaultLogger.account.accountCreatePerf.sdkEvmGetAddressDone({
+              deriveTypeLabel: params.deriveInfo?.label ?? '',
+              indexes: usedIndexes,
+              coinName,
+              chainId,
+            });
+
             return response;
           },
         });

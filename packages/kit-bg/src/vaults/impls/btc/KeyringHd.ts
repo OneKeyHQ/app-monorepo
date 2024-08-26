@@ -1,6 +1,7 @@
 import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { type ISignedTxPro } from '@onekeyhq/core/src/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -34,8 +35,14 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
+    defaultLogger.account.accountCreatePerf.prepareAccountsStartBtc({
+      networkId: this.networkId,
+      indexes: params.indexes,
+    });
+
     const sdkBtc = await import('@onekeyhq/core/src/chains/btc/sdkBtc');
     sdkBtc.initBitcoinEcc();
+    defaultLogger.account.accountCreatePerf.initBitcoinEccDone();
 
     return this.basePrepareAccountsHdUtxo(params, {
       checkIsAccountUsed: checkBtcAddressIsUsed,

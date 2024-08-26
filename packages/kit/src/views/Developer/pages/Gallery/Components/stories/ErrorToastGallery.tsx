@@ -5,6 +5,7 @@ import {
   InvoiceExpiredError,
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -110,8 +111,8 @@ function Demo1() {
       </Button>
       <Button
         onPress={async () => {
-          const r: IError21Result = await errorUtils.withErrorAutoToast(() =>
-            error21(),
+          const r: IError21Result = await errorToastUtils.withErrorAutoToast(
+            () => error21(),
           );
           console.log(r);
         }}

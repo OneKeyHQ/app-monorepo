@@ -25,6 +25,7 @@ import {
   convertDeviceResponse,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -324,6 +325,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
+            defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKey();
             const response = await sdk.btcGetPublicKey(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
@@ -331,6 +333,11 @@ export class KeyringHardware extends KeyringHardwareBase {
                 coin: coinName?.toLowerCase(),
                 showOnOneKey: showOnOnekeyFn(arrIndex),
               })),
+            });
+            defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKeyDone({
+              deriveTypeLabel: params.deriveInfo?.label ?? '',
+              indexes: usedIndexes,
+              coinName,
             });
             return response;
           },

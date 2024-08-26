@@ -1,7 +1,7 @@
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class MathScene extends BaseScene {
   @LogToLocal({ level: 'info' })

@@ -11,7 +11,7 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToConsole } from '../../../decorators';
+import { LogToConsole } from '../../../base/decorators';
 
 export class AccountSelectorPerfScene extends BaseScene {
   @LogToConsole()
@@ -77,8 +77,8 @@ export class AccountSelectorPerfScene extends BaseScene {
 
   @LogToConsole()
   public renderAccountsSectionList(params: {
+    walletName: string | undefined;
     accountsCount: number;
-    walletName?: string;
   }) {
     return [params];
   }

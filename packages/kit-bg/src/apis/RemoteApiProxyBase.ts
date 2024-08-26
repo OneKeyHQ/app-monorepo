@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return,  @typescript-eslint/no-unsafe-member-access */
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
   moduleGetter: (module: any) => Promise<any>,
+  remoteApiType: 'webEmbedApi' | 'offscreenApi',
 ) {
   return async function callRemoteApiMethod(message: T) {
     const { method, params = [] } = message;
@@ -23,11 +25,25 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
       );
       return result;
     }
-    throw new Error(
-      `callRemoteApiMethod module method not found: ${
-        module as string
-      }.${method}()`,
-    );
+
+    let errorMessage = `callRemoteApiMethod not found: ${remoteApiType}.${
+      module as string
+    }.${method}() `;
+
+    if (remoteApiType === 'webEmbedApi') {
+      errorMessage += ' please run "yarn app:web-embed:build" again';
+      if (!platformEnv.isWebEmbed) {
+        throw new Error('webEmbedApi is only available in webEmbed');
+      }
+    }
+
+    if (remoteApiType === 'offscreenApi') {
+      if (!platformEnv.isExtensionOffscreen) {
+        throw new Error('offscreenApi is only available in offscreen');
+      }
+    }
+
+    throw new Error(errorMessage);
   };
 }
 

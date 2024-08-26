@@ -4,7 +4,7 @@ import { Accordion, Button, SizableText, Stack } from '@onekeyhq/components';
 import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/List/ResourceSection/StateLogsItem/logs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import LoggingConfigCheckbox from './LoggerConfig';
+import LoggingConfigCheckbox from './LoggerConfigGallery';
 import { Layout } from './utils/Layout';
 
 const LoggerDemo = () => {

@@ -1,4 +1,5 @@
 import { deviceName, osName } from 'expo-device';
+import { debounce } from 'lodash';
 
 import {
   decryptImportedCredential,
@@ -623,42 +624,54 @@ class ServiceCloudBackup extends ServiceBase {
 
   private timer?: NodeJS.Timeout;
 
-  @backgroundMethod()
-  async requestAutoBackup() {
-    if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
-      return;
-    }
-    try {
-      const metaData = await this.getMetaDataFromCloud();
-      const autoBackupList = metaData.filter(
-        (current) => !current.isManualBackup,
-      );
-      if (autoBackupList.length <= 0) {
-        await this.backupNow(false);
+  requestAutoBackupDebounce = debounce(
+    async () => {
+      if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
         return;
       }
-      const latestBackup = autoBackupList.reduce(
-        (reduceBackup, currentBackup) =>
-          currentBackup.backupTime > reduceBackup.backupTime
-            ? currentBackup
-            : reduceBackup,
-      );
-      const autoBackupDuration = timerUtils.getTimeDurationMs({ hour: 1 });
-      const delay = Math.max(
-        0,
-        Math.min(
-          autoBackupDuration - (new Date().getTime() - latestBackup.backupTime),
-          autoBackupDuration,
-        ),
-      );
-      clearTimeout(this.timer);
-      this.timer = setTimeout(async () => {
+      try {
+        const metaData = await this.getMetaDataFromCloud();
+        const autoBackupList = metaData.filter(
+          (current) => !current.isManualBackup,
+        );
+        if (autoBackupList.length <= 0) {
+          await this.backupNow(false);
+          return;
+        }
+        const latestBackup = autoBackupList.reduce(
+          (reduceBackup, currentBackup) =>
+            currentBackup.backupTime > reduceBackup.backupTime
+              ? currentBackup
+              : reduceBackup,
+        );
+        const autoBackupDuration = timerUtils.getTimeDurationMs({ hour: 1 });
+        const delay = Math.max(
+          0,
+          Math.min(
+            autoBackupDuration -
+              (new Date().getTime() - latestBackup.backupTime),
+            autoBackupDuration,
+          ),
+        );
         clearTimeout(this.timer);
-        void this.autoCreateAndRemoveBackup();
-      }, delay);
-    } catch (e) {
-      console.error('backup auto task', e);
-    }
+        this.timer = setTimeout(async () => {
+          clearTimeout(this.timer);
+          void this.autoCreateAndRemoveBackup();
+        }, delay);
+      } catch (e) {
+        console.error('backup auto task', e);
+      }
+    },
+    1000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  async requestAutoBackup() {
+    void this.requestAutoBackupDebounce();
   }
 
   async autoCreateAndRemoveBackup() {
