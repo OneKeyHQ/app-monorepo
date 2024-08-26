@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index cf44d7d..fb253f7 100644
+index cf44d7d..463dba7 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 @@ -2,6 +2,7 @@ package com.swmansion.rnscreens
@@ -26,15 +26,6 @@ index cf44d7d..fb253f7 100644
  
      override fun onLayout(
          changed: Boolean,
-@@ -54,7 +57,7 @@ open class ScreenContainer(
-         val size = childCount
-         while (i < size) {
-             getChildAt(i).layout(0, 0, width, height)
--            i++
-+            i
-         }
-     }
- 
 @@ -260,6 +263,55 @@ open class ScreenContainer(
          super.onAttachedToWindow()
          isAttached = true
@@ -106,7 +97,7 @@ index 37aac4e..5fb5505 100644
  namespace facebook {
  namespace react {
 diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
-index ca1278a..e447f7d 100644
+index ca1278a..856fcdc 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 +++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 @@ -33,6 +33,29 @@ - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event
@@ -139,17 +130,8 @@ index ca1278a..e447f7d 100644
  - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
-@@ -162,7 +185,7 @@ - (void)maybeShow
-   }
- }
- 
--+ (react::ComponentDescriptorProvider)componentDescriptorProvider
-+ (react::ComponentDescriptorProvider)componentDescriptorProvider
- {
-   return react::concreteComponentDescriptorProvider<react::RNSFullWindowOverlayComponentDescriptor>();
- }
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index b673407..67d89af 100644
+index b673407..91d2c33 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -160,15 +142,6 @@ index b673407..67d89af 100644
  #import "RNSScreenWindowTraits.h"
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -25,7 +26,7 @@
- #import "RNSScreenStack.h"
- #import "RNSScreenStackHeaderConfig.h"
- 
--#import "UIView+RNSUtility.h"
-+#import "UIViewRNSUtility.h"
- 
- #ifdef RCT_NEW_ARCH_ENABLED
- namespace react = facebook::react;
 @@ -456,8 +457,87 @@ - (BOOL)isMountedUnderScreenOrReactRoot
  #undef RNS_EXPECTED_VIEW
  }
@@ -235,7 +208,7 @@ index b673407..67d89af 100644
 +      	return;
 +      }
 +    }
-+    if ((opacityViewList[0].alpha  opacityViewList[1].alpha) != 1) {
++    if ((opacityViewList[0].alpha + opacityViewList[1].alpha) != 1) {
 +      return;
 +    }
 +    if (index == idx) {
@@ -257,57 +230,6 @@ index b673407..67d89af 100644
    // For RN touches to work we need to instantiate and connect RCTTouchHandler. This only applies
    // for screens that aren't mounted under RCTRootView e.g., modals that are mounted directly to
    // root application window.
-@@ -673,12 +753,12 @@ - (BOOL)hasHeaderConfig
-   return _config != nil;
- }
- 
--+ (react::ComponentDescriptorProvider)componentDescriptorProvider
-+ (react::ComponentDescriptorProvider)componentDescriptorProvider
- {
-   return react::concreteComponentDescriptorProvider<react::RNSScreenComponentDescriptor>();
- }
- 
--+ (BOOL)shouldBeRecycled
-+ (BOOL)shouldBeRecycled
- {
-   return NO;
- }
-@@ -1010,7 +1090,7 @@ - (void)viewDidLayoutSubviews
-   // The below code makes the screen view adapt dimensions provided by the system. We take these
-   // into account only when the view is mounted under RNSNavigationController in which case system
-   // provides additional padding to account for possible header, and in the case when screen is
--  // shown as a native modal, as the final dimensions of the modal on iOS 12+ are shorter than the
-+  // shown as a native modal, as the final dimensions of the modal on iOS 12 are shorter than the
-   // screen size
-   BOOL isDisplayedWithinUINavController = [self.parentViewController isKindOfClass:[RNSNavigationController class]];
- 
-@@ -1113,7 +1193,7 @@ - (CGFloat)calculateHeaderHeightIsModal:(BOOL)isModal
-   CGFloat navbarInset = 0;
- #endif // !TARGET_OS_TV
- 
--  return navbarHeight + navbarInset;
-+  return navbarHeight  navbarInset;
- }
- 
- - (void)calculateAndNotifyHeaderHeightChangeIsModal:(BOOL)isModal
-@@ -1507,7 +1587,7 @@ - (UIView *)view
- }
- #endif
- 
--+ (BOOL)requiresMainQueueSetup
-+ (BOOL)requiresMainQueueSetup
- {
-   // Returning NO here despite the fact some initialization in -init method dispatches tasks
-   // on main queue, because the comments in RN source code states that modules which return YES
-@@ -1600,7 +1680,7 @@ @implementation RCTConvert (RNSScreen)
-     RNSScreenDetentTypeAll,
-     integerValue)
- 
--+ (UIInterfaceOrientationMask)UIInterfaceOrientationMask:(id)json
-+ (UIInterfaceOrientationMask)UIInterfaceOrientationMask:(id)json
- {
-   json = [self NSString:json];
-   if ([json isEqualToString:@"default"]) {
 diff --git a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h b/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h
 index defd0d5..72eb79d 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h
@@ -321,7 +243,7 @@ index defd0d5..72eb79d 100644
  @end
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm b/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm
-index f10671e..b295193 100644
+index f10671e..f1c2feb 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm
 @@ -29,7 +29,12 @@ - (void)updateContainer
@@ -338,15 +260,6 @@ index f10671e..b295193 100644
        [screen notifyFinishTransitioning];
      }
    }
-@@ -39,7 +44,7 @@ - (void)updateContainer
- 
- #pragma mark-- Fabric specific
- #ifdef RCT_NEW_ARCH_ENABLED
--+ (react::ComponentDescriptorProvider)componentDescriptorProvider
-+ (react::ComponentDescriptorProvider)componentDescriptorProvider
- {
-   return react::concreteComponentDescriptorProvider<react::RNSScreenNavigationContainerComponentDescriptor>();
- }
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index ea27b03..7e9e417 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
@@ -365,7 +278,7 @@ index ea27b03..7e9e417 100644
        _isFullWidthSwiping = YES;
        [self cancelTouchesInParent];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm b/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
-index abb2cf6..a886ea3 100644
+index abb2cf6..9b060f8 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
 @@ -128,22 +128,33 @@ - (void)animateSimplePushWithShadowEnabled:(BOOL)shadowEnabled
@@ -418,17 +331,8 @@ index abb2cf6..a886ea3 100644
    } else if (_operation == UINavigationControllerOperationPop) {
      toViewController.view.transform = leftTransform;
      [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
-@@ -411,7 +422,7 @@ - (void)animateWithNoAnimation:(id<UIViewControllerContextTransitioning>)transit
-   }
- }
- 
--+ (BOOL)isCustomAnimation:(RNSScreenStackAnimation)animation
-+ (BOOL)isCustomAnimation:(RNSScreenStackAnimation)animation
- {
-   return (animation != RNSScreenStackAnimationFlip && animation != RNSScreenStackAnimationDefault);
- }
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index de7f368..90647c4 100644
+index de7f368..cb49872 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 @@ -2,13 +2,13 @@
@@ -466,60 +370,6 @@ index de7f368..90647c4 100644
      // As the header might have change in `updateViewController` we need to ensure that header height
      // returned by the `onHeaderHeightChange` event is correct.
      [self.screenView.controller calculateAndNotifyHeaderHeightChangeIsModal:NO];
-@@ -164,7 +165,7 @@ - (void)layoutNavigationControllerView
-   [navctr.view setNeedsLayout];
- }
- 
--+ (void)setAnimatedConfig:(UIViewController *)vc withConfig:(RNSScreenStackHeaderConfig *)config
-+ (void)setAnimatedConfig:(UIViewController *)vc withConfig:(RNSScreenStackHeaderConfig *)config
- {
-   UINavigationBar *navbar = ((UINavigationController *)vc.parentViewController).navigationBar;
-   // It is workaround for loading custom back icon when transitioning from a screen without header to the screen which
-@@ -259,7 +260,7 @@ + (void)setAnimatedConfig:(UIViewController *)vc withConfig:(RNSScreenStackHeade
-   }
- }
- 
--+ (void)setTitleAttibutes:(NSDictionary *)attrs forButton:(UIBarButtonItem *)button
-+ (void)setTitleAttibutes:(NSDictionary *)attrs forButton:(UIBarButtonItem *)button
- {
-   [button setTitleTextAttributes:attrs forState:UIControlStateNormal];
-   [button setTitleTextAttributes:attrs forState:UIControlStateHighlighted];
-@@ -268,7 +269,7 @@ + (void)setTitleAttibutes:(NSDictionary *)attrs forButton:(UIBarButtonItem *)but
-   [button setTitleTextAttributes:attrs forState:UIControlStateFocused];
- }
- 
--+ (UIImage *)loadBackButtonImageInViewController:(UIViewController *)vc withConfig:(RNSScreenStackHeaderConfig *)config
-+ (UIImage *)loadBackButtonImageInViewController:(UIViewController *)vc withConfig:(RNSScreenStackHeaderConfig *)config
- {
-   BOOL hasBackButtonImage = NO;
-   for (RNSScreenStackHeaderSubview *subview in config.reactSubviews) {
-@@ -352,7 +353,7 @@ + (UIImage *)loadBackButtonImageInViewController:(UIViewController *)vc withConf
-   return nil;
- }
- 
--+ (void)willShowViewController:(UIViewController *)vc
-+ (void)willShowViewController:(UIViewController *)vc
-                       animated:(BOOL)animated
-                     withConfig:(RNSScreenStackHeaderConfig *)config
- {
-@@ -366,7 +367,7 @@ + (void)willShowViewController:(UIViewController *)vc
- 
- #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && defined(__IPHONE_13_0) && \
-     __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0
--+ (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc
-+ (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc
-                                     withConfig:(RNSScreenStackHeaderConfig *)config API_AVAILABLE(ios(13.0))
- {
-   UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
-@@ -461,7 +462,7 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc
- }
- #endif // Check for >= iOS 13.0
- 
--+ (void)updateViewController:(UIViewController *)vc
-+ (void)updateViewController:(UIViewController *)vc
-                   withConfig:(RNSScreenStackHeaderConfig *)config
-                     animated:(BOOL)animated
- {
 @@ -482,7 +483,22 @@ + (void)updateViewController:(UIViewController *)vc
    if (!shouldHide && !config.translucent) {
      // when nav bar is not translucent we chage edgesForExtendedLayout to avoid system laying out
@@ -544,16 +394,7 @@ index de7f368..90647c4 100644
    } else {
      // system default is UIRectEdgeAll
      vc.edgesForExtendedLayout = UIRectEdgeAll;
-@@ -771,7 +787,7 @@ - (void)replaceNavigationBarViewsWithSnapshotOfSubview:(RNSScreenStackHeaderSubv
-   UIView *snapshot = [childComponentView snapshotViewAfterScreenUpdates:NO];
- 
-   // This code should be kept in sync with analogous switch statement in
--  // `+ [RNSScreenStackHeaderConfig updateViewController: withConfig: animated:]` method.
-+  // ` [RNSScreenStackHeaderConfig updateViewController: withConfig: animated:]` method.
-   switch (childComponentView.type) {
-     case RNSScreenStackHeaderSubviewTypeLeft:
-       navitem.leftBarButtonItem.customView = snapshot;
-@@ -808,10 +824,10 @@ static RCTResizeMode resizeModeFromCppEquiv(react::ImageResizeMode resizeMode)
+@@ -808,7 +824,7 @@ static RCTResizeMode resizeModeFromCppEquiv(react::ImageResizeMode resizeMode)
  }
  
  /**
@@ -561,21 +402,8 @@ index de7f368..90647c4 100644
 + * Fabric implementation of helper method for loadBackButtonImageInViewController:withConfig:
   * There is corresponding Paper implementation (with different parameter type) in Paper specific section.
   */
--+ (RCTImageSource *)imageSourceFromImageView:(RCTImageComponentView *)view
-+ (RCTImageSource *)imageSourceFromImageView:(RCTImageComponentView *)view
- {
-   const auto &imageProps = *std::static_pointer_cast<const react::ImageProps>(view.props);
-   react::ImageSource cppImageSource = imageProps.sources.at(0);
-@@ -839,7 +855,7 @@ - (NSNumber *)getFontSizePropValue:(int)value
-   return nil;
- }
- 
--+ (react::ComponentDescriptorProvider)componentDescriptorProvider
-+ (react::ComponentDescriptorProvider)componentDescriptorProvider
- {
-   return react::concreteComponentDescriptorProvider<react::RNSScreenStackHeaderConfigComponentDescriptor>();
- }
-@@ -932,10 +948,10 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
+ + (RCTImageSource *)imageSourceFromImageView:(RCTImageComponentView *)view
+@@ -932,7 +948,7 @@ - (void)didSetProps:(NSArray<NSString *> *)changedProps
  }
  
  /**
@@ -583,20 +411,7 @@ index de7f368..90647c4 100644
 + * Paper implementation of helper method for loadBackButtonImageInViewController:withConfig:
   * There is corresponding Fabric implementation (with different parameter type) in Fabric specific section.
   */
--+ (RCTImageSource *)imageSourceFromImageView:(RCTImageView *)view
-+ (RCTImageSource *)imageSourceFromImageView:(RCTImageView *)view
- {
-   return view.imageSources[0];
- }
-@@ -991,7 +1007,7 @@ - (UIView *)view
- 
- @implementation RCTConvert (RNSScreenStackHeader)
- 
--+ (NSMutableDictionary *)blurEffectsForIOSVersion
-+ (NSMutableDictionary *)blurEffectsForIOSVersion
- {
-   NSMutableDictionary *blurEffects = [NSMutableDictionary new];
-   [blurEffects addEntriesFromDictionary:@{
+ + (RCTImageSource *)imageSourceFromImageView:(RCTImageView *)view
 diff --git a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
 index e295dcc..8f78dd6 100644
 --- a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
