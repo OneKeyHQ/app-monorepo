@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -12,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -169,7 +169,13 @@ export function HomePageView({
       );
     }
 
-    if (softwareAccountDisabled && wallet?.type === WALLET_TYPE_HD && account) {
+    if (
+      softwareAccountDisabled &&
+      accountUtils.isHdWallet({
+        walletId: wallet?.id ?? '',
+      }) &&
+      account
+    ) {
       const deviceLabels: Record<IOneKeyDeviceType, string> = {
         'classic': 'Classic',
         'classic1s': 'Classic 1S',
@@ -240,9 +246,9 @@ export function HomePageView({
   }, [
     enabledOnClassicOnly,
     device?.deviceType,
-    softwareAccountDisabled,
-    wallet?.type,
     account,
+    softwareAccountDisabled,
+    wallet?.id,
     isRequiredValidation,
     renderTabs,
     intl,
