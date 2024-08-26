@@ -19,6 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
@@ -29,8 +30,6 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-
-import { MAX_LENGTH_ACCOUNT_NAME } from '../../../../components/RenameDialog/renameConsts';
 
 import type { UseFormReturn } from 'react-hook-form';
 

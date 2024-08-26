@@ -24,6 +24,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { NetworkAvatar } from '../NetworkAvatar';
+
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
 function V4AccountNameSelector({

@@ -28,6 +28,7 @@ import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -44,7 +45,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
-import { MAX_LENGTH_ACCOUNT_NAME } from '../../../../components/RenameDialog/renameConsts';
 import { Tutorials } from '../../components';
 
 type IFormValues = {
