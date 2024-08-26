@@ -6932,7 +6932,7 @@ __metadata:
     "@walletconnect/react-native-compat": "npm:2.11.2"
     burnt: "npm:0.12.2"
     expo: "npm:51.0.31"
-    expo-application: "npm:5.8.3"
+    expo-application: "npm:5.9.1"
     expo-barcode-scanner: "npm:12.7.0"
     expo-blur: "npm:12.9.1"
     expo-clipboard: "npm:5.0.1"
@@ -21446,7 +21446,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-application@npm:5.8.3, expo-application@npm:~5.8.0":
+"expo-application@npm:5.9.1":
+  version: 5.9.1
+  resolution: "expo-application@npm:5.9.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/802463b96110021fb1a0f7a126fb773c152dd37b15c620e2b7be55d70aee544439f156582b75d145b955c43a8bc9690f10d7b7d8fbfcb7af7718e79fac1149d7
+  languageName: node
+  linkType: hard
+
+"expo-application@npm:~5.8.0":
   version: 5.8.3
   resolution: "expo-application@npm:5.8.3"
   peerDependencies:

@@ -9,7 +9,7 @@ PODS:
     - CocoaLumberjack/Core (= 3.8.5)
   - CocoaLumberjack/Core (3.8.5)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.8.3):
+  - EXApplication (5.9.1):
     - ExpoModulesCore
   - EXBarCodeScanner (12.7.0):
     - EXImageLoader
@@ -2456,7 +2456,7 @@ SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
   DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
-  EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
+  EXApplication: c08200c34daca7af7fd76ac4b9d606077410e8ad
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
   EXConstants: 409690fbfd5afea964e5e9d6c4eb2c2b59222c59
   EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04

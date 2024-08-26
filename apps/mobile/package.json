@@ -50,7 +50,7 @@
     "@walletconnect/react-native-compat": "2.11.2",
     "burnt": "0.12.2",
     "expo": "51.0.31",
-    "expo-application": "5.8.3",
+    "expo-application": "5.9.1",
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
     "expo-clipboard": "5.0.1",
