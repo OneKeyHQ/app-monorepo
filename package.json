@@ -222,7 +222,7 @@
     "@babel/helper-module-transforms": "7.25.2",
     "@babel/traverse": "7.25.3",
     "@babel/runtime": "7.25.4",
-    "@babel/highlight": "7.23.4",
+    "@babel/highlight": "7.24.7",
     "@babel/types": "7.25.4",
     "@babel/parser": "7.25.4",
     "@polkadot/util": "12.6.2",
