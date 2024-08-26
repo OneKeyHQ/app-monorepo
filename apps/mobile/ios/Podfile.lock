@@ -18,10 +18,10 @@ PODS:
     - ZXingObjC/PDF417
   - EXConstants (16.0.2):
     - ExpoModulesCore
-  - EXImageLoader (4.4.0):
+  - EXImageLoader (4.7.0):
     - ExpoModulesCore
     - React-Core
-  - EXNotifications (0.27.6):
+  - EXNotifications (0.28.16):
     - ExpoModulesCore
   - Expo (51.0.31):
     - ExpoModulesCore
@@ -31,26 +31,27 @@ PODS:
     - ExpoModulesCore
   - ExpoClipboard (6.0.3):
     - ExpoModulesCore
-  - ExpoDevice (5.9.3):
+  - ExpoDevice (6.0.2):
     - ExpoModulesCore
   - ExpoFileSystem (17.0.1):
     - ExpoModulesCore
   - ExpoFont (12.0.9):
     - ExpoModulesCore
-  - ExpoHaptics (12.6.0):
+  - ExpoHaptics (13.0.1):
     - ExpoModulesCore
-  - ExpoImageManipulator (11.5.0):
+  - ExpoImageManipulator (12.0.5):
     - EXImageLoader
     - ExpoModulesCore
-  - ExpoImagePicker (14.5.0):
+    - SDWebImageWebPCoder
+  - ExpoImagePicker (15.0.7):
     - ExpoModulesCore
-  - ExpoKeepAwake (12.8.2):
+  - ExpoKeepAwake (13.0.2):
     - ExpoModulesCore
-  - ExpoLinearGradient (12.7.1):
+  - ExpoLinearGradient (13.0.2):
     - ExpoModulesCore
-  - ExpoLocalAuthentication (13.6.0):
+  - ExpoLocalAuthentication (14.0.1):
     - ExpoModulesCore
-  - ExpoLocalization (14.5.0):
+  - ExpoLocalization (15.0.3):
     - ExpoModulesCore
   - ExpoModulesCore (1.12.23):
     - DoubleConversion
@@ -75,13 +76,13 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - ExpoSecureStore (12.5.0):
+  - ExpoScreenCapture (6.0.1):
     - ExpoModulesCore
-  - ExpoSharing (11.10.0):
+  - ExpoSecureStore (13.0.2):
     - ExpoModulesCore
-  - EXScreenCapture (5.8.1):
+  - ExpoSharing (12.0.1):
     - ExpoModulesCore
-  - EXSplashScreen (0.26.4):
+  - EXSplashScreen (0.27.5):
     - DoubleConversion
     - ExpoModulesCore
     - glog
@@ -2351,9 +2352,9 @@ DEPENDENCIES:
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
+  - ExpoScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
-  - EXScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../../../node_modules/react-native/third-party-podspecs/fmt.podspec`)
@@ -2541,12 +2542,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
+  ExpoScreenCapture:
+    :path: "../../../node_modules/expo-screen-capture/ios"
   ExpoSecureStore:
     :path: "../../../node_modules/expo-secure-store/ios"
   ExpoSharing:
     :path: "../../../node_modules/expo-sharing/ios"
-  EXScreenCapture:
-    :path: "../../../node_modules/expo-screen-capture/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
   FBLazyVector:
@@ -2760,27 +2761,27 @@ SPEC CHECKSUMS:
   EXApplication: c08200c34daca7af7fd76ac4b9d606077410e8ad
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
   EXConstants: 409690fbfd5afea964e5e9d6c4eb2c2b59222c59
-  EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
-  EXNotifications: e11f0e9a5b657c064a481a5d522f3bc5a07bf7cd
+  EXImageLoader: ab589d67d6c5f2c33572afea9917304418566334
+  EXNotifications: b1b174716b287e161350a18de1d253aabceeea2d
   Expo: 4773e11951abd0f666f67023f0cb1d48c3e8a32b
   ExpoAsset: 323700f291684f110fb55f0d4022a3362ea9f875
   ExpoBlur: fa53f874e7b208bc3756d1bf07903c12e790beb1
   ExpoClipboard: 23d203f5d4843699fbc45be1cc4fe1fbd811a6fa
-  ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
+  ExpoDevice: fc94f0e42ecdfd897e7590f2874fc64dfa7e9b1c
   ExpoFileSystem: 80bfe850b1f9922c16905822ecbf97acd711dc51
   ExpoFont: e7f2275c10ca8573c991e007329ad6bf98086485
-  ExpoHaptics: 604aca02e942d1d43c139cae7cf397b26f85476f
-  ExpoImageManipulator: 6d37f811d47a89afb34c0ec2521c6a6ea5f5a5be
-  ExpoImagePicker: 9e5c745cb3e56ee00e1cfe5d6af59caab66ecf1a
-  ExpoKeepAwake: 0f5cad99603a3268e50af9a6eb8b76d0d9ac956c
-  ExpoLinearGradient: d10226652f849e675528883aa45afd2358c2f92f
-  ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
-  ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
+  ExpoHaptics: 5a3a88971af384255baf2504f38b41189cec6984
+  ExpoImageManipulator: aea99205c66043a00a0af90e345395637b9902fa
+  ExpoImagePicker: 12a420923383ae38dccb069847218f27a3b87816
+  ExpoKeepAwake: 3b8815d9dd1d419ee474df004021c69fdd316d08
+  ExpoLinearGradient: 8cec4a09426d8934c433e83cb36262d72c667fce
+  ExpoLocalAuthentication: 9e02a56a4cf9868f0052656a93d4c94101a42ed7
+  ExpoLocalization: f04eeec2e35bed01ab61c72ee1768ec04d093d01
   ExpoModulesCore: 30db8f33cc8558cf8c5505e2f7501d2cd5166c52
-  ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
-  ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
-  EXScreenCapture: 7a491c16de021638078f50281d411e3352bb28c2
-  EXSplashScreen: 3f76cf37bd620000527a7f71e7af9fa897f5f1a7
+  ExpoScreenCapture: ece7593264d1384aff2481eea29f9a238b484090
+  ExpoSecureStore: 060cebcb956b80ddae09821610ac1aa9e1ac74cd
+  ExpoSharing: 8db05dd85081219f75989a3db2c92fe5e9741033
+  EXSplashScreen: 6e853f9954482d7fc7616e102be0f680a0db6d58
   FBLazyVector: 38bb611218305c3bc61803e287b8a81c6f63b619
   Firebase: 26b040b20866a55f55eb3611b9fcf3ae64816b86
   FirebaseAnalytics: f9211b719db260cc91aebee8bb539cb367d0dfd1
