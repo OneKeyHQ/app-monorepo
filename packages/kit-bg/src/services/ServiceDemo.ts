@@ -640,139 +640,142 @@ class ServiceDemo extends ServiceBase {
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'demoHwGetAllNetworkAddresses' });
+    const bundle = [
+      {
+        network: 'btc',
+        path: "m/49'/0'/0'/0/0",
+        showOnOneKey: false,
+      },
+      {
+        network: 'btc',
+        path: "m/44'/0'/0'/0/0",
+        showOnOneKey: false,
+      },
+      {
+        network: 'btc',
+        path: "m/86'/0'/0'/0/0",
+        showOnOneKey: false,
+      },
+      {
+        network: 'btc',
+        path: "m/84'/0'/0'/0/0",
+        showOnOneKey: false,
+      },
+      {
+        network: 'evm',
+        path: "m/44'/60'/0'/0/0",
+        showOnOneKey: false,
+      },
+      {
+        network: 'sol',
+        path: "m/44'/501'/0'/0'",
+        showOnOneKey: false,
+      },
+      // {
+      //   network: 'cfx',
+      //   path: "m/44'/503'/0'/0/0",
+      //   chainName: '1029',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'cfx',
+      //   path: "m/44'/503'/0'/0/0",
+      //   chainName: '1',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'cosmos',
+      //   path: "m/44'/118'/0'/0/0",
+      //   prefix: 'cosmos',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'cosmos',
+      //   path: "m/44'/118'/0'/0/0",
+      //   prefix: 'osmosis',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'dynex',
+      //   path: "m/44'/29538'/0'/0'/0'",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'fil',
+      //   path: "m/44'/461'/0'/0/0",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'kaspa',
+      //   path: "m/44'/111111'/0'/0/0",
+      //   prefix: 'kaspa',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'near',
+      //   path: "m/44'/397'/0'",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'nexa',
+      //   path: "m/44'/29223'/0'/0/0",
+      //   prefix: 'nexa',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'nervos',
+      //   path: "m/44'/309'/0'/0/0",
+      //   chainName: 'ckb',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'dot',
+      //   path: "m/44'/354'/0'/0'/0'",
+      //   prefix: '0',
+      //   chainName: 'polkadot',
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'xrp',
+      //   path: "m/44'/144'/0'/0/0",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'sol',
+      //   path: "m/44'/501'/0'/0'",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'stc',
+      //   path: "m/44'/101010'/0'/0'/0'",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'sui',
+      //   path: "m/44'/784'/0'/0'/0'",
+      //   showOnOneKey: false,
+      // },
+      // {
+      //   network: 'tron',
+      //   path: "m/44'/195'/0'/0/0",
+      //   showOnOneKey: false,
+      // },
+    ];
     const response = await convertDeviceResponse(() =>
       // TODO return public keys (xpub) or address
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
       sdk.allNetworkGetAddress(connectId, deviceId, {
         passphraseState: '',
         useEmptyPassphrase: true,
-        bundle: [
-          {
-            network: 'btc',
-            path: "m/49'/0'/0'/0/0",
-            showOnOneKey: false,
-          },
-          {
-            network: 'btc',
-            path: "m/44'/0'/0'/0/0",
-            showOnOneKey: false,
-          },
-          {
-            network: 'btc',
-            path: "m/86'/0'/0'/0/0",
-            showOnOneKey: false,
-          },
-          {
-            network: 'btc',
-            path: "m/84'/0'/0'/0/0",
-            showOnOneKey: false,
-          },
-          {
-            network: 'evm',
-            path: "m/44'/60'/0'/0/0",
-            showOnOneKey: false,
-          },
-          {
-            network: 'sol',
-            path: "m/44'/501'/0'/0'",
-            showOnOneKey: false,
-          },
-          // {
-          //   network: 'cfx',
-          //   path: "m/44'/503'/0'/0/0",
-          //   chainName: '1029',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'cfx',
-          //   path: "m/44'/503'/0'/0/0",
-          //   chainName: '1',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'cosmos',
-          //   path: "m/44'/118'/0'/0/0",
-          //   prefix: 'cosmos',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'cosmos',
-          //   path: "m/44'/118'/0'/0/0",
-          //   prefix: 'osmosis',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'dynex',
-          //   path: "m/44'/29538'/0'/0'/0'",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'fil',
-          //   path: "m/44'/461'/0'/0/0",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'kaspa',
-          //   path: "m/44'/111111'/0'/0/0",
-          //   prefix: 'kaspa',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'near',
-          //   path: "m/44'/397'/0'",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'nexa',
-          //   path: "m/44'/29223'/0'/0/0",
-          //   prefix: 'nexa',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'nervos',
-          //   path: "m/44'/309'/0'/0/0",
-          //   chainName: 'ckb',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'dot',
-          //   path: "m/44'/354'/0'/0'/0'",
-          //   prefix: '0',
-          //   chainName: 'polkadot',
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'xrp',
-          //   path: "m/44'/144'/0'/0/0",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'sol',
-          //   path: "m/44'/501'/0'/0'",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'stc',
-          //   path: "m/44'/101010'/0'/0'/0'",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'sui',
-          //   path: "m/44'/784'/0'/0'/0'",
-          //   showOnOneKey: false,
-          // },
-          // {
-          //   network: 'tron',
-          //   path: "m/44'/195'/0'/0/0",
-          //   showOnOneKey: false,
-          // },
-        ],
+        bundle,
       }),
     );
     defaultLogger.app.perf.logTime({
       message: '-------- demoHwGetAllNetworkAddresses Done',
       // TODO return type is Wrong
       data: (
-        response as unknown as Array<{
+        response as Array<{
           success: boolean;
           error?: string;
           payload?: { address: string; path: string };
