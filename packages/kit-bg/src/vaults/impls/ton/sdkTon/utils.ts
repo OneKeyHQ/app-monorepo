@@ -154,7 +154,7 @@ export function getWalletContractInstance({
   networkId: string;
 }) {
   const Contract = getWalletContractClass(version);
-  return new Contract(new Provider({  backgroundApi, networkId  }), {
+  return new Contract(new Provider({ backgroundApi, networkId }), {
     publicKey: bufferUtils.hexToBytes(publicKey),
   });
 }
@@ -172,16 +172,13 @@ export async function serializeUnsignedTransaction({
 }) {
   const Contract = getWalletContractClass(version);
   const contract = new Contract(
-    
     new Provider({
-        backgroundApi,
-        networkId,
-      }),
-   
+      backgroundApi,
+      networkId,
+    }),
     {
-        address: encodedTx.from,
-      },
-  ,
+      address: encodedTx.from,
+    },
   ) as unknown as IWallet;
   return contract.createTransferMessages(
     new Uint8Array(64),
