@@ -2447,6 +2447,27 @@ const scdo: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const alph: IServerNetwork = {
+  'chainId': 'alph--mainnet',
+  'code': 'alph',
+  'decimals': 18,
+  'id': 'alph--mainnet',
+  'impl': 'alph',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/alph.png',
+  'name': 'Alephium',
+  'shortcode': 'alph',
+  'shortname': 'alph',
+  'symbol': 'ALPH',
+  'feeMeta': {
+    'code': 'ALPH',
+    'decimals': 18,
+    'symbol': 'ALPH',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
   ton,
@@ -2556,6 +2577,7 @@ export const presetNetworksMap = {
   ckb,
   tatom,
   scdo,
+  alph,
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
@@ -2660,5 +2682,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   sui,
   ckb,
   scdo,
+  alph,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
