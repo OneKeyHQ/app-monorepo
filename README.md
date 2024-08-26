@@ -66,7 +66,7 @@ Execute the following commands in the root directory to develop different busine
 - `yarn app:ios`: connect to iphone device via USB for development debugging
 - `yarn app:android`: develop android
 - `yarn app:desktop`: development in desktop mode
-- `yarn app:web`: development in extension mode
+- `yarn app:ext`: development in extension mode
 
 
 ## 💬 Docs in your languages
