@@ -332,27 +332,9 @@ index abb2cf6..9b060f8 100644
      toViewController.view.transform = leftTransform;
      [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index de7f368..9b2d31f 100644
+index de7f368..3f4c775 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -8,7 +8,7 @@
- #import <react/renderer/components/rnscreens/EventEmitters.h>
- #import <react/renderer/components/rnscreens/Props.h>
- #import <react/renderer/components/rnscreens/RCTComponentViewHelpers.h>
--#import "RCTImageComponentView+RNSScreenStackHeaderConfig.h"
-+#import "RCTImageComponentViewRNSScreenStackHeaderConfig.h"
- #else
- #import <React/RCTImageView.h>
- #import <React/RCTShadowView.h>
-@@ -43,7 +43,7 @@ @interface RCTImageLoader (Private)
- 
- @implementation NSString (RNSStringUtil)
- 
--+ (BOOL)RNSisBlank:(NSString *)string
-+ (BOOL)RNSisBlank:(NSString *)string
- {
-   if (string == nil) {
-     return YES;
 @@ -147,7 +147,8 @@ - (void)updateViewControllerIfNeeded
    BOOL isInFullScreenModal = nav == nil && _screenView.stackPresentation == RNSScreenStackPresentationFullScreenModal;
    // if nav is nil, it means we can be in a fullScreen modal, so there is no nextVC, but we still want to update
