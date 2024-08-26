@@ -118,10 +118,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const hwParams: CommonParams & TonSignMessageParams = {
       path: account.path,
       ...deviceCommonParams,
-      destination: msg.toAddress,
+      destination: msg.address,
       tonAmount: Number(msg.amount.toString()),
-      seqno: encodedTx.sequenceNo,
-      expireAt: encodedTx.expireAt || 0,
+      seqno: encodedTx.sequenceNo || 0,
+      expireAt: encodedTx.validUntil || 0,
       comment: msg.payload,
       mode: msg.sendMode,
       walletVersion: versionMap[version as keyof typeof versionMap],
@@ -163,7 +163,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
     }
     const signedTx = serializeSignedTx({
-      fromAddress: encodedTx.fromAddress,
+      fromAddress: encodedTx.from,
       signingMessage,
       signature,
       stateInit: getStateInitFromEncodedTx(encodedTx),
@@ -196,6 +196,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         {
           ...deviceCommonParams,
           path: account.path,
+          // eslint-disable-next-line spellcheck/spell-checker
           appdomain: Buffer.from(msg.payload.appDomain ?? '').toString('hex'),
           expireAt: msg.payload.timestamp,
           comment: Buffer.from(msg.message).toString('hex'),

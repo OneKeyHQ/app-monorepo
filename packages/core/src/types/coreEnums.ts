@@ -9,6 +9,6 @@ export enum EAddressEncodings {
   REGISTER_ACCOUNT = 'REGISTER_ACCOUNT', // Near account
   IMPLICIT_ACCOUNT = 'IMPLICIT_ACCOUNT', // Near account
 
-  V4R2 = 'v4R2',
+  TON_V4R2 = 'v4R2',
 }
 // export enum AddressEncodings = EAddressEncodings

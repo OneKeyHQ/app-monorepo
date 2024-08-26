@@ -1,9 +1,13 @@
+import type { CHAIN } from '@tonconnect/protocol';
+
+type IBase64String = string;
+
 export type ITonMessage = {
-  toAddress: string;
+  address: string;
   amount: string;
-  payload?: string;
+  payload?: IBase64String;
   sendMode?: number;
-  stateInit?: string;
+  stateInit?: IBase64String;
   jetton?: {
     amount: string;
     jettonMasterAddress: string;
@@ -12,8 +16,9 @@ export type ITonMessage = {
 };
 
 export type IEncodedTxTon = {
-  fromAddress: string;
+  from: string;
   messages: ITonMessage[];
-  sequenceNo: number;
-  expireAt?: number;
+  sequenceNo?: number;
+  validUntil?: number;
+  network?: CHAIN;
 };
