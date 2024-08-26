@@ -39,8 +39,8 @@ function WebEmbedGallery() {
 
   useEffect(() => {
     const config = webEmbedConfig.getWebEmbedConfig();
-    setUrl(config.url ?? '');
-    setDebug(config.debug ?? false);
+    setUrl(config?.url ?? '');
+    setDebug(config?.debug ?? false);
   }, []);
 
   return (
