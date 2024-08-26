@@ -7002,7 +7002,6 @@ __metadata:
     react-native-restart: "npm:0.0.27"
     react-native-safe-area-context: "npm:4.10.9"
     react-native-screens: "npm:3.34.0"
-    react-native-share: "npm:^10.2.1"
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:15.6.0"
     react-native-tcp-socket: "npm:^6.0.6"
@@ -31335,13 +31334,6 @@ __metadata:
   peerDependencies:
     react-native: "*"
   checksum: 10/8f083fcc7d98abd7588870de48878e7b551af83353566c6200ed6508c40065745f85cf9a445318f05d9159895bdef5524a9311893960ae5845bf1b27f5dd1af5
-  languageName: node
-  linkType: hard
-
-"react-native-share@npm:^10.2.1":
-  version: 10.2.1
-  resolution: "react-native-share@npm:10.2.1"
-  checksum: 10/6b579233f521a9c2e47181b80992f5e8da730b7711b7108111b2be13f202b6ce2845799fba2a44e15810c12e0240fc540772e16b3e98aafe3f7baa17130d3c06
   languageName: node
   linkType: hard
 

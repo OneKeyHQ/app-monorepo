@@ -279,7 +279,6 @@ PODS:
     - React-RCTText (= 0.75.2)
     - React-RCTVibration (= 0.75.2)
   - React-callinvoker (0.75.2)
-  - React-Codegen (0.1.0)
   - React-Core (0.75.2):
     - glog
     - hermes-engine
@@ -2257,14 +2256,6 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNShare (10.2.1):
-    - RCT-Folly
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Codegen
-    - React-Core
-    - React-RCTFabric
-    - ReactCommon/turbomodule/core
   - RNSVG (15.6.0):
     - DoubleConversion
     - glog
@@ -2463,7 +2454,6 @@ DEPENDENCIES:
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
-  - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - SDWebImageWebPCoder (= 0.8.5)
@@ -2494,7 +2484,6 @@ SPEC REPOS:
     - nanopb
     - PromisesObjC
     - PromisesSwift
-    - React-Codegen
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
@@ -2755,8 +2744,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
-  RNShare:
-    :path: "../../../node_modules/react-native-share"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
   RNZipArchive:
@@ -2826,7 +2813,6 @@ SPEC CHECKSUMS:
   RCTTypeSafety: ef5e91bd791abd3a99b2c75fd565791102a66352
   React: 643f06bc294806d2db2526b424fdf759e107f514
   React-callinvoker: 34d1fa0c340104f324e2521f546196beb44dfad2
-  React-Codegen: 4b8b4817cea7a54b83851d4c1f91f79aa73de30a
   React-Core: facd883836d8d1cc1949d2053c58eab5fb22eb75
   React-CoreModules: f92a2cb11d22f6066823ca547c61e900325dfe44
   React-cxxreact: f5595a4cbfe5a4e9d401dffa2c1c78bbbbbe75e4
@@ -2913,7 +2899,6 @@ SPEC CHECKSUMS:
   RNPermissions: 66d8ec3e64d4a4bf6b3fc9d4fc6c23f686ec11c9
   RNReanimated: 639729c07a0445a91a2bfe3741f2c9aeb672c142
   RNScreens: 47d5b0b48402f5a2da5b2dd543deae3c9083a5ac
-  RNShare: 0463c31e8c1883bb80afed64066cff3dc7ed4e1a
   RNSVG: 37319fae975daec6b51befc9509abb52913b07c1
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
