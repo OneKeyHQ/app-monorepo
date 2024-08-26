@@ -5,11 +5,10 @@ import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-
-import { Spotlight } from '../../../../../components/Spotlight';
 
 function AccountValue(accountValue: {
   accountId: string;
