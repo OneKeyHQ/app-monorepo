@@ -51,7 +51,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+      return decrypt(password, privateKeyRaw).toString('hex');
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }
