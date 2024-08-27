@@ -2,7 +2,6 @@ import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { useStyle } from '@tamagui/core';
-import _ from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
@@ -26,6 +25,8 @@ import type {
   ListRenderItem,
   ListRenderItemInfo,
 } from 'react-native';
+
+let lastIndexHeight: undefined | number;
 
 function DragCellRendererComponent<T>({
   item,
@@ -55,16 +56,8 @@ function DragCellRendererComponent<T>({
   const findIsStickyIndex = (i: number) =>
     stickyHeaderIndices.findIndex((x) => x === i) !== -1;
   const isSticky = findIsStickyIndex(index);
-  const nextIsSticky = findIsStickyIndex(index + 1);
-  const lastStickyLayout = getItemLayout(
-    data,
-    Math.max(
-      0,
-      _.findLastIndex(data.slice(0, index), (__, _lastStickyIndex) =>
-        findIsStickyIndex(_lastStickyIndex),
-      ),
-    ),
-  );
+  const insertHeight = lastIndexHeight ?? 0;
+  lastIndexHeight = getItemLayout(data, Math.max(0, index))?.length;
   return (
     <Draggable draggableId={`${id}`} index={index} isDragDisabled={!enabled}>
       {(provided) => {
@@ -72,19 +65,16 @@ function DragCellRendererComponent<T>({
           string,
           any
         >;
+        lastIndexHeight = undefined;
 
         return (
           <>
-            {stickyHeaderIndices.length > 0 && !isSticky && nextIsSticky ? (
+            {!isSticky ? (
               <div
                 style={
                   layout
                     ? {
-                        height:
-                          layout.offset +
-                          layout.length -
-                          lastStickyLayout.offset -
-                          lastStickyLayout.length,
+                        height: layout.length + insertHeight,
                       }
                     : {}
                 }
@@ -243,29 +233,44 @@ function BaseSortableListView<T>(
           </div>
         )}
       >
-        {(provided) => (
-          <ListView
-            // @ts-ignore
-            ref={(_ref) => {
-              if (typeof ref === 'function') {
-                ref(_ref);
-              } else if (ref && 'current' in ref) {
-                ref.current = _ref;
-              }
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              provided.innerRef(_ref?._listRef?._scrollRef);
-            }}
-            data={data}
-            contentContainerStyle={rawContentContainerStyle}
-            renderItem={reloadRenderItem as ListRenderItem<T>}
-            CellRendererComponent={reloadCellRendererComponent}
-            getItemLayout={getItemLayout}
-            keyExtractor={keyExtractor}
-            stickyHeaderIndices={stickyHeaderIndices}
-            ListHeaderComponent={ListHeaderComponent}
-            {...restProps}
-          />
-        )}
+        {(provided, snapshot) => {
+          const paddingBottom = (rawContentContainerStyle?.paddingBottom ??
+            rawContentContainerStyle?.paddingVertical) as string;
+          let overridePaddingBottom = parseInt(paddingBottom ?? '0', 10);
+          if (snapshot?.draggingFromThisWith) {
+            const index = data.findIndex(
+              (item, _index) =>
+                keyExtractor(item, _index) === snapshot.draggingFromThisWith,
+            );
+            overridePaddingBottom += getItemLayout(data, index).length;
+          }
+          return (
+            <ListView
+              // @ts-ignore
+              ref={(_ref) => {
+                if (typeof ref === 'function') {
+                  ref(_ref);
+                } else if (ref && 'current' in ref) {
+                  ref.current = _ref;
+                }
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                provided.innerRef(_ref?._listRef?._scrollRef);
+              }}
+              data={data}
+              contentContainerStyle={{
+                ...rawContentContainerStyle,
+                paddingBottom: overridePaddingBottom,
+              }}
+              renderItem={reloadRenderItem as ListRenderItem<T>}
+              CellRendererComponent={reloadCellRendererComponent}
+              getItemLayout={getItemLayout}
+              keyExtractor={keyExtractor}
+              stickyHeaderIndices={stickyHeaderIndices}
+              ListHeaderComponent={ListHeaderComponent}
+              {...restProps}
+            />
+          );
+        }}
       </Droppable>
     </DragDropContext>
   );

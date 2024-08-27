@@ -23,7 +23,19 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
+    // HD Wallet
+    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
+      return (
+        <>
+          <HdWalletBackupButton wallet={wallet} />
+          <BatchCreateAccountButton wallet={wallet} />
+        </>
+      );
+    }
+
+    // HW Wallet
     if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+      // HW Hidden Wallet
       if (accountUtils.isHwHiddenWallet({ wallet })) {
         return (
           <>
@@ -33,6 +45,7 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
         );
       }
 
+      // HW Normal Wallet
       return (
         <>
           <CheckFirmwareUpdateButton device={device} />
@@ -45,16 +58,9 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
       );
     }
 
-    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
-      return (
-        <>
-          <HdWalletBackupButton wallet={wallet} />
-          <BatchCreateAccountButton wallet={wallet} />
-        </>
-      );
-    }
-
+    // QR Wallet
     if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      // QR Hidden Wallet
       if (accountUtils.isHwHiddenWallet({ wallet })) {
         return (
           <>
@@ -62,6 +68,12 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
           </>
         );
       }
+      // QR Normal Wallet
+      return (
+        <>
+          <HiddenWalletAddButton wallet={wallet} />
+        </>
+      );
     }
 
     return null;
