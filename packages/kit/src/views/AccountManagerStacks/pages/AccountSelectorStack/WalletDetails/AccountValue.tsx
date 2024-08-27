@@ -1,9 +1,14 @@
 import { useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { SizableText } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 function AccountValue(accountValue: {
   accountId: string;
@@ -35,4 +40,46 @@ function AccountValue(accountValue: {
   );
 }
 
-export { AccountValue };
+function AccountValueWithSpotlight({
+  accountValue,
+  isOthersUniversal,
+  index,
+}: {
+  accountValue:
+    | {
+        accountId: string;
+        currency: string | undefined;
+        value: string | undefined;
+      }
+    | undefined;
+  isOthersUniversal: boolean;
+  index: number;
+}) {
+  const isFocused = useIsFocused();
+  const shouldShowSpotlight = isFocused && !isOthersUniversal && index === 0;
+  const intl = useIntl();
+  return (
+    <Spotlight
+      containerProps={{ flexShrink: 1 }}
+      isVisible={shouldShowSpotlight}
+      message={intl.formatMessage({
+        id: ETranslations.spotlight_enable_account_asset_message,
+      })}
+      tourName={ESpotlightTour.allNetworkAccountValue}
+    >
+      {accountValue && accountValue.currency ? (
+        <AccountValue
+          accountId={accountValue.accountId}
+          currency={accountValue.currency}
+          value={accountValue.value ?? ''}
+        />
+      ) : (
+        <SizableText size="$bodyMd" color="$textDisabled">
+          --
+        </SizableText>
+      )}
+    </Spotlight>
+  );
+}
+
+export { AccountValue, AccountValueWithSpotlight };
