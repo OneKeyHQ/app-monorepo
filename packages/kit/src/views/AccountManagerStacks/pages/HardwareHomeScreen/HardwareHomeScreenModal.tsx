@@ -15,12 +15,12 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,10 +32,11 @@ import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import hardwareHomeScreenData from './hardwareHomeScreenData';
+import uploadedHomeScreenCache from './uploadedHomeScreenCache';
 
-import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
+import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
@@ -211,7 +212,9 @@ export default function HardwareHomeScreenModal({
 
   console.log('HardwareHomeScreenModal_____result', result);
 
-  const [uploadItems, setUploadItems] = useState<IHardwareHomeScreenData[]>([]);
+  const [uploadItems, setUploadItems] = useState<IHardwareHomeScreenData[]>([
+    ...uploadedHomeScreenCache.getCacheList(device?.id),
+  ]);
 
   const aspectRatioInfo = useAspectRatioInfo({
     sizeInfo: result?.config?.size,
@@ -279,7 +282,8 @@ export default function HardwareHomeScreenModal({
     };
     setUploadItems([...uploadItems, uploadItem]);
     setSelectedItem(uploadItem);
-  }, [result?.config, uploadItems]);
+    uploadedHomeScreenCache.saveCache(device?.id, uploadItem);
+  }, [result?.config, uploadItems, device?.id]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
