@@ -56,6 +56,8 @@ import type {
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
+import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -966,5 +968,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     type?: string;
   }> {
     return Promise.resolve({});
+  }
+
+  // Staking
+  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+    return Promise.resolve(params as IEncodedTx);
   }
 }

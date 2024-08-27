@@ -18,6 +18,7 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTxResponse,
 } from '@onekeyhq/shared/types/staking';
 
 import { vaultFactory } from '../vaults/factory';
@@ -321,13 +322,15 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildStakeTransaction(params: IStakeBaseParams) {
+  async fetchStakeTransaction(
+    params: IStakeBaseParams,
+  ): Promise<IStakeTxResponse> {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
     const resp = await client.post<{
-      data: IEncodedTx;
+      data: IStakeTxResponse;
     }>(`/earn/v1/stake`, {
       accountAddress: acc.address,
       publicKey: acc.pub,

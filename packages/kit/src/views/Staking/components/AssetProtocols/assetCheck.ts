@@ -4,7 +4,7 @@ import {
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
 
-type IAssetSupported = 'eth' | 'matic' | 'sol' | 'apt' | 'atom';
+type IAssetSupported = 'eth' | 'matic' | 'sol' | 'apt' | 'atom' | 'btc';
 type IAssetSupportedCheckParams = {
   networkId: string;
   tokenAddress: string;
@@ -45,6 +45,13 @@ const atomChecker: IAssetSupportedChecker = ({ networkId, tokenAddress }) =>
 const solChecker: IAssetSupportedChecker = ({ networkId, tokenAddress }) =>
   networkId === getNetworkIdsMap().sol && !tokenAddress ? 'sol' : undefined;
 
+const btcChecker: IAssetSupportedChecker = ({ networkId, tokenAddress }) =>
+  (networkId === getNetworkIdsMap().btc ||
+    networkId === getNetworkIdsMap().sbtc) &&
+  !tokenAddress
+    ? 'btc'
+    : undefined;
+
 export const assetCheck: IAssetSupportedChecker = (params) => {
   const checkerList: IAssetSupportedChecker[] = [
     ethChecker,
@@ -52,6 +59,7 @@ export const assetCheck: IAssetSupportedChecker = (params) => {
     aptChecker,
     atomChecker,
     solChecker,
+    btcChecker,
   ];
   for (let i = 0; i < checkerList.length; i += 1) {
     const checker = checkerList[i];

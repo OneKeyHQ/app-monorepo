@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
@@ -29,15 +30,16 @@ export function useUniversalStake({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildStakeTransaction({
+      const stakeTx =
+        await backgroundApiProxy.serviceStaking.fetchStakeTransaction({
           amount,
           networkId,
           accountId,
           symbol,
           provider,
         });
-
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      const encodedTx = await vault.buildStakeEncodedTx(stakeTx);
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,

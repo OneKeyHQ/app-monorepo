@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { Psbt } from 'bitcoinjs-lib';
 import { cloneDeep, isEmpty, isNil, uniq } from 'lodash';
 
 import {
@@ -6,8 +7,14 @@ import {
   getBtcForkNetwork,
   getBtcXpubFromXprvt,
   getBtcXpubSupportedAddressEncodings,
+  getInputsToSignFromPsbt,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  decodedPsbt as decodedPsbtFN,
+  formatPsbtHex,
+  toPsbtNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import type {
   IBtcInput,
   ICoinSelectUTXO,
@@ -56,6 +63,8 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
+import { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
@@ -1271,6 +1280,63 @@ export default class VaultBtc extends VaultBase {
       // @ts-expect-error
       return '';
     }
+    return encodedTx;
+  }
+
+  override async buildStakeEncodedTx(
+    params: IStakeTxBtcBabylon,
+  ): Promise<IEncodedTxBtc> {
+    const { psbtHex } = params;
+    const network = await this.getNetwork();
+    const formattedPsbtHex = formatPsbtHex(psbtHex);
+    const psbtNetwork = toPsbtNetwork(network);
+    const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
+    const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
+    console.log('Babylon Staking PSBT ====>>>>: ', decodedPsbt);
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId: this.accountId,
+      networkId: this.networkId,
+    });
+
+    const inputsToSign = getInputsToSignFromPsbt({
+      psbt,
+      psbtNetwork,
+      account,
+      isBtcWalletProvider: true,
+    });
+
+    // Check for change address:
+    // 1. More than one output
+    // 2. Not all output addresses are the same as the current account address
+    // This often happens in BRC-20 transfer transactions
+    const hasChangeAddress =
+      decodedPsbt.outputInfos.length > 1 &&
+      !(decodedPsbt.outputInfos ?? []).every(
+        (v) => v.address === account.address,
+      );
+    const encodedTx = {
+      inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
+        ...v,
+        path: '',
+        value: new BigNumber(v.value).toFixed(),
+      })),
+      outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
+        ...v,
+        value: new BigNumber(v.value).toFixed(),
+        payload: hasChangeAddress
+          ? {
+              isChange: v.address === account.address,
+            }
+          : undefined,
+      })),
+      inputsForCoinSelect: [],
+      outputsForCoinSelect: [],
+      fee: new BigNumber(decodedPsbt.fee).toFixed(),
+      inputsToSign,
+      psbtHex: psbt.toHex(),
+      disabledCoinSelect: true,
+    };
+
     return encodedTx;
   }
 }

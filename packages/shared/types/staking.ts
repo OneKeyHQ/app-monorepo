@@ -102,6 +102,39 @@ export type IStakeBaseParams = {
   provider: string;
 };
 
+export enum EStakeTxType {
+  EthEvertStake = 'eth-evert-stake',
+  EthLido = 'eth-lido',
+  BtcBabylon = 'btc-babylon',
+}
+
+export type IStakeTxResponse =
+  | IStakeTxBtcBabylon
+  | IStakeTxEthEvertStake
+  | IStakeTxEthLido;
+
+// Babylon
+export type IStakeTxBtcBabylon = {
+  // type: EStakeTxType.BtcBabylon;
+  psbtHex: string;
+};
+
+export type IStakeTxEthEvertStake = {
+  // type: EStakeTxType.EthEvertStake;
+  from: string;
+  to: string;
+  value: string;
+  gasLimit: string;
+  data: string;
+};
+
+export type IStakeTxEthLido = {
+  // type: EStakeTxType.EthLido;
+  to: string;
+  value: string;
+  data: string;
+};
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
