@@ -373,7 +373,7 @@ export type ITransferInfo = {
 
   paymentId?: string; // Dynex chain paymentId
 
-  note?: string; // Algo chain note
+  note?: string; // x
 };
 
 export type IApproveInfo = {

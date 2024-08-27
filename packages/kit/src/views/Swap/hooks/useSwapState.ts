@@ -24,8 +24,10 @@ import {
   useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteIntervalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -82,9 +84,16 @@ export function useSwapQuoteLoading() {
   return quoteFetching || silenceQuoteLoading;
 }
 
+export function useSwapQuoteEventFetching() {
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteResult] = useSwapQuoteListAtom();
+  return quoteEventTotalCount > 0 && quoteResult.length < quoteEventTotalCount;
+}
+
 export function useSwapActionState() {
   const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -138,7 +147,7 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-    if (quoteLoading) {
+    if (quoteLoading || quoteEventFetching) {
       infoRes.label = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,
       });
@@ -221,6 +230,7 @@ export function useSwapActionState() {
     isCrossChain,
     isRefreshQuote,
     quoteCurrentSelect,
+    quoteEventFetching,
     quoteLoading,
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
@@ -232,7 +242,7 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading,
+    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
@@ -240,7 +250,9 @@ export function useSwapActionState() {
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
     isRefreshQuote:
-      (isRefreshQuote || quoteResultNoMatchDebounce) && !quoteLoading,
+      (isRefreshQuote || quoteResultNoMatchDebounce) &&
+      !quoteLoading &&
+      !quoteEventFetching,
   };
   return stepState;
 }

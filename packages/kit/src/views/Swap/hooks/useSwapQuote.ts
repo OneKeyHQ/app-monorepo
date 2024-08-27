@@ -162,7 +162,8 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal && isFocus && !isHiddenModel) {
+      if (pageType !== EPageType.modal && isFocus) {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       } else {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
@@ -189,6 +190,7 @@ export function useSwapQuote() {
   );
   useEffect(() => {
     if (pageType === EPageType.modal && isFocused) {
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
     }
     return () => {

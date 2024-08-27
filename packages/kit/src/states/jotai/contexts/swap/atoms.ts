@@ -116,6 +116,11 @@ export const {
 } = contextAtom<number>(0);
 
 export const {
+  atom: swapQuoteEventTotalCountAtom,
+  use: useSwapQuoteEventTotalCountAtom,
+} = contextAtom<number>(0);
+
+export const {
   atom: swapShouldRefreshQuoteAtom,
   use: useSwapShouldRefreshQuoteAtom,
 } = contextAtom<boolean>(false);
@@ -128,7 +133,12 @@ export const {
   const fromTokenAmount = get(swapFromTokenAmountAtom());
   const fromTokenAmountBN = new BigNumber(fromTokenAmount);
   const sortType = get(swapProviderSortAtom());
-  let sortedList = [...list];
+  let sortedList = [...list].filter((item: IFetchQuoteResult) => ({
+    ...item,
+    receivedBest: false,
+    isBest: false,
+    minGasCost: false,
+  }));
   const gasFeeSorted = list.slice().sort((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);

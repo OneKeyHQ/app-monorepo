@@ -56,6 +56,7 @@ import {
   swapNetworks,
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
+  swapQuoteEventTotalCountAtom,
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
@@ -250,11 +251,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteListAtom(), res);
+          set(swapQuoteEventTotalCountAtom(), res.length);
         } else {
           set(swapSilenceQuoteLoading(), true);
           setTimeout(() => {
             set(swapSilenceQuoteLoading(), false);
             set(swapQuoteListAtom(), res);
+            set(swapQuoteEventTotalCountAtom(), res.length);
           }, 800);
         }
       } catch (e: any) {
@@ -290,6 +293,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       switch (event.type) {
         case 'open': {
+          set(swapQuoteEventTotalCountAtom(), 0);
           set(swapQuoteListAtom(), []);
           break;
         }
@@ -336,7 +340,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               if (totalQuoteCount === 0) {
                 set(swapQuoteListAtom(), []);
               }
-              // todo totalQuoteCount > 0 display
+              set(swapQuoteEventTotalCountAtom(), totalQuoteCount);
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
               const swapAutoSlippageSuggestedValue = get(
@@ -464,6 +468,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
+      console.log('swap__closeQuoteEvent---action');
       this.closeQuoteEvent();
       set(swapQuoteIntervalCountAtom(), 0);
       set(swapBuildTxFetchingAtom(), false);
@@ -492,6 +497,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         );
       } else {
         set(swapQuoteFetchingAtom(), false);
+        set(swapQuoteEventTotalCountAtom(), 0);
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), false);
       }
@@ -590,7 +596,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (swapQuoteActionLock) {
         return;
       }
-      this.closeQuoteEvent();
       this.cleanQuoteInterval();
       if (!unResetCount) {
         set(swapQuoteIntervalCountAtom(), 0);
@@ -663,6 +668,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const networks = get(swapNetworks());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
+      const quoteResultList = get(swapQuoteListAtom());
+      const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       let alertsRes: ISwapAlertState[] = [];
       let rateDifferenceRes:
@@ -681,7 +688,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
+      if (
+        !networks.length ||
+        !swapFromAddressInfo.accountInfo?.ready ||
+        (quoteEventTotalCount > 0 &&
+          quoteResultList.length < quoteEventTotalCount)
+      ) {
+        return;
+      }
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
         alertsRes = [
