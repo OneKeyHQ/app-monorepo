@@ -158,8 +158,8 @@ export function Footer(props: IDialogFooterProps) {
                   size: 'large',
                 } as any
               }
-              {...cancelButtonProps}
               onPress={onCancel}
+              {...cancelButtonProps}
             >
               {onCancelText ||
                 intl.formatMessage({ id: ETranslations.global_cancel })}
