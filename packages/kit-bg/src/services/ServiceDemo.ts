@@ -32,6 +32,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBExternalAccount } from '../dbs/local/types';
 import type { ITransferInfo } from '../vaults/types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 @backgroundClass()
 class ServiceDemo extends ServiceBase {
@@ -640,7 +641,7 @@ class ServiceDemo extends ServiceBase {
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'demoHwGetAllNetworkAddresses' });
-    const bundle = [
+    const bundle: AllNetworkAddressParams[] = [
       {
         network: 'btc',
         path: "m/49'/0'/0'/0/0",
@@ -775,7 +776,7 @@ class ServiceDemo extends ServiceBase {
       message: '-------- demoHwGetAllNetworkAddresses Done',
       // TODO return type is Wrong
       data: (
-        response as Array<{
+        response as any as Array<{
           success: boolean;
           error?: string;
           payload?: { address: string; path: string };

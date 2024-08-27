@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -87,28 +89,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = checkIsDefined(dbDevice);
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
-    console.log(deviceCommonParams, connectId, deviceId, sdk, account.path);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxScdo;
     const signingTx = serializeUnsignedTransaction(encodedTx);
     const txHash = hash(signingTx);
+    const hwParams = {
+      ...deviceCommonParams,
+      path: account.path,
+      nonce: encodedTx.AccountNonce.toString(),
+      gasPrice: new BigNumber(encodedTx.GasPrice).toString(16),
+      gasLimit: new BigNumber(encodedTx.GasLimit).toString(16),
+      to: encodedTx.To,
+      value: new BigNumber(encodedTx.Amount).toString(16),
+      timestamp: new BigNumber(encodedTx.Timestamp).toString(16),
+      data: encodedTx.Payload,
+      txType: encodedTx.Type,
+    };
     const res = await convertDeviceResponse(() =>
-      sdk.scdoSignTransaction(connectId, deviceId, {
-        ...deviceCommonParams,
-        path: account.path,
-        nonce: encodedTx.AccountNonce.toString(),
-        gasPrice: encodedTx.GasPrice.toString(),
-        gasLimit: encodedTx.GasLimit.toString(),
-        to: encodedTx.To,
-        value: encodedTx.Amount.toString(),
-        timestamp: encodedTx.Timestamp.toString(),
-        data: encodedTx.Payload,
-        txType: encodedTx.Type,
-      }),
+      sdk.scdoSignTransaction(connectId, deviceId, hwParams),
     );
     if (!res.signature) {
       throw new OneKeyInternalError('Failed to sign transaction');
     }
-    const rawTx = serializeSignedTransaction(encodedTx, txHash, res.signature);
+    const rawTx = serializeSignedTransaction(
+      encodedTx,
+      txHash,
+      Buffer.from(res.signature, 'hex').toString('base64'),
+    );
     return {
       txid: txHash,
       rawTx,
@@ -125,11 +131,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = checkIsDefined(dbDevice);
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
+    const messageHex = Buffer.from(messages[0].message).toString('hex');
     const res = await convertDeviceResponse(() =>
       sdk.scdoSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
         path: account.path,
-        messageHex: messages[0].message,
+        messageHex,
       }),
     );
     if (!res.signature) {

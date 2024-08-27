@@ -194,8 +194,6 @@ export type IVaultSettings = {
   withNote?: boolean;
   noteMaxLength?: number;
 
-  enabledOnClassicOnly?: boolean;
-
   hideFeeInfoInHistoryList?: boolean;
 
   hasFrozenBalance?: boolean;

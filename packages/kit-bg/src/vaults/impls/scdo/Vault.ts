@@ -199,7 +199,7 @@ export default class Vault extends VaultBase {
     // from https://github.com/SCDOLAB/scdo.js/blob/88059eb9e0d527cd80715206745c55fb88e3bddd/src/utils.js#L304
     return {
       isValid:
-        /^((1s01|2s02|3s03|4s04|1S01|2S02|3S03|4S04)[a-fA-F0-9]{37}[1-2])|0[sSx]0{40}|0x0[1-4][a-fA-F0-9]{37}[1-2]$/.test(
+        /^(((1s01|2s02|3s03|4s04|1S01|2S02|3S03|4S04)[a-fA-F0-9]{37}[1-2])|(0[sSx]0{40})|(0x0[1-4][a-fA-F0-9]{37}[1-2]))$/.test(
           address,
         ),
       normalizedAddress: address,

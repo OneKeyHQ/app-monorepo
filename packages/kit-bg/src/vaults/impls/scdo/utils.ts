@@ -2,18 +2,23 @@ import RLP from 'rlp';
 import { keccak256 } from 'viem';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
+import { secp256k1 } from '@onekeyhq/core/src/secret';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 export function serializeUnsignedTransaction(tx: IEncodedTxScdo) {
-  return RLP.encode([
-    tx.From,
-    tx.To,
+  const raw = [
+    tx.Type,
+    `0x${tx.From.slice(2)}`,
+    `0x${tx.To.slice(2)}`,
     tx.Amount,
     tx.AccountNonce,
     tx.GasPrice,
     tx.GasLimit,
     tx.Timestamp,
     tx.Payload,
-  ]);
+  ];
+  return RLP.encode(raw);
 }
 
 export function hash(content: Uint8Array | `0x${string}`) {
@@ -43,4 +48,22 @@ export function serializeSignedTransaction(
       },
     }),
   ).toString('base64');
+}
+
+export function publicKeyToAddress(publicKey: string) {
+  const shard = 1;
+  const publicKeyBytes = Buffer.from(hexUtils.stripHexPrefix(publicKey), 'hex');
+  const publicKeyBytesCompressed =
+    publicKeyBytes.length === 33
+      ? publicKeyBytes
+      : secp256k1.transformPublicKey(publicKeyBytes);
+  const pubkey = RLP.encode(publicKeyBytesCompressed);
+  const pubkeyHash = bufferUtils.hexToBytes(
+    hexUtils.stripHexPrefix(keccak256(pubkey)),
+  );
+  const addr = pubkeyHash.slice(-20);
+  addr[0] = shard;
+  // eslint-disable-next-line no-bitwise
+  addr[19] = (addr[19] & 0xf0) | 1;
+  return `${shard}S${bufferUtils.bytesToHex(addr)}`;
 }
