@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Linking } from 'react-native';
 
 import {
   Button,
@@ -17,13 +18,16 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
@@ -38,6 +42,7 @@ export function useAccountSelectorCreateAddress() {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
   const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
     async ({
@@ -198,7 +203,9 @@ export function useAccountSelectorCreateAddress() {
           } catch (error2) {
             if (isAirGapAccountNotFound(error2)) {
               Dialog.show({
-                title: 'Address creation failed',
+                title: intl.formatMessage({
+                  id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
+                }),
                 showConfirmButton: false,
                 onCancelText: 'Close',
                 renderContent: (
@@ -217,8 +224,9 @@ export function useAccountSelectorCreateAddress() {
                         </SizableText>
                       </Stack>
                       <SizableText>
-                        QR wallet supports BTC and EVM-compatible networks, with
-                        BIP44 as the only standard for EVM networks.
+                        {intl.formatMessage({
+                          id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
+                        })}
                       </SizableText>
                     </XStack>
                     <XStack gap="$3">
@@ -236,21 +244,39 @@ export function useAccountSelectorCreateAddress() {
                       </Stack>
                       <Stack flex={1} alignItems="flex-start">
                         <SizableText>
-                          If you can’t create addresses for some EVM networks,
-                          update your firmware via our update tool and disable
-                          Air-gap mode if it’s on.
+                          {intl.formatMessage({
+                            id: ETranslations.qr_wallet_address_creation_failed_firmware_update_desc,
+                          })}
                         </SizableText>
-                        <Button size="small" pt="$2" iconAfter="OpenOutline">
-                          Check for updates
+                        <Button
+                          size="small"
+                          mt="$2"
+                          iconAfter="OpenOutline"
+                          onPress={() =>
+                            Linking.openURL(FIRMWARE_UPDATE_WEB_TOOLS_URL)
+                          }
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_check_for_updates,
+                          })}
                         </Button>
                       </Stack>
                     </XStack>
 
                     <XStack mt="$2" gap="$1.5">
                       <SizableText color="$textSubdued">
-                        Need more help?
+                        {intl.formatMessage({
+                          id: ETranslations.contact_us_instruction,
+                        })}
                       </SizableText>
-                      <Button variant="tertiary">Contact us</Button>
+                      <Button
+                        variant="tertiary"
+                        onPress={() => Linking.openURL(requestsUrl)}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_contact_us,
+                        })}
+                      </Button>
                     </XStack>
                   </Stack>
                 ),
@@ -267,6 +293,8 @@ export function useAccountSelectorCreateAddress() {
     [
       actions,
       createQrWalletByUr,
+      intl,
+      requestsUrl,
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
