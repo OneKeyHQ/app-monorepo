@@ -10,6 +10,8 @@ import type {
   IAllowanceOverview,
   IAprItem,
   IAprToken,
+  IAvailableAsset,
+  IAvailableAssetsResult,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
@@ -398,6 +400,57 @@ class ServiceStaking extends ServiceBase {
     let protocols = protocolListResp.data.data.protocols;
     protocols = protocols.filter((o) => o.network.networkId === networkId);
     return protocols;
+  }
+
+  @backgroundMethod()
+  async getAccount(params: { networkId: string; accountAddress: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IStakeTxResponse;
+    }>(`/earn/v1/get-account`, { data: params });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getAllNetworkAccount({
+    tokens,
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+    tokens: IAvailableAsset[];
+  }) {
+    const dbAccounts =
+      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+        { indexedAccountId },
+      );
+    console.log('---dbAccounts', dbAccounts);
+    const accountParams: { networkId: string; accountAddress: string }[] = [];
+    for (let index = 0; index < dbAccounts.length; index += 1) {
+      const account = dbAccounts[index];
+
+      const token = tokens.find(({ symbol }) => symbol === account.impl);
+      if (token) {
+        token.networks.forEach((network) => {
+          accountParams.push({
+            accountAddress: account.address,
+            networkId: network.networkId,
+          });
+        });
+      }
+    }
+    const resp = await Promise.all(
+      accountParams.map((params) => this.getAccount(params)),
+    );
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getAvailableAssets() {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IAvailableAssetsResult;
+    }>(`/earn/v1/available-assets`);
+    return resp.data.data;
   }
 }
 
