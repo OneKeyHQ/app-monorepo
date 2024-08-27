@@ -174,12 +174,13 @@ function BasicActionList({
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
 
+  const { md } = useMedia();
   useEffect(() => {
     if (renderItems && isOpen) {
-      if (platformEnv.isDev && !estimatedContentHeight) {
-        // throw new Error(
-        //   'estimatedContentHeight is required on Async rendering items',
-        // );
+      if (platformEnv.isDev && md && !estimatedContentHeight) {
+        throw new Error(
+          'estimatedContentHeight is required on Async rendering items',
+        );
       }
       void (async () => {
         const asyncItemsToRender = await renderItems({
@@ -194,6 +195,7 @@ function BasicActionList({
     handleActionListClose,
     handleActionListOpen,
     isOpen,
+    md,
     renderItems,
   ]);
 
@@ -279,14 +281,14 @@ const showActionList = (
   );
 };
 
-function ActionListFrame(
-  props: Omit<IActionListProps, 'estimatedContentHeight'> & {
-    estimatedContentHeight?: () => Promise<number>;
-  },
-) {
+function ActionListFrame({
+  estimatedContentHeight,
+  ...props
+}: Omit<IActionListProps, 'estimatedContentHeight'> & {
+  estimatedContentHeight?: () => Promise<number>;
+}) {
   const { gtMd } = useMedia();
-  const { disabled, renderTrigger, estimatedContentHeight, ...popoverProps } =
-    props;
+  const { disabled, renderTrigger, ...popoverProps } = props;
   const handleActionListOpen = useDebouncedCallback(() => {
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
