@@ -14,7 +14,7 @@ const CELL_HEIGHT = 70;
 
 const SortableSectionListGallery = () => {
   const [sections, setSections] = useState(
-    new Array(3).fill({}).map(() => ({
+    new Array(10).fill({}).map(() => ({
       data: new Array(10).fill({}).map(mapIndexToData),
     })),
   );
