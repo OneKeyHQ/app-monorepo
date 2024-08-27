@@ -31,8 +31,6 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { IWalletType } from '../components/HomeSupportedWallet';
-
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 export function HomePageView({
@@ -161,14 +159,12 @@ export function HomePageView({
         device?.deviceType &&
         !supportedDeviceTypes.includes(device?.deviceType))
     ) {
-      const wallets: IWalletType[] = [];
-      if (supportedDeviceTypes) {
-        wallets.push(...supportedDeviceTypes);
-      }
-      if (watchingAccountEnabled) {
-        wallets.push('watching');
-      }
-      return <HomeSupportedWallet wallets={wallets} />;
+      return (
+        <HomeSupportedWallet
+          supportedDeviceTypes={supportedDeviceTypes}
+          watchingAccountEnabled={watchingAccountEnabled}
+        />
+      );
     }
 
     if (!account) {

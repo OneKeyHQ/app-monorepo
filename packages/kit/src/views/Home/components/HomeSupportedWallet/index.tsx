@@ -6,10 +6,23 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
 import HomeSelector from '../HomeSelector';
 
-export type IWalletType = IOneKeyDeviceType | 'watching';
+type IWalletType = IOneKeyDeviceType | 'watching';
 
-export function HomeSupportedWallet({ wallets }: { wallets?: IWalletType[] }) {
+export function HomeSupportedWallet({
+  supportedDeviceTypes,
+  watchingAccountEnabled,
+}: {
+  supportedDeviceTypes?: IOneKeyDeviceType[];
+  watchingAccountEnabled?: boolean;
+}) {
   const intl = useIntl();
+  const wallets: IWalletType[] = [];
+  if (supportedDeviceTypes) {
+    wallets.push(...supportedDeviceTypes);
+  }
+  if (watchingAccountEnabled) {
+    wallets.push('watching');
+  }
   const labels: Record<IWalletType, string> = {
     'classic': 'Classic',
     'classic1s': 'Classic 1S',
