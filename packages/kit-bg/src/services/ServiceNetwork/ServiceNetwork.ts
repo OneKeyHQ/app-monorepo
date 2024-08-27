@@ -708,16 +708,16 @@ class ServiceNetwork extends ServiceBase {
     let networkIdsIncompatible: string[] = [];
     if (walletId) {
       const isHwWallet = accountUtils.isHwWallet({ walletId });
+      const isHdWallet = accountUtils.isHdWallet({ walletId });
+      const isWatchingWallet = accountUtils.isWatchingWallet({ walletId });
+      const isExternalWallet = accountUtils.isExternalWallet({
+        walletId,
+      });
+      const isImportedWallet = accountUtils.isImportedWallet({
+        walletId,
+      });
 
-      if (!isHwWallet) {
-        // is software wallet
-        const networksSoftwareAccountDisabled = networkVaultSettings
-          .filter((o) => o.vaultSetting.softwareAccountDisabled)
-          .map((o) => o.network.id);
-        networkIdsIncompatible = networkIdsIncompatible.concat(
-          networksSoftwareAccountDisabled,
-        );
-      } else {
+      if (isHwWallet) {
         const walletDevice =
           await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
             walletId,
@@ -736,6 +736,35 @@ class ServiceNetwork extends ServiceBase {
             networksDeviceTypeDisabled,
           );
         }
+      } else if (isHdWallet) {
+        // is software wallet
+        const networksSoftwareAccountDisabled = networkVaultSettings
+          .filter((o) => o.vaultSetting.softwareAccountDisabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksSoftwareAccountDisabled,
+        );
+      } else if (isWatchingWallet) {
+        const networksWatchingWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.watchingAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksWatchingWalletDisabled,
+        );
+      } else if (isExternalWallet) {
+        const networksExternalWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.externalAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksExternalWalletDisabled,
+        );
+      } else if (isImportedWallet) {
+        const networksImportedWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.importedAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksImportedWalletDisabled,
+        );
       }
 
       const isQrWallet = accountUtils.isQrWallet({ walletId });
