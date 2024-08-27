@@ -158,7 +158,7 @@ function TxHistoryListView(props: IProps) {
       onLayout={onLayout}
       sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
-      estimatedItemSize={platformEnv.isNative ? 60 : undefined}
+      estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
