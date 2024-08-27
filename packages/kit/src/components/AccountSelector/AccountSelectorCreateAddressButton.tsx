@@ -33,6 +33,7 @@ export function AccountSelectorCreateAddressButton({
   account,
   buttonRender,
   onCreateDone,
+  onPressLog,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -54,6 +55,7 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined,
   ) => void;
+  onPressLog?: () => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -218,9 +220,14 @@ export function AccountSelectorCreateAddressButton({
     doAutoCreate,
   ]);
 
+  const onPress = useCallback(async () => {
+    onPressLog?.();
+    await doCreate();
+  }, [doCreate, onPressLog]);
+
   return buttonRender({
     loading: isLoading,
-    onPress: doCreate,
+    onPress,
     children:
       children ??
       intl.formatMessage({ id: ETranslations.global_create_address }),

@@ -25,6 +25,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { NetworkAvatar } from '../NetworkAvatar';
 
+import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
+
 function V4AccountNameSelector({
   onChange,
   indexedAccount,
@@ -93,7 +95,7 @@ function V4AccountNameSelector({
 function RenameInputWithNameSelector({
   value,
   onChange,
-  maxLength = 80,
+  maxLength = MAX_LENGTH_ACCOUNT_NAME,
   indexedAccount,
   disabledMaxLengthLabel = false,
 }: {

@@ -26,14 +26,18 @@ export function useAutoSelectAccount({ num }: { num: number }) {
     if (!storageReady || !activeAccountReady) {
       return;
     }
-    void actions.current.autoSelectAccount({ num, sceneName, sceneUrl });
+    void actions.current.autoSelectNextAccount({ num, sceneName, sceneUrl });
   }, [actions, activeAccountReady, num, sceneName, sceneUrl, storageReady]);
 
   // **** autoSelectAccount after WalletUpdate
   useEffect(() => {
     const fn = () => {
       if (!account) {
-        void actions.current.autoSelectAccount({ num, sceneName, sceneUrl });
+        void actions.current.autoSelectNextAccount({
+          num,
+          sceneName,
+          sceneUrl,
+        });
       }
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
@@ -45,7 +49,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   // **** autoSelectAccount after AccountRemove
   useEffect(() => {
     const fn = async () => {
-      await actions.current.autoSelectAccount({ num, sceneName, sceneUrl });
+      await actions.current.autoSelectNextAccount({ num, sceneName, sceneUrl });
     };
     appEventBus.on(EAppEventBusNames.AccountRemove, fn);
     return () => {

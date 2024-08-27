@@ -22,6 +22,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { settingsAtom } from '../states/jotai/atoms';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -41,6 +42,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '../vaults/types';
 
 @backgroundClass()
@@ -168,6 +170,7 @@ class ServiceAccountSelector extends ServiceBase {
     let wallet: IDBWallet | undefined;
     let device: IDBDevice | undefined;
     let network: IServerNetwork | undefined;
+    let vaultSettings: IVaultSettings | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
     let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
@@ -223,6 +226,15 @@ class ServiceAccountSelector extends ServiceBase {
         network = await serviceNetwork.getNetwork({
           networkId,
         });
+        try {
+          if (network?.id && !networkUtils.isAllNetwork({ networkId })) {
+            vaultSettings = await getVaultSettings({
+              networkId: network?.id,
+            });
+          }
+        } catch (error) {
+          //
+        }
       } catch (e) {
         console.error(e);
       }
@@ -265,6 +277,18 @@ class ServiceAccountSelector extends ServiceBase {
       accountUtils.isOthersWallet({
         walletId: wallet?.id || '',
       }) || Boolean(account && !indexedAccountId);
+    const isQrWallet = Boolean(
+      wallet?.id &&
+        accountUtils.isQrWallet({
+          walletId: wallet?.id || '',
+        }),
+    );
+    const isHwWallet = Boolean(
+      wallet?.id &&
+        accountUtils.isHwWallet({
+          walletId: wallet?.id || '',
+        }),
+    );
     const universalAccountName = (() => {
       // hd account or others account
       if (account) {
@@ -282,15 +306,7 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
-    if (
-      (accountUtils.isHwWallet({
-        walletId: wallet?.id,
-      }) ||
-        accountUtils.isQrWallet({
-          walletId: wallet?.id,
-        })) &&
-      wallet?.associatedDevice
-    ) {
+    if ((isHwWallet || isQrWallet) && wallet?.associatedDevice) {
       try {
         device = await serviceAccount.getDevice({
           dbDeviceId: wallet?.associatedDevice,
@@ -341,9 +357,24 @@ class ServiceAccountSelector extends ServiceBase {
     } else {
       // single network
       canCreateAddress = !isOthersWallet && !account?.address;
+      if (isQrWallet && vaultSettings) {
+        canCreateAddress = !!vaultSettings.qrAccountEnabled;
+      }
     }
 
-    const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
+    const isNetworkNotMatched = (() => {
+      if (!account && !indexedAccount) {
+        if (isOthersWallet) {
+          return true;
+        }
+      }
+      if (!account && indexedAccount) {
+        if (isQrWallet && !canCreateAddress) {
+          return true;
+        }
+      }
+      return false;
+    })();
     let deriveInfoItems: IAccountDeriveInfoItems[] = [];
     try {
       deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -361,6 +392,7 @@ class ServiceAccountSelector extends ServiceBase {
       wallet,
       device,
       network,
+      vaultSettings,
       deriveType,
       deriveInfo,
       deriveInfoItems,

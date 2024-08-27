@@ -88,6 +88,10 @@ function isHwWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
 }
 
+function isHwOrQrWallet({ walletId }: { walletId: string | undefined }) {
+  return isHwWallet({ walletId }) || isQrWallet({ walletId });
+}
+
 function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
   return (
     wallet &&
@@ -702,6 +706,7 @@ export default {
   isHdWallet,
   isQrWallet,
   isHwWallet,
+  isHwOrQrWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,

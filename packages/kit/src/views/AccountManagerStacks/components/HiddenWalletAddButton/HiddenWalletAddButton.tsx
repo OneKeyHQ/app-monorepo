@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -14,10 +16,48 @@ export function HiddenWalletAddButton({ wallet }: { wallet?: IDBWallet }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
   const [isLoading, setIsLoading] = useState(false);
+  const { createQrWallet } = useCreateQrWallet();
+
+  const createHwHiddenWallet = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await actions.current.createHWHiddenWallet(
+        {
+          walletId: wallet?.id || '',
+        },
+        {
+          addDefaultNetworkAccounts: true,
+          showAddAccountsLoading: true,
+        },
+      );
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.global_success,
+        }),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [actions, intl, wallet?.id]);
+
+  const createQrHiddenWallet = useCallback(async () => {
+    try {
+      await createQrWallet({
+        isOnboarding: true,
+        onFinalizeWalletSetupError: () => {
+          // only pop when finalizeWalletSetup pushed
+          // navigation.pop();
+        },
+      });
+    } catch (error) {
+      errorToastUtils.toastIfError(error);
+      throw error;
+    }
+  }, [createQrWallet]);
 
   if (
     wallet &&
-    accountUtils.isHwWallet({
+    accountUtils.isHwOrQrWallet({
       walletId: wallet.id,
     }) &&
     !accountUtils.isHwHiddenWallet({ wallet })
@@ -30,24 +70,11 @@ export function HiddenWalletAddButton({ wallet }: { wallet?: IDBWallet }) {
         })}
         isLoading={isLoading}
         onPress={async () => {
-          try {
-            setIsLoading(true);
-            await actions.current.createHWHiddenWallet(
-              {
-                walletId: wallet?.id,
-              },
-              {
-                addDefaultNetworkAccounts: true,
-                showAddAccountsLoading: true,
-              },
-            );
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.global_success,
-              }),
-            });
-          } finally {
-            setIsLoading(false);
+          if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+            await createHwHiddenWallet();
+          }
+          if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+            await createQrHiddenWallet();
           }
         }}
       />
