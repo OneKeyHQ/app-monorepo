@@ -48,20 +48,6 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
-  CommonParams,
-  CoreApi,
-  CoreMessage,
-  DeviceSupportFeaturesPayload,
-  DeviceUploadResourceParams,
-  Features,
-  IDeviceType,
-  KnownDevice,
-  SearchDevice,
-  UiEvent,
-} from '@onekeyfe/hd-core';
-import type { IHardwareUiPayload } from '../../states/jotai/atoms';
-import type { IServiceBaseProps } from '../ServiceBase';
-import type {
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
@@ -74,6 +60,20 @@ import type {
   IFirmwareAuthenticateParams,
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
+import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type { IServiceBaseProps } from '../ServiceBase';
+import type {
+  CommonParams,
+  CoreApi,
+  CoreMessage,
+  DeviceSupportFeaturesPayload,
+  DeviceUploadResourceParams,
+  Features,
+  IDeviceType,
+  KnownDevice,
+  SearchDevice,
+  UiEvent,
+} from '@onekeyfe/hd-core';
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;

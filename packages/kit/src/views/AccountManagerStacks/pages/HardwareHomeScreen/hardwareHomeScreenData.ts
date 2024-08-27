@@ -110,10 +110,10 @@ const classicMini: IHardwareHomeScreenData[] = [
     'name': 'rooster',
     'source': require('@onekeyhq/shared/src/assets/hardware/homescreens/t1/rooster.png'),
   },
-  {
-    'name': 'genesis',
-    'source': require('@onekeyhq/shared/src/assets/hardware/homescreens/t1/genesis.png'),
-  },
+  // {
+  //   'name': 'genesis',
+  //   'source': require('@onekeyhq/shared/src/assets/hardware/homescreens/t1/genesis.png'),
+  // },
   {
     'name': 'my_bank',
     'source': require('@onekeyhq/shared/src/assets/hardware/homescreens/t1/my_bank.png'),
