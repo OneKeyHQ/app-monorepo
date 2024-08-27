@@ -18,7 +18,6 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import HomeSelector from '../Home/components/HomeSelector';
 
 function Overview({
   tokens,
@@ -160,7 +159,6 @@ function BasicEarnHome() {
         />
         <Page.Body>
           <YStack alignItems="center">
-            <HomeSelector px="$5" />
             <YStack maxWidth="$180" w="100%" gap="$8">
               <Overview indexedAccountId={indexedAccountId} tokens={tokens} />
               <AvailableAssets tokens={tokens} />
