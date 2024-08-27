@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapProviderSort,
   swapSlippageAutoValue,
@@ -37,6 +38,21 @@ export { ProviderJotaiContextSwap, contextAtomMethod };
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
+
+export const {
+  atom: swapNetworksIncludeAllNetworkAtom,
+  use: useSwapNetworksIncludeAllNetworkAtom,
+} = contextAtomComputed<ISwapNetwork[]>((get) => {
+  const networks = get(swapNetworks());
+  const allNetwork = {
+    networkId: dangerAllNetworkRepresent.id,
+    name: dangerAllNetworkRepresent.name,
+    symbol: dangerAllNetworkRepresent.symbol,
+    logoURI: dangerAllNetworkRepresent.logoURI,
+    shortcode: dangerAllNetworkRepresent.shortcode,
+  };
+  return [allNetwork, ...networks];
+});
 
 export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
   contextAtom<{

@@ -226,6 +226,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
+      // todo  all net get balance token from wallet
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
@@ -468,7 +469,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
-      console.log('swap__closeQuoteEvent---action');
       this.closeQuoteEvent();
       set(swapQuoteIntervalCountAtom(), 0);
       set(swapBuildTxFetchingAtom(), false);
