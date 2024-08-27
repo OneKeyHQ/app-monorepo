@@ -126,7 +126,9 @@ export default class Vault extends VaultBase {
         icon: nativeToken.logoURI ?? '',
         name: nativeToken.name,
         symbol: nativeToken.symbol,
-        amount: encodedTx.Amount.toString(),
+        amount: new BigNumber(encodedTx.Amount)
+          .shiftedBy(-nativeToken.decimals)
+          .toFixed(),
         isNFT: false,
         isNative: true,
       };
