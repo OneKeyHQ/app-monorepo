@@ -615,12 +615,14 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     psbt,
     signers,
     inputsToSign,
+    signOnly,
   }: {
     encodedTx: IEncodedTx | null;
     network: IBtcForkNetwork;
     psbt: Psbt;
     signers: Partial<{ [address: string]: ISigner }>;
     inputsToSign: ITxInputToSign[];
+    signOnly?: boolean;
   }) {
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
@@ -632,10 +634,20 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       });
       await psbt.signInputAsync(input.index, bitcoinSigner, input.sighashTypes);
     }
+
+    let rawTx = '';
+    if (!signOnly) {
+      const finalizedPsbt = Psbt.fromHex(psbt.toHex(), { network });
+      inputsToSign.forEach((v) => {
+        finalizedPsbt.finalizeInput(v.index);
+      });
+      rawTx = finalizedPsbt.extractTransaction().toHex();
+    }
+
     return {
       encodedTx,
       txid: '',
-      rawTx: '',
+      rawTx,
       psbtHex: psbt.toHex(),
     };
   }
@@ -860,6 +872,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       unsignedTx,
       networkInfo: { networkChainCode },
       relPaths,
+      signOnly,
     } = payload;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
     const { psbtHex, inputsToSign } = encodedTx;
@@ -930,6 +943,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         psbt,
         signers,
         inputsToSign,
+        signOnly,
       });
     }
 
