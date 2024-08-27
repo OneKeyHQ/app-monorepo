@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -204,6 +204,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         // autoCreateAddress // use EmptyAccount autoCreateAddress instead
         num={num}
         account={selectedAccount}
+        onPressLog={logActiveAccount}
       />
     );
   }
@@ -225,7 +226,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   return (
     <XStack onPress={() => logActiveAccount()}>
       <SizableText size="$bodyMd" color="$textCaution">
-        ERROR address
+        {intl.formatMessage({ id: ETranslations.wallet_no_address })}
       </SizableText>
     </XStack>
   );

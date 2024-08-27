@@ -85,7 +85,7 @@ function ModalNavigator({
     return true;
   }, [descriptor, navigation, goBackCall]);
 
-  useBackHandler(handleBackPress);
+  useBackHandler(handleBackPress, true, false);
 
   const handleBackdropClick = useThrottledCallback(() => {
     if (!descriptor.options.disableClose) {
