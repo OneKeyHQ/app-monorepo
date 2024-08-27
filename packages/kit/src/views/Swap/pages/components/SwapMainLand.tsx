@@ -20,7 +20,10 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import {
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 import { useSwapInit } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -45,6 +48,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [alerts] = useSwapAlertsAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
   const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
@@ -140,6 +144,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           ) : null}
           {alerts.states.length > 0 &&
           !quoteLoading &&
+          !quoteEventFetching &&
           alerts.quoteId === (quoteResult?.quoteId ?? '') &&
           !selectTokenDetailLoading.from &&
           !selectTokenDetailLoading.to ? (

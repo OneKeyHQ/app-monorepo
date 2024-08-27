@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
 import {
@@ -13,6 +14,7 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -57,6 +59,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private _quoteEventSource?: EventSource;
 
+  private _quoteEventSourcePolyfill?: EventSourcePolyfill;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -99,6 +103,10 @@ export default class ServiceSwap extends ServiceBase {
     if (this._quoteEventSource) {
       this._quoteEventSource.close();
       this._quoteEventSource = undefined;
+    }
+    if (this._quoteEventSourcePolyfill) {
+      this._quoteEventSourcePolyfill.close();
+      this._quoteEventSourcePolyfill = undefined;
     }
   }
 
@@ -406,7 +414,6 @@ export default class ServiceSwap extends ServiceBase {
       url: '/swap/v1/quote/events',
       params,
     });
-
     let headers = await getRequestHeaders();
     headers = {
       ...headers,
@@ -416,57 +423,107 @@ export default class ServiceSwap extends ServiceBase {
           })
         : {}),
     };
-    this._quoteEventSource = new EventSource(swapEventUrl, {
-      headers,
-      pollingInterval: 0,
-      timeoutBeforeConnection: 0,
-      timeout: swapQuoteEventTimeout,
-    });
-
-    this._quoteEventSource.addEventListener('open', (event) => {
-      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-        type: 'open',
-        event,
-        params,
-        accountId,
+    if (platformEnv.isExtension) {
+      this._quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
+        headers: headers as Record<string, string>,
       });
-    });
-
-    this._quoteEventSource.addEventListener('message', (event) => {
-      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-        type: 'message',
-        event,
-        params,
-        accountId,
+      this._quoteEventSourcePolyfill.onmessage = (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'message',
+          event: {
+            type: 'message',
+            data: event.data,
+            lastEventId: null,
+            url: swapEventUrl,
+          },
+          params,
+          accountId,
+        });
+      };
+      this._quoteEventSourcePolyfill.onerror = async (event) => {
+        const errorEvent = event as {
+          error?: string;
+          type: string;
+          target: any;
+        };
+        if (!errorEvent?.error) {
+          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+            type: 'done',
+            event: { type: 'done' },
+            params,
+            accountId,
+          });
+        } else {
+          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+            type: 'error',
+            event: {
+              type: 'error',
+              message: errorEvent.error,
+              xhrState: this._quoteEventSourcePolyfill?.readyState ?? 0,
+              xhrStatus: this._quoteEventSourcePolyfill?.readyState ?? 0,
+            },
+            params,
+            accountId,
+          });
+        }
+        await this.cancelFetchQuoteEvents();
+      };
+      this._quoteEventSourcePolyfill.onopen = () => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'open',
+          event: { type: 'open' },
+          params,
+          accountId,
+        });
+      };
+    } else {
+      this._quoteEventSource = new EventSource(swapEventUrl, {
+        headers,
+        pollingInterval: 0,
+        timeoutBeforeConnection: 0,
+        timeout: swapQuoteEventTimeout,
       });
-    });
-
-    this._quoteEventSource.addEventListener('done', (event) => {
-      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-        type: 'done',
-        event,
-        params,
-        accountId,
+      this._quoteEventSource.addEventListener('open', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'open',
+          event,
+          params,
+          accountId,
+        });
       });
-    });
-
-    this._quoteEventSource.addEventListener('close', (event) => {
-      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-        type: 'close',
-        event,
-        params,
-        accountId,
+      this._quoteEventSource.addEventListener('message', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'message',
+          event,
+          params,
+          accountId,
+        });
       });
-    });
-
-    this._quoteEventSource.addEventListener('error', (event) => {
-      appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
-        type: 'error',
-        event,
-        params,
-        accountId,
+      this._quoteEventSource.addEventListener('done', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'done',
+          event,
+          params,
+          accountId,
+        });
       });
-    });
+      this._quoteEventSource.addEventListener('close', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'close',
+          event,
+          params,
+          accountId,
+        });
+      });
+      this._quoteEventSource.addEventListener('error', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'error',
+          event,
+          params,
+          accountId,
+        });
+      });
+    }
   }
 
   @backgroundMethod()

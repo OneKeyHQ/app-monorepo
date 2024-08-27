@@ -377,6 +377,7 @@ export interface IFetchBuildTxChangellyOrderResponse {
   payinAddress: string;
   amountExpectedFrom: string;
   orderId: string;
+  payinExtraId?: string;
 }
 
 export interface IFetchResponse<T> {

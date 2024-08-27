@@ -109,9 +109,12 @@ const SwapInputContainer = ({
           moreComponent: valueMoreComponent,
         }}
         inputProps={{
-          loading: inputLoading,
           placeholder: '0.0',
           readOnly: direction === ESwapDirectionType.TO,
+          color:
+            direction === ESwapDirectionType.TO && inputLoading
+              ? '$textPlaceholder'
+              : undefined,
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
