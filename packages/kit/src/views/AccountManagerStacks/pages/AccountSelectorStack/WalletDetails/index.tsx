@@ -697,6 +697,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                         ? selectedAccount.othersWalletAccountId === item.id
                         : selectedAccount.indexedAccountId === item.id;
                     })(),
+                    userSelect: 'none',
                   })}
                 >
                   {actionButton}
