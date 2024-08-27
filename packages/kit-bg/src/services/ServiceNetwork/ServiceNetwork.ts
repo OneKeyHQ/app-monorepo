@@ -234,6 +234,7 @@ class ServiceNetwork extends ServiceBase {
     return settings.accountDeriveInfo;
   }
 
+  @backgroundMethod()
   async getDeriveTypeByTemplate({
     networkId,
     template,
