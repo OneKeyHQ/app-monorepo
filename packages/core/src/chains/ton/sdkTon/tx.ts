@@ -31,7 +31,9 @@ export function getStateInitFromEncodedTx(
   if (!msg || !msg.stateInit) {
     return undefined;
   }
-  return TonWeb.boc.Cell.oneFromBoc(msg.stateInit);
+  return TonWeb.boc.Cell.oneFromBoc(
+    Buffer.from(msg.stateInit, 'base64').toString('hex'),
+  );
 }
 
 export async function serializeData({
@@ -46,7 +48,9 @@ export async function serializeData({
   const prefix = Buffer.alloc(4 + 8);
   prefix.writeUInt32BE(schemaCrc, 0);
   prefix.writeBigUInt64BE(BigInt(timestamp), 0);
-  const cell = TonWeb.boc.Cell.oneFromBoc(message);
+  const cell = TonWeb.boc.Cell.oneFromBoc(
+    Buffer.from(message, 'base64').toString('hex'),
+  );
   const bytes = Buffer.concat([prefix, await cell.hash()]);
   return {
     cell,
