@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 export function useUniversalStake({
@@ -75,15 +78,54 @@ export function useUniversalWithdraw({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-          amount,
-          networkId,
+      let encodedTx: IEncodedTx | undefined;
+      if (symbol.toLowerCase() === 'eth' && provider.toLowerCase() === 'lido') {
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
-          symbol,
-          provider,
+          networkId,
         });
+        const { message, deadline } =
+          await backgroundApiProxy.serviceStaking.buildLidoEthPermitMessageData(
+            {
+              accountId,
+              networkId,
+              amount,
+            },
+          );
 
+        const signHash =
+          (await backgroundApiProxy.serviceDApp.openSignMessageModal({
+            accountId,
+            networkId,
+            request: { origin: 'https://lido.fi/', scope: 'ethereum' },
+            unsignedMessage: {
+              type: EMessageTypesEth.TYPED_DATA_V4,
+              message,
+              payload: [account.address, message],
+            },
+            sceneName: EAccountSelectorSceneName.home,
+          })) as string;
+
+        encodedTx =
+          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+            amount,
+            networkId,
+            accountId,
+            symbol,
+            provider,
+            signature: signHash,
+            deadline,
+          });
+      } else {
+        encodedTx =
+          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+            amount,
+            networkId,
+            accountId,
+            symbol,
+            provider,
+          });
+      }
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,

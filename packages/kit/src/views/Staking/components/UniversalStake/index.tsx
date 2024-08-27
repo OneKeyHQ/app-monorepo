@@ -41,7 +41,7 @@ const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 export const UniversalStake = ({
   price,
   balance,
-  apr = 4,
+  apr,
   minAmount = '0',
   minTransactionFee = '0',
   tokenImageUri,
@@ -122,7 +122,7 @@ export const UniversalStake = ({
 
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);
-    if (!amountValue || bn.isNaN() || !price || Number.isNaN(price)) {
+    if (!amountValue || bn.isNaN() || !price || Number.isNaN(price) || !apr) {
       return null;
     }
     const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
@@ -194,15 +194,17 @@ export const UniversalStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.global_apr })}
-            titleProps={fieldTitleProps}
-          >
-            <ListItem.Text
-              primary={`${apr}%`}
-              primaryTextProps={{ color: '$textSuccess' }}
-            />
-          </ListItem>
+          {apr ? (
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.global_apr })}
+              titleProps={fieldTitleProps}
+            >
+              <ListItem.Text
+                primary={`${apr}%`}
+                primaryTextProps={{ color: '$textSuccess' }}
+              />
+            </ListItem>
+          ) : null}
           <ListItem
             title={intl.formatMessage({ id: ETranslations.global_protocol })}
             titleProps={fieldTitleProps}

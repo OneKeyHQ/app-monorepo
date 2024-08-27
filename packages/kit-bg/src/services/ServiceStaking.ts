@@ -322,6 +322,32 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async buildLidoEthPermitMessageData({
+    amount,
+    accountId,
+    networkId,
+  }: {
+    amount: string;
+    accountId: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const resp = await client.post<{
+      data: { message: string; deadline: number };
+    }>(`/earn/v1/lido-eth/tx/permit_message`, {
+      amount,
+      accountAddress,
+      networkId,
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   async fetchStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
@@ -371,7 +397,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
-      '/earn/v1/stake-protocol',
+      '/earn/v1/stake-protocol/detail',
       { params: { accountAddress, networkId, ...rest } },
     );
     return resp.data.data;
@@ -392,7 +418,7 @@ class ServiceStaking extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const protocolListResp = await client.get<{
       data: { protocols: IStakeProtocolListItem[] };
-    }>('/earn/v1/stake-protocols', {
+    }>('/earn/v1/stake-protocol/list', {
       params: { accountAddress, symbol: symbol.toUpperCase() },
     });
     let protocols = protocolListResp.data.data.protocols;

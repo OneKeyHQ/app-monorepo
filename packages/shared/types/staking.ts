@@ -57,15 +57,16 @@ export type IAprToken = 'eth' | 'matic';
 // export type IStakeTag = 'lido-eth' | 'lido-matic';
 export type IStakeTag = string;
 
-export enum ELidoLabels {
+export enum EEarnLabels {
   Stake = 'Stake',
   Claim = 'Claim',
   Redeem = 'Redeem',
+  Unknown = 'Unknown',
 }
 
 export type IStakingInfo = {
   protocol: string;
-  label: ELidoLabels;
+  label: EEarnLabels;
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
   receive?: { amount: string; token: IToken };
@@ -100,6 +101,9 @@ export type IStakeBaseParams = {
   amount: string;
   symbol: string;
   provider: string;
+
+  signature?: string; // lido unstake
+  deadline?: number; // lido unstake
 };
 
 export enum EStakeTxType {

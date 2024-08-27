@@ -17,7 +17,7 @@ import { PageFrame } from '../../components/PageFrame';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
-import { buildActionTag } from '../../utils/const';
+import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -117,7 +117,7 @@ const UniversalProtocolDetailsPage = () => {
               <StakingTransactionIndicator
                 accountId={accountId}
                 networkId={networkId}
-                stakeTag={buildActionTag(result)}
+                stakeTag={buildLocalTraceTxTag(result)}
                 onRefresh={run}
               />
             ) : null}

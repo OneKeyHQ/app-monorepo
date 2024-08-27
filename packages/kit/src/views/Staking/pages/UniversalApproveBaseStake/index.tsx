@@ -13,7 +13,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ELidoLabels } from '@onekeyhq/shared/types/staking';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalApproveBaseStake } from '../../components/UniversalApproveBaseStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';

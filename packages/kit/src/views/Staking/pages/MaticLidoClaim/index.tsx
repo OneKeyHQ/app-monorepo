@@ -17,7 +17,7 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  ELidoLabels,
+  EEarnLabels,
   type ILidoMaticRequest,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -54,7 +54,7 @@ const LidoMaticClaimItem = ({
             await maticClaim({
               tokenId: item.id,
               stakingInfo: {
-                label: ELidoLabels.Claim,
+                label: EEarnLabels.Claim,
                 protocol: 'lido',
                 tags: ['lido-matic'],
                 receive: { token, amount: String(item.amount) },
