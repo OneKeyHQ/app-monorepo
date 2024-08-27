@@ -32,6 +32,7 @@ import {
 import { COINTYPE_DNX } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
+  OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
   PasswordNotSet,
   RenameDuplicateNameError,
@@ -67,6 +68,8 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -95,7 +98,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -1287,7 +1289,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       parentWalletId = hiddenWalletNameInfo.parentWalletId;
       walletName = hiddenWalletNameInfo.hiddenWalletName || deviceName;
       if (!parentWalletId) {
-        throw new Error('Your should create non-hidden wallet first');
+        // make sure UI loading visible
+        await timerUtils.wait(1000);
+        throw new OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet();
       }
     }
 

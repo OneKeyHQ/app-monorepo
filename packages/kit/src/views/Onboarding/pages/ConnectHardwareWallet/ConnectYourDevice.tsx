@@ -58,6 +58,7 @@ import {
   NeedOneKeyBridge,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -191,6 +192,50 @@ function ConnectByQrCode() {
             });
           } catch (error) {
             errorToastUtils.toastIfError(error);
+            if (
+              errorUtils.isErrorByClassName({
+                error,
+                className:
+                  EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+              })
+            ) {
+              // pop the finalizing wallet setup page
+              // navigation.pop();
+              Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.create_qr_based_hidden_wallet_dialog_title,
+                }),
+                showConfirmButton: false,
+                onCancelText: intl.formatMessage({
+                  id: ETranslations.global_close,
+                }),
+                renderContent: (
+                  <Stack>
+                    <SizableText size="$headingMd">
+                      {intl.formatMessage({
+                        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_title,
+                      })}
+                    </SizableText>
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_desc,
+                      })}
+                    </SizableText>
+                    <Stack h="$5" />
+                    <SizableText size="$headingMd">
+                      {intl.formatMessage({
+                        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_title,
+                      })}
+                    </SizableText>
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_desc,
+                      })}
+                    </SizableText>
+                  </Stack>
+                ),
+              });
+            }
             throw error;
           }
         }}
