@@ -2,7 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBDevice,
@@ -195,20 +202,56 @@ export function useAccountSelectorCreateAddress() {
                 showConfirmButton: false,
                 onCancelText: 'Close',
                 renderContent: (
-                  <Stack>
-                    <SizableText>
-                      1. Check our website to verify if your hardware wallet
-                      supports the current network.
-                    </SizableText>
-                    <SizableText>
-                      2. Connect via USB and visit our firmware update tool.
-                      Disable Air-gap mode if necessary.
-                    </SizableText>
-                    <SizableText>
-                      3. If issues persist, the QR Wallet may not support this
-                      derivation path.
-                    </SizableText>
-                    <SizableText>Need more help? Contact us.</SizableText>
+                  <Stack gap="$2">
+                    <XStack gap="$3">
+                      <Stack
+                        borderRadius="$full"
+                        w="$6"
+                        h="$6"
+                        justifyContent="center"
+                        alignItems="center"
+                        bg="$bgInfo"
+                      >
+                        <SizableText size="$bodyMd" color="$textInfo">
+                          1
+                        </SizableText>
+                      </Stack>
+                      <SizableText>
+                        QR wallet supports BTC and EVM-compatible networks, with
+                        BIP44 as the only standard for EVM networks.
+                      </SizableText>
+                    </XStack>
+                    <XStack gap="$3">
+                      <Stack
+                        borderRadius="$full"
+                        w="$6"
+                        h="$6"
+                        justifyContent="center"
+                        alignItems="center"
+                        bg="$bgInfo"
+                      >
+                        <SizableText size="$bodyMd" color="$textInfo">
+                          2
+                        </SizableText>
+                      </Stack>
+                      <Stack flex={1} alignItems="flex-start">
+                        <SizableText>
+                          If you can’t create addresses for some EVM networks,
+                          update your firmware via our update tool and disable
+                          Air-gap mode if it’s on.
+                        </SizableText>
+                        <Button size="small" pt="$2" iconAfter="OpenOutline">
+                          Check for updates
+                        </Button>
+                      </Stack>
+                    </XStack>
+
+                    <XStack mt="$2" gap="$1.5">
+                      <SizableText color="$textSubdued">
+                        Need more help?
+                      </SizableText>
+                      <Button variant="tertiary">Contact us</Button>
+                    </XStack>
                   </Stack>
                 ),
               });
