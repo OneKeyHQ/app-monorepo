@@ -436,7 +436,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         | undefined;
       subTitleInfo: { address: string | undefined; isEmptyAddress: boolean };
     }) => {
-      if (linkNetwork) return null;
+      if (platformEnv.isE2E || linkNetwork) return null;
 
       return (
         <>
