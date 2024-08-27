@@ -3,12 +3,20 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { SizableText, View, YStack, useMedia } from 'tamagui';
+import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Portal } from '../../hocs';
-import { Icon, XStack } from '../../primitives';
+import {
+  Anchor,
+  Icon,
+  SizableText,
+  View,
+  XStack,
+  YStack,
+} from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -40,6 +48,7 @@ const iconMap = {
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
 };
 
+const urlRegex = /<url(?:\s+[^>]*?)?>(.*?)<\/url>/g;
 const RenderLines = ({
   size,
   children: text,
@@ -53,22 +62,61 @@ const RenderLines = ({
     return null;
   }
   const lines = text?.split('\n') || [];
-  return lines.length > 0 ? (
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
     <YStack>
-      {lines.map((v, index) => (
-        <SizableText
-          color={color}
-          textTransform="none"
-          userSelect="none"
-          size={size}
-          wordWrap="break-word"
-          key={index}
-        >
-          {v}
-        </SizableText>
-      ))}
+      {lines.map((line, index) => {
+        const hasUrl = urlRegex.test(line);
+        if (!hasUrl) {
+          return (
+            <SizableText
+              key={index}
+              color={color}
+              textTransform="none"
+              userSelect="none"
+              size={size}
+              wordWrap="break-word"
+            >
+              {line}
+            </SizableText>
+          );
+        }
+        const parts = line.split(urlRegex);
+        const hrefMatch = line.match(/href="(.*?)"/);
+        return (
+          <SizableText
+            key={index}
+            color={color}
+            textTransform="none"
+            userSelect="none"
+            size={size}
+            wordWrap="break-word"
+          >
+            {parts.map((part, partIndex) => {
+              if (partIndex % 2 === 1) {
+                return (
+                  <Anchor
+                    key={partIndex}
+                    href={hrefMatch?.[1]}
+                    target="_blank"
+                    size={size}
+                    color="$textInfo"
+                  >
+                    {part}
+                  </Anchor>
+                );
+              }
+              return part;
+            })}
+          </SizableText>
+        );
+      })}
     </YStack>
-  ) : null;
+  );
 };
 
 function Title({

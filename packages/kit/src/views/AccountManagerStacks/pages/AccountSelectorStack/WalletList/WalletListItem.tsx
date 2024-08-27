@@ -102,18 +102,16 @@ export function WalletListItem({
         {...rest}
       >
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-        {media.gtMd ? (
-          <SizableText
-            flex={1}
-            numberOfLines={1}
-            mt="$1"
-            size="$bodySm"
-            color={selected ? '$text' : '$textSubdued'}
-            textAlign="center"
-          >
-            {i18nWalletName}
-          </SizableText>
-        ) : null}
+        <SizableText
+          flex={1}
+          numberOfLines={1}
+          mt="$1"
+          size="$bodySm"
+          color={selected ? '$text' : '$textSubdued'}
+          textAlign="center"
+        >
+          {i18nWalletName}
+        </SizableText>
       </Stack>
     </Pressable>
   );

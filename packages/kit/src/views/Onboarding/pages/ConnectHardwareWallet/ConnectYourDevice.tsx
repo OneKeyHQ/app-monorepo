@@ -38,11 +38,13 @@ import {
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_BRIDGE_DOWNLOAD_URL,
+  HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -145,8 +147,7 @@ function ConnectByQrCode() {
 
   return (
     <Stack flex={1} px="$5" alignItems="center" justifyContent="center">
-      <WalletAvatar img="pro" wallet={undefined} badge="QR" />
-      <SizableText textAlign="center" size="$headingMd" py="$5">
+      <SizableText textAlign="center" size="$headingMd" pb="$5">
         {intl.formatMessage({
           id: ETranslations.onboarding_create_qr_wallet_title,
         })}
@@ -237,7 +238,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
       <Dialog.RichDescription
         linkList={{
           url: {
-            url: 'https://help.onekey.so/hc/articles/360004279036',
+            url: HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
           },
         }}
       >

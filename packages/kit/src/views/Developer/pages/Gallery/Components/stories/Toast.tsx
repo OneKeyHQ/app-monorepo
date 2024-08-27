@@ -358,6 +358,17 @@ const ToastGallery = () => (
             >
               Actions 3 (warning)
             </Button>
+            <Button
+              onPress={() => {
+                Toast.warning({
+                  duration: ONE_HOUR,
+                  title:
+                    'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.\n\nIf you encounter issues during the installation of OneKey Bridge, please refer to the <url href="https://1key.so">online tutorial</url> for assistance.',
+                });
+              }}
+            >
+              Rich Text
+            </Button>
           </YStack>
         ),
       },

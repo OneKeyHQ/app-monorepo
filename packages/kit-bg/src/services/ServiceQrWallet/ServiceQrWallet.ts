@@ -283,7 +283,8 @@ class ServiceQrWallet extends ServiceBase {
     };
 
     if (qrDevice.buildBy === 'hdkey') {
-      throw new Error('hdkey not supported');
+      // hdkey not supported
+      throw new OneKeyErrorAirGapInvalidQrCode();
     }
     return {
       qrDevice,

@@ -1,5 +1,8 @@
 import { isEqual } from 'lodash';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import type { Psbt } from 'bitcoinjs-lib';
 
 export function verifyBtcSignedPsbtMatched({
@@ -10,16 +13,36 @@ export function verifyBtcSignedPsbtMatched({
   signedPsbt: Psbt | undefined;
 }) {
   if (!unsignedPsbt || !signedPsbt) {
-    throw new Error('psbt not found');
+    // psbt not found
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_psbt_not_found,
+      }),
+    );
   }
   const isEqualFn = isEqual;
   if (!isEqualFn(unsignedPsbt.txInputs, signedPsbt.txInputs)) {
-    throw new Error('psbt inputs not matched');
+    // psbt inputs not matched
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_psbt_inputs_mismatch,
+      }),
+    );
   }
   if (!isEqualFn(unsignedPsbt.txOutputs, signedPsbt.txOutputs)) {
-    throw new Error('psbt outputs not matched');
+    // psbt outputs not matched
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_psbt_outputs_mismatch,
+      }),
+    );
   }
   if (!isEqualFn(unsignedPsbt.data.globalMap, signedPsbt.data.globalMap)) {
-    throw new Error('psbt uuid not matched');
+    // psbt uuid not matched
+    throw new Error(
+      appLocale.intl.formatMessage({
+        id: ETranslations.feedback_psbt_uuid_mismatch,
+      }),
+    );
   }
 }

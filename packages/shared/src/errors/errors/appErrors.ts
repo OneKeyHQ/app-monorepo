@@ -72,6 +72,7 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapInvalidQrCode',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }

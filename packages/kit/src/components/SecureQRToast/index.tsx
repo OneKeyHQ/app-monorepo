@@ -61,59 +61,104 @@ const SecureQRToastBase = ({
         maxWidth: '$96',
       }}
     >
-      <XStack ai="center" pb="$5">
+      <XStack ai="center" pb="$3">
         <SizableText size="$headingLg" flex={1}>
           {title ||
             intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
-        <Stack>
-          <IconButton
-            variant="tertiary"
-            size="small"
-            onPress={toggleShowState}
-            icon={show ? 'MinimizeOutline' : 'ExpandOutline'}
-            color="$iconSubdued"
-          />
-        </Stack>
+        <IconButton
+          title={show ? 'Collapse' : 'Expand'}
+          variant="tertiary"
+          size="small"
+          onPress={toggleShowState}
+          icon={show ? 'MinimizeOutline' : 'ExpandOutline'}
+        />
       </XStack>
       <HeightTransition>
         {show ? (
-          <Stack
-            ai="center"
-            animation="slow"
-            exitStyle={{
-              opacity: 0,
-            }}
-            enterStyle={{
-              opacity: 0,
-            }}
-            pb="$5"
-          >
-            <QRCode
-              drawType={drawType}
-              value={value}
-              valueUr={valueUr}
-              size={240}
-            />
+          <Stack>
+            <Stack
+              ai="center"
+              animation="slow"
+              exitStyle={{
+                opacity: 0,
+              }}
+              enterStyle={{
+                opacity: 0,
+              }}
+              pb="$5"
+            >
+              <QRCode
+                drawType={drawType}
+                value={value}
+                valueUr={valueUr}
+                size={200}
+              />
+            </Stack>
           </Stack>
         ) : null}
       </HeightTransition>
-      <SizableText
-        size="$bodyLg"
-        pb="$5"
-        onPress={() => {
-          console.log('SecureQRToastContent', value, valueUr);
-          if (valueUr) {
-            const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
-            console.log(qrcodeDetails);
-          }
-        }}
-      >
-        {message ||
-          intl.formatMessage({
-            id: ETranslations.san_qr_code_to_verify_details,
-          })}
-      </SizableText>
+      <Stack pb="$5" gap="$2">
+        <XStack gap="$2">
+          <Stack
+            borderRadius="$full"
+            w="$5"
+            h="$5"
+            justifyContent="center"
+            alignItems="center"
+            bg="$bgInfo"
+          >
+            <SizableText size="$bodySm" color="$textInfo">
+              1
+            </SizableText>
+          </Stack>
+          <SizableText
+            flex={1}
+            size="$bodyMd"
+            onPress={() => {
+              console.log('SecureQRToastContent', value, valueUr);
+              if (valueUr) {
+                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
+                console.log(qrcodeDetails);
+              }
+            }}
+          >
+            {message ||
+              intl.formatMessage({
+                id: ETranslations.san_qr_code_to_verify_details,
+              })}
+          </SizableText>
+        </XStack>
+        <XStack gap="$2">
+          <Stack
+            borderRadius="$full"
+            w="$5"
+            h="$5"
+            justifyContent="center"
+            alignItems="center"
+            bg="$bgInfo"
+          >
+            <SizableText size="$bodySm" color="$textInfo">
+              2
+            </SizableText>
+          </Stack>
+          <SizableText
+            flex={1}
+            size="$bodyMd"
+            onPress={() => {
+              console.log('SecureQRToastContent', value, valueUr);
+              if (valueUr) {
+                const qrcodeDetails = airGapUrUtils.urToQrcode(valueUr);
+                console.log(qrcodeDetails);
+              }
+            }}
+          >
+            {intl.formatMessage({
+              id: ETranslations.secure_qr_toast_scan_qr_code_on_device_text,
+            })}
+          </SizableText>
+        </XStack>
+      </Stack>
       <XStack gap="$2.5">
         <Button variant="secondary" onPress={handleCancel} flex={1}>
           {intl.formatMessage({ id: ETranslations.global_cancel })}

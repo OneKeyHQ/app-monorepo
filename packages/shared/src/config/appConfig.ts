@@ -12,6 +12,9 @@ export const HARDWARE_SDK_VERSION: string =
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
+export const HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING =
+  'https://help.onekey.so/hc/articles/360004279036';
+
 export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
 export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/hc/requests/new';
 export const FIRMWARE_MANUAL_ENTERING_BOOTLOADER_MODE_GUIDE =

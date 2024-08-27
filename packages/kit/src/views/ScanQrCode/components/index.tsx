@@ -182,7 +182,10 @@ export function ScanQrCode({
             px="$2"
             py="$1"
           >
-            <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
+            <SizableText
+              size="$bodySmMedium"
+              color="$whiteA12"
+            >{`${intl.formatMessage({ id: ETranslations.scanning_text })} ${(
               progress * 100
             ).toFixed(0)}%`}</SizableText>
           </Stack>
