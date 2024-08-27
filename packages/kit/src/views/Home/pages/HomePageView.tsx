@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -13,7 +13,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -23,6 +22,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import HomeSelector from '../components/HomeSelector';
+import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -30,6 +30,8 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+
+import type { IWalletType } from '../components/HomeSupportedWallet';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -93,9 +95,9 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
-  const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
+  const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
   const tabs = useMemo(
     () =>
@@ -150,64 +152,23 @@ export function HomePageView({
   );
 
   const renderHomePageContent = useCallback(() => {
-    if (enabledOnClassicOnly && device?.deviceType !== 'classic') {
-      return (
-        <YStack height="100%">
-          <HomeSelector createAddressDisabled padding="$5" />
-          <Stack flex={1} justifyContent="center">
-            <Empty
-              icon="GlobusOutline"
-              title={intl.formatMessage(
-                { id: ETranslations.selected_network_only_supports_device },
-                {
-                  deviceType: 'OneKey Classic',
-                },
-              )}
-            />
-          </Stack>
-        </YStack>
-      );
-    }
-
     if (
-      softwareAccountDisabled &&
-      accountUtils.isHdWallet({
-        walletId: wallet?.id ?? '',
-      }) &&
-      account
+      (softwareAccountDisabled &&
+        accountUtils.isHdWallet({
+          walletId: wallet?.id ?? '',
+        })) ||
+      (supportedDeviceTypes &&
+        device?.deviceType &&
+        !supportedDeviceTypes.includes(device?.deviceType))
     ) {
-      const deviceLabels: Record<IOneKeyDeviceType, string> = {
-        'classic': 'Classic',
-        'classic1s': 'Classic 1S',
-        'mini': 'Mini',
-        'touch': 'Touch',
-        'pro': 'Pro',
-        'unknown': '',
-      };
-      const devices = (supportedDeviceTypes || [])
-        .map((d) => deviceLabels[d])
-        .filter((d) => d);
-      devices.push(
-        intl.formatMessage({
-          id: ETranslations.faq_watched_account,
-        }),
-      );
-      return (
-        <YStack height="100%">
-          <HomeSelector createAddressDisabled padding="$5" />
-          <Stack flex={1} justifyContent="center">
-            <Empty
-              icon="GlobusOutline"
-              title={intl.formatMessage(
-                { id: ETranslations.selected_network_only_supports_device },
-                {
-                  deviceType: devices.join(', '),
-                },
-              )}
-            />
-          </Stack>
-        </YStack>
-      );
+      const wallets: IWalletType[] = [];
+      if (supportedDeviceTypes) {
+        wallets.push(...supportedDeviceTypes);
+      }
+      if (watchingAccountEnabled) {
+        wallets.push('watching');
+      }
+      return <HomeSupportedWallet wallets={wallets} />;
     }
 
     if (!account) {
@@ -244,20 +205,20 @@ export function HomePageView({
 
     return <>{renderTabs()}</>;
   }, [
-    enabledOnClassicOnly,
-    device?.deviceType,
-    account,
     softwareAccountDisabled,
     wallet?.id,
+    supportedDeviceTypes,
+    device?.deviceType,
+    account,
     isRequiredValidation,
     renderTabs,
-    intl,
-    supportedDeviceTypes,
+    watchingAccountEnabled,
     accountName,
     network?.name,
     network?.id,
     deriveInfo?.labelKey,
     deriveInfo?.label,
+    intl,
   ]);
 
   const renderHomePage = useCallback(() => {
