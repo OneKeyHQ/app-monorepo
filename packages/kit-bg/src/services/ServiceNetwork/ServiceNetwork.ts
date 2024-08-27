@@ -32,11 +32,13 @@ import type {
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
-  getNetworkIdsMap().eth,
   getNetworkIdsMap().lightning,
-  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().trx,
+  getNetworkIdsMap().sol,
+  getNetworkIdsMap().bsc,
   getNetworkIdsMap().polygon,
-  getNetworkIdsMap().cosmoshub,
+  getNetworkIdsMap().bsc,
 ];
 
 @backgroundClass()
