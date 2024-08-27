@@ -32,6 +32,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
     enableMaxAmount?: boolean;
     valueProps?: {
       value?: string;
+      color?: string;
       onPress?: () => void;
       loading?: boolean;
       currency?: string;
@@ -129,7 +130,7 @@ export function AmountInput({
           formatter="value"
           formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
-          color="$textSubdued"
+          color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
         >
           {valueProps.value || '0.00'}

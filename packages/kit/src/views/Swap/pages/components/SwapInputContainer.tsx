@@ -73,6 +73,9 @@ const SwapInputContainer = ({
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && direction === ESwapDirectionType.TO) {
       let color = '$textSubdued';
+      if (inputLoading) {
+        color = '$textPlaceholder';
+      }
       if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
         color = '$textCritical';
       }
@@ -86,7 +89,7 @@ const SwapInputContainer = ({
       );
     }
     return null;
-  }, [direction, rateDifference]);
+  }, [direction, inputLoading, rateDifference]);
 
   return (
     <YStack>
@@ -104,7 +107,10 @@ const SwapInputContainer = ({
         }}
         valueProps={{
           value: amountPrice,
-          loading: inputLoading,
+          color:
+            inputLoading && direction === ESwapDirectionType.TO
+              ? '$textPlaceholder'
+              : undefined,
           currency: settingsPersistAtom.currencyInfo.symbol,
           moreComponent: valueMoreComponent,
         }}
