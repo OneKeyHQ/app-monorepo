@@ -188,12 +188,16 @@ export async function serializeUnsignedTransaction({
       amount: message.amount,
       payload:
         typeof message.payload === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(message.payload)
+          ? TonWeb.boc.Cell.oneFromBoc(
+              Buffer.from(message.payload, 'base64').toString('hex'),
+            )
           : message.payload,
       sendMode: message.sendMode,
       stateInit:
         typeof message.stateInit === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(message.stateInit)
+          ? TonWeb.boc.Cell.oneFromBoc(
+              Buffer.from(message.stateInit, 'base64').toString('hex'),
+            )
           : message.stateInit,
     })),
     true,
