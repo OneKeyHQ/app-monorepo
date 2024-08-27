@@ -81,9 +81,14 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import {
+  type ITutorialsListItem,
+  TutorialsList,
+} from '../../../../components/TutorialsList';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
+import qrHiddenCreateGuideDialog from './qrHiddenCreateGuideDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -134,16 +139,22 @@ function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const tutorials = [
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
-    }),
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
-    }),
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
-    }),
+  const tutorials: ITutorialsListItem[] = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
+      }),
+    },
   ];
 
   return (
@@ -153,27 +164,7 @@ function ConnectByQrCode() {
           id: ETranslations.onboarding_create_qr_wallet_title,
         })}
       </SizableText>
-      <Stack role="list" gap="$3" mb="$5" w="100%" maxWidth="$96">
-        {tutorials.map((tutorial, index) => (
-          <XStack key={index} role="listitem">
-            <Stack
-              w="$6"
-              h="$6"
-              bg="$bgInfo"
-              borderRadius="$full"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <SizableText size="$bodyMd" color="$textInfo">
-                {index + 1}
-              </SizableText>
-            </Stack>
-            <SizableText size="$bodyLg" pl="$3">
-              {tutorial}
-            </SizableText>
-          </XStack>
-        ))}
-      </Stack>
+      <TutorialsList tutorials={tutorials} mb="$5" w="100%" maxWidth="$96" />
       <Button
         variant="primary"
         $md={
@@ -183,6 +174,8 @@ function ConnectByQrCode() {
         }
         onPress={async () => {
           try {
+            // qrHiddenCreateGuideDialog.showDialog();
+            // return;
             await createQrWallet({
               isOnboarding: true,
               onFinalizeWalletSetupError: () => {
@@ -201,40 +194,7 @@ function ConnectByQrCode() {
             ) {
               // pop the finalizing wallet setup page
               // navigation.pop();
-              Dialog.show({
-                title: intl.formatMessage({
-                  id: ETranslations.create_qr_based_hidden_wallet_dialog_title,
-                }),
-                showConfirmButton: false,
-                onCancelText: intl.formatMessage({
-                  id: ETranslations.global_close,
-                }),
-                renderContent: (
-                  <Stack>
-                    <SizableText size="$headingMd">
-                      {intl.formatMessage({
-                        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_title,
-                      })}
-                    </SizableText>
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_desc,
-                      })}
-                    </SizableText>
-                    <Stack h="$5" />
-                    <SizableText size="$headingMd">
-                      {intl.formatMessage({
-                        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_title,
-                      })}
-                    </SizableText>
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_desc,
-                      })}
-                    </SizableText>
-                  </Stack>
-                ),
-              });
+              qrHiddenCreateGuideDialog.showDialog();
             }
             throw error;
           }
