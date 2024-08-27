@@ -12,7 +12,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ELidoLabels } from '@onekeyhq/shared/types/staking';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { LidoStake } from '../../components/LidoStake';
 import { useLidoStake } from '../../hooks/useLidoEthHooks';
@@ -40,7 +40,7 @@ const EthLidoStake = () => {
       await lidoStake({
         amount,
         stakingInfo: {
-          label: ELidoLabels.Stake,
+          label: EEarnLabels.Stake,
           protocol: 'lido',
           send: { token, amount: value },
           receive: { token: stToken, amount: value },

@@ -19,7 +19,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { LIDO_LOGO_URI } from '../../utils/const';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -29,7 +28,10 @@ type IUniversalWithdrawProps = {
   price: string;
   tokenImageUri: string;
   tokenSymbol: string;
+  providerLogo: string;
+  providerName: string;
   receivingTokenSymbol: string;
+
   rate?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
@@ -40,12 +42,14 @@ export const UniversalWithdraw = ({
   price: inputPrice,
   tokenImageUri,
   tokenSymbol,
+  providerLogo,
+  providerName,
   receivingTokenSymbol,
   minAmount = '0',
   rate = '1',
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
-  const price = Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -206,22 +210,9 @@ export const UniversalWithdraw = ({
               titleProps={fieldTitleProps}
             >
               <XStack gap="$2" alignItems="center">
-                <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
-                <SizableText size="$bodyLgMedium">Lido</SizableText>
+                <Token size="xs" tokenImageUri={providerLogo} />
+                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
               </XStack>
-            </ListItem>
-            <ListItem
-              title={intl.formatMessage({
-                id: ETranslations.earn_stake_release_period,
-              })}
-              titleProps={fieldTitleProps}
-            >
-              <ListItem.Text
-                primary={intl.formatMessage(
-                  { id: ETranslations.earn_less_than_number_days },
-                  { number: 4 },
-                )}
-              />
             </ListItem>
           </YStack>
         </YStack>

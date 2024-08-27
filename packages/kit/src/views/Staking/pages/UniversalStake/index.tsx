@@ -12,11 +12,11 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ELidoLabels } from '@onekeyhq/shared/types/staking';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildActionTag } from '../../utils/const';
+import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalStakePage = () => {
   const route = useAppRoute<
@@ -33,7 +33,7 @@ const UniversalStakePage = () => {
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
-  const actionTag = buildActionTag(details);
+  const actionTag = buildLocalTraceTxTag(details);
 
   const minAmount = useMemo(() => {
     if (provider.minStakeAmount) return provider.minStakeAmount;
@@ -44,13 +44,12 @@ const UniversalStakePage = () => {
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
     async (amount: string) => {
-      // const amount = BigNumber(value).shiftedBy(tokenInfo.decimals).toFixed(0);
       await handleStake({
         amount,
         symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
         stakingInfo: {
-          label: ELidoLabels.Stake,
+          label: EEarnLabels.Unknown,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
@@ -60,7 +59,7 @@ const UniversalStakePage = () => {
           defaultLogger.staking.page.staking({
             token: tokenInfo,
             amount,
-            stakingProtocol: 'lido',
+            stakingProtocol: provider.name,
             tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
             txnHash: txs[0].signedTx.txid,
           });

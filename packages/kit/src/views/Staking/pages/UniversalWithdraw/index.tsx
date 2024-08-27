@@ -12,9 +12,11 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalWithdrawPage = () => {
   const intl = useIntl();
@@ -26,28 +28,34 @@ const UniversalWithdrawPage = () => {
 
   const { token, provider, staked } = details;
   const { price, info: tokenInfo } = token;
+  const actionTag = buildLocalTraceTxTag(details);
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
-    async (value: string) => {
-      const amount = BigNumber(value).shiftedBy(tokenInfo.decimals).toFixed(0);
+    async (amount: string) => {
       await handleWithdraw({
         amount,
-        symbol: tokenInfo.symbol.toUpperCase(),
+        symbol: tokenInfo.symbol,
         provider: provider.name,
+        stakingInfo: {
+          label: EEarnLabels.Unknown,
+          protocol: provider.name,
+          send: { token: tokenInfo, amount },
+          tags: [actionTag],
+        },
         onSuccess: (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo,
-            amount: value,
-            stakingProtocol: 'lido',
-            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
+            amount,
+            stakingProtocol: provider.name,
+            tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
             txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [handleWithdraw, tokenInfo, appNavigation, price, provider],
+    [handleWithdraw, tokenInfo, appNavigation, price, provider, actionTag],
   );
   return (
     <Page>
@@ -62,6 +70,8 @@ const UniversalWithdrawPage = () => {
           minAmount={BigNumber(100).shiftedBy(-tokenInfo.decimals).toFixed()}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}
+          providerLogo={provider.logoURI}
+          providerName={provider.name}
           onConfirm={onConfirm}
         />
       </Page.Body>

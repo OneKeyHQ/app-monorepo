@@ -13,5 +13,5 @@ export const LIDO_MATIC_LOGO_URI =
 export const LIDO_OFFICIAL_URL = 'https://lido.fi/';
 // remove
 
-export const buildActionTag = (details: IStakeProtocolDetails) =>
+export const buildLocalTraceTxTag = (details: IStakeProtocolDetails) =>
   `${details.provider.name.toLowerCase()}-${details.token.info.symbol.toLowerCase()}`;

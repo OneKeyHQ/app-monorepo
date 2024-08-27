@@ -294,7 +294,7 @@ export function Profit({
         ) : null}
         {updateFrequency ? (
           <GridItem title="Update frequency" {...gridItemStyle}>
-            {`~${updateFrequency}days`}
+            {updateFrequency}
           </GridItem>
         ) : null}
       </XStack>
@@ -448,12 +448,8 @@ export function UniversalProtocolDetails({
       apr: details.provider.apr,
       earningsIn24h: details.earnings24h,
       rewardTokens: details.rewardToken,
+      updateFrequency: details.updateFrequency,
     };
-    if (details.updateFrequency) {
-      profit.updateFrequency = (Number(details.updateFrequency) / 24).toFixed(
-        2,
-      );
-    }
     return {
       stakedValue: {
         value: Number(details.stakedFiatValue),

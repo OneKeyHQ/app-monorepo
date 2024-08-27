@@ -23,7 +23,7 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  ELidoLabels,
+  EEarnLabels,
   type ILidoEthOverview,
   type ILidoEthRequest,
   type ILidoTokenItem,
@@ -95,7 +95,7 @@ const ListItemClaim = ({
     await lidoClaim({
       requestIds,
       stakingInfo: {
-        label: ELidoLabels.Claim,
+        label: EEarnLabels.Claim,
         protocol: 'lido',
         tags: ['lido-eth'],
         receive: { token: token.info, amount: String(amount) },
