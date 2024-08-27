@@ -9,12 +9,14 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   if (
     err?.className &&
     [
+      // ignore auto toast errors
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.FirmwareUpdateExit,
       EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+      EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
     ].includes(err?.className)
   ) {
     return;

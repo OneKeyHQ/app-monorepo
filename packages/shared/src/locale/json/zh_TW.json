@@ -1290,7 +1290,7 @@
   "send.invalid_lightning_payment_request": "無效的 Lightning 付款請求",
   "send.invoice_is_already_paid": "發票已支付",
   "send.label_first_transfer": "首次轉帳",
-  "send.label_transferred": "已轉移",
+  "send.label_transferred": "轉賬過",
   "send.label_wallet_name": "錢包名稱 / 帳戶名稱",
   "send.max": "最大",
   "send.memo_up_to_length": "最多{number}個字符",

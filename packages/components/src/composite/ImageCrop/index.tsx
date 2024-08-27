@@ -6,6 +6,9 @@ import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
 import { withStaticProperties } from 'tamagui';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import { Stack } from '../../primitives';
 import { Dialog } from '../Dialog';
 
@@ -146,7 +149,9 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
           const imageSrc = reader.result?.toString();
           if (imageSrc) {
             Dialog.show({
-              title: 'Crop Image',
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.global_crop_image,
+              }),
               sheetProps: {
                 disableDrag: true,
               },

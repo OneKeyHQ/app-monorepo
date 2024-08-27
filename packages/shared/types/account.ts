@@ -9,6 +9,7 @@ export type INetworkAccount = IDBAccount & {
 
 export type IBatchCreateAccount = INetworkAccount & {
   existsInDb: boolean | undefined;
+  displayAddress: string;
 };
 
 export type IQrWalletAirGapAccount = IAirGapAccount & {

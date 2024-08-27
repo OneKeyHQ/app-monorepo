@@ -32,6 +32,7 @@ import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import hardwareHomeScreenData from './hardwareHomeScreenData';
+import uploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -211,7 +212,9 @@ export default function HardwareHomeScreenModal({
 
   console.log('HardwareHomeScreenModal_____result', result);
 
-  const [uploadItems, setUploadItems] = useState<IHardwareHomeScreenData[]>([]);
+  const [uploadItems, setUploadItems] = useState<IHardwareHomeScreenData[]>([
+    ...uploadedHomeScreenCache.getCacheList(device?.id),
+  ]);
 
   const aspectRatioInfo = useAspectRatioInfo({
     sizeInfo: result?.config?.size,
@@ -279,7 +282,8 @@ export default function HardwareHomeScreenModal({
     };
     setUploadItems([...uploadItems, uploadItem]);
     setSelectedItem(uploadItem);
-  }, [result?.config, uploadItems]);
+    uploadedHomeScreenCache.saveCache(device?.id, uploadItem);
+  }, [result?.config, uploadItems, device?.id]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>

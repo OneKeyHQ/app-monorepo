@@ -1,5 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
@@ -12,6 +15,7 @@ export function HardwareHomeScreenButton({
 }: {
   device: IDBDevice | undefined;
 }) {
+  const intl = useIntl();
   // TODO home screen support check
   /*
   if (!connectId || !hwInfo.hwWalletType) return;
@@ -31,7 +35,9 @@ export function HardwareHomeScreenButton({
   return (
     <WalletOptionItem
       icon="AiImagesOutline"
-      label="Homescreen"
+      // global::homescreen
+      // global::crop_image
+      label={intl.formatMessage({ id: ETranslations.global_homescreen })}
       onPress={() => {
         if (!device) return;
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {

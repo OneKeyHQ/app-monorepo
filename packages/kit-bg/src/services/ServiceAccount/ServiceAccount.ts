@@ -432,7 +432,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     account: IBatchCreateAccount;
   }) {
-    const { addressDetail, existsInDb, ...dbAccount } = account;
+    const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
     if (isNil(dbAccount.pathIndex)) {
       throw new Error(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
