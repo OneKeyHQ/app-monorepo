@@ -77,18 +77,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: marketRouters,
         },
-        platformEnv.isDev
-          ? {
-              name: ETabRoutes.Earn,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'CoinsSolid' : 'CoinsOutline',
-              translationId: ETranslationsMock.global_earn,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/earn',
-              exact: true,
-              children: earnRouters,
-            }
-          : null,
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'CoinsSolid' : 'CoinsOutline',
+          translationId: ETranslationsMock.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/earn',
+          exact: true,
+          children: earnRouters,
+        },
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
