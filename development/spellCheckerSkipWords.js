@@ -751,4 +751,5 @@ module.exports = [
   'onekeyall',
   'payin',
   'payout',
+  'onopen',
 ];

@@ -1,4 +1,7 @@
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
 import {
   COINTYPE_TON,
   IMPL_TON,
@@ -45,9 +48,14 @@ const settings: IVaultSettings = {
   NFTEnabled: true,
   nonceRequired: true,
   feeUTXORequired: false,
-  editFeeEnabled: true,
+  editFeeEnabled: false,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   accountDeriveInfo,
   networkInfo: {

@@ -304,6 +304,7 @@ export function useSwapBuildTx() {
               },
               to: res.changellyOrder.payinAddress,
               amount: res.changellyOrder.amountExpectedFrom,
+              memo: res.changellyOrder.payinExtraId,
             };
           } else if (res?.thorSwapCallData) {
             encodedTx = undefined;

@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -43,11 +44,19 @@ export function useUniversalStake({
         });
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const encodedTx = await vault.buildStakeEncodedTx(stakeTx);
+      let useFeeInTx;
+      let feeInfoEditable;
+      if (networkUtils.isBTCNetwork(networkId)) {
+        useFeeInTx = true;
+        feeInfoEditable = false;
+      }
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
         onSuccess,
         onFail,
+        useFeeInTx,
+        feeInfoEditable,
       });
     },
     [navigationToSendConfirm, accountId, networkId],
