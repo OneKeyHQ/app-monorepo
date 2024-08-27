@@ -161,6 +161,11 @@
   "count_assets": "{count} activos",
   "count_hidden_assets": "{count} activos ocultos",
   "count_words": "{length} palabras",
+  "create_qr_based_hidden_wallet_dialog_title": "Crea una cartera oculta basada en QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Después de crear la cartera estándar, ingresa una passphrase para hacer una cartera oculta.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Crea una cartera oculta",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "No se necesita una passphrase antes de mostrar el código QR. Toca el botón ✅, muestra el código y escanéalo con la aplicación para crear una cartera estándar basada en QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Crear cartera estándar",
   "custom_rpc_cta_label": "Agregar RPC personalizado",
   "custom_rpc_desc": "El RPC personalizado reemplazará el nodo de OneKey. Para revertir, deshabilite o elimine el RPC personalizado. Si no es necesario, use los nodos de OneKey para un servicio óptimo.",
   "custom_rpc_edit_dialog_title": "RPC de {network} personalizado",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Este dispositivo no admite este tipo de dirección",
   "feedback.hw_polling_time_out": "Tiempo de conexión agotado",
   "feedback.invalid_phrases": "Frases inválidas",
+  "feedback.invalid_qr_code": "Código QR no válido",
   "feedback.invalid_words_title": "Palabras inválidas",
   "feedback.invalid_words_title_message": "Verifique de nuevo y vuelva a intentar",
   "feedback.no_connected_account": "No hay cuenta conectada",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Sin dirección",
   "wallet.no_address_desc": "La red actual aún no tiene una dirección",
   "wallet.receive_token_instruction": "Depósito desde otras carteras",
+  "wallet.unsupported_network_desc": "Cambia de red en la esquina superior izquierda o usa una cuenta compatible",
+  "wallet.unsupported_network_title": "Esta cuenta no admite {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Necesitas al menos {0} cuentas en cualquier red única para crear.",
   "word": "Palabra"
 }

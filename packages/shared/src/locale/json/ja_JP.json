@@ -161,6 +161,11 @@
   "count_assets": "{count} アセット",
   "count_hidden_assets": "{count} 隠された資産",
   "count_words": "{length} 語",
+  "create_qr_based_hidden_wallet_dialog_title": "QRベースの隠しウォレットを作成する",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "標準ウォレットが作成された後、隠しウォレットを作るためにパスフレーズを入力してください。",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "隠しウォレットを作成する",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "QRコードを表示する前に、passphraseは必要ありません。✅ボタンをタップし、コードを表示してアプリでスキャンすることで、QR-basedの標準ウォレットを作成します。",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "標準ウォレットを作成する",
   "custom_rpc_cta_label": "カスタムRPCを追加する",
   "custom_rpc_desc": "カスタムRPCはOneKeyのノードを置き換えます。元に戻すには、カスタムRPCを無効にするか削除します。必要でなければ、最適なサービスのためにOneKeyのノードを使用してください。",
   "custom_rpc_edit_dialog_title": "カスタム{network} RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "このデバイスは、このタイプのアドレスをサポートしていません",
   "feedback.hw_polling_time_out": "接続タイムアウト",
   "feedback.invalid_phrases": "無効なフレーズ",
+  "feedback.invalid_qr_code": "無効なQRコード",
   "feedback.invalid_words_title": "無効な単語",
   "feedback.invalid_words_title_message": "再度確認して、再試行してください",
   "feedback.no_connected_account": "接続されたアカウントなし",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "住所なし",
   "wallet.no_address_desc": "現在のネットワークにはまだアドレスがありません",
   "wallet.receive_token_instruction": "他のウォレットからのデポジット",
+  "wallet.unsupported_network_desc": "左上でネットワークを切り替えるか、対応するアカウントを使用してください",
+  "wallet.unsupported_network_title": "このアカウントは{network}をサポートしていません",
   "wallet.you_need_str_accounts_on_any_network_to_create": "作成するには、任意の単一ネットワーク上に少なくとも{0}のアカウントが必要です。",
   "word": "ワード"
 }

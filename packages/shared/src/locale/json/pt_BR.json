@@ -161,6 +161,11 @@
   "count_assets": "{count} ativos",
   "count_hidden_assets": "{count} ativos ocultos",
   "count_words": "{length} palavras",
+  "create_qr_based_hidden_wallet_dialog_title": "Crie uma carteira oculta baseada em QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Após a criação da carteira padrão, insira uma passphrase para criar uma carteira oculta.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Criar carteira oculta",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Não é necessário uma passphrase antes de exibir o código QR. Toque no botão ✅, mostre o código e escaneie-o com o aplicativo para criar uma carteira padrão baseada em QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Criar carteira padrão",
   "custom_rpc_cta_label": "Adicionar RPC personalizado",
   "custom_rpc_desc": "O RPC personalizado substituirá o nó do OneKey. Para reverter, desative ou exclua o RPC personalizado. Se não for necessário, use os nós do OneKey para um serviço otimizado.",
   "custom_rpc_edit_dialog_title": "RPC de {network} personalizado",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Este dispositivo não suporta este tipo de endereço",
   "feedback.hw_polling_time_out": "Tempo de conexão esgotado",
   "feedback.invalid_phrases": "Frases inválidas",
+  "feedback.invalid_qr_code": "Código QR inválido",
   "feedback.invalid_words_title": "Palavras inválidas",
   "feedback.invalid_words_title_message": "Verifique novamente e tente de novo",
   "feedback.no_connected_account": "Nenhuma conta conectada",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Sem endereço",
   "wallet.no_address_desc": "A rede atual ainda não tem um endereço",
   "wallet.receive_token_instruction": "Depósito de outras carteiras",
+  "wallet.unsupported_network_desc": "Altere as redes no canto superior esquerdo ou use uma conta suportada",
+  "wallet.unsupported_network_title": "Esta conta não suporta {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Você precisa de pelo menos {0} contas em qualquer rede única para criar.",
   "word": "Palavra"
 }

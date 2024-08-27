@@ -161,6 +161,11 @@
   "count_assets": "{count} สินทรัพย์",
   "count_hidden_assets": "{count} สินทรัพย์ที่ซ่อนอยู่",
   "count_words": "{length} คำ",
+  "create_qr_based_hidden_wallet_dialog_title": "สร้างกระเป๋าเงินที่ซ่อนอยู่ด้วย QR-based",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "หลังจากสร้างกระเป๋าเงินมาตรฐานแล้ว ใส่ Passphrase เพื่อสร้างกระเป๋าเงินที่ซ่อนอยู่",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "สร้างกระเป๋าเงินที่ซ่อนอยู่",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "ไม่จำเป็นต้องใช้ passphrase ก่อนที่จะแสดง QR code แตะที่ปุ่ม ✅ แสดงรหัสและสแกนด้วยแอปเพื่อสร้างกระเป๋าเงินมาตรฐานที่ใช้ QR-based",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "สร้างกระเป๋าเงินมาตรฐาน",
   "custom_rpc_cta_label": "เพิ่ม RPC ที่กำหนดเอง",
   "custom_rpc_desc": "RPC ที่กำหนดเองจะแทนที่โหนดของ OneKey หากต้องการย้อนกลับ ให้ปิดใช้งานหรือลบ RPC ที่กำหนดเอง หากไม่จำเป็น ให้ใช้โหนดของ OneKey เพื่อให้บริการที่เหมาะสมที่สุด",
   "custom_rpc_edit_dialog_title": "RPC {network} ที่กำหนดเอง",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "อุปกรณ์นี้ไม่รองรับประเภทของที่อยู่นี้",
   "feedback.hw_polling_time_out": "การเชื่อมต่อหมดเวลา",
   "feedback.invalid_phrases": "วลีที่ไม่ถูกต้อง",
+  "feedback.invalid_qr_code": "รหัส QR ไม่ถูกต้อง",
   "feedback.invalid_words_title": "คำที่ไม่ถูกต้อง",
   "feedback.invalid_words_title_message": "ตรวจสอบอีกครั้งและลองใหม่",
   "feedback.no_connected_account": "ไม่มีบัญชีที่เชื่อมต่อ",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "ไม่มีที่อยู่",
   "wallet.no_address_desc": "เครือข่ายปัจจุบันยังไม่มีที่อยู่",
   "wallet.receive_token_instruction": "ฝากจากกระเป๋าเงินอื่นๆ",
+  "wallet.unsupported_network_desc": "เปลี่ยนเครือข่ายที่มุมบนซ้ายหรือใช้บัญชีที่ได้รับการสนับสนุน",
+  "wallet.unsupported_network_title": "บัญชีนี้ไม่รองรับ {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "คุณต้องมีบัญชีอย่างน้อย {0} บัญชีในเครือข่ายใดๆ เพื่อสร้าง",
   "word": "คำ"
 }

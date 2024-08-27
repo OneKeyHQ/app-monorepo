@@ -161,6 +161,11 @@
   "count_assets": "{count} संपत्तियां",
   "count_hidden_assets": "{count} छिपे संपत्ति",
   "count_words": "{length} शब्द",
+  "create_qr_based_hidden_wallet_dialog_title": "QR-आधारित छिपा हुआ वॉलेट बनाएं",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "मानक वॉलेट बनाने के बाद, एक hidden वॉलेट बनाने के लिए passphrase दर्ज करें।",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "छिपा हुआ वॉलेट बनाएं",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "QR कोड प्रदर्शित करने से पहले कोई passphrase की आवश्यकता नहीं है। ✅ बटन को छूने के बाद, कोड दिखाएं, और इसे ऐप के साथ स्कैन करें ताकि QR-based स्टैंडर्ड वॉलेट बनाया जा सके।",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "मानक वॉलेट बनाएं",
   "custom_rpc_cta_label": "कस्टम RPC जोड़ें",
   "custom_rpc_desc": "कस्टम RPC, OneKey के नोड को बदल देगा। वापस लौटने के लिए, कस्टम RPC को अक्षम करें या हटा दें। यदि आवश्यक नहीं है, तो उत्कृष्ट सेवा के लिए OneKey के नोड्स का उपयोग करें।",
   "custom_rpc_edit_dialog_title": "कस्टम {network} RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "यह उपकरण इस प्रकार के पते का समर्थन नहीं करता है",
   "feedback.hw_polling_time_out": "कनेक्शन टाइमआउट",
   "feedback.invalid_phrases": "अमान्य वाक्यांश",
+  "feedback.invalid_qr_code": "अमान्य क्यूआर कोड",
   "feedback.invalid_words_title": "अमान्य शब्द",
   "feedback.invalid_words_title_message": "दोबारा जांचें और पुनः प्रयास करें",
   "feedback.no_connected_account": "कोई जुड़ा हुआ खाता नहीं",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "कोई पता नहीं",
   "wallet.no_address_desc": "वर्तमान नेटवर्क का अभी तक कोई पता नहीं है",
   "wallet.receive_token_instruction": "अन्य वॉलेट्स से जमा करें",
+  "wallet.unsupported_network_desc": "ऊपर बाएं में नेटवर्क बदलें या समर्थित खाता का उपयोग करें",
+  "wallet.unsupported_network_title": "यह खाता {network} का समर्थन नहीं करता है",
   "wallet.you_need_str_accounts_on_any_network_to_create": "आपको बनाने के लिए किसी भी एकल नेटवर्क पर कम से कम {0} खातों की आवश्यकता होती है।",
   "word": "शब्द"
 }

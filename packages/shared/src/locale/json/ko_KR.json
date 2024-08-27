@@ -161,6 +161,11 @@
   "count_assets": "{count} 자산",
   "count_hidden_assets": "{count} 개의 숨겨진 자산",
   "count_words": "{length} 단어",
+  "create_qr_based_hidden_wallet_dialog_title": "QR 기반 숨겨진 지갑 생성",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "표준 지갑이 생성된 후에는 Passphrase를 입력하여 숨겨진 지갑을 만드세요.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "숨겨진 지갑 생성",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "QR 코드를 표시하기 전에는 passphrase가 필요하지 않습니다. ✅ 버튼을 누르고 코드를 보여주고 앱으로 스캔하여 QR-based 표준 지갑을 생성하세요.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "표준 지갑 생성",
   "custom_rpc_cta_label": "사용자 정의 RPC 추가",
   "custom_rpc_desc": "사용자 정의 RPC는 OneKey의 노드를 대체합니다. 되돌리려면 사용자 정의 RPC를 비활성화하거나 삭제하십시오. 필요하지 않은 경우, 최적의 서비스를 위해 OneKey의 노드를 사용하십시오.",
   "custom_rpc_edit_dialog_title": "사용자 정의 {network} RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "이 장치는 이 유형의 주소를 지원하지 않습니다",
   "feedback.hw_polling_time_out": "연결 시간 초과",
   "feedback.invalid_phrases": "잘못된 문구",
+  "feedback.invalid_qr_code": "잘못된 QR 코드",
   "feedback.invalid_words_title": "잘못된 단어",
   "feedback.invalid_words_title_message": "다시 확인하고 재시도하세요",
   "feedback.no_connected_account": "연결된 계정 없음",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "주소 없음",
   "wallet.no_address_desc": "현재 네트워크에는 아직 주소가 없습니다",
   "wallet.receive_token_instruction": "다른 지갑에서 입금",
+  "wallet.unsupported_network_desc": "왼쪽 상단에서 네트워크를 전환하거나 지원되는 계정을 사용하세요",
+  "wallet.unsupported_network_title": "이 계정은 {network}를 지원하지 않습니다.",
   "wallet.you_need_str_accounts_on_any_network_to_create": "생성하려면 최소한 {0}개의 계정이 하나의 네트워크에 필요합니다.",
   "word": "워드"
 }

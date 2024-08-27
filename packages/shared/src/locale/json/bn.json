@@ -161,6 +161,11 @@
   "count_assets": "{count} সম্পদ",
   "count_hidden_assets": "{count} গোপন সম্পদ",
   "count_words": "{length} শব্দ",
+  "create_qr_based_hidden_wallet_dialog_title": "QR-ভিত্তিক লুকানো ওয়ালেট তৈরি করুন",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "স্ট্যান্ডার্ড ওয়ালেট তৈরি হওয়ার পর, একটি লুকানো ওয়ালেট তৈরি করতে একটি passphrase প্রবেশ করান।",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "গোপন ওয়ালেট তৈরি করুন",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "QR কোড প্রদর্শন করার আগে কোনো passphrase প্রয়োজন নেই। ✅ বোতামটি টিপুন, কোডটি দেখান এবং অ্যাপটির সাথে স্ক্যান করে একটি QR-based স্ট্যান্ডার্ড ওয়ালেট তৈরি করুন।",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "স্ট্যান্ডার্ড ওয়ালেট তৈরি করুন",
   "custom_rpc_cta_label": "কাস্টম RPC যোগ করুন",
   "custom_rpc_desc": "কাস্টম RPC টি OneKey এর নোড প্রতিস্থাপন করবে। পুনরায় ফিরে যেতে, কাস্টম RPC টি অক্ষম করুন বা মুছে ফেলুন। যদি প্রয়োজন না হয়, অনুপতিস্থ সেবার জন্য OneKey এর নোডগুলি ব্যবহার করুন।",
   "custom_rpc_edit_dialog_title": "কাস্টম {network} RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "এই ডিভাইসটি এই ধরণের ঠিকানা সমর্থন করে না",
   "feedback.hw_polling_time_out": "সংযোগ সময়সীমা অতিক্রান্ত",
   "feedback.invalid_phrases": "অবৈধ বাক্যাংশ",
+  "feedback.invalid_qr_code": "অবৈধ QR কোড",
   "feedback.invalid_words_title": "অবৈধ শব্দ",
   "feedback.invalid_words_title_message": "দ্বিগুণ যাচাই করুন এবং পুনরায় চেষ্টা করুন",
   "feedback.no_connected_account": "কোন সংযুক্ত অ্যাকাউন্ট নেই",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "কোন ঠিকানা নেই",
   "wallet.no_address_desc": "বর্তমান নেটওয়ার্কের এখনও কোনো ঠিকানা নেই",
   "wallet.receive_token_instruction": "অন্যান্য ওয়ালেট থেকে ডিপোজিট",
+  "wallet.unsupported_network_desc": "উপরের বাম দিকে নেটওয়ার্ক পরিবর্তন করুন বা সমর্থিত অ্যাকাউন্ট ব্যবহার করুন",
+  "wallet.unsupported_network_title": "এই অ্যাকাউন্টটি {network} সমর্থন করে না",
   "wallet.you_need_str_accounts_on_any_network_to_create": "আপনার কোন একটি নেটওয়ার্কে কমপক্ষে {0} টি অ্যাকাউন্ট থাকা প্রয়োজন তৈরি করার জন্য।",
   "word": "শব্দ"
 }

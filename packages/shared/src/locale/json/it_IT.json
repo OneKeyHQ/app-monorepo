@@ -161,6 +161,11 @@
   "count_assets": "{count} risorse",
   "count_hidden_assets": "{count} asset nascosti",
   "count_words": "{length} parole",
+  "create_qr_based_hidden_wallet_dialog_title": "Crea un portafoglio nascosto basato su QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Dopo la creazione del portafoglio standard, inserisci una passphrase per creare un portafoglio nascosto.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Crea portafoglio nascosto",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Non è necessario alcun Passphrase prima di visualizzare il codice QR. Tocca il pulsante ✅, mostra il codice e scansionalo con l'app per creare un portafoglio standard basato su QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Crea portafoglio standard",
   "custom_rpc_cta_label": "Aggiungi RPC personalizzato",
   "custom_rpc_desc": "L'RPC personalizzato sostituirà il nodo di OneKey. Per ripristinare, disabilita o elimina l'RPC personalizzato. Se non necessario, utilizza i nodi di OneKey per un servizio ottimale.",
   "custom_rpc_edit_dialog_title": "RPC {network} personalizzato",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Questo dispositivo non supporta questo tipo di indirizzo",
   "feedback.hw_polling_time_out": "Timeout della connessione",
   "feedback.invalid_phrases": "Frasi non valide",
+  "feedback.invalid_qr_code": "Codice QR non valido",
   "feedback.invalid_words_title": "Parole non valide",
   "feedback.invalid_words_title_message": "Controlla di nuovo e riprova",
   "feedback.no_connected_account": "Nessun account collegato",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Nessun indirizzo",
   "wallet.no_address_desc": "La rete attuale non ha ancora un indirizzo",
   "wallet.receive_token_instruction": "Deposito da altri portafogli",
+  "wallet.unsupported_network_desc": "Cambia rete nell'angolo in alto a sinistra o utilizza un account supportato",
+  "wallet.unsupported_network_title": "Questo account non supporta {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Hai bisogno di almeno {0} account su una singola rete per creare.",
   "word": "Parola"
 }

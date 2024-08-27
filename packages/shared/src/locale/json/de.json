@@ -161,6 +161,11 @@
   "count_assets": "{count} Vermögenswerte",
   "count_hidden_assets": "{count} versteckte Vermögenswerte",
   "count_words": "{length} Wörter",
+  "create_qr_based_hidden_wallet_dialog_title": "Erstellen Sie eine QR-basierte versteckte Geldbörse",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Nachdem die Standard-Wallet erstellt wurde, geben Sie eine Passphrase ein, um eine versteckte Wallet zu erstellen.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Versteckte Geldbörse erstellen",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Es wird keine Passphrase benötigt, bevor der QR-Code angezeigt wird. Tippen Sie auf die ✅ Taste, zeigen Sie den Code und scannen Sie ihn mit der App, um eine QR-basierte Standard-Wallet zu erstellen.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Standard Wallet erstellen",
   "custom_rpc_cta_label": "Benutzerdefiniertes RPC hinzufügen",
   "custom_rpc_desc": "Der benutzerdefinierte RPC ersetzt den Knoten von OneKey. Um dies rückgängig zu machen, deaktivieren oder löschen Sie den benutzerdefinierten RPC. Wenn nicht notwendig, verwenden Sie OneKey's Knoten für den optimalen Service.",
   "custom_rpc_edit_dialog_title": "Benutzerdefiniertes {network} -RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Dieses Gerät unterstützt diesen Adresstyp nicht",
   "feedback.hw_polling_time_out": "Verbindungszeitüberschreitung",
   "feedback.invalid_phrases": "Ungültige Phrasen",
+  "feedback.invalid_qr_code": "Ungültiger QR-Code",
   "feedback.invalid_words_title": "Ungültige Wörter",
   "feedback.invalid_words_title_message": "Überprüfen Sie erneut und versuchen Sie es noch einmal",
   "feedback.no_connected_account": "Kein verbundenes Konto",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Keine Adresse",
   "wallet.no_address_desc": "Das aktuelle Netzwerk hat noch keine Adresse",
   "wallet.receive_token_instruction": "Einlage von anderen Wallets",
+  "wallet.unsupported_network_desc": "Wechseln Sie in der oberen linken Ecke das Netzwerk oder verwenden Sie ein unterstütztes Konto",
+  "wallet.unsupported_network_title": "Dieses Konto unterstützt {network} nicht",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Sie benötigen mindestens {0} Konten in einem einzigen Netzwerk, um zu erstellen.",
   "word": "Wort"
 }

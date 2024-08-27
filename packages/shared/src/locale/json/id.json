@@ -161,6 +161,11 @@
   "count_assets": "{count} aset",
   "count_hidden_assets": "{count} aset tersembunyi",
   "count_words": "{length} kata",
+  "create_qr_based_hidden_wallet_dialog_title": "Buat dompet tersembunyi berbasis QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Setelah dompet standar dibuat, masukkan passphrase untuk membuat dompet tersembunyi.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Buat dompet tersembunyi",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Tidak ada Passphrase yang diperlukan sebelum menampilkan kode QR. Ketuk tombol ✅, tunjukkan kode tersebut, dan pindai dengan aplikasi untuk membuat dompet standar berbasis QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Buat dompet standar",
   "custom_rpc_cta_label": "Tambahkan RPC khusus",
   "custom_rpc_desc": "RPC kustom akan menggantikan node OneKey. Untuk mengembalikan, nonaktifkan atau hapus RPC kustom. Jika tidak perlu, gunakan node OneKey untuk layanan optimal.",
   "custom_rpc_edit_dialog_title": "RPC {network} khusus",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Perangkat ini tidak mendukung jenis alamat ini",
   "feedback.hw_polling_time_out": "Waktu koneksi habis",
   "feedback.invalid_phrases": "Frasa tidak valid",
+  "feedback.invalid_qr_code": "Kode QR tidak valid",
   "feedback.invalid_words_title": "Kata-kata tidak valid",
   "feedback.invalid_words_title_message": "Periksa kembali dan coba lagi",
   "feedback.no_connected_account": "Tidak ada akun yang terhubung",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Tidak ada alamat",
   "wallet.no_address_desc": "Jaringan saat ini belum memiliki alamat",
   "wallet.receive_token_instruction": "Deposit dari dompet lain",
+  "wallet.unsupported_network_desc": "Ganti jaringan di kiri atas atau gunakan akun yang didukung",
+  "wallet.unsupported_network_title": "Akun ini tidak mendukung {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Anda membutuhkan setidaknya {0} akun di jaringan mana pun untuk membuat.",
   "word": "Kata"
 }

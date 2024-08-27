@@ -161,6 +161,11 @@
   "count_assets": "{count} активов",
   "count_hidden_assets": "{count} скрытых активов",
   "count_words": "{length} слов",
+  "create_qr_based_hidden_wallet_dialog_title": "Создайте скрытый кошелек на основе QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "После создания стандартного кошелька введите passphrase для создания скрытого кошелька.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Создать скрытый кошелек",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Перед отображением QR-кода не требуется passphrase. Нажмите кнопку ✅, покажите код и отсканируйте его с помощью приложения, чтобы создать стандартный кошелек на основе QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Создать стандартный кошелек",
   "custom_rpc_cta_label": "Добавить пользовательский RPC",
   "custom_rpc_desc": "Пользовательский RPC заменит узел OneKey. Чтобы вернуться, отключите или удалите пользовательский RPC. Если это не необходимо, используйте узлы OneKey для оптимального обслуживания.",
   "custom_rpc_edit_dialog_title": "Пользовательский RPC {network}",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Это устройство не поддерживает этот тип адреса",
   "feedback.hw_polling_time_out": "Тайм-аут соединения",
   "feedback.invalid_phrases": "Недопустимые фразы",
+  "feedback.invalid_qr_code": "Неверный QR-код",
   "feedback.invalid_words_title": "Недопустимые слова",
   "feedback.invalid_words_title_message": "Проверьте еще раз и повторите попытку",
   "feedback.no_connected_account": "Нет подключенного аккаунта",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Нет адреса",
   "wallet.no_address_desc": "Текущая сеть еще не имеет адреса",
   "wallet.receive_token_instruction": "Депозит с других кошельков",
+  "wallet.unsupported_network_desc": "Переключайте сети в верхнем левом углу или используйте поддерживаемую учетную запись",
+  "wallet.unsupported_network_title": "Этот аккаунт не поддерживает {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Вам нужно иметь как минимум {0} аккаунтов в любой единственной сети для создания.",
   "word": "Слово"
 }

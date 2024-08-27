@@ -161,6 +161,11 @@
   "count_assets": "{count} tài sản",
   "count_hidden_assets": "{count} tài sản bị ẩn",
   "count_words": "{length} từ",
+  "create_qr_based_hidden_wallet_dialog_title": "Tạo ví ẩn dựa trên QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Sau khi ví tiêu chuẩn được tạo, hãy nhập một passphrase để tạo một ví ẩn.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Tạo ví ẩn",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Không cần passphrase trước khi hiển thị mã QR. Chạm vào nút ✅, hiển thị mã và quét nó với ứng dụng để tạo một ví chuẩn dựa trên QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Tạo ví tiêu chuẩn",
   "custom_rpc_cta_label": "Thêm RPC tùy chỉnh",
   "custom_rpc_desc": "RPC tùy chỉnh sẽ thay thế nút của OneKey. Để quay lại, hãy vô hiệu hóa hoặc xóa RPC tùy chỉnh. Nếu không cần thiết, hãy sử dụng các nút của OneKey để dịch vụ tối ưu.",
   "custom_rpc_edit_dialog_title": "RPC {network} tùy chỉnh",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Thiết bị này không hỗ trợ loại địa chỉ này",
   "feedback.hw_polling_time_out": "Kết nối quá thời gian",
   "feedback.invalid_phrases": "Cụm từ không hợp lệ",
+  "feedback.invalid_qr_code": "Mã QR không hợp lệ",
   "feedback.invalid_words_title": "Từ không hợp lệ",
   "feedback.invalid_words_title_message": "Kiểm tra lại và thử lại",
   "feedback.no_connected_account": "Không có tài khoản được kết nối",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Không có địa chỉ",
   "wallet.no_address_desc": "Mạng lưới hiện tại chưa có địa chỉ",
   "wallet.receive_token_instruction": "Nạp từ các ví khác",
+  "wallet.unsupported_network_desc": "Chuyển mạng ở góc trên bên trái hoặc sử dụng một tài khoản được hỗ trợ",
+  "wallet.unsupported_network_title": "Tài khoản này không hỗ trợ {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Bạn cần ít nhất {0} tài khoản trên bất kỳ mạng lưới nào để tạo.",
   "word": "Từ"
 }

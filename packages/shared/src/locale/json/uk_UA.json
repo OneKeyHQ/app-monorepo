@@ -161,6 +161,11 @@
   "count_assets": "{count} активів",
   "count_hidden_assets": "{count} приховані активи",
   "count_words": "{length} слів",
+  "create_qr_based_hidden_wallet_dialog_title": "Створіть прихований гаманець на основі QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Після створення стандартного гаманця, введіть passphrase для створення прихованого гаманця.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Створити прихований гаманець",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Не потрібно вводити Passphrase перед відображенням QR-коду. Натисніть кнопку ✅, покажіть код і відскануйте його за допомогою додатка, щоб створити стандартний гаманець на основі QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Створити стандартний гаманець",
   "custom_rpc_cta_label": "Додайте спеціальний RPC",
   "custom_rpc_desc": "Користувацький RPC замінить вузол OneKey. Щоб повернути, вимкніть або видаліть користувацький RPC. Якщо це не необхідно, використовуйте вузли OneKey для оптимального обслуговування.",
   "custom_rpc_edit_dialog_title": "Користувацька {network} RPC",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Цей пристрій не підтримує цей тип адреси",
   "feedback.hw_polling_time_out": "Таймаут з'єднання",
   "feedback.invalid_phrases": "Неправильні фрази",
+  "feedback.invalid_qr_code": "Недійсний QR-код",
   "feedback.invalid_words_title": "Неправильні слова",
   "feedback.invalid_words_title_message": "Перевірте ще раз та спробуйте знову",
   "feedback.no_connected_account": "Немає підключеного облікового запису",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Немає адреси",
   "wallet.no_address_desc": "Поточна мережа ще не має адреси",
   "wallet.receive_token_instruction": "Депозит з інших гаманців",
+  "wallet.unsupported_network_desc": "Перемкніть мережі у верхньому лівому куті або використовуйте підтримуваний обліковий запис",
+  "wallet.unsupported_network_title": "Цей обліковий запис не підтримує {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Вам потрібно мати принаймні {0} облікових записів у будь-якій одній мережі, щоб створити.",
   "word": "Слово"
 }

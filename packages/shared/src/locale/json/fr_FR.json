@@ -161,6 +161,11 @@
   "count_assets": "{count} actifs",
   "count_hidden_assets": "{count} actifs cachés",
   "count_words": "{length} mots",
+  "create_qr_based_hidden_wallet_dialog_title": "Créez un portefeuille caché basé sur QR",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_desc": "Après la création du portefeuille standard, entrez une passphrase pour créer un portefeuille caché.",
+  "create_qr_bassed_hidden_wallet_create_hidden_wallet_title": "Créer un portefeuille caché",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_desc": "Aucune passphrase n'est nécessaire avant d'afficher le code QR. Appuyez sur le bouton ✅, montrez le code et scannez-le avec l'application pour créer un portefeuille standard basé sur QR.",
+  "create_qr_bassed_hidden_wallet_create_standard_wallet_title": "Créer un portefeuille standard",
   "custom_rpc_cta_label": "Ajouter un RPC personnalisé",
   "custom_rpc_desc": "Le RPC personnalisé remplacera le nœud OneKey. Pour revenir en arrière, désactivez ou supprimez le RPC personnalisé. Si ce n'est pas nécessaire, utilisez les nœuds OneKey pour un service optimal.",
   "custom_rpc_edit_dialog_title": "RPC {network} personnalisé",
@@ -489,6 +494,7 @@
   "feedback.hardware_unsupported_current_address_type": "Cet appareil ne prend pas en charge ce type d'adresse",
   "feedback.hw_polling_time_out": "Délai de connexion dépassé",
   "feedback.invalid_phrases": "Phrases invalides",
+  "feedback.invalid_qr_code": "Code QR invalide",
   "feedback.invalid_words_title": "Mots invalides",
   "feedback.invalid_words_title_message": "Vérifiez à nouveau et réessayez",
   "feedback.no_connected_account": "Aucun compte connecté",
@@ -1753,6 +1759,8 @@
   "wallet.no_address": "Aucune adresse",
   "wallet.no_address_desc": "Le réseau actuel n'a pas encore d'adresse",
   "wallet.receive_token_instruction": "Dépôt depuis d'autres portefeuilles",
+  "wallet.unsupported_network_desc": "Changez de réseau dans le coin supérieur gauche ou utilisez un compte pris en charge",
+  "wallet.unsupported_network_title": "Ce compte ne prend pas en charge {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Vous avez besoin d'au moins {0} comptes sur un seul réseau pour créer.",
   "word": "Mot"
 }
