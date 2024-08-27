@@ -50,8 +50,6 @@ const settings: IVaultSettings = {
 
   withPaymentId: true,
 
-  enabledOnClassicOnly: true,
-
   minTransferAmount: '0.000000001',
 
   withoutBroadcastTxId: true,
