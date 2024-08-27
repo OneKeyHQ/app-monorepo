@@ -2,7 +2,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 
-export class UploadedHomeScreenCache {
+class UploadedHomeScreenCache {
   cache: Partial<{
     [dbDeviceId: string]: {
       data?: IHardwareHomeScreenData[];
@@ -17,8 +17,9 @@ export class UploadedHomeScreenCache {
     this.cache[dbDeviceId] = this.cache[dbDeviceId] || {
       data: [],
     };
-    if (this.cache[dbDeviceId].data) {
-      this.cache[dbDeviceId].data.push(data);
+    const dataArray = this?.cache?.[dbDeviceId]?.data;
+    if (dataArray) {
+      dataArray.push(data);
     }
   }
 

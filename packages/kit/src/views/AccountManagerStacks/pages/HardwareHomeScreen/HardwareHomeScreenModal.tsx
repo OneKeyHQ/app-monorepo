@@ -15,12 +15,12 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,9 +34,9 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import hardwareHomeScreenData from './hardwareHomeScreenData';
 import uploadedHomeScreenCache from './uploadedHomeScreenCache';
 
+import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
-import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
