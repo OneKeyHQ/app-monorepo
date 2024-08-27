@@ -133,6 +133,7 @@ function ScanQrCodeModalFooter({
     <Stack
       w="100%"
       mx="auto"
+      flex={1}
       $gtMd={{
         maxWidth: '$80',
       }}

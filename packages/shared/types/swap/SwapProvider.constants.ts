@@ -410,4 +410,26 @@ export const swapDefaultSetTokens: Record<
       'isNative': true,
     },
   },
+  'tron--0x2b6653dc': {
+    fromToken: {
+      'networkId': 'tron--0x2b6653dc',
+      'contractAddress': '',
+      'name': 'Tron',
+      'symbol': 'TRX',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address--1720669765494.png',
+      'isNative': true,
+    },
+    toToken: {
+      'networkId': 'tron--0x2b6653dc',
+      'contractAddress': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      'name': 'Tether USD',
+      'symbol': 'USDT',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t-1720668500740.png',
+      'isNative': false,
+    },
+  },
 };
