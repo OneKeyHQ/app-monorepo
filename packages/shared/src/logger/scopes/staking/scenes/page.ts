@@ -1,7 +1,7 @@
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class PageScene extends BaseScene {
   @LogToServer()

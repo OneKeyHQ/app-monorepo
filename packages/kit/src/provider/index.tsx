@@ -9,7 +9,6 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
-import { Bootstrap } from './Bootstrap';
 import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
 import { StateActiveContainer } from './Container/StateActiveContainer';

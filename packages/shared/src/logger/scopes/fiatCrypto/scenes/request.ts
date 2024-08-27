@@ -5,7 +5,7 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class RequestScene extends BaseScene {
   @LogToLocal()

@@ -59,7 +59,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountAddress } from './AccountAddress';
-import { AccountValue } from './AccountValue';
+import { AccountValue, AccountValueWithSpotlight } from './AccountValue';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
@@ -438,30 +438,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }) => {
       if (linkNetwork) return null;
 
-      const shouldShowSpotlight = !isOthersUniversal && index === 0;
-
       return (
         <>
-          <Spotlight
-            containerProps={{ flexShrink: 1 }}
-            isVisible={shouldShowSpotlight && !platformEnv.isE2E}
-            message={intl.formatMessage({
-              id: ETranslations.spotlight_enable_account_asset_message,
-            })}
-            tourName={ESpotlightTour.allNetworkAccountValue}
-          >
-            {accountValue && accountValue.currency ? (
-              <AccountValue
-                accountId={accountValue.accountId}
-                currency={accountValue.currency}
-                value={accountValue.value ?? ''}
-              />
-            ) : (
-              <SizableText size="$bodyMd" color="$textDisabled">
-                --
-              </SizableText>
-            )}
-          </Spotlight>
+          <AccountValueWithSpotlight
+            isOthersUniversal={isOthersUniversal}
+            index={index}
+            accountValue={accountValue}
+          />
           {subTitleInfo.address ? (
             <Stack
               mx="$1.5"
@@ -474,7 +457,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         </>
       );
     },
-    [linkNetwork, isOthersUniversal, intl],
+    [linkNetwork, isOthersUniversal],
   );
 
   // useCallback cause re-render when unmount, but useMemo not

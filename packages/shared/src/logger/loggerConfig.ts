@@ -7,18 +7,26 @@ import type { BaseScene } from './base/baseScene';
 import type { BaseScope } from './base/baseScope';
 
 export type ILoggerConfig = {
-  [scope: string]: {
-    [scene: string]: boolean;
+  highlightDurationGt?: string;
+  colorfulLog?: boolean;
+  enabled: {
+    [scope: string]: {
+      [scene: string]: boolean;
+    };
   };
 };
 function buildLoggerConfig(): ILoggerConfig {
-  const config: ILoggerConfig = {};
+  const config: ILoggerConfig = {
+    highlightDurationGt: '100',
+    colorfulLog: true,
+    enabled: {},
+  };
   const defaultLoggerInstance =
     (global.$$defaultLogger as unknown as Record<string, BaseScope>) || {};
   Object.keys(defaultLoggerInstance)
     .sort((a, b) => natsort({ insensitive: true })(a, b))
     .forEach((scope) => {
-      config[scope] = config[scope] || {};
+      config.enabled[scope] = config.enabled[scope] || {};
       Object.keys(
         (defaultLoggerInstance as unknown as Record<string, BaseScope>)[
           scope
@@ -39,7 +47,7 @@ function buildLoggerConfig(): ILoggerConfig {
               //   const isScene = sceneInstance instanceof BaseScene;
               const isSceneLike = !!sceneInstance.mockBaseSceneMethod;
               if (isSceneLike) {
-                config[scope][scene] = false;
+                config.enabled[scope][scene] = false;
               }
             } catch (error) {
               //
@@ -64,9 +72,19 @@ async function getSavedLoggerConfig() {
   return savedLoggerConfig;
 }
 
-const saveLoggerConfig = debounce(async (config: ILoggerConfig) => {
-  await appStorage.setItem(storageKey, JSON.stringify(config));
-}, 300);
+const saveLoggerConfig = debounce(
+  async (config: ILoggerConfig) => {
+    await appStorage.setItem(storageKey, JSON.stringify(config));
+    if (savedLoggerConfig) {
+      Object.assign(savedLoggerConfig, config);
+    }
+  },
+  300,
+  {
+    leading: false,
+    trailing: true,
+  },
+);
 
 // eslint-disable-next-line no-async-promise-executor
 const savedLoggerConfigAsync = new Promise<ILoggerConfig>(async (resolve) => {

@@ -99,7 +99,7 @@ export default class Vault extends VaultBase {
           .shiftedBy(transfer.tokenInfo?.decimals || 0)
           .toFixed(0);
         const msg: IEncodedTxTon['messages'][0] = {
-          toAddress: transfer.to,
+          address: transfer.to,
           amount,
           sendMode: 0,
         };
@@ -110,8 +110,11 @@ export default class Vault extends VaultBase {
           const fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
           const jettonAddress = transfer.tokenInfo.address;
+          if (!transfer.tokenInfo.uniqueKey) {
+            throw new OneKeyInternalError('Invalid token uniqueKey');
+          }
           const jettonMasterAddress = new TonWeb.utils.Address(
-            transfer.tokenInfo.uniqueKey!,
+            transfer.tokenInfo.uniqueKey,
           ).toString(true, true, true);
           const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
@@ -126,7 +129,7 @@ export default class Vault extends VaultBase {
             },
           });
           msg.payload = payload;
-          msg.toAddress = jettonAddress;
+          msg.address = jettonAddress;
           msg.jetton = {
             amount,
             jettonMasterAddress,
@@ -138,7 +141,7 @@ export default class Vault extends VaultBase {
     );
 
     return {
-      fromAddress,
+      from: fromAddress,
       messages,
       sequenceNo: 0,
     };
@@ -155,7 +158,7 @@ export default class Vault extends VaultBase {
         const decodedPayload = decodePayload(message.payload);
         if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
           let tokenAddress = message.jetton?.jettonMasterAddress ?? '';
-          let to = message.toAddress;
+          let to = message.address;
           let amount = message.amount.toString();
           if (decodedPayload.jetton) {
             to = decodedPayload.jetton.toAddress;
@@ -201,7 +204,7 @@ export default class Vault extends VaultBase {
           direction: EDecodedTxDirection.OTHER,
           unknownAction: {
             from,
-            to: message.toAddress,
+            to: message.address,
           },
         };
       }),
@@ -213,7 +216,7 @@ export default class Vault extends VaultBase {
       txid: '',
       owner: from,
       signer: from,
-      nonce: encodedTx.sequenceNo,
+      nonce: encodedTx.sequenceNo ?? 0,
       actions,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
@@ -270,14 +273,14 @@ export default class Vault extends VaultBase {
       ).toString('hex');
     }
 
-    const expireAt = Math.floor(Date.now() / 1000) + 60 * 3;
-    if (!encodedTx.expireAt) {
-      encodedTx.expireAt = expireAt;
-    } else if (encodedTx.expireAt.toString().length > 10) {
-      encodedTx.expireAt = Math.floor(encodedTx.expireAt / 1000);
+    const validUntil = Math.floor(Date.now() / 1000) + 60 * 3;
+    if (!encodedTx.validUntil) {
+      encodedTx.validUntil = validUntil;
+    } else if (encodedTx.validUntil.toString().length > 10) {
+      encodedTx.validUntil = Math.floor(encodedTx.validUntil / 1000);
     }
-    if (encodedTx.expireAt < expireAt) {
-      encodedTx.expireAt = expireAt;
+    if (encodedTx.validUntil < validUntil) {
+      encodedTx.validUntil = validUntil;
     }
 
     if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
@@ -371,6 +374,7 @@ export default class Vault extends VaultBase {
         body: Buffer.from(await serializeUnsignedTx.body.toBoc(false)).toString(
           'base64',
         ),
+        // eslint-disable-next-line spellcheck/spell-checker
         ignore_chksig: true,
         init_code: serializeUnsignedTx.code
           ? Buffer.from(await serializeUnsignedTx.code.toBoc(false)).toString(

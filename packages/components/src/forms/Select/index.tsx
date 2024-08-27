@@ -3,6 +3,8 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
@@ -312,7 +314,7 @@ function SelectContent() {
         ...sheetProps,
       }}
       floatingPanelProps={{
-        maxHeight: '60vh',
+        maxHeight: platformEnv.isNative ? undefined : '60vh',
         width: '$56',
         ...floatingPanelProps,
       }}

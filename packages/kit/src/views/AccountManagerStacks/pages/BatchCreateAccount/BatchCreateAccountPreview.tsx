@@ -49,6 +49,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
@@ -240,6 +241,7 @@ function BatchCreateAccountPreviewPage({
   } = usePromiseResult(
     async () => {
       try {
+        defaultLogger.account.accountCreatePerf.createAddressRunStart();
         if (!deriveType) {
           return [];
         }
@@ -276,6 +278,8 @@ function BatchCreateAccountPreviewPage({
           // navigation.pop();
         }
         throw error;
+      } finally {
+        defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       }
     },
     [deriveType, endIndex, fromInt, networkId, page, walletId],
@@ -734,6 +738,7 @@ function BatchCreateAccountPreviewPage({
                 excludedIndexes: advanceExcludedIndexes,
                 saveToDb: true,
                 hideCheckingDeviceLoading: true,
+                showUIProgress: true,
               };
             } else {
               normalParams = {
@@ -745,6 +750,7 @@ function BatchCreateAccountPreviewPage({
                   .map(([k]) => parseInt(k, 10)),
                 saveToDb: true,
                 hideCheckingDeviceLoading: true,
+                showUIProgress: true,
               };
             }
             if (!normalParams && !advancedParams) {

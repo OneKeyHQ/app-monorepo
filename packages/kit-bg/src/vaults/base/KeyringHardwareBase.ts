@@ -4,6 +4,7 @@ import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EConfirmOnDeviceType,
   type IDeviceResponse,
@@ -25,12 +26,18 @@ export abstract class KeyringHardwareBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hardware;
 
   async getHardwareSDKInstance() {
+    defaultLogger.account.accountCreatePerf.getHardwareSDKInstance();
+
     // Since the sdk instance can not pass the serializable testing in backgroundApiProxy
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
       await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
-    return (sdk as typeof HardwareSDK) ?? HardwareSDK;
+    const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
+
+    defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();
+
+    return r;
   }
 
   async baseGetDeviceAccountData<T>({
