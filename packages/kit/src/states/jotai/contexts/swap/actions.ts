@@ -468,7 +468,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapQuoteActionLockAtom(), true);
       this.cleanQuoteInterval();
-      console.log('swap__closeQuoteEvent---action');
       this.closeQuoteEvent();
       set(swapQuoteIntervalCountAtom(), 0);
       set(swapBuildTxFetchingAtom(), false);
