@@ -1,23 +1,37 @@
 import { useCallback } from 'react';
 
-import { Dialog, SizableText, Stack, Toast } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+import { Linking } from 'react-native';
+
+import {
+  Button,
+  Dialog,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+// import { TutorialsList } from '../../TutorialsList';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
+  const intl = useIntl();
   const { serviceAccount, serviceQrWallet, serviceBatchCreateAccount } =
     backgroundApiProxy;
 
@@ -154,22 +168,57 @@ export function useAccountSelectorCreateAddress() {
               Dialog.show({
                 title: 'Address creation failed',
                 showConfirmButton: false,
-                onCancelText: 'Close',
+                onCancelText: intl.formatMessage({
+                  id: ETranslations.global_close,
+                }),
                 renderContent: (
-                  <Stack>
-                    <SizableText>
-                      1. Check our website to verify if your hardware wallet
-                      supports the current network.
-                    </SizableText>
-                    <SizableText>
-                      2. Connect via USB and visit our firmware update tool.
-                      Disable Air-gap mode if necessary.
-                    </SizableText>
-                    <SizableText>
-                      3. If issues persist, the QR Wallet may not support this
-                      derivation path.
-                    </SizableText>
-                    <SizableText>Need more help? Contact us.</SizableText>
+                  <Stack gap="$2">
+                    {/* <TutorialsList
+                      tutorials={[
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
+                          }),
+                        },
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.qr_wallet_address_creation_failed_firmware_update_desc,
+                          }),
+                          children: (
+                            <Stack>
+                              <Button
+                                size="small"
+                                mt="$2"
+                                iconAfter="OpenOutline"
+                                onPress={() =>
+                                  Linking.openURL(FIRMWARE_UPDATE_WEB_TOOLS_URL)
+                                }
+                              >
+                                {intl.formatMessage({
+                                  id: ETranslations.global_check_for_updates,
+                                })}
+                              </Button>
+                            </Stack>
+                          ),
+                        },
+                      ]}
+                    />
+
+                    <XStack mt="$2" gap="$1.5">
+                      <SizableText color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.contact_us_instruction,
+                        })}
+                      </SizableText>
+                      <Button
+                        variant="tertiary"
+                        // onPress={() => Linking.openURL(requestsUrl)}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_contact_us,
+                        })}
+                      </Button>
+                    </XStack> */}
                   </Stack>
                 ),
               });
@@ -185,6 +234,7 @@ export function useAccountSelectorCreateAddress() {
     [
       actions,
       createQrWalletByUr,
+      intl,
       serviceAccount,
       serviceBatchCreateAccount,
       serviceQrWallet,

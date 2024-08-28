@@ -6,6 +6,7 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { InteractionManager } from 'react-native';
@@ -46,7 +47,14 @@ export type IInputProps = {
   error?: boolean;
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
+  allowClear?: boolean; // add clear button when controlled value is not empty
   containerProps?: IGroupProps;
+  // not support on Native
+  // https://github.com/facebook/react-native/pull/45425
+  // About to add to React-Native.
+  //
+  // https://github.com/Expensify/App/pull/47203/files#diff-9bdb475c2552cf81e4b3cdf2496ef5f779fd501613ac89c1252538b008722abc
+  onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
     /** Web only */
@@ -117,7 +125,8 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     size = 'medium',
     leftAddOnProps,
     leftIconName,
-    addOns,
+    addOns: addOnsInProps,
+    allowClear,
     disabled,
     editable,
     error,
@@ -128,6 +137,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     onFocus,
     value,
     displayAsMaskWhenEmptyValue,
+    onPaste,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -142,6 +152,32 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
   const readOnlyStyle = useReadOnlyStyle(readonly);
+
+  const addOns = useMemo<IInputAddOnProps[] | undefined>(() => {
+    if (allowClear && inputProps?.value) {
+      return [
+        ...(addOnsInProps ?? []),
+        {
+          iconName: 'XCircleOutline',
+          onPress: () => {
+            inputRef?.current?.clear();
+            inputProps?.onChangeText?.('');
+          },
+        },
+      ];
+    }
+    return addOnsInProps;
+  }, [allowClear, addOnsInProps, inputProps]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative && inputRef.current && onPaste) {
+      const inputElement = inputRef.current as unknown as HTMLInputElement;
+      inputElement.addEventListener('paste', onPaste);
+      return () => {
+        inputElement.removeEventListener('paste', onPaste);
+      };
+    }
+  }, [onPaste]);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -328,3 +364,42 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
 const forwardRefInput = forwardRef<IInputRef, IInputProps>(BaseInput);
 
 export const Input = forwardRefInput;
+
+function BaseInputUnControlled(
+  inputProps: IInputProps,
+  ref: ForwardedRef<IInputRef>,
+) {
+  const inputRef: RefObject<IInputRef> = useRef(null);
+
+  const [internalValue, setInternalValue] = useState(
+    inputProps?.defaultValue || '',
+  );
+  const handleChange = useCallback(
+    (text: string) => {
+      setInternalValue(text);
+      inputProps?.onChangeText?.(text);
+    },
+    [inputProps],
+  );
+  useImperativeHandle(
+    ref,
+    () =>
+      inputRef.current || {
+        focus: () => {},
+      },
+  );
+  return (
+    <Input
+      ref={inputRef}
+      {...inputProps}
+      value={internalValue}
+      onChangeText={handleChange}
+    />
+  );
+}
+
+const forwardRefInputUnControlled = forwardRef<IInputRef, IInputProps>(
+  BaseInputUnControlled,
+);
+
+export const InputUnControlled = forwardRefInputUnControlled;
