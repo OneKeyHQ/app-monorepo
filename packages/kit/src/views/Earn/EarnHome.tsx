@@ -19,7 +19,6 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAvailableAsset } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
@@ -57,6 +56,12 @@ function Overview() {
         : new BigNumber(0),
     [accounts],
   );
+  const navigation = useAppNavigation();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.InvestmentDetails,
+    });
+  }, [navigation]);
   return (
     <YStack
       gap="$1"
@@ -64,6 +69,7 @@ function Overview() {
       borderRadius="$3"
       userSelect="none"
       {...listItemPressStyle}
+      onPress={onPress}
     >
       <XStack justifyContent="space-between">
         <SizableText size="$bodyLg">Total staked value</SizableText>
