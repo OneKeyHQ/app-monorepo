@@ -33,6 +33,7 @@ import { EarnProviderMirror } from './EarnProviderMirror';
 
 function Overview() {
   const [{ accounts }] = useEarnAtom();
+  console.log('EarnHome---', accounts);
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
     () =>
