@@ -788,7 +788,11 @@ class ServiceHardware extends ServiceBase {
     const { getHomeScreenDefaultList, getHomeScreenSize } =
       await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
-    const names = getHomeScreenDefaultList(device.featuresInfo || ({} as any));
+    let names = getHomeScreenDefaultList(device.featuresInfo || ({} as any));
+    if (['classic', 'mini', 'classic1s'].includes(device.deviceType)) {
+      // genesis.png is trezor brand image
+      names = names.filter((name) => name !== 'genesis');
+    }
     const size = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,

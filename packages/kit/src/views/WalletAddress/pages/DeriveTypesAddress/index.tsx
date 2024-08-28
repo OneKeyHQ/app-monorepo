@@ -121,7 +121,6 @@ const DeriveTypesAddressItem = ({
         await copyAccountAddress({
           accountId: item.account.id,
           networkId: network.id,
-          deriveType: item.deriveType,
         });
       } else if (actionType === EDeriveAddressActionType.Select) {
         onSelected?.({
