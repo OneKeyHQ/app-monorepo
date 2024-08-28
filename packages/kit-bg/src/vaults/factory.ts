@@ -37,7 +37,10 @@ import {
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError, VaultKeyringNotDefinedError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  VaultKeyringNotDefinedError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
