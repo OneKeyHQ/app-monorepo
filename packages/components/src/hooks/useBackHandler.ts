@@ -19,16 +19,11 @@ export const useBackHandler = (
 
   useEffect(() => {
     if (!enable) return;
-    window.addEventListener(
-      isKeyDown ? 'keydown' : 'keyup',
-      handleKeyDown,
-      true,
-    );
+    window.addEventListener(isKeyDown ? 'keydown' : 'keyup', handleKeyDown);
     return () => {
       window.removeEventListener(
         isKeyDown ? 'keydown' : 'keyup',
         handleKeyDown,
-        true,
       );
     };
   }, [enable, handleKeyDown, isKeyDown]);

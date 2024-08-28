@@ -43,6 +43,46 @@ const stickySectionListData = [
   },
   { title: 'NFT', data: NFTDATA },
   { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
 ];
 
 const SectionListDemo = () => {
@@ -113,6 +153,7 @@ const StickySectionListDemo = () => {
       )}
       estimatedItemSize="$10"
       stickySectionHeadersEnabled
+      initialScrollIndex={40}
       renderItem={({
         item,
       }: {
