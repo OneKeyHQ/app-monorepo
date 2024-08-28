@@ -57,23 +57,14 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, deriveType, token } = route.params;
+  const { networkId, accountId, walletId, token } = route.params;
 
-  const { account, network, wallet, vaultSettings } = useAccountData({
-    accountId,
-    networkId,
-    walletId,
-  });
-
-  const addressType = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceAccount.getAccountAddressType({
+  const { account, network, wallet, vaultSettings, addressType, deriveType } =
+    useAccountData({
       accountId,
       networkId,
-      address: account?.address ?? '',
+      walletId,
     });
-
-    return r.typeKey ? intl.formatMessage({ id: r.typeKey }) : r.type ?? '';
-  }, [account?.address, accountId, intl, networkId]).result;
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
@@ -142,6 +133,8 @@ function ReceiveToken() {
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
     try {
+      if (!deriveType) return;
+
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
