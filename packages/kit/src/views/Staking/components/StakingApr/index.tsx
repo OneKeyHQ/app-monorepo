@@ -78,7 +78,7 @@ const MaticStakingListItem = ({
   );
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.EarnTokenDetail,
+      screen: EModalStakingRoutes.MaticLidoOverview,
       params: { networkId, accountId },
     });
   }, [navigation, networkId, accountId]);

@@ -111,14 +111,7 @@ export type IStakeClaimBaseParams = {
   networkId: string;
   symbol: string;
   provider: string;
-};
-
-export type IStakeUnlockBaseParams = {
-  accountId: string;
-  networkId: string;
-  symbol: string;
-  provider: string;
-  amount: string;
+  amount?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -192,6 +185,8 @@ export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
   available: string;
+  pendingInactive?: string;
+  claimable?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
   token: {

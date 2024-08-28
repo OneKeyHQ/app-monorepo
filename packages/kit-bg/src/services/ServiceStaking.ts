@@ -28,7 +28,6 @@ import type {
   IStakeProtocolListItem,
   IStakeTag,
   IStakeTxResponse,
-  IStakeUnlockBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
 import { vaultFactory } from '../vaults/factory';
@@ -405,22 +404,6 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IEncodedTx;
     }>(`/earn/v1/claim`, { accountAddress, networkId, ...rest });
-    return resp.data.data;
-  }
-
-  @backgroundMethod()
-  async buildUnlockTransaction(params: IStakeUnlockBaseParams) {
-    const { networkId, accountId, ...rest } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-
-    const resp = await client.post<{
-      data: IEncodedTx;
-    }>(`/earn/v1/unlock`, { accountAddress, networkId, ...rest });
     return resp.data.data;
   }
 

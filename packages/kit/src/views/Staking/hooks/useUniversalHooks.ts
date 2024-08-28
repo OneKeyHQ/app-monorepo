@@ -156,12 +156,14 @@ export function useUniversalClaim({
   const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
+      amount,
       provider,
       symbol,
       stakingInfo,
       onSuccess,
       onFail,
     }: {
+      amount?: string;
       symbol: string;
       provider: string;
       stakingInfo?: IStakingInfo;
@@ -174,49 +176,7 @@ export function useUniversalClaim({
           accountId,
           symbol,
           provider,
-        });
-      await navigationToSendConfirm({
-        encodedTx,
-        stakingInfo,
-        onSuccess,
-        onFail,
-      });
-    },
-    [navigationToSendConfirm, accountId, networkId],
-  );
-}
-
-export function useUniversalUnlock({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
-  return useCallback(
-    async ({
-      amount,
-      provider,
-      symbol,
-      stakingInfo,
-      onSuccess,
-      onFail,
-    }: {
-      amount: string;
-      symbol: string;
-      provider: string;
-      stakingInfo?: IStakingInfo;
-      onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
-      onFail?: IModalSendParamList['SendConfirm']['onFail'];
-    }) => {
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildUnlockTransaction({
           amount,
-          networkId,
-          accountId,
-          symbol,
-          provider,
         });
       await navigationToSendConfirm({
         encodedTx,

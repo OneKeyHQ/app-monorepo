@@ -1,9 +1,9 @@
 import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
 
 import {
+  Button,
   Icon,
   NumberSizeableText,
-  Page,
   Progress,
   SizableText,
   Stack,
@@ -15,6 +15,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { YStackProps } from 'tamagui';
 
@@ -25,17 +26,11 @@ type IStakedValue = {
   tokenSymbol: string;
 };
 
-enum EPortfolioActionType {
-  WithdrawalRequested = 'WithdrawalRequested',
-  PendingActivation = 'PendingActivation',
-  Active = 'Active',
-}
-
-type IPortfolioItem = {
-  tokenId: string;
-  tokenNumber: number;
-  tokenSymbol: string;
-  actionType: EPortfolioActionType;
+type IPortfolioValue = {
+  pendingInactive?: string;
+  claimable?: string;
+  token: IToken;
+  onClaim?: () => void;
 };
 
 type IProfit = {
@@ -68,7 +63,7 @@ type ISolutions = {
 
 type IEarnTokenDetailResult = {
   stakedValue: IStakedValue;
-  portfolio: IPortfolioItem[];
+  portfolio: IPortfolioValue;
   profit: IProfit;
   provider: IProvider;
   solutions: ISolutions;
@@ -134,72 +129,84 @@ function StakedValue({
   );
 }
 
-function Portfolio({ messages = [] }: { messages: IPortfolioItem[] }) {
-  const renderText = useCallback((actionType: EPortfolioActionType) => {
-    switch (actionType) {
-      case EPortfolioActionType.Active:
-        return 'Active';
-      case EPortfolioActionType.PendingActivation:
-        return 'Pending Activation';
-      case EPortfolioActionType.WithdrawalRequested:
-        return 'Withdrawal requested';
-      default: {
-        return '';
-      }
-    }
-  }, []);
-  const renderTooltipText = useCallback((actionType: EPortfolioActionType) => {
-    let tooltip = '';
-    switch (actionType) {
-      case EPortfolioActionType.Active:
-        tooltip = '123';
-        break;
-      case EPortfolioActionType.PendingActivation:
-        tooltip = '456';
-        break;
-      case EPortfolioActionType.WithdrawalRequested:
-      default:
-        tooltip = '';
-        break;
-    }
-    return tooltip ? (
-      <Tooltip
-        placement="top"
-        renderContent={tooltip}
-        renderTrigger={<Icon name="InfoCircleOutline" size="$5" />}
-      />
-    ) : null;
-  }, []);
-  return (
-    <YStack pt="$3" pb="$8" gap="$6" px="$5">
-      <SizableText size="$headingLg">Portfolio</SizableText>
-      {messages.length
-        ? messages.map(({ tokenId, tokenNumber, actionType }) => (
-            <YStack gap="$3" key={tokenId}>
-              <XStack gap="$1.5">
-                <Token
-                  size="sm"
-                  tokenImageUri="https://uni.onekey-asset.com/static/chain/btc.png"
-                />
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="value"
-                  formatterOptions={{ tokenSymbol: 'ETH' }}
-                >
-                  {tokenNumber}
-                </NumberSizeableText>
-                <XStack gap="$1" ai="center">
-                  <SizableText size="$bodyLg">
-                    {renderText(actionType)}
-                  </SizableText>
-                  {renderTooltipText(actionType)}
-                </XStack>
-              </XStack>
-            </YStack>
-          ))
-        : null}
-    </YStack>
-  );
+const PortfolioItem = ({
+  tokenImageUri,
+  tokenSymbol,
+  amount,
+  statusText,
+  onPress,
+  buttonText,
+}: {
+  tokenImageUri?: string;
+  tokenSymbol: string;
+  amount: string;
+  statusText: string;
+  onPress?: () => void;
+  buttonText?: string;
+}) => (
+  <XStack alignItems="center" justifyContent="space-between">
+    <XStack alignItems="center">
+      <Token size="sm" tokenImageUri={tokenImageUri} />
+      <XStack w="$1.5" />
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="value"
+        formatterOptions={{ tokenSymbol }}
+      >
+        {amount}
+      </NumberSizeableText>
+      <XStack w="$1.5" />
+      <XStack gap="$1" ai="center">
+        <SizableText size="$bodyLg">{statusText}</SizableText>
+      </XStack>
+    </XStack>
+    {buttonText && onPress ? (
+      <XStack>
+        <Button variant="primary" onPress={onPress}>
+          {buttonText}
+        </Button>
+      </XStack>
+    ) : null}
+  </XStack>
+);
+
+function Portfolio({
+  pendingInactive,
+  claimable,
+  token,
+  onClaim,
+}: IPortfolioValue) {
+  if (
+    (pendingInactive && Number(pendingInactive) > 0) ||
+    (claimable && Number(claimable) > 0)
+  ) {
+    return (
+      <YStack pt="$3" pb="$8" gap="$6" px="$5">
+        <SizableText size="$headingLg">Portfolio</SizableText>
+        <YStack gap="$3">
+          {pendingInactive && Number(pendingInactive) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={pendingInactive}
+              statusText="Pending"
+            />
+          ) : null}
+          {claimable && Number(claimable) > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={claimable}
+              statusText="Claimable"
+              onPress={onClaim}
+              buttonText="Claim"
+            />
+          ) : null}
+        </YStack>
+      </YStack>
+    );
+  }
+  return null;
 }
 
 function GridItem({
@@ -416,10 +423,12 @@ function FAQ({
 
 type IUniversalProtocolDetails = {
   details?: IStakeProtocolDetails;
+  onClaim?: () => void;
 };
 
 export function UniversalProtocolDetails({
   details,
+  onClaim,
 }: IUniversalProtocolDetails) {
   const result: IEarnTokenDetailResult | null = useMemo(() => {
     if (!details) {
@@ -430,6 +439,11 @@ export function UniversalProtocolDetails({
         name: details.provider.name,
         link: details.provider.website,
       },
+    };
+    const portfolio: IPortfolioValue = {
+      pendingInactive: details.pendingInactive,
+      claimable: details.claimable,
+      token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
       provider.minStaking = {
@@ -457,26 +471,7 @@ export function UniversalProtocolDetails({
         availableNumber: Number(details.available),
         tokenSymbol: details.token.info.symbol,
       },
-      portfolio: [
-        {
-          tokenId: '',
-          tokenNumber: 3,
-          tokenSymbol: 'ETH',
-          actionType: EPortfolioActionType.PendingActivation,
-        },
-        {
-          tokenId: '',
-          tokenNumber: 1.2,
-          tokenSymbol: 'ETH',
-          actionType: EPortfolioActionType.WithdrawalRequested,
-        },
-        {
-          tokenId: '',
-          tokenNumber: 3.2,
-          tokenSymbol: 'ETH',
-          actionType: EPortfolioActionType.Active,
-        },
-      ],
+      portfolio,
       profit,
       provider,
       solutions: [
@@ -507,7 +502,7 @@ export function UniversalProtocolDetails({
   return (
     <YStack>
       <StakedValue {...stakedValue} />
-      <Portfolio messages={portfolio} />
+      <Portfolio {...portfolio} onClaim={onClaim} />
       <Profit {...profit} />
       <Provider {...provider} />
       <FAQ solutions={solutions} />
