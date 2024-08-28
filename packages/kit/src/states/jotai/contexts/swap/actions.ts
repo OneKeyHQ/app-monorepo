@@ -723,7 +723,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           !accountUtils.isHwWallet({
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           })) ||
-          swapFromAddressInfo.networkId !== fromToken.networkId ||
           accountUtils.isWatchingWallet({
             walletId: swapFromAddressInfo.accountInfo.wallet.id,
           }))
@@ -1015,12 +1014,17 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
+  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300, {
+    leading: true,
+  });
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = debounce(
     actions.loadSwapSelectTokenDetail.use(),
     200,
+    {
+      leading: true,
+    },
   );
   const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 

@@ -373,7 +373,11 @@ export const EditableChainSelectorContent = ({
               dragItemOverflowHitSlop={dragItemOverflowHitSlop}
               getItemLayout={(_, index) => {
                 if (index === -1) {
-                  return { index, offset: 0, length: 0 };
+                  return {
+                    index,
+                    offset: showAllNetworkHeader ? 56 : 0,
+                    length: 0,
+                  };
                 }
                 return layoutList[index];
               }}
