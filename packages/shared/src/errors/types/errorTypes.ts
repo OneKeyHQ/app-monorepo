@@ -27,6 +27,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
+  OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
