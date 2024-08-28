@@ -324,7 +324,14 @@ function RawPopover({
                 borderCurve="continuous"
                 gap="$2"
               >
-                <SizableText size="$headingXl" color="$text" flexShrink={1}>
+                <SizableText
+                  size="$headingXl"
+                  color="$text"
+                  flexShrink={1}
+                  style={{
+                    wordBreak: 'break-all',
+                  }}
+                >
                   {title}
                 </SizableText>
                 <IconButton
