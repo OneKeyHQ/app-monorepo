@@ -82,7 +82,8 @@ export class KeyringHardware extends KeyringHardwareBase {
             deriveInfo.addressEncoding as 'v4R2',
           );
           const addressInfo: ICoreApiGetAddressItem = {
-            address: addr.normalAddress,
+            address: addr.nonBounceAddress,
+            addresses: {},
             path,
             publicKey: publicKey || '',
           };

@@ -2,10 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import TonWeb from 'tonweb';
 
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -141,7 +138,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       addressEncoding as keyof typeof TonWeb.Wallets.all,
     );
     return {
-      address: addr.normalAddress,
+      address: addr.nonBounceAddress,
       publicKey,
       addresses: {},
     };

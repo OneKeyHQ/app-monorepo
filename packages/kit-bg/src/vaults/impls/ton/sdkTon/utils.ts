@@ -251,7 +251,7 @@ export async function encodeJettonPayload({
     forwardPayload: params.forwardPayload,
   } as unknown as TransferBodyParams);
   return {
-    payload: Buffer.from(await body.toBoc()).toString('hex'),
+    payload: Buffer.from(await body.toBoc()).toString('base64'),
   };
 }
 

@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -126,7 +127,10 @@ export default class Vault extends VaultBase {
         icon: nativeToken.logoURI ?? '',
         name: nativeToken.name,
         symbol: nativeToken.symbol,
-        amount: encodedTx.Amount.toString(),
+        amount: chainValueUtils.convertTokenChainValueToAmount({
+          value: encodedTx.Amount.toString(),
+          token: nativeToken,
+        }),
         isNFT: false,
         isNative: true,
       };
