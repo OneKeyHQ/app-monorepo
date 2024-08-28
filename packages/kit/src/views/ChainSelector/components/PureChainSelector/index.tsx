@@ -6,13 +6,17 @@ import { Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { PureChainSelectorContent } from './ChainSelectorContent';
+import { ChainSelectorListView } from './ChainSelectorListView';
+import { ChainSelectorSectionList } from './ChainSelectorSectionList';
 
 type IPureChainSelectorProps = {
   networks: IServerNetwork[];
   title?: string;
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
+
+  unavailable?: IServerNetwork[];
+  grouped?: boolean;
 };
 
 export const PureChainSelector: FC<IPureChainSelectorProps> = ({
@@ -20,6 +24,8 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   title,
   networkId,
   onPressItem,
+  unavailable,
+  grouped = true,
 }) => {
   const intl = useIntl();
 
@@ -31,11 +37,20 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
         }
       />
       <Page.Body>
-        <PureChainSelectorContent
-          networkId={networkId}
-          networks={networks}
-          onPressItem={onPressItem}
-        />
+        {grouped ? (
+          <ChainSelectorSectionList
+            networkId={networkId}
+            networks={networks}
+            onPressItem={onPressItem}
+            unavailable={unavailable}
+          />
+        ) : (
+          <ChainSelectorListView
+            networkId={networkId}
+            networks={networks}
+            onPressItem={onPressItem}
+          />
+        )}
       </Page.Body>
     </Page>
   );
