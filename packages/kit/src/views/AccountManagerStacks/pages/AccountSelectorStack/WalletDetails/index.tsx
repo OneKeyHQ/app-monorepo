@@ -548,7 +548,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                       size="small"
                       allowClear
                       placeholder={intl.formatMessage({
-                        id: ETranslations.global_search,
+                        id: ETranslations.global_search_account_selector,
                       })}
                       defaultValue=""
                       onChangeText={handleSearch}
