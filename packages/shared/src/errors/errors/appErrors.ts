@@ -74,6 +74,7 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
@@ -114,6 +115,18 @@ export class OneKeyInternalError extends OneKeyError {
       }),
     );
   }
+}
+
+export class VaultKeyringNotDefinedError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'VaultKeyringNotDefinedError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.VaultKeyringNotDefinedError;
 }
 
 export class PasswordPromptDialogCancel extends OneKeyError {

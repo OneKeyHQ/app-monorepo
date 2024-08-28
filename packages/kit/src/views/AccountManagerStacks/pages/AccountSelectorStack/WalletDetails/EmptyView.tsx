@@ -18,6 +18,8 @@ export function EmptyNoAccountsView({
       title={section.emptyText}
       titleProps={{
         size: '$bodyLg',
+        textAlign: 'left',
+        py: '$2',
       }}
     />
   ) : null;

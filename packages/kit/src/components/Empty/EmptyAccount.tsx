@@ -48,7 +48,7 @@ function EmptyAccount(props: IProps) {
           id: ETranslations.wallet_unsupported_network_title,
         },
         {
-          'network': activeAccount?.network?.name,
+          'network': activeAccount?.network?.name || '',
         },
       );
       description = intl.formatMessage({

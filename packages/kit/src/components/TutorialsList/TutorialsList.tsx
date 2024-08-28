@@ -5,6 +5,7 @@ import { SizableText, Stack, XStack } from '@onekeyhq/components';
 export type ITutorialsListItem = {
   title: string;
   description?: string;
+  children?: React.ReactNode;
 };
 export function TutorialsList({
   tutorials,
@@ -29,13 +30,14 @@ export function TutorialsList({
               {index + 1}
             </SizableText>
           </Stack>
-          <Stack flex={1}>
+          <Stack flex={1} alignItems="flex-start">
             <SizableText size={item.description ? '$headingMd' : '$bodyLg'}>
               {item.title}
             </SizableText>
             {item.description ? (
               <SizableText>{item.description}</SizableText>
             ) : null}
+            {item.children}
           </Stack>
         </XStack>
       ))}
