@@ -28,6 +28,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
     responseAddress?: string;
     forwardPayload?: Uint8Array;
   };
+  comment?: string;
 } {
   let type = EDecodedTxActionType.UNKNOWN;
   if (!payload) {
@@ -37,24 +38,16 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
   let bytes;
   if (typeof payload === 'string') {
     try {
-      bytes = Buffer.from(payload, 'hex');
+      bytes = Buffer.from(payload, 'base64');
     } catch (e) {
       try {
-        bytes = Buffer.from(payload, 'base64');
+        bytes = Buffer.from(payload, 'hex');
       } catch (ee) {
         // ignore
       }
     }
   } else if (payload instanceof Uint8Array) {
     bytes = payload;
-  }
-  if (
-    bytes &&
-    bytes.length >= 32 &&
-    bytes.subarray(0, 32).toString('hex') ===
-      '0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    type = EDecodedTxActionType.ASSET_TRANSFER;
   }
 
   let jetton;
@@ -98,6 +91,12 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
             : undefined,
           forwardPayload,
         };
+      } else if (op === '0') {
+        type = EDecodedTxActionType.ASSET_TRANSFER;
+        const comment = Buffer.from(
+          slice.loadBits(slice.getFreeBits()),
+        ).toString();
+        return { type, comment };
       }
     } catch (e) {
       // ignore
@@ -271,4 +270,11 @@ export async function getJettonData({
     } as any,
   );
   return jettonWallet.getData();
+}
+
+export async function encodeComment(comment: string) {
+  const cell = new TonWeb.boc.Cell();
+  cell.bits.writeUint(0, 32);
+  cell.bits.writeString(comment);
+  return Buffer.from(await cell.toBoc()).toString('base64');
 }

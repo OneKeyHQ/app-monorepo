@@ -32,10 +32,10 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import {
   decodePayload,
+  encodeComment,
   encodeJettonPayload,
   getAccountVersion,
   getJettonData,
-  getWalletContractClass,
   getWalletContractInstance,
   serializeUnsignedTransaction,
 } from './sdkTon/utils';
@@ -103,10 +103,10 @@ export default class Vault extends VaultBase {
           amount,
           sendMode: 0,
         };
-        if (
-          transfer.tokenInfo?.symbol &&
-          network.symbol !== transfer.tokenInfo.symbol
-        ) {
+        if (transfer.memo) {
+          msg.payload = await encodeComment(transfer.memo);
+        }
+        if (transfer.tokenInfo && !transfer.tokenInfo?.isNative) {
           const fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
           const jettonAddress = transfer.tokenInfo.address;
@@ -133,6 +133,7 @@ export default class Vault extends VaultBase {
           msg.jetton = {
             amount,
             jettonMasterAddress,
+            jettonWalletAddress: jettonAddress,
             fwdFee,
           };
         }
