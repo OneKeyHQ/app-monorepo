@@ -222,22 +222,27 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
+  const totalQuoteCount = get(swapQuoteEventTotalCountAtom());
   const manualSelectQuoteResult = list.find(
     (item) =>
       item.info.provider === manualSelectQuoteProviders?.info.provider &&
       item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
-  return manualSelectQuoteProviders &&
-    (manualSelectQuoteResult?.toAmount ||
-      manualSelectQuoteResult?.limit?.max ||
-      manualSelectQuoteResult?.limit?.min)
-    ? list.find(
-        (item) =>
-          item.info.provider === manualSelectQuoteProviders.info.provider &&
-          item.info.providerName ===
-            manualSelectQuoteProviders.info.providerName,
-      )
-    : list[0];
+  if (manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount) {
+    return list.find(
+      (item) =>
+        item.info.provider === manualSelectQuoteProviders.info.provider &&
+        item.info.providerName === manualSelectQuoteProviders.info.providerName,
+    );
+  }
+  if (
+    list?.length > 0 &&
+    (list.some((item) => item.toAmount) ||
+      (totalQuoteCount <= list.length && list.every((item) => !item.toAmount)))
+  ) {
+    return list[0];
+  }
+  return undefined;
 });
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
