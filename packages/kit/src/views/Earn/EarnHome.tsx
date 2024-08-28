@@ -7,6 +7,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -18,6 +19,9 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
+
+import { EarnProviderMirror } from './EarnProviderMirror';
 
 function Overview({
   assets,
@@ -83,61 +87,59 @@ function Overview({
   );
 }
 
-function AvailableAssets({ assets }: { assets: IAvailableAsset[] }) {
-  return (
-    <YStack gap="$2" userSelect="none">
-      <SizableText px="$5" size="$headingLg">
-        Available assets
-      </SizableText>
-      {assets.map(({ name, logoURI, apr }) => (
-        <ListItem
-          key={name}
-          mx={0}
-          px="$5"
-          onPress={() => {}}
-          avatarProps={{ src: logoURI }}
-          renderItemText={
-            <XStack justifyContent="space-between" flex={1}>
-              <XStack gap="$2">
-                <SizableText size="$bodyLgMedium">{name}</SizableText>
-                {/* <Badge badgeType="critical" badgeSize="sm" userSelect="none">
-                  <Badge.Text>Hot</Badge.Text>
-                </Badge> */}
+function AvailableAssets() {
+  const [{ availableAssets: assets = [] }] = useEarnAtom();
+  if (assets.length) {
+    return (
+      <YStack gap="$2" userSelect="none">
+        <SizableText px="$5" size="$headingLg">
+          Available assets
+        </SizableText>
+        {assets.map(({ name, logoURI, apr }) => (
+          <ListItem
+            key={name}
+            mx={0}
+            px="$5"
+            onPress={() => {}}
+            avatarProps={{ src: logoURI }}
+            renderItemText={
+              <XStack justifyContent="space-between" flex={1}>
+                <XStack gap="$2">
+                  <SizableText size="$bodyLgMedium">{name}</SizableText>
+                  {/* <Badge badgeType="critical" badgeSize="sm" userSelect="none">
+                    <Badge.Text>Hot</Badge.Text>
+                  </Badge> */}
+                </XStack>
+                <XStack>
+                  <SizableText size="$bodyLgMedium">{`${apr} APR`}</SizableText>
+                </XStack>
               </XStack>
-              <XStack>
-                <SizableText size="$bodyLgMedium">{`${apr} APR`}</SizableText>
-              </XStack>
-            </XStack>
-          }
-        />
-      ))}
-    </YStack>
-  );
+            }
+          />
+        ))}
+      </YStack>
+    );
+  }
+  return null;
 }
 
 function BasicEarnHome() {
   const {
     activeAccount: { account, accountName, network },
   } = useActiveAccount({ num: 0 });
-
-  const {
-    result: { assets },
-  } = usePromiseResult(
+  const actions = useEarnActions();
+  usePromiseResult(
     async () => {
-      const r = await backgroundApiProxy.serviceStaking.getAvailableAssets();
-      return r;
+      const assets =
+        await backgroundApiProxy.serviceStaking.getAvailableAssets();
+      actions.current.updateAvailableAssets(assets);
     },
-    [],
+    [actions],
     {
-      initResult: {
-        assets: [],
-      },
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
-
-  console.log('---list', assets);
 
   if (network?.chainId === '0') {
     // allNetworks
@@ -148,7 +150,6 @@ function BasicEarnHome() {
   }
 
   if (account && network) {
-    console.log('account----', account, accountName, network);
     const { indexedAccountId } = account;
     const { id: networkId } = network;
     return (
@@ -160,8 +161,8 @@ function BasicEarnHome() {
         <Page.Body>
           <YStack alignItems="center" py="$5">
             <YStack maxWidth="$180" w="100%" gap="$8">
-              <Overview indexedAccountId={indexedAccountId} assets={assets} />
-              <AvailableAssets assets={assets} />
+              {/* <Overview indexedAccountId={indexedAccountId} /> */}
+              <AvailableAssets />
             </YStack>
           </YStack>
         </Page.Body>
@@ -180,7 +181,9 @@ export default function EarnHome() {
       }}
       enabledNum={[0, 1]}
     >
-      <BasicEarnHome />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicEarnHome />
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

@@ -15,7 +15,6 @@ import type {
   IAprItem,
   IAprToken,
   IAvailableAsset,
-  IAvailableAssetsResult,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
@@ -513,9 +512,11 @@ class ServiceStaking extends ServiceBase {
   async getAvailableAssets() {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
-      data: IAvailableAssetsResult;
+      data: {
+        assets: IAvailableAsset[];
+      };
     }>(`/earn/v1/available-assets`);
-    return resp.data.data;
+    return resp.data.data.assets;
   }
 
   @backgroundMethod()

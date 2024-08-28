@@ -224,11 +224,8 @@ export type IAvailableAsset = {
     'address': 'string';
   }[];
 };
-export type IAvailableAssetsResult = {
-  assets: IAvailableAsset[];
-};
 
 export interface IEarnAtomData {
-  accounts: [];
-  availableAssets: IAvailableAsset[];
+  accounts?: [];
+  availableAssets?: IAvailableAsset[];
 }
