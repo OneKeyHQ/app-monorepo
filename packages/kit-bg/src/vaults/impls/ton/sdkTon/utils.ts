@@ -58,6 +58,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
       const data = slice.loadUint(32);
       const op = new BigNumber(data.toString()).toString(16);
       if (op === 'f8a7ea5') {
+        // jetton
         const queryId = slice.loadUint(64);
         const amount = slice.loadCoins();
         const toAddress = slice.loadAddress();
@@ -92,6 +93,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
           forwardPayload,
         };
       } else if (op === '0') {
+        // comment
         type = EDecodedTxActionType.ASSET_TRANSFER;
         const comment = Buffer.from(
           slice.loadBits(slice.getFreeBits()),
