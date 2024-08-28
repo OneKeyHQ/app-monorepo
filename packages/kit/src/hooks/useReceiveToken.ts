@@ -72,8 +72,6 @@ function useReceiveToken({
             networkId,
             accountId,
             walletId,
-            deriveInfo,
-            deriveType,
             token,
           },
         });
@@ -124,19 +122,13 @@ function useReceiveToken({
                     actionType: EDeriveAddressActionType.Select,
                     onSelected: ({
                       account: a,
-                      deriveInfo: di,
-                      deriveType: dt,
                     }: {
                       account: INetworkAccount;
-                      deriveInfo: IAccountDeriveInfo;
-                      deriveType: IAccountDeriveTypes;
                     }) => {
                       navigation.push(EModalReceiveRoutes.ReceiveToken, {
                         networkId: t.networkId ?? networkId,
                         accountId: a.id ?? accountId,
                         walletId,
-                        deriveInfo: di,
-                        deriveType: dt,
                         token: t,
                       });
                     },
@@ -149,8 +141,6 @@ function useReceiveToken({
                 networkId: t.networkId ?? networkId,
                 accountId: t.accountId ?? accountId,
                 walletId,
-                deriveInfo,
-                deriveType,
                 token: t,
               });
             },
@@ -162,7 +152,6 @@ function useReceiveToken({
       account?.indexedAccountId,
       accountId,
       deriveInfo,
-      deriveType,
       intl,
       navigation,
       network?.isAllNetworks,

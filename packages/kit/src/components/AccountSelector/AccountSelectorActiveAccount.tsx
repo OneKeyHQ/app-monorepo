@@ -97,7 +97,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
   const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
@@ -131,8 +131,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
           networkId: network.id,
           accountId: account.id,
           walletId: wallet.id,
-          deriveInfo,
-          deriveType,
         },
       });
     } else {
@@ -143,7 +141,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     account,
     copyText,
     deriveInfo,
-    deriveType,
     logActiveAccount,
     navigation,
     network,

@@ -95,11 +95,30 @@ function TokenSelector() {
                   accountId: account?.id ?? '',
                   networkId: network?.id ?? '',
                 };
+
+            let deriveType;
+
+            if (token.accountId && token.networkId) {
+              const tokenAccount =
+                await backgroundApiProxy.serviceAccount.getAccount({
+                  accountId: token.accountId ?? '',
+                  networkId: token.networkId ?? '',
+                });
+              deriveType = (
+                await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate(
+                  {
+                    networkId: token.networkId,
+                    template: tokenAccount.template,
+                  },
+                )
+              ).deriveType;
+            }
+
             const { accountsInfo } =
               await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
                 ...params,
                 includingNonExistingAccount: true,
-                deriveType: token.accountId ? 'default' : undefined,
+                deriveType,
               });
             accounts = accountsInfo;
           }

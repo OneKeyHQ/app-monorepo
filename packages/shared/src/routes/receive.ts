@@ -24,8 +24,6 @@ export type IModalReceiveParamList = {
     networkId: string;
     accountId: string;
     walletId: string;
-    deriveInfo: IAccountDeriveInfo;
-    deriveType: IAccountDeriveTypes;
     token?: IToken;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
