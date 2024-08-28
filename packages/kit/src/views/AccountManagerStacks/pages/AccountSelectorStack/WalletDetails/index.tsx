@@ -12,6 +12,7 @@ import {
   Icon,
   IconButton,
   Input,
+  InputUnControlled,
   SectionList,
   SizableText,
   Stack,
@@ -542,9 +543,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                   </Stack>
                 )}
                 <Stack px="$5" py="$2">
-                  <Input
+                  <InputUnControlled
                     leftIconName="SearchOutline"
                     size="small"
+                    allowClear
                     placeholder={intl.formatMessage({
                       id: ETranslations.global_search,
                     })}
