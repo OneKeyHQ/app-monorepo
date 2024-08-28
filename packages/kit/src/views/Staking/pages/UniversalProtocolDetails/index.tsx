@@ -17,6 +17,7 @@ import { PageFrame } from '../../components/PageFrame';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
+import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalProtocolDetailsPage = () => {
@@ -76,6 +77,15 @@ const UniversalProtocolDetailsPage = () => {
     });
   }, [result, accountId, networkId, appNavigation]);
 
+  const onClaim = useCallback(async () => {
+    if (!result) return;
+    appNavigation.push(EModalStakingRoutes.UniversalClaim, {
+      accountId,
+      networkId,
+      details: result,
+    });
+  }, [result, accountId, networkId, appNavigation]);
+
   const intl = useIntl();
   return (
     <Page scrollEnabled>
@@ -96,7 +106,7 @@ const UniversalProtocolDetailsPage = () => {
           onRefresh={run}
         >
           <Stack>
-            <UniversalProtocolDetails details={result} />
+            <UniversalProtocolDetails details={result} onClaim={onClaim} />
             <Page.Footer
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_stake,
