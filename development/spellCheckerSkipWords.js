@@ -752,4 +752,5 @@ module.exports = [
   'payin',
   'payout',
   'onopen',
+  'everstake',
 ];

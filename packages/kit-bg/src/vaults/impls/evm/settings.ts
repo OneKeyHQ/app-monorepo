@@ -6,6 +6,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -108,6 +109,49 @@ const settings: IVaultSettings = {
   },
 
   customRpcEnabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().eth]: {
+      providers: {
+        [EEarnProviderEnum.Lido]: {
+          supportedSymbols: ['ETH', 'MATIC'],
+          configs: {
+            'ETH': {
+              displayProfit: true,
+              stakingWithApprove: false,
+              unstakeWithSignMessage: true,
+            },
+            'MATIC': {
+              displayProfit: true,
+              stakingWithApprove: true,
+            },
+          },
+        },
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['ETH'],
+          configs: {
+            'ETH': {
+              displayProfit: true,
+              stakingWithApprove: false,
+            },
+          },
+        },
+      },
+    },
+    [getNetworkIdsMap().polygon]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['MATIC'],
+          configs: {
+            'MATIC': {
+              displayProfit: true,
+              stakingWithApprove: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

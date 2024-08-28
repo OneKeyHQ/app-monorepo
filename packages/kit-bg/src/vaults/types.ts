@@ -21,6 +21,7 @@ import type {
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
@@ -224,6 +225,8 @@ export type IVaultSettings = {
   customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  stakingConfig?: IStakingConfig;
 };
 
 export type IVaultFactoryOptions = {
