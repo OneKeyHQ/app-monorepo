@@ -216,3 +216,19 @@ export type IStakeProtocolListItem = {
   };
   isEarning: boolean;
 };
+
+export type IAvailableAsset = {
+  'name': 'string';
+  'symbol': 'string';
+  'logoURI': 'string';
+  'apr': 'string';
+  'networks': {
+    'networkId': 'string';
+    'name': 'string';
+    'logoURI': 'string';
+    'address': 'string';
+  }[];
+};
+export type IAvailableAssetsResult = {
+  'tokens': IAvailableAsset[];
+};
