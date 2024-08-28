@@ -54,7 +54,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
 
   const txn = new Transaction()
     .from(inputs.map((input) => new UnspentOutput(input)))
-    .to(to, sendAmount.toNumber())
+    .to(to, sendAmount.toFixed())
     .setVersion(0)
     .fee(mass)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access

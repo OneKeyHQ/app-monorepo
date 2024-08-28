@@ -176,9 +176,8 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          await hardwareSDK.deviceUploadResource(
-            device.connectId,
-            uploadResParams,
+          await convertDeviceResponse(() =>
+            hardwareSDK.deviceUploadResource(device.connectId, uploadResParams),
           );
         } else {
           const { getHomeScreenHex } = await CoreSDKLoader();
