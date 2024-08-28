@@ -478,11 +478,11 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getAllNetworkAccount({
-    tokens,
+    assets,
     indexedAccountId,
   }: {
     indexedAccountId: string;
-    tokens: IAvailableAsset[];
+    assets: IAvailableAsset[];
   }) {
     const dbAccounts =
       await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
@@ -493,9 +493,9 @@ class ServiceStaking extends ServiceBase {
     for (let index = 0; index < dbAccounts.length; index += 1) {
       const account = dbAccounts[index];
 
-      const token = tokens.find(({ symbol }) => symbol === account.impl);
+      const token = assets.find(({ symbol }) => symbol === account.impl);
       if (token) {
-        token.networks.forEach((network) => {
+        assets.networks.forEach((network) => {
           accountParams.push({
             accountAddress: account.address,
             networkId: network.networkId,

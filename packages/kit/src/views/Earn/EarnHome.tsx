@@ -20,21 +20,21 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 
 function Overview({
-  tokens,
+  assets,
   indexedAccountId,
 }: {
-  tokens: IAvailableAsset[];
+  assets: IAvailableAsset[];
   indexedAccountId: string;
 }) {
   const { result } = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceStaking.getAllNetworkAccount({
-        tokens,
+        assets,
         indexedAccountId,
       });
       return r;
     },
-    [indexedAccountId, tokens],
+    [indexedAccountId, assets],
     {
       initResult: {},
       watchLoading: true,
@@ -83,13 +83,13 @@ function Overview({
   );
 }
 
-function AvailableAssets({ tokens }: { tokens: IAvailableAsset[] }) {
+function AvailableAssets({ assets }: { assets: IAvailableAsset[] }) {
   return (
     <YStack gap="$2" userSelect="none">
       <SizableText px="$5" size="$headingLg">
         Available assets
       </SizableText>
-      {tokens.map(({ name, logoURI, apr }) => (
+      {assets.map(({ name, logoURI, apr }) => (
         <ListItem
           key={name}
           mx={0}
@@ -100,9 +100,9 @@ function AvailableAssets({ tokens }: { tokens: IAvailableAsset[] }) {
             <XStack justifyContent="space-between" flex={1}>
               <XStack gap="$2">
                 <SizableText size="$bodyLgMedium">{name}</SizableText>
-                <Badge badgeType="critical" badgeSize="sm" userSelect="none">
+                {/* <Badge badgeType="critical" badgeSize="sm" userSelect="none">
                   <Badge.Text>Hot</Badge.Text>
-                </Badge>
+                </Badge> */}
               </XStack>
               <XStack>
                 <SizableText size="$bodyLgMedium">{`${apr} APR`}</SizableText>
@@ -121,7 +121,7 @@ function BasicEarnHome() {
   } = useActiveAccount({ num: 0 });
 
   const {
-    result: { tokens },
+    result: { assets },
   } = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceStaking.getAvailableAssets();
@@ -130,14 +130,14 @@ function BasicEarnHome() {
     [],
     {
       initResult: {
-        tokens: [],
+        assets: [],
       },
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
 
-  console.log('---list', tokens);
+  console.log('---list', assets);
 
   if (network?.chainId === '0') {
     // allNetworks
@@ -158,10 +158,10 @@ function BasicEarnHome() {
           showHeaderRight={false}
         />
         <Page.Body>
-          <YStack alignItems="center">
+          <YStack alignItems="center" py="$5">
             <YStack maxWidth="$180" w="100%" gap="$8">
-              <Overview indexedAccountId={indexedAccountId} tokens={tokens} />
-              <AvailableAssets tokens={tokens} />
+              <Overview indexedAccountId={indexedAccountId} assets={assets} />
+              <AvailableAssets assets={assets} />
             </YStack>
           </YStack>
         </Page.Body>

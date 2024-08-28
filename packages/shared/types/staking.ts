@@ -225,5 +225,5 @@ export type IAvailableAsset = {
   }[];
 };
 export type IAvailableAssetsResult = {
-  'tokens': IAvailableAsset[];
+  assets: IAvailableAsset[];
 };
