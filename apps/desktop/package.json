@@ -56,6 +56,6 @@
     "folderslint": "^1.2.0",
     "glob": "^7.2.0",
     "rimraf": "^3",
-    "webpack": "5.90.3"
+    "webpack": "5.94.0"
   }
 }
