@@ -25,6 +25,8 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
+import { PageFrame } from '../../components/PageFrame';
+
 const AssetProtocolListContent = ({
   items,
 }: {
@@ -108,13 +110,19 @@ const AssetProtocolListContent = ({
   );
 };
 
+const LoadingSkeleton = () => (
+  <Stack w="100%" h="$40" jc="center" ai="center">
+    <Spinner size="large" />
+  </Stack>
+);
+
 const AssetProtocolList = () => {
   const appRoute = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
   const { networkId, accountId, symbol } = appRoute.params;
-  const { result } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolList({
         networkId,
@@ -128,13 +136,19 @@ const AssetProtocolList = () => {
     <Page>
       <Page.Header title="Select Provider" />
       <Page.Body>
-        {result ? (
-          <AssetProtocolListContent items={result} />
-        ) : (
-          <YStack w="100%" h="$40" jc="center" ai="center">
-            <Spinner size="large" />
-          </YStack>
-        )}
+        <PageFrame
+          LoadingSkeleton={LoadingSkeleton}
+          loading={Boolean(
+            result === undefined &&
+              (isLoading !== undefined || isLoading === true),
+          )}
+          error={Boolean(result === undefined && isLoading === false)}
+          onRefresh={run}
+        >
+          <Stack>
+            {result ? <AssetProtocolListContent items={result} /> : null}
+          </Stack>
+        </PageFrame>
       </Page.Body>
     </Page>
   );
