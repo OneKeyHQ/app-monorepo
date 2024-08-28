@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -15,6 +15,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -24,6 +25,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
@@ -100,19 +102,35 @@ function Overview() {
 }
 
 function AvailableAssets() {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
   const [{ availableAssets: assets = [] }] = useEarnAtom();
+  const navigation = useAppNavigation();
+
   if (assets.length) {
     return (
       <YStack gap="$2" userSelect="none">
         <SizableText px="$5" size="$headingLg">
           Available assets
         </SizableText>
-        {assets.map(({ name, logoURI, apr }) => (
+        {assets.map(({ name, logoURI, apr, networks }) => (
           <ListItem
             key={name}
             mx={0}
             px="$5"
-            onPress={() => {}}
+            onPress={() => {
+              if (!account) {
+                return;
+              }
+              navigation.pushModal(EModalRoutes.StakingModal, {
+                screen: EModalStakingRoutes.AssetProtocolList,
+                params: {
+                  networkId: networks[0].networkId,
+                  accountId: account.id,
+                },
+              });
+            }}
             avatarProps={{ src: logoURI }}
             renderItemText={
               <XStack justifyContent="space-between" flex={1}>
