@@ -9,6 +9,7 @@ import {
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
+  IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -36,7 +37,10 @@ import {
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError, VaultKeyringNotDefinedError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  VaultKeyringNotDefinedError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -147,6 +151,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
     [IMPL_ALLNETWORKS]: () => import('./impls/all/Vault') as any,
     [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
+    [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
