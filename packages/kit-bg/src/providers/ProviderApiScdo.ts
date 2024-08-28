@@ -1,4 +1,6 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { keccak256, recoverPublicKey } from 'viem';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import {
@@ -9,8 +11,13 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+
+import { publicKeyToAddress } from '../vaults/impls/scdo/utils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -178,7 +185,37 @@ class ProviderApiScdo extends ProviderApiBase {
       accountId: account.account.id ?? '',
     })) as string;
 
-    return result;
+    return Buffer.from(result, 'hex').toString('base64');
+  }
+
+  @providerApiMethod()
+  public async scdo_ecRecover(
+    request: IJsBridgeMessagePayload,
+    message: string,
+    signature: string,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const signatureBytes =
+      typeof signature === 'string'
+        ? Buffer.from(signature, 'base64')
+        : Buffer.alloc(0);
+    if (
+      typeof message === 'string' &&
+      typeof signature === 'string' &&
+      signatureBytes.length === 65
+    ) {
+      const msgHash = bufferUtils.hexToBytes(
+        hexUtils.stripHexPrefix(keccak256(Buffer.from(message))),
+      );
+      const pubKey = await recoverPublicKey({
+        hash: msgHash,
+        signature: signatureBytes,
+      });
+      return publicKeyToAddress(pubKey);
+    }
+    throw web3Errors.rpc.invalidParams(
+      'scdo_ecRecover requires a message and a 65 bytes signature.',
+    );
   }
 }
 

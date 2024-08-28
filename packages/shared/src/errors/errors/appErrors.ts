@@ -43,6 +43,20 @@ export class NotImplemented extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorNotImplemented;
 }
 
+export class OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet;
+}
+
 export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -72,6 +86,7 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapInvalidQrCode',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }

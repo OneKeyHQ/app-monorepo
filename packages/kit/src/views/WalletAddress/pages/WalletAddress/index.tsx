@@ -203,7 +203,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
       await copyAccountAddress({
         accountId: account.id,
         networkId: item.id,
-        deriveType,
       });
     }
   }, [
