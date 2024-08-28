@@ -24,6 +24,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
+  VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',

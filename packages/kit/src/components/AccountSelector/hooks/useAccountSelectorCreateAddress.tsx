@@ -29,6 +29,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { TutorialsList } from '../../TutorialsList';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
 
@@ -207,61 +208,41 @@ export function useAccountSelectorCreateAddress() {
                   id: ETranslations.qr_wallet_address_creation_failed_dialog_title,
                 }),
                 showConfirmButton: false,
-                onCancelText: 'Close',
+                onCancelText: intl.formatMessage({
+                  id: ETranslations.global_close,
+                }),
                 renderContent: (
                   <Stack gap="$2">
-                    <XStack gap="$3">
-                      <Stack
-                        borderRadius="$full"
-                        w="$6"
-                        h="$6"
-                        justifyContent="center"
-                        alignItems="center"
-                        bg="$bgInfo"
-                      >
-                        <SizableText size="$bodyMd" color="$textInfo">
-                          1
-                        </SizableText>
-                      </Stack>
-                      <SizableText>
-                        {intl.formatMessage({
-                          id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
-                        })}
-                      </SizableText>
-                    </XStack>
-                    <XStack gap="$3">
-                      <Stack
-                        borderRadius="$full"
-                        w="$6"
-                        h="$6"
-                        justifyContent="center"
-                        alignItems="center"
-                        bg="$bgInfo"
-                      >
-                        <SizableText size="$bodyMd" color="$textInfo">
-                          2
-                        </SizableText>
-                      </Stack>
-                      <Stack flex={1} alignItems="flex-start">
-                        <SizableText>
-                          {intl.formatMessage({
+                    <TutorialsList
+                      tutorials={[
+                        {
+                          title: intl.formatMessage({
+                            id: ETranslations.qr_wallet_address_creation_failed_supports_network_desc,
+                          }),
+                        },
+                        {
+                          title: intl.formatMessage({
                             id: ETranslations.qr_wallet_address_creation_failed_firmware_update_desc,
-                          })}
-                        </SizableText>
-                        <Button
-                          size="small"
-                          mt="$2"
-                          iconAfter="OpenOutline"
-                          onPress={() =>
-                            Linking.openURL(FIRMWARE_UPDATE_WEB_TOOLS_URL)
-                          }
-                        >
-                          {intl.formatMessage({
-                            id: ETranslations.global_check_for_updates,
-                          })}
-                        </Button>
-                      </Stack>
-                    </XStack>
+                          }),
+                          children: (
+                            <Stack>
+                              <Button
+                                size="small"
+                                mt="$2"
+                                iconAfter="OpenOutline"
+                                onPress={() =>
+                                  Linking.openURL(FIRMWARE_UPDATE_WEB_TOOLS_URL)
+                                }
+                              >
+                                {intl.formatMessage({
+                                  id: ETranslations.global_check_for_updates,
+                                })}
+                              </Button>
+                            </Stack>
+                          ),
+                        },
+                      ]}
+                    />
 
                     <XStack mt="$2" gap="$1.5">
                       <SizableText color="$textSubdued">
