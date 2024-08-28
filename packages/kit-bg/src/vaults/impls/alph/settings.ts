@@ -10,7 +10,7 @@ import { EDBAccountType } from '../../../dbs/local/consts';
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 // default: 0
-// bip340-schnorr: 1
+// bip340-schnorr: 1 not supported
 const KEY_TYPE_NUM = 0;
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
