@@ -116,6 +116,18 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
+export class VaultKeyringNotDefinedError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'VaultKeyringNotDefinedError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.VaultKeyringNotDefinedError;
+}
+
 export class PasswordPromptDialogCancel extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
