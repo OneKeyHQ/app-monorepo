@@ -14,6 +14,7 @@ export type ISupportedSymbol =
   | 'SBTC';
 
 interface IStakingFlowConfig {
+  tokenAddress: string;
   displayProfit: boolean;
   stakingWithApprove?: boolean;
   unstakeWithTx?: boolean;

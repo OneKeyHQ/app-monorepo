@@ -3,6 +3,7 @@ import {
   ECoreApiExportedSecretKeyType,
 } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
@@ -133,6 +134,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['BTC'],
           configs: {
             'BTC': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
               unstakeWithTx: true,
               withdrawWithTx: true,
