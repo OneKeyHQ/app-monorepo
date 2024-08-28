@@ -322,8 +322,9 @@ function RawPopover({
                 justifyContent="space-between"
                 alignItems="center"
                 borderCurve="continuous"
+                gap="$2"
               >
-                <SizableText size="$headingXl" color="$text">
+                <SizableText size="$headingXl" color="$text" flexShrink={1}>
                   {title}
                 </SizableText>
                 <IconButton
