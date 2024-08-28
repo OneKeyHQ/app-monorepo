@@ -741,11 +741,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 ...account,
                 addressDetail,
                 existsInDb: false,
+                displayAddress:
+                  addressDetail?.displayAddress ||
+                  addressDetail?.address ||
+                  account?.address ||
+                  '',
               };
-              accountForCreate.address =
-                addressDetail?.displayAddress ||
-                addressDetail?.address ||
-                accountForCreate.address;
+
               this.checkIfCancelled({ saveToDb });
 
               defaultLogger.account.batchCreatePerf.processAccountForCreate();

@@ -57,7 +57,7 @@ function DragCellRendererComponent<T>({
     stickyHeaderIndices.findIndex((x) => x === i) !== -1;
   const isSticky = findIsStickyIndex(index);
   const insertHeight = lastIndexHeight ?? 0;
-  lastIndexHeight = getItemLayout(data, Math.max(0, index))?.length;
+  lastIndexHeight = layout?.length;
   return (
     <Draggable draggableId={`${id}`} index={index} isDragDisabled={!enabled}>
       {(provided) => {

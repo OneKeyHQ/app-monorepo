@@ -149,13 +149,16 @@ export const {
   const fromTokenAmount = get(swapFromTokenAmountAtom());
   const fromTokenAmountBN = new BigNumber(fromTokenAmount);
   const sortType = get(swapProviderSortAtom());
-  let sortedList = [...list].filter((item: IFetchQuoteResult) => ({
-    ...item,
-    receivedBest: false,
-    isBest: false,
-    minGasCost: false,
-  }));
-  const gasFeeSorted = list.slice().sort((a, b) => {
+  const resetList: IFetchQuoteResult[] = list.map(
+    (item: IFetchQuoteResult) => ({
+      ...item,
+      receivedBest: false,
+      isBest: false,
+      minGasCost: false,
+    }),
+  );
+  let sortedList = [...resetList];
+  const gasFeeSorted = resetList.slice().sort((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
     return aBig.comparedTo(bBig);
@@ -164,13 +167,13 @@ export const {
     sortedList = [...gasFeeSorted];
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = list.slice().sort((a, b) => {
+    sortedList = resetList.slice().sort((a, b) => {
       const aVal = new BigNumber(a.estimatedTime || Infinity);
       const bVal = new BigNumber(b.estimatedTime || Infinity);
       return aVal.comparedTo(bVal);
     });
   }
-  const receivedSorted = list.slice().sort((a, b) => {
+  const receivedSorted = resetList.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
     // Check if limit exists for a and b
@@ -235,22 +238,27 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
+  const totalQuoteCount = get(swapQuoteEventTotalCountAtom());
   const manualSelectQuoteResult = list.find(
     (item) =>
       item.info.provider === manualSelectQuoteProviders?.info.provider &&
       item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
-  return manualSelectQuoteProviders &&
-    (manualSelectQuoteResult?.toAmount ||
-      manualSelectQuoteResult?.limit?.max ||
-      manualSelectQuoteResult?.limit?.min)
-    ? list.find(
-        (item) =>
-          item.info.provider === manualSelectQuoteProviders.info.provider &&
-          item.info.providerName ===
-            manualSelectQuoteProviders.info.providerName,
-      )
-    : list[0];
+  if (manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount) {
+    return list.find(
+      (item) =>
+        item.info.provider === manualSelectQuoteProviders.info.provider &&
+        item.info.providerName === manualSelectQuoteProviders.info.providerName,
+    );
+  }
+  if (
+    list?.length > 0 &&
+    (list.some((item) => item.toAmount) ||
+      (totalQuoteCount <= list.length && list.every((item) => !item.toAmount)))
+  ) {
+    return list[0];
+  }
+  return undefined;
 });
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
