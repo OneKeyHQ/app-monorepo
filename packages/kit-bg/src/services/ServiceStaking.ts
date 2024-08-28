@@ -502,10 +502,11 @@ class ServiceStaking extends ServiceBase {
         });
       });
     }
-    const resp = await Promise.all(
+    const resp = await Promise.allSettled(
       accountParams.map((params) => this.getAccount(params)),
     );
-    return resp;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
   }
 
   @backgroundMethod()
