@@ -1,3 +1,7 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+
 import {
   Badge,
   Icon,
@@ -7,7 +11,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -23,29 +30,31 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EarnProviderMirror } from './EarnProviderMirror';
 
-function Overview({
-  assets,
-  indexedAccountId,
-}: {
-  assets: IAvailableAsset[];
-  indexedAccountId: string;
-}) {
-  const { result } = usePromiseResult(
-    async () => {
-      const r = await backgroundApiProxy.serviceStaking.getAllNetworkAccount({
-        assets,
-        indexedAccountId,
-      });
-      return r;
-    },
-    [indexedAccountId, assets],
-    {
-      initResult: {},
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
-    },
+function Overview() {
+  const [{ accounts }] = useEarnAtom();
+  const [settings] = useSettingsPersistAtom();
+  const totalFiatValue = useMemo(
+    () =>
+      accounts
+        ? accounts
+            .reduce(
+              (prev, account) => prev.plus(account.totalFiatValue || 0),
+              new BigNumber(0),
+            )
+            .toString()
+        : 0,
+    [accounts],
   );
-  console.log('result---', result);
+  const earnings24h = useMemo(
+    () =>
+      accounts
+        ? accounts.reduce(
+            (prev, account) => prev.plus(account.earnings24h || 0),
+            new BigNumber(0),
+          )
+        : new BigNumber(0),
+    [accounts],
+  );
   return (
     <YStack
       gap="$1"
@@ -68,16 +77,19 @@ function Overview({
         formatter="price"
         formatterOptions={{ currency: '$' }}
       >
-        0
+        {totalFiatValue}
       </NumberSizeableText>
       <XStack gap="$1.5">
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="price"
-          formatterOptions={{ currency: '$', showPlusMinusSigns: !!0 }}
-          color={0 ? '$textInteractive' : '$textDisabled'}
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+            showPlusMinusSigns: !earnings24h.isZero(),
+          }}
+          color={earnings24h.isZero() ? '$textDisabled' : '$textInteractive'}
         >
-          0
+          {earnings24h.toFixed()}
         </NumberSizeableText>
         <SizableText size="$bodyLg" color="$textSubdued">
           24h earnings
@@ -125,7 +137,7 @@ function AvailableAssets() {
 
 function BasicEarnHome() {
   const {
-    activeAccount: { account, accountName, network },
+    activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   usePromiseResult(
@@ -133,43 +145,42 @@ function BasicEarnHome() {
       const assets =
         await backgroundApiProxy.serviceStaking.getAvailableAssets();
       actions.current.updateAvailableAssets(assets);
+
+      if (account) {
+        const { indexedAccountId } = account;
+        if (indexedAccountId) {
+          const accounts =
+            await backgroundApiProxy.serviceStaking.getAllNetworkAccount({
+              assets,
+              indexedAccountId,
+            });
+          actions.current.updateEarnAccounts(accounts);
+        }
+      }
     },
-    [actions],
+    [account, actions],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
 
-  if (network?.chainId === '0') {
-    // allNetworks
-  }
-
-  if (!account) {
-    // create account
-  }
-
-  if (account && network) {
-    const { indexedAccountId } = account;
-    const { id: networkId } = network;
-    return (
-      <Page scrollEnabled>
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.earn}
-          showHeaderRight={false}
-        />
-        <Page.Body>
-          <YStack alignItems="center" py="$5">
-            <YStack maxWidth="$180" w="100%" gap="$8">
-              {/* <Overview indexedAccountId={indexedAccountId} /> */}
-              <AvailableAssets />
-            </YStack>
+  return (
+    <Page scrollEnabled>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.earn}
+        showHeaderRight={false}
+      />
+      <Page.Body>
+        <YStack alignItems="center" py="$5">
+          <YStack maxWidth="$180" w="100%" gap="$8">
+            <Overview />
+            <AvailableAssets />
           </YStack>
-        </Page.Body>
-      </Page>
-    );
-  }
-  return null;
+        </YStack>
+      </Page.Body>
+    </Page>
+  );
 }
 
 export default function EarnHome() {

@@ -212,6 +212,24 @@ export type IStakeProtocolListItem = {
   isEarning: boolean;
 };
 
+export interface IEarnAccountToken {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  profit: string;
+  balance: string;
+  balanceParsed: string;
+  address: string;
+  price: string;
+}
+
+export type IEarnAccount = {
+  claimableNum: number;
+  totalFiatValue: string;
+  earnings24h: string;
+  tokens: IEarnAccountToken[];
+};
 export type IAvailableAsset = {
   'name': 'string';
   'symbol': 'string';
@@ -226,6 +244,6 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: [];
+  accounts?: IEarnAccount[];
   availableAssets?: IAvailableAsset[];
 }
