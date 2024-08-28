@@ -11,6 +11,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -29,6 +30,63 @@ export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
 
 const networkIdMap = getNetworkIdsMap();
+
+const commonStakeConfigs = {
+  ETH: {
+    tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+    displayProfit: true,
+    stakingWithApprove: false,
+  },
+  MATIC: {
+    tokenAddress: EthereumMatic,
+    displayProfit: true,
+    stakingWithApprove: true,
+  },
+};
+
+const lidoConfig = {
+  ETH: {
+    ...commonStakeConfigs.ETH,
+    unstakeWithSignMessage: true,
+  },
+  MATIC: {
+    ...commonStakeConfigs.MATIC,
+  },
+};
+
+const stakingConfig: IStakingConfig = {
+  [getNetworkIdsMap().eth]: {
+    providers: {
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: lidoConfig,
+      },
+      [EEarnProviderEnum.Everstake]: {
+        supportedSymbols: ['ETH'],
+        configs: { ETH: commonStakeConfigs.ETH },
+      },
+    },
+  },
+  [getNetworkIdsMap().sepolia]: {
+    providers: {
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ...lidoConfig,
+          MATIC: { ...lidoConfig.MATIC, tokenAddress: SepoliaMatic },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().holesky]: {
+    providers: {
+      [EEarnProviderEnum.Everstake]: {
+        supportedSymbols: ['ETH'],
+        configs: { ETH: commonStakeConfigs.ETH },
+      },
+    },
+  },
+};
 
 const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
   default: {
@@ -115,86 +173,7 @@ const settings: IVaultSettings = {
 
   customRpcEnabled: true,
 
-  stakingConfig: {
-    [getNetworkIdsMap().eth]: {
-      providers: {
-        [EEarnProviderEnum.Lido]: {
-          supportedSymbols: ['ETH', 'MATIC'],
-          configs: {
-            'ETH': {
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              stakingWithApprove: false,
-              unstakeWithSignMessage: true,
-            },
-            'MATIC': {
-              tokenAddress: EthereumMatic,
-              displayProfit: true,
-              stakingWithApprove: true,
-            },
-          },
-        },
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['ETH'],
-          configs: {
-            'ETH': {
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              stakingWithApprove: false,
-            },
-          },
-        },
-      },
-    },
-    [getNetworkIdsMap().polygon]: {
-      providers: {
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['MATIC'],
-          configs: {
-            'MATIC': {
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              stakingWithApprove: true,
-            },
-          },
-        },
-      },
-    },
-    [getNetworkIdsMap().sepolia]: {
-      providers: {
-        [EEarnProviderEnum.Lido]: {
-          supportedSymbols: ['ETH', 'MATIC'],
-          configs: {
-            'ETH': {
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              stakingWithApprove: false,
-              unstakeWithSignMessage: true,
-            },
-            'MATIC': {
-              tokenAddress: SepoliaMatic,
-              displayProfit: true,
-              stakingWithApprove: true,
-            },
-          },
-        },
-      },
-    },
-    [getNetworkIdsMap().holesky]: {
-      providers: {
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['ETH'],
-          configs: {
-            'ETH': {
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              stakingWithApprove: false,
-            },
-          },
-        },
-      },
-    },
-  },
+  stakingConfig,
 };
 
 export default Object.freeze(settings);
