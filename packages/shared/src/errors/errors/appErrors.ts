@@ -74,6 +74,7 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
