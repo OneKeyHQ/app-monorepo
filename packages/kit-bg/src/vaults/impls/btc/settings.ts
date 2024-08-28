@@ -2,6 +2,7 @@ import {
   EAddressEncodings,
   ECoreApiExportedSecretKeyType,
 } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
@@ -9,6 +10,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -123,6 +125,23 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: true,
 
   preCheckDappTxFeeInfoRequired: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().btc]: {
+      providers: {
+        [EEarnProviderEnum.Babylon]: {
+          supportedSymbols: ['BTC'],
+          configs: {
+            'BTC': {
+              displayProfit: false,
+              unstakeWithTx: true,
+              withdrawWithTx: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

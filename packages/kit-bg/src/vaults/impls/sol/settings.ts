@@ -1,4 +1,5 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
@@ -6,6 +7,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -79,6 +81,23 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   sendZeroWithZeroTokenBalanceDisabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().sol]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              displayProfit: true,
+              unstakeWithTx: true,
+              withdrawWithTx: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);
