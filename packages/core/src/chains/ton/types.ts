@@ -11,6 +11,7 @@ export type ITonMessage = {
   jetton?: {
     amount: string;
     jettonMasterAddress: string;
+    jettonWalletAddress: string;
     fwdFee: string;
   };
 };

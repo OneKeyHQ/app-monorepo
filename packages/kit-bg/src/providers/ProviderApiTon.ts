@@ -121,7 +121,7 @@ class ProviderApiTon extends ProviderApiBase {
     return {
       appName: 'OneKey',
       appVersion: platformEnv.version,
-      maxProtocolVersion: 2,
+      maxProtocolVersion: 4,
       features: [
         { name: 'SendTransaction', maxMessages: 4 },
         // { name: 'SignData' }, // experimental feature

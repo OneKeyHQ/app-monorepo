@@ -57,6 +57,9 @@ const settings: IVaultSettings = {
     // ECoreApiExportedSecretKeyType.publicKey,
   ],
 
+  withMemo: true,
+  memoMaxLength: 256,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
