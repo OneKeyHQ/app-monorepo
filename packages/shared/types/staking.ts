@@ -227,3 +227,8 @@ export type IAvailableAsset = {
 export type IAvailableAssetsResult = {
   assets: IAvailableAsset[];
 };
+
+export interface IEarnAtomData {
+  accounts: [];
+  availableAssets: IAvailableAsset[];
+}
