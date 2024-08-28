@@ -33,6 +33,8 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   softwareAccountDisabled: true,
 
+  supportedDeviceTypes: ['classic1s', 'pro'],
+
   defaultFeePresetIndex: 0,
 
   isUtxo: true,
