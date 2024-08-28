@@ -1,6 +1,7 @@
 import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
 import CoreAllNetwork from '../chains/all';
+import CoreChainAlph from '../chains/alph';
 import CoreChainAptos from '../chains/aptos';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
@@ -83,4 +84,6 @@ export class CoreChainApiHub {
   dynex = new CoreChainDnx();
 
   ckb = new CoreChainCkb();
+
+  alph = new CoreChainAlph();
 }
