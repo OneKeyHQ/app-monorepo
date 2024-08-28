@@ -551,6 +551,52 @@ class ServiceStaking extends ServiceBase {
 
     return null;
   }
+
+  @backgroundMethod()
+  async findSymbolByTokenAddress({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+
+    const allStakingConfig = vaultSettings.stakingConfig;
+    if (!allStakingConfig) {
+      return null;
+    }
+
+    const stakingConfig = allStakingConfig[networkId];
+    if (!stakingConfig) {
+      return null;
+    }
+
+    const normalizedTokenAddress = tokenAddress.toLowerCase();
+
+    const providerEntries = Object.entries(stakingConfig.providers).filter(
+      ([, providerConfig]) => providerConfig !== undefined,
+    );
+
+    for (const [provider, providerConfig] of providerEntries) {
+      const symbolEntry = Object.entries(providerConfig.configs).find(
+        ([, config]) =>
+          config &&
+          config.tokenAddress.toLowerCase() === normalizedTokenAddress,
+      );
+
+      if (symbolEntry) {
+        const [symbol] = symbolEntry;
+        return {
+          symbol: symbol as ISupportedSymbol,
+          provider: provider as EEarnProviderEnum,
+        };
+      }
+    }
+
+    return null;
+  }
 }
 
 export default ServiceStaking;

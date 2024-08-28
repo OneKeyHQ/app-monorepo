@@ -1,5 +1,6 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
@@ -89,6 +90,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['SOL'],
           configs: {
             'SOL': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               unstakeWithTx: true,
               withdrawWithTx: true,

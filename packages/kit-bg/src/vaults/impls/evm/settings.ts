@@ -1,6 +1,11 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  EMPTY_NATIVE_TOKEN_ADDRESS,
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
+import {
   COINTYPE_ETH,
   IMPL_EVM,
   INDEX_PLACEHOLDER,
@@ -117,11 +122,13 @@ const settings: IVaultSettings = {
           supportedSymbols: ['ETH', 'MATIC'],
           configs: {
             'ETH': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               stakingWithApprove: false,
               unstakeWithSignMessage: true,
             },
             'MATIC': {
+              tokenAddress: EthereumMatic,
               displayProfit: true,
               stakingWithApprove: true,
             },
@@ -131,6 +138,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['ETH'],
           configs: {
             'ETH': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               stakingWithApprove: false,
             },
@@ -144,8 +152,43 @@ const settings: IVaultSettings = {
           supportedSymbols: ['MATIC'],
           configs: {
             'MATIC': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               stakingWithApprove: true,
+            },
+          },
+        },
+      },
+    },
+    [getNetworkIdsMap().sepolia]: {
+      providers: {
+        [EEarnProviderEnum.Lido]: {
+          supportedSymbols: ['ETH', 'MATIC'],
+          configs: {
+            'ETH': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              stakingWithApprove: false,
+              unstakeWithSignMessage: true,
+            },
+            'MATIC': {
+              tokenAddress: SepoliaMatic,
+              displayProfit: true,
+              stakingWithApprove: true,
+            },
+          },
+        },
+      },
+    },
+    [getNetworkIdsMap().holesky]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['ETH'],
+          configs: {
+            'ETH': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              stakingWithApprove: false,
             },
           },
         },
