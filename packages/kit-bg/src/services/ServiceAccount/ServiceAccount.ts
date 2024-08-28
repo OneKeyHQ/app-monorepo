@@ -32,9 +32,12 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
+  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -389,37 +392,70 @@ class ServiceAccount extends ServiceBase {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
 
-    defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsStart(params);
+    try {
+      defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsStart(
+        params,
+      );
 
-    const vault = await vaultFactory.getWalletOnlyVault({
-      networkId,
-      walletId,
-    });
+      const vault = await vaultFactory.getWalletOnlyVault({
+        networkId,
+        walletId,
+      });
 
-    const r = await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
-        // addHDOrHWAccounts
-        const accounts = await vault.keyring.prepareAccounts(prepareParams);
-        return {
-          vault,
-          accounts,
+      const r =
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          async () => {
+            // addHDOrHWAccounts
+            const accounts = await vault.keyring.prepareAccounts(prepareParams);
+            return {
+              vault,
+              accounts,
+              networkId,
+              walletId,
+            };
+          },
+          {
+            deviceParams,
+            skipCloseHardwareUiStateDialog,
+            skipDeviceCancel,
+            skipDeviceCancelAtFirst,
+            hideCheckingDeviceLoading,
+            debugMethodName: 'keyring.prepareAccounts',
+            skipWaitingAnimationAtFirst,
+          },
+        );
+
+      defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsEnd(params);
+      return r;
+    } catch (error) {
+      // TODO merge with EmptyAccount\canCreateAddress\isNetworkNotMatched\EmptyAccount
+      if (
+        networkId &&
+        accountUtils.isQrWallet({ walletId }) &&
+        errorUtils.isErrorByClassName({
+          error,
+          className: [
+            EOneKeyErrorClassNames.VaultKeyringNotDefinedError,
+            EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
+          ],
+        })
+      ) {
+        const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
           networkId,
-          walletId,
-        };
-      },
-      {
-        deviceParams,
-        skipCloseHardwareUiStateDialog,
-        skipDeviceCancel,
-        skipDeviceCancelAtFirst,
-        hideCheckingDeviceLoading,
-        debugMethodName: 'keyring.prepareAccounts',
-        skipWaitingAnimationAtFirst,
-      },
-    );
-
-    defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsEnd(params);
-    return r;
+        });
+        throw new OneKeyError({
+          message: appLocale.intl.formatMessage(
+            {
+              id: ETranslations.wallet_unsupported_network_title,
+            },
+            {
+              network: network?.name || '',
+            },
+          ),
+        });
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()
