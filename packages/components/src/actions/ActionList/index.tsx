@@ -153,7 +153,7 @@ function BasicActionList({
   onOpenChange,
   disabled,
   defaultOpen = false,
-  renderItems,
+  renderItems, // TODO add both renderItems and renderItemsAsync(with estimatedContentHeight required)
   estimatedContentHeight,
   ...props
 }: IActionListProps) {
