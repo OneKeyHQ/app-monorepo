@@ -11,6 +11,7 @@ import type {
 import {
   Icon,
   IconButton,
+  Input,
   SectionList,
   SizableText,
   Stack,
@@ -22,7 +23,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -52,14 +52,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountAddress } from './AccountAddress';
-import { AccountValue, AccountValueWithSpotlight } from './AccountValue';
+import { AccountValueWithSpotlight } from './AccountValue';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
@@ -98,6 +97,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const linkNetwork = route.params?.linkNetwork;
   const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
+  const [searchText, setSearchText] = useState('');
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     editMode,
@@ -116,6 +116,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;
+
+  const handleSearch = useDebouncedCallback((text: string) => {
+    console.log('handleSearch', text);
+    setSearchText(text?.trim() || '');
+  }, 300);
 
   const handleImportWatchingAccount = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -170,10 +175,27 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       },
     },
   );
-  const sectionData = useMemo(
+  const sectionDataOriginal = useMemo(
     () => listDataResult?.sectionData || [],
     [listDataResult?.sectionData],
   );
+  const sectionData = useMemo(() => {
+    if (!searchText) {
+      return sectionDataOriginal;
+    }
+    const sectionDataFiltered: IAccountSelectorAccountsListSectionData[] = [];
+    sectionDataOriginal.forEach((section) => {
+      const { data, ...others } = section;
+      sectionDataFiltered.push({
+        ...others,
+        data:
+          (data as IDBIndexedAccount[])?.filter((item) =>
+            item?.name?.toLowerCase()?.includes(searchText?.toLowerCase()),
+          ) ?? [],
+      });
+    });
+    return sectionDataFiltered;
+  }, [sectionDataOriginal, searchText]);
   const sectionDataRef = useRef(sectionData);
   sectionDataRef.current = sectionData;
   const accountsValue = useMemo(
@@ -502,22 +524,35 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             //   ),
             // })}
             ListHeaderComponent={
-              isOthersUniversal ? null : (
-                <Stack
-                  // TODO performance
-                  onLayout={(e) => {
-                    e?.persist?.();
-                    handleLayoutCacheSet('header', () =>
-                      handleLayoutForHeader(e),
-                    );
-                  }}
-                >
-                  <WalletOptions
-                    wallet={focusedWalletInfo?.wallet}
-                    device={focusedWalletInfo?.device}
+              <Stack>
+                {isOthersUniversal ? null : (
+                  <Stack
+                    // TODO performance
+                    onLayout={(e) => {
+                      e?.persist?.();
+                      handleLayoutCacheSet('header', () =>
+                        handleLayoutForHeader(e),
+                      );
+                    }}
+                  >
+                    <WalletOptions
+                      wallet={focusedWalletInfo?.wallet}
+                      device={focusedWalletInfo?.device}
+                    />
+                  </Stack>
+                )}
+                <Stack px="$5" py="$2">
+                  <Input
+                    leftIconName="SearchOutline"
+                    size="small"
+                    placeholder={intl.formatMessage({
+                      id: ETranslations.global_search,
+                    })}
+                    defaultValue=""
+                    onChangeText={handleSearch}
                   />
                 </Stack>
-              )
+              </Stack>
             }
             sections={sectionData ?? (emptyArray as any)}
             renderSectionHeader={({
@@ -529,6 +564,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 {/* If better performance is needed,  */
                 /*  a header component should be extracted and data updates should be subscribed to through context" */}
                 <EmptyNoAccountsView section={section} />
+                {/* No accounts */}
               </>
             )}
             renderItem={({
@@ -709,7 +745,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             }: {
               section: IAccountSelectorAccountsListSectionData;
             }) =>
-              isEditableRouteParams ? (
+              // editable mode and not searching, can add account
+              isEditableRouteParams && !searchText ? (
                 <ListItem
                   onPress={async () => {
                     if (isOthersUniversal) {
@@ -779,6 +816,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       handleLayoutForContainer,
       handleLayoutForHeader,
       handleLayoutForSectionList,
+      handleSearch,
       initialScrollIndex,
       intl,
       isEditableRouteParams,
@@ -789,6 +827,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       navigation,
       num,
       renderAccountValue,
+      searchText,
       sectionData,
       selectedAccount.deriveType,
       selectedAccount.indexedAccountId,
