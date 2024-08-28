@@ -607,12 +607,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                         firstIndexedAccount={
                           isOthersUniversal
                             ? undefined
-                            : (section?.data?.[0] as IDBIndexedAccount)
+                            : (section?.firstAccount as IDBIndexedAccount)
                         }
                         account={account}
                         firstAccount={
                           isOthersUniversal
-                            ? (section?.data?.[0] as IDBAccount)
+                            ? (section?.firstAccount as IDBAccount)
                             : undefined
                         }
                         wallet={focusedWalletInfo?.wallet}
