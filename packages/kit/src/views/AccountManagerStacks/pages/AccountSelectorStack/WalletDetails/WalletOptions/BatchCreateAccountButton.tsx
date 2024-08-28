@@ -1,10 +1,10 @@
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
@@ -29,7 +29,8 @@ function BatchCreateAccountButtonView({
       testID="AccountSelector-WalletOption-Backup"
       icon="Back10Outline"
       label={intl.formatMessage({ id: ETranslations.global_bulk_add_accounts })}
-      onPress={() => {
+      onPress={async () => {
+        await backgroundApiProxy.serviceBatchCreateAccount.prepareBatchCreate();
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
           screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
           params: {

@@ -299,8 +299,10 @@ function BatchCreateAccountPreviewPage({
   }, [networkId, setResult]);
 
   const buildBalanceMapKey = useCallback(
-    ({ account }: { account: INetworkAccount }) =>
-      `${networkId}--${account.address}--${(account as IDBUtxoAccount).xpub}`,
+    ({ account }: { account: IBatchCreateAccount }) =>
+      `${networkId}--${account.displayAddress || account.address}--${
+        (account as IDBUtxoAccount).xpub
+      }`,
     [networkId],
   );
 
@@ -602,7 +604,7 @@ function BatchCreateAccountPreviewPage({
           <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
-                address: account.address,
+                address: account.displayAddress || account.address,
               })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">

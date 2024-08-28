@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { useClipboard } from '@onekeyhq/components';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -16,21 +15,14 @@ export const useCopyAccountAddress = () => {
     async ({
       accountId,
       networkId,
-      deriveType,
     }: {
       accountId: string;
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }) => {
       if (
         accountUtils.isHwAccount({ accountId }) ||
         accountUtils.isQrAccount({ accountId })
       ) {
-        const deriveInfo =
-          await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
-            networkId,
-            deriveType,
-          });
         const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
         appNavigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveToken,
@@ -38,8 +30,6 @@ export const useCopyAccountAddress = () => {
             networkId,
             accountId,
             walletId,
-            deriveInfo,
-            deriveType,
           },
         });
       } else {
