@@ -35,7 +35,7 @@ function TokenDetailsViews(props: IProps) {
     return (
       <Stack height="100%" flex={1} justifyContent="center">
         <Empty
-          testID="Wallet-No-Address-Empty"
+          testID="TokenDetailsViews__Wallet-No-Address-Empty"
           title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
           description={intl.formatMessage({
             id: ETranslations.wallet_no_address_desc,

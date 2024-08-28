@@ -12,6 +12,7 @@ import {
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -26,13 +27,18 @@ import { HardwareProcessingManager } from './HardwareProcessingManager';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
+export type IWithHardwareProcessingControlParams = {
+  skipDeviceCancel?: boolean;
+  skipCloseHardwareUiStateDialog?: boolean;
+  skipDeviceCancelAtFirst?: boolean;
+  skipWaitingAnimationAtFirst?: boolean;
+  hideCheckingDeviceLoading?: boolean;
+};
+
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
-  skipDeviceCancel?: boolean;
-  skipDeviceCancelAtFirst?: boolean;
-  hideCheckingDeviceLoading?: boolean;
   debugMethodName?: string;
-};
+} & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
   skipDeviceCancel?: boolean;
@@ -40,6 +46,7 @@ export type ICloseHardwareUiStateDialogParams = {
   connectId: string | undefined;
   reason?: string;
   deviceResetToHome?: boolean;
+  hardClose?: boolean; // hard close dialog by event bus
 };
 
 @backgroundClass()
@@ -142,8 +149,19 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanHardwareUiState() {
+  async cleanHardwareUiState({
+    hardClose,
+  }: {
+    hardClose?: boolean; // hard close dialog by event bus
+  } = {}) {
     await hardwareUiStateAtom.set(undefined);
+    if (hardClose) {
+      // atom some times not work, emit event to hard close dialog
+      appEventBus.emit(
+        EAppEventBusNames.HardCloseHardwareUiStateDialog,
+        undefined,
+      );
+    }
   }
 
   @backgroundMethod()
@@ -153,13 +171,14 @@ class ServiceHardwareUI extends ServiceBase {
     connectId,
     reason,
     deviceResetToHome = true,
+    hardClose,
   }: ICloseHardwareUiStateDialogParams) {
     try {
       console.log(`closeHardwareUiStateDialog: ${reason || 'no reason'}`);
       if (delay) {
         await timerUtils.wait(delay);
       }
-      await this.cleanHardwareUiState();
+      await this.cleanHardwareUiState({ hardClose });
 
       if (!skipDeviceCancel) {
         if (connectId) {
@@ -178,15 +197,19 @@ class ServiceHardwareUI extends ServiceBase {
 
   async withHardwareProcessing<T>(
     fn: () => Promise<T>,
-    {
+    params: IWithHardwareProcessingOptions,
+  ): Promise<T> {
+    const {
       deviceParams,
       skipDeviceCancel,
+      skipCloseHardwareUiStateDialog,
       skipDeviceCancelAtFirst,
+      skipWaitingAnimationAtFirst,
       hideCheckingDeviceLoading,
       debugMethodName,
-    }: IWithHardwareProcessingOptions,
-  ): Promise<T> {
-    console.log('withHardwareProcessing start: ', debugMethodName);
+    } = params;
+    defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(params);
+
     // >>> mock hardware connectId
     // if (deviceParams?.dbDevice && deviceParams) {
     //   deviceParams.dbDevice.connectId = '11111';
@@ -200,11 +223,19 @@ class ServiceHardwareUI extends ServiceBase {
       });
     }
 
+    defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
+      message: 'cancelableDelay',
+    });
+
+    // TODO: Dialog 和 Toast 在执行 show ，但是动画未结束时，立即调用 close 无效，将导致 Dialog 和 Toast 一直显示
     // wait action animation done
     // action dialog may call getFeatures of the hardware when it is closed
-    if (connectId) {
+    if (connectId && !skipWaitingAnimationAtFirst) {
       await this.hardwareProcessingManager.cancelableDelay(connectId, 350);
     }
+    defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone({
+      message: 'cancelableDelay',
+    });
 
     // test delay
     // await timerUtils.wait(6000);
@@ -226,12 +257,21 @@ class ServiceHardwareUI extends ServiceBase {
 
     let deviceResetToHome = true;
     try {
+      defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
+        message: 'cancelAtFirst',
+      });
       if (connectId && !skipDeviceCancelAtFirst) {
         await this.backgroundApi.serviceHardware.cancel(connectId);
         await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
       }
+      defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone({
+        message: 'cancelAtFirst',
+      });
 
+      defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFn();
       const r = await fn();
+      defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFnDone();
+
       deviceResetToHome = false;
       console.log('withHardwareProcessing done: ', r);
       return r;
@@ -287,11 +327,13 @@ class ServiceHardwareUI extends ServiceBase {
       throw error;
     } finally {
       if (connectId) {
-        await this.closeHardwareUiStateDialog({
-          connectId,
-          skipDeviceCancel, // auto cancel if device call interaction action
-          deviceResetToHome,
-        });
+        if (!skipCloseHardwareUiStateDialog) {
+          await this.closeHardwareUiStateDialog({
+            connectId,
+            skipDeviceCancel, // auto cancel if device call interaction action
+            deviceResetToHome,
+          });
+        }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );

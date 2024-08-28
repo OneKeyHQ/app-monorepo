@@ -1,6 +1,7 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import errorToastUtils from '../errors/utils/errorToastUtils';
 import errorUtils from '../errors/utils/errorUtils';
 import { formatDateFns } from '../utils/dateUtils';
 
@@ -203,7 +204,7 @@ export function toastIfError() {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await originalMethod.apply(this, args);
       } catch (error: unknown) {
-        errorUtils.toastIfError(error);
+        errorToastUtils.toastIfError(error);
         throw error;
       }
     };

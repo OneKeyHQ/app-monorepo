@@ -15,8 +15,10 @@ import {
   useAccountManualCreatingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -31,6 +33,7 @@ export function AccountSelectorCreateAddressButton({
   account,
   buttonRender,
   onCreateDone,
+  onPressLog,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -52,6 +55,7 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined,
   ) => void;
+  onPressLog?: () => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -111,6 +115,7 @@ export function AccountSelectorCreateAddressButton({
     ));
 
   const doCreate = useCallback(async () => {
+    defaultLogger.account.accountCreatePerf.createAddressRunStart();
     if (isLoadingRef.current) {
       return;
     }
@@ -136,6 +141,7 @@ export function AccountSelectorCreateAddressButton({
         console.log({ wallet });
       }
       resp = await createAddress({ num, selectAfterCreate, account });
+      defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
     } finally {
       setAccountManualCreatingAtom((prev) => ({
@@ -186,7 +192,7 @@ export function AccountSelectorCreateAddressButton({
             await doCreate();
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error); // mute auto print log error
-            errorUtils.toastIfErrorDisable(error); // mute auto toast when auto create
+            errorToastUtils.toastIfErrorDisable(error); // mute auto toast when auto create
             throw error;
           } finally {
             //
@@ -214,9 +220,14 @@ export function AccountSelectorCreateAddressButton({
     doAutoCreate,
   ]);
 
+  const onPress = useCallback(async () => {
+    onPressLog?.();
+    await doCreate();
+  }, [doCreate, onPressLog]);
+
   return buttonRender({
     loading: isLoading,
-    onPress: doCreate,
+    onPress,
     children:
       children ??
       intl.formatMessage({ id: ETranslations.global_create_address }),

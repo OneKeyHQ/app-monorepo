@@ -177,27 +177,31 @@ export async function serializeUnsignedTransaction({
       networkId,
     }),
     {
-      address: encodedTx.fromAddress,
+      address: encodedTx.from,
     },
   ) as unknown as IWallet;
   return contract.createTransferMessages(
     new Uint8Array(64),
-    encodedTx.sequenceNo,
+    encodedTx.sequenceNo || 0,
     encodedTx.messages.map((message) => ({
-      toAddress: message.toAddress,
+      toAddress: message.address,
       amount: message.amount,
       payload:
         typeof message.payload === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(message.payload)
+          ? TonWeb.boc.Cell.oneFromBoc(
+              Buffer.from(message.payload, 'base64').toString('hex'),
+            )
           : message.payload,
       sendMode: message.sendMode,
       stateInit:
         typeof message.stateInit === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(message.stateInit)
+          ? TonWeb.boc.Cell.oneFromBoc(
+              Buffer.from(message.stateInit, 'base64').toString('hex'),
+            )
           : message.stateInit,
     })),
     true,
-    encodedTx.expireAt,
+    encodedTx.validUntil,
   );
 }
 

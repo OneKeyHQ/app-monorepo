@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -6,6 +7,8 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -41,37 +44,18 @@ export class KeyringHardware extends KeyringHardwareBase {
             pathSuffix,
             showOnOnekeyFn,
           }) => {
-            console.log(
-              connectId,
-              deviceId,
-              pathPrefix,
-              pathSuffix,
-              showOnOnekeyFn,
-            );
-            return {
-              'event': 'RESPONSE_EVENT',
-              'type': 'RESPONSE_EVENT',
-              'id': 8,
-              'success': true,
-              'payload': [
-                {
-                  'path': "m/44'/541'/0'/0/0",
-                  'address': '1S0118a02f993fc7a4348fd36b7f7a596948f02b31',
-                },
-              ],
-            };
-            // const sdk = await this.getHardwareSDKInstance();
-            // const response = await sdk.cosmosGetAddress(connectId, deviceId, {
-            //   ...params.deviceParams.deviceCommonParams,
-            //   bundle: usedIndexes.map((index, arrIndex) => ({
-            //     path: `${pathPrefix}/${pathSuffix.replace(
-            //       '{index}',
-            //       `${index}`,
-            //     )}`,
-            //     showOnOneKey: showOnOnekeyFn(arrIndex),
-            //   })),
-            // });
-            // return response;
+            const sdk = await this.getHardwareSDKInstance();
+            const response = await sdk.scdoGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${pathSuffix.replace(
+                  '{index}',
+                  `${index}`,
+                )}`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+              })),
+            });
+            return response;
           },
         });
 
@@ -105,21 +89,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = checkIsDefined(dbDevice);
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
-    console.log(deviceCommonParams, connectId, deviceId, sdk, account.path);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxScdo;
     const signingTx = serializeUnsignedTransaction(encodedTx);
     const txHash = hash(signingTx);
-    // const res = await convertDeviceResponse(() =>
-    //   sdk.aptosSignTransaction(connectId, deviceId, {
-    //     ...deviceCommonParams,
-    //     path: account.path,
-    //     rawTx: '',
-    //   }),
-    // );
-    const res = {
-      signature: Buffer.from(new Array(64).fill(0)).toString('base64'),
+    const hwParams = {
+      ...deviceCommonParams,
+      path: account.path,
+      nonce: encodedTx.AccountNonce.toString(),
+      gasPrice: new BigNumber(encodedTx.GasPrice).toString(16),
+      gasLimit: new BigNumber(encodedTx.GasLimit).toString(16),
+      to: encodedTx.To,
+      value: new BigNumber(encodedTx.Amount).toString(16),
+      timestamp: new BigNumber(encodedTx.Timestamp).toString(16),
+      data: encodedTx.Payload,
+      txType: encodedTx.Type,
     };
-    const rawTx = serializeSignedTransaction(encodedTx, txHash, res.signature);
+    const res = await convertDeviceResponse(() =>
+      sdk.scdoSignTransaction(connectId, deviceId, hwParams),
+    );
+    if (!res.signature) {
+      throw new OneKeyInternalError('Failed to sign transaction');
+    }
+    const rawTx = serializeSignedTransaction(
+      encodedTx,
+      txHash,
+      Buffer.from(res.signature, 'hex').toString('base64'),
+    );
     return {
       txid: txHash,
       rawTx,
@@ -136,17 +131,17 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = checkIsDefined(dbDevice);
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
-    console.log(deviceCommonParams, connectId, deviceId, sdk, account.path);
-    // const res = await convertDeviceResponse(() =>
-    //   sdk.aptosSignTransaction(connectId, deviceId, {
-    //     ...deviceCommonParams,
-    //     path: account.path,
-    //     rawTx: '',
-    //   }),
-    // );
-    const res = {
-      signature: Buffer.from(new Array(64).fill(0)).toString('base64'),
-    };
+    const messageHex = Buffer.from(messages[0].message).toString('hex');
+    const res = await convertDeviceResponse(() =>
+      sdk.scdoSignMessage(connectId, deviceId, {
+        ...deviceCommonParams,
+        path: account.path,
+        messageHex,
+      }),
+    );
+    if (!res.signature) {
+      throw new OneKeyInternalError('Failed to sign message');
+    }
     return [res.signature];
   }
 }

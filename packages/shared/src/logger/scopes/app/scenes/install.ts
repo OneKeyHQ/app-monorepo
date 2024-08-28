@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../decorators';
+import { LogToLocal } from '../../../base/decorators';
 
 export class InstallScene extends BaseScene {
   @LogToLocal({ level: 'error' })

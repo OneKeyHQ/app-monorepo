@@ -25,7 +25,7 @@
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
-    "@onekeyfe/kaspa-core-lib": "^1.0.0-alpha.3",
+    "@onekeyfe/kaspa-core-lib": "^1.0.0-alpha.5",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.87.7",
     "@starcoin/starcoin": "^2.3.7",

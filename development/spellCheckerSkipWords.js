@@ -19,6 +19,7 @@ module.exports = [
   'hdk',
   'dkey',
   'impls',
+  'encryptors',
   'txids',
   'ord',
   'exe',
@@ -27,6 +28,7 @@ module.exports = [
   'dont',
   'homescreen',
   'jane',
+  'aes',
   'wildcard',
   'isXprvt',
   'mmkv',
@@ -750,4 +752,5 @@ module.exports = [
   'payin',
   'payout',
   'alph',
+  'onopen',
 ];

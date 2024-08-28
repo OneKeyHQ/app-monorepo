@@ -1,4 +1,3 @@
-import { mnemonicToSeedSync } from 'bip39';
 import {
   address as BitcoinJsAddress,
   crypto as BitcoinJsCrypto,
@@ -17,6 +16,7 @@ import {
   AddressNotSupportSignMethodError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -29,10 +29,11 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
-  batchGetPublicKeys,
+  batchGetPublicKeysAsync,
   decrypt,
   encrypt,
-  mnemonicFromEntropy,
+  mnemonicFromEntropyAsync,
+  mnemonicToSeedAsync,
   secp256k1,
   verify,
 } from '../../secret';
@@ -41,7 +42,7 @@ import { slicePathTemplate } from '../../utils';
 
 import {
   btcForkVersionBytesToBuffer,
-  buildBtcXpubSegwit,
+  buildBtcXpubSegwitAsync,
   getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
@@ -710,6 +711,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHdBtc,
   ): Promise<ICoreApiGetAddressesResult> {
+    defaultLogger.account.accountCreatePerf.getAddressesFromHdBtc();
+
     const {
       template,
       hdCredential,
@@ -729,15 +732,17 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       // (index) => pathSuffix.replace('{index}', index.toString()), // evm
     );
 
+    defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtc();
     // pubkeyInfos.map(i=>i.path)
     //    ["m/49'/0'/0'", "m/49'/0'/1'"]
-    const pubkeyInfos = batchGetPublicKeys(
+    const pubkeyInfos = await batchGetPublicKeysAsync({
       curveName,
       hdCredential,
       password,
-      pathPrefix, // m/49'/0'
+      prefix: pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
-    );
+    });
+    defaultLogger.account.accountCreatePerf.batchGetPublicKeysBtcDone();
 
     if (pubkeyInfos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
@@ -754,8 +759,21 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         addressEncoding
       ] as typeof network.bip32) || network.bip32;
 
-    const mnemonic = mnemonicFromEntropy(hdCredential, password);
-    const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
+    defaultLogger.account.accountCreatePerf.mnemonicFromEntropy();
+    const mnemonic = await mnemonicFromEntropyAsync({
+      hdCredential,
+      password,
+    });
+    defaultLogger.account.accountCreatePerf.mnemonicFromEntropyDone();
+
+    defaultLogger.account.accountCreatePerf.mnemonicToSeed();
+    const seed = await mnemonicToSeedAsync({ mnemonic });
+    defaultLogger.account.accountCreatePerf.mnemonicToSeedDone();
+
+    defaultLogger.account.accountCreatePerf.seedToRootBip32();
+    const root = getBitcoinBip32().fromSeed(seed);
+    defaultLogger.account.accountCreatePerf.seedToRootBip32Done();
+
     const xpubBuffers = [
       Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
       Buffer.from([3]),
@@ -765,10 +783,15 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       pubkeyInfos.map(async (info, index) => {
         const { path, parentFingerPrint, extendedKey } = info;
 
+        defaultLogger.account.accountCreatePerf.bip32DerivePath();
         const node = root.derivePath(`${path}/0/0`);
+
+        defaultLogger.account.accountCreatePerf.derivePathKeyPair();
         const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
+
         const publicKey = keyPair.publicKey.toString('hex');
 
+        defaultLogger.account.accountCreatePerf.keypairToXpub();
         const xpub = bs58check.encode(
           Buffer.concat([
             ...xpubBuffers,
@@ -781,9 +804,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             extendedKey.key,
           ]),
         );
+        defaultLogger.account.accountCreatePerf.keypairToXpubDone();
 
         const firstAddressRelPath = '0/0';
         const relativePaths = [firstAddressRelPath];
+
+        defaultLogger.account.accountCreatePerf.xpubToAddress();
         let { addresses: addressesMap, xpubSegwit } =
           await this.getAddressFromXpub({
             network,
@@ -791,10 +817,13 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             relativePaths,
             addressEncoding,
           });
+        defaultLogger.account.accountCreatePerf.xpubToAddressDone();
+
         const { [firstAddressRelPath]: address } = addressesMap;
 
+        defaultLogger.account.accountCreatePerf.xpubToSegwit();
         // rebuild xpubSegwit by hd account descriptor
-        xpubSegwit = buildBtcXpubSegwit({
+        xpubSegwit = await buildBtcXpubSegwitAsync({
           xpub,
           addressEncoding,
           hdAccountPayload: {
@@ -804,6 +833,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             path,
           },
         });
+        defaultLogger.account.accountCreatePerf.xpubToSegwitDone();
 
         const addressItem: ICoreApiGetAddressItem = {
           address,
@@ -814,9 +844,11 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           xpubSegwit,
           addresses: { [firstAddressRelPath]: address },
         };
+
         return addressItem;
       }),
     );
+    defaultLogger.account.accountCreatePerf.getAddressesFromHdBtcDone();
     return { addresses };
   }
 

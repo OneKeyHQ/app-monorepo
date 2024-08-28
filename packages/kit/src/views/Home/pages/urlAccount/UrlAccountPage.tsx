@@ -20,6 +20,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -185,7 +186,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           }, 600);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
-          errorUtils.toastIfErrorDisable(error);
+          errorToastUtils.toastIfErrorDisable(error);
           hasError = true;
         }
       }

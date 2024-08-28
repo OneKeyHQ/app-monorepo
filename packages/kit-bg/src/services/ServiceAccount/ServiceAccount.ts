@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -97,6 +98,7 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
+import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
@@ -105,16 +107,14 @@ export type IAddHDOrHWAccountsParams = {
   names?: Array<string>;
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
-  skipDeviceCancel?: boolean;
-  skipDeviceCancelAtFirst?: boolean;
-  hideCheckingDeviceLoading?: boolean;
+
   // purpose?: number;
   // skipRepeat?: boolean;
   // callback?: (_account: Account) => Promise<boolean>;
   // isAddInitFirstAccountOnly?: boolean;
   // template?: string;
   // skipCheckAccountExist?: boolean;
-};
+} & IWithHardwareProcessingControlParams;
 export type IAddHDOrHWAccountsResult = {
   networkId: string;
   walletId: string;
@@ -379,20 +379,24 @@ class ServiceAccount extends ServiceBase {
       indexes,
       indexedAccountId,
       deriveType,
+      skipCloseHardwareUiStateDialog,
       skipDeviceCancel,
       skipDeviceCancelAtFirst,
       hideCheckingDeviceLoading,
+      skipWaitingAnimationAtFirst,
     } = params;
 
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
+
+    defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsStart(params);
 
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
     });
 
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    const r = await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
@@ -405,12 +409,17 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
+        skipCloseHardwareUiStateDialog,
         skipDeviceCancel,
         skipDeviceCancelAtFirst,
         hideCheckingDeviceLoading,
         debugMethodName: 'keyring.prepareAccounts',
+        skipWaitingAnimationAtFirst,
       },
     );
+
+    defaultLogger.account.accountCreatePerf.prepareHdOrHwAccountsEnd(params);
+    return r;
   }
 
   @backgroundMethod()
@@ -423,7 +432,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     account: IBatchCreateAccount;
   }) {
-    const { addressDetail, existsInDb, ...dbAccount } = account;
+    const { addressDetail, existsInDb, displayAddress, ...dbAccount } = account;
     if (isNil(dbAccount.pathIndex)) {
       throw new Error(
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',

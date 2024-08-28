@@ -1,4 +1,7 @@
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
 import {
   COINTYPE_TON,
   IMPL_TON,
@@ -20,11 +23,11 @@ export type IAccountDeriveInfoMapTon = IAccountDeriveInfoMapBase & {
 const accountDeriveInfo: IAccountDeriveInfoMapTon = {
   default: {
     namePrefix: '',
-    label: EAddressEncodings.V4R2,
-    template: `m/44'/${COINTYPE_TON}'/0'/0'/${INDEX_PLACEHOLDER}'/0'`,
+    label: EAddressEncodings.TON_V4R2,
+    template: `m/44'/${COINTYPE_TON}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_TON,
-    addressEncoding: EAddressEncodings.V4R2,
-    idSuffix: EAddressEncodings.V4R2,
+    addressEncoding: EAddressEncodings.TON_V4R2,
+    idSuffix: EAddressEncodings.TON_V4R2,
   },
 };
 
@@ -45,9 +48,14 @@ const settings: IVaultSettings = {
   NFTEnabled: true,
   nonceRequired: true,
   feeUTXORequired: false,
-  editFeeEnabled: true,
+  editFeeEnabled: false,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   accountDeriveInfo,
   networkInfo: {

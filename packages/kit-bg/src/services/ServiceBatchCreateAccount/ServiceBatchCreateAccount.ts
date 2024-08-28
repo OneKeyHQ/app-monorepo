@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -31,6 +32,7 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 
 import type { IAccountDeriveTypes } from '../../vaults/types';
+import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
@@ -43,9 +45,8 @@ export type IBatchBuildAccountsBaseParams = {
   walletId: string;
   networkId: string;
   deriveType: IAccountDeriveTypes;
-  skipDeviceCancel?: boolean;
-  hideCheckingDeviceLoading?: boolean;
-};
+  showUIProgress?: boolean;
+} & IWithHardwareProcessingControlParams;
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
   excludedIndexes?: {
@@ -73,10 +74,9 @@ export type IBatchBuildAccountsAdvancedFlowParams =
 export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   walletId: string;
   customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
-  skipDeviceCancel?: boolean;
-  hideCheckingDeviceLoading?: boolean;
   autoHandleExitError?: boolean;
-} & IAdvancedModeFlowParamsBase;
+} & IAdvancedModeFlowParamsBase &
+  IWithHardwareProcessingControlParams;
 
 @backgroundClass()
 class ServiceBatchCreateAccount extends ServiceBase {
@@ -173,7 +173,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
       excludedIndexes,
       saveToDb: true,
     });
-    await this.emitBatchCreateDoneEvents({ saveToDb });
+    await this.emitBatchCreateDoneEvents({
+      saveToDb,
+      showUIProgress: payload.params.showUIProgress,
+    });
     await this.backgroundApi.serviceHardware.cancelByWallet({
       walletId: payload?.params?.walletId,
     });
@@ -246,14 +249,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexedAccountId,
     skipDeviceCancel,
     hideCheckingDeviceLoading,
+    skipCloseHardwareUiStateDialog,
     customNetworks,
   }: {
     walletId: string | undefined;
     indexedAccountId: string | undefined;
-    skipDeviceCancel?: boolean;
-    hideCheckingDeviceLoading?: boolean;
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
-  }): Promise<
+  } & IWithHardwareProcessingControlParams): Promise<
     | {
         addedAccounts: {
           networkId: string;
@@ -262,6 +264,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
       }
     | undefined
   > {
+    defaultLogger.account.batchCreatePerf.addDefaultNetworkAccountsInService({
+      walletId,
+      indexedAccountId,
+    });
     if (!walletId) {
       return;
     }
@@ -289,9 +295,10 @@ class ServiceBatchCreateAccount extends ServiceBase {
         excludedIndexes: {},
         saveToDb: true,
         customNetworks: customNetworks || [],
+        autoHandleExitError: true,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
-        autoHandleExitError: true,
+        skipCloseHardwareUiStateDialog,
       });
     }
   }
@@ -382,9 +389,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
       }
     }
 
-    await this.emitBatchCreateDoneEvents({ saveToDb });
-    await this.backgroundApi.serviceHardware.cancelByWallet({
+    defaultLogger.account.batchCreatePerf.emitBatchCreateDoneEvents({
+      walletId: params.walletId,
+    });
+    await this.emitBatchCreateDoneEvents({ saveToDb, showUIProgress: false });
+
+    defaultLogger.account.batchCreatePerf.cancelDevice({
+      walletId: params.walletId,
+    });
+    void this.backgroundApi.serviceHardware.cancelByWallet({
       walletId: params?.walletId,
+    });
+
+    defaultLogger.account.batchCreatePerf.batchCreateForAllNetworkDone({
+      walletId: params.walletId,
+      addedAccountsCount: addedAccounts.length,
     });
     return { addedAccounts };
   }
@@ -467,18 +486,25 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
   }
 
-  async emitBatchCreateDoneEvents({ saveToDb }: { saveToDb?: boolean } = {}) {
+  async emitBatchCreateDoneEvents({
+    saveToDb,
+    showUIProgress,
+  }: {
+    saveToDb?: boolean;
+    showUIProgress?: boolean;
+  } = {}) {
     if (saveToDb) {
-      if (this.progressInfo) {
+      if (this.progressInfo && showUIProgress) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: this.progressInfo.totalCount,
           createdCount: this.progressInfo.createdCount,
           progressTotal: this.progressInfo.progressTotal,
           progressCurrent: this.progressInfo.progressTotal,
         });
+        await timerUtils.wait(600);
       }
-      await timerUtils.wait(600);
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      // TODO auto backup execute twice with EAppEventBusNames.AccountUpdate?
       void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
     }
   }
@@ -557,9 +583,19 @@ class ServiceBatchCreateAccount extends ServiceBase {
     excludedIndexes,
     saveToDb,
     hideCheckingDeviceLoading,
+    skipCloseHardwareUiStateDialog,
+    showUIProgress,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
+    defaultLogger.account.batchCreatePerf.batchBuildAccountsStart({
+      walletId,
+      networkId,
+      deriveType,
+      indexes,
+      excludedIndexes,
+      saveToDb,
+    });
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error('Batch Create Accounts ERROR:  All network not support');
     }
@@ -571,7 +607,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const indexesForRebuild: number[] = [];
 
-    const processAccountForCreate = async ({
+    const processAccountForCreateFn = async ({
       key,
       accountForCreate,
     }: {
@@ -593,20 +629,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
           if (this.progressInfo) {
             this.progressInfo.createdCount += 1;
           }
-          await timerUtils.wait(100);
         }
         if (this.progressInfo) {
           this.progressInfo.progressCurrent += 1;
-          appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
-            totalCount: this.progressInfo.totalCount,
-            createdCount: this.progressInfo.createdCount,
-            progressTotal: this.progressInfo.progressTotal,
-            progressCurrent: this.progressInfo.progressCurrent,
-            networkId,
-            deriveType,
-          });
+          if (showUIProgress) {
+            appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+              totalCount: this.progressInfo.totalCount,
+              createdCount: this.progressInfo.createdCount,
+              progressTotal: this.progressInfo.progressTotal,
+              progressCurrent: this.progressInfo.progressCurrent,
+              networkId,
+              deriveType,
+            });
+            await timerUtils.wait(100); // wait for UI refresh
+          }
         }
-        await timerUtils.wait(100);
       }
     };
 
@@ -627,7 +664,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         const cacheAccount = this.networkAccountsCache[key];
         if (cacheAccount) {
           this.checkIfCancelled({ saveToDb });
-          await processAccountForCreate({
+          await processAccountForCreateFn({
             key,
             accountForCreate: cacheAccount,
           });
@@ -644,10 +681,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     if (indexesForRebuild.length) {
+      // Hardware supports creating up to 10 addresses at a time, so we need to create them in batches here
       const indexesChunks = chunk(indexesForRebuild, 10);
-      for (const indexesForRebuildChunk of indexesChunks) {
+      for (let i = 0; i < indexesChunks.length; i += 1) {
+        const indexesForRebuildChunk = indexesChunks[i];
         try {
           this.checkIfCancelled({ saveToDb });
+          defaultLogger.account.batchCreatePerf.prepareHdOrHwAccounts();
+
           const { vault, accounts } =
             await this.backgroundApi.serviceAccount.prepareHdOrHwAccounts({
               walletId,
@@ -656,9 +697,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
               indexes: indexesForRebuildChunk,
               indexedAccountId: undefined,
               skipDeviceCancel: true, // always skip cancel for batch create
+              skipCloseHardwareUiStateDialog,
               skipDeviceCancelAtFirst: true,
+              skipWaitingAnimationAtFirst: true,
               hideCheckingDeviceLoading,
             });
+
+          if (i !== indexesChunks.length - 1) {
+            await timerUtils.wait(300);
+          }
+
+          defaultLogger.account.batchCreatePerf.prepareHdOrHwAccountsDone();
+
           const networkInfo = await vault.getNetworkInfo();
           for (const account of accounts) {
             try {
@@ -680,6 +730,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
               });
               this.checkIfCancelled({ saveToDb });
 
+              defaultLogger.account.batchCreatePerf.buildAccountAddressDetail();
+
               const addressDetail = await vault?.buildAccountAddressDetail({
                 account,
                 networkId,
@@ -689,17 +741,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 ...account,
                 addressDetail,
                 existsInDb: false,
+                displayAddress:
+                  addressDetail?.displayAddress ||
+                  addressDetail?.address ||
+                  account?.address ||
+                  '',
               };
-              accountForCreate.address =
-                addressDetail?.displayAddress ||
-                addressDetail?.address ||
-                accountForCreate.address;
+
               this.checkIfCancelled({ saveToDb });
 
-              await processAccountForCreate({
+              defaultLogger.account.batchCreatePerf.processAccountForCreate();
+              await processAccountForCreateFn({
                 key,
                 accountForCreate,
               });
+              defaultLogger.account.batchCreatePerf.processAccountForCreateDone();
             } catch (error) {
               this.forceExitFlowWhenErrorMatched({
                 error,

@@ -16,7 +16,7 @@ import type {
 
 import {
   batchGetPrivateKeys,
-  batchGetPublicKeys,
+  batchGetPublicKeysAsync,
   decrypt,
   decryptImportedCredential,
   ed25519,
@@ -213,13 +213,13 @@ export abstract class CoreChainApiBase {
         indexFormatted,
       );
     } else {
-      pubkeyInfos = batchGetPublicKeys(
-        curve,
+      pubkeyInfos = await batchGetPublicKeysAsync({
+        curveName: curve,
         hdCredential,
         password,
-        pathPrefix,
-        indexFormatted,
-      );
+        prefix: pathPrefix,
+        relPaths: indexFormatted,
+      });
     }
     const infos = isPrivateKeyMode ? pvtkeyInfos : pubkeyInfos;
     if (infos.length !== indexes.length) {

@@ -33,8 +33,8 @@ import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
   isExtensionInternalCall,
-  isPrivateAllowedMethod,
-  isPrivateAllowedOrigin,
+  isProviderApiPrivateAllowedMethod,
+  isProviderApiPrivateAllowedOrigin,
 } from './backgroundApiPermissions';
 
 import type {
@@ -171,8 +171,8 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     if (
       (scope === IInjectedProviderNames.$private ||
         scope === IInjectedProviderNames.$privateExternalAccount) &&
-      !isPrivateAllowedOrigin(origin) &&
-      !isPrivateAllowedMethod(payloadData?.method)
+      !isProviderApiPrivateAllowedOrigin(origin) &&
+      !isProviderApiPrivateAllowedMethod(payloadData?.method)
     ) {
       const error = new Error(
         `[${origin as string}] is not allowed to call $private methods: ${
@@ -219,7 +219,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin)) {
       return this.handleSelfOriginMethods(payload);
     }
 

@@ -25,10 +25,9 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 import type {
   SignDataRequest,
   SignProofRequest,
-  TransactionRequest,
 } from '@onekeyfe/onekey-ton-provider';
 
-enum ENetwork {
+enum ETonNetwork {
   Mainnet = '-239',
   Testnet = '-3',
 }
@@ -147,7 +146,7 @@ class ProviderApiTon extends ProviderApiBase {
     const deploy = await wallet.createStateInit();
     return {
       address: account.addressDetail.baseAddress,
-      network: ENetwork.Mainnet,
+      network: ETonNetwork.Mainnet,
       publicKey: account.pub,
       walletStateInit: Buffer.from(await deploy.stateInit.toBoc()).toString(
         'base64',
@@ -159,34 +158,26 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async sendTransaction(
     request: IJsBridgeMessagePayload,
-    params: TransactionRequest,
+    encodedTx: IEncodedTxTon & {
+      valid_until: number;
+    },
   ): Promise<any> {
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
-    if (params.from) {
-      const fromAddr = new TonWeb.Address(params.from);
+    if (encodedTx.from) {
+      const fromAddr = new TonWeb.Address(encodedTx.from);
       if (
         fromAddr.toString(false, false, false) !==
         account.account.addressDetail.baseAddress
       ) {
         throw new Error('Invalid from address');
       }
+    } else {
+      encodedTx.from = account.account.addressDetail.baseAddress;
     }
-    const encodedTx: IEncodedTxTon = {
-      fromAddress: params.from || account.account.addressDetail.displayAddress,
-      sequenceNo: 0,
-      messages: params.messages.map((m) => ({
-        toAddress: m.address,
-        amount: m.amount,
-        payload: m.payload
-          ? Buffer.from(m.payload, 'base64').toString('hex')
-          : undefined,
-        stateInit: m.stateInit
-          ? Buffer.from(m.stateInit, 'base64').toString('hex')
-          : undefined,
-      })),
-      expireAt: params.valid_until,
-    };
+    if (encodedTx.valid_until) {
+      encodedTx.validUntil = encodedTx.valid_until;
+    }
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
