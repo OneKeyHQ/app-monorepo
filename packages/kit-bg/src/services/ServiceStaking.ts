@@ -15,10 +15,14 @@ import type {
   ILidoMaticOverview,
   IServerEvmTransaction,
   IStakeBaseParams,
+  IStakeClaimBaseParams,
+  IStakeHistoriesResponse,
+  IStakeHistoryParams,
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
   IStakeTxResponse,
+  IStakeUnlockBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
 import { vaultFactory } from '../vaults/factory';
@@ -348,7 +352,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchStakeTransaction(
+  async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
     const { networkId, accountId, ...rest } = params;
@@ -379,6 +383,54 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IEncodedTx;
     }>(`/earn/v1/unstake`, { accountAddress, networkId, ...rest });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildClaimTransaction(params: IStakeClaimBaseParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+
+    const resp = await client.post<{
+      data: IEncodedTx;
+    }>(`/earn/v1/claim`, { accountAddress, networkId, ...rest });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildUnlockTransaction(params: IStakeUnlockBaseParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+
+    const resp = await client.post<{
+      data: IEncodedTx;
+    }>(`/earn/v1/unlock`, { accountAddress, networkId, ...rest });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getStakeHistory(params: IStakeHistoryParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+
+    const resp = await client.post<{
+      data: IStakeHistoriesResponse;
+    }>(`/earn/v1/stake-histories`, { accountAddress, networkId, ...rest });
     return resp.data.data;
   }
 

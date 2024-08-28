@@ -106,6 +106,55 @@ export type IStakeBaseParams = {
   deadline?: number; // lido unstake
 };
 
+export type IStakeClaimBaseParams = {
+  accountId: string;
+  networkId: string;
+  symbol: string;
+  provider: string;
+};
+
+export type IStakeUnlockBaseParams = {
+  accountId: string;
+  networkId: string;
+  symbol: string;
+  provider: string;
+  amount: string;
+};
+
+export type IStakeHistoryParams = {
+  accountId: string;
+  networkId: string;
+  symbol: string;
+  provider: string;
+};
+
+export type IStakeHistory = {
+  txId: string;
+  type?: string;
+  state?: string;
+  amount: string;
+  timestamp: number;
+  isOverflow?: boolean;
+};
+
+export type IStakeHistoriesResponse = {
+  list: IStakeHistory[];
+  nextKey?: string;
+  network: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  };
+  token: {
+    balance: string;
+    balanceParsed: string;
+    fiatValue: string;
+    price: string;
+    price24h: string;
+    info: IToken;
+  };
+};
+
 export enum EStakeTxType {
   EthEvertStake = 'eth-evert-stake',
   EthLido = 'eth-lido',
