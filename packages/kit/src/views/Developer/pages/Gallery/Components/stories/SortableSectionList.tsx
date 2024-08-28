@@ -4,6 +4,7 @@ import {
   Button,
   Page,
   SortableSectionList,
+  Stack,
   SwipeableCell,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -46,7 +47,7 @@ const SortableSectionListGallery = () => {
     [sections, setSections],
   );
   const layoutList = useMemo(() => {
-    let offset = 0;
+    let offset = 100;
     const layouts: { offset: number; length: number; index: number }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
@@ -74,13 +75,24 @@ const SortableSectionListGallery = () => {
         sections={sections}
         enabled={isEditing}
         keyExtractor={(item) => `${(item as { index: number }).index}`}
-        getItemLayout={(valueList, index) => layoutList[index]}
+        getItemLayout={(_, index) => {
+          if (index === -1) {
+            return {
+              index,
+              offset: 100,
+              length: 0,
+            };
+          }
+          return layoutList[index];
+        }}
         renderSectionHeader={({ index }) => (
           <SortableSectionList.SectionHeader
             px={0}
             title={`Section ${index}`}
           />
         )}
+        ListHeaderComponent={<Stack h={100} />}
+        initialScrollIndex={{ sectionIndex: 4, itemIndex: 5 }}
         renderItem={({ item, section, drag, dragProps }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
