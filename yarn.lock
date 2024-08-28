@@ -5689,7 +5689,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/kaspa-core-lib@npm:^1.0.0-alpha.3":
+"@onekeyfe/kaspa-core-lib@npm:^1.0.0-alpha.5":
   version: 1.0.0-alpha.5
   resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.0-alpha.5"
   dependencies:
@@ -6223,7 +6223,7 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.0"
-    "@onekeyfe/kaspa-core-lib": "npm:^1.0.0-alpha.3"
+    "@onekeyfe/kaspa-core-lib": "npm:^1.0.0-alpha.5"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"
