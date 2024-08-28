@@ -5,6 +5,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  EEarnProviderEnum,
+  ISupportedSymbol,
+} from '@onekeyhq/shared/types/earn';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAllowanceOverview,
@@ -529,6 +533,40 @@ class ServiceStaking extends ServiceBase {
       data: IAvailableAssetsResult;
     }>(`/earn/v1/available-assets`);
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getStakingConfigs({
+    networkId,
+    symbol,
+    provider,
+  }: {
+    networkId: string;
+    symbol: ISupportedSymbol;
+    provider: EEarnProviderEnum;
+  }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const allStakingConfig = vaultSettings.stakingConfig;
+    if (!allStakingConfig) {
+      return null;
+    }
+
+    const stakingConfig = allStakingConfig[networkId];
+    if (!stakingConfig) {
+      return null;
+    }
+
+    const providerConfig = stakingConfig.providers[provider];
+    if (!providerConfig) {
+      return null;
+    }
+
+    if (providerConfig.supportedSymbols.includes(symbol)) {
+      return providerConfig.configs[symbol];
+    }
+
+    return null;
   }
 }
 

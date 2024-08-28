@@ -4,7 +4,7 @@ export enum EEarnProviderEnum {
   Babylon = 'Babylon',
 }
 
-type ISupportedSymbol =
+export type ISupportedSymbol =
   | 'ETH'
   | 'MATIC'
   | 'SOL'
