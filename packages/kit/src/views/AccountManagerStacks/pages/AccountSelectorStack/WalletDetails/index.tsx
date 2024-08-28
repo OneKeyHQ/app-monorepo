@@ -119,7 +119,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   // const isOthersUniversal = true;
 
   const handleSearch = useDebouncedCallback((text: string) => {
-    console.log('handleSearch', text);
     setSearchText(text?.trim() || '');
   }, 300);
 
