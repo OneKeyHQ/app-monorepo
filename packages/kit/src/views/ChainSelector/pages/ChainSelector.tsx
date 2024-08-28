@@ -24,7 +24,8 @@ export default function ChainSelectorPage({
     onSelect,
     defaultNetworkId,
     networkIds,
-    disableNetworkIds = [],
+    disableNetworkIds,
+    grouped,
     title = intl.formatMessage({ id: ETranslations.global_networks }),
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {
@@ -37,9 +38,13 @@ export default function ChainSelectorPage({
       disableNetwork = networks.filter((o) => disableNetworkIds.includes(o.id));
     }
     if (networkIds && networkIds.length > 0) {
-      networks = networks.filter(
-        (o) => networkIds.includes(o.id) && !disableNetworkIds.includes(o.id),
-      );
+      networks = networks.filter((o) => {
+        let isOK = networkIds.includes(o.id);
+        if (disableNetworkIds && disableNetworkIds?.length > 0) {
+          isOK = isOK && !disableNetworkIds.includes(o.id);
+        }
+        return isOK;
+      });
     }
     return { networks, disableNetwork };
   }, [networkIds, disableNetworkIds]);
@@ -50,6 +55,7 @@ export default function ChainSelectorPage({
       networkId={defaultNetworkId}
       networks={result?.networks ?? []}
       unavailable={result?.disableNetwork}
+      grouped={grouped}
       onPressItem={(network) => {
         onSelect?.(network);
         navigation.goBack();
