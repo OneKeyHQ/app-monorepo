@@ -104,6 +104,7 @@ export function WalletListItem({
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
         <SizableText
           flex={1}
+          width="100%"
           numberOfLines={1}
           mt="$1"
           size="$bodySm"
