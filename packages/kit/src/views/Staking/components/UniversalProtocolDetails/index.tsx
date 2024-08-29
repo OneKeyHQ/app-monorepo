@@ -464,7 +464,7 @@ export function UniversalProtocolDetails({
       rewardTokens: details.rewardToken,
       updateFrequency: details.updateFrequency,
     };
-    return {
+    const data: IEarnTokenDetailResult = {
       stakedValue: {
         value: Number(details.stakedFiatValue),
         stakedNumber: Number(details.staked),
@@ -492,6 +492,7 @@ export function UniversalProtocolDetails({
         },
       ],
     };
+    return data;
   }, [details]);
 
   if (!result) {

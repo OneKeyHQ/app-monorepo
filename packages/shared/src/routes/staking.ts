@@ -23,11 +23,14 @@ export enum EModalStakingRoutes {
   UniversalProtocolDetails = 'UniversalProtocolDetails',
   AssetProtocolList = 'AssetProtocolList',
   UniversalApproveBaseStake = 'UniversalApproveBaseStake',
+  UniversalClaimOptions = 'UniversalClaimOptions',
+  UniversalWithdrawOptions = 'UniversalWithdrawOptions',
 }
 
 type IBaseRouteParams = {
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
 };
 
 export type IModalStakingParamList = {
@@ -99,15 +102,30 @@ export type IModalStakingParamList = {
     currentAllowance: string;
   };
   [EModalStakingRoutes.UniversalWithdraw]: IBaseRouteParams & {
-    balance: string;
-    price: string;
-    token: IToken;
     rate?: string;
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
+    // identity is nft id (lido matic nft)/ pubkey(solana)
+    identity?: string;
+    //
+    amount?: string;
   };
   [EModalStakingRoutes.UniversalClaim]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+    // identity is nft id (lido matic nft)/ pubkey(solana)
+    identity?: string;
+    //
+    amount?: string;
+  };
+  [EModalStakingRoutes.UniversalClaimOptions]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.UniversalWithdrawOptions]: IBaseRouteParams & {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;

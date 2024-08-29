@@ -17,7 +17,6 @@ import { PageFrame } from '../../components/PageFrame';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
-import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalProtocolDetailsPage = () => {
@@ -70,21 +69,47 @@ const UniversalProtocolDetailsPage = () => {
   }, [result, accountId, networkId, appNavigation]);
   const onWithdraw = useCallback(() => {
     if (!result) return;
+    if (
+      symbol.toLowerCase() === 'sol' &&
+      provider.toLowerCase() === 'everstake'
+    ) {
+      appNavigation.push(EModalStakingRoutes.UniversalWithdrawOptions, {
+        accountId,
+        networkId,
+        details: result,
+        symbol,
+        provider,
+      });
+      return;
+    }
     appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
       accountId,
       networkId,
       details: result,
     });
-  }, [result, accountId, networkId, appNavigation]);
+  }, [result, accountId, networkId, appNavigation, symbol, provider]);
 
   const onClaim = useCallback(async () => {
     if (!result) return;
+    if (
+      (symbol.toLowerCase() === 'matic' && provider.toLowerCase() === 'lido') ||
+      (symbol.toLowerCase() === 'sol' && provider.toLowerCase() === 'everstake')
+    ) {
+      appNavigation.push(EModalStakingRoutes.UniversalClaimOptions, {
+        accountId,
+        networkId,
+        details: result,
+        symbol,
+        provider,
+      });
+      return;
+    }
     appNavigation.push(EModalStakingRoutes.UniversalClaim, {
       accountId,
       networkId,
       details: result,
     });
-  }, [result, accountId, networkId, appNavigation]);
+  }, [result, accountId, networkId, appNavigation, symbol, provider]);
 
   const intl = useIntl();
   return (

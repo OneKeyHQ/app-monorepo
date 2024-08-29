@@ -22,19 +22,26 @@ const UniversalClaimPage = () => {
   const intl = useIntl();
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalWithdraw
+    EModalStakingRoutes.UniversalClaim
   >();
-  const { accountId, networkId, details } = route.params;
-
-  const { token, provider, staked } = details;
+  const {
+    accountId,
+    networkId,
+    details,
+    amount: initialAmount,
+    identity,
+  } = route.params;
+  const { token, provider } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTraceTxTag(details);
   const appNavigation = useAppNavigation();
+  const notEditable = (initialAmount && Number(initialAmount) > 0) || identity;
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
       await handleClaim({
         amount,
+        identity,
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
@@ -55,7 +62,15 @@ const UniversalClaimPage = () => {
         },
       });
     },
-    [handleClaim, tokenInfo, appNavigation, price, provider, actionTag],
+    [
+      handleClaim,
+      tokenInfo,
+      appNavigation,
+      price,
+      provider,
+      actionTag,
+      identity,
+    ],
   );
   return (
     <Page>
@@ -66,7 +81,9 @@ const UniversalClaimPage = () => {
         <UniversalClaim
           receivingTokenSymbol=""
           price={price}
-          balance={staked}
+          initialAmountValue={initialAmount ?? ''}
+          editable={!notEditable}
+          balance={details.claimable ?? '0'}
           minAmount={BigNumber(100).shiftedBy(-tokenInfo.decimals).toFixed()}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}

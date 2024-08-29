@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
-  Badge,
   Icon,
   NumberSizeableText,
   Page,
@@ -121,7 +120,7 @@ function AvailableAssets() {
         <SizableText px="$5" size="$headingLg">
           Available assets
         </SizableText>
-        {assets.map(({ name, logoURI, apr, networks }) => (
+        {assets.map(({ name, logoURI, apr, networks, symbol }) => (
           <ListItem
             key={name}
             mx={0}
@@ -135,6 +134,8 @@ function AvailableAssets() {
                 params: {
                   networkId: networks[0].networkId,
                   accountId: account.id,
+                  symbol,
+                  indexedAccountId: account.indexedAccountId,
                 },
               });
             }}
@@ -162,7 +163,7 @@ function AvailableAssets() {
 
 function BasicEarnHome() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
   usePromiseResult(
@@ -171,19 +172,15 @@ function BasicEarnHome() {
         await backgroundApiProxy.serviceStaking.getAvailableAssets();
       actions.current.updateAvailableAssets(assets);
 
-      if (account) {
-        const { indexedAccountId } = account;
-        if (indexedAccountId) {
-          const accounts =
-            await backgroundApiProxy.serviceStaking.getAllNetworkAccount({
-              assets,
-              indexedAccountId,
-            });
-          actions.current.updateEarnAccounts(accounts);
-        }
-      }
+      const accounts =
+        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
+          assets,
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+        });
+      actions.current.updateEarnAccounts(accounts);
     },
-    [account, actions],
+    [account, network, actions],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -193,7 +190,7 @@ function BasicEarnHome() {
   return (
     <Page scrollEnabled>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.earn}
+        sceneName={EAccountSelectorSceneName.home}
         showHeaderRight={false}
       />
       <Page.Body>
@@ -215,7 +212,7 @@ export default function EarnHome() {
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
       }}
-      enabledNum={[0, 1]}
+      enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         <BasicEarnHome />

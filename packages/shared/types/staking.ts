@@ -106,12 +106,25 @@ export type IStakeBaseParams = {
   deadline?: number; // lido unstake
 };
 
+export type IWithdrawBaseParams = {
+  accountId: string;
+  networkId: string;
+  amount: string;
+  symbol: string;
+  provider: string;
+
+  identity?: string; // sol pubkey
+  signature?: string; // lido unstake
+  deadline?: number; // lido unstake
+};
+
 export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
   symbol: string;
   provider: string;
   amount?: string;
+  identity?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -210,6 +223,11 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+};
+
+export type IClaimableListResponse = {
+  token: IToken;
+  items: { id: string; amount: string }[];
 };
 
 export interface IEarnAccountToken {

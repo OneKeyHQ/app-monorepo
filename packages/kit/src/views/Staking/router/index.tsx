@@ -73,6 +73,15 @@ const UniversalApproveBaseStake = LazyLoad(
     import('@onekeyhq/kit/src/views/Staking/pages/UniversalApproveBaseStake'),
 );
 
+const UniversalClaimOptions = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalClaimOptions'),
+);
+
+const UniversalWithdrawOptions = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Staking/pages/UniversalWithdrawOptions'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes,
   IModalStakingParamList
@@ -140,6 +149,14 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.UniversalClaim,
     component: UniversalClaim,
+  },
+  {
+    name: EModalStakingRoutes.UniversalClaimOptions,
+    component: UniversalClaimOptions,
+  },
+  {
+    name: EModalStakingRoutes.UniversalWithdrawOptions,
+    component: UniversalWithdrawOptions,
   },
   {
     name: EModalStakingRoutes.InvestmentDetails,

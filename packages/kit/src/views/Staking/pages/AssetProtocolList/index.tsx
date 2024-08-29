@@ -121,15 +121,16 @@ const AssetProtocolList = () => {
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
-  const { networkId, accountId, symbol } = appRoute.params;
+  const { networkId, accountId, indexedAccountId, symbol } = appRoute.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolList({
         networkId,
         accountId,
+        indexedAccountId,
         symbol,
       }),
-    [networkId, accountId, symbol],
+    [networkId, accountId, indexedAccountId, symbol],
     { watchLoading: true },
   );
   return (
