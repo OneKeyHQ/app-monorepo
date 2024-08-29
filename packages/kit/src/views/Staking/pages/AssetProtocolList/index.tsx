@@ -25,7 +25,11 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { PageFrame } from '../../components/PageFrame';
+import {
+  PageFrame,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
 
 const AssetProtocolListContent = ({
   items,
@@ -133,17 +137,15 @@ const AssetProtocolList = () => {
     [networkId, accountId, indexedAccountId, symbol],
     { watchLoading: true },
   );
+
   return (
     <Page>
       <Page.Header title="Select Provider" />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={LoadingSkeleton}
-          loading={Boolean(
-            result === undefined &&
-              (isLoading !== undefined || isLoading === true),
-          )}
-          error={Boolean(result === undefined && isLoading === false)}
+          loading={isLoadingState({ result, isLoading })}
+          error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
           <Stack>

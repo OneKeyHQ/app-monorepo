@@ -12,7 +12,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { PageFrame } from '../../components/PageFrame';
+import {
+  PageFrame,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
 
 const LoadingSkeleton = () => (
   <Stack w="100%" h="$40" jc="center" ai="center">
@@ -111,11 +115,8 @@ const UniversalClaimOptions = () => {
       <Page.Body>
         <PageFrame
           LoadingSkeleton={LoadingSkeleton}
-          loading={Boolean(
-            result === undefined &&
-              (isLoading !== undefined || isLoading === true),
-          )}
-          error={Boolean(result === undefined && isLoading === false)}
+          loading={isLoadingState({ result, isLoading })}
+          error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
           {result ? (

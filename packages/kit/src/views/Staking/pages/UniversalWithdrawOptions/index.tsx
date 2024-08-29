@@ -2,7 +2,14 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, ListView, Page, Spinner, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Empty,
+  ListView,
+  Page,
+  Spinner,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -12,13 +19,19 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
-import { PageFrame } from '../../components/PageFrame';
+import {
+  PageFrame,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
 
 const LoadingSkeleton = () => (
   <Stack w="100%" h="$40" jc="center" ai="center">
     <Spinner size="large" />
   </Stack>
 );
+
+const ListEmptyComponent = () => <Empty title="No items withdraw" />;
 
 type IUniversalWithdrawItem = { id: string; amount: string };
 
@@ -111,11 +124,8 @@ const UniversalWithdrawOptions = () => {
       <Page.Body>
         <PageFrame
           LoadingSkeleton={LoadingSkeleton}
-          loading={Boolean(
-            result === undefined &&
-              (isLoading !== undefined || isLoading === true),
-          )}
-          error={Boolean(result === undefined && isLoading === false)}
+          loading={isLoadingState({ result, isLoading })}
+          error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
           {result ? (
@@ -123,6 +133,7 @@ const UniversalWithdrawOptions = () => {
               estimatedItemSize="$5"
               data={result.items}
               renderItem={renderItem}
+              ListEmptyComponent={ListEmptyComponent}
             />
           ) : null}
         </PageFrame>
