@@ -1,10 +1,18 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText } from '@onekeyhq/components';
+import {
+  Button,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { AddressInfo } from '../AddressInfo';
 
@@ -142,7 +150,15 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveInteractWith,
   } = getTxActionTokenApproveInfo(props);
 
-  let content = approveLabel;
+  const { vaultSettings } = useAccountData({
+    networkId: decodedTx.networkId,
+  });
+
+  const handleEditApproveAmountOnPress = useCallback(() => {
+    console.log('edit approve amount');
+  }, []);
+
+  let content: React.ReactNode = approveLabel;
   if (!content) {
     if (new BigNumber(approveAmount).eq(0)) {
       content = intl.formatMessage(
@@ -166,6 +182,23 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         },
       );
     }
+  }
+
+  if (vaultSettings?.editApproveAmountEnabled) {
+    return (
+      <XStack gap="$2" alignContent="center">
+        <SizableText minWidth={0} maxWidth="$96" size="$bodyLgMedium" flex={1}>
+          {content}
+        </SizableText>
+        <Button
+          size="small"
+          variant="tertiary"
+          onPress={handleEditApproveAmountOnPress}
+        >
+          {intl.formatMessage({ id: ETranslations.global_edit })}
+        </Button>
+      </XStack>
+    );
   }
 
   return (
