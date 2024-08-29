@@ -69,14 +69,19 @@ function BasicInvestmentDetails() {
       <Page.Header title="Investment details" />
       <Page.Body>
         <SectionList
+          ListEmptyComponent={
+            <YStack flex={1} alignItems="center">
+              <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
+              <SizableText mt="$6" size="$headingXl">
+                No orders
+              </SizableText>
+              <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
+                You haven’t staked any assets yet.
+              </SizableText>
+            </YStack>
+          }
           renderItem={renderItem}
-          sections={[
-            {
-              title: 'Everstake',
-              iconUrl: 'https://uni.onekey-asset.com/static/chain/sbtc.png',
-              data: [{}],
-            },
-          ]}
+          sections={[]}
           py="$3"
           renderSectionHeader={({ section: { title, iconUrl }, index }) => (
             <XStack px="$5" gap="$1.5" pt={index !== 0 ? '$8' : undefined}>
@@ -100,6 +105,7 @@ function BasicInvestmentDetails() {
               </SizableText>
             </XStack>
           )}
+          estimatedItemSize={60}
         />
       </Page.Body>
     </Page>

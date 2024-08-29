@@ -1,14 +1,18 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Icon,
+  Image,
   NumberSizeableText,
   Page,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   EJotaiContextStoreNames,
@@ -18,6 +22,10 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type {
+  IEarnAccount,
+  IEarnAccountToken,
+} from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
@@ -30,16 +38,122 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EarnProviderMirror } from './EarnProviderMirror';
 
+interface ITokenAccount extends IEarnAccountToken {
+  account: IEarnAccount;
+}
+
+function RecommendedItem({ token }: { token: ITokenAccount }) {
+  return (
+    <YStack
+      gap="$3"
+      px="$4"
+      width="$40"
+      py="$3.5"
+      mt="$3"
+      borderRadius="$3"
+      bg="$bg"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      $md={{
+        flexGrow: 1,
+      }}
+    >
+      <XStack gap="$2">
+        <Image size="$6" borderRadius="$1">
+          <Image.Source
+            source={{
+              uri: token.logoURI,
+            }}
+          />
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$bgStrong"
+            delayMs={1000}
+          >
+            <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+          </Image.Fallback>
+        </Image>
+        <SizableText size="$bodyLgMedium">
+          {token.symbol.toUpperCase()}
+        </SizableText>
+      </XStack>
+      <SizableText size="$headingXl">{token.apr}</SizableText>
+    </YStack>
+  );
+}
+
+function Recommended() {
+  const { gtMd } = useMedia();
+  const [{ accounts }] = useEarnAtom();
+  const [settings] = useSettingsPersistAtom();
+  const { tokens, profit } = useMemo(() => {
+    const accountTokens: ITokenAccount[] = [];
+    const totalProfit = new BigNumber(0);
+    accounts?.forEach((account) => {
+      account.earn.tokens.forEach((token) => {
+        totalProfit.plus(token.profit || 0);
+        accountTokens.push({
+          ...token,
+          account,
+        });
+      });
+    });
+    return {
+      tokens: accountTokens,
+      profit: totalProfit,
+    };
+  }, [accounts]);
+  if (tokens.length) {
+    return (
+      <YStack userSelect="none" px="$5">
+        <YStack gap="$1" mt="$2">
+          <SizableText size="$headingLg">Recommended</SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {'Missing rewards: '}
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {profit.toString()}
+            </NumberSizeableText>
+          </SizableText>
+        </YStack>
+        {gtMd ? (
+          <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
+            {tokens.map((token) => (
+              <RecommendedItem key={token.symbol} token={token} />
+            ))}
+          </XStack>
+        ) : (
+          <YStack>
+            {new Array(Math.ceil(tokens.length / 2)).fill(0).map((_, index) => (
+              <XStack gap="$3" justifyContent="space-between" key={index}>
+                <RecommendedItem token={tokens[index * 2]} />
+                <RecommendedItem token={tokens[index * 2 + 1]} />
+              </XStack>
+            ))}
+          </YStack>
+        )}
+      </YStack>
+    );
+  }
+  return null;
+}
+
 function Overview() {
   const [{ accounts }] = useEarnAtom();
-  console.log('EarnHome---', accounts);
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
     () =>
       accounts
         ? accounts
             .reduce(
-              (prev, account) => prev.plus(account.totalFiatValue || 0),
+              (prev, account) => prev.plus(account.earn.totalFiatValue || 0),
               new BigNumber(0),
             )
             .toString()
@@ -50,7 +164,7 @@ function Overview() {
     () =>
       accounts
         ? accounts.reduce(
-            (prev, account) => prev.plus(account.earnings24h || 0),
+            (prev, account) => prev.plus(account.earn.earnings24h || 0),
             new BigNumber(0),
           )
         : new BigNumber(0),
@@ -83,7 +197,7 @@ function Overview() {
       <NumberSizeableText
         size="$heading5xl"
         formatter="price"
-        formatterOptions={{ currency: '$' }}
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
       >
         {totalFiatValue}
       </NumberSizeableText>
@@ -120,7 +234,7 @@ function AvailableAssets() {
         <SizableText px="$5" size="$headingLg">
           Available assets
         </SizableText>
-        {assets.map(({ name, logoURI, apr, networks, symbol }) => (
+        {assets.map(({ name, logoURI, apr, networks, symbol, tags = [] }) => (
           <ListItem
             key={name}
             mx={0}
@@ -144,12 +258,21 @@ function AvailableAssets() {
               <XStack justifyContent="space-between" flex={1}>
                 <XStack gap="$2">
                   <SizableText size="$bodyLgMedium">{name}</SizableText>
-                  {/* <Badge badgeType="critical" badgeSize="sm" userSelect="none">
-                    <Badge.Text>Hot</Badge.Text>
-                  </Badge> */}
+                  <XStack gap="$1">
+                    {tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        badgeType="critical"
+                        badgeSize="sm"
+                        userSelect="none"
+                      >
+                        <Badge.Text>{tag}</Badge.Text>
+                      </Badge>
+                    ))}
+                  </XStack>
                 </XStack>
                 <XStack>
-                  <SizableText size="$bodyLgMedium">{`${apr} APR`}</SizableText>
+                  <SizableText size="$bodyLgMedium">{apr}</SizableText>
                 </XStack>
               </XStack>
             }
@@ -197,6 +320,7 @@ function BasicEarnHome() {
         <YStack alignItems="center" py="$5">
           <YStack maxWidth="$180" w="100%" gap="$8">
             <Overview />
+            <Recommended />
             <AvailableAssets />
           </YStack>
         </YStack>

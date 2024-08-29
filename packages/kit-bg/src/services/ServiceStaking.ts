@@ -20,7 +20,7 @@ import type {
   IAprToken,
   IAvailableAsset,
   IClaimableListResponse,
-  IEarnAccount,
+  IEarnAccountResponse,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
@@ -538,9 +538,12 @@ class ServiceStaking extends ServiceBase {
   async getAccountAsset(params: { networkId: string; accountAddress: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
-      data: IEarnAccount;
+      data: IEarnAccountResponse;
     }>(`/earn/v1/get-account`, { params });
-    return resp.data.data;
+    return {
+      ...params,
+      earn: resp.data.data,
+    };
   }
 
   @backgroundMethod()
@@ -560,15 +563,13 @@ class ServiceStaking extends ServiceBase {
     const accountParams: { networkId: string; accountAddress: string }[] = [];
 
     assets.forEach((asset) => {
-      asset.networks.forEach((network) => {
-        const account = accounts.find((i) => i.networkId === network.networkId);
-        if (account?.apiAddress) {
-          accountParams.push({
-            accountAddress: account?.apiAddress,
-            networkId: network.networkId,
-          });
-        }
-      });
+      const account = accounts.find((i) => i.networkId === asset.networkId);
+      if (account?.apiAddress) {
+        accountParams.push({
+          accountAddress: account?.apiAddress,
+          networkId: asset.networkId,
+        });
+      }
     });
 
     const uniqueAccountParams = Array.from(
