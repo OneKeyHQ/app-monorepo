@@ -669,6 +669,12 @@ function BatchCreateAccountPreviewPage({
     }),
     [getAccountCheckedState, selectCheckBox],
   );
+
+  const extraData = useMemo(
+    () => [selectedIndexesCount, balanceMap],
+    [selectedIndexesCount, balanceMap],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -702,7 +708,7 @@ function BatchCreateAccountPreviewPage({
               <Spinner size="large" />
             </Stack>
           }
-          extraData={selectedIndexesCount}
+          extraData={extraData}
         />
       </Page.Body>
       <Page.Footer>

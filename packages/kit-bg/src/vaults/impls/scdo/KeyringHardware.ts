@@ -95,7 +95,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const hwParams = {
       ...deviceCommonParams,
       path: account.path,
-      nonce: encodedTx.AccountNonce.toString(),
+      nonce: new BigNumber(encodedTx.AccountNonce).toString(16),
       gasPrice: new BigNumber(encodedTx.GasPrice).toString(16),
       gasLimit: new BigNumber(encodedTx.GasLimit).toString(16),
       to: encodedTx.To,

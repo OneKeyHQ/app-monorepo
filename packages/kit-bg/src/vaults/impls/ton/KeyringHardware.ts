@@ -23,6 +23,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import {
+  decodePayload,
   getAccountVersion,
   serializeUnsignedTransaction,
 } from './sdkTon/utils';
@@ -82,7 +83,8 @@ export class KeyringHardware extends KeyringHardwareBase {
             deriveInfo.addressEncoding as 'v4R2',
           );
           const addressInfo: ICoreApiGetAddressItem = {
-            address: addr.normalAddress,
+            address: addr.nonBounceAddress,
+            addresses: {},
             path,
             publicKey: publicKey || '',
           };
@@ -108,9 +110,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
-    if (encodedTx.messages.length !== 1) {
-      throw new OneKeyInternalError('Unsupported message count');
-    }
     const msg = encodedTx.messages[0];
     const versionMap = {
       v4R2: TonWalletVersion.V4R2,
@@ -129,10 +128,26 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (msg.jetton?.amount) {
       hwParams.jettonAmount = Number(msg.jetton.amount);
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
+      hwParams.jettonWalletAddress = msg.jetton.jettonWalletAddress;
       if (msg.jetton.fwdFee) {
         hwParams.fwdFee = Number(msg.jetton.fwdFee);
       }
       hwParams.comment = undefined;
+    } else if (msg.payload) {
+      const decodedPayload = decodePayload(msg.payload);
+      if (decodedPayload.comment) {
+        hwParams.comment = decodedPayload.comment;
+      }
+    }
+    if (encodedTx.messages.length > 1) {
+      hwParams.extDestination = [];
+      hwParams.extTonAmount = [];
+      hwParams.extPayload = [];
+      encodedTx.messages.slice(1).forEach((extMsg) => {
+        hwParams.extDestination?.push(extMsg.address);
+        hwParams.extTonAmount?.push(Number(extMsg.amount.toString()));
+        hwParams.extPayload?.push(extMsg.payload ?? '');
+      });
     }
     const result = await convertDeviceResponse(async () => {
       const res = await sdk.tonSignMessage(
@@ -145,12 +160,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!result.signature) {
       throw new OneKeyInternalError('Failed to sign message');
     }
-    const res = bufferUtils.hexToBytes(result.signature);
-    const signature = res.subarray(0, 64);
+    const signature = bufferUtils.hexToBytes(result.signature);
     let signingMessage = serializeUnsignedTx.signingMessage;
-    const signingMessageHexFromHw = Buffer.from(res.subarray(64)).toString(
-      'hex',
-    );
+    const signingMessageHexFromHw = result.signning_message as string;
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
     ).toString('hex');

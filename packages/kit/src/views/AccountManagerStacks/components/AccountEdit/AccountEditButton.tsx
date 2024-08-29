@@ -254,7 +254,7 @@ function AccountEditButtonView({
           icon="DotHorOutline"
         />
       }
-      renderItems={renderItems}
+      renderItemsAsync={renderItems}
       estimatedContentHeight={estimatedContentHeight}
     />
   );
