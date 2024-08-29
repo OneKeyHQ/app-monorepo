@@ -32,18 +32,13 @@ const UniversalProtocolDetailsPage = () => {
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
   const { result, isLoading, run } = usePromiseResult(
-    () => {
-      if (accountId) {
-        return backgroundApiProxy.serviceStaking.getProtocolDetails({
-          accountId,
-          networkId,
-          symbol,
-          provider,
-        });
-      }
-      alert('no account');
-      return undefined;
-    },
+    () =>
+      backgroundApiProxy.serviceStaking.getProtocolDetails({
+        accountId,
+        networkId,
+        symbol,
+        provider,
+      }),
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
@@ -137,7 +132,12 @@ const UniversalProtocolDetailsPage = () => {
           onRefresh={run}
         >
           <Stack>
-            <UniversalProtocolDetails details={result} onClaim={onClaim} />
+            <UniversalProtocolDetails
+              accountId={accountId}
+              networkId={networkId}
+              details={result}
+              onClaim={onClaim}
+            />
             <Page.Footer
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_stake,
@@ -146,12 +146,14 @@ const UniversalProtocolDetailsPage = () => {
                 variant: 'primary',
                 loading: stakeLoading,
                 onPress: onStake,
+                disabled: !accountId,
               }}
               onCancelText={intl.formatMessage({
                 id: ETranslations.earn_redeem,
               })}
               cancelButtonProps={{
                 onPress: onWithdraw,
+                disabled: !accountId,
               }}
             />
             {result ? (

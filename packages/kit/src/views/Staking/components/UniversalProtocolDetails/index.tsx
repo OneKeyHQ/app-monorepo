@@ -1,6 +1,9 @@
 import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
+  Alert,
   Button,
   Icon,
   NumberSizeableText,
@@ -87,7 +90,7 @@ function StakedValue({
           formatter="value"
           formatterOptions={{ currency: '$' }}
         >
-          {value}
+          {value || 0}
         </NumberSizeableText>
       </YStack>
       <YStack gap="$1.5">
@@ -109,7 +112,7 @@ function StakedValue({
               formatter="price"
               formatterOptions={{ tokenSymbol }}
             >
-              {stakedNumber}
+              {stakedNumber || 0}
             </NumberSizeableText>
           </YStack>
           <YStack gap="$0.5">
@@ -121,7 +124,7 @@ function StakedValue({
               formatter="price"
               formatterOptions={{ tokenSymbol }}
             >
-              {availableNumber}
+              {availableNumber || 0}
             </NumberSizeableText>
           </YStack>
         </XStack>
@@ -432,12 +435,37 @@ function FAQ({
   );
 }
 
+function Warning() {
+  return (
+    <Alert
+      mt="$3"
+      mx="$5"
+      fullBleed
+      borderRadius="$3"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderCautionSubdued"
+      type="warning"
+      title="No Address"
+      description="{account} does not have a {chain} ({type}) address yet. Please create one to continue"
+      action={{
+        primary: 'Create',
+        onPrimaryPress: () => {
+          alert('Create Address');
+        },
+      }}
+    />
+  );
+}
+
 type IUniversalProtocolDetails = {
+  accountId?: string;
+  networkId?: string;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
 };
 
 export function UniversalProtocolDetails({
+  accountId,
   details,
   onClaim,
 }: IUniversalProtocolDetails) {
@@ -514,7 +542,7 @@ export function UniversalProtocolDetails({
   const { solutions, stakedValue, portfolio, profit, provider } = result;
   return (
     <YStack>
-      <StakedValue {...stakedValue} />
+      {accountId ? <StakedValue {...stakedValue} /> : <Warning />}
       <Portfolio {...portfolio} onClaim={onClaim} />
       <Profit {...profit} />
       <Provider {...provider} />
