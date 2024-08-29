@@ -74,7 +74,7 @@ export class KeyringQr extends KeyringQrBase {
     };
   }): Promise<void> {
     if (requestId && requestId !== requestIdOfSig) {
-      // throw new Error('EVM tx requestId not match');
+      console.error('EVM tx requestId not match');
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
     return verifyEvmSignedTxMatched({

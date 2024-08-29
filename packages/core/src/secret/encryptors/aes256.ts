@@ -63,10 +63,12 @@ function decodePassword({
   password,
   key,
   ignoreLogger,
+  allowRawPassword,
 }: {
   password: string;
   key?: string;
   ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
 }): string {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
@@ -83,7 +85,8 @@ function decodePassword({
   if (
     process.env.NODE_ENV !== 'production' &&
     password &&
-    !platformEnv.isJest
+    !platformEnv.isJest &&
+    !allowRawPassword
   ) {
     console.error(
       'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
@@ -107,13 +110,17 @@ function encodePassword({
   });
 }
 
-function encrypt(password: string, data: Buffer | string): Buffer {
+function encrypt(
+  password: string,
+  data: Buffer | string,
+  allowRawPassword?: boolean,
+): Buffer {
   if (!password) {
     throw new IncorrectPassword();
   }
   const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password, allowRawPassword });
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
@@ -338,7 +345,9 @@ function encodeSensitiveText({ text, key }: { text: string; key?: string }) {
 
   // *** aes encode
   if (SENSITIVE_ENCODE_TYPE === 'aes') {
-    const encoded = encrypt(theKey, Buffer.from(text, 'utf-8')).toString('hex');
+    const encoded = encrypt(theKey, Buffer.from(text, 'utf-8'), true).toString(
+      'hex',
+    );
     return `${ENCODE_TEXT_PREFIX.aes}${encoded}`;
   }
 

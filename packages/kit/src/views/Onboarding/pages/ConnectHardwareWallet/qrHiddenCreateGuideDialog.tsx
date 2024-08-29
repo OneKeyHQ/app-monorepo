@@ -1,6 +1,9 @@
 import { Dialog, Stack } from '@onekeyhq/components';
-import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
+import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -39,4 +42,17 @@ function showDialog() {
   });
 }
 
-export default { showDialog };
+function showDialogIfErrorMatched(error: IOneKeyError | unknown) {
+  if (
+    errorUtils.isErrorByClassName({
+      error,
+      className: [
+        EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+      ],
+    })
+  ) {
+    showDialog();
+  }
+}
+
+export default { showDialog, showDialogIfErrorMatched };
