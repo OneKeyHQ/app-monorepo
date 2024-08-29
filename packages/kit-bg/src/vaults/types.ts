@@ -224,6 +224,8 @@ export type IVaultSettings = {
   customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  editApproveAmountEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
