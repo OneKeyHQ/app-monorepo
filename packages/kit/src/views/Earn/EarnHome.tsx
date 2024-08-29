@@ -212,7 +212,7 @@ export default function EarnHome() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.earn,
+        sceneName: EAccountSelectorSceneName.Home,
         sceneUrl: '',
       }}
       enabledNum={[0, 1]}
