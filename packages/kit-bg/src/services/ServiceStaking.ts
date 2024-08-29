@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -373,7 +374,8 @@ class ServiceStaking extends ServiceBase {
       data: IStakeTxResponse;
     }>(`/earn/v1/stake`, {
       accountAddress: acc.address,
-      publicKey: acc.pub,
+      publicKey:
+        networkId === getNetworkIdsMap().cosmoshub ? acc.pub : undefined,
       networkId,
       ...rest,
     });
@@ -391,7 +393,8 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/unstake`, {
       accountAddress: acc.address,
       networkId,
-      publicKey: acc.pub,
+      publicKey:
+        networkId === getNetworkIdsMap().cosmoshub ? acc.pub : undefined,
       ...rest,
     });
     return resp.data.data;

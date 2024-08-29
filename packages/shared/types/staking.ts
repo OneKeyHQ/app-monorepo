@@ -199,6 +199,7 @@ export type IStakeProtocolDetails = {
   stakedFiatValue: string;
   available: string;
   pendingInactive?: string;
+  pendingActive?: string;
   claimable?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;

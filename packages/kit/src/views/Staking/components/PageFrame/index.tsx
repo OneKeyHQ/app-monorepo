@@ -29,6 +29,25 @@ type IPageFrameProps = {
   onRefresh?: () => void;
 };
 
+export const isLoadingState = ({
+  result,
+  isLoading,
+}: {
+  result: unknown;
+  isLoading: boolean | undefined;
+}) =>
+  Boolean(
+    result !== undefined && (isLoading === undefined || isLoading === true),
+  );
+
+export const isErrorState = ({
+  result,
+  isLoading,
+}: {
+  result: unknown;
+  isLoading: boolean | undefined;
+}) => Boolean(result === undefined && isLoading === false);
+
 export const PageFrame = ({
   children,
   loading,

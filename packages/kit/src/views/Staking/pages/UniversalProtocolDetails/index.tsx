@@ -13,7 +13,11 @@ import {
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { PageFrame } from '../../components/PageFrame';
+import {
+  PageFrame,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
@@ -123,11 +127,8 @@ const UniversalProtocolDetailsPage = () => {
       <Page.Body>
         <PageFrame
           LoadingSkeleton={OverviewSkeleton}
-          loading={Boolean(
-            result === undefined &&
-              (isLoading !== undefined || isLoading === true),
-          )}
-          error={Boolean(result === undefined && isLoading === false)}
+          loading={isLoadingState({ result, isLoading })}
+          error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
           <Stack>
