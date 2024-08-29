@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -458,14 +459,21 @@ function Warning() {
 }
 
 type IUniversalProtocolDetails = {
-  accountId?: string;
-  networkId?: string;
+  earnAccount?:
+    | {
+        accountId: string;
+        networkId: string;
+        accountAddress: string;
+        account: INetworkAccount;
+      }
+    | null
+    | undefined;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
 };
 
 export function UniversalProtocolDetails({
-  accountId,
+  earnAccount,
   details,
   onClaim,
 }: IUniversalProtocolDetails) {
@@ -542,8 +550,14 @@ export function UniversalProtocolDetails({
   const { solutions, stakedValue, portfolio, profit, provider } = result;
   return (
     <YStack>
-      {accountId ? <StakedValue {...stakedValue} /> : <Warning />}
-      <Portfolio {...portfolio} onClaim={onClaim} />
+      {earnAccount?.accountAddress ? (
+        <>
+          <StakedValue {...stakedValue} />
+          <Portfolio {...portfolio} onClaim={onClaim} />
+        </>
+      ) : (
+        <Warning />
+      )}
       <Profit {...profit} />
       <Provider {...provider} />
       <FAQ solutions={solutions} />

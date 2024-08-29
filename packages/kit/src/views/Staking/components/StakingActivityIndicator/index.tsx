@@ -64,12 +64,14 @@ const StakingActivityIndicator = ({
 export const StakingTransactionIndicator = ({
   accountId,
   networkId,
+  indexedAccountId,
   stakeTag,
   onRefresh,
   onPress,
 }: {
   accountId: string;
   networkId: string;
+  indexedAccountId?: string;
   stakeTag: IStakeTag;
   onRefresh?: () => void;
   onPress?: () => void;
@@ -79,9 +81,10 @@ export const StakingTransactionIndicator = ({
       backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
         accountId,
         networkId,
+        indexedAccountId,
         stakeTag,
       }),
-    [accountId, networkId, stakeTag],
+    [accountId, networkId, indexedAccountId, stakeTag],
     { initResult: [] },
   );
   const isPending = txs.length > 0;

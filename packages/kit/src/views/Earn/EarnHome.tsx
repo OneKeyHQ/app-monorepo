@@ -46,7 +46,7 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const toTokenDetailPage = async (
+const toTokenProviderListPage = async (
   navigation: ReturnType<typeof useAppNavigation>,
   {
     networkId,
@@ -56,20 +56,15 @@ const toTokenDetailPage = async (
   }: {
     networkId: string;
     accountId: string;
-    indexedAccountId: string;
+    indexedAccountId?: string;
     symbol: string;
   },
 ) => {
-  const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
-    networkId,
-    accountId,
-    indexedAccountId,
-  });
   navigation.pushModal(EModalRoutes.StakingModal, {
     screen: EModalStakingRoutes.AssetProtocolList,
     params: {
       networkId,
-      accountId: earnAccount?.accountId,
+      accountId,
       indexedAccountId,
       symbol,
     },
@@ -78,22 +73,25 @@ const toTokenDetailPage = async (
 
 function RecommendedItem({ token }: { token: ITokenAccount }) {
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const onPress = useCallback(async () => {
     if (account) {
-      const { indexedAccountId, id: accountId } = account;
-      if (indexedAccountId) {
-        await toTokenDetailPage(navigation, {
-          indexedAccountId,
-          accountId,
-          networkId: token.account.networkId,
-          symbol: token.symbol,
-        });
-      }
+      await toTokenProviderListPage(navigation, {
+        indexedAccountId: indexedAccount?.id,
+        accountId: account?.id ?? '',
+        networkId: token.account.networkId,
+        symbol: token.symbol,
+      });
     }
-  }, [account, navigation, token.account.networkId, token.symbol]);
+  }, [
+    account,
+    indexedAccount,
+    navigation,
+    token.account.networkId,
+    token.symbol,
+  ]);
   return (
     <YStack
       gap="$3"
@@ -276,7 +274,7 @@ function Overview() {
 
 function AvailableAssets() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const [{ availableAssets: assets = [] }] = useEarnAtom();
   const navigation = useAppNavigation();
@@ -293,17 +291,12 @@ function AvailableAssets() {
             mx={0}
             px="$5"
             onPress={async () => {
-              if (account) {
-                const { indexedAccountId, id: accountId } = account;
-                if (indexedAccountId) {
-                  await toTokenDetailPage(navigation, {
-                    indexedAccountId,
-                    accountId,
-                    networkId,
-                    symbol,
-                  });
-                }
-              }
+              await toTokenProviderListPage(navigation, {
+                networkId,
+                accountId: account?.id ?? '',
+                indexedAccountId: indexedAccount?.id,
+                symbol,
+              });
             }}
             avatarProps={{ src: logoURI }}
             renderItemText={

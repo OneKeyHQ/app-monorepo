@@ -40,18 +40,19 @@ const AssetProtocolListContent = ({
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
-  const { networkId, accountId, symbol } = appRoute.params;
+  const { networkId, accountId, indexedAccountId, symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
     ({ item }: { item: IStakeProtocolListItem }) => {
       appNavigation.navigate(EModalStakingRoutes.UniversalProtocolDetails, {
         accountId,
         networkId,
+        indexedAccountId,
         symbol: symbol.toUpperCase(),
         provider: item.provider.name,
       });
     },
-    [appNavigation, networkId, accountId, symbol],
+    [appNavigation, networkId, accountId, indexedAccountId, symbol],
   );
   return (
     <ListView
