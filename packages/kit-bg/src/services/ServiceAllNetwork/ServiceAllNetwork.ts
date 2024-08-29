@@ -35,6 +35,7 @@ export type IAllNetworkAccountsParams = {
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  fetchAllNetworkAccounts?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -59,13 +60,17 @@ class ServiceAllNetwork extends ServiceBase {
     singleNetworkDeriveType,
     indexedAccountId,
     othersWalletAccountId,
+    fetchAllNetworkAccounts,
   }: {
     networkId: string;
     singleNetworkDeriveType: IAccountDeriveTypes | undefined;
     indexedAccountId: string | undefined;
     othersWalletAccountId: string | undefined;
+    fetchAllNetworkAccounts: boolean | undefined;
   }): Promise<IDBAccount[]> {
-    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    const isAllNetwork =
+      fetchAllNetworkAccounts ||
+      (networkId && networkUtils.isAllNetwork({ networkId }));
     let dbAccounts: IDBAccount[] = [];
     const isOthersWallet = !!(
       othersWalletAccountId &&
@@ -132,9 +137,11 @@ class ServiceAllNetwork extends ServiceBase {
       deriveType: singleNetworkDeriveType,
       includingNonExistingAccount,
       includingNotEqualGlobalDeriveTypeAccount,
+      fetchAllNetworkAccounts,
     } = params;
 
-    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+    const isAllNetwork =
+      fetchAllNetworkAccounts || networkUtils.isAllNetwork({ networkId });
 
     // single network account or all network mocked account
     const networkAccount = await this.backgroundApi.serviceAccount.getAccount({
@@ -147,6 +154,7 @@ class ServiceAllNetwork extends ServiceBase {
       singleNetworkDeriveType,
       indexedAccountId: networkAccount.indexedAccountId,
       othersWalletAccountId: accountId,
+      fetchAllNetworkAccounts,
     });
 
     const accountsInfo: Array<IAllNetworkAccountInfo> = [];
