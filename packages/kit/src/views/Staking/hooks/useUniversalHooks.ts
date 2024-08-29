@@ -76,6 +76,7 @@ export function useUniversalWithdraw({
       amount,
       symbol,
       provider,
+      identity,
       stakingInfo,
       onSuccess,
       onFail,
@@ -83,6 +84,7 @@ export function useUniversalWithdraw({
       amount: string;
       symbol: string;
       provider: string;
+      identity?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -129,6 +131,7 @@ export function useUniversalWithdraw({
         encodedTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
             amount,
+            identity,
             networkId,
             accountId,
             symbol,
@@ -156,6 +159,7 @@ export function useUniversalClaim({
   const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
+      identity,
       amount,
       provider,
       symbol,
@@ -163,6 +167,7 @@ export function useUniversalClaim({
       onSuccess,
       onFail,
     }: {
+      identity?: string;
       amount?: string;
       symbol: string;
       provider: string;
@@ -177,6 +182,7 @@ export function useUniversalClaim({
           symbol,
           provider,
           amount,
+          identity,
         });
       await navigationToSendConfirm({
         encodedTx,

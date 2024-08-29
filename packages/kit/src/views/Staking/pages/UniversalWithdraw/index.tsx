@@ -24,7 +24,13 @@ const UniversalWithdrawPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.UniversalWithdraw
   >();
-  const { accountId, networkId, details } = route.params;
+  const {
+    accountId,
+    networkId,
+    details,
+    identity,
+    amount: initialAmount,
+  } = route.params;
 
   const { token, provider, staked } = details;
   const { price, info: tokenInfo } = token;
@@ -35,6 +41,7 @@ const UniversalWithdrawPage = () => {
     async (amount: string) => {
       await handleWithdraw({
         amount,
+        identity,
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
@@ -55,7 +62,15 @@ const UniversalWithdrawPage = () => {
         },
       });
     },
-    [handleWithdraw, tokenInfo, appNavigation, price, provider, actionTag],
+    [
+      handleWithdraw,
+      tokenInfo,
+      appNavigation,
+      price,
+      provider,
+      actionTag,
+      identity,
+    ],
   );
   return (
     <Page>
@@ -67,6 +82,7 @@ const UniversalWithdrawPage = () => {
           receivingTokenSymbol=""
           price={price}
           balance={staked}
+          initialAmount={initialAmount}
           minAmount={BigNumber(100).shiftedBy(-tokenInfo.decimals).toFixed()}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}

@@ -31,6 +31,7 @@ type IUniversalWithdrawProps = {
   providerLogo: string;
   providerName: string;
   receivingTokenSymbol: string;
+  initialAmount?: string;
 
   rate?: string;
   minAmount?: string;
@@ -45,13 +46,14 @@ export const UniversalWithdraw = ({
   providerLogo,
   providerName,
   receivingTokenSymbol,
+  initialAmount,
   minAmount = '0',
   rate = '1',
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
   const [loading, setLoading] = useState<boolean>(false);
-  const [amountValue, setAmountValue] = useState('');
+  const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
     {
       currencyInfo: { symbol },

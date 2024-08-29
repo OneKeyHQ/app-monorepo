@@ -16,6 +16,7 @@ import type {
   IAprToken,
   IAvailableAsset,
   IAvailableAssetsResult,
+  IClaimableListResponse,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
@@ -28,6 +29,7 @@ import type {
   IStakeProtocolListItem,
   IStakeTag,
   IStakeTxResponse,
+  IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
 import { vaultFactory } from '../vaults/factory';
@@ -376,7 +378,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildUnstakeTransaction(params: IStakeBaseParams) {
+  async buildUnstakeTransaction(params: IWithdrawBaseParams) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
@@ -465,6 +467,60 @@ class ServiceStaking extends ServiceBase {
     let protocols = protocolListResp.data.data.protocols;
     protocols = protocols.filter((o) => o.network.networkId === networkId);
     return protocols;
+  }
+
+  @backgroundMethod()
+  async getClaimableList(params: {
+    networkId: string;
+    accountId: string;
+    symbol: string;
+    provider: string;
+  }) {
+    const { networkId, accountId, symbol, ...rest } = params;
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IClaimableListResponse;
+    }>('/earn/v1/claimable/list', {
+      params: {
+        networkId,
+        accountAddress,
+        symbol: symbol.toUpperCase(),
+        ...rest,
+      },
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getWithdrawList(params: {
+    networkId: string;
+    accountId: string;
+    symbol: string;
+    provider: string;
+  }) {
+    const { networkId, accountId, symbol, ...rest } = params;
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IClaimableListResponse;
+    }>('/earn/v1/withdraw/list', {
+      params: {
+        networkId,
+        accountAddress,
+        symbol: symbol.toUpperCase(),
+        ...rest,
+      },
+    });
+    return resp.data.data;
   }
 
   @backgroundMethod()

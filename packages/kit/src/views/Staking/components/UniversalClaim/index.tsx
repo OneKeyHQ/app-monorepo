@@ -31,7 +31,8 @@ type IUniversalClaimProps = {
   providerLogo: string;
   providerName: string;
   receivingTokenSymbol: string;
-
+  editable?: boolean;
+  initialAmountValue?: string;
   rate?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
@@ -45,13 +46,15 @@ export const UniversalClaim = ({
   providerLogo,
   providerName,
   receivingTokenSymbol,
+  initialAmountValue = '',
+  editable = true,
   minAmount = '0',
   rate = '1',
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
   const [loading, setLoading] = useState<boolean>(false);
-  const [amountValue, setAmountValue] = useState('');
+  const [amountValue, setAmountValue] = useState(initialAmountValue);
   const [
     {
       currencyInfo: { symbol },
@@ -147,16 +150,22 @@ export const UniversalClaim = ({
               }}
               inputProps={{
                 placeholder: '0',
+                // disabled: !editable,
+                editable,
               }}
-              balanceProps={{
-                value: balance,
-                onPress: onMax,
-              }}
+              balanceProps={
+                editable
+                  ? {
+                      value: balance,
+                      onPress: onMax,
+                    }
+                  : undefined
+              }
               valueProps={{
                 value: currentValue,
                 currency: currentValue ? symbol : undefined,
               }}
-              enableMaxAmount
+              enableMaxAmount={editable}
             />
             <YStack gap="$1">
               {isLessThanMinAmount ? (
