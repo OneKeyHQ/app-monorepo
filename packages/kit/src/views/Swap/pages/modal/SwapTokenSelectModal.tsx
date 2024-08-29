@@ -36,10 +36,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -230,18 +226,27 @@ const SwapTokenSelectPage = () => {
           networkId: network.networkId,
         });
       } else {
+        console.log(
+          'swap__deriveT',
+          swapFromAddressInfo.accountInfo?.deriveType,
+        );
         void swapLoadAllNetworkTokenList(
           network.networkId,
           type === ESwapDirectionType.FROM
-            ? swapFromAddressInfo.accountInfo?.account?.id
-            : swapToAddressInfo.accountInfo?.account?.id,
+            ? swapFromAddressInfo.accountInfo?.indexedAccount?.id
+            : swapToAddressInfo.accountInfo?.indexedAccount?.id,
+          type === ESwapDirectionType.FROM
+            ? swapFromAddressInfo.accountInfo?.deriveType
+            : swapToAddressInfo.accountInfo?.deriveType,
         );
       }
     },
     [
-      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.accountInfo?.deriveType,
+      swapFromAddressInfo.accountInfo?.indexedAccount?.id,
       swapLoadAllNetworkTokenList,
-      swapToAddressInfo.accountInfo?.account?.id,
+      swapToAddressInfo.accountInfo?.deriveType,
+      swapToAddressInfo.accountInfo?.indexedAccount?.id,
       type,
       updateSelectedAccountNetwork,
     ],

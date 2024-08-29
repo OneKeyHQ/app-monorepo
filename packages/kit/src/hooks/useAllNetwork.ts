@@ -113,8 +113,6 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
-      console.log('swap_____useAllNetworkRequests: =====>>>>>: ', account.id);
-      console.log('swap_____useAllNetworkRequests: =====>>>>>: ', network.id);
       const {
         accountsInfo,
         // accountsInfoBackendIndexed,

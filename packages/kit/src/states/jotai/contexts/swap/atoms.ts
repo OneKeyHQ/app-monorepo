@@ -21,7 +21,6 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
 } from '@onekeyhq/shared/types/swap/types';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -113,7 +112,7 @@ export const {
 export const {
   atom: swapAllNetworkTokenListAtom,
   use: useSwapAllNetworkTokenListAtom,
-} = contextAtom<ISwapToken[]>([]);
+} = contextAtom<ISwapToken[] | undefined>(undefined);
 
 // swap quote
 export const {

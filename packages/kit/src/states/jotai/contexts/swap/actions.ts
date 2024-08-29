@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -42,7 +43,6 @@ import {
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
-import { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -1020,26 +1020,75 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         onlyAccountTokens: true,
         isAllNetworkFetchAccountTokens: true,
       });
-      console.log('swap__result: =====>>>>>: ', result);
       if (result?.length) {
-        set(swapAllNetworkTokenListAtom(), result);
+        set(swapAllNetworkTokenListAtom(), (tokens) => {
+          const newTokens =
+            result.filter(
+              (t) =>
+                !tokens?.find(
+                  (tk) =>
+                    tk.networkId === t.networkId &&
+                    tk.contractAddress === t.contractAddress,
+                ),
+            ) ?? [];
+          const needUpdateTokens =
+            result.filter(
+              (t) =>
+                !newTokens.find(
+                  (tk) =>
+                    tk.networkId === t.networkId &&
+                    tk.contractAddress === t.contractAddress,
+                ),
+            ) ?? [];
+          const filterTokens =
+            tokens?.filter(
+              (tk) =>
+                !needUpdateTokens.find(
+                  (t) =>
+                    tk.networkId === t.networkId &&
+                    tk.contractAddress === t.contractAddress,
+                ),
+            ) ?? [];
+          return [...filterTokens, ...needUpdateTokens, ...newTokens];
+        });
       }
     },
   );
 
   swapLoadAllNetworkTokenList = contextAtomMethod(
-    async (get, set, networkId: string, accountId?: string) => {
-      console.log('swap__networkId: =====>>>>>: ', networkId);
-      console.log('swap__accountId: =====>>>>>: ', accountId);
-      if (accountId) {
+    async (
+      get,
+      set,
+      networkId: string,
+      indexedAccountId?: string,
+      deriveType?: IAccountDeriveTypes,
+    ) => {
+      const swapSupportNetworks = get(swapNetworks());
+      if (indexedAccountId) {
+        const account =
+          await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+            indexedAccountId,
+          });
         const { accountsInfo } =
           await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId,
+            accountId: account.id,
             networkId,
+            deriveType,
           });
-        console.log('swap__accountsInfo: =====>>>>>: ', accountsInfo);
-        const requests = accountsInfo.map((networkDataString) => {
-          const { apiAddress, networkId: accountNetworkId } = networkDataString;
+        const swapSupportAccounts = accountsInfo
+          .filter((networkDataString) => {
+            const { networkId: accountNetworkId } = networkDataString;
+            return swapSupportNetworks.find(
+              (network) => network.networkId === accountNetworkId,
+            );
+          })
+          .filter((item) => item.apiAddress);
+        const requests = swapSupportAccounts.map((networkDataString) => {
+          const {
+            apiAddress,
+            networkId: accountNetworkId,
+            accountId,
+          } = networkDataString;
           return this.updateAllNetworkTokenList.call(
             set,
             accountNetworkId,

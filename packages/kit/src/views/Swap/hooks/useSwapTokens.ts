@@ -262,6 +262,30 @@ export function useSwapTokenList(
     ],
   );
 
+  const sortAllNetworkTokens = useCallback((tokens: ISwapToken[]) => {
+    const havePriceTokens = tokens
+      .filter((token) => {
+        const priceBN = new BigNumber(token.price ?? '0');
+        return !priceBN.isNaN() && !priceBN.isZero();
+      })
+      ?.sort((a, b) => {
+        const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
+        const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
+        return bBalanceBN.comparedTo(aBalanceBN);
+      });
+    const noPriceTokens = tokens
+      .filter((token) => {
+        const priceBN = new BigNumber(token.price ?? '0');
+        return priceBN.isNaN() || priceBN.isZero();
+      })
+      ?.sort((a, b) => {
+        const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
+        const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
+        return bBalanceBN.comparedTo(aBalanceBN);
+      });
+    return [...havePriceTokens, ...noPriceTokens];
+  }, []);
+
   const mergedAllNetworkTokenList = useCallback(
     ({
       swapAllNetRecommend,
@@ -270,66 +294,64 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
+      console.log(
+        'swap__swapAllNetworkTokenList: =====>>>>>: ',
+        swapAllNetworkTokenList,
+      );
       const allNetworkTokenList = swapAllNetworkTokenList
-        .map((token) => {
+        ?.map((token) => {
           const swapNet = swapNetworks.find(
             (net) => net.networkId === token.networkId,
           );
-          if (!swapNet) {
+          if (swapNet) {
             return token;
           }
           return undefined;
         })
-        .filter((token) => token !== undefined);
-      const haveBalanceTokenList = allNetworkTokenList
-        .map((token) => {
-          const balanceBN = new BigNumber(token.balanceParsed ?? '0');
-          if (!balanceBN.isNaN() && !balanceBN.isZero()) {
-            return token;
-          }
-          return undefined;
-        })
-        .filter((token) => token !== undefined);
+        ?.filter((token) => token !== undefined);
+      const haveBalanceTokenList =
+        allNetworkTokenList
+          ?.map((token) => {
+            const balanceBN = new BigNumber(token.balanceParsed ?? '0');
+            if (!balanceBN.isNaN() && !balanceBN.isZero()) {
+              return token;
+            }
+            return undefined;
+          })
+          ?.filter((token) => token !== undefined) ?? [];
       if (swapAllNetRecommend) {
         const filterRecommendTokenList =
           swapAllNetRecommend?.filter(
             (token) =>
-              haveBalanceTokenList.find(
+              haveBalanceTokenList?.find(
                 (balanceToken) =>
                   balanceToken.contractAddress === token.contractAddress &&
                   balanceToken.networkId === token.networkId,
               ) === undefined,
           ) ?? [];
-        return [...haveBalanceTokenList, ...filterRecommendTokenList].sort(
-          (a, b) => {
-            const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
-            const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
-            return bBalanceBN.comparedTo(aBalanceBN);
-          },
-        );
+        const allNetTokens = [
+          ...haveBalanceTokenList,
+          ...filterRecommendTokenList,
+        ];
+        return sortAllNetworkTokens(allNetTokens);
       }
       if (swapSearchTokens) {
-        return swapSearchTokens
-          .map((token) => {
-            const balanceToken = haveBalanceTokenList.find(
-              (walletToken) =>
-                walletToken.contractAddress === token.contractAddress &&
-                walletToken.networkId === token.networkId,
-            );
-            if (balanceToken) {
-              return balanceToken;
-            }
-            return token;
-          })
-          .sort((a, b) => {
-            const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
-            const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
-            return bBalanceBN.comparedTo(aBalanceBN);
-          });
+        const allNetSearchTokens = swapSearchTokens.map((token) => {
+          const balanceToken = haveBalanceTokenList.find(
+            (walletToken) =>
+              walletToken.contractAddress === token.contractAddress &&
+              walletToken.networkId === token.networkId,
+          );
+          if (balanceToken) {
+            return balanceToken;
+          }
+          return token;
+        });
+        return sortAllNetworkTokens(allNetSearchTokens);
       }
       return [];
     },
-    [swapAllNetworkTokenList, swapNetworks],
+    [sortAllNetworkTokens, swapAllNetworkTokenList, swapNetworks],
   );
 
   const fuseRemoteTokensSearch = useFuse(
@@ -395,7 +417,10 @@ export function useSwapTokenList(
   ]);
 
   return {
-    fetchLoading: swapTokenFetching && currentTokens.length === 0,
+    fetchLoading:
+      (swapTokenFetching && currentTokens.length === 0) ||
+      (tokenFetchParams.networkId === dangerAllNetworkRepresent.id &&
+        !swapAllNetworkTokenList),
     currentTokens,
   };
 }
