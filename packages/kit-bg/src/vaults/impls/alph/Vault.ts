@@ -1,9 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { AddressType, bs58, isValidAddress } from '@alephium/web3';
+import BigNumber from 'bignumber.js';
 
+import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -12,7 +18,15 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -34,6 +48,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { SignTransferTxParams } from '@alephium/web3';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -62,24 +77,197 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new NotImplemented();
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    const { transfersInfo } = params;
+    if (!transfersInfo) {
+      throw new OneKeyInternalError('Invalid transfersInfo');
+    }
+    const network = await this.getNetwork();
+    const signerAddress = await this.getAccountAddress();
+    const transfer = transfersInfo[0];
+    const amount = new BigNumber(transfer.amount)
+      .shiftedBy(transfer.tokenInfo?.decimals ?? 0)
+      .toFixed(0);
+    const encodedTx: SignTransferTxParams = {
+      signerAddress,
+      destinations: [
+        {
+          address: transfer.to,
+          attoAlphAmount: amount,
+        },
+      ],
+    };
+
+    if (transfer.tokenInfo?.isNative) {
+      encodedTx.destinations[0].attoAlphAmount = '0';
+      encodedTx.destinations[0].tokens = [
+        {
+          id: transfer.tokenInfo?.address ?? '',
+          amount,
+        },
+      ];
+    }
+    return encodedTx;
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
+    const from = encodedTx.signerAddress;
+    const actions: IDecodedTx['actions'] = [];
+    const network = await this.getNetwork();
+    if ((encodedTx as SignTransferTxParams).destinations) {
+      const destinations = (encodedTx as SignTransferTxParams).destinations;
+      const token = await this.backgroundApi.serviceToken.getNativeToken({
+        networkId: network.id,
+        accountId: this.accountId,
+      });
+      const transfers: IDecodedTxTransferInfo[] = [];
+      await Promise.all(
+        destinations.map(async (dest) => {
+          if (dest.attoAlphAmount.toString() !== '0') {
+            transfers.push({
+              from,
+              to: dest.address,
+              amount: chainValueUtils.convertChainValueToAmount({
+                value: dest.attoAlphAmount.toString(),
+                network,
+              }),
+              icon: token?.logoURI ?? '',
+              symbol: token?.symbol ?? '',
+              name: token?.name ?? '',
+              tokenIdOnNetwork: token?.address ?? '',
+              isNative: true,
+            });
+          }
+          if (dest.tokens) {
+            await Promise.all(
+              dest.tokens.map(async (tokenData) => {
+                const tokenInfo =
+                  await this.backgroundApi.serviceToken.getToken({
+                    networkId: network.id,
+                    accountId: this.accountId,
+                    tokenIdOnNetwork: tokenData.id,
+                  });
+                if (tokenInfo) {
+                  transfers.push({
+                    from,
+                    to: dest.address,
+                    amount: chainValueUtils.convertTokenChainValueToAmount({
+                      value: tokenData.amount.toString(),
+                      token: tokenInfo,
+                    }),
+                    icon: tokenInfo.logoURI ?? '',
+                    symbol: tokenInfo.symbol ?? '',
+                    name: tokenInfo.name ?? '',
+                    tokenIdOnNetwork: tokenInfo.address ?? '',
+                    isNative: false,
+                  });
+                }
+              }),
+            );
+          }
+        }),
+      );
+      actions.push(
+        await this.buildTxTransferAssetAction({
+          from,
+          to: destinations[0].address,
+          transfers,
+        }),
+      );
+    } else {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        direction: EDecodedTxDirection.OTHER,
+        unknownAction: {
+          from,
+          to: '',
+        },
+      });
+    }
+    return {
+      txid: '',
+      owner: from,
+      signer: from,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      feeInfo: {
+        common: {
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+        gas: {
+          gasPrice: encodedTx.gasPrice?.toString() ?? '0',
+          gasLimit: encodedTx.gasAmount?.toString() ?? '0',
+        },
+      },
+      extraInfo: null,
+      encodedTx,
+    };
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo ?? [],
+      };
+    }
+    throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    let encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
+    if (params.feeInfo) {
+      encodedTx.gasPrice = params.feeInfo.gas?.gasPrice;
+      encodedTx.gasAmount = Number(params.feeInfo.gas?.gasLimit);
+    }
+
+    // max amount
+    if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
+      encodedTx = encodedTx as SignTransferTxParams;
+      if (encodedTx.destinations[0].attoAlphAmount.toString() !== '0') {
+        const network = await this.getNetwork();
+        encodedTx.destinations[0].attoAlphAmount =
+          chainValueUtils.convertAmountToChainValue({
+            value: params.nativeAmountInfo.maxSendAmount,
+            network,
+          });
+      } else {
+        if (!encodedTx.destinations[0].tokens) {
+          throw new OneKeyInternalError('No tokens found');
+        }
+        const token = await this.backgroundApi.serviceToken.getToken({
+          networkId: this.networkId,
+          accountId: this.accountId,
+          tokenIdOnNetwork: encodedTx.destinations[0].tokens[0].id,
+        });
+        encodedTx.destinations[0].tokens[0].amount = new BigNumber(
+          params.nativeAmountInfo.maxSendAmount,
+        )
+          .shiftedBy(token?.decimals ?? 0)
+          .toFixed(0, BigNumber.ROUND_FLOOR);
+      }
+    }
+
+    return {
+      ...params.unsignedTx,
+      encodedTx,
+    };
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

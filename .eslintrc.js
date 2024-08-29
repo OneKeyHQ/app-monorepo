@@ -241,6 +241,7 @@ module.exports = {
           /Bounceable/i,
           /scdo/i,
           /faq/i,
+          /atto/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
