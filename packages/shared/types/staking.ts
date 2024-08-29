@@ -230,6 +230,24 @@ export type IClaimableListResponse = {
   items: { id: string; amount: string }[];
 };
 
+export interface IEarnAccountToken {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  profit: string;
+  balance: string;
+  balanceParsed: string;
+  address: string;
+  price: string;
+}
+
+export type IEarnAccount = {
+  claimableNum: number;
+  totalFiatValue: string;
+  earnings24h: string;
+  tokens: IEarnAccountToken[];
+};
 export type IAvailableAsset = {
   'name': 'string';
   'symbol': 'string';
@@ -242,6 +260,8 @@ export type IAvailableAsset = {
     'address': 'string';
   }[];
 };
-export type IAvailableAssetsResult = {
-  'tokens': IAvailableAsset[];
-};
+
+export interface IEarnAtomData {
+  accounts?: IEarnAccount[];
+  availableAssets?: IAvailableAsset[];
+}

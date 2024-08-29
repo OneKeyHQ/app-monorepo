@@ -69,6 +69,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['APT'],
           configs: {
             'APT': {
+              tokenAddress: APTOS_NATIVE_COIN,
               displayProfit: true,
             },
           },

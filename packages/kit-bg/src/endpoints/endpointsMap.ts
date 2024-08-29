@@ -24,11 +24,10 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Lightning,
       env: 'test',
     }),
-    // earn: buildServiceEndpoint({
-    //   serviceName: EServiceEndpointEnum.Earn,
-    //   env: 'test',
-    // }),
-    earn: 'http://localhost:8888',
+    earn: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Earn,
+      env: 'test',
+    }),
   },
   prod: {
     wallet: buildServiceEndpoint({

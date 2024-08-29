@@ -15,6 +15,7 @@ export enum EModalStakingRoutes {
   MaticLidoHistory = 'MaticLidoHistory',
   MaticLidoClaim = 'MaticLidoClaim',
   EarnTokenDetail = 'EarnTokenDetail',
+  InvestmentDetails = 'InvestmentDetails',
   //
   UniversalStake = 'UniversalStake',
   UniversalWithdraw = 'UniversalWithdraw',
@@ -32,6 +33,7 @@ type IBaseRouteParams = {
 };
 
 export type IModalStakingParamList = {
+  [EModalStakingRoutes.InvestmentDetails]: undefined;
   [EModalStakingRoutes.EarnTokenDetail]: IBaseRouteParams;
   [EModalStakingRoutes.EthLidoOverview]: IBaseRouteParams;
   [EModalStakingRoutes.EthLidoStake]: IBaseRouteParams & {

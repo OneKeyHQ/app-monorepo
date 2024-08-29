@@ -16,8 +16,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { AssetProtocols } from '@onekeyhq/kit/src/views/Staking/components/AssetProtocols';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
+import { TokenDetailStakingEntry } from '@onekeyhq/kit/src/views/Staking/components/TokenDetailStakingEntry';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -25,7 +25,6 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
@@ -215,7 +214,7 @@ function TokenDetailsHeader(props: IProps) {
         accountId={accountId}
         tokenAddress={tokenInfo.address}
       />
-      <AssetProtocols
+      <TokenDetailStakingEntry
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenInfo.address}

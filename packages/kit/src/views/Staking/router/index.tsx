@@ -43,6 +43,10 @@ const EarnTokenDetail = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenDetail'),
 );
 
+const InvestmentDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
+);
+
 const UniversalProtocolDetails = LazyLoad(
   () =>
     import('@onekeyhq/kit/src/views/Staking/pages/UniversalProtocolDetails'),
@@ -153,5 +157,9 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.UniversalWithdrawOptions,
     component: UniversalWithdrawOptions,
+  },
+  {
+    name: EModalStakingRoutes.InvestmentDetails,
+    component: InvestmentDetails,
   },
 ];

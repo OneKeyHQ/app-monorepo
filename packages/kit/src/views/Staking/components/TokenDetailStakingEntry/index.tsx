@@ -1,15 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Icon, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-
-import { assetCheck } from './assetCheck';
 
 type IStakingListItemProps = {
   networkId: string;
@@ -17,7 +17,7 @@ type IStakingListItemProps = {
   tokenAddress: string;
 };
 
-const AssetProtocolsContent = ({
+const StakingEntryListItemContent = ({
   aprValue,
   onPress,
 }: {
@@ -60,7 +60,7 @@ const AssetProtocolsContent = ({
   );
 };
 
-const AssetProtocolsListItem = ({
+const StakingEntryListItem = ({
   networkId,
   accountId,
   symbol,
@@ -72,25 +72,29 @@ const AssetProtocolsListItem = ({
       params: { networkId, accountId, symbol },
     });
   }, [navigation, networkId, accountId, symbol]);
-  return <AssetProtocolsContent aprValue={4} onPress={onPress} />;
+  return <StakingEntryListItemContent aprValue={4} onPress={onPress} />;
 };
 
-export const AssetProtocols = ({
+export const TokenDetailStakingEntry = ({
   networkId,
   accountId,
   tokenAddress,
 }: IStakingListItemProps) => {
-  const result = useMemo(
-    () => assetCheck({ networkId, tokenAddress }),
-    [networkId, tokenAddress],
-  );
+  const { result } = usePromiseResult(async () => {
+    const symbolInfo =
+      await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
+        networkId,
+        tokenAddress,
+      });
+    return symbolInfo;
+  }, [networkId, tokenAddress]);
   if (result) {
     return (
-      <AssetProtocolsListItem
+      <StakingEntryListItem
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenAddress}
-        symbol={result}
+        symbol={result.symbol}
       />
     );
   }

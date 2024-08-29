@@ -1,5 +1,6 @@
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINNAME_TBTC,
   COINTYPE_TBTC,
@@ -75,6 +76,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['SBTC'],
           configs: {
             'SBTC': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
               unstakeWithTx: true,
               withdrawWithTx: true,

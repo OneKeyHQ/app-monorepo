@@ -15,7 +15,6 @@ import type {
   IAprItem,
   IAprToken,
   IAvailableAsset,
-  IAvailableAssetsResult,
   IClaimableListResponse,
   ILidoEthOverview,
   ILidoHistoryItem,
@@ -527,51 +526,53 @@ class ServiceStaking extends ServiceBase {
   async getAccount(params: { networkId: string; accountAddress: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
-      data: IStakeTxResponse;
-    }>(`/earn/v1/get-account`, { data: params });
+      data: IEarnAccount;
+    }>(`/earn/v1/get-account`, { params });
     return resp.data.data;
   }
 
   @backgroundMethod()
   async getAllNetworkAccount({
-    tokens,
+    assets,
     indexedAccountId,
   }: {
     indexedAccountId: string;
-    tokens: IAvailableAsset[];
+    assets: IAvailableAsset[];
   }) {
     const dbAccounts =
       await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
         { indexedAccountId },
       );
-    console.log('---dbAccounts', dbAccounts);
     const accountParams: { networkId: string; accountAddress: string }[] = [];
     for (let index = 0; index < dbAccounts.length; index += 1) {
       const account = dbAccounts[index];
-
-      const token = tokens.find(({ symbol }) => symbol === account.impl);
-      if (token) {
-        token.networks.forEach((network) => {
-          accountParams.push({
-            accountAddress: account.address,
-            networkId: network.networkId,
-          });
+      assets.forEach((asset) => {
+        asset.networks.forEach((network) => {
+          if (network.networkId.startsWith(account.impl)) {
+            accountParams.push({
+              accountAddress: account.address,
+              networkId: network.networkId,
+            });
+          }
         });
-      }
+      });
     }
-    const resp = await Promise.all(
+    const resp = await Promise.allSettled(
       accountParams.map((params) => this.getAccount(params)),
     );
-    return resp.data.data;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
   }
 
   @backgroundMethod()
   async getAvailableAssets() {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
-      data: IAvailableAssetsResult;
+      data: {
+        assets: IAvailableAsset[];
+      };
     }>(`/earn/v1/available-assets`);
-    return resp.data.data;
+    return resp.data.data.assets;
   }
 
   @backgroundMethod()
@@ -603,6 +604,52 @@ class ServiceStaking extends ServiceBase {
 
     if (providerConfig.supportedSymbols.includes(symbol)) {
       return providerConfig.configs[symbol];
+    }
+
+    return null;
+  }
+
+  @backgroundMethod()
+  async findSymbolByTokenAddress({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+
+    const allStakingConfig = vaultSettings.stakingConfig;
+    if (!allStakingConfig) {
+      return null;
+    }
+
+    const stakingConfig = allStakingConfig[networkId];
+    if (!stakingConfig) {
+      return null;
+    }
+
+    const normalizedTokenAddress = tokenAddress.toLowerCase();
+
+    const providerEntries = Object.entries(stakingConfig.providers).filter(
+      ([, providerConfig]) => providerConfig !== undefined,
+    );
+
+    for (const [provider, providerConfig] of providerEntries) {
+      const symbolEntry = Object.entries(providerConfig.configs).find(
+        ([, config]) =>
+          config &&
+          config.tokenAddress.toLowerCase() === normalizedTokenAddress,
+      );
+
+      if (symbolEntry) {
+        const [symbol] = symbolEntry;
+        return {
+          symbol: symbol as ISupportedSymbol,
+          provider: provider as EEarnProviderEnum,
+        };
+      }
     }
 
     return null;
