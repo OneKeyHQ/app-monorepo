@@ -557,7 +557,7 @@ class ServiceStaking extends ServiceBase {
     const accountParams: { networkId: string; accountAddress: string }[] = [];
 
     assets.forEach((asset) => {
-      asset.networks.forEach((network) => {
+      asset.networks?.forEach((network) => {
         const account = accounts.find((i) => i.networkId === network.networkId);
         if (account?.apiAddress) {
           accountParams.push({
