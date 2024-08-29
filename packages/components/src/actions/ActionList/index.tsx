@@ -114,7 +114,6 @@ export interface IActionListProps
   extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
-  estimatedContentHeight?: number;
   onOpenChange?: (isOpen: boolean) => void;
   disabled?: boolean;
   defaultOpen?: boolean;
@@ -122,7 +121,14 @@ export interface IActionListProps
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
-  }) => React.ReactNode | Promise<React.ReactNode>;
+  }) => React.ReactNode;
+  // estimatedContentHeight required if use renderItemsAsync
+  estimatedContentHeight?: number;
+  renderItemsAsync?: (params: {
+    // TODO use cloneElement to override onClose props
+    handleActionListClose: () => void;
+    handleActionListOpen: () => void;
+  }) => Promise<React.ReactNode>;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -153,7 +159,8 @@ function BasicActionList({
   onOpenChange,
   disabled,
   defaultOpen = false,
-  renderItems, // TODO add both renderItems and renderItemsAsync(with estimatedContentHeight required)
+  renderItems,
+  renderItemsAsync,
   estimatedContentHeight,
   ...props
 }: IActionListProps) {
@@ -176,14 +183,14 @@ function BasicActionList({
 
   const { md } = useMedia();
   useEffect(() => {
-    if (renderItems && isOpen) {
+    if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
         throw new Error(
           'estimatedContentHeight is required on Async rendering items',
         );
       }
       void (async () => {
-        const asyncItemsToRender = await renderItems({
+        const asyncItemsToRender = await renderItemsAsync({
           handleActionListClose,
           handleActionListOpen,
         });
@@ -196,7 +203,7 @@ function BasicActionList({
     handleActionListOpen,
     isOpen,
     md,
-    renderItems,
+    renderItemsAsync,
   ]);
 
   const renderActionListItem = (item: IActionListItemProps) => (
@@ -238,6 +245,14 @@ function BasicActionList({
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}
+
+          {/* custom render items */}
+          {renderItems?.({
+            handleActionListClose,
+            handleActionListOpen,
+          })}
+
+          {/* custom async render items (estimatedContentHeight required) */}
           {asyncItems}
         </YStack>
       }
