@@ -434,21 +434,29 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getProtocolDetails(params: {
-    accountId: string;
+    accountId?: string;
     networkId: string;
     symbol: string;
     provider: string;
   }) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
+    const requestParams: {
+      accountAddress?: string;
+      networkId: string;
+      symbol: string;
+      provider: string;
+    } = { networkId, ...rest };
+    if (accountId) {
+      requestParams.accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId,
+          accountId,
+        });
+    }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       '/earn/v1/stake-protocol/detail',
-      { params: { accountAddress, networkId, ...rest } },
+      { params: requestParams },
     );
     return resp.data.data;
   }

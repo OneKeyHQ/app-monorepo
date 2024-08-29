@@ -32,18 +32,13 @@ const UniversalProtocolDetailsPage = () => {
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
   const { result, isLoading, run } = usePromiseResult(
-    () => {
-      if (accountId) {
-        return backgroundApiProxy.serviceStaking.getProtocolDetails({
-          accountId,
-          networkId,
-          symbol,
-          provider,
-        });
-      }
-      alert('no account');
-      return undefined;
-    },
+    () =>
+      backgroundApiProxy.serviceStaking.getProtocolDetails({
+        accountId,
+        networkId,
+        symbol,
+        provider,
+      }),
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
