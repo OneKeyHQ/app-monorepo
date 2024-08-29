@@ -1,17 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Empty,
-  ListView,
-  Page,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -21,76 +13,23 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
   PageFrame,
+  SimpleSpinnerSkeleton,
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
-
-const LoadingSkeleton = () => (
-  <Stack w="100%" h="$40" jc="center" ai="center">
-    <Spinner size="large" />
-  </Stack>
-);
-
-const ListEmptyComponent = () => <Empty title="No items withdraw" />;
-
-type IUniversalWithdrawItem = { id: string; amount: string };
-
-const UniversalWithdrawItem = ({
-  item,
-  tokenLogo,
-  tokenSymbol,
-}: {
-  item: IUniversalWithdrawItem;
-  tokenLogo?: string;
-  tokenSymbol?: string;
-}) => {
-  const appNavigation = useAppNavigation();
-  const appRoute = useAppRoute<
-    IModalStakingParamList,
-    EModalStakingRoutes.UniversalClaimOptions
-  >();
-  const { accountId, networkId, symbol, provider, details } = appRoute.params;
-  const [loading, setLoading] = useState(false);
-  const intl = useIntl();
-  return (
-    <ListItem
-      avatarProps={{ src: tokenLogo, size: 32 }}
-      title={`${item.amount} ${tokenSymbol ?? ''}`}
-    >
-      <Button
-        variant="primary"
-        size="small"
-        loading={loading}
-        onPress={async () => {
-          try {
-            setLoading(true);
-            appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
-              accountId,
-              networkId,
-              symbol,
-              provider,
-              identity: item.id,
-              amount: item.amount,
-              details,
-            });
-          } finally {
-            setLoading(false);
-          }
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.earn_claim })}
-      </Button>
-    </ListItem>
-  );
-};
+import {
+  type IOnSelectOption,
+  UniversalOptionList,
+} from '../../components/UniversalOptionList';
 
 const UniversalWithdrawOptions = () => {
   const appRoute = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalClaimOptions
+    EModalStakingRoutes.UniversalWithdrawOptions
   >();
-  const { accountId, networkId, symbol, provider } = appRoute.params;
-  console.log('UniversalWithdrawOptions');
+  const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const { accountId, networkId, symbol, provider, details } = appRoute.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getWithdrawList({
@@ -103,37 +42,38 @@ const UniversalWithdrawOptions = () => {
     { watchLoading: true },
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: IUniversalWithdrawItem }) => (
-      <UniversalWithdrawItem
-        item={item}
-        tokenLogo={result?.token.logoURI}
-        tokenSymbol={result?.token.symbol}
-      />
-    ),
-    [result],
+  const onPress = useCallback<IOnSelectOption>(
+    ({ item }) => {
+      appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
+        accountId,
+        networkId,
+        symbol,
+        provider,
+        details,
+        identity: item.id,
+        amount: item.amount,
+      });
+    },
+    [appNavigation, accountId, networkId, symbol, provider, details],
   );
-
-  const intl = useIntl();
 
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_claim })}
+        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
       />
       <Page.Body>
         <PageFrame
-          LoadingSkeleton={LoadingSkeleton}
+          LoadingSkeleton={SimpleSpinnerSkeleton}
           loading={isLoadingState({ result, isLoading })}
           error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
           {result ? (
-            <ListView
-              estimatedItemSize="$5"
-              data={result.items}
-              renderItem={renderItem}
-              ListEmptyComponent={ListEmptyComponent}
+            <UniversalOptionList
+              items={result.items}
+              token={result.token}
+              onPress={onPress}
             />
           ) : null}
         </PageFrame>
