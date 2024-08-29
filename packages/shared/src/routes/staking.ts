@@ -29,7 +29,7 @@ export enum EModalStakingRoutes {
 
 type IBaseRouteParams = {
   networkId: string;
-  accountId: string;
+  accountId?: string;
   indexedAccountId?: string;
 };
 

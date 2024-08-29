@@ -61,17 +61,15 @@ const toTokenDetailPage = async (
     accountId,
     indexedAccountId,
   });
-  if (earnAccount?.accountId) {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.AssetProtocolList,
-      params: {
-        networkId,
-        accountId: earnAccount?.accountId,
-        indexedAccountId,
-        symbol,
-      },
-    });
-  }
+  navigation.pushModal(EModalRoutes.StakingModal, {
+    screen: EModalStakingRoutes.AssetProtocolList,
+    params: {
+      networkId,
+      accountId: earnAccount?.accountId,
+      indexedAccountId,
+      symbol,
+    },
+  });
 };
 
 function RecommendedItem({ token }: { token: ITokenAccount }) {
