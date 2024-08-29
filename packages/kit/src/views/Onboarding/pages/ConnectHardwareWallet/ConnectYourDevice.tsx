@@ -38,8 +38,8 @@ import {
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
+import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -60,10 +60,8 @@ import {
   NeedOneKeyBridge,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -86,7 +84,6 @@ import {
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
-import qrHiddenCreateGuideDialog from './qrHiddenCreateGuideDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -183,17 +180,6 @@ function ConnectByQrCode() {
             });
           } catch (error) {
             errorToastUtils.toastIfError(error);
-            if (
-              errorUtils.isErrorByClassName({
-                error,
-                className:
-                  EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
-              })
-            ) {
-              // pop the finalizing wallet setup page
-              // navigation.pop();
-              qrHiddenCreateGuideDialog.showDialog();
-            }
             throw error;
           }
         }}

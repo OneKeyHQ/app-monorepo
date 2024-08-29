@@ -29,7 +29,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -53,6 +53,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import qrHiddenCreateGuideDialog from '../../../../views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -591,6 +592,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         return { wallet, indexedAccount };
       } catch (error) {
+        qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
           error: error as IOneKeyError,
         });
@@ -709,44 +711,49 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         addDefaultNetworkAccounts?: boolean;
       } = {},
     ) => {
-      const res = await serviceAccount.createHWHiddenWallet({
-        walletId,
-        skipDeviceCancel,
-        hideCheckingDeviceLoading,
-      });
-      const { wallet, indexedAccount } = res;
-      await this.autoSelectToCreatedWallet.call(set, {
-        wallet,
-        indexedAccount,
-      });
-      if (options?.addDefaultNetworkAccounts) {
-        let dialog: IDialogInstance | undefined;
-        try {
-          if (options?.showAddAccountsLoading) {
-            dialog = Dialog.show({
-              title: appLocale.intl.formatMessage({
-                id: ETranslations.onboarding_finalize_generating_accounts,
-              }),
-              showCancelButton: false,
-              showConfirmButton: false,
-              dismissOnOverlayPress: false,
-              showExitButton: false,
-              showFooter: false,
-              disableDrag: true,
-              renderContent: <CommonDeviceLoading />,
+      try {
+        const res = await serviceAccount.createHWHiddenWallet({
+          walletId,
+          skipDeviceCancel,
+          hideCheckingDeviceLoading,
+        });
+        const { wallet, indexedAccount } = res;
+        await this.autoSelectToCreatedWallet.call(set, {
+          wallet,
+          indexedAccount,
+        });
+        if (options?.addDefaultNetworkAccounts) {
+          let dialog: IDialogInstance | undefined;
+          try {
+            if (options?.showAddAccountsLoading) {
+              dialog = Dialog.show({
+                title: appLocale.intl.formatMessage({
+                  id: ETranslations.onboarding_finalize_generating_accounts,
+                }),
+                showCancelButton: false,
+                showConfirmButton: false,
+                dismissOnOverlayPress: false,
+                showExitButton: false,
+                showFooter: false,
+                disableDrag: true,
+                renderContent: <CommonDeviceLoading />,
+              });
+            }
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: true,
             });
+          } finally {
+            await dialog?.close();
           }
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            skipDeviceCancel: true,
-            hideCheckingDeviceLoading: true,
-          });
-        } finally {
-          await dialog?.close();
         }
+        return res;
+      } catch (error) {
+        qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
+        throw error;
       }
-      return res;
     },
   );
 
