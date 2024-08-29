@@ -55,6 +55,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
@@ -475,7 +476,9 @@ export default function SwapTokenSelectModal() {
       }}
       enabledNum={[0, 1]}
     >
-      <SwapTokenSelectPageWithProvider />
+      <HomeTokenListProviderMirror>
+        <SwapTokenSelectPageWithProvider />
+      </HomeTokenListProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

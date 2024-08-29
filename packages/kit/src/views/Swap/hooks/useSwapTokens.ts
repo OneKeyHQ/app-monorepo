@@ -32,6 +32,11 @@ import {
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
+import {
+  useSmallBalanceTokenListAtom,
+  useTokenListAtom,
+  useTokenListMapAtom,
+} from '../../../states/jotai/contexts/tokenList';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -238,6 +243,9 @@ export function useSwapTokenList(
     (ISwapToken | IFuseResult<ISwapToken>)[]
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
+  const [walletTokenList] = useTokenListAtom();
+  const [tokenPriceMap] = useTokenListMapAtom();
+  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const { tokenListFetchAction } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
@@ -274,6 +282,40 @@ export function useSwapTokenList(
   if (fuseRemoteTokensSearchRef.current !== fuseRemoteTokensSearch) {
     fuseRemoteTokensSearchRef.current = fuseRemoteTokensSearch;
   }
+
+  const mergedAllNetworkTokenList = useCallback(() => {
+    const allNetworkTokenList = walletTokenList.tokens.concat(
+      smallBalanceTokenList.smallBalanceTokens,
+    );
+    const havePriceTokenList = allNetworkTokenList
+      .map((token) => {
+        if (tokenPriceMap[token.$key]) {
+          const tokenFiat = tokenPriceMap[token.$key];
+          if (tokenFiat.balanceParsed) {
+            return {
+              networkId: token.networkId,
+              contractAddress: token.address,
+              symbol: token.symbol,
+              name: token.name,
+              decimals: token.decimals,
+              logoURI: token.logoURI,
+              isNative: token.isNative,
+              balanceParsed: tokenFiat.balanceParsed,
+              price: tokenFiat.price,
+              fiatValue: tokenFiat.fiatValue,
+              riskLevel: token.riskLevel,
+            };
+          }
+        }
+        return undefined;
+      })
+      .filter((token) => token !== undefined);
+    return havePriceTokenList;
+  }, [
+    walletTokenList.tokens,
+    smallBalanceTokenList.smallBalanceTokens,
+    tokenPriceMap,
+  ]);
 
   useEffect(() => {
     if (

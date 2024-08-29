@@ -80,6 +80,8 @@ export interface ISwapToken extends ISwapTokenBase {
 
   riskLevel?: ETokenRiskLevel;
   reservationValue?: string;
+
+  isAllNetworkToken?: boolean;
 }
 
 export interface ISwapTokenCatch {

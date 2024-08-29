@@ -191,6 +191,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   tokenListFetchAction = contextAtomMethod(
     async (get, set, params: IFetchTokensParams) => {
       try {
+        if (!params.networkId) return;
         set(swapTokenFetchingAtom(), true);
         const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           ...params,

@@ -7,6 +7,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -167,10 +168,11 @@ export default class ServiceSwap extends ServiceBase {
     await this.cancelFetchTokenList();
     const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId,
+      networkId: networkId ?? dangerAllNetworkRepresent.id,
       keywords,
       limit,
-      accountAddress,
+      accountAddress:
+        networkId !== dangerAllNetworkRepresent.id ? accountAddress : undefined,
       accountNetworkId,
     };
     this._tokenListAbortController = new AbortController();
