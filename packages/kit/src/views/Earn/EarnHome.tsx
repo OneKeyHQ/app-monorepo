@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Icon,
   Image,
   NumberSizeableText,
@@ -197,7 +198,7 @@ function AvailableAssets() {
         <SizableText px="$5" size="$headingLg">
           Available assets
         </SizableText>
-        {assets.map(({ name, logoURI, apr, networks, symbol }) => (
+        {assets.map(({ name, logoURI, apr, networks, symbol, tags = [] }) => (
           <ListItem
             key={name}
             mx={0}
@@ -221,12 +222,21 @@ function AvailableAssets() {
               <XStack justifyContent="space-between" flex={1}>
                 <XStack gap="$2">
                   <SizableText size="$bodyLgMedium">{name}</SizableText>
-                  {/* <Badge badgeType="critical" badgeSize="sm" userSelect="none">
-                    <Badge.Text>Hot</Badge.Text>
-                  </Badge> */}
+                  <XStack gap="$1">
+                    {tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        badgeType="critical"
+                        badgeSize="sm"
+                        userSelect="none"
+                      >
+                        <Badge.Text>{tag}</Badge.Text>
+                      </Badge>
+                    ))}
+                  </XStack>
                 </XStack>
                 <XStack>
-                  <SizableText size="$bodyLgMedium">{`${apr} APR`}</SizableText>
+                  <SizableText size="$bodyLgMedium">{apr}</SizableText>
                 </XStack>
               </XStack>
             }
