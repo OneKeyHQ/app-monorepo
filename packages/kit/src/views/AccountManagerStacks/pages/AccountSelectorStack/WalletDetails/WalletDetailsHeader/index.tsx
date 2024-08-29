@@ -67,6 +67,8 @@ export function WalletDetailsHeader({
         <Button
           testID="AccountSelectorModal-EditButton"
           variant="tertiary"
+          alignSelf="flex-start"
+          $gtMd={{ top: '$0.5' }}
           onPress={onEditButtonPress}
           {...(editMode && {
             color: '$textInteractive',

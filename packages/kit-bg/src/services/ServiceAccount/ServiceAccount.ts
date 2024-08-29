@@ -190,11 +190,12 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHDAndHWWallets(options?: IDBGetWalletsParams) {
+  async getAllHdHwQrWallets(options?: IDBGetWalletsParams) {
     const r = await this.getWallets(options);
     const wallets = r.wallets.filter(
       (wallet) =>
         accountUtils.isHdWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id }) ||
         accountUtils.isHwWallet({
           walletId: wallet.id,
         }),
