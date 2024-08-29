@@ -249,15 +249,16 @@ export type IEarnAccount = {
   tokens: IEarnAccountToken[];
 };
 export type IAvailableAsset = {
-  name: 'string';
-  symbol: 'string';
-  logoURI: 'string';
-  apr: 'string';
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  tags: string[];
   networks?: {
-    networkId: 'string';
-    name: 'string';
-    logoURI: 'string';
-    address: 'string';
+    networkId: string;
+    name: string;
+    logoURI: string;
+    address: string;
   }[];
 };
 
