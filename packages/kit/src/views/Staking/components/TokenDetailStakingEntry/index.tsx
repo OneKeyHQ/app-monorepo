@@ -17,7 +17,7 @@ type IStakingListItemProps = {
   tokenAddress: string;
 };
 
-const AssetProtocolsContent = ({
+const StakingEntryListItemContent = ({
   aprValue,
   onPress,
 }: {
@@ -60,7 +60,7 @@ const AssetProtocolsContent = ({
   );
 };
 
-const AssetProtocolsListItem = ({
+const StakingEntryListItem = ({
   networkId,
   accountId,
   symbol,
@@ -72,10 +72,10 @@ const AssetProtocolsListItem = ({
       params: { networkId, accountId, symbol },
     });
   }, [navigation, networkId, accountId, symbol]);
-  return <AssetProtocolsContent aprValue={4} onPress={onPress} />;
+  return <StakingEntryListItemContent aprValue={4} onPress={onPress} />;
 };
 
-export const AssetProtocols = ({
+export const TokenDetailStakingEntry = ({
   networkId,
   accountId,
   tokenAddress,
@@ -90,7 +90,7 @@ export const AssetProtocols = ({
   }, [networkId, tokenAddress]);
   if (result) {
     return (
-      <AssetProtocolsListItem
+      <StakingEntryListItem
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenAddress}
