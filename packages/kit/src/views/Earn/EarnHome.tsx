@@ -234,24 +234,33 @@ function AvailableAssets() {
         <SizableText px="$5" size="$headingLg">
           Available assets
         </SizableText>
-        {assets.map(({ name, logoURI, apr, networks, symbol, tags = [] }) => (
+        {assets.map(({ name, logoURI, apr, networkId, symbol, tags = [] }) => (
           <ListItem
             key={name}
             mx={0}
             px="$5"
-            onPress={() => {
+            onPress={async () => {
               if (!account) {
                 return;
               }
-              navigation.pushModal(EModalRoutes.StakingModal, {
-                screen: EModalStakingRoutes.AssetProtocolList,
-                params: {
-                  networkId: networks[0].networkId,
-                  accountId: account.id,
-                  symbol,
-                  indexedAccountId: account.indexedAccountId,
-                },
-              });
+              const { indexedAccountId, id: accountId } = account;
+              const earnAccount =
+                await backgroundApiProxy.serviceStaking.getEarnAccount({
+                  networkId,
+                  accountId,
+                  indexedAccountId,
+                });
+              if (earnAccount?.accountId) {
+                navigation.pushModal(EModalRoutes.StakingModal, {
+                  screen: EModalStakingRoutes.AssetProtocolList,
+                  params: {
+                    networkId,
+                    accountId: earnAccount?.accountId,
+                    symbol,
+                    indexedAccountId: account.indexedAccountId,
+                  },
+                });
+              }
             }}
             avatarProps={{ src: logoURI }}
             renderItemText={
