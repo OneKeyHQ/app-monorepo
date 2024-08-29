@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
@@ -128,7 +131,7 @@ export default class Vault extends VaultBase {
     };
 
     let tokenInfo;
-    let amount = encodedTx.Amount.toString();
+    let amount = new BigNumber(encodedTx.Amount).toFixed();
     let isNative = true;
     if (encodedTx.Payload && encodedTx.Amount === 0) {
       const transfer = decodeTransferPayload(encodedTx.Payload);
@@ -229,20 +232,23 @@ export default class Vault extends VaultBase {
             accountId: this.accountId,
             tokenIdOnNetwork: encodedTx.To,
           });
-          transfer.amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
-            .shiftedBy(token?.decimals ?? 0)
-            .toFixed();
-          encodedTx.Payload = encodeTransferPayload(transfer);
+          if (token) {
+            transfer.amount = chainValueUtils.convertTokenAmountToChainValue({
+              value: params.nativeAmountInfo.maxSendAmount,
+              token,
+            });
+            encodedTx.Payload = encodeTransferPayload(transfer);
+          }
         }
       }
       if (!isSendToken) {
-        const token = await this.backgroundApi.serviceToken.getNativeToken({
-          networkId: this.networkId,
-          accountId: this.accountId,
-        });
-        encodedTx.Amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
-          .shiftedBy(token?.decimals ?? 0)
-          .toNumber();
+        const network = await this.getNetwork();
+        encodedTx.Amount = Number(
+          chainValueUtils.convertAmountToChainValue({
+            value: params.nativeAmountInfo.maxSendAmount,
+            network,
+          }),
+        );
       }
     }
     return {

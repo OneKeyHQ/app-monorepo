@@ -101,6 +101,20 @@ function convertTokenChainValueToAmount({
     .toFixed();
 }
 
+function convertTokenAmountToChainValue({
+  value,
+  token,
+}: ITokenChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      token.decimals ??
+        nilError(
+          'convertTokenChainValueToAmount ERROR: token.decimals missing',
+        ),
+    )
+    .toFixed(0, BigNumber.ROUND_FLOOR);
+}
+
 function fixNativeTokenMaxSendAmount({
   amount,
   network,
@@ -129,5 +143,6 @@ export default {
   convertGweiToAmount,
   convertAmountToGwei,
   convertTokenChainValueToAmount,
+  convertTokenAmountToChainValue,
   fixNativeTokenMaxSendAmount,
 };
