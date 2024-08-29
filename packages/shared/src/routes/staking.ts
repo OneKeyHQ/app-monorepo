@@ -30,6 +30,7 @@ export enum EModalStakingRoutes {
 type IBaseRouteParams = {
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
 };
 
 export type IModalStakingParamList = {

@@ -1,9 +1,12 @@
+import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EEarnProviderEnum,
@@ -449,19 +452,23 @@ class ServiceStaking extends ServiceBase {
   async getProtocolList(params: {
     networkId: string;
     accountId: string;
+    indexedAccountId?: string;
     symbol: string;
   }) {
-    const { networkId, accountId, symbol } = params;
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
+    const { networkId, accountId, indexedAccountId, symbol } = params;
+    const account = await this.getEarnAccount({
+      networkId,
+      accountId,
+      indexedAccountId,
+    });
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const protocolListResp = await client.get<{
       data: { protocols: IStakeProtocolListItem[] };
     }>('/earn/v1/stake-protocol/list', {
-      params: { accountAddress, symbol: symbol.toUpperCase() },
+      params: {
+        accountAddress: account ? account.accountAddress : undefined,
+        symbol: symbol.toUpperCase(),
+      },
     });
     let protocols = protocolListResp.data.data.protocols;
     protocols = protocols.filter((o) => o.network.networkId === networkId);
@@ -523,7 +530,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccount(params: { networkId: string; accountAddress: string }) {
+  async getAccountAsset(params: { networkId: string; accountAddress: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: IEarnAccount;
@@ -532,33 +539,41 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllNetworkAccount({
+  async fetchAllNetworkAssets({
+    accountId,
+    networkId,
     assets,
-    indexedAccountId,
   }: {
-    indexedAccountId: string;
+    accountId: string;
+    networkId: string;
     assets: IAvailableAsset[];
   }) {
-    const dbAccounts =
-      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-        { indexedAccountId },
-      );
+    const accounts = await this.getEarnAvailableAccounts({
+      accountId,
+      networkId,
+    });
     const accountParams: { networkId: string; accountAddress: string }[] = [];
-    for (let index = 0; index < dbAccounts.length; index += 1) {
-      const account = dbAccounts[index];
-      assets.forEach((asset) => {
-        asset.networks.forEach((network) => {
-          if (network.networkId.startsWith(account.impl)) {
-            accountParams.push({
-              accountAddress: account.address,
-              networkId: network.networkId,
-            });
-          }
-        });
+
+    assets.forEach((asset) => {
+      asset.networks.forEach((network) => {
+        const account = accounts.find((i) => i.networkId === network.networkId);
+        if (account?.apiAddress) {
+          accountParams.push({
+            accountAddress: account?.apiAddress,
+            networkId: network.networkId,
+          });
+        }
       });
-    }
+    });
+
+    const uniqueAccountParams = Array.from(
+      new Map(
+        accountParams.map((item) => [JSON.stringify(item), item]),
+      ).values(),
+    );
+
     const resp = await Promise.allSettled(
-      accountParams.map((params) => this.getAccount(params)),
+      uniqueAccountParams.map((params) => this.getAccountAsset(params)),
     );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
@@ -653,6 +668,99 @@ class ServiceStaking extends ServiceBase {
     }
 
     return null;
+  }
+
+  @backgroundMethod()
+  async getEarnAccount(params: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+  }) {
+    const { accountId, networkId, indexedAccountId } = params;
+    if (networkUtils.isAllNetwork({ networkId })) {
+      throw new Error('networkId should not be all network');
+    }
+    if (networkUtils.isAllNetwork({ networkId }) && !indexedAccountId) {
+      throw new Error('indexedAccountId should be provided');
+    }
+    if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      if (
+        networkUtils.isBTCNetwork(networkId) &&
+        !isTaprootAddress(account.address)
+      ) {
+        return null;
+      }
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId,
+          accountId,
+        });
+      return {
+        accountId,
+        networkId,
+        accountAddress,
+        account,
+      };
+    }
+    try {
+      const globalDeriveType =
+        await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      let deriveType = globalDeriveType;
+      // only support taproot for earn
+      if (networkUtils.isBTCNetwork(networkId)) {
+        deriveType = 'BIP86';
+      }
+      const networkAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          networkId,
+          accountId: networkAccount.id,
+        });
+      return {
+        accountId,
+        networkId,
+        accountAddress,
+        account: networkAccount,
+      };
+    } catch (e) {
+      console.log('======>>>>>error: ', e);
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  async getEarnAvailableAccounts(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { accountId, networkId } = params;
+    const { accountsInfo } =
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+        accountId,
+        networkId,
+        fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
+          ? undefined
+          : true,
+      });
+    return accountsInfo.filter(
+      (account) =>
+        !(
+          networkUtils.isBTCNetwork(account.networkId) &&
+          !isTaprootAddress(account.apiAddress)
+        ),
+    );
   }
 }
 
