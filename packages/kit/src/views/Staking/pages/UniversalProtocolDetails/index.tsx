@@ -132,23 +132,30 @@ const UniversalProtocolDetailsPage = () => {
           onRefresh={run}
         >
           <Stack>
-            <UniversalProtocolDetails details={result} onClaim={onClaim} />
-            <Page.Footer
-              onConfirmText={intl.formatMessage({
-                id: ETranslations.earn_stake,
-              })}
-              confirmButtonProps={{
-                variant: 'primary',
-                loading: stakeLoading,
-                onPress: onStake,
-              }}
-              onCancelText={intl.formatMessage({
-                id: ETranslations.earn_redeem,
-              })}
-              cancelButtonProps={{
-                onPress: onWithdraw,
-              }}
+            <UniversalProtocolDetails
+              accountId={accountId}
+              networkId={networkId}
+              details={result}
+              onClaim={onClaim}
             />
+            {accountId ? (
+              <Page.Footer
+                onConfirmText={intl.formatMessage({
+                  id: ETranslations.earn_stake,
+                })}
+                confirmButtonProps={{
+                  variant: 'primary',
+                  loading: stakeLoading,
+                  onPress: onStake,
+                }}
+                onCancelText={intl.formatMessage({
+                  id: ETranslations.earn_redeem,
+                })}
+                cancelButtonProps={{
+                  onPress: onWithdraw,
+                }}
+              />
+            ) : null}
             {result ? (
               <StakingTransactionIndicator
                 accountId={accountId}
