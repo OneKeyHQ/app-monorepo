@@ -16,6 +16,7 @@ import type {
   IAprToken,
   IAvailableAsset,
   IClaimableListResponse,
+  IEarnAccount,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
@@ -380,15 +381,16 @@ class ServiceStaking extends ServiceBase {
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
     const resp = await client.post<{
       data: IEncodedTx;
-    }>(`/earn/v1/unstake`, { accountAddress, networkId, ...rest });
+    }>(`/earn/v1/unstake`, {
+      accountAddress: acc.address,
+      networkId,
+      publicKey: acc.pub,
+      ...rest,
+    });
     return resp.data.data;
   }
 

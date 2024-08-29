@@ -17,6 +17,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalApproveBaseStake } from '../../components/UniversalApproveBaseStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
+import { buildLocalTraceTxTag } from '../../utils/const';
 
 const UniversalApproveBaseStakePage = () => {
   const route = useAppRoute<
@@ -28,11 +29,19 @@ const UniversalApproveBaseStakePage = () => {
   const { token, provider, rewardToken } = details;
   const { balanceParsed, price } = token;
   const appNavigation = useAppNavigation();
+  const actionTag = buildLocalTraceTxTag(details);
+
   const handleStake = useUniversalStake({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
       await handleStake({
         amount,
+        stakingInfo: {
+          label: EEarnLabels.Unknown,
+          protocol: provider.name,
+          send: { token: token.info, amount },
+          tags: [actionTag],
+        },
         symbol: token.info.symbol.toUpperCase(),
         provider: provider.name,
         onSuccess: (txs) => {
@@ -40,14 +49,14 @@ const UniversalApproveBaseStakePage = () => {
           defaultLogger.staking.page.staking({
             token: token.info,
             amount,
-            stakingProtocol: 'lido',
+            stakingProtocol: provider.name,
             tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
             txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [token, appNavigation, handleStake, price, provider],
+    [token, appNavigation, handleStake, price, provider, actionTag],
   );
   const intl = useIntl();
   return (
@@ -64,7 +73,10 @@ const UniversalApproveBaseStakePage = () => {
           balance={balanceParsed}
           token={token.info}
           receivingTokenSymbol={rewardToken}
-          minAmount={BigNumber(1).shiftedBy(-token.info.decimals).toFixed()}
+          minAmount={
+            provider.minStakeAmount ??
+            BigNumber(1).shiftedBy(-token.info.decimals).toFixed()
+          }
           onConfirm={onConfirm}
           apr={Number(provider.apr)}
           currentAllowance={currentAllowance}
