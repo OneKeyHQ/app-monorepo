@@ -128,8 +128,13 @@ export default class Vault extends VaultBase {
     };
 
     let tokenInfo;
+    let amount = encodedTx.Amount.toString();
+    let isNative = true;
     if (encodedTx.Payload && encodedTx.Amount === 0) {
-      if (decodeTransferPayload(encodedTx.Payload)) {
+      const transfer = decodeTransferPayload(encodedTx.Payload);
+      if (transfer) {
+        isNative = false;
+        amount = transfer.amount;
         tokenInfo = await this.backgroundApi.serviceToken.getToken({
           networkId: this.networkId,
           accountId: this.accountId,
@@ -151,11 +156,11 @@ export default class Vault extends VaultBase {
         name: tokenInfo.name,
         symbol: tokenInfo.symbol,
         amount: chainValueUtils.convertTokenChainValueToAmount({
-          value: encodedTx.Amount.toString(),
+          value: amount,
           token: tokenInfo,
         }),
         isNFT: false,
-        isNative: true,
+        isNative,
       };
 
       action = await this.buildTxTransferAssetAction({
@@ -214,7 +219,31 @@ export default class Vault extends VaultBase {
     }
     // max token send
     if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
-      encodedTx.Amount = +params.nativeAmountInfo.maxSendAmount;
+      let isSendToken = false;
+      if (encodedTx.Amount === 0 && encodedTx.Payload) {
+        const transfer = decodeTransferPayload(encodedTx.Payload);
+        if (transfer) {
+          isSendToken = true;
+          const token = await this.backgroundApi.serviceToken.getToken({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            tokenIdOnNetwork: encodedTx.To,
+          });
+          transfer.amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+            .shiftedBy(token?.decimals ?? 0)
+            .toFixed();
+          encodedTx.Payload = encodeTransferPayload(transfer);
+        }
+      }
+      if (!isSendToken) {
+        const token = await this.backgroundApi.serviceToken.getNativeToken({
+          networkId: this.networkId,
+          accountId: this.accountId,
+        });
+        encodedTx.Amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+          .shiftedBy(token?.decimals ?? 0)
+          .toNumber();
+      }
     }
     return {
       ...params.unsignedTx,
