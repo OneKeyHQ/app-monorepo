@@ -11,7 +11,6 @@ import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
-import type { IEarnAccount } from '../../types/staking';
 import type {
   IFetchQuotesParams,
   ISwapQuoteEvent,
@@ -72,7 +71,6 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
-  EarnAccountUpdate = 'EarnAccountUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -207,7 +205,6 @@ export interface IAppEventBusPayload {
     params: IFetchQuotesParams;
     accountId?: string;
   };
-  [EAppEventBusNames.EarnAccountUpdate]: IEarnAccount;
 }
 
 export enum EEventBusBroadcastMethodNames {
