@@ -87,7 +87,7 @@ export function decodeTransferPayload(payload: string):
       ['address', 'uint256'],
       `0x${payload.slice(TransferMethod.length)}`,
     );
-    return { address, amount: (amount as BigNumber).toString() };
+    return { address, amount: (amount as BigNumber).toFixed() };
   } catch (error) {
     return undefined;
   }
