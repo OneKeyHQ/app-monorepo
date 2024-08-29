@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
@@ -25,6 +26,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapAllNetworkTokenListAtom,
   useSwapNetworksAtom,
   useSwapProviderSortAtom,
   useSwapSelectFromTokenAtom,
@@ -32,11 +34,6 @@ import {
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
-import {
-  useSmallBalanceTokenListAtom,
-  useTokenListAtom,
-  useTokenListMapAtom,
-} from '../../../states/jotai/contexts/tokenList';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -243,9 +240,8 @@ export function useSwapTokenList(
     (ISwapToken | IFuseResult<ISwapToken>)[]
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
-  const [walletTokenList] = useTokenListAtom();
-  const [tokenPriceMap] = useTokenListMapAtom();
-  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
+  const [swapAllNetworkTokenList] = useSwapAllNetworkTokenListAtom();
+  const [swapNetworks] = useSwapNetworksAtom();
   const { tokenListFetchAction } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
@@ -266,8 +262,83 @@ export function useSwapTokenList(
     ],
   );
 
+  const mergedAllNetworkTokenList = useCallback(
+    ({
+      swapAllNetRecommend,
+      swapSearchTokens,
+    }: {
+      swapAllNetRecommend?: ISwapToken[];
+      swapSearchTokens?: ISwapToken[];
+    }) => {
+      const allNetworkTokenList = swapAllNetworkTokenList
+        .map((token) => {
+          const swapNet = swapNetworks.find(
+            (net) => net.networkId === token.networkId,
+          );
+          if (!swapNet) {
+            return token;
+          }
+          return undefined;
+        })
+        .filter((token) => token !== undefined);
+      const haveBalanceTokenList = allNetworkTokenList
+        .map((token) => {
+          const balanceBN = new BigNumber(token.balanceParsed ?? '0');
+          if (!balanceBN.isNaN() && !balanceBN.isZero()) {
+            return token;
+          }
+          return undefined;
+        })
+        .filter((token) => token !== undefined);
+      if (swapAllNetRecommend) {
+        const filterRecommendTokenList =
+          swapAllNetRecommend?.filter(
+            (token) =>
+              haveBalanceTokenList.find(
+                (balanceToken) =>
+                  balanceToken.contractAddress === token.contractAddress &&
+                  balanceToken.networkId === token.networkId,
+              ) === undefined,
+          ) ?? [];
+        return [...haveBalanceTokenList, ...filterRecommendTokenList].sort(
+          (a, b) => {
+            const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
+            const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
+            return bBalanceBN.comparedTo(aBalanceBN);
+          },
+        );
+      }
+      if (swapSearchTokens) {
+        return swapSearchTokens
+          .map((token) => {
+            const balanceToken = haveBalanceTokenList.find(
+              (walletToken) =>
+                walletToken.contractAddress === token.contractAddress &&
+                walletToken.networkId === token.networkId,
+            );
+            if (balanceToken) {
+              return balanceToken;
+            }
+            return token;
+          })
+          .sort((a, b) => {
+            const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
+            const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
+            return bBalanceBN.comparedTo(aBalanceBN);
+          });
+      }
+      return [];
+    },
+    [swapAllNetworkTokenList, swapNetworks],
+  );
+
   const fuseRemoteTokensSearch = useFuse(
-    tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+    tokenFetchParams.networkId === dangerAllNetworkRepresent.id
+      ? mergedAllNetworkTokenList({
+          swapSearchTokens:
+            tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+        })
+      : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
     {
       keys: ['symbol'].concat(
         (tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || []).length ===
@@ -282,40 +353,6 @@ export function useSwapTokenList(
   if (fuseRemoteTokensSearchRef.current !== fuseRemoteTokensSearch) {
     fuseRemoteTokensSearchRef.current = fuseRemoteTokensSearch;
   }
-
-  const mergedAllNetworkTokenList = useCallback(() => {
-    const allNetworkTokenList = walletTokenList.tokens.concat(
-      smallBalanceTokenList.smallBalanceTokens,
-    );
-    const havePriceTokenList = allNetworkTokenList
-      .map((token) => {
-        if (tokenPriceMap[token.$key]) {
-          const tokenFiat = tokenPriceMap[token.$key];
-          if (tokenFiat.balanceParsed) {
-            return {
-              networkId: token.networkId,
-              contractAddress: token.address,
-              symbol: token.symbol,
-              name: token.name,
-              decimals: token.decimals,
-              logoURI: token.logoURI,
-              isNative: token.isNative,
-              balanceParsed: tokenFiat.balanceParsed,
-              price: tokenFiat.price,
-              fiatValue: tokenFiat.fiatValue,
-              riskLevel: token.riskLevel,
-            };
-          }
-        }
-        return undefined;
-      })
-      .filter((token) => token !== undefined);
-    return havePriceTokenList;
-  }, [
-    walletTokenList.tokens,
-    smallBalanceTokenList.smallBalanceTokens,
-    tokenPriceMap,
-  ]);
 
   useEffect(() => {
     if (
@@ -341,10 +378,21 @@ export function useSwapTokenList(
       setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
     } else {
       setCurrentTokens(
-        tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+        tokenFetchParams.networkId === dangerAllNetworkRepresent.id
+          ? mergedAllNetworkTokenList({
+              swapAllNetRecommend:
+                tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+            })
+          : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
       );
     }
-  }, [tokenCatch, tokenFetchParams, currentNetworkId, keywords]);
+  }, [
+    tokenCatch,
+    tokenFetchParams,
+    currentNetworkId,
+    keywords,
+    mergedAllNetworkTokenList,
+  ]);
 
   return {
     fetchLoading: swapTokenFetching && currentTokens.length === 0,
@@ -395,13 +443,19 @@ export function useSwapSelectedTokenInfo({
   }, [loadSwapSelectTokenDetail, swapHistoryPendingList, type]);
 
   useEffect(() => {
-    void loadSwapSelectTokenDetail(type, swapAddressInfoRef.current);
+    void loadSwapSelectTokenDetail(
+      type,
+      swapAddressInfoRef.current,
+      !token?.reservationValue && token?.isNative,
+    );
   }, [
     type,
     swapAddressInfo,
     token?.networkId,
     token?.contractAddress,
     loadSwapSelectTokenDetail,
+    token?.reservationValue,
+    token?.isNative,
   ]);
 
   const pageType = usePageType();

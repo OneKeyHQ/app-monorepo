@@ -80,8 +80,6 @@ export interface ISwapToken extends ISwapTokenBase {
 
   riskLevel?: ETokenRiskLevel;
   reservationValue?: string;
-
-  isAllNetworkToken?: boolean;
 }
 
 export interface ISwapTokenCatch {
@@ -105,6 +103,8 @@ export interface IFetchTokensParams {
   accountAddress?: string;
   accountNetworkId?: string;
   accountId?: string;
+  onlyAccountTokens?: boolean;
+  isAllNetworkFetchAccountTokens?: boolean;
 }
 
 export interface IFetchTokenListParams {
@@ -116,6 +116,8 @@ export interface IFetchTokenListParams {
   withCheckInscription?: boolean;
   limit?: number;
   keywords?: string;
+  skipReservationValue?: boolean;
+  onlyAccountTokens?: boolean;
 }
 
 export interface IFetchTokenDetailParams {

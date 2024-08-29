@@ -36,6 +36,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -55,7 +59,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
@@ -85,7 +88,8 @@ const SwapTokenSelectPage = () => {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { selectFromToken, selectToToken, swapLoadAllNetworkTokenList } =
+    useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
@@ -225,9 +229,22 @@ const SwapTokenSelectPage = () => {
           num: type === ESwapDirectionType.FROM ? 0 : 1,
           networkId: network.networkId,
         });
+      } else {
+        void swapLoadAllNetworkTokenList(
+          network.networkId,
+          type === ESwapDirectionType.FROM
+            ? swapFromAddressInfo.accountInfo?.account?.id
+            : swapToAddressInfo.accountInfo?.account?.id,
+        );
       }
     },
-    [type, updateSelectedAccountNetwork],
+    [
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapLoadAllNetworkTokenList,
+      swapToAddressInfo.accountInfo?.account?.id,
+      type,
+      updateSelectedAccountNetwork,
+    ],
   );
 
   const sameTokenDisabled = useCallback(
@@ -476,9 +493,7 @@ export default function SwapTokenSelectModal() {
       }}
       enabledNum={[0, 1]}
     >
-      <HomeTokenListProviderMirror>
-        <SwapTokenSelectPageWithProvider />
-      </HomeTokenListProviderMirror>
+      <SwapTokenSelectPageWithProvider />
     </AccountSelectorProviderMirror>
   );
 }

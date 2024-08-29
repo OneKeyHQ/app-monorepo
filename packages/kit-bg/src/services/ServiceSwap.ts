@@ -164,8 +164,12 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress,
     accountNetworkId,
     accountId,
+    onlyAccountTokens,
+    isAllNetworkFetchAccountTokens,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
-    await this.cancelFetchTokenList();
+    if (!isAllNetworkFetchAccountTokens) {
+      await this.cancelFetchTokenList();
+    }
     const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId: networkId ?? dangerAllNetworkRepresent.id,
@@ -174,8 +178,12 @@ export default class ServiceSwap extends ServiceBase {
       accountAddress:
         networkId !== dangerAllNetworkRepresent.id ? accountAddress : undefined,
       accountNetworkId,
+      skipReservationValue: true,
+      onlyAccountTokens,
     };
-    this._tokenListAbortController = new AbortController();
+    if (!isAllNetworkFetchAccountTokens) {
+      this._tokenListAbortController = new AbortController();
+    }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
       const accountAddressForAccountId =
@@ -208,7 +216,9 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/tokens',
         {
           params,
-          signal: this._tokenListAbortController.signal,
+          signal: !isAllNetworkFetchAccountTokens
+            ? this._tokenListAbortController?.signal
+            : undefined,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {

@@ -42,6 +42,7 @@ import {
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+import { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -49,6 +50,7 @@ import {
   contextAtomMethod,
   rateDifferenceAtom,
   swapAlertsAtom,
+  swapAllNetworkTokenListAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
@@ -1001,6 +1003,58 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
     },
   );
+
+  updateAllNetworkTokenList = contextAtomMethod(
+    async (
+      get,
+      set,
+      accountNetworkId: string,
+      accountId?: string,
+      accountAddress?: string,
+    ) => {
+      const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+        networkId: accountNetworkId,
+        accountNetworkId,
+        accountAddress,
+        accountId,
+        onlyAccountTokens: true,
+        isAllNetworkFetchAccountTokens: true,
+      });
+      console.log('swap__result: =====>>>>>: ', result);
+      if (result?.length) {
+        set(swapAllNetworkTokenListAtom(), result);
+      }
+    },
+  );
+
+  swapLoadAllNetworkTokenList = contextAtomMethod(
+    async (get, set, networkId: string, accountId?: string) => {
+      console.log('swap__networkId: =====>>>>>: ', networkId);
+      console.log('swap__accountId: =====>>>>>: ', accountId);
+      if (accountId) {
+        const { accountsInfo } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+            accountId,
+            networkId,
+          });
+        console.log('swap__accountsInfo: =====>>>>>: ', accountsInfo);
+        const requests = accountsInfo.map((networkDataString) => {
+          const { apiAddress, networkId: accountNetworkId } = networkDataString;
+          return this.updateAllNetworkTokenList.call(
+            set,
+            accountNetworkId,
+            accountId,
+            apiAddress,
+          );
+        });
+        try {
+          await Promise.all(requests);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -1027,6 +1081,7 @@ export const useSwapActions = () => {
       leading: true,
     },
   );
+  const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({
@@ -1044,5 +1099,6 @@ export const useSwapActions = () => {
     checkSwapWarning,
     loadSwapSelectTokenDetail,
     quoteEventHandler,
+    swapLoadAllNetworkTokenList,
   });
 };
