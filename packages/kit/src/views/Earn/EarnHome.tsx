@@ -22,6 +22,10 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type {
+  IEarnAccount,
+  IEarnAccountToken,
+} from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
@@ -34,7 +38,11 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EarnProviderMirror } from './EarnProviderMirror';
 
-function RecommendedItem() {
+interface ITokenAccount extends IEarnAccountToken {
+  account: IEarnAccount;
+}
+
+function RecommendedItem({ token }: { token: ITokenAccount }) {
   return (
     <YStack
       gap="$3"
@@ -54,7 +62,7 @@ function RecommendedItem() {
         <Image size="$6" borderRadius="$1">
           <Image.Source
             source={{
-              uri: 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+              uri: token.logoURI,
             }}
           />
           <Image.Fallback
@@ -66,47 +74,75 @@ function RecommendedItem() {
             <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
           </Image.Fallback>
         </Image>
-        <SizableText size="$bodyLgMedium">BTC</SizableText>
+        <SizableText size="$bodyLgMedium">
+          {token.symbol.toUpperCase()}
+        </SizableText>
       </XStack>
-      <SizableText size="$headingXl">Earn points</SizableText>
+      <SizableText size="$headingXl">{token.apr}</SizableText>
     </YStack>
   );
 }
 
 function Recommended() {
   const { gtMd } = useMedia();
-  return (
-    <YStack userSelect="none" px="$5">
-      <YStack gap="$1" mt="$2">
-        <SizableText size="$headingLg">Recommended</SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Missing rewards: $0.125454
-        </SizableText>
-      </YStack>
-      {gtMd ? (
-        <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
-          <RecommendedItem />
-          <RecommendedItem />
-          <RecommendedItem />
-          <RecommendedItem />
-          <RecommendedItem />
-          <RecommendedItem />
-          <RecommendedItem />
-        </XStack>
-      ) : (
-        <YStack>
-          <XStack gap="$3" justifyContent="space-between">
-            <RecommendedItem />
-            <RecommendedItem />
-          </XStack>
-          <XStack gap="$3" justifyContent="space-between">
-            <RecommendedItem />
-            <RecommendedItem />
-          </XStack>
+  const [{ accounts }] = useEarnAtom();
+  const [settings] = useSettingsPersistAtom();
+  const { tokens, profit } = useMemo(() => {
+    const accountTokens: ITokenAccount[] = [];
+    const totalProfit = new BigNumber(0);
+    accounts?.forEach((account) => {
+      account.earn.tokens.forEach((token) => {
+        totalProfit.plus(token.profit || 0);
+        accountTokens.push({
+          ...token,
+          account,
+        });
+      });
+    });
+    return {
+      tokens: accountTokens,
+      profit: totalProfit,
+    };
+  }, [accounts]);
+  if (tokens.length) {
+    return (
+      <YStack userSelect="none" px="$5">
+        <YStack gap="$1" mt="$2">
+          <SizableText size="$headingLg">Recommended</SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {'Missing rewards: '}
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {profit.toString()}
+            </NumberSizeableText>
+          </SizableText>
         </YStack>
-      )}
-    </YStack>
-  );
+        {gtMd ? (
+          <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
+            {tokens.map((token) => (
+              <RecommendedItem key={token.symbol} token={token} />
+            ))}
+          </XStack>
+        ) : (
+          <YStack>
+            {new Array(Math.ceil(tokens.length / 2)).fill(0).map((_, index) => (
+              <XStack gap="$3" justifyContent="space-between" key={index}>
+                <RecommendedItem token={tokens[index * 2]} />
+                <RecommendedItem token={tokens[index * 2 + 1]} />
+              </XStack>
+            ))}
+          </YStack>
+        )}
+      </YStack>
+    );
+  }
+  return null;
 }
 
 function Overview() {
@@ -161,7 +197,7 @@ function Overview() {
       <NumberSizeableText
         size="$heading5xl"
         formatter="price"
-        formatterOptions={{ currency: '$' }}
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
       >
         {totalFiatValue}
       </NumberSizeableText>
