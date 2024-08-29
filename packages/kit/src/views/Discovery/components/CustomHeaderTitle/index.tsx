@@ -1,11 +1,15 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
+import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;
@@ -16,9 +20,11 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
-  const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(
+  const { hiddenHttpsUrl } = formatHiddenHttpsUrl(
     displayUrl ? tab?.url : undefined,
   );
+  const { hostSecurity, iconConfig } = useUrlRiskConfig(tab?.url);
+  const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
 
   return (
     <XStack
@@ -40,13 +46,36 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       onPress={() => handleSearchBarPress(tab?.url ?? '')}
       borderCurve="continuous"
     >
-      <Icon
-        name={isHttpsUrl ? 'LockOutline' : 'SearchOutline'}
-        size="$5"
-        color="$iconSubdued"
+      <Popover
+        title="dApp info"
+        open={dappInfoIsOpen}
+        onOpenChange={setDappInfoIsOpen}
+        renderTrigger={
+          <XStack
+            onPress={() =>
+              (displayUrl?.length ?? 0) > 0 &&
+              hostSecurity &&
+              setDappInfoIsOpen(true)
+            }
+          >
+            <Icon
+              name={!displayUrl ? 'SearchOutline' : iconConfig.iconName}
+              color={!displayUrl ? '$iconSubdued' : iconConfig.iconColor}
+              size="$5"
+            />
+          </XStack>
+        }
+        renderContent={({ closePopover }) => (
+          <DappInfoPopoverContent
+            hostSecurity={hostSecurity}
+            closePopover={closePopover}
+          />
+        )}
       />
+
       <SizableText
         pl="$2"
+        pb="$1"
         size="$bodyLg"
         color="$textSubdued"
         flex={1}
