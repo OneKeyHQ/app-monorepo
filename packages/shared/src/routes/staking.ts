@@ -35,7 +35,6 @@ type IBaseRouteParams = {
 
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
-  [EModalStakingRoutes.EarnTokenDetail]: IBaseRouteParams;
   [EModalStakingRoutes.EthLidoOverview]: IBaseRouteParams;
   [EModalStakingRoutes.EthLidoStake]: IBaseRouteParams & {
     price: string;

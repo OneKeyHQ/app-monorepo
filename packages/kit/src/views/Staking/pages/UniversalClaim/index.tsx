@@ -52,13 +52,15 @@ const UniversalClaimPage = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
-            token: tokenInfo,
-            amount,
-            stakingProtocol: provider.name,
-            tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
-          });
+          if (Number(price) > 0) {
+            defaultLogger.staking.page.unstaking({
+              token: tokenInfo,
+              amount,
+              stakingProtocol: provider.name,
+              tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
+              txnHash: txs[0].signedTx.txid,
+            });
+          }
         },
       });
     },
@@ -84,7 +86,6 @@ const UniversalClaimPage = () => {
           initialAmountValue={initialAmount ?? ''}
           editable={!notEditable}
           balance={details.claimable ?? '0'}
-          minAmount={BigNumber(100).shiftedBy(-tokenInfo.decimals).toFixed()}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}
           providerLogo={provider.logoURI}

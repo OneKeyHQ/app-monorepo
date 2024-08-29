@@ -52,13 +52,15 @@ const UniversalWithdrawPage = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
-            token: tokenInfo,
-            amount,
-            stakingProtocol: provider.name,
-            tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
-          });
+          if (Number(price) > 0) {
+            defaultLogger.staking.page.unstaking({
+              token: tokenInfo,
+              amount,
+              stakingProtocol: provider.name,
+              tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
+              txnHash: txs[0].signedTx.txid,
+            });
+          }
         },
       });
     },
@@ -79,11 +81,9 @@ const UniversalWithdrawPage = () => {
       />
       <Page.Body>
         <UniversalWithdraw
-          receivingTokenSymbol=""
           price={price}
           balance={staked}
           initialAmount={initialAmount}
-          minAmount={BigNumber(100).shiftedBy(-tokenInfo.decimals).toFixed()}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}
           providerLogo={provider.logoURI}

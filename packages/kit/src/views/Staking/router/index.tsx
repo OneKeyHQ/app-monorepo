@@ -39,10 +39,6 @@ const MaticLidoClaim = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoClaim'),
 );
 
-const EarnTokenDetail = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/EarnTokenDetail'),
-);
-
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
@@ -121,10 +117,6 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.MaticLidoClaim,
     component: MaticLidoClaim,
-  },
-  {
-    name: EModalStakingRoutes.EarnTokenDetail,
-    component: EarnTokenDetail,
   },
   {
     name: EModalStakingRoutes.UniversalProtocolDetails,

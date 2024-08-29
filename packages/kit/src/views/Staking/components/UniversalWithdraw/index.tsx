@@ -19,8 +19,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { ValuePriceListItem } from '../ValuePriceListItem';
-
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 type IUniversalWithdrawProps = {
@@ -30,10 +28,9 @@ type IUniversalWithdrawProps = {
   tokenSymbol: string;
   providerLogo: string;
   providerName: string;
-  receivingTokenSymbol: string;
+
   initialAmount?: string;
 
-  rate?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
@@ -45,10 +42,8 @@ export const UniversalWithdraw = ({
   tokenSymbol,
   providerLogo,
   providerName,
-  receivingTokenSymbol,
   initialAmount,
   minAmount = '0',
-  rate = '1',
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
@@ -113,23 +108,6 @@ export const UniversalWithdraw = ({
     [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
-  const receiving = useMemo(() => {
-    const amountValueBN = BigNumber(amountValue);
-    if (amountValueBN.isNaN()) return null;
-    const receivingAmount = amountValueBN.dividedBy(rate).toFixed();
-    const receivingValue = amountValueBN
-      .multipliedBy(price)
-      .dividedBy(rate)
-      .toFixed();
-    return (
-      <ValuePriceListItem
-        amount={receivingAmount}
-        fiatSymbol={symbol}
-        fiatValue={receivingValue}
-        tokenSymbol={receivingTokenSymbol}
-      />
-    );
-  }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
   const intl = useIntl();
   return (
     <Page>
@@ -183,17 +161,9 @@ export const UniversalWithdraw = ({
             </YStack>
           </Stack>
           <YStack>
-            {receiving ? (
-              <ListItem
-                title={intl.formatMessage({ id: ETranslations.earn_receive })}
-                titleProps={fieldTitleProps}
-              >
-                {receiving}
-              </ListItem>
-            ) : null}
             {amountValue ? (
               <ListItem
-                title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
+                title={intl.formatMessage({ id: ETranslations.earn_receive })}
                 titleProps={fieldTitleProps}
               >
                 <SizableText>
