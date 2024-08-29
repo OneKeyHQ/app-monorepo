@@ -1,14 +1,17 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { StyleSheet } from 'react-native';
 
 import {
   Icon,
+  Image,
   NumberSizeableText,
   Page,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   EJotaiContextStoreNames,
@@ -30,9 +33,83 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EarnProviderMirror } from './EarnProviderMirror';
 
+function RecommendedItem() {
+  return (
+    <YStack
+      gap="$3"
+      px="$4"
+      width="$40"
+      py="$3.5"
+      mt="$3"
+      borderRadius="$3"
+      bg="$bg"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      $md={{
+        flexGrow: 1,
+      }}
+    >
+      <XStack gap="$2">
+        <Image size="$6" borderRadius="$1">
+          <Image.Source
+            source={{
+              uri: 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+            }}
+          />
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$bgStrong"
+            delayMs={1000}
+          >
+            <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+          </Image.Fallback>
+        </Image>
+        <SizableText size="$bodyLgMedium">BTC</SizableText>
+      </XStack>
+      <SizableText size="$headingXl">Earn points</SizableText>
+    </YStack>
+  );
+}
+
+function Recommended() {
+  const { gtMd } = useMedia();
+  return (
+    <YStack userSelect="none" px="$5">
+      <YStack gap="$1" mt="$2">
+        <SizableText size="$headingLg">Recommended</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Missing rewards: $0.125454
+        </SizableText>
+      </YStack>
+      {gtMd ? (
+        <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
+          <RecommendedItem />
+          <RecommendedItem />
+          <RecommendedItem />
+          <RecommendedItem />
+          <RecommendedItem />
+          <RecommendedItem />
+          <RecommendedItem />
+        </XStack>
+      ) : (
+        <YStack>
+          <XStack gap="$3" justifyContent="space-between">
+            <RecommendedItem />
+            <RecommendedItem />
+          </XStack>
+          <XStack gap="$3" justifyContent="space-between">
+            <RecommendedItem />
+            <RecommendedItem />
+          </XStack>
+        </YStack>
+      )}
+    </YStack>
+  );
+}
+
 function Overview() {
   const [{ accounts }] = useEarnAtom();
-  console.log('EarnHome---', accounts);
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
     () =>
@@ -197,6 +274,7 @@ function BasicEarnHome() {
         <YStack alignItems="center" py="$5">
           <YStack maxWidth="$180" w="100%" gap="$8">
             <Overview />
+            <Recommended />
             <AvailableAssets />
           </YStack>
         </YStack>
