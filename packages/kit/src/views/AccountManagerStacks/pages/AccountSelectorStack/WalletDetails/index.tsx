@@ -548,7 +548,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                       size="small"
                       allowClear
                       placeholder={intl.formatMessage({
-                        id: ETranslations.global_search,
+                        id: ETranslations.global_search_account_selector,
                       })}
                       defaultValue=""
                       onChangeText={handleSearch}
@@ -607,12 +607,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                         firstIndexedAccount={
                           isOthersUniversal
                             ? undefined
-                            : (section?.data?.[0] as IDBIndexedAccount)
+                            : (section?.firstAccount as IDBIndexedAccount)
                         }
                         account={account}
                         firstAccount={
                           isOthersUniversal
-                            ? (section?.data?.[0] as IDBAccount)
+                            ? (section?.firstAccount as IDBAccount)
                             : undefined
                         }
                         wallet={focusedWalletInfo?.wallet}

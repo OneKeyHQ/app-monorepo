@@ -477,7 +477,10 @@ function isOthersWallet({ walletId }: { walletId: string }) {
   );
 }
 
-function isOthersAccount({ accountId }: { accountId: string }) {
+function isOthersAccount({ accountId }: { accountId: string | undefined }) {
+  if (!accountId) {
+    return false;
+  }
   const walletId = getWalletIdFromAccountId({ accountId });
   return isOthersWallet({ walletId });
 }

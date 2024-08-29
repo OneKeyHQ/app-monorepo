@@ -23,8 +23,8 @@ export function AccountMoveToTopButton({
 }) {
   const intl = useIntl();
   if (
-    firstIndexedAccount?.id === indexedAccount?.id &&
-    firstAccount?.id === account?.id
+    (indexedAccount?.id && firstIndexedAccount?.id === indexedAccount?.id) ||
+    (account?.id && firstAccount?.id === account?.id)
   ) {
     return null;
   }

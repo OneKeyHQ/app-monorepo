@@ -586,6 +586,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_watched,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_watched_account_message,
@@ -600,6 +601,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_private_key,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_private_key_account_message,
@@ -614,6 +616,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_connected_account,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_external_wallet_message,
@@ -624,6 +627,7 @@ class ServiceAccountSelector extends ServiceBase {
       return {
         title: title ?? '',
         data: accounts,
+        firstAccount: accounts[0],
         walletId,
         emptyText: appLocale.intl.formatMessage({
           id: ETranslations.no_account,

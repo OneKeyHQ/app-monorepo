@@ -89,7 +89,6 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   } = usePromiseResult(
     async () => {
       defaultLogger.accountSelector.perf.buildWalletListSideBarData();
-      // serviceAccount.getHDAndHWWallets({
       const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
