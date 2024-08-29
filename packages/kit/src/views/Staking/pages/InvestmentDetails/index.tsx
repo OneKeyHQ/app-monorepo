@@ -29,7 +29,6 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
-  console.log('InvestmentDetails-accounts---', accounts);
   const renderItem = useCallback(
     ({ item }: { item: any }) => (
       <ListItem

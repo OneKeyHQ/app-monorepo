@@ -456,16 +456,18 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     networkId: string;
-    accountId: string;
+    accountId?: string;
     indexedAccountId?: string;
     symbol: string;
   }) {
     const { networkId, accountId, indexedAccountId, symbol } = params;
-    const account = await this.getEarnAccount({
-      networkId,
-      accountId,
-      indexedAccountId,
-    });
+    const account = accountId
+      ? await this.getEarnAccount({
+          networkId,
+          accountId,
+          indexedAccountId,
+        })
+      : null;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const protocolListResp = await client.get<{
       data: { protocols: IStakeProtocolListItem[] };
