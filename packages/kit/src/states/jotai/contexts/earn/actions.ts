@@ -19,11 +19,19 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     if (!get(atom).isMounted) {
       return;
     }
+    void this.syncToJotai.call(set, payload);
+    void backgroundApiProxy.simpleDb.earn.setRawData(payload);
+  });
+
+  syncToJotai = contextAtomMethod((get, set, payload: IEarnAtomData) => {
+    const atom = earnAtom();
+    if (!get(atom).isMounted) {
+      return;
+    }
     set(atom, (prev: IEarnAtomData) => ({
       ...prev,
       ...payload,
     }));
-    void backgroundApiProxy.simpleDb.earn.setRawData(payload);
   });
 
   updateAvailableAssets = contextAtomMethod(
@@ -35,7 +43,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   );
 
   updateEarnAccounts = contextAtomMethod((_, set, accounts: IEarnAccount[]) => {
-    this.syncToDb.call(set, {
+    this.syncToJotai.call(set, {
       accounts,
     });
   });
