@@ -101,7 +101,7 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
             <>
               {title ? <DialogTitle>{title}</DialogTitle> : null}
               {description ? (
-                <DialogDescription>{description}</DialogDescription>
+                <DialogDescription mr={-44}>{description}</DialogDescription>
               ) : null}
             </>
           ) : null}
