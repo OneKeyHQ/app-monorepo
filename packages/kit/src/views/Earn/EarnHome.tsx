@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { StyleSheet } from 'react-native';
@@ -18,6 +18,10 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -339,17 +343,16 @@ function BasicEarnHome() {
   const actions = useEarnActions();
   usePromiseResult(
     async () => {
+      actions.current.clearEarnAccounts();
       const assets =
         await backgroundApiProxy.serviceStaking.getAvailableAssets();
-      actions.current.updateAvailableAssets(assets);
+      await actions.current.updateAvailableAssets(assets);
 
-      const accounts =
-        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-          assets,
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
-        });
-      actions.current.updateEarnAccounts(accounts);
+      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
+        assets,
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+      });
     },
     [account, network, actions],
     {
@@ -357,6 +360,16 @@ function BasicEarnHome() {
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  useEffect(() => {
+    const callback = async (payload: IEarnAccount) => {
+      await actions.current.addEarnAccount(payload);
+    };
+    appEventBus.on(EAppEventBusNames.EarnAccountUpdate, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.EarnAccountUpdate, callback);
+    };
+  }, [actions]);
 
   return (
     <Page scrollEnabled>

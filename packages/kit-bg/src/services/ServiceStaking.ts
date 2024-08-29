@@ -5,6 +5,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -588,11 +592,13 @@ class ServiceStaking extends ServiceBase {
       ).values(),
     );
 
-    const resp = await Promise.allSettled(
-      uniqueAccountParams.map((params) => this.getAccountAsset(params)),
+    void Promise.all(
+      uniqueAccountParams.map((params) =>
+        this.getAccountAsset(params).then((payload) => {
+          appEventBus.emit(EAppEventBusNames.EarnAccountUpdate, payload);
+        }),
+      ),
     );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
   }
 
   @backgroundMethod()
