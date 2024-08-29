@@ -242,24 +242,26 @@ export interface IEarnAccountToken {
   price: string;
 }
 
-export type IEarnAccount = {
+export type IEarnAccountResponse = {
   claimableNum: number;
   totalFiatValue: string;
   earnings24h: string;
   tokens: IEarnAccountToken[];
 };
+
+export type IEarnAccount = {
+  earn: IEarnAccountResponse;
+  networkId: string;
+  accountAddress: string;
+};
+
 export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
   apr: string;
   tags: string[];
-  networks?: {
-    networkId: string;
-    name: string;
-    logoURI: string;
-    address: string;
-  }[];
+  networkId: string;
 };
 
 export interface IEarnAtomData {

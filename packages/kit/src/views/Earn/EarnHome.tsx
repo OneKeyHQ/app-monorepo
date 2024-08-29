@@ -117,7 +117,7 @@ function Overview() {
       accounts
         ? accounts
             .reduce(
-              (prev, account) => prev.plus(account.totalFiatValue || 0),
+              (prev, account) => prev.plus(account.earn.totalFiatValue || 0),
               new BigNumber(0),
             )
             .toString()
@@ -128,7 +128,7 @@ function Overview() {
     () =>
       accounts
         ? accounts.reduce(
-            (prev, account) => prev.plus(account.earnings24h || 0),
+            (prev, account) => prev.plus(account.earn.earnings24h || 0),
             new BigNumber(0),
           )
         : new BigNumber(0),
