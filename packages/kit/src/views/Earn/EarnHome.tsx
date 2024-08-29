@@ -42,7 +42,56 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
+const toTokenDetailPage = async (
+  navigation: ReturnType<typeof useAppNavigation>,
+  {
+    networkId,
+    accountId,
+    indexedAccountId,
+    symbol,
+  }: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId: string;
+    symbol: string;
+  },
+) => {
+  const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+    networkId,
+    accountId,
+    indexedAccountId,
+  });
+  if (earnAccount?.accountId) {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.AssetProtocolList,
+      params: {
+        networkId,
+        accountId: earnAccount?.accountId,
+        indexedAccountId,
+        symbol,
+      },
+    });
+  }
+};
+
 function RecommendedItem({ token }: { token: ITokenAccount }) {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  const navigation = useAppNavigation();
+  const onPress = useCallback(async () => {
+    if (account) {
+      const { indexedAccountId, id: accountId } = account;
+      if (indexedAccountId) {
+        await toTokenDetailPage(navigation, {
+          indexedAccountId,
+          accountId,
+          networkId: token.account.networkId,
+          symbol: token.symbol,
+        });
+      }
+    }
+  }, [account, navigation, token.account.networkId, token.symbol]);
   return (
     <YStack
       gap="$3"
@@ -57,6 +106,8 @@ function RecommendedItem({ token }: { token: ITokenAccount }) {
       $md={{
         flexGrow: 1,
       }}
+      onPress={onPress}
+      {...listItemPressStyle}
     >
       <XStack gap="$2">
         <Image size="$6" borderRadius="$1">
@@ -240,26 +291,16 @@ function AvailableAssets() {
             mx={0}
             px="$5"
             onPress={async () => {
-              if (!account) {
-                return;
-              }
-              const { indexedAccountId, id: accountId } = account;
-              const earnAccount =
-                await backgroundApiProxy.serviceStaking.getEarnAccount({
-                  networkId,
-                  accountId,
-                  indexedAccountId,
-                });
-              if (earnAccount?.accountId) {
-                navigation.pushModal(EModalRoutes.StakingModal, {
-                  screen: EModalStakingRoutes.AssetProtocolList,
-                  params: {
+              if (account) {
+                const { indexedAccountId, id: accountId } = account;
+                if (indexedAccountId) {
+                  await toTokenDetailPage(navigation, {
+                    indexedAccountId,
+                    accountId,
                     networkId,
-                    accountId: earnAccount?.accountId,
                     symbol,
-                    indexedAccountId: account.indexedAccountId,
-                  },
-                });
+                  });
+                }
               }
             }}
             avatarProps={{ src: logoURI }}
