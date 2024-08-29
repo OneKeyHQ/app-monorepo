@@ -231,6 +231,7 @@ export function useAccountSelectorCreateAddress() {
                                 mt="$2"
                                 iconAfter="OpenOutline"
                                 onPress={() =>
+                                  // TODO open help center article to guide user to update firmware by USB/BLE
                                   Linking.openURL(FIRMWARE_UPDATE_WEB_TOOLS_URL)
                                 }
                               >

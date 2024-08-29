@@ -30,6 +30,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { decodeTransferPayload, encodeTransferPayload } from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -83,19 +84,31 @@ export default class Vault extends VaultBase {
       throw new Error('tokenInfo is required');
     }
 
+    let amount = new BigNumber(transfer.amount)
+      .shiftedBy(tokenInfo.decimals ?? 0)
+      .toFixed(0, BigNumber.ROUND_FLOOR);
+
+    let Payload = '';
+    let toAddress = transfer.to;
+    if (!tokenInfo.isNative) {
+      toAddress = tokenInfo.address;
+      Payload = encodeTransferPayload({
+        address: transfer.to,
+        amount,
+      });
+      amount = '0';
+    }
+
     return {
       Type: 0,
       From: transfer.from,
-      To: transfer.to,
-      Amount: new BigNumber(transfer.amount)
-        .shiftedBy(tokenInfo.decimals)
-        .integerValue()
-        .toNumber(),
+      To: toAddress,
+      Amount: Number(amount),
       AccountNonce: 0,
       GasPrice: 1,
       GasLimit: 0,
       Timestamp: 0,
-      Payload: '',
+      Payload,
     } as IEncodedTxScdo;
   }
 
@@ -114,22 +127,32 @@ export default class Vault extends VaultBase {
       },
     };
 
-    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
-      networkId: this.networkId,
-      accountId: this.accountId,
-    });
-
-    if (nativeToken) {
+    let tokenInfo;
+    if (encodedTx.Payload && encodedTx.Amount === 0) {
+      if (decodeTransferPayload(encodedTx.Payload)) {
+        tokenInfo = await this.backgroundApi.serviceToken.getToken({
+          networkId: this.networkId,
+          accountId: this.accountId,
+          tokenIdOnNetwork: encodedTx.To,
+        });
+      }
+    } else {
+      tokenInfo = await this.backgroundApi.serviceToken.getNativeToken({
+        networkId: this.networkId,
+        accountId: this.accountId,
+      });
+    }
+    if (tokenInfo) {
       const transfer: IDecodedTxTransferInfo = {
         from: encodedTx.From,
         to: encodedTx.To,
-        tokenIdOnNetwork: nativeToken.address,
-        icon: nativeToken.logoURI ?? '',
-        name: nativeToken.name,
-        symbol: nativeToken.symbol,
+        tokenIdOnNetwork: tokenInfo.address,
+        icon: tokenInfo.logoURI ?? '',
+        name: tokenInfo.name,
+        symbol: tokenInfo.symbol,
         amount: chainValueUtils.convertTokenChainValueToAmount({
           value: encodedTx.Amount.toString(),
-          token: nativeToken,
+          token: tokenInfo,
         }),
         isNFT: false,
         isNative: true,

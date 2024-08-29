@@ -905,6 +905,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // const num = 0;
       await serviceAccount.removeAccount({ account, indexedAccount });
       // set(accountSelectorEditModeAtom(), false);
+      if (accountUtils.isOthersAccount({ accountId: account?.id })) {
+        await this.autoSelectNextAccount.call(set, {
+          num: 0,
+          triggerBy: 'removeOthersAccount',
+        });
+      }
     },
   );
 
@@ -1457,7 +1463,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
-        triggerBy?: 'removeWallet';
+        triggerBy?: 'removeWallet' | 'removeOthersAccount';
       },
     ) => {
       console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -1504,12 +1510,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         let selectedWalletId = wallet?.id;
         let selectedWallet = wallet;
         let selectedIndexedAccountId = indexedAccount?.id;
+        // accountUtils.isHwWallet
         const hasIndexedAccounts =
           selectedWalletId &&
           (accountUtils.isHdWallet({
             walletId: selectedWalletId,
           }) ||
-            accountUtils.isHwWallet({
+            accountUtils.isHwOrQrWallet({
               walletId: selectedWalletId,
             })) &&
           (await serviceAccount.isWalletHasIndexedAccounts({
@@ -1518,7 +1525,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // auto select hd hw wallet
         if (!selectedWalletId || !hasIndexedAccounts) {
-          const { wallets } = await serviceAccount.getHDAndHWWallets();
+          const { wallets } = await serviceAccount.getAllHdHwQrWallets();
           for (const wallet0 of wallets) {
             if (
               await serviceAccount.isWalletHasIndexedAccounts({
@@ -1536,12 +1543,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const isHdWallet = accountUtils.isHdWallet({
           walletId: selectedWalletId,
         });
-        const isHwWallet = accountUtils.isHwWallet({
+        const isHwOrQrWallet = accountUtils.isHwOrQrWallet({
           walletId: selectedWalletId,
         });
 
         // auto select hd or hw index account
-        if (selectedWalletId && (isHdWallet || isHwWallet)) {
+        if (selectedWalletId && (isHdWallet || isHwOrQrWallet)) {
           if (!indexedAccount || indexedAccount.walletId !== selectedWalletId) {
             const { accounts: indexedAccounts } =
               await serviceAccount.getIndexedAccountsOfWallet({
@@ -1555,7 +1562,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         const isOthers =
-          Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
+          Boolean(selectedWalletId) && !isHdWallet && !isHwOrQrWallet;
 
         if (isOthers) {
           selectedAccountNew.focusedWallet = selectedWalletId;
@@ -1644,14 +1651,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (selectedAccount.walletId !== selectedAccountNew.walletId) {
           set(accountSelectorEditModeAtom(), false);
         }
-      } else if (triggerBy === 'removeWallet') {
+      } else if (
+        // (else if) when auto select logic not trigger, should fix focusedWallet only
+        // focused A wallet, but remove B wallet, should focus back to A wallet
+        triggerBy &&
+        ['removeWallet', 'removeOthersAccount'].includes(triggerBy)
+      ) {
         const selectedAccountNew = await this.cloneSelectedAccountNew.call(
           set,
           {
             num,
           },
         );
-        // autofix focusedWallet when remove wallet
+        // autofix focusedWallet when remove an unfocused wallet
         selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
         await this.updateSelectedAccount.call(set, {
           num,
