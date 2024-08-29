@@ -28,6 +28,7 @@ type IStakedValue = {
 
 type IPortfolioValue = {
   pendingInactive?: string;
+  pendingActive?: string;
   claimable?: string;
   token: IToken;
   onClaim?: () => void;
@@ -172,13 +173,15 @@ const PortfolioItem = ({
 
 function Portfolio({
   pendingInactive,
+  pendingActive,
   claimable,
   token,
   onClaim,
 }: IPortfolioValue) {
   if (
-    (pendingInactive && Number(pendingInactive) > 0) ||
-    (claimable && Number(claimable) > 0)
+    Number(pendingInactive) > 0 ||
+    Number(claimable) > 0 ||
+    Number(pendingActive) > 0
   ) {
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
@@ -190,6 +193,14 @@ function Portfolio({
               tokenSymbol={token.symbol}
               amount={pendingInactive}
               statusText="Pending"
+            />
+          ) : null}
+          {pendingActive && Number(pendingActive) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={pendingActive}
+              statusText="Activing"
             />
           ) : null}
           {claimable && Number(claimable) > 0 ? (
@@ -442,6 +453,7 @@ export function UniversalProtocolDetails({
     };
     const portfolio: IPortfolioValue = {
       pendingInactive: details.pendingInactive,
+      pendingActive: details.pendingActive,
       claimable: details.claimable,
       token: details.token.info,
     };
