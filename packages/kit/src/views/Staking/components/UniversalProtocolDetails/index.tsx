@@ -87,7 +87,7 @@ function StakedValue({
           formatter="value"
           formatterOptions={{ currency: '$' }}
         >
-          {value}
+          {value || 0}
         </NumberSizeableText>
       </YStack>
       <YStack gap="$1.5">
@@ -109,7 +109,7 @@ function StakedValue({
               formatter="price"
               formatterOptions={{ tokenSymbol }}
             >
-              {stakedNumber}
+              {stakedNumber || 0}
             </NumberSizeableText>
           </YStack>
           <YStack gap="$0.5">
@@ -121,7 +121,7 @@ function StakedValue({
               formatter="price"
               formatterOptions={{ tokenSymbol }}
             >
-              {availableNumber}
+              {availableNumber || 0}
             </NumberSizeableText>
           </YStack>
         </XStack>
