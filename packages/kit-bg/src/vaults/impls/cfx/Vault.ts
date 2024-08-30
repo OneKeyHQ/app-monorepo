@@ -239,8 +239,13 @@ export default class Vault extends VaultBase {
         ? new BigNumber(2).pow(256).minus(1)
         : amountBN.shiftedBy(tokenInfo.decimals),
     );
+
+    const spenderAddress = `0x${confluxAddress
+      .decodeCfxAddress(spender)
+      .hexAddress.toString('hex')}`;
+
     const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
-      .encode(['address', 'uint256'], [spender, amountHex])
+      .encode(['address', 'uint256'], [spenderAddress, amountHex])
       .slice(2)}`;
     return {
       from: owner,
@@ -643,8 +648,12 @@ export default class Vault extends VaultBase {
           : new BigNumber(allowance).shiftedBy(decimals),
       );
 
+      const spenderAddress = `0x${confluxAddress
+        .decodeCfxAddress(spender)
+        .hexAddress.toString('hex')}`;
+
       const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
-        .encode(['address', 'uint256'], [spender, amountHex])
+        .encode(['address', 'uint256'], [spenderAddress, amountHex])
         .slice(2)}`;
 
       return {
