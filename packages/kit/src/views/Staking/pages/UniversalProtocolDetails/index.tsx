@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -12,6 +13,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   PageFrame,
@@ -32,7 +34,7 @@ const UniversalProtocolDetailsPage = () => {
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
-  const { result: earnAccount } = usePromiseResult(
+  const { result: earnAccount, run: refreshAccount } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceStaking.getEarnAccount({
         accountId,
@@ -53,6 +55,12 @@ const UniversalProtocolDetailsPage = () => {
     [accountId, networkId, indexedAccountId, symbol, provider],
     { watchLoading: true },
   );
+
+  const onCreateAddress = useCallback(async () => {
+    await refreshAccount();
+    void run();
+  }, [refreshAccount, run]);
+
   const onStake = useCallback(async () => {
     if (!result) return;
     if (result.approveTarget) {
@@ -148,10 +156,14 @@ const UniversalProtocolDetailsPage = () => {
         >
           <Stack>
             <UniversalProtocolDetails
+              accountId={accountId}
+              networkId={networkId}
+              indexedAccountId={indexedAccountId}
               earnAccount={earnAccount}
               details={result}
               onClaim={onClaim}
               onPortfolioDetails={onPortfolioDetails}
+              onCreateAddress={onCreateAddress}
             />
             <Page.Footer
               onConfirmText={intl.formatMessage({
@@ -161,14 +173,14 @@ const UniversalProtocolDetailsPage = () => {
                 variant: 'primary',
                 loading: stakeLoading,
                 onPress: onStake,
-                disabled: !accountId,
+                disabled: !earnAccount?.accountAddress,
               }}
               onCancelText={intl.formatMessage({
                 id: ETranslations.earn_redeem,
               })}
               cancelButtonProps={{
                 onPress: onWithdraw,
-                disabled: !accountId,
+                disabled: !earnAccount?.accountAddress,
               }}
             />
             {result ? (
@@ -187,4 +199,18 @@ const UniversalProtocolDetailsPage = () => {
   );
 };
 
-export default UniversalProtocolDetailsPage;
+function EarnTokenDetailsPageWithProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <UniversalProtocolDetailsPage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default EarnTokenDetailsPageWithProvider;
