@@ -36,6 +36,7 @@ type IPortfolioValue = {
   claimable?: string;
   token: IToken;
   onClaim?: () => void;
+  onPortfolioDetails?: () => void;
 };
 
 type IProfit = {
@@ -181,6 +182,7 @@ function Portfolio({
   claimable,
   token,
   onClaim,
+  onPortfolioDetails,
 }: IPortfolioValue) {
   if (
     Number(pendingInactive) > 0 ||
@@ -189,7 +191,18 @@ function Portfolio({
   ) {
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
-        <SizableText size="$headingLg">Portfolio</SizableText>
+        <XStack justifyContent="space-between">
+          <SizableText size="$headingLg">Portfolio</SizableText>
+          {onPortfolioDetails !== undefined ? (
+            <Button
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              onPress={onPortfolioDetails}
+            >
+              Details
+            </Button>
+          ) : null}
+        </XStack>
         <YStack gap="$3">
           {pendingInactive && Number(pendingInactive) ? (
             <PortfolioItem
@@ -470,12 +483,14 @@ type IUniversalProtocolDetails = {
     | undefined;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
+  onPortfolioDetails?: () => void;
 };
 
 export function UniversalProtocolDetails({
   earnAccount,
   details,
   onClaim,
+  onPortfolioDetails,
 }: IUniversalProtocolDetails) {
   const result: IEarnTokenDetailResult | null = useMemo(() => {
     if (!details) {
@@ -553,7 +568,11 @@ export function UniversalProtocolDetails({
       {earnAccount?.accountAddress ? (
         <>
           <StakedValue {...stakedValue} />
-          <Portfolio {...portfolio} onClaim={onClaim} />
+          <Portfolio
+            {...portfolio}
+            onClaim={onClaim}
+            onPortfolioDetails={onPortfolioDetails}
+          />
         </>
       ) : (
         <Warning />

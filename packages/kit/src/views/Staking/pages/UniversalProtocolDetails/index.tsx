@@ -126,6 +126,10 @@ const UniversalProtocolDetailsPage = () => {
     });
   }, [result, accountId, networkId, appNavigation, symbol, provider]);
 
+  const onPortfolioDetails = useCallback(() => {
+    appNavigation.push(EModalStakingRoutes.PortfolioDetails);
+  }, [appNavigation]);
+
   const intl = useIntl();
   return (
     <Page scrollEnabled>
@@ -147,6 +151,7 @@ const UniversalProtocolDetailsPage = () => {
               earnAccount={earnAccount}
               details={result}
               onClaim={onClaim}
+              onPortfolioDetails={onPortfolioDetails}
             />
             <Page.Footer
               onConfirmText={intl.formatMessage({
