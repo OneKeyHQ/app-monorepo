@@ -269,3 +269,20 @@ export interface IEarnAtomData {
   accounts?: IEarnAccount[];
   availableAssets?: IAvailableAsset[];
 }
+
+export type IPortfolioItem = {
+  txid: string;
+  status: string;
+  amount: string;
+  startTime?: number;
+  endTime?: number;
+  lockBlocks: number;
+  isOverflow: string;
+};
+
+export type IGetPortfolioParams = {
+  networkId: string;
+  accountId: string;
+  provider: string;
+  symbol: string;
+};
