@@ -8,6 +8,7 @@ import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
@@ -29,7 +30,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
@@ -591,6 +592,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         return { wallet, indexedAccount };
       } catch (error) {
+        qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
           error: error as IOneKeyError,
         });
@@ -709,44 +711,49 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         addDefaultNetworkAccounts?: boolean;
       } = {},
     ) => {
-      const res = await serviceAccount.createHWHiddenWallet({
-        walletId,
-        skipDeviceCancel,
-        hideCheckingDeviceLoading,
-      });
-      const { wallet, indexedAccount } = res;
-      await this.autoSelectToCreatedWallet.call(set, {
-        wallet,
-        indexedAccount,
-      });
-      if (options?.addDefaultNetworkAccounts) {
-        let dialog: IDialogInstance | undefined;
-        try {
-          if (options?.showAddAccountsLoading) {
-            dialog = Dialog.show({
-              title: appLocale.intl.formatMessage({
-                id: ETranslations.onboarding_finalize_generating_accounts,
-              }),
-              showCancelButton: false,
-              showConfirmButton: false,
-              dismissOnOverlayPress: false,
-              showExitButton: false,
-              showFooter: false,
-              disableDrag: true,
-              renderContent: <CommonDeviceLoading />,
+      try {
+        const res = await serviceAccount.createHWHiddenWallet({
+          walletId,
+          skipDeviceCancel,
+          hideCheckingDeviceLoading,
+        });
+        const { wallet, indexedAccount } = res;
+        await this.autoSelectToCreatedWallet.call(set, {
+          wallet,
+          indexedAccount,
+        });
+        if (options?.addDefaultNetworkAccounts) {
+          let dialog: IDialogInstance | undefined;
+          try {
+            if (options?.showAddAccountsLoading) {
+              dialog = Dialog.show({
+                title: appLocale.intl.formatMessage({
+                  id: ETranslations.onboarding_finalize_generating_accounts,
+                }),
+                showCancelButton: false,
+                showConfirmButton: false,
+                dismissOnOverlayPress: false,
+                showExitButton: false,
+                showFooter: false,
+                disableDrag: true,
+                renderContent: <CommonDeviceLoading />,
+              });
+            }
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
+              skipDeviceCancel: true,
+              hideCheckingDeviceLoading: true,
             });
+          } finally {
+            await dialog?.close();
           }
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-            skipDeviceCancel: true,
-            hideCheckingDeviceLoading: true,
-          });
-        } finally {
-          await dialog?.close();
         }
+        return res;
+      } catch (error) {
+        qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
+        throw error;
       }
-      return res;
     },
   );
 
@@ -905,6 +912,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // const num = 0;
       await serviceAccount.removeAccount({ account, indexedAccount });
       // set(accountSelectorEditModeAtom(), false);
+      if (accountUtils.isOthersAccount({ accountId: account?.id })) {
+        await this.autoSelectNextAccount.call(set, {
+          num: 0,
+          triggerBy: 'removeOthersAccount',
+        });
+      }
     },
   );
 
@@ -1457,7 +1470,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
-        triggerBy?: 'removeWallet';
+        triggerBy?: 'removeWallet' | 'removeOthersAccount';
       },
     ) => {
       console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -1504,12 +1517,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         let selectedWalletId = wallet?.id;
         let selectedWallet = wallet;
         let selectedIndexedAccountId = indexedAccount?.id;
+        // accountUtils.isHwWallet
         const hasIndexedAccounts =
           selectedWalletId &&
           (accountUtils.isHdWallet({
             walletId: selectedWalletId,
           }) ||
-            accountUtils.isHwWallet({
+            accountUtils.isHwOrQrWallet({
               walletId: selectedWalletId,
             })) &&
           (await serviceAccount.isWalletHasIndexedAccounts({
@@ -1518,7 +1532,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // auto select hd hw wallet
         if (!selectedWalletId || !hasIndexedAccounts) {
-          const { wallets } = await serviceAccount.getHDAndHWWallets();
+          const { wallets } = await serviceAccount.getAllHdHwQrWallets();
           for (const wallet0 of wallets) {
             if (
               await serviceAccount.isWalletHasIndexedAccounts({
@@ -1536,12 +1550,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const isHdWallet = accountUtils.isHdWallet({
           walletId: selectedWalletId,
         });
-        const isHwWallet = accountUtils.isHwWallet({
+        const isHwOrQrWallet = accountUtils.isHwOrQrWallet({
           walletId: selectedWalletId,
         });
 
         // auto select hd or hw index account
-        if (selectedWalletId && (isHdWallet || isHwWallet)) {
+        if (selectedWalletId && (isHdWallet || isHwOrQrWallet)) {
           if (!indexedAccount || indexedAccount.walletId !== selectedWalletId) {
             const { accounts: indexedAccounts } =
               await serviceAccount.getIndexedAccountsOfWallet({
@@ -1555,7 +1569,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         const isOthers =
-          Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
+          Boolean(selectedWalletId) && !isHdWallet && !isHwOrQrWallet;
 
         if (isOthers) {
           selectedAccountNew.focusedWallet = selectedWalletId;
@@ -1644,14 +1658,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (selectedAccount.walletId !== selectedAccountNew.walletId) {
           set(accountSelectorEditModeAtom(), false);
         }
-      } else if (triggerBy === 'removeWallet') {
+      } else if (
+        // (else if) when auto select logic not trigger, should fix focusedWallet only
+        // focused A wallet, but remove B wallet, should focus back to A wallet
+        triggerBy &&
+        ['removeWallet', 'removeOthersAccount'].includes(triggerBy)
+      ) {
         const selectedAccountNew = await this.cloneSelectedAccountNew.call(
           set,
           {
             num,
           },
         );
-        // autofix focusedWallet when remove wallet
+        // autofix focusedWallet when remove an unfocused wallet
         selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
         await this.updateSelectedAccount.call(set, {
           num,

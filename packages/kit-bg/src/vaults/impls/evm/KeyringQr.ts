@@ -26,7 +26,10 @@ import type {
   IAirGapGenerateSignRequestParamsEvm,
   IAirGapSignatureEvm,
 } from '@onekeyhq/qr-wallet-sdk/src/types';
-import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -71,7 +74,8 @@ export class KeyringQr extends KeyringQrBase {
     };
   }): Promise<void> {
     if (requestId && requestId !== requestIdOfSig) {
-      throw new Error('EVM tx requestId not match');
+      console.error('EVM tx requestId not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
     }
     return verifyEvmSignedTxMatched({
       signerAddress: from,
@@ -118,8 +122,15 @@ export class KeyringQr extends KeyringQrBase {
 
   parseSignature(ur: AirGapUR): Promise<IAirGapSignatureEvm> {
     const sdk = getAirGapSdk();
-    const sig = sdk.eth.parseSignature(ur);
-    return Promise.resolve(sig);
+    try {
+      const sig = sdk.eth.parseSignature(ur);
+      return Promise.resolve(sig);
+    } catch (error) {
+      // eslint-disable-next-line spellcheck/spell-checker
+      // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/ethereum.js
+      //        throw new Error('type not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {

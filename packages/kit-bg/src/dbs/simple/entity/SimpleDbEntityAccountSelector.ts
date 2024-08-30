@@ -35,6 +35,7 @@ export interface IAccountSelectorAccountsListSectionData {
   title: string;
   isHiddenWalletData?: boolean;
   data: IDBIndexedAccount[] | IDBAccount[];
+  firstAccount: IDBIndexedAccount | IDBAccount | undefined;
   walletId: IDBWalletId;
   emptyText?: string;
 }

@@ -751,6 +751,7 @@ module.exports = [
   'onekeyall',
   'payin',
   'payout',
+  'alph',
   'onopen',
   'everstake',
 ];

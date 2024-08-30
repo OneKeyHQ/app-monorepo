@@ -121,7 +121,14 @@ export interface IActionListProps
     // TODO use cloneElement to override onClose props
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
-  }) => React.ReactNode | Promise<React.ReactNode>;
+  }) => React.ReactNode;
+  // estimatedContentHeight required if use renderItemsAsync
+  estimatedContentHeight?: number;
+  renderItemsAsync?: (params: {
+    // TODO use cloneElement to override onClose props
+    handleActionListClose: () => void;
+    handleActionListOpen: () => void;
+  }) => Promise<React.ReactNode>;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -153,6 +160,8 @@ function BasicActionList({
   disabled,
   defaultOpen = false,
   renderItems,
+  renderItemsAsync,
+  estimatedContentHeight,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
@@ -172,17 +181,30 @@ function BasicActionList({
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
 
+  const { md } = useMedia();
   useEffect(() => {
-    if (renderItems && isOpen) {
+    if (renderItemsAsync && isOpen) {
+      if (platformEnv.isDev && md && !estimatedContentHeight) {
+        throw new Error(
+          'estimatedContentHeight is required on Async rendering items',
+        );
+      }
       void (async () => {
-        const asyncItemsToRender = await renderItems({
+        const asyncItemsToRender = await renderItemsAsync({
           handleActionListClose,
           handleActionListOpen,
         });
         setAsyncItems(asyncItemsToRender);
       })();
     }
-  }, [handleActionListClose, handleActionListOpen, isOpen, renderItems]);
+  }, [
+    estimatedContentHeight,
+    handleActionListClose,
+    handleActionListOpen,
+    isOpen,
+    md,
+    renderItemsAsync,
+  ]);
 
   const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
@@ -198,7 +220,12 @@ function BasicActionList({
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
+        <YStack
+          p="$1"
+          $md={{ p: '$3', pt: '$0' }}
+          height={estimatedContentHeight}
+          onLayout={(e) => console.log(e.nativeEvent.layout.height)}
+        >
           {items?.map(renderActionListItem)}
 
           {sections?.map((section, sectionIdx) => (
@@ -218,6 +245,14 @@ function BasicActionList({
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}
+
+          {/* custom render items */}
+          {renderItems?.({
+            handleActionListClose,
+            handleActionListOpen,
+          })}
+
+          {/* custom async render items (estimatedContentHeight required) */}
           {asyncItems}
         </YStack>
       }
@@ -261,11 +296,25 @@ const showActionList = (
   );
 };
 
-function ActionListFrame(props: IActionListProps) {
+function ActionListFrame({
+  estimatedContentHeight,
+  ...props
+}: Omit<IActionListProps, 'estimatedContentHeight'> & {
+  estimatedContentHeight?: () => Promise<number>;
+}) {
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
   const handleActionListOpen = useDebouncedCallback(() => {
-    showActionList(popoverProps);
+    if (estimatedContentHeight) {
+      void estimatedContentHeight().then((height) => {
+        showActionList({
+          ...popoverProps,
+          estimatedContentHeight: height,
+        });
+      });
+    } else {
+      showActionList(popoverProps);
+    }
   }, 250);
 
   if (gtMd) {

@@ -125,6 +125,36 @@ function AccountEditButtonView({
     };
   }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
 
+  const estimatedContentHeight = useCallback(async () => {
+    let basicHeight = 56;
+    const exportKeysVisible = await getExportKeysVisible();
+    if (exportKeysVisible?.showExportPrivateKey) {
+      basicHeight += 44;
+    }
+
+    if (exportKeysVisible?.showExportPublicKey) {
+      basicHeight += 44;
+    }
+
+    if (
+      firstIndexedAccount?.id !== indexedAccount?.id ||
+      firstAccount?.id !== account?.id
+    ) {
+      basicHeight += 44;
+    }
+
+    if (showRemoveButton) {
+      basicHeight += 54;
+    }
+    return basicHeight;
+  }, [
+    account?.id,
+    firstAccount?.id,
+    firstIndexedAccount?.id,
+    getExportKeysVisible,
+    indexedAccount?.id,
+    showRemoveButton,
+  ]);
   const renderItems = useCallback(
     async ({
       handleActionListClose,
@@ -217,7 +247,8 @@ function AccountEditButtonView({
     <ActionList
       title={name}
       renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-      renderItems={renderItems}
+      renderItemsAsync={renderItems}
+      estimatedContentHeight={estimatedContentHeight}
     />
   );
 }

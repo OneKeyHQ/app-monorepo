@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
+import type { IColorTokens } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -429,7 +429,7 @@ export function EnterPhase({
           const values = form.getValues();
           if (
             !isSingleInput &&
-            values.passphrase !== values.confirmPassphrase
+            (values.passphrase || '') !== (values.confirmPassphrase || '')
           ) {
             Toast.error({
               title: intl.formatMessage({

@@ -57,7 +57,9 @@ export type INetworkShortCode =
   | 'opbnb'
   | 'fevm'
   | 'holesky'
-  | 'flare';
+  | 'flare'
+  | 'base'
+  | 'ton';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time

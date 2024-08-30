@@ -38,6 +38,8 @@ import {
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
+import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -60,7 +62,6 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -133,16 +134,22 @@ function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const tutorials = [
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
-    }),
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
-    }),
-    intl.formatMessage({
-      id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
-    }),
+  const tutorials: ITutorialsListItem[] = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
+      }),
+    },
   ];
 
   return (
@@ -152,27 +159,7 @@ function ConnectByQrCode() {
           id: ETranslations.onboarding_create_qr_wallet_title,
         })}
       </SizableText>
-      <Stack role="list" gap="$3" mb="$5" w="100%" maxWidth="$96">
-        {tutorials.map((tutorial, index) => (
-          <XStack key={index} role="listitem">
-            <Stack
-              w="$6"
-              h="$6"
-              bg="$bgInfo"
-              borderRadius="$full"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <SizableText size="$bodyMd" color="$textInfo">
-                {index + 1}
-              </SizableText>
-            </Stack>
-            <SizableText size="$bodyLg" pl="$3">
-              {tutorial}
-            </SizableText>
-          </XStack>
-        ))}
-      </Stack>
+      <TutorialsList tutorials={tutorials} mb="$5" w="100%" maxWidth="$96" />
       <Button
         variant="primary"
         $md={
@@ -182,6 +169,8 @@ function ConnectByQrCode() {
         }
         onPress={async () => {
           try {
+            // qrHiddenCreateGuideDialog.showDialog();
+            // return;
             await createQrWallet({
               isOnboarding: true,
               onFinalizeWalletSetupError: () => {
