@@ -236,6 +236,8 @@ export default class Vault extends VaultBase {
             transfer.amount = chainValueUtils.convertTokenAmountToChainValue({
               value: params.nativeAmountInfo.maxSendAmount,
               token,
+              decimalPlaces: 0,
+              roundingMode: BigNumber.ROUND_FLOOR,
             });
             encodedTx.Payload = encodeTransferPayload(transfer);
           }

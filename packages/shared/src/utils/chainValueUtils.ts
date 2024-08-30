@@ -104,15 +104,22 @@ function convertTokenChainValueToAmount({
 function convertTokenAmountToChainValue({
   value,
   token,
-}: ITokenChainValueConvertOptions) {
-  return new BigNumber(value)
-    .shiftedBy(
-      token.decimals ??
-        nilError(
-          'convertTokenChainValueToAmount ERROR: token.decimals missing',
-        ),
-    )
-    .toFixed(0, BigNumber.ROUND_FLOOR);
+  decimalPlaces,
+  roundingMode,
+}: ITokenChainValueConvertOptions & {
+  decimalPlaces?: number;
+  roundingMode?: BigNumber.RoundingMode;
+}) {
+  const result = new BigNumber(value).shiftedBy(
+    token.decimals ??
+      nilError('convertTokenChainValueToAmount ERROR: token.decimals missing'),
+  );
+
+  if (decimalPlaces !== undefined) {
+    return result.toFixed(decimalPlaces, roundingMode);
+  }
+
+  return result.toFixed();
 }
 
 function fixNativeTokenMaxSendAmount({
