@@ -101,6 +101,27 @@ function convertTokenChainValueToAmount({
     .toFixed();
 }
 
+function convertTokenAmountToChainValue({
+  value,
+  token,
+  decimalPlaces,
+  roundingMode,
+}: ITokenChainValueConvertOptions & {
+  decimalPlaces?: number;
+  roundingMode?: BigNumber.RoundingMode;
+}) {
+  const result = new BigNumber(value).shiftedBy(
+    token.decimals ??
+      nilError('convertTokenChainValueToAmount ERROR: token.decimals missing'),
+  );
+
+  if (decimalPlaces !== undefined) {
+    return result.toFixed(decimalPlaces, roundingMode);
+  }
+
+  return result.toFixed();
+}
+
 function fixNativeTokenMaxSendAmount({
   amount,
   network,
@@ -129,5 +150,6 @@ export default {
   convertGweiToAmount,
   convertAmountToGwei,
   convertTokenChainValueToAmount,
+  convertTokenAmountToChainValue,
   fixNativeTokenMaxSendAmount,
 };

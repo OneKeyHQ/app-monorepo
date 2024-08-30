@@ -101,7 +101,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       to: encodedTx.To,
       value: new BigNumber(encodedTx.Amount).toString(16),
       timestamp: new BigNumber(encodedTx.Timestamp).toString(16),
-      data: encodedTx.Payload,
+      data: encodedTx.Payload.replace(/^0x/, ''),
       txType: encodedTx.Type,
     };
     const res = await convertDeviceResponse(() =>

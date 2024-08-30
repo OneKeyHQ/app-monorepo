@@ -58,7 +58,7 @@ const settings: IVaultSettings = {
   ],
 
   withMemo: true,
-  memoMaxLength: 256,
+  memoMaxLength: 123,
 
   accountDeriveInfo,
   networkInfo: {

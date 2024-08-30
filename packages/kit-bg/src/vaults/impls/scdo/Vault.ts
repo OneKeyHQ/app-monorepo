@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
@@ -128,8 +131,13 @@ export default class Vault extends VaultBase {
     };
 
     let tokenInfo;
+    let amount = new BigNumber(encodedTx.Amount).toFixed();
+    let isNative = true;
     if (encodedTx.Payload && encodedTx.Amount === 0) {
-      if (decodeTransferPayload(encodedTx.Payload)) {
+      const transfer = decodeTransferPayload(encodedTx.Payload);
+      if (transfer) {
+        isNative = false;
+        amount = transfer.amount;
         tokenInfo = await this.backgroundApi.serviceToken.getToken({
           networkId: this.networkId,
           accountId: this.accountId,
@@ -151,11 +159,11 @@ export default class Vault extends VaultBase {
         name: tokenInfo.name,
         symbol: tokenInfo.symbol,
         amount: chainValueUtils.convertTokenChainValueToAmount({
-          value: encodedTx.Amount.toString(),
+          value: amount,
           token: tokenInfo,
         }),
         isNFT: false,
-        isNative: true,
+        isNative,
       };
 
       action = await this.buildTxTransferAssetAction({
@@ -214,7 +222,36 @@ export default class Vault extends VaultBase {
     }
     // max token send
     if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
-      encodedTx.Amount = +params.nativeAmountInfo.maxSendAmount;
+      let isSendToken = false;
+      if (encodedTx.Amount === 0 && encodedTx.Payload) {
+        const transfer = decodeTransferPayload(encodedTx.Payload);
+        if (transfer) {
+          isSendToken = true;
+          const token = await this.backgroundApi.serviceToken.getToken({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            tokenIdOnNetwork: encodedTx.To,
+          });
+          if (token) {
+            transfer.amount = chainValueUtils.convertTokenAmountToChainValue({
+              value: params.nativeAmountInfo.maxSendAmount,
+              token,
+              decimalPlaces: 0,
+              roundingMode: BigNumber.ROUND_FLOOR,
+            });
+            encodedTx.Payload = encodeTransferPayload(transfer);
+          }
+        }
+      }
+      if (!isSendToken) {
+        const network = await this.getNetwork();
+        encodedTx.Amount = Number(
+          chainValueUtils.convertAmountToChainValue({
+            value: params.nativeAmountInfo.maxSendAmount,
+            network,
+          }),
+        );
+      }
     }
     return {
       ...params.unsignedTx,
