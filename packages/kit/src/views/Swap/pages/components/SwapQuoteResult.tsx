@@ -4,7 +4,12 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  HeightTransition,
+  NumberSizeableText,
+  YStack,
+} from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -87,59 +92,61 @@ const SwapQuoteResult = ({
   ]);
 
   return (
-    <YStack gap="$4">
-      {quoteResult.allowanceResult ? (
-        <SwapApproveAllowanceSelectContainer
-          allowanceResult={quoteResult.allowanceResult}
-          fromTokenSymbol={fromToken?.symbol ?? ''}
-          isLoading={swapQuoteLoading}
-        />
-      ) : null}
-      {!isNil(quoteResult.info.provider) ? (
-        <SwapProviderInfoItem
-          providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
-          isLoading={swapQuoteLoading}
-          rate={quoteResult.instantRate}
-          fromToken={fromToken}
-          toToken={toToken}
-          showLock={!!quoteResult.allowanceResult}
-          onPress={
-            quoteResult.info.provider
-              ? () => {
-                  onOpenProviderList?.();
-                }
-              : undefined
-          }
-        />
-      ) : null}
-      {quoteResult.toAmount &&
-      !quoteResult.allowanceResult &&
-      !quoteResult.unSupportSlippage ? (
-        <SwapSlippageTriggerContainer
-          isLoading={swapQuoteLoading}
-          onPress={slippageHandleClick}
-        />
-      ) : null}
-      {quoteResult.fee?.estimatedFeeFiatValue ? (
-        <SwapCommonInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_page_provider_est_network_fee,
-          })}
-          isLoading={swapQuoteLoading}
-          valueComponent={
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              formatter="value"
-              formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
-              }}
-            >
-              {quoteResult.fee?.estimatedFeeFiatValue}
-            </NumberSizeableText>
-          }
-        />
-      ) : null}
-    </YStack>
+    <HeightTransition>
+      <YStack gap="$4">
+        {quoteResult.allowanceResult ? (
+          <SwapApproveAllowanceSelectContainer
+            allowanceResult={quoteResult.allowanceResult}
+            fromTokenSymbol={fromToken?.symbol ?? ''}
+            isLoading={swapQuoteLoading}
+          />
+        ) : null}
+        {!isNil(quoteResult.info.provider) ? (
+          <SwapProviderInfoItem
+            providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
+            isLoading={swapQuoteLoading}
+            rate={quoteResult.instantRate}
+            fromToken={fromToken}
+            toToken={toToken}
+            showLock={!!quoteResult.allowanceResult}
+            onPress={
+              quoteResult.info.provider
+                ? () => {
+                    onOpenProviderList?.();
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+        {quoteResult.toAmount &&
+        !quoteResult.allowanceResult &&
+        !quoteResult.unSupportSlippage ? (
+          <SwapSlippageTriggerContainer
+            isLoading={swapQuoteLoading}
+            onPress={slippageHandleClick}
+          />
+        ) : null}
+        {quoteResult.fee?.estimatedFeeFiatValue ? (
+          <SwapCommonInfoItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_provider_est_network_fee,
+            })}
+            isLoading={swapQuoteLoading}
+            valueComponent={
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="value"
+                formatterOptions={{
+                  currency: settingsPersistAtom.currencyInfo.symbol,
+                }}
+              >
+                {quoteResult.fee?.estimatedFeeFiatValue}
+              </NumberSizeableText>
+            }
+          />
+        ) : null}
+      </YStack>
+    </HeightTransition>
   );
 };
 

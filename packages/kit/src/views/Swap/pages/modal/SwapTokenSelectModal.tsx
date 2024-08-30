@@ -30,10 +30,12 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import {
   useSwapActions,
   useSwapNetworksAtom,
+  useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -75,53 +77,56 @@ const SwapTokenSelectPage = () => {
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   const [swapNetworks] = useSwapNetworksAtom();
+  const [swapNetworksIncludeAllNetwork] =
+    useSwapNetworksIncludeAllNetworkAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { selectFromToken, selectToToken, swapLoadAllNetworkTokenList } =
+    useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
       if (swapFromAddressInfo.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) =>
               item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
     } else {
       if (toToken?.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
       if (swapToAddressInfo.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) =>
               item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
 
-      return swapNetworks?.[0];
+      return swapNetworksIncludeAllNetwork?.[0];
     }
   }, [
     fromToken?.networkId,
     swapFromAddressInfo.networkId,
-    swapNetworks,
+    swapNetworksIncludeAllNetwork,
     swapToAddressInfo.networkId,
     toToken?.networkId,
     type,
@@ -215,12 +220,27 @@ const SwapTokenSelectPage = () => {
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
-      void updateSelectedAccountNetwork({
-        num: type === ESwapDirectionType.FROM ? 0 : 1,
-        networkId: network.networkId,
-      });
+      if (network.networkId !== getNetworkIdsMap().onekeyall) {
+        void updateSelectedAccountNetwork({
+          num: type === ESwapDirectionType.FROM ? 0 : 1,
+          networkId: network.networkId,
+        });
+      } else {
+        void swapLoadAllNetworkTokenList(
+          network.networkId,
+          type === ESwapDirectionType.FROM
+            ? swapFromAddressInfo.accountInfo?.indexedAccount?.id
+            : swapToAddressInfo.accountInfo?.indexedAccount?.id,
+        );
+      }
     },
-    [type, updateSelectedAccountNetwork],
+    [
+      swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+      swapLoadAllNetworkTokenList,
+      swapToAddressInfo.accountInfo?.indexedAccount?.id,
+      type,
+      updateSelectedAccountNetwork,
+    ],
   );
 
   const sameTokenDisabled = useCallback(
@@ -322,24 +342,24 @@ const SwapTokenSelectPage = () => {
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
     let swapNetworksMoreCount;
-    if (swapNetworks && swapNetworks.length) {
+    if (swapNetworksIncludeAllNetwork && swapNetworksIncludeAllNetwork.length) {
       if (md) {
         swapNetworksCommon =
-          swapNetworks.length > swapNetworksCommonCountMD
-            ? swapNetworks.slice(0, swapNetworksCommonCountMD)
-            : swapNetworks;
+          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCountMD
+            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCountMD)
+            : swapNetworksIncludeAllNetwork;
         swapNetworksMoreCount =
-          swapNetworks.length - swapNetworksCommonCountMD > 0
-            ? swapNetworks.length - swapNetworksCommonCountMD
+          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD > 0
+            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD
             : undefined;
       } else {
         swapNetworksCommon =
-          swapNetworks.length > swapNetworksCommonCount
-            ? swapNetworks.slice(0, swapNetworksCommonCount)
-            : swapNetworks;
+          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCount
+            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCount)
+            : swapNetworksIncludeAllNetwork;
         swapNetworksMoreCount =
-          swapNetworks.length - swapNetworksCommonCount > 0
-            ? swapNetworks.length - swapNetworksCommonCount
+          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount > 0
+            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount
             : undefined;
       }
     }
@@ -347,7 +367,7 @@ const SwapTokenSelectPage = () => {
       swapNetworksCommon,
       swapNetworksMoreCount,
     };
-  }, [md, swapNetworks]);
+  }, [md, swapNetworksIncludeAllNetwork]);
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();

@@ -444,6 +444,7 @@ class ServiceNetwork extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getDeriveTypeByAddressEncoding({
     networkId,
     encoding,
