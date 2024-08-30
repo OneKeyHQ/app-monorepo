@@ -28,18 +28,29 @@ const UniversalProtocolDetailsPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.UniversalProtocolDetails
   >();
-  const { accountId, networkId, symbol, provider } = route.params;
+  const { accountId, networkId, indexedAccountId, symbol, provider } =
+    route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
+  const { result: earnAccount } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceStaking.getEarnAccount({
+        accountId,
+        networkId,
+        indexedAccountId,
+      }),
+    [accountId, indexedAccountId, networkId],
+  );
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolDetails({
         accountId,
         networkId,
+        indexedAccountId,
         symbol,
         provider,
       }),
-    [accountId, networkId, symbol, provider],
+    [accountId, networkId, indexedAccountId, symbol, provider],
     { watchLoading: true },
   );
   const onStake = useCallback(async () => {
@@ -49,7 +60,7 @@ const UniversalProtocolDetailsPage = () => {
       try {
         const { allowanceParsed } =
           await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            accountId,
+            accountId: accountId ?? '',
             networkId,
             spenderAddress: result.approveTarget,
             tokenAddress: result.token.info.address,
@@ -133,8 +144,7 @@ const UniversalProtocolDetailsPage = () => {
         >
           <Stack>
             <UniversalProtocolDetails
-              accountId={accountId}
-              networkId={networkId}
+              earnAccount={earnAccount}
               details={result}
               onClaim={onClaim}
             />
@@ -158,8 +168,9 @@ const UniversalProtocolDetailsPage = () => {
             />
             {result ? (
               <StakingTransactionIndicator
-                accountId={accountId}
+                accountId={accountId ?? ''}
                 networkId={networkId}
+                indexedAccountId={indexedAccountId}
                 stakeTag={buildLocalTraceTxTag(result)}
                 onRefresh={run}
               />

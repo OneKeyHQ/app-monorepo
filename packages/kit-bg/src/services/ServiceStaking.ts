@@ -307,12 +307,22 @@ class ServiceStaking extends ServiceBase {
   public async fetchLocalStakingHistory({
     accountId,
     networkId,
+    indexedAccountId,
     stakeTag,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
     stakeTag: IStakeTag;
   }) {
+    const account = await this.getEarnAccount({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    if (!account?.accountAddress) {
+      return [];
+    }
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
@@ -435,11 +445,12 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolDetails(params: {
     accountId?: string;
+    indexedAccountId?: string;
     networkId: string;
     symbol: string;
     provider: string;
   }) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, indexedAccountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       accountAddress?: string;
@@ -447,12 +458,13 @@ class ServiceStaking extends ServiceBase {
       symbol: string;
       provider: string;
     } = { networkId, ...rest };
-    if (accountId) {
-      requestParams.accountAddress =
-        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          networkId,
-          accountId,
-        });
+    const account = await this.getEarnAccount({
+      accountId: accountId ?? '',
+      networkId,
+      indexedAccountId,
+    });
+    if (account?.accountAddress) {
+      requestParams.accountAddress = account.accountAddress;
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       '/earn/v1/stake-protocol/detail',
@@ -464,24 +476,24 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     networkId: string;
-    accountId?: string;
+    accountId: string;
     indexedAccountId?: string;
     symbol: string;
   }) {
     const { networkId, accountId, indexedAccountId, symbol } = params;
-    const account = accountId
-      ? await this.getEarnAccount({
-          networkId,
-          accountId,
-          indexedAccountId,
-        })
-      : null;
+    const account = await this.getEarnAccount({
+      networkId,
+      accountId,
+      indexedAccountId,
+    });
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const protocolListResp = await client.get<{
       data: { protocols: IStakeProtocolListItem[] };
     }>('/earn/v1/stake-protocol/list', {
       params: {
-        accountAddress: account ? account.accountAddress : undefined,
+        accountAddress: account?.accountAddress
+          ? account.accountAddress
+          : undefined,
         symbol: symbol.toUpperCase(),
       },
     });
