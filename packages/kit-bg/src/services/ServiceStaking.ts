@@ -325,18 +325,18 @@ class ServiceStaking extends ServiceBase {
     }
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
+        accountId: account.accountId,
+        networkId: account.networkId,
       }),
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
+        accountId: account.accountId,
+        networkId: account.networkId,
       }),
     ]);
 
     const pendingTxs =
       await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
-        networkId,
+        networkId: account.networkId,
         accountAddress,
         xpub,
       });
@@ -728,7 +728,7 @@ class ServiceStaking extends ServiceBase {
           accountId,
         });
       return {
-        accountId,
+        accountId: account.id,
         networkId,
         accountAddress,
         account,
@@ -757,7 +757,7 @@ class ServiceStaking extends ServiceBase {
           accountId: networkAccount.id,
         });
       return {
-        accountId,
+        accountId: networkAccount.id,
         networkId,
         accountAddress,
         account: networkAccount,
