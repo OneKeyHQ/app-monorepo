@@ -763,7 +763,7 @@ class ServiceStaking extends ServiceBase {
         account: networkAccount,
       };
     } catch (e) {
-      console.log('======>>>>>error: ', e);
+      // ignore error
       return null;
     }
   }
