@@ -38,7 +38,7 @@ const defaultPinnedNetworkIds = [
   getNetworkIdsMap().sol,
   getNetworkIdsMap().bsc,
   getNetworkIdsMap().polygon,
-  getNetworkIdsMap().bsc,
+  getNetworkIdsMap().ton,
 ];
 
 @backgroundClass()
