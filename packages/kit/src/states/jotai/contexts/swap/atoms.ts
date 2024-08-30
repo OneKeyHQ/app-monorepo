@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapProviderSort,
@@ -45,7 +46,7 @@ export const {
 } = contextAtomComputed<ISwapNetwork[]>((get) => {
   const networks = get(swapNetworks());
   const allNetwork = {
-    networkId: dangerAllNetworkRepresent.id,
+    networkId: getNetworkIdsMap().onekeyall,
     name: dangerAllNetworkRepresent.name,
     symbol: dangerAllNetworkRepresent.symbol,
     logoURI: dangerAllNetworkRepresent.logoURI,

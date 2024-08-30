@@ -332,7 +332,7 @@ export function useSwapTokenList(
           ...haveBalanceTokenList,
           ...filterRecommendTokenList,
         ];
-        return sortAllNetworkTokens(allNetTokens);
+        return sortAllNetworkTokens(allNetTokens ?? []);
       }
       if (swapSearchTokens) {
         const allNetSearchTokens = swapSearchTokens.map((token) => {
@@ -346,7 +346,7 @@ export function useSwapTokenList(
           }
           return token;
         });
-        return sortAllNetworkTokens(allNetSearchTokens);
+        return sortAllNetworkTokens(allNetSearchTokens ?? []);
       }
       return [];
     },
