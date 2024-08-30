@@ -529,14 +529,20 @@ function NoAddressWarning({
   const content = useMemo(() => {
     if (isOthersAccount) {
       return {
-        title: `This account doesn't support ${result?.networkName ?? ''}`,
-        description:
-          'Switch networks on the previous page or use a supported account',
+        title: intl.formatMessage(
+          { id: ETranslations.wallet_unsupported_network_title },
+          { network: result?.networkName ?? '' },
+        ),
+        description: intl.formatMessage({
+          id: ETranslations.wallet_unsupported_network_desc,
+        }),
       };
     }
 
     return {
-      title: 'No Address',
+      title: intl.formatMessage({
+        id: ETranslations.wallet_no_address,
+      }),
       description: intl.formatMessage(
         {
           id: ETranslations.global_private_key_error,
@@ -568,7 +574,9 @@ function NoAddressWarning({
         isOthersAccount
           ? undefined
           : {
-              primary: 'Create',
+              primary: intl.formatMessage({
+                id: ETranslations.dapp_connect_create,
+              }),
               onPrimaryPress: () => handleCreateAddress(),
               isPrimaryLoading: isLoading,
             }
