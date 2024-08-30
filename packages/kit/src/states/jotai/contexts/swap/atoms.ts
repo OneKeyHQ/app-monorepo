@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapProviderSort,
   swapSlippageAutoValue,
@@ -37,6 +39,21 @@ export { ProviderJotaiContextSwap, contextAtomMethod };
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
+
+export const {
+  atom: swapNetworksIncludeAllNetworkAtom,
+  use: useSwapNetworksIncludeAllNetworkAtom,
+} = contextAtomComputed<ISwapNetwork[]>((get) => {
+  const networks = get(swapNetworks());
+  const allNetwork = {
+    networkId: getNetworkIdsMap().onekeyall,
+    name: dangerAllNetworkRepresent.name,
+    symbol: dangerAllNetworkRepresent.symbol,
+    logoURI: dangerAllNetworkRepresent.logoURI,
+    shortcode: dangerAllNetworkRepresent.shortcode,
+  };
+  return [allNetwork, ...networks];
+});
 
 export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
   contextAtom<{
@@ -92,6 +109,16 @@ export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
 } = contextAtom('');
+
+export const {
+  atom: swapAllNetworkTokenListAtom,
+  use: useSwapAllNetworkTokenListAtom,
+} = contextAtom<ISwapToken[] | undefined>(undefined);
+
+export const {
+  atom: swapAllNetworkActionLockAtom,
+  use: useSwapAllNetworkActionLockAtom,
+} = contextAtom<boolean>(false);
 
 // swap quote
 export const {
