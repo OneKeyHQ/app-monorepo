@@ -338,8 +338,8 @@ export function useSwapTokenList(
         const allNetSearchTokens = swapSearchTokens.map((token) => {
           const balanceToken = haveBalanceTokenList.find(
             (walletToken) =>
-              walletToken.contractAddress === token.contractAddress &&
-              walletToken.networkId === token.networkId,
+              walletToken?.contractAddress === token?.contractAddress &&
+              walletToken?.networkId === token?.networkId,
           );
           if (balanceToken) {
             return balanceToken;
