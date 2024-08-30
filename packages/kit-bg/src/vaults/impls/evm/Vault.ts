@@ -55,6 +55,7 @@ import {
   type IGetPrivateKeyFromImportedParams,
   type IGetPrivateKeyFromImportedResult,
   type INativeAmountInfo,
+  type ITokenApproveInfo,
   type ITransferInfo,
   type IUpdateUnsignedTxParams,
   type IValidateGeneralInputParams,
@@ -323,8 +324,21 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo, nonceInfo, nativeAmountInfo } = params;
+    const {
+      unsignedTx,
+      feeInfo,
+      nonceInfo,
+      nativeAmountInfo,
+      tokenApproveInfo,
+    } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
+
+    if (tokenApproveInfo && tokenApproveInfo.allowance !== '') {
+      encodedTxNew = await this._updateTokenApproveInfo({
+        encodedTx: encodedTxNew,
+        tokenApproveInfo,
+      });
+    }
 
     if (feeInfo) {
       encodedTxNew = await this._attachFeeInfoToEncodedTx({
@@ -630,6 +644,38 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
+  async _updateTokenApproveInfo(params: {
+    encodedTx: IEncodedTxEvm;
+    tokenApproveInfo: ITokenApproveInfo;
+  }) {
+    const { encodedTx, tokenApproveInfo } = params;
+    const action = await this._buildTxActionFromContract({ encodedTx });
+    if (
+      action &&
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
+      const { allowance, isUnlimited } = tokenApproveInfo;
+      const { spender, decimals } = action.tokenApprove;
+
+      const amountHex = toBigIntHex(
+        isUnlimited
+          ? new BigNumber(2).pow(256).minus(1)
+          : new BigNumber(allowance).shiftedBy(decimals),
+      );
+
+      const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+        .encode(['address', 'uint256'], [spender, amountHex])
+        .slice(2)}`;
+
+      return {
+        ...encodedTx,
+        data,
+      };
+    }
+    return encodedTx;
+  }
+
   async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
   ): Promise<IUnsignedTxPro> {
@@ -777,6 +823,7 @@ export default class Vault extends VaultBase {
         icon: token.logoURI ?? '',
         name: token.name,
         symbol: token.symbol,
+        decimals: token.decimals,
         tokenIdOnNetwork: token.address,
         isInfiniteAmount: amount === InfiniteAmountText,
       },

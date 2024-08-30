@@ -224,6 +224,8 @@ export type IVaultSettings = {
   customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  editApproveAmountEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -450,11 +452,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
+
+export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
-  tokenApproveInfo?: { allowance: string };
+  tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {

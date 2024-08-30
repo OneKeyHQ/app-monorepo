@@ -69,7 +69,7 @@ export type ITxActionCommonDetailViewProps = {
       fallbackIcon?: IKeyOfIcons;
     };
     title?: string;
-    content: string;
+    content: React.ReactNode;
   };
   target?: {
     title?: string;

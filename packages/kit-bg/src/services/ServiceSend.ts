@@ -41,6 +41,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -296,8 +297,10 @@ class ServiceSend extends ServiceBase {
     feeInfo: sendSelectedFeeInfo,
     nativeAmountInfo,
     unsignedTxs,
+    tokenApproveInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
+    tokenApproveInfo?: ITokenApproveInfo;
     feeInfo?: ISendSelectedFeeInfo;
     nativeAmountInfo?: INativeAmountInfo;
   }) {
@@ -310,6 +313,7 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo?.feeInfo,
         nativeAmountInfo,
+        tokenApproveInfo,
       });
 
       newUnsignedTxs.push(newUnsignedTx);

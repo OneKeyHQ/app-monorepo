@@ -90,6 +90,7 @@ const settings: IVaultSettings = {
   transferZeroNativeTokenEnabled: true,
   gasLimitValidationEnabled: true,
   estimatedFeePollingInterval: 6,
+  editApproveAmountEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {
