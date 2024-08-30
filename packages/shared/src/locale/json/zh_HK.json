@@ -338,7 +338,7 @@
   "earn.token_is_pending": "{token} 正在處理中",
   "earn.token_is_staked": "{token} 已被質押",
   "earn.unsupported_path_desc": "將派生路徑切換至 Taproot",
-  "earn.unsupported_path_title": "此股份不支持{path}",
+  "earn.unsupported_path_title": "此質押不支持 {path}",
   "earn.up_to_number_in_annual_rewards": "高達每年 {number} 的獎勵",
   "earn.updated_daily": "每日更新",
   "earn.wallet_not_support_stake": "連接的錢包不支持質押。嘗試切換到另一個錢包。",
@@ -1783,7 +1783,7 @@
   "wallet.no_address_desc": "目前的網絡尚未有地址",
   "wallet.receive_token_instruction": "從其他錢包轉入資產",
   "wallet.unsupported_network_desc": "在左上角切換網絡或使用支援的帳戶",
-  "wallet.unsupported_network_desc_alt": "在前一頁切換網絡，或使用支援的帳戶",
+  "wallet.unsupported_network_desc_alt": "在上一頁切換網絡或使用支援的帳戶",
   "wallet.unsupported_network_title": "此帳戶不支援 {network}",
   "wallet.you_need_str_accounts_on_any_network_to_create": "您需要在任何單一網路上至少建立 {0} 帳戶",
   "word": "單字"

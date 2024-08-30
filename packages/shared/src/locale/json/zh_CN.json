@@ -338,7 +338,7 @@
   "earn.token_is_pending": "{token} 正在处理中",
   "earn.token_is_staked": "{token} 已被质押",
   "earn.unsupported_path_desc": "将派生路径切换到 Taproot",
-  "earn.unsupported_path_title": "此股份不支持{path}",
+  "earn.unsupported_path_title": "此質押不支持 {path}",
   "earn.up_to_number_in_annual_rewards": "高达每年 {number} 的奖励",
   "earn.updated_daily": "每日更新",
   "earn.wallet_not_support_stake": "连接的钱包不支持质押。尝试切换到另一个钱包。",
