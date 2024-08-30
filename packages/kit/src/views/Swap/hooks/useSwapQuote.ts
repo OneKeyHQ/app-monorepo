@@ -81,6 +81,7 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (!fromTokenAmount) {
       void quoteAction(
         activeAccountRef.current?.address,
@@ -132,6 +133,7 @@ export function useSwapQuote() {
   }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       (fromToken?.networkId === toToken?.networkId &&
@@ -158,15 +160,38 @@ export function useSwapQuote() {
     alignmentDecimal,
   ]);
 
+  // Due to the changes in derived types causing address changes, this is not in the swap tab.
+  useEffect(() => {
+    if (isFocusRef.current) return;
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      (fromToken?.networkId === toToken?.networkId &&
+        fromToken?.contractAddress === toToken?.contractAddress)
+    ) {
+      return;
+    }
+    alignmentDecimal();
+    void quoteAction(
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+    );
+    return () => {
+      cleanQuoteInterval();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapAddressInfo.address]);
+
   const pageType = usePageType();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal && isFocus) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      } else {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      if (pageType !== EPageType.modal) {
+        if (isFocus) {
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        } else {
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        }
       }
       setTimeout(() => {
         // ext env txId data is undefined when useListenTabFocusState is called
@@ -189,9 +214,13 @@ export function useSwapQuote() {
     },
   );
   useEffect(() => {
-    if (pageType === EPageType.modal && isFocused) {
-      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    if (pageType === EPageType.modal) {
+      if (isFocused) {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      } else {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      }
     }
     return () => {
       if (pageType === EPageType.modal) {

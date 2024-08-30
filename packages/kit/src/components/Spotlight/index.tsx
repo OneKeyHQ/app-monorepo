@@ -27,6 +27,7 @@ import {
   View,
   XStack,
   YStack,
+  useBackHandler,
   useMedia,
 } from '@onekeyhq/components';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
@@ -89,6 +90,14 @@ function SpotlightContent({
   const measureTriggerInWindow = useCallback(() => {
     if (initProps.triggerRef) {
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        if (
+          floatingPosition.x === x &&
+          floatingPosition.y === y &&
+          floatingPosition.width === width &&
+          floatingPosition.height === height
+        ) {
+          return;
+        }
         setFloatingPosition({
           x,
           y,
@@ -97,7 +106,7 @@ function SpotlightContent({
         });
       });
     }
-  }, [initProps.triggerRef]);
+  }, [initProps.triggerRef, floatingPosition]);
 
   useLayoutEffect(() => {
     measureTriggerInWindow();
@@ -148,6 +157,9 @@ function SpotlightContent({
       gtMd,
     ],
   );
+
+  const handleBackPress = useCallback(() => true, []);
+  useBackHandler(handleBackPress);
 
   if (visible && isRendered && IsFocused)
     return (

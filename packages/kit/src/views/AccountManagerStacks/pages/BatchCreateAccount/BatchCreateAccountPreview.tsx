@@ -299,8 +299,10 @@ function BatchCreateAccountPreviewPage({
   }, [networkId, setResult]);
 
   const buildBalanceMapKey = useCallback(
-    ({ account }: { account: INetworkAccount }) =>
-      `${networkId}--${account.address}--${(account as IDBUtxoAccount).xpub}`,
+    ({ account }: { account: IBatchCreateAccount }) =>
+      `${networkId}--${account.displayAddress || account.address}--${
+        (account as IDBUtxoAccount).xpub
+      }`,
     [networkId],
   );
 
@@ -602,7 +604,7 @@ function BatchCreateAccountPreviewPage({
           <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
-                address: account.address,
+                address: account.displayAddress || account.address,
               })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -666,6 +668,12 @@ function BatchCreateAccountPreviewPage({
     }),
     [getAccountCheckedState, selectCheckBox],
   );
+
+  const extraData = useMemo(
+    () => [selectedIndexesCount, balanceMap],
+    [selectedIndexesCount, balanceMap],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -698,7 +706,7 @@ function BatchCreateAccountPreviewPage({
               <Spinner size="large" />
             </Stack>
           }
-          extraData={selectedIndexesCount}
+          extraData={extraData}
         />
       </Page.Body>
       <Page.Footer>
