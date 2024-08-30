@@ -235,7 +235,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       loadingDelayEnable?: boolean,
       blockNumber?: number,
     ) => {
-      // todo  all net get balance token from wallet
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
@@ -1088,49 +1087,50 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               accountId: account.id,
               networkId,
             });
-          let filteredBtcAccounts = accountsInfo.filter(
+          const noBtcAccounts = accountsInfo.filter(
             (networkDataString) =>
               !networkUtils.isBTCNetwork(networkDataString.networkId),
           );
           const btcAccounts = accountsInfo.filter((networkDataString) =>
             networkUtils.isBTCNetwork(networkDataString.networkId),
           );
-          await Promise.all(
-            btcAccounts.map(async (networkDataString) => {
+          const btcAccountsWithMatchDeriveType = await Promise.all(
+            btcAccounts.map(async (networkData) => {
               const globalDeriveType =
                 await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
                   {
-                    networkId: networkDataString.networkId,
+                    networkId: networkData.networkId,
                   },
                 );
               const btcNet = getBtcForkNetwork(
                 networkUtils.getNetworkImpl({
-                  networkId: networkDataString.networkId,
+                  networkId: networkData.networkId,
                 }),
               );
               const addressValidate = validateBtcAddress({
                 network: btcNet,
-                address: networkDataString.apiAddress,
+                address: networkData.apiAddress,
               });
               if (addressValidate.isValid && addressValidate.encoding) {
                 const deriveTypeRes =
                   await backgroundApiProxy.serviceNetwork.getDeriveTypeByAddressEncoding(
                     {
-                      networkId: networkDataString.networkId,
+                      networkId: networkData.networkId,
                       encoding: addressValidate.encoding,
                     },
                   );
                 if (deriveTypeRes === globalDeriveType) {
-                  filteredBtcAccounts = [
-                    ...filteredBtcAccounts,
-                    networkDataString,
-                  ];
+                  return networkData;
                 }
               }
+              return null;
             }),
           );
-          // backgroundApiProxy.serviceAccount.getAccount({ accountId, networkId });
-          const swapSupportAccounts = filteredBtcAccounts
+          const filteredAccounts = [
+            ...noBtcAccounts,
+            ...btcAccountsWithMatchDeriveType.filter(Boolean),
+          ];
+          const swapSupportAccounts = filteredAccounts
             .filter((networkDataString) => {
               const { networkId: accountNetworkId } = networkDataString;
               return swapSupportNetworks.find(

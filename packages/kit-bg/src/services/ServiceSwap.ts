@@ -7,7 +7,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
@@ -172,11 +173,14 @@ export default class ServiceSwap extends ServiceBase {
     }
     const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId: networkId ?? dangerAllNetworkRepresent.id,
+      networkId: networkId ?? getNetworkIdsMap().onekeyall,
       keywords,
       limit,
-      accountAddress:
-        networkId !== dangerAllNetworkRepresent.id ? accountAddress : undefined,
+      accountAddress: !networkUtils.isAllNetwork({
+        networkId: networkId ?? getNetworkIdsMap().onekeyall,
+      })
+        ? accountAddress
+        : undefined,
       accountNetworkId,
       skipReservationValue: true,
       onlyAccountTokens,

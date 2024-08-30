@@ -6,10 +6,11 @@ import { isNil } from 'lodash';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -140,12 +141,14 @@ export function useSwapInit(params?: ISwapInitParams) {
     const accountNetwork = swapNetworksRef.current.find(
       (net) => net.networkId === swapAddressInfoRef.current?.networkId,
     );
-    const isAllNet =
-      swapAddressInfoRef.current?.networkId === dangerAllNetworkRepresent.id;
+    const isAllNet = networkUtils.isAllNetwork({
+      networkId: swapAddressInfoRef.current?.networkId,
+    });
+
     let netInfo = accountNetwork;
     let netId = accountNetwork?.networkId;
     if (isAllNet) {
-      netId = dangerAllNetworkRepresent.id;
+      netId = getNetworkIdsMap().onekeyall;
       netInfo = swapNetworksRef.current.find(
         (net) => net.networkId === 'evm--1',
       ); // all net use evm default token
@@ -308,7 +311,7 @@ export function useSwapTokenList(
       const haveBalanceTokenList =
         allNetworkTokenList
           ?.map((token) => {
-            const balanceBN = new BigNumber(token.balanceParsed ?? '0');
+            const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
             if (!balanceBN.isNaN() && !balanceBN.isZero()) {
               return token;
             }
@@ -319,11 +322,11 @@ export function useSwapTokenList(
         const filterRecommendTokenList =
           swapAllNetRecommend?.filter(
             (token) =>
-              haveBalanceTokenList?.find(
+              !haveBalanceTokenList?.find(
                 (balanceToken) =>
-                  balanceToken.contractAddress === token.contractAddress &&
-                  balanceToken.networkId === token.networkId,
-              ) === undefined,
+                  balanceToken?.contractAddress === token?.contractAddress &&
+                  balanceToken?.networkId === token?.networkId,
+              ),
           ) ?? [];
         const allNetTokens = [
           ...haveBalanceTokenList,
@@ -351,7 +354,8 @@ export function useSwapTokenList(
   );
 
   const fuseRemoteTokensSearch = useFuse(
-    tokenFetchParams.networkId === dangerAllNetworkRepresent.id
+    networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
+      keywords
       ? mergedAllNetworkTokenList({
           swapSearchTokens:
             tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
@@ -376,7 +380,7 @@ export function useSwapTokenList(
     if (
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== dangerAllNetworkRepresent.id
+      !networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
     ) {
       // current network is not the same as account network skip fetch
       return;
@@ -388,7 +392,7 @@ export function useSwapTokenList(
     if (
       tokenFetchParams.accountNetworkId &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== dangerAllNetworkRepresent.id
+      !networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
     ) {
       return;
     }
@@ -396,7 +400,7 @@ export function useSwapTokenList(
       setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
     } else {
       setCurrentTokens(
-        tokenFetchParams.networkId === dangerAllNetworkRepresent.id
+        networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
           ? mergedAllNetworkTokenList({
               swapAllNetRecommend:
                 tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
@@ -415,7 +419,7 @@ export function useSwapTokenList(
   return {
     fetchLoading:
       (swapTokenFetching && currentTokens.length === 0) ||
-      (tokenFetchParams.networkId === dangerAllNetworkRepresent.id &&
+      (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
         !swapAllNetworkTokenList),
     currentTokens,
   };
