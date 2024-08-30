@@ -9,6 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   EEarnProviderEnum,
   ISupportedSymbol,
@@ -729,13 +730,18 @@ class ServiceStaking extends ServiceBase {
       throw new Error('indexedAccountId should be provided');
     }
     if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
+      let account: INetworkAccount | null = null;
+      try {
+        account = await this.backgroundApi.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
+      } catch (e) {
+        return null;
+      }
       if (
         networkUtils.isBTCNetwork(networkId) &&
-        !isTaprootAddress(account.address)
+        !isTaprootAddress(account?.address)
       ) {
         return null;
       }
