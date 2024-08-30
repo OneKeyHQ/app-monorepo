@@ -297,27 +297,24 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
-      const allNetworkTokenList = swapAllNetworkTokenList
-        ?.map((token) => {
+      const allNetworkTokenList =
+        swapAllNetworkTokenList?.filter((token) => {
           const swapNet = swapNetworks.find(
             (net) => net.networkId === token.networkId,
           );
           if (swapNet) {
-            return token;
+            return true;
           }
-          return undefined;
-        })
-        ?.filter((token) => token !== undefined);
+          return false;
+        }) ?? [];
       const haveBalanceTokenList =
-        allNetworkTokenList
-          ?.map((token) => {
-            const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
-            if (!balanceBN.isNaN() && !balanceBN.isZero()) {
-              return token;
-            }
-            return undefined;
-          })
-          ?.filter((token) => token !== undefined) ?? [];
+        allNetworkTokenList?.filter((token) => {
+          const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
+          if (!balanceBN.isNaN() && !balanceBN.isZero()) {
+            return true;
+          }
+          return false;
+        }) ?? [];
       if (swapAllNetRecommend) {
         const filterRecommendTokenList =
           swapAllNetRecommend?.filter(
