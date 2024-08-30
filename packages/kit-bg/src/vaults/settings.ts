@@ -2,6 +2,7 @@ import {
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
+  IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -99,6 +100,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_DNX]: () => import('./impls/dnx/settings'),
     [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
     [IMPL_SCDO]: () => import('./impls/scdo/settings'),
+    [IMPL_ALPH]: () => import('./impls/alph/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

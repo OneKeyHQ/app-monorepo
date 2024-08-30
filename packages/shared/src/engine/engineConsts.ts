@@ -105,6 +105,9 @@ const COINTYPE_CKB = '309';
 const IMPL_SCDO = 'scdo';
 const COINTYPE_SCDO = '541';
 
+const IMPL_ALPH = 'alph';
+const COINTYPE_ALPH = '1234';
+
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -137,6 +140,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_NEURAI,
   IMPL_DNX,
   IMPL_CKB,
+  IMPL_ALPH,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -169,6 +173,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_NEURAI,
   IMPL_DNX,
   IMPL_CKB,
+  IMPL_ALPH,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -244,6 +249,7 @@ export {
   COINTYPE_DNX,
   COINTYPE_CKB,
   COINTYPE_SCDO,
+  COINTYPE_ALPH,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -275,6 +281,7 @@ export {
   IMPL_DNX,
   IMPL_CKB,
   IMPL_SCDO,
+  IMPL_ALPH,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

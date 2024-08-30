@@ -247,7 +247,7 @@ function AccountEditButtonView({
     <ActionList
       title={name}
       renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-      renderItems={renderItems}
+      renderItemsAsync={renderItems}
       estimatedContentHeight={estimatedContentHeight}
     />
   );

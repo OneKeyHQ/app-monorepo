@@ -1,0 +1,21 @@
+diff --git a/node_modules/tonweb/src/utils/Utils.js b/node_modules/tonweb/src/utils/Utils.js
+index 315b798..f478dde 100644
+--- a/node_modules/tonweb/src/utils/Utils.js
++++ b/node_modules/tonweb/src/utils/Utils.js
+@@ -1,6 +1,7 @@
+ const BN = require("bn.js");
+ const nacl = require("tweetnacl");
+ const ethunit = require("ethjs-unit");
++const sha256js = require("js-sha256");
+ 
+ const isCryptoAvailable = typeof self !== 'undefined' && self.crypto && self.crypto.subtle;
+ 
+@@ -20,7 +21,7 @@ function sha256(bytes) {
+     if (isCryptoAvailable) { // web
+         return crypto.subtle.digest("SHA-256", bytes);
+     } else {  // nodejs or react-native
+-        return myCrypto.subtle.digest({name:"SHA-256"}, bytes);
++        return Promise.resolve(new Uint8Array(sha256js.sha256.array(bytes)));
+     }
+ }
+ 

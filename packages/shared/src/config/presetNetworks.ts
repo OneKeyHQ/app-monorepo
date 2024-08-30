@@ -2413,7 +2413,7 @@ const ton: IServerNetwork = {
   'impl': 'ton',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
-  'name': 'Toncoin',
+  'name': 'TON',
   'shortcode': 'ton',
   'shortname': 'ton',
   'symbol': 'TON',
@@ -2442,6 +2442,27 @@ const scdo: IServerNetwork = {
     'code': 'scdo',
     'decimals': 8,
     'symbol': 'SCDO',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const alph: IServerNetwork = {
+  'chainId': 'alph--mainnet',
+  'code': 'alph',
+  'decimals': 18,
+  'id': 'alph--mainnet',
+  'impl': 'alph',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/alph.png',
+  'name': 'Alephium',
+  'shortcode': 'alph',
+  'shortname': 'alph',
+  'symbol': 'ALPH',
+  'feeMeta': {
+    'code': 'ALPH',
+    'decimals': 18,
+    'symbol': 'ALPH',
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
@@ -2555,6 +2576,7 @@ export const presetNetworksMap = {
   ckb,
   tatom,
   scdo,
+  alph,
   ton,
 };
 
@@ -2660,6 +2682,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   sui,
   ckb,
   scdo,
+  alph,
   ton,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);

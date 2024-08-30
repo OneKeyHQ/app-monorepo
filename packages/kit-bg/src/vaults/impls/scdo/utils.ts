@@ -1,3 +1,4 @@
+import { defaultAbiCoder } from '@ethersproject/abi';
 import RLP from 'rlp';
 import { keccak256 } from 'viem';
 
@@ -5,6 +6,10 @@ import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import { secp256k1 } from '@onekeyhq/core/src/secret';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+
+import type BigNumber from 'bignumber.js';
+
+const TransferMethod = '0xa9059cbb';
 
 export function serializeUnsignedTransaction(tx: IEncodedTxScdo) {
   const raw = [
@@ -66,4 +71,39 @@ export function publicKeyToAddress(publicKey: string) {
   // eslint-disable-next-line no-bitwise
   addr[19] = (addr[19] & 0xf0) | 1;
   return `${shard}S${bufferUtils.bytesToHex(addr)}`;
+}
+
+export function decodeTransferPayload(payload: string):
+  | {
+      address: string;
+      amount: string;
+    }
+  | undefined {
+  if (!payload.startsWith(TransferMethod)) {
+    return undefined;
+  }
+  try {
+    const [address, amount] = defaultAbiCoder.decode(
+      ['address', 'uint256'],
+      `0x${payload.slice(TransferMethod.length)}`,
+    );
+    return { address, amount: (amount as BigNumber).toFixed() };
+  } catch (error) {
+    return undefined;
+  }
+}
+
+export function encodeTransferPayload({
+  address,
+  amount,
+}: {
+  address: string;
+  amount: string;
+}) {
+  const method = '0xa9059cbb';
+  const params = defaultAbiCoder.encode(
+    ['address', 'uint256'],
+    [`0x${address.slice(2)}`, amount],
+  );
+  return `${method}${params.slice(2)}`;
 }

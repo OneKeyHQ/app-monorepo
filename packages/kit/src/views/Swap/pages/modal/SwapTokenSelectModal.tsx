@@ -392,6 +392,7 @@ const SwapTokenSelectPage = () => {
             openChainSelector({
               defaultNetworkId: currentSelectNetwork?.networkId,
               networkIds: swapNetworks.map((item) => item.networkId),
+              grouped: false,
               onSelect: (network) => {
                 if (!network) return;
                 const findSwapNetwork = swapNetworks.find(
