@@ -515,8 +515,7 @@ class ServiceStaking extends ServiceBase {
         symbol: symbol.toUpperCase(),
       },
     });
-    let protocols = protocolListResp.data.data.protocols;
-    protocols = protocols.filter((o) => o.network.networkId === networkId);
+    const protocols = protocolListResp.data.data.protocols;
     return protocols;
   }
 
