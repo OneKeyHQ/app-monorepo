@@ -128,12 +128,17 @@ const UniversalProtocolDetailsPage = () => {
 
   const onPortfolioDetails = useMemo(
     () =>
-      symbol.toLowerCase() === 'btc'
+      ['btc', 'sbtc'].includes(symbol.toLowerCase())
         ? () => {
-            appNavigation.push(EModalStakingRoutes.PortfolioDetails);
+            appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
+              accountId,
+              networkId,
+              symbol,
+              provider,
+            });
           }
         : undefined,
-    [appNavigation, symbol],
+    [appNavigation, accountId, networkId, symbol, provider],
   );
 
   const intl = useIntl();
@@ -184,6 +189,14 @@ const UniversalProtocolDetailsPage = () => {
                 indexedAccountId={indexedAccountId}
                 stakeTag={buildLocalTraceTxTag(result)}
                 onRefresh={run}
+                onPress={() => {
+                  appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+                    accountId,
+                    networkId,
+                    symbol,
+                    provider,
+                  });
+                }}
               />
             ) : null}
           </Stack>

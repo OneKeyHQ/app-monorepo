@@ -136,28 +136,22 @@ export type IStakeHistoryParams = {
 
 export type IStakeHistory = {
   txId: string;
-  type?: string;
-  state?: string;
+  title: string;
+  type: string;
   amount: string;
   timestamp: number;
-  isOverflow?: boolean;
+  tokenAddress: string;
+  direction: 'receive' | 'send';
 };
 
 export type IStakeHistoriesResponse = {
   list: IStakeHistory[];
+  tokenMap: Record<string, IToken>;
   nextKey?: string;
-  network: {
+  network?: {
     networkId: string;
     name: string;
     logoURI: string;
-  };
-  token: {
-    balance: string;
-    balanceParsed: string;
-    fiatValue: string;
-    price: string;
-    price24h: string;
-    info: IToken;
   };
 };
 
@@ -271,7 +265,7 @@ export interface IEarnAtomData {
 }
 
 export type IPortfolioItem = {
-  txid: string;
+  txId: string;
   status: string;
   amount: string;
   startTime?: number;

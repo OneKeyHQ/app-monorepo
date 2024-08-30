@@ -6,26 +6,78 @@ import { useIntl } from 'react-intl';
 import {
   Empty,
   NumberSizeableText,
+  Page,
   SectionList,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useEarnLabelFn } from '@onekeyhq/kit/src/views/Staking/hooks/useLabelFn';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalStakingRoutes,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { ILidoHistoryItem } from '@onekeyhq/shared/types/staking';
+import type { IStakeHistory } from '@onekeyhq/shared/types/staking';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-type ILidoHistoryProps = {
-  items: ILidoHistoryItem[];
+import {
+  PageFrame,
+  SimpleSpinnerSkeleton,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
+
+type IHistoryItemProps = {
+  item: IStakeHistory;
+  network?: { networkId: string; name: string; logoURI: string };
+  token?: IToken;
+  provider?: string;
+};
+
+const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
+  <ListItem
+    avatarProps={{
+      src: token?.logoURI,
+    }}
+    title={item.title}
+    subtitle={provider}
+  >
+    <YStack>
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: token?.symbol,
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+      </NumberSizeableText>
+    </YStack>
+  </ListItem>
+);
+
+type IHistoryContentProps = {
+  items: IStakeHistory[];
+  network?: { networkId: string; name: string; logoURI: string };
+  tokenMap: Record<string, IToken>;
+  provider?: string;
 };
 
 const keyExtractor = (item: unknown) => {
-  const key = (item as ILidoHistoryItem)?.txHash;
+  const key = (item as IStakeHistory)?.txId;
   return key;
 };
 
-export const LidoHistory = ({ items }: ILidoHistoryProps) => {
-  const labelFn = useEarnLabelFn();
+const HistoryContent = ({
+  items,
+  network,
+  tokenMap,
+  provider,
+}: IHistoryContentProps) => {
   const sections = useMemo(() => {
     const result = groupBy(items, (item) =>
       formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
@@ -36,54 +88,15 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
   }, [items]);
 
   const renderItem = useCallback(
-    ({ item }: { item: ILidoHistoryItem }) => {
-      let primary = item.receive
-        ? { data: item.receive, symbol: '+' }
-        : undefined;
-      let secondary = item.send ? { data: item.send, symbol: '-' } : undefined;
-      if (!primary && secondary) {
-        primary = secondary;
-        secondary = undefined;
-      }
-      return (
-        <ListItem
-          avatarProps={{
-            src: primary?.data?.token.logoURI ?? secondary?.data?.token.logoURI,
-          }}
-          title={labelFn(item.label)}
-          subtitle="Lido"
-        >
-          <YStack alignItems="flex-end">
-            {primary ? (
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="balance"
-                formatterOptions={{
-                  tokenSymbol: primary.data.token.symbol,
-                  showPlusMinusSigns: true,
-                }}
-              >
-                {`${primary.symbol}${primary.data.amount}`}
-              </NumberSizeableText>
-            ) : null}
-            {secondary ? (
-              <NumberSizeableText
-                size="$bodyMd"
-                formatter="balance"
-                color="$textSubdued"
-                formatterOptions={{
-                  tokenSymbol: secondary.data.token.symbol,
-                  showPlusMinusSigns: true,
-                }}
-              >
-                {`${secondary.symbol}${secondary.data.amount}`}
-              </NumberSizeableText>
-            ) : null}
-          </YStack>
-        </ListItem>
-      );
-    },
-    [labelFn],
+    ({ item }: { item: IStakeHistory }) => (
+      <HistoryItem
+        item={item}
+        network={network}
+        token={tokenMap[item.tokenAddress]}
+        provider={provider}
+      />
+    ),
+    [network, tokenMap, provider],
   );
 
   const renderSectionHeader = useCallback(
@@ -125,3 +138,46 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
     />
   );
 };
+
+const HistoryList = () => {
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.UniversalProtocolDetails
+  >();
+  const { accountId, networkId, symbol, provider } = route.params;
+  const { result, isLoading, run } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getStakeHistory({
+        accountId,
+        networkId,
+        symbol,
+        provider,
+      }),
+    [accountId, networkId, symbol, provider],
+    { watchLoading: true },
+  );
+  return (
+    <Page>
+      <Page.Header title="History" />
+      <Page.Body>
+        <PageFrame
+          LoadingSkeleton={SimpleSpinnerSkeleton}
+          error={isErrorState({ result, isLoading })}
+          loading={isLoadingState({ result, isLoading })}
+          onRefresh={run}
+        >
+          {result ? (
+            <HistoryContent
+              items={result.list}
+              network={result.network}
+              tokenMap={result.tokenMap}
+              provider={provider}
+            />
+          ) : null}
+        </PageFrame>
+      </Page.Body>
+    </Page>
+  );
+};
+
+export default HistoryList;

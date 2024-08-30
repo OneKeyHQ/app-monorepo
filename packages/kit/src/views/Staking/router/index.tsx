@@ -82,6 +82,10 @@ const PortfolioDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/PortfolioDetails'),
 );
 
+const HistoryList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/HistoryList'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes,
   IModalStakingParamList
@@ -161,5 +165,9 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.PortfolioDetails,
     component: PortfolioDetails,
+  },
+  {
+    name: EModalStakingRoutes.HistoryList,
+    component: HistoryList,
   },
 ];

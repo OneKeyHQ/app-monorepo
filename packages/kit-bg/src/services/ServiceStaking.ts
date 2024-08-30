@@ -438,9 +438,15 @@ class ServiceStaking extends ServiceBase {
         accountId,
       });
 
-    const resp = await client.post<{
+    const resp = await client.get<{
       data: IStakeHistoriesResponse;
-    }>(`/earn/v1/stake-histories`, { accountAddress, networkId, ...rest });
+    }>(`/earn/v1/stake-histories`, {
+      params: {
+        accountAddress,
+        networkId,
+        ...rest,
+      },
+    });
     return resp.data.data;
   }
 
@@ -448,14 +454,23 @@ class ServiceStaking extends ServiceBase {
   async getPortfolioList(params: IGetPortfolioParams) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
-    const resp = await client.post<{
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
+
+    const resp = await client.get<{
       data: IPortfolioItem[];
-    }>(`/earn/v1/portfolio/list`, { accountAddress, networkId, ...rest });
+    }>(`/earn/v1/portfolio/list`, {
+      params: {
+        accountAddress: acc.address,
+        networkId,
+        publicKey: [getNetworkIdsMap().btc, getNetworkIdsMap().sbtc].includes(
+          networkId,
+        )
+          ? acc.pub
+          : undefined,
+        ...rest,
+      },
+    });
     return resp.data.data;
   }
 

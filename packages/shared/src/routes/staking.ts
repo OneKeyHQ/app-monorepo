@@ -26,6 +26,7 @@ export enum EModalStakingRoutes {
   UniversalClaimOptions = 'UniversalClaimOptions',
   UniversalWithdrawOptions = 'UniversalWithdrawOptions',
   PortfolioDetails = 'PortfolioDetails',
+  HistoryList = 'HistoryList',
 }
 
 type IBaseRouteParams = {
@@ -133,5 +134,12 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
   };
-  [EModalStakingRoutes.PortfolioDetails]: undefined;
+  [EModalStakingRoutes.PortfolioDetails]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+  };
+  [EModalStakingRoutes.HistoryList]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+  };
 };

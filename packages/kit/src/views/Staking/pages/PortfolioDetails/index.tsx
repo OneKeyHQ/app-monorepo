@@ -16,11 +16,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IPortfolioItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -32,10 +35,22 @@ import {
 
 type IPortfolioItemProps = {
   item: IPortfolioItem;
+  network?: IServerNetwork;
 };
 
-const PortfolioItem = ({ item }: IPortfolioItemProps) => {
-  const onPress = useCallback(() => {}, []);
+const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.UniversalProtocolDetails
+  >();
+  const { networkId } = route.params;
+  const onPress = useCallback(async () => {
+    await openTransactionDetailsUrl({ networkId, txid: item.txId });
+  }, [item, networkId]);
+  const day = Math.ceil(
+    Math.max(0, (item.endTime ?? 0) - (item.startTime ?? 0)) /
+      (1000 * 60 * 60 * 24),
+  );
   return (
     <Stack px={20}>
       <Stack
@@ -51,15 +66,15 @@ const PortfolioItem = ({ item }: IPortfolioItemProps) => {
             variant="tertiary"
             iconAfter="OpenOutline"
           >
-            {accountUtils.shortenAddress({ address: item.txid })}
+            {accountUtils.shortenAddress({ address: item.txId })}
           </Button>
         </XStack>
         <XStack p={14} alignItems="center">
           <Stack pr={12}>
-            <Token />
+            <Token tokenImageUri={network?.logoURI} />
           </Stack>
           <Stack>
-            <SizableText size="$headingLg">0.01 BTC</SizableText>
+            <SizableText size="$headingLg">{item.amount} BTC</SizableText>
             <SizableText size="$bodyMd">$665.45</SizableText>
           </Stack>
         </XStack>
@@ -67,7 +82,11 @@ const PortfolioItem = ({ item }: IPortfolioItemProps) => {
           <Icon name="Calendar2Outline" />
           <XStack w="$1.5" />
           <SizableText size="$bodyMd">
-            100 days • 07/30/2024 - 10/30/2024
+            {`${day} days • ${formatDate(new Date(Number(item.startTime)), {
+              hideTimeForever: true,
+            })} - ${formatDate(new Date(Number(item.endTime)), {
+              hideTimeForever: true,
+            })}`}
           </SizableText>
         </XStack>
       </Stack>
@@ -85,18 +104,23 @@ const PortfolioDetails = () => {
   const { accountId, networkId, symbol, provider } = route.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceStaking.getPortfolioList({
-        accountId,
-        networkId,
-        symbol,
-        provider,
-      }),
+      Promise.all([
+        backgroundApiProxy.serviceStaking.getPortfolioList({
+          accountId,
+          networkId,
+          symbol,
+          provider,
+        }),
+        backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
+      ]),
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
   const renderItem = useCallback(
-    ({ item }: { item: IPortfolioItem }) => <PortfolioItem item={item} />,
-    [],
+    ({ item }: { item: IPortfolioItem }) => (
+      <PortfolioItem item={item} network={result?.[1]} />
+    ),
+    [result],
   );
   return (
     <Page>
@@ -111,7 +135,7 @@ const PortfolioDetails = () => {
           {result ? (
             <ListView
               estimatedItemSize={60}
-              data={result}
+              data={result[0]}
               renderItem={renderItem}
               ListFooterComponent={<Stack h="$2" />}
               ItemSeparatorComponent={ItemSeparatorComponent}
