@@ -157,7 +157,7 @@ const HistoryList = () => {
     { watchLoading: true },
   );
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="History" />
       <Page.Body>
         <PageFrame

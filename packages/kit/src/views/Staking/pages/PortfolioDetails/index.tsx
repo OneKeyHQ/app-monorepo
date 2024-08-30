@@ -123,7 +123,7 @@ const PortfolioDetails = () => {
     [result],
   );
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Portfolio Details" />
       <Page.Body>
         <PageFrame

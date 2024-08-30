@@ -76,23 +76,18 @@ const AssetProtocolListContent = ({
                   networkImageUri={item.network.logoURI}
                 />
               </Stack>
-              <ListItem.Text
-                flex={1}
-                primary={
-                  <XStack alignItems="center">
-                    <SizableText size="$bodyLgMedium">
-                      {item.provider.name}
-                    </SizableText>
-                  </XStack>
-                }
-                secondary={
+              <YStack flex={1} justifyContent="center">
+                <SizableText size="$bodyLgMedium">
+                  {item.provider.name}
+                </SizableText>
+                {Number.isNaN(Number(item.provider.apr)) ? undefined : (
                   <XStack alignItems="center">
                     <SizableText size="$bodyMdMedium" color="$textSuccess">
-                      {`${BigNumber(item.provider.apr).toFixed(3)}%`}
+                      {` ${BigNumber(item.provider.apr).toFixed(2)}%`}
                     </SizableText>
                   </XStack>
-                }
-              />
+                )}
+              </YStack>
               <YStack alignItems="flex-end" justifyContent="space-around">
                 <Badge>Native staking</Badge>
                 {item.isEarning ? (
@@ -140,7 +135,7 @@ const AssetProtocolList = () => {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Select Provider" />
       <Page.Body>
         <PageFrame

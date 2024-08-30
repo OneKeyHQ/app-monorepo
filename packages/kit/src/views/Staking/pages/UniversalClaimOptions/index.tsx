@@ -60,7 +60,7 @@ const UniversalClaimOptions = () => {
   const intl = useIntl();
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.earn_claim })}
       />
