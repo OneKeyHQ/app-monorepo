@@ -298,15 +298,25 @@ export function useSwapTokenList(
       swapSearchTokens?: ISwapToken[];
     }) => {
       const allNetworkTokenList =
-        swapAllNetworkTokenList?.filter((token) => {
-          const swapNet = swapNetworks.find(
-            (net) => net.networkId === token.networkId,
-          );
-          if (swapNet) {
-            return true;
-          }
-          return false;
-        }) ?? [];
+        swapAllNetworkTokenList
+          ?.map((token) => {
+            const swapNet = swapNetworks.find(
+              (net) => net.networkId === token.networkId,
+            );
+            if (swapNet) {
+              return { ...token, networkLogoURI: swapNet.logoURI };
+            }
+            return token;
+          })
+          ?.filter((token) => {
+            const swapNet = swapNetworks.find(
+              (net) => net.networkId === token.networkId,
+            );
+            if (swapNet) {
+              return true;
+            }
+            return false;
+          }) ?? [];
       const haveBalanceTokenList =
         allNetworkTokenList?.filter((token) => {
           const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
