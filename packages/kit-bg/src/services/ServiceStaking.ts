@@ -21,9 +21,11 @@ import type {
   IAvailableAsset,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IGetPortfolioParams,
   ILidoEthOverview,
   ILidoHistoryItem,
   ILidoMaticOverview,
+  IPortfolioItem,
   IServerEvmTransaction,
   IStakeBaseParams,
   IStakeClaimBaseParams,
@@ -439,6 +441,21 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IStakeHistoriesResponse;
     }>(`/earn/v1/stake-histories`, { accountAddress, networkId, ...rest });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getPortfolioList(params: IGetPortfolioParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const resp = await client.post<{
+      data: IPortfolioItem[];
+    }>(`/earn/v1/portfolio/list`, { accountAddress, networkId, ...rest });
     return resp.data.data;
   }
 
