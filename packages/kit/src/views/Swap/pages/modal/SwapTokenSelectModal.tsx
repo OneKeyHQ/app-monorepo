@@ -226,26 +226,17 @@ const SwapTokenSelectPage = () => {
           networkId: network.networkId,
         });
       } else {
-        console.log(
-          'swap__deriveT',
-          swapFromAddressInfo.accountInfo?.deriveType,
-        );
         void swapLoadAllNetworkTokenList(
           network.networkId,
           type === ESwapDirectionType.FROM
             ? swapFromAddressInfo.accountInfo?.indexedAccount?.id
             : swapToAddressInfo.accountInfo?.indexedAccount?.id,
-          type === ESwapDirectionType.FROM
-            ? swapFromAddressInfo.accountInfo?.deriveType
-            : swapToAddressInfo.accountInfo?.deriveType,
         );
       }
     },
     [
-      swapFromAddressInfo.accountInfo?.deriveType,
       swapFromAddressInfo.accountInfo?.indexedAccount?.id,
       swapLoadAllNetworkTokenList,
-      swapToAddressInfo.accountInfo?.deriveType,
       swapToAddressInfo.accountInfo?.indexedAccount?.id,
       type,
       updateSelectedAccountNetwork,

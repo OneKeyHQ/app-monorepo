@@ -114,6 +114,11 @@ export const {
   use: useSwapAllNetworkTokenListAtom,
 } = contextAtom<ISwapToken[] | undefined>(undefined);
 
+export const {
+  atom: swapAllNetworkActionLockAtom,
+  use: useSwapAllNetworkActionLockAtom,
+} = contextAtom<boolean>(false);
+
 // swap quote
 export const {
   atom: swapManualSelectQuoteProvidersAtom,

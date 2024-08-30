@@ -294,10 +294,6 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
-      console.log(
-        'swap__swapAllNetworkTokenList: =====>>>>>: ',
-        swapAllNetworkTokenList,
-      );
       const allNetworkTokenList = swapAllNetworkTokenList
         ?.map((token) => {
           const swapNet = swapNetworks.find(

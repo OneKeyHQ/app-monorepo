@@ -160,6 +160,27 @@ export function useSwapQuote() {
     alignmentDecimal,
   ]);
 
+  // Due to the changes in derived types causing address changes, this is not in the swap tab.
+  useEffect(() => {
+    if (isFocusRef.current) return;
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      (fromToken?.networkId === toToken?.networkId &&
+        fromToken?.contractAddress === toToken?.contractAddress)
+    ) {
+      return;
+    }
+    alignmentDecimal();
+    void quoteAction(
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+    );
+    return () => {
+      cleanQuoteInterval();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapAddressInfo.address]);
+
   const pageType = usePageType();
   useListenTabFocusState(
     ETabRoutes.Swap,

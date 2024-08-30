@@ -3,6 +3,10 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
+import {
+  getBtcForkNetwork,
+  validateBtcAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
@@ -12,6 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapApprovingStateFetchInterval,
@@ -50,6 +55,7 @@ import {
   contextAtomMethod,
   rateDifferenceAtom,
   swapAlertsAtom,
+  swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
@@ -1011,6 +1017,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountNetworkId: string,
       accountId?: string,
       accountAddress?: string,
+      isFirstFetch?: boolean,
     ) => {
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
@@ -1021,85 +1028,143 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         isAllNetworkFetchAccountTokens: true,
       });
       if (result?.length) {
-        set(swapAllNetworkTokenListAtom(), (tokens) => {
-          const newTokens =
-            result.filter(
-              (t) =>
-                !tokens?.find(
-                  (tk) =>
-                    tk.networkId === t.networkId &&
-                    tk.contractAddress === t.contractAddress,
-                ),
-            ) ?? [];
-          const needUpdateTokens =
-            result.filter(
-              (t) =>
-                !newTokens.find(
-                  (tk) =>
-                    tk.networkId === t.networkId &&
-                    tk.contractAddress === t.contractAddress,
-                ),
-            ) ?? [];
-          const filterTokens =
-            tokens?.filter(
-              (tk) =>
-                !needUpdateTokens.find(
-                  (t) =>
-                    tk.networkId === t.networkId &&
-                    tk.contractAddress === t.contractAddress,
-                ),
-            ) ?? [];
-          return [...filterTokens, ...needUpdateTokens, ...newTokens];
-        });
+        if (isFirstFetch) {
+          set(swapAllNetworkTokenListAtom(), (tokens) => {
+            const newTokens =
+              result.filter(
+                (t) =>
+                  !tokens?.find(
+                    (tk) =>
+                      tk.networkId === t.networkId &&
+                      tk.contractAddress === t.contractAddress,
+                  ),
+              ) ?? [];
+            const needUpdateTokens =
+              result.filter(
+                (t) =>
+                  !newTokens.find(
+                    (tk) =>
+                      tk.networkId === t.networkId &&
+                      tk.contractAddress === t.contractAddress,
+                  ),
+              ) ?? [];
+            const filterTokens =
+              tokens?.filter(
+                (tk) =>
+                  !needUpdateTokens.find(
+                    (t) =>
+                      tk.networkId === t.networkId &&
+                      tk.contractAddress === t.contractAddress,
+                  ),
+              ) ?? [];
+            return [...filterTokens, ...needUpdateTokens, ...newTokens];
+          });
+        } else {
+          return result;
+        }
       }
     },
   );
 
   swapLoadAllNetworkTokenList = contextAtomMethod(
-    async (
-      get,
-      set,
-      networkId: string,
-      indexedAccountId?: string,
-      deriveType?: IAccountDeriveTypes,
-    ) => {
+    async (get, set, networkId: string, indexedAccountId?: string) => {
+      const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
+      if (swapAllNetworkActionLock) {
+        return;
+      }
       const swapSupportNetworks = get(swapNetworks());
       if (indexedAccountId) {
-        const account =
-          await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
-            indexedAccountId,
-          });
-        const { accountsInfo } =
-          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-            accountId: account.id,
-            networkId,
-            deriveType,
-          });
-        const swapSupportAccounts = accountsInfo
-          .filter((networkDataString) => {
-            const { networkId: accountNetworkId } = networkDataString;
-            return swapSupportNetworks.find(
-              (network) => network.networkId === accountNetworkId,
-            );
-          })
-          .filter((item) => item.apiAddress);
-        const requests = swapSupportAccounts.map((networkDataString) => {
-          const {
-            apiAddress,
-            networkId: accountNetworkId,
-            accountId,
-          } = networkDataString;
-          return this.updateAllNetworkTokenList.call(
-            set,
-            accountNetworkId,
-            accountId,
-            apiAddress,
-          );
-        });
         try {
-          await Promise.all(requests);
+          set(swapAllNetworkActionLockAtom(), true);
+          const currentSwapAllNetworkTokenList = get(
+            swapAllNetworkTokenListAtom(),
+          );
+          const account =
+            await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+              indexedAccountId,
+            });
+          const { accountsInfo } =
+            await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+              accountId: account.id,
+              networkId,
+            });
+          let filteredBtcAccounts = accountsInfo.filter(
+            (networkDataString) =>
+              !networkUtils.isBTCNetwork(networkDataString.networkId),
+          );
+          const btcAccounts = accountsInfo.filter((networkDataString) =>
+            networkUtils.isBTCNetwork(networkDataString.networkId),
+          );
+          await Promise.all(
+            btcAccounts.map(async (networkDataString) => {
+              const globalDeriveType =
+                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: networkDataString.networkId,
+                  },
+                );
+              const btcNet = getBtcForkNetwork(
+                networkUtils.getNetworkImpl({
+                  networkId: networkDataString.networkId,
+                }),
+              );
+              const addressValidate = validateBtcAddress({
+                network: btcNet,
+                address: networkDataString.apiAddress,
+              });
+              if (addressValidate.isValid && addressValidate.encoding) {
+                const deriveTypeRes =
+                  await backgroundApiProxy.serviceNetwork.getDeriveTypeByAddressEncoding(
+                    {
+                      networkId: networkDataString.networkId,
+                      encoding: addressValidate.encoding,
+                    },
+                  );
+                if (deriveTypeRes === globalDeriveType) {
+                  filteredBtcAccounts = [
+                    ...filteredBtcAccounts,
+                    networkDataString,
+                  ];
+                }
+              }
+            }),
+          );
+          // backgroundApiProxy.serviceAccount.getAccount({ accountId, networkId });
+          const swapSupportAccounts = filteredBtcAccounts
+            .filter((networkDataString) => {
+              const { networkId: accountNetworkId } = networkDataString;
+              return swapSupportNetworks.find(
+                (network) => network.networkId === accountNetworkId,
+              );
+            })
+            .filter((item) => item.apiAddress);
+
+          const requests = swapSupportAccounts.map((networkDataString) => {
+            const {
+              apiAddress,
+              networkId: accountNetworkId,
+              accountId,
+            } = networkDataString;
+            return this.updateAllNetworkTokenList.call(
+              set,
+              accountNetworkId,
+              accountId,
+              apiAddress,
+              !currentSwapAllNetworkTokenList,
+            );
+          });
+
+          if (!currentSwapAllNetworkTokenList) {
+            await Promise.all(requests);
+          } else {
+            const result = await Promise.all(requests);
+            const allTokensResult = (result.filter(Boolean) ?? []).flat();
+            set(swapAllNetworkTokenListAtom(), allTokensResult);
+          }
         } catch (e) {
           console.error(e);
+        } finally {
+          set(swapAllNetworkActionLockAtom(), false);
         }
       }
     },
