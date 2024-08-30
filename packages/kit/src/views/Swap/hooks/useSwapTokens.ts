@@ -308,15 +308,9 @@ export function useSwapTokenList(
             }
             return token;
           })
-          ?.filter((token) => {
-            const swapNet = swapNetworks.find(
-              (net) => net.networkId === token.networkId,
-            );
-            if (swapNet) {
-              return true;
-            }
-            return false;
-          }) ?? [];
+          ?.filter((token) =>
+            swapNetworks.find((net) => net.networkId === token.networkId),
+          ) ?? [];
       const haveBalanceTokenList =
         allNetworkTokenList?.filter((token) => {
           const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
