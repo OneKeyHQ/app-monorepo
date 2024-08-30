@@ -7,6 +7,8 @@ import { secp256k1 } from '@onekeyhq/core/src/secret';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
+import type BigNumber from 'bignumber.js';
+
 const TransferMethod = '0xa9059cbb';
 
 export function serializeUnsignedTransaction(tx: IEncodedTxScdo) {
@@ -71,7 +73,12 @@ export function publicKeyToAddress(publicKey: string) {
   return `${shard}S${bufferUtils.bytesToHex(addr)}`;
 }
 
-export function decodeTransferPayload(payload: string) {
+export function decodeTransferPayload(payload: string):
+  | {
+      address: string;
+      amount: string;
+    }
+  | undefined {
   if (!payload.startsWith(TransferMethod)) {
     return undefined;
   }
@@ -80,7 +87,7 @@ export function decodeTransferPayload(payload: string) {
       ['address', 'uint256'],
       `0x${payload.slice(TransferMethod.length)}`,
     );
-    return { address, amount };
+    return { address, amount: (amount as BigNumber).toFixed() };
   } catch (error) {
     return undefined;
   }
