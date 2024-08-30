@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -134,9 +134,15 @@ const UniversalProtocolDetailsPage = () => {
     });
   }, [result, accountId, networkId, appNavigation, symbol, provider]);
 
-  const onPortfolioDetails = useCallback(() => {
-    appNavigation.push(EModalStakingRoutes.PortfolioDetails);
-  }, [appNavigation]);
+  const onPortfolioDetails = useMemo(
+    () =>
+      symbol.toLowerCase() === 'btc'
+        ? () => {
+            appNavigation.push(EModalStakingRoutes.PortfolioDetails);
+          }
+        : undefined,
+    [appNavigation, symbol],
+  );
 
   const intl = useIntl();
   return (
