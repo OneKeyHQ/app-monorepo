@@ -189,7 +189,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               <SizableText
                 testID="account-selector-address-text"
                 size="$bodyMd"
-                width={150}
+                width={200}
               >
                 {account?.address}
               </SizableText>
