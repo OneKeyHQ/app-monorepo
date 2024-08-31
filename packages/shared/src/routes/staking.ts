@@ -1,22 +1,8 @@
-import type {
-  ILidoMaticRequest,
-  IStakeProtocolDetails,
-} from '../../types/staking';
+import type { IStakeProtocolDetails } from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
-  EthLidoOverview = 'EthLidoOverview',
-  EthLidoStake = 'EthLidoStake',
-  EthLidoWithdraw = 'EthLidoWithdraw',
-  EthLidoHistory = 'EthLidoHistory',
-  MaticLidoOverview = 'MaticLidoOverview',
-  MaticLidoStake = 'MaticLidoStake',
-  MaticLidoWithdraw = 'MaticLidoWithdraw',
-  MaticLidoHistory = 'MaticLidoHistory',
-  MaticLidoClaim = 'MaticLidoClaim',
-  EarnTokenDetail = 'EarnTokenDetail',
   InvestmentDetails = 'InvestmentDetails',
-  //
   UniversalStake = 'UniversalStake',
   UniversalWithdraw = 'UniversalWithdraw',
   UniversalClaim = 'UniversalClaim',
@@ -37,45 +23,6 @@ type IBaseRouteParams = {
 
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
-  [EModalStakingRoutes.EthLidoOverview]: IBaseRouteParams;
-  [EModalStakingRoutes.EthLidoStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    stToken: IToken;
-    apr?: number;
-    minTransactionFee?: string;
-  };
-  [EModalStakingRoutes.EthLidoWithdraw]: IBaseRouteParams & {
-    balance: string;
-    price: string;
-    token: IToken;
-    receivingToken: IToken;
-    rate?: string;
-  };
-  [EModalStakingRoutes.EthLidoHistory]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoOverview]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    stToken: IToken;
-    currentAllowance: string;
-    apr?: number;
-    rate?: string;
-  };
-  [EModalStakingRoutes.MaticLidoWithdraw]: IBaseRouteParams & {
-    balance: string;
-    price: string;
-    token: IToken;
-    receivingToken: IToken;
-    rate?: string;
-  };
-  [EModalStakingRoutes.MaticLidoHistory]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoClaim]: IBaseRouteParams & {
-    requests: ILidoMaticRequest[];
-    token: IToken;
-  };
   [EModalStakingRoutes.UniversalProtocolDetails]: IBaseRouteParams & {
     symbol: string;
     provider: string;

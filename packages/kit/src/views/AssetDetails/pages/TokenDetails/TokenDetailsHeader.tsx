@@ -16,7 +16,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { TokenDetailStakingEntry } from '@onekeyhq/kit/src/views/Staking/components/TokenDetailStakingEntry';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -208,12 +207,6 @@ function TokenDetailsHeader(props: IProps) {
           </ReviewControl>
         </RawActions>
       </Stack>
-
-      <StakingApr
-        networkId={networkId}
-        accountId={accountId}
-        tokenAddress={tokenInfo.address}
-      />
       <TokenDetailStakingEntry
         networkId={networkId}
         accountId={accountId}
