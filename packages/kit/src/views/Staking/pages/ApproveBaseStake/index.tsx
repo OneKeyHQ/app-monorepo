@@ -14,11 +14,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { UniversalApproveBaseStake } from '../../components/UniversalApproveBaseStake';
+import { ApproveBaseStake } from '../../components/ApproveBaseStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
-const UniversalApproveBaseStakePage = () => {
+const ApproveBaseStakePage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.ApproveBaseStake
@@ -70,7 +70,7 @@ const UniversalApproveBaseStakePage = () => {
         )}
       />
       <Page.Body>
-        <UniversalApproveBaseStake
+        <ApproveBaseStake
           price={price}
           balance={balanceParsed}
           token={token.info}
@@ -97,4 +97,4 @@ const UniversalApproveBaseStakePage = () => {
   );
 };
 
-export default UniversalApproveBaseStakePage;
+export default ApproveBaseStakePage;

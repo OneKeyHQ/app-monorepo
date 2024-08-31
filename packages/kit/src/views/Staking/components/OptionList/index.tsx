@@ -6,7 +6,6 @@ import {
   Empty,
   ListView,
   NumberSizeableText,
-  SizableText,
   Stack,
   YStack,
 } from '@onekeyhq/components';
@@ -14,14 +13,13 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 type IUniversalOptionItem = { id: string; amount: string; fiatValue?: string };
 
 export type IOnSelectOption = (params: { item: IUniversalOptionItem }) => void;
 
-const UniversalOptionItem = ({
+const OptionItem = ({
   item,
   token,
   network,
@@ -86,7 +84,7 @@ const ListEmptyComponent = () => {
   );
 };
 
-type IUniversalOptionListProps = {
+type IOptionListProps = {
   items: IUniversalOptionItem[];
   token: IToken;
   onPress?: IOnSelectOption;
@@ -97,15 +95,15 @@ type IUniversalOptionListProps = {
   };
 };
 
-export const UniversalOptionList = ({
+export const OptionList = ({
   items,
   token,
   network,
   onPress,
-}: IUniversalOptionListProps) => {
+}: IOptionListProps) => {
   const renderItem = useCallback(
     ({ item }: { item: IUniversalOptionItem }) => (
-      <UniversalOptionItem
+      <OptionItem
         item={item}
         token={token}
         network={network}

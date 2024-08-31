@@ -25,7 +25,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
-type IUniversalApproveBaseStakeProps = {
+type IApproveBaseStakeProps = {
   price: string;
   balance: string;
   token: IToken;
@@ -48,7 +48,7 @@ type IUniversalApproveBaseStakeProps = {
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
-export const UniversalApproveBaseStake = ({
+export const ApproveBaseStake = ({
   price,
   balance,
   token,
@@ -61,7 +61,7 @@ export const UniversalApproveBaseStake = ({
   providerLogo,
   onConfirm,
   approveTarget,
-}: PropsWithChildren<IUniversalApproveBaseStakeProps>) => {
+}: PropsWithChildren<IApproveBaseStakeProps>) => {
   const intl = useIntl();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: approveTarget.accountId,

@@ -11,16 +11,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
+import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
   PageFrame,
   SimpleSpinnerSkeleton,
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
-import {
-  type IOnSelectOption,
-  UniversalOptionList,
-} from '../../components/UniversalOptionList';
 
 const WithdrawOptions = () => {
   const appRoute = useAppRoute<
@@ -70,7 +67,7 @@ const WithdrawOptions = () => {
           onRefresh={run}
         >
           {result ? (
-            <UniversalOptionList
+            <OptionList
               items={result.items}
               token={result.token}
               network={result.network}
