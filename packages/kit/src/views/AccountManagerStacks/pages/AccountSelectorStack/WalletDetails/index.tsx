@@ -316,8 +316,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       listRef.current._listRef._hasDoneInitialScroll = false;
     }
-  }, [focusedWalletInfo]);
+  }, [focusedWalletInfo, searchText]);
   const initialScrollIndex = useMemo(() => {
+    if (searchText.length > 0) {
+      return undefined;
+    }
     if (sectionData?.[0]?.data) {
       const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
         isOthersUniversal
@@ -333,6 +336,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       return Math.max(itemIndex + 1, 0);
     }
   }, [
+    searchText,
     isOthersUniversal,
     listViewLayout.height,
     sectionData,
