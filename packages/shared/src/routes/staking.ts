@@ -1,12 +1,11 @@
 import type { IStakeProtocolDetails } from '../../types/staking';
-import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
   UniversalStake = 'UniversalStake',
   UniversalWithdraw = 'UniversalWithdraw',
   UniversalClaim = 'UniversalClaim',
-  UniversalProtocolDetails = 'UniversalProtocolDetails',
+  ProtocolDetails = 'UniversalProtocolDetails',
   AssetProtocolList = 'AssetProtocolList',
   ApproveBaseStake = 'ApproveBaseStake',
   ClaimOptions = 'ClaimOptions',
@@ -23,7 +22,7 @@ type IBaseRouteParams = {
 
 export type IModalStakingParamList = {
   [EModalStakingRoutes.InvestmentDetails]: undefined;
-  [EModalStakingRoutes.UniversalProtocolDetails]: IBaseRouteParams & {
+  [EModalStakingRoutes.ProtocolDetails]: IBaseRouteParams & {
     symbol: string;
     provider: string;
     details?: IStakeProtocolDetails;

@@ -3,13 +3,11 @@ import { useCallback, useRef, useState } from 'react';
 import { Button, Dialog, Input, Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const SignMessageButton = () => {
   const ref = useRef<number>(0);
@@ -126,31 +124,6 @@ const CustomSignMessage = ({ num }: { num: number }) => {
   );
 };
 
-const StakeDemo = ({ num }: { num: number }) => {
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num });
-  const appNavigation = useAppNavigation();
-  const onPress = useCallback(async () => {
-    if (account && network) {
-      appNavigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.UniversalProtocolDetails,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-          symbol: 'BTC',
-          provider: 'babylon',
-        },
-      });
-    }
-  }, [account, network, appNavigation]);
-  return (
-    <YStack gap="$4">
-      <Button onPress={onPress}>Stake test</Button>
-    </YStack>
-  );
-};
-
 const DevHomeStack2 = () => {
   const num = 0;
   return (
@@ -167,15 +140,6 @@ const DevHomeStack2 = () => {
           enabledNum={[num]}
         >
           <CustomSignMessage num={num} />
-        </AccountSelectorProviderMirror>
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[num]}
-        >
-          <StakeDemo num={num} />
         </AccountSelectorProviderMirror>
       </YStack>
     </Page>

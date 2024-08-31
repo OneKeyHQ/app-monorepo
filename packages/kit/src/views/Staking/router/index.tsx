@@ -7,9 +7,8 @@ const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
 
-const UniversalProtocolDetails = LazyLoad(
-  () =>
-    import('@onekeyhq/kit/src/views/Staking/pages/UniversalProtocolDetails'),
+const ProtocolDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
 const UniversalWithdraw = LazyLoad(
@@ -53,8 +52,8 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   IModalStakingParamList
 >[] = [
   {
-    name: EModalStakingRoutes.UniversalProtocolDetails,
-    component: UniversalProtocolDetails,
+    name: EModalStakingRoutes.ProtocolDetails,
+    component: ProtocolDetails,
   },
   {
     name: EModalStakingRoutes.UniversalStake,

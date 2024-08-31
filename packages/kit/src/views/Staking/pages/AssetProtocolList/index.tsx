@@ -44,7 +44,7 @@ const AssetProtocolListContent = ({
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
     ({ item }: { item: IStakeProtocolListItem }) => {
-      appNavigation.navigate(EModalStakingRoutes.UniversalProtocolDetails, {
+      appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
         accountId,
         networkId: item.network.networkId,
         indexedAccountId,

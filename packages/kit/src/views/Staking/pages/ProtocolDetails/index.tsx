@@ -31,10 +31,10 @@ import {
   useHandleWithdraw,
 } from './useUniversal';
 
-const UniversalProtocolDetailsPage = () => {
+const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalProtocolDetails
+    EModalStakingRoutes.ProtocolDetails
   >();
   const { accountId, networkId, indexedAccountId, symbol, provider } =
     route.params;
@@ -197,7 +197,7 @@ const UniversalProtocolDetailsPage = () => {
   );
 };
 
-function EarnTokenDetailsPageWithProvider() {
+function ProtocolDetailsPageWithProvider() {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -206,9 +206,9 @@ function EarnTokenDetailsPageWithProvider() {
       }}
       enabledNum={[0]}
     >
-      <UniversalProtocolDetailsPage />
+      <ProtocolDetailsPage />
     </AccountSelectorProviderMirror>
   );
 }
 
-export default EarnTokenDetailsPageWithProvider;
+export default ProtocolDetailsPageWithProvider;

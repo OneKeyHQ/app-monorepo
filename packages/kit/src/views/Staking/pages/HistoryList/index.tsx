@@ -142,7 +142,7 @@ const HistoryContent = ({
 const HistoryList = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalProtocolDetails
+    EModalStakingRoutes.ProtocolDetails
   >();
   const { accountId, networkId, symbol, provider } = route.params;
   const { result, isLoading, run } = usePromiseResult(

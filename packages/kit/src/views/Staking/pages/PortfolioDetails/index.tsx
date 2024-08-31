@@ -44,7 +44,7 @@ type IPortfolioItemProps = {
 const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalProtocolDetails
+    EModalStakingRoutes.ProtocolDetails
   >();
   const { networkId } = route.params;
   const onPress = useCallback(async () => {
@@ -102,7 +102,7 @@ const ItemSeparatorComponent = () => <Stack h="$4" />;
 const PortfolioDetails = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalProtocolDetails
+    EModalStakingRoutes.ProtocolDetails
   >();
   const { accountId, networkId, symbol, provider } = route.params;
   const { result, isLoading, run } = usePromiseResult(
