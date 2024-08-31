@@ -30,7 +30,10 @@ export const earnAtom = memoizee(() =>
     (get, set, arg: any) => {
       if (arg === INIT) {
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
-          set(basicEarnAtom(), data);
+          set(basicEarnAtom(), {
+            ...data,
+            accounts: [],
+          });
           set(earnStorageReadyAtom(), true);
         });
       } else {
