@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Badge,
   Button,
+  Empty,
   Icon,
   ListView,
   Page,
@@ -17,6 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -122,6 +125,7 @@ const PortfolioDetails = () => {
     ),
     [result],
   );
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
       <Page.Header title="Portfolio Details" />
@@ -139,6 +143,17 @@ const PortfolioDetails = () => {
               renderItem={renderItem}
               ListFooterComponent={<Stack h="$2" />}
               ItemSeparatorComponent={ItemSeparatorComponent}
+              ListEmptyComponent={
+                <Empty
+                  icon="ClockTimeHistoryOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_transactions_yet,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_no_transactions_yet_desc,
+                  })}
+                />
+              }
             />
           ) : null}
         </PageFrame>

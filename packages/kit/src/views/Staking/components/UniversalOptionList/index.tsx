@@ -37,7 +37,20 @@ const UniversalOptionItem = ({
   );
 };
 
-const ListEmptyComponent = () => <Empty title="No items" />;
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="ClockTimeHistoryOutline"
+      title={intl.formatMessage({
+        id: ETranslations.global_no_transactions_yet,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.global_no_transactions_yet_desc,
+      })}
+    />
+  );
+};
 
 type IUniversalOptionListProps = {
   items: IUniversalOptionItem[];
