@@ -92,7 +92,7 @@ function BasicImageCrop({
 
   return (
     <>
-      <Stack onLayout={onStackLayout}>
+      <Stack onLayout={onStackLayout} $gtMd={{ height: 'calc(100vh - 180px)' }}>
         <Cropper
           src={src}
           onChange={onChange}
