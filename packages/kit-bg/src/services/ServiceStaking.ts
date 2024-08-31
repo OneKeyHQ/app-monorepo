@@ -490,6 +490,7 @@ class ServiceStaking extends ServiceBase {
       networkId: string;
       symbol: string;
       provider: string;
+      publicKey?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',
@@ -498,6 +499,9 @@ class ServiceStaking extends ServiceBase {
     });
     if (account?.accountAddress) {
       requestParams.accountAddress = account.accountAddress;
+    }
+    if (account?.account?.pub) {
+      requestParams.publicKey = account?.account?.pub;
     }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
       '/earn/v1/stake-protocol/detail',
