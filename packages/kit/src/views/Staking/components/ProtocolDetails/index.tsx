@@ -585,7 +585,7 @@ function NoAddressWarning({
   );
 }
 
-type IUniversalProtocolDetails = {
+type IProtocolDetails = {
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
@@ -604,7 +604,7 @@ type IUniversalProtocolDetails = {
   onCreateAddress: () => void;
 };
 
-export function UniversalProtocolDetails({
+export function ProtocolDetails({
   accountId,
   networkId,
   indexedAccountId,
@@ -613,7 +613,7 @@ export function UniversalProtocolDetails({
   onClaim,
   onPortfolioDetails,
   onCreateAddress,
-}: IUniversalProtocolDetails) {
+}: IProtocolDetails) {
   const result: IEarnTokenDetailResult | null = useMemo(() => {
     if (!details) {
       return null;

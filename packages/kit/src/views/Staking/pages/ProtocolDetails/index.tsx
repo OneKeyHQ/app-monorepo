@@ -20,9 +20,9 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 import {
@@ -142,7 +142,7 @@ const ProtocolDetailsPage = () => {
           onRefresh={run}
         >
           <Stack>
-            <UniversalProtocolDetails
+            <ProtocolDetails
               accountId={accountId}
               networkId={networkId}
               indexedAccountId={indexedAccountId}
