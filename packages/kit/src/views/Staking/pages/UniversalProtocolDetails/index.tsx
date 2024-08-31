@@ -96,7 +96,7 @@ const UniversalProtocolDetailsPage = () => {
       symbol.toLowerCase() === 'sol' &&
       provider.toLowerCase() === 'everstake'
     ) {
-      appNavigation.push(EModalStakingRoutes.UniversalWithdrawOptions, {
+      appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
         accountId,
         networkId,
         details: result,
@@ -118,7 +118,7 @@ const UniversalProtocolDetailsPage = () => {
       (symbol.toLowerCase() === 'matic' && provider.toLowerCase() === 'lido') ||
       (symbol.toLowerCase() === 'sol' && provider.toLowerCase() === 'everstake')
     ) {
-      appNavigation.push(EModalStakingRoutes.UniversalClaimOptions, {
+      appNavigation.push(EModalStakingRoutes.ClaimOptions, {
         accountId,
         networkId,
         details: result,

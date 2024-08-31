@@ -222,6 +222,11 @@ export type IStakeProtocolListItem = {
 
 export type IClaimableListResponse = {
   token: IToken;
+  network?: {
+    networkId: string;
+    name: string;
+    logoURI: string;
+  };
   items: { id: string; amount: string }[];
 };
 

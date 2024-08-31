@@ -22,17 +22,17 @@ import {
   UniversalOptionList,
 } from '../../components/UniversalOptionList';
 
-const UniversalClaimOptions = () => {
+const WithdrawOptions = () => {
   const appRoute = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalClaimOptions
+    EModalStakingRoutes.WithdrawOptions
   >();
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { accountId, networkId, symbol, provider, details } = appRoute.params;
-
   const { result, isLoading, run } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceStaking.getClaimableList({
+      backgroundApiProxy.serviceStaking.getWithdrawList({
         networkId,
         accountId,
         symbol,
@@ -44,7 +44,7 @@ const UniversalClaimOptions = () => {
 
   const onPress = useCallback<IOnSelectOption>(
     ({ item }) => {
-      appNavigation.push(EModalStakingRoutes.UniversalClaim, {
+      appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
         accountId,
         networkId,
         symbol,
@@ -57,12 +57,10 @@ const UniversalClaimOptions = () => {
     [appNavigation, accountId, networkId, symbol, provider, details],
   );
 
-  const intl = useIntl();
-
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_claim })}
+        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
       />
       <Page.Body>
         <PageFrame
@@ -75,6 +73,7 @@ const UniversalClaimOptions = () => {
             <UniversalOptionList
               items={result.items}
               token={result.token}
+              network={result.network}
               onPress={onPress}
             />
           ) : null}
@@ -84,4 +83,4 @@ const UniversalClaimOptions = () => {
   );
 };
 
-export default UniversalClaimOptions;
+export default WithdrawOptions;

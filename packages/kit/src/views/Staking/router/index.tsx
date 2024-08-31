@@ -32,13 +32,12 @@ const ApproveBaseStake = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ApproveBaseStake'),
 );
 
-const UniversalClaimOptions = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalClaimOptions'),
+const ClaimOptions = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ClaimOptions'),
 );
 
-const UniversalWithdrawOptions = LazyLoad(
-  () =>
-    import('@onekeyhq/kit/src/views/Staking/pages/UniversalWithdrawOptions'),
+const WithdrawOptions = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/WithdrawOptions'),
 );
 
 const PortfolioDetails = LazyLoad(
@@ -78,12 +77,12 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     component: UniversalClaim,
   },
   {
-    name: EModalStakingRoutes.UniversalClaimOptions,
-    component: UniversalClaimOptions,
+    name: EModalStakingRoutes.ClaimOptions,
+    component: ClaimOptions,
   },
   {
-    name: EModalStakingRoutes.UniversalWithdrawOptions,
-    component: UniversalWithdrawOptions,
+    name: EModalStakingRoutes.WithdrawOptions,
+    component: WithdrawOptions,
   },
   {
     name: EModalStakingRoutes.InvestmentDetails,
