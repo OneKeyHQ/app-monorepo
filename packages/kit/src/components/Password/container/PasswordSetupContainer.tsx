@@ -77,7 +77,7 @@ const BiologyAuthContainer = ({
   return (biologyAuthIsSupport || webAuthIsSupport) &&
     !platformEnv.isExtensionUiPopup &&
     !platformEnv.isExtensionUiSidePanel ? (
-    <XStack mt="$5" justifyContent="space-between" alignItems="center">
+    <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
         <UniversalContainerWithSuspense skipAuth={skipAuth} />
