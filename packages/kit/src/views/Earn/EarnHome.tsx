@@ -68,11 +68,12 @@ const toTokenProviderListPage = async (
 };
 
 function RecommendedItem({ token }: { token: ITokenAccount }) {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
+  const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const onPress = useCallback(async () => {
+    const {
+      activeAccount: { account, indexedAccount },
+    } = accountInfo;
     if (account) {
       await toTokenProviderListPage(navigation, {
         indexedAccountId: indexedAccount?.id,
@@ -81,13 +82,7 @@ function RecommendedItem({ token }: { token: ITokenAccount }) {
         symbol: token.symbol,
       });
     }
-  }, [
-    account,
-    indexedAccount,
-    navigation,
-    token.account.networkId,
-    token.symbol,
-  ]);
+  }, [accountInfo, navigation, token.account.networkId, token.symbol]);
   return (
     <YStack
       gap="$3"
