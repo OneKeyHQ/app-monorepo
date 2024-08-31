@@ -51,15 +51,16 @@ const UniversalClaimPage = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          if (Number(price) > 0) {
-            defaultLogger.staking.page.unstaking({
-              token: tokenInfo,
-              amount,
-              stakingProtocol: provider.name,
-              tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
-              txnHash: txs[0].signedTx.txid,
-            });
-          }
+          defaultLogger.staking.page.unstaking({
+            token: tokenInfo,
+            amount,
+            stakingProtocol: provider.name,
+            tokenValue:
+              Number(price) > 0
+                ? BigNumber(amount).multipliedBy(price).toFixed()
+                : '0',
+            txnHash: txs[0].signedTx.txid,
+          });
         },
       });
     },

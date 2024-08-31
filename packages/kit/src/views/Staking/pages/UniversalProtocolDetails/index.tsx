@@ -73,7 +73,7 @@ const UniversalProtocolDetailsPage = () => {
             spenderAddress: result.approveTarget,
             tokenAddress: result.token.info.address,
           });
-        appNavigation.push(EModalStakingRoutes.UniversalApproveBaseStake, {
+        appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {
           accountId,
           networkId,
           details: result,

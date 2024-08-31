@@ -60,7 +60,10 @@ const UniversalStakePage = () => {
             token: tokenInfo,
             amount,
             stakingProtocol: provider.name,
-            tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
+            tokenValue:
+              Number(price) > 0
+                ? BigNumber(amount).multipliedBy(price).toFixed()
+                : '0',
             txnHash: txs[0].signedTx.txid,
           });
         },

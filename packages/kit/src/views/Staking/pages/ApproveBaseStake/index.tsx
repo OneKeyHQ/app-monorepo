@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -22,7 +21,7 @@ import { buildLocalTxStatusSyncId } from '../../utils/const';
 const UniversalApproveBaseStakePage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalApproveBaseStake
+    EModalStakingRoutes.ApproveBaseStake
   >();
 
   const { networkId, accountId, details, currentAllowance } = route.params;
@@ -50,7 +49,10 @@ const UniversalApproveBaseStakePage = () => {
             token: token.info,
             amount,
             stakingProtocol: provider.name,
-            tokenValue: BigNumber(amount).multipliedBy(price).toFixed(),
+            tokenValue:
+              Number(price) > 0
+                ? BigNumber(amount).multipliedBy(price).toFixed()
+                : '0',
             txnHash: txs[0].signedTx.txid,
           });
         },
