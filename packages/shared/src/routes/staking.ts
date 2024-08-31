@@ -29,20 +29,12 @@ export type IModalStakingParamList = {
     details?: IStakeProtocolDetails;
   };
   [EModalStakingRoutes.UniversalStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    apr?: number;
     minTransactionFee?: string;
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
   };
   [EModalStakingRoutes.ApproveBaseStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    apr?: number;
     minTransactionFee?: string;
     symbol: string;
     provider: string;
@@ -54,18 +46,14 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
-    // identity is nft id (lido matic nft)/ pubkey(solana)
-    identity?: string;
-    //
+    identity?: string; // identity is nft id (lido matic nft)/ pubkey(solana)
     amount?: string;
   };
   [EModalStakingRoutes.UniversalClaim]: IBaseRouteParams & {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
-    // identity is nft id (lido matic nft)/ pubkey(solana)
-    identity?: string;
-    //
+    identity?: string; // identity is nft id (lido matic nft)/ pubkey(solana)
     amount?: string;
   };
   [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & {

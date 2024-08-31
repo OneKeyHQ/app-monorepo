@@ -23,7 +23,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { LIDO_LOGO_URI } from '../../utils/const';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalApproveBaseStakeProps = {
@@ -41,6 +40,9 @@ type IUniversalApproveBaseStakeProps = {
   rate?: string;
   apr?: number;
   minAmount?: string;
+
+  providerName?: string;
+  providerLogo?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -55,6 +57,8 @@ export const UniversalApproveBaseStake = ({
   minAmount = '0',
   rate = '1',
   currentAllowance = '0',
+  providerName,
+  providerLogo,
   onConfirm,
   approveTarget,
 }: PropsWithChildren<IUniversalApproveBaseStakeProps>) => {
@@ -286,15 +290,17 @@ export const UniversalApproveBaseStake = ({
               primaryTextProps={{ color: '$textSuccess' }}
             />
           </ListItem>
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.global_protocol })}
-            titleProps={fieldTitleProps}
-          >
-            <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
-              <SizableText size="$bodyLgMedium">Lido</SizableText>
-            </XStack>
-          </ListItem>
+          {providerName && providerLogo ? (
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.global_protocol })}
+              titleProps={fieldTitleProps}
+            >
+              <XStack gap="$2" alignItems="center">
+                <Token size="xs" tokenImageUri={providerLogo} />
+                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              </XStack>
+            </ListItem>
+          ) : null}
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.earn_stake_release_period,

@@ -25,6 +25,8 @@ import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
+import { useHandleClaim, useHandleWithdraw } from './useUniversal';
+
 const UniversalProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
@@ -61,6 +63,9 @@ const UniversalProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
+  const handleClaim = useHandleClaim();
+  const handleWithdraw = useHandleWithdraw();
+
   const onStake = useCallback(async () => {
     if (!result) return;
     if (result.approveTarget) {
@@ -90,49 +95,26 @@ const UniversalProtocolDetailsPage = () => {
       details: result,
     });
   }, [result, accountId, networkId, appNavigation]);
+
   const onWithdraw = useCallback(() => {
-    if (!result) return;
-    if (
-      symbol.toLowerCase() === 'sol' &&
-      provider.toLowerCase() === 'everstake'
-    ) {
-      appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
-        accountId,
-        networkId,
-        details: result,
-        symbol,
-        provider,
-      });
-      return;
-    }
-    appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
+    handleWithdraw({
+      details: result,
       accountId,
       networkId,
-      details: result,
+      symbol,
+      provider,
     });
-  }, [result, accountId, networkId, appNavigation, symbol, provider]);
+  }, [handleWithdraw, result, accountId, networkId, symbol, provider]);
 
   const onClaim = useCallback(async () => {
-    if (!result) return;
-    if (
-      (symbol.toLowerCase() === 'matic' && provider.toLowerCase() === 'lido') ||
-      (symbol.toLowerCase() === 'sol' && provider.toLowerCase() === 'everstake')
-    ) {
-      appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-        accountId,
-        networkId,
-        details: result,
-        symbol,
-        provider,
-      });
-      return;
-    }
-    appNavigation.push(EModalStakingRoutes.UniversalClaim, {
+    await handleClaim({
+      details: result,
       accountId,
       networkId,
-      details: result,
+      symbol,
+      provider,
     });
-  }, [result, accountId, networkId, appNavigation, symbol, provider]);
+  }, [handleClaim, result, accountId, networkId, symbol, provider]);
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -191,7 +173,8 @@ const UniversalProtocolDetailsPage = () => {
               })}
               cancelButtonProps={{
                 onPress: onWithdraw,
-                disabled: !earnAccount?.accountAddress,
+                disabled:
+                  !earnAccount?.accountAddress || Number(result?.staked) <= 0,
               }}
             />
             {result ? (

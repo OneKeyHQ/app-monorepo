@@ -83,6 +83,8 @@ const UniversalApproveBaseStakePage = () => {
           apr={Number(provider.apr)}
           currentAllowance={currentAllowance}
           rate="1"
+          providerLogo={details.provider.logoURI}
+          providerName={details.provider.name}
           approveTarget={{
             accountId,
             networkId,
