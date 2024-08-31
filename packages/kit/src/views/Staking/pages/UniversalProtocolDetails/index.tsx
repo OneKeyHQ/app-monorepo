@@ -25,7 +25,11 @@ import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
-import { useHandleClaim, useHandleWithdraw } from './useUniversal';
+import {
+  useHandleClaim,
+  useHandleStake,
+  useHandleWithdraw,
+} from './useUniversal';
 
 const UniversalProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -65,56 +69,46 @@ const UniversalProtocolDetailsPage = () => {
 
   const handleClaim = useHandleClaim();
   const handleWithdraw = useHandleWithdraw();
+  const handleStake = useHandleStake();
 
   const onStake = useCallback(async () => {
-    if (!result) return;
-    if (result.approveTarget) {
-      setStakeLoading(true);
-      try {
-        const { allowanceParsed } =
-          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            accountId: accountId ?? '',
-            networkId,
-            spenderAddress: result.approveTarget,
-            tokenAddress: result.token.info.address,
-          });
-        appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {
-          accountId,
-          networkId,
-          details: result,
-          currentAllowance: allowanceParsed,
-        });
-      } finally {
-        setStakeLoading(false);
-      }
-      return;
-    }
-    appNavigation.push(EModalStakingRoutes.UniversalStake, {
-      accountId,
-      networkId,
+    await handleStake({
       details: result,
+      accountId: earnAccount?.accountId,
+      networkId,
+      symbol,
+      provider,
+      setStakeLoading,
     });
-  }, [result, accountId, networkId, appNavigation]);
+  }, [
+    result,
+    earnAccount,
+    networkId,
+    handleStake,
+    setStakeLoading,
+    symbol,
+    provider,
+  ]);
 
   const onWithdraw = useCallback(() => {
     handleWithdraw({
       details: result,
-      accountId,
+      accountId: earnAccount?.accountId,
       networkId,
       symbol,
       provider,
     });
-  }, [handleWithdraw, result, accountId, networkId, symbol, provider]);
+  }, [handleWithdraw, result, earnAccount, networkId, symbol, provider]);
 
   const onClaim = useCallback(async () => {
     await handleClaim({
       details: result,
-      accountId,
+      accountId: earnAccount?.accountId,
       networkId,
       symbol,
       provider,
     });
-  }, [handleClaim, result, accountId, networkId, symbol, provider]);
+  }, [handleClaim, result, earnAccount, networkId, symbol, provider]);
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -185,12 +179,14 @@ const UniversalProtocolDetailsPage = () => {
                 stakeTag={buildLocalTxStatusSyncId(result)}
                 onRefresh={run}
                 onPress={() => {
-                  appNavigation.navigate(EModalStakingRoutes.HistoryList, {
-                    accountId,
-                    networkId,
-                    symbol,
-                    provider,
-                  });
+                  if (earnAccount?.accountId) {
+                    appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+                      accountId: earnAccount?.accountId,
+                      networkId,
+                      symbol,
+                      provider,
+                    });
+                  }
                 }}
               />
             ) : null}
