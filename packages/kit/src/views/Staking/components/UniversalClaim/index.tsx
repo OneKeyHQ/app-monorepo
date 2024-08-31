@@ -31,8 +31,7 @@ type IUniversalClaimProps = {
   providerLogo: string;
   providerName: string;
   receivingTokenSymbol: string;
-  editable?: boolean;
-  initialAmountValue?: string;
+  initialAmount?: string;
   rate?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
@@ -46,15 +45,14 @@ export const UniversalClaim = ({
   providerLogo,
   providerName,
   receivingTokenSymbol,
-  initialAmountValue = '',
-  editable = true,
+  initialAmount,
   minAmount = '0',
   rate = '1',
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
   const [loading, setLoading] = useState<boolean>(false);
-  const [amountValue, setAmountValue] = useState(initialAmountValue);
+  const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
     {
       currencyInfo: { symbol },
@@ -132,6 +130,9 @@ export const UniversalClaim = ({
     );
   }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
   const intl = useIntl();
+
+  const editable = initialAmount === undefined;
+
   return (
     <Page>
       <Page.Header
@@ -140,33 +141,33 @@ export const UniversalClaim = ({
       <Page.Body>
         <YStack>
           <Stack mx="$2" px="$3" gap="$5">
-            <AmountInput
-              hasError={isInsufficientBalance || isLessThanMinAmount}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
-              }}
-              inputProps={{
-                placeholder: '0',
-                // disabled: !editable,
-                editable,
-              }}
-              balanceProps={
-                editable
-                  ? {
-                      value: balance,
-                      onPress: onMax,
-                    }
-                  : undefined
-              }
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? symbol : undefined,
-              }}
-              enableMaxAmount={editable}
-            />
+            <Stack position="relative" opacity={editable ? 1 : 0.7}>
+              <AmountInput
+                bg={editable ? '$bgApp' : '$bgDisabled'}
+                hasError={isInsufficientBalance || isLessThanMinAmount}
+                value={amountValue}
+                onChange={onChangeAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenSymbol: tokenSymbol,
+                }}
+                inputProps={{
+                  placeholder: '0',
+                }}
+                balanceProps={{
+                  value: balance,
+                  onPress: onMax,
+                }}
+                valueProps={{
+                  value: currentValue,
+                  currency: currentValue ? symbol : undefined,
+                }}
+              />
+              {!editable ? (
+                <Stack position="absolute" w="100%" h="100%" />
+              ) : null}
+            </Stack>
+
             <YStack gap="$1">
               {isLessThanMinAmount ? (
                 <Alert

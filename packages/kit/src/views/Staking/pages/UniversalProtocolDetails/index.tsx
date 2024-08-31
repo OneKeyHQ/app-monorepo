@@ -23,7 +23,7 @@ import {
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { UniversalProtocolDetails } from '../../components/UniversalProtocolDetails';
-import { buildLocalTraceTxTag } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 const UniversalProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -199,7 +199,7 @@ const UniversalProtocolDetailsPage = () => {
                 accountId={accountId ?? ''}
                 networkId={networkId}
                 indexedAccountId={indexedAccountId}
-                stakeTag={buildLocalTraceTxTag(result)}
+                stakeTag={buildLocalTxStatusSyncId(result)}
                 onRefresh={run}
                 onPress={() => {
                   appNavigation.navigate(EModalStakingRoutes.HistoryList, {

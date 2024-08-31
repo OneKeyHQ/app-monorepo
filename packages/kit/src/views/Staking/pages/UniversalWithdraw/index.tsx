@@ -16,7 +16,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
-import { buildLocalTraceTxTag } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 const UniversalWithdrawPage = () => {
   const intl = useIntl();
@@ -34,7 +34,7 @@ const UniversalWithdrawPage = () => {
 
   const { token, provider, staked } = details;
   const { price, info: tokenInfo } = token;
-  const actionTag = buildLocalTraceTxTag(details);
+  const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
@@ -85,7 +85,7 @@ const UniversalWithdrawPage = () => {
           balance={staked}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}

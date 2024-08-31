@@ -17,7 +17,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalApproveBaseStake } from '../../components/UniversalApproveBaseStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildLocalTraceTxTag } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 const UniversalApproveBaseStakePage = () => {
   const route = useAppRoute<
@@ -29,7 +29,7 @@ const UniversalApproveBaseStakePage = () => {
   const { token, provider, rewardToken } = details;
   const { balanceParsed, price } = token;
   const appNavigation = useAppNavigation();
-  const actionTag = buildLocalTraceTxTag(details);
+  const actionTag = buildLocalTxStatusSyncId(details);
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const onConfirm = useCallback(

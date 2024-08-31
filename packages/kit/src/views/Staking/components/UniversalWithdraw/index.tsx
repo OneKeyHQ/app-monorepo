@@ -24,13 +24,13 @@ const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 type IUniversalWithdrawProps = {
   balance: string;
   price: string;
-  tokenImageUri: string;
-  tokenSymbol: string;
-  providerLogo: string;
-  providerName: string;
+
+  providerLogo?: string;
+  providerName?: string;
 
   initialAmount?: string;
-
+  tokenImageUri?: string;
+  tokenSymbol?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
@@ -108,6 +108,8 @@ export const UniversalWithdraw = ({
     [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
+  const editable = initialAmount === undefined;
+
   const intl = useIntl();
   return (
     <Page>
@@ -117,27 +119,33 @@ export const UniversalWithdraw = ({
       <Page.Body>
         <YStack>
           <Stack mx="$2" px="$3" gap="$5">
-            <AmountInput
-              hasError={isInsufficientBalance || isLessThanMinAmount}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
-              }}
-              inputProps={{
-                placeholder: '0',
-              }}
-              balanceProps={{
-                value: balance,
-                onPress: onMax,
-              }}
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? symbol : undefined,
-              }}
-              enableMaxAmount
-            />
+            <Stack position="relative" opacity={editable ? 1 : 0.7}>
+              <AmountInput
+                bg={editable ? '$bgApp' : '$bgDisabled'}
+                hasError={isInsufficientBalance || isLessThanMinAmount}
+                value={amountValue}
+                onChange={onChangeAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenSymbol: tokenSymbol,
+                }}
+                inputProps={{
+                  placeholder: '0',
+                }}
+                balanceProps={{
+                  value: balance,
+                  onPress: onMax,
+                }}
+                valueProps={{
+                  value: currentValue,
+                  currency: currentValue ? symbol : undefined,
+                }}
+                enableMaxAmount
+              />
+              {!editable ? (
+                <Stack position="absolute" w="100%" h="100%" />
+              ) : null}
+            </Stack>
             <YStack gap="$1">
               {isLessThanMinAmount ? (
                 <Alert
@@ -145,7 +153,7 @@ export const UniversalWithdraw = ({
                   type="critical"
                   title={intl.formatMessage(
                     { id: ETranslations.earn_minimum_amount },
-                    { number: `${minAmount} ${tokenSymbol}` },
+                    { number: `${minAmount} ${tokenSymbol ?? ''}` },
                   )}
                 />
               ) : null}
@@ -177,15 +185,19 @@ export const UniversalWithdraw = ({
                 </SizableText>
               </ListItem>
             ) : null}
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.global_protocol })}
-              titleProps={fieldTitleProps}
-            >
-              <XStack gap="$2" alignItems="center">
-                <Token size="xs" tokenImageUri={providerLogo} />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
-              </XStack>
-            </ListItem>
+            {providerLogo && providerName ? (
+              <ListItem
+                title={intl.formatMessage({
+                  id: ETranslations.global_protocol,
+                })}
+                titleProps={fieldTitleProps}
+              >
+                <XStack gap="$2" alignItems="center">
+                  <Token size="xs" tokenImageUri={providerLogo} />
+                  <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                </XStack>
+              </ListItem>
+            ) : null}
           </YStack>
         </YStack>
       </Page.Body>

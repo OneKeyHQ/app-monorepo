@@ -16,7 +16,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalClaim } from '../../components/UniversalClaim';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTraceTxTag } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 const UniversalClaimPage = () => {
   const intl = useIntl();
@@ -33,9 +33,8 @@ const UniversalClaimPage = () => {
   } = route.params;
   const { token, provider } = details;
   const { price, info: tokenInfo } = token;
-  const actionTag = buildLocalTraceTxTag(details);
+  const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
-  const notEditable = (initialAmount && Number(initialAmount) > 0) || identity;
   const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
@@ -83,8 +82,7 @@ const UniversalClaimPage = () => {
         <UniversalClaim
           receivingTokenSymbol=""
           price={price}
-          initialAmountValue={initialAmount ?? ''}
-          editable={!notEditable}
+          initialAmount={initialAmount}
           balance={details.claimable ?? '0'}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI ?? ''}

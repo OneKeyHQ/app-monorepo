@@ -16,7 +16,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildLocalTraceTxTag } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/const';
 
 const UniversalStakePage = () => {
   const route = useAppRoute<
@@ -33,7 +33,7 @@ const UniversalStakePage = () => {
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
-  const actionTag = buildLocalTraceTxTag(details);
+  const actionTag = buildLocalTxStatusSyncId(details);
 
   const minAmount = useMemo(() => {
     if (provider.minStakeAmount) return provider.minStakeAmount;
