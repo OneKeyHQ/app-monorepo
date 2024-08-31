@@ -310,36 +310,26 @@ class ServiceStaking extends ServiceBase {
   public async fetchLocalStakingHistory({
     accountId,
     networkId,
-    indexedAccountId,
     stakeTag,
   }: {
     accountId: string;
     networkId: string;
-    indexedAccountId?: string;
     stakeTag: IStakeTag;
   }) {
-    const account = await this.getEarnAccount({
-      accountId,
-      networkId,
-      indexedAccountId,
-    });
-    if (!account?.accountAddress) {
-      return [];
-    }
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId: account.accountId,
-        networkId: account.networkId,
+        accountId,
+        networkId,
       }),
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId: account.accountId,
-        networkId: account.networkId,
+        accountId,
+        networkId,
       }),
     ]);
 
     const pendingTxs =
       await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
-        networkId: account.networkId,
+        networkId,
         accountAddress,
         xpub,
       });

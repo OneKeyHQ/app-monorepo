@@ -64,27 +64,28 @@ const StakingActivityIndicator = ({
 export const StakingTransactionIndicator = ({
   accountId,
   networkId,
-  indexedAccountId,
   stakeTag,
   onRefresh,
   onPress,
 }: {
-  accountId: string;
+  accountId?: string;
   networkId: string;
-  indexedAccountId?: string;
   stakeTag: IStakeTag;
   onRefresh?: () => void;
   onPress?: () => void;
 }) => {
   const { result: txs, run } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
+    async () => {
+      if (!accountId) {
+        return [];
+      }
+      return backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
         accountId,
         networkId,
-        indexedAccountId,
         stakeTag,
-      }),
-    [accountId, networkId, indexedAccountId, stakeTag],
+      });
+    },
+    [accountId, networkId, stakeTag],
     { initResult: [] },
   );
   const isPending = txs.length > 0;
@@ -100,10 +101,12 @@ export const StakingTransactionIndicator = ({
   useEffect(() => {
     if (!isPending) return;
     const timer = setInterval(async () => {
-      await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
-        networkId,
-      });
+      if (accountId) {
+        await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+        });
+      }
       await run();
     }, 15 * 1000);
     return () => clearInterval(timer);

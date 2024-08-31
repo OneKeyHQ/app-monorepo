@@ -173,9 +173,8 @@ const ProtocolDetailsPage = () => {
             />
             {result ? (
               <StakingTransactionIndicator
-                accountId={accountId ?? ''}
+                accountId={earnAccount?.accountId ?? ''}
                 networkId={networkId}
-                indexedAccountId={indexedAccountId}
                 stakeTag={buildLocalTxStatusSyncId(result)}
                 onRefresh={run}
                 onPress={() => {
