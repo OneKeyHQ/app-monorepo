@@ -32,6 +32,7 @@ type IUniversalWithdrawProps = {
   tokenImageUri?: string;
   tokenSymbol?: string;
   minAmount?: string;
+  warningMessages?: string[];
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -43,6 +44,7 @@ export const UniversalWithdraw = ({
   providerLogo,
   providerName,
   initialAmount,
+  warningMessages,
   minAmount = '0',
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
@@ -166,6 +168,16 @@ export const UniversalWithdraw = ({
                   })}
                 />
               ) : null}
+              {warningMessages && warningMessages.length
+                ? warningMessages.map((o, i) => (
+                    <Alert
+                      key={i}
+                      icon="InfoCircleOutline"
+                      type="warning"
+                      title={o}
+                    />
+                  ))
+                : null}
             </YStack>
           </Stack>
           <YStack>

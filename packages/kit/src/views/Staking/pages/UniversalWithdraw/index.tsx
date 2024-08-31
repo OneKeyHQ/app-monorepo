@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -75,6 +75,18 @@ const UniversalWithdrawPage = () => {
       identity,
     ],
   );
+
+  const warningMessages = useMemo<string[] | undefined>(() => {
+    if (
+      token.info.symbol.toLowerCase() === 'apt' &&
+      provider.name === 'everstake'
+    ) {
+      return [
+        'This transaction requests withdrawing all staked APT, as this withdrawal will result in a total staked amount less than 10.1 APT.',
+      ];
+    }
+  }, [token, provider]);
+
   return (
     <Page>
       <Page.Header
@@ -89,6 +101,7 @@ const UniversalWithdrawPage = () => {
           tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          warningMessages={warningMessages}
           onConfirm={onConfirm}
         />
       </Page.Body>
