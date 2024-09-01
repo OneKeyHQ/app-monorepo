@@ -80,6 +80,7 @@ const settings: IVaultSettings = {
               displayProfit: false,
               unstakeWithTx: true,
               withdrawWithTx: true,
+              usePublicKey: true,
             },
           },
         },

@@ -20,6 +20,7 @@ interface IStakingFlowConfig {
   unstakeWithTx?: boolean;
   unstakeWithSignMessage?: boolean;
   withdrawWithTx?: boolean;
+  usePublicKey?: boolean;
 }
 
 interface IProviderConfig {

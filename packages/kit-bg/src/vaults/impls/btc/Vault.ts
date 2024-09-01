@@ -413,7 +413,7 @@ export default class VaultBtc extends VaultBase {
         },
       },
     ];
-    const shouldCalculateNativeTokenAmount = utxoFrom.length > 1;
+    const shouldCalculateNativeTokenAmount = utxoFrom.length >= 1;
     utxoTo.forEach((utxo) => {
       if (!utxo.isMine && shouldCalculateNativeTokenAmount) {
         sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);

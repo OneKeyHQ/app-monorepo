@@ -7,6 +7,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -369,17 +370,33 @@ class ServiceStaking extends ServiceBase {
   async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, provider, symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
+    const providerKey = earnUtils.getEarnProviderEnumKey(provider);
+    if (!providerKey) {
+      throw new Error('Invalid provider');
+    }
+    const stakingConfig = await this.getStakingConfigs({
+      networkId,
+      symbol: symbol.toUpperCase() as ISupportedSymbol,
+      provider: providerKey,
+    });
+    if (!stakingConfig) {
+      throw new Error('Staking config not found');
+    }
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v1/stake`, {
       accountAddress: acc.address,
-      publicKey:
-        networkId === getNetworkIdsMap().cosmoshub ? acc.pub : undefined,
+      publicKey: stakingConfig.usePublicKey ? acc.pub : undefined,
+      // TODO: use real data
+      term: 150,
+      feeRate: 1,
       networkId,
+      symbol,
+      provider,
       ...rest,
     });
     return resp.data.data;

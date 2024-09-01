@@ -124,6 +124,7 @@ const settings: IVaultSettings = {
             'ATOM': {
               tokenAddress: 'uatom',
               displayProfit: true,
+              usePublicKey: true,
             },
           },
         },
