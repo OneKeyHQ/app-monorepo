@@ -245,7 +245,8 @@ export function useSwapTokenList(
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenList] = useSwapAllNetworkTokenListAtom();
   const [swapNetworks] = useSwapNetworksAtom();
-  const { tokenListFetchAction } = useSwapActions().current;
+  const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
+    useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const tokenFetchParams = useMemo(
@@ -386,8 +387,22 @@ export function useSwapTokenList(
       // current network is not the same as account network skip fetch
       return;
     }
+    if (
+      tokenFetchParams.networkId &&
+      networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
+    ) {
+      void swapLoadAllNetworkTokenList(
+        tokenFetchParams.networkId,
+        swapAddressInfo?.accountInfo?.indexedAccount?.id,
+      );
+    }
     void tokenListFetchAction(tokenFetchParams);
-  }, [tokenFetchParams, tokenListFetchAction]);
+  }, [
+    swapAddressInfo?.accountInfo?.indexedAccount?.id,
+    swapLoadAllNetworkTokenList,
+    tokenFetchParams,
+    tokenListFetchAction,
+  ]);
 
   useEffect(() => {
     if (
