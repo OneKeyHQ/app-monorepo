@@ -28,6 +28,7 @@ const StakePage = () => {
     networkId,
     minTransactionFee = '0',
     details,
+    onSuccess,
   } = route.params;
   const { token, provider } = details;
   const { balanceParsed, price } = token;
@@ -66,10 +67,19 @@ const StakePage = () => {
                 : '0',
             txnHash: txs[0].signedTx.txid,
           });
+          onSuccess?.();
         },
       });
     },
-    [handleStake, appNavigation, tokenInfo, price, provider, actionTag],
+    [
+      handleStake,
+      appNavigation,
+      tokenInfo,
+      price,
+      provider,
+      actionTag,
+      onSuccess,
+    ],
   );
   const intl = useIntl();
   return (

@@ -14,12 +14,14 @@ export const useHandleClaim = () => {
       networkId,
       symbol,
       provider,
+      onSuccess,
     }: {
       details?: IStakeProtocolDetails;
       accountId?: string;
       networkId: string;
       symbol: string;
       provider: string;
+      onSuccess?: () => void;
     }) => {
       if (!details || !accountId) return;
       const stakingConfig =
@@ -45,6 +47,7 @@ export const useHandleClaim = () => {
         accountId,
         networkId,
         details,
+        onSuccess,
         amount:
           symbol.toLowerCase() === 'eth' &&
           provider.toLowerCase() === 'everstake'
@@ -65,12 +68,14 @@ export const useHandleWithdraw = () => {
       networkId,
       symbol,
       provider,
+      onSuccess,
     }: {
       details?: IStakeProtocolDetails;
       accountId?: string;
       networkId: string;
       symbol: string;
       provider: string;
+      onSuccess?: () => void;
     }) => {
       if (!details || !accountId) return;
       const stakingConfig =
@@ -96,6 +101,7 @@ export const useHandleWithdraw = () => {
         accountId,
         networkId,
         details,
+        onSuccess,
       });
     },
     [appNavigation],
@@ -110,6 +116,7 @@ export const useHandleStake = () => {
       accountId,
       networkId,
       setStakeLoading,
+      onSuccess,
     }: {
       details?: IStakeProtocolDetails;
       accountId?: string;
@@ -117,6 +124,7 @@ export const useHandleStake = () => {
       symbol: string;
       provider: string;
       setStakeLoading?: (value: boolean) => void;
+      onSuccess?: () => void;
     }) => {
       if (!details || !accountId) return;
       if (details.approveTarget) {
@@ -144,6 +152,7 @@ export const useHandleStake = () => {
         accountId,
         networkId,
         details,
+        onSuccess,
       });
     },
     [appNavigation],

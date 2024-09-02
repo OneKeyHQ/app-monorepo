@@ -30,7 +30,7 @@ import {
   useHandleClaim,
   useHandleStake,
   useHandleWithdraw,
-} from './useUniversal';
+} from './useHandleActions';
 
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -80,6 +80,11 @@ const ProtocolDetailsPage = () => {
       symbol,
       provider,
       setStakeLoading,
+      onSuccess: async () => {
+        if (networkUtils.isBTCNetwork(networkId)) {
+          await run();
+        }
+      },
     });
   }, [
     result,
@@ -89,6 +94,7 @@ const ProtocolDetailsPage = () => {
     setStakeLoading,
     symbol,
     provider,
+    run,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -98,8 +104,13 @@ const ProtocolDetailsPage = () => {
       networkId,
       symbol,
       provider,
+      onSuccess: async () => {
+        if (networkUtils.isBTCNetwork(networkId)) {
+          await run();
+        }
+      },
     });
-  }, [handleWithdraw, result, earnAccount, networkId, symbol, provider]);
+  }, [handleWithdraw, result, earnAccount, networkId, symbol, provider, run]);
 
   const onClaim = useCallback(async () => {
     await handleClaim({
