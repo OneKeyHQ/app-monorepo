@@ -92,7 +92,13 @@ export function useUniversalWithdraw({
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
-      if (symbol.toLowerCase() === 'eth' && provider.toLowerCase() === 'lido') {
+      const stakingConfig =
+        await backgroundApiProxy.serviceStaking.getStakingConfigs({
+          networkId,
+          symbol,
+          provider,
+        });
+      if (stakingConfig?.withdrawWithSignMessage) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
           networkId,
@@ -142,18 +148,15 @@ export function useUniversalWithdraw({
       }
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
-      const isBabylon =
-        networkUtils.isBTCNetwork(networkId) &&
-        provider.toLowerCase() === 'babylon';
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
-        signOnly: isBabylon,
+        signOnly: stakingConfig?.withdrawSignOnly,
         onSuccess: async (data) => {
-          if (!isBabylon) {
+          if (!stakingConfig?.withdrawSignOnly) {
             onSuccess?.(data);
           } else {
-            const psbtHex = data[0].signedTx.psbtHex;
+            const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
               await backgroundApiProxy.serviceStaking.unstakePush({
                 txId: identity,
