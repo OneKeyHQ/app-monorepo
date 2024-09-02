@@ -256,6 +256,24 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
+  const clearUpdateCache = () => {
+    try {
+      // @ts-ignore
+      if (autoUpdater.downloadedUpdateHelper) {
+        logger.info(
+          'auto-updater',
+          // @ts-ignore
+          autoUpdater.downloadedUpdateHelper.cacheDir,
+        );
+        // @ts-ignore
+        await autoUpdater.downloadedUpdateHelper.clear();
+        logger.info('auto-updater', 'clearing cache');
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
+    }
+  };
+
   ipcMain.on(ipcMessageKeys.UPDATE_CHECK, async (_, isManual?: boolean) => {
     if (isManual) {
       isManualCheck = true;
@@ -327,21 +345,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
     }
-    try {
-      // @ts-ignore
-      if (autoUpdater.downloadedUpdateHelper) {
-        logger.info(
-          'auto-updater',
-          // @ts-ignore
-          autoUpdater.downloadedUpdateHelper.cacheDir,
-        );
-        // @ts-ignore
-        await autoUpdater.downloadedUpdateHelper.clear();
-        logger.info('auto-updater', 'clearing cache');
-      }
-    } catch (error) {
-      logger.info('auto-updater', 'Error clearing cache: ', error);
-    }
+    clearUpdateCache();
     updateCancellationToken = new CancellationToken();
     autoUpdater
       .downloadUpdate(updateCancellationToken)
@@ -407,6 +411,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
         });
     },
   );
+
+  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR, () => {
+    clearUpdateCache();
+  });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
