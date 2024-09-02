@@ -9,6 +9,7 @@ import {
   Empty,
   Icon,
   ListView,
+  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -19,6 +20,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
@@ -50,10 +52,21 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
   const onPress = useCallback(async () => {
     await openTransactionDetailsUrl({ networkId, txid: item.txId });
   }, [item, networkId]);
-  const day = Math.ceil(
-    Math.max(0, (item.endTime ?? 0) - (item.startTime ?? 0)) /
+  const day = Math.floor(
+    Math.max(1, (item.endTime ?? 0) - (item.startTime ?? 0)) /
       (1000 * 60 * 60 * 24),
   );
+  const startDate = formatDate(new Date(Number(item.startTime)), {
+    hideTimeForever: true,
+  });
+  const endDate = formatDate(new Date(Number(item.endTime)), {
+    hideTimeForever: true,
+  });
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
   return (
     <Stack px={20}>
       <Stack
@@ -77,19 +90,24 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
             <Token tokenImageUri={network?.logoURI} />
           </Stack>
           <Stack>
-            <SizableText size="$headingLg">{item.amount} BTC</SizableText>
-            <SizableText size="$bodyMd">$665.45</SizableText>
+            <SizableText size="$headingLg">
+              {item.amount} {network?.symbol ?? ''}
+            </SizableText>
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: symbol }}
+            >
+              {item.fiatValue}
+            </NumberSizeableText>
           </Stack>
         </XStack>
         <XStack p={14} bg="$bgSubdued" alignItems="center">
           <Icon name="Calendar2Outline" />
           <XStack w="$1.5" />
           <SizableText size="$bodyMd">
-            {`${day} days • ${formatDate(new Date(Number(item.startTime)), {
-              hideTimeForever: true,
-            })} - ${formatDate(new Date(Number(item.endTime)), {
-              hideTimeForever: true,
-            })}`}
+            {`${day} days • ${startDate} - ${endDate}`}
           </SizableText>
         </XStack>
       </Stack>

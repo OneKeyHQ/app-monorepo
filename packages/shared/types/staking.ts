@@ -282,6 +282,7 @@ export type IPortfolioItem = {
   txId: string;
   status: string;
   amount: string;
+  fiatValue: string;
   startTime?: number;
   endTime?: number;
   lockBlocks: number;

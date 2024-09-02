@@ -126,6 +126,20 @@ const ProtocolDetailsPage = () => {
     [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
   );
 
+  const onHistory = useMemo(() => {
+    if (!earnAccount?.accountId || networkUtils.isBTCNetwork(networkId)) {
+      return undefined;
+    }
+    return () => {
+      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        accountId: earnAccount?.accountId,
+        networkId,
+        symbol,
+        provider,
+      });
+    };
+  }, [appNavigation, earnAccount?.accountId, networkId, symbol, provider]);
+
   const intl = useIntl();
   return (
     <Page scrollEnabled>
@@ -178,16 +192,7 @@ const ProtocolDetailsPage = () => {
                 networkId={networkId}
                 stakeTag={buildLocalTxStatusSyncId(result)}
                 onRefresh={run}
-                onPress={() => {
-                  if (earnAccount?.accountId) {
-                    appNavigation.navigate(EModalStakingRoutes.HistoryList, {
-                      accountId: earnAccount?.accountId,
-                      networkId,
-                      symbol,
-                      provider,
-                    });
-                  }
-                }}
+                onPress={onHistory}
               />
             ) : null}
           </Stack>
