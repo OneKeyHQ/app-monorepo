@@ -675,6 +675,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         icon,
         name,
         symbol,
+        decimals,
         label: tx.label,
         tokenIdOnNetwork: tokenApprove.token,
         amount: new BigNumber(tokenApprove.amount)

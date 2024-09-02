@@ -245,7 +245,8 @@ export function useSwapTokenList(
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenList] = useSwapAllNetworkTokenListAtom();
   const [swapNetworks] = useSwapNetworksAtom();
-  const { tokenListFetchAction } = useSwapActions().current;
+  const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
+    useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const tokenFetchParams = useMemo(
@@ -298,15 +299,19 @@ export function useSwapTokenList(
       swapSearchTokens?: ISwapToken[];
     }) => {
       const allNetworkTokenList =
-        swapAllNetworkTokenList?.filter((token) => {
-          const swapNet = swapNetworks.find(
-            (net) => net.networkId === token.networkId,
-          );
-          if (swapNet) {
-            return true;
-          }
-          return false;
-        }) ?? [];
+        swapAllNetworkTokenList
+          ?.map((token) => {
+            const swapNet = swapNetworks.find(
+              (net) => net.networkId === token.networkId,
+            );
+            if (swapNet) {
+              return { ...token, networkLogoURI: swapNet.logoURI };
+            }
+            return token;
+          })
+          ?.filter((token) =>
+            swapNetworks.find((net) => net.networkId === token.networkId),
+          ) ?? [];
       const haveBalanceTokenList =
         allNetworkTokenList?.filter((token) => {
           const balanceBN = new BigNumber(token?.balanceParsed ?? '0');
@@ -382,8 +387,26 @@ export function useSwapTokenList(
       // current network is not the same as account network skip fetch
       return;
     }
+    if (
+      tokenFetchParams.networkId &&
+      networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
+    ) {
+      void swapLoadAllNetworkTokenList(
+        tokenFetchParams.networkId,
+        swapAddressInfo?.accountInfo?.indexedAccount?.id,
+        !swapAddressInfo?.accountInfo?.indexedAccount?.id
+          ? swapAddressInfo?.accountInfo?.account?.id
+          : undefined,
+      );
+    }
     void tokenListFetchAction(tokenFetchParams);
-  }, [tokenFetchParams, tokenListFetchAction]);
+  }, [
+    swapAddressInfo?.accountInfo?.account?.id,
+    swapAddressInfo?.accountInfo?.indexedAccount?.id,
+    swapLoadAllNetworkTokenList,
+    tokenFetchParams,
+    tokenListFetchAction,
+  ]);
 
   useEffect(() => {
     if (

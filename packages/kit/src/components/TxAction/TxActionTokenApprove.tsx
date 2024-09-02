@@ -1,11 +1,24 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { NumberSizeableText } from '@onekeyhq/components';
+import {
+  Button,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+import {
+  useSendConfirmActions,
+  useTokenApproveInfoAtom,
+} from '../../states/jotai/contexts/sendConfirm';
+import { showApproveEditor } from '../../views/ApproveEditor';
 import { AddressInfo } from '../AddressInfo';
 
 import {
@@ -27,6 +40,9 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const approveInteractWith = tokenApprove?.to ?? '';
   const approveOwner = tokenApprove?.from ?? '';
   const approveIsMax = tokenApprove?.isInfiniteAmount ?? false;
+  const tokenAddress = tokenApprove?.tokenIdOnNetwork ?? '';
+  const tokenDecimals = tokenApprove?.decimals ?? 0;
+  const tokenSymbol = tokenApprove?.symbol ?? '';
 
   return {
     approveIcon,
@@ -38,6 +54,9 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
     approveOwner,
     approveIsMax,
     approveInteractWith,
+    tokenAddress,
+    tokenDecimals,
+    tokenSymbol,
   };
 }
 
@@ -136,15 +155,55 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveSpender,
     approveOwner,
     approveLabel,
-    approveAmount,
+    approveAmount: originalApproveAmount,
     approveSymbol,
     approveIsMax,
     approveInteractWith,
+    tokenAddress,
+    tokenDecimals,
+    tokenSymbol,
   } = getTxActionTokenApproveInfo(props);
 
-  let content = approveLabel;
-  if (!content) {
-    if (new BigNumber(approveAmount).eq(0)) {
+  const { vaultSettings } = useAccountData({
+    networkId: decodedTx.networkId,
+  });
+
+  const { updateTokenApproveInfo } = useSendConfirmActions().current;
+  const [tokenApproveInfo] = useTokenApproveInfoAtom();
+
+  const handleResetApproveInfo = useCallback(() => {
+    updateTokenApproveInfo({
+      allowance: '',
+      isUnlimited: false,
+    });
+  }, [updateTokenApproveInfo]);
+
+  const handleChangeApproveInfo = useCallback(
+    ({
+      allowance,
+      isUnlimited,
+    }: {
+      allowance: string;
+      isUnlimited: boolean;
+    }) => {
+      updateTokenApproveInfo({
+        allowance,
+        isUnlimited,
+      });
+    },
+    [updateTokenApproveInfo],
+  );
+
+  let content: React.ReactNode = approveLabel;
+  let amount = originalApproveAmount;
+  let isUnlimited = approveIsMax;
+  if (tokenApproveInfo.allowance !== '' || !content) {
+    if (tokenApproveInfo.allowance !== '') {
+      amount = tokenApproveInfo.allowance;
+      isUnlimited = tokenApproveInfo.isUnlimited;
+    }
+
+    if (new BigNumber(amount).eq(0)) {
       content = intl.formatMessage(
         {
           id: ETranslations.global_revoke_approve,
@@ -157,15 +216,48 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
       content = intl.formatMessage(
         { id: ETranslations.form__approve_str },
         {
-          amount: approveIsMax
+          amount: isUnlimited
             ? intl.formatMessage({
                 id: ETranslations.swap_page_provider_approve_amount_un_limit,
               })
-            : approveAmount,
+            : amount,
           symbol: approveSymbol,
         },
       );
     }
+  }
+
+  if (vaultSettings?.editApproveAmountEnabled) {
+    content = (
+      <XStack
+        gap="$2"
+        alignContent="center"
+        minWidth={0}
+        maxWidth="$96"
+        flex={1}
+      >
+        <SizableText size="$bodyLgMedium">{content}</SizableText>
+        <Button
+          size="small"
+          variant="tertiary"
+          onPress={() =>
+            showApproveEditor({
+              accountId: decodedTx.accountId,
+              networkId: decodedTx.networkId,
+              isUnlimited,
+              allowance: amount,
+              tokenDecimals,
+              tokenSymbol,
+              tokenAddress,
+              onResetTokenApproveInfo: handleResetApproveInfo,
+              onChangeTokenApproveInfo: handleChangeApproveInfo,
+            })
+          }
+        >
+          {intl.formatMessage({ id: ETranslations.global_edit })}
+        </Button>
+      </XStack>
+    );
   }
 
   return (
