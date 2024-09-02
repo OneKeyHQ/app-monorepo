@@ -152,8 +152,8 @@ const ProtocolDetailsPage = () => {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
-          { id: ETranslations.earn_stake_token },
-          { 'token': symbol },
+          { id: ETranslations.earn_earn_symbol },
+          { 'symbol': symbol },
         )}
       />
       <Page.Body>

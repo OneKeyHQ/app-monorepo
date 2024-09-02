@@ -77,7 +77,7 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
     'active': 'success',
     'withdrawn': 'warning',
   };
-
+  const intl = useIntl();
   return (
     <Stack px={20}>
       <Stack
@@ -120,7 +120,10 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
           <Icon name="Calendar2Outline" />
           <XStack w="$1.5" />
           <SizableText size="$bodyMd">
-            {`${day} days • ${startDate} - ${endDate}`}
+            {`${intl.formatMessage(
+              { id: ETranslations.earn_number_day },
+              { number: day },
+            )} • ${startDate} - ${endDate}`}
           </SizableText>
         </XStack>
       </Stack>
@@ -159,7 +162,9 @@ const PortfolioDetails = () => {
   const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Portfolio Details" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.earn_portfolio_details })}
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={SimpleSpinnerSkeleton}

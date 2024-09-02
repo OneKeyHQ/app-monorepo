@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -19,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -72,6 +74,7 @@ const AssetProtocolListContent = ({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
+  const intl = useIntl();
   return (
     <ListView
       estimatedItemSize={60}
@@ -116,7 +119,7 @@ const AssetProtocolListContent = ({
             </XStack>
             <XStack h="$10" px="$4" ai="center" jc="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Provider staked
+                {intl.formatMessage({ id: ETranslations.earn_provider_staked })}
               </SizableText>
               <XStack alignItems="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
@@ -163,10 +166,12 @@ const AssetProtocolList = () => {
     [filter, symbol, networkId],
     { watchLoading: true },
   );
-
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Select Provider" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.provider_title })}
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={LoadingSkeleton}

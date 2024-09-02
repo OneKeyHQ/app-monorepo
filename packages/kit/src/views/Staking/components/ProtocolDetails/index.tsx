@@ -90,10 +90,13 @@ function StakedValue({
   tokenSymbol,
 }: IStakedValue) {
   const totalNumber = stakedNumber + availableNumber;
+  const intl = useIntl();
   return (
     <YStack gap="$6" pb="$8" px="$5">
       <YStack gap="$2">
-        <SizableText size="$headingLg">Staked value</SizableText>
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_staked_value })}
+        </SizableText>
         <NumberSizeableText
           size="$heading4xl"
           color={value === 0 ? '$textDisabled' : '$text'}
@@ -115,7 +118,7 @@ function StakedValue({
         <XStack justifyContent="space-between">
           <YStack gap="$0.5">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Staked
+              {intl.formatMessage({ id: ETranslations.earn_staked })}
             </SizableText>
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -127,7 +130,7 @@ function StakedValue({
           </YStack>
           <YStack gap="$0.5">
             <SizableText size="$bodyMd" color="$textSuccess" textAlign="right">
-              Available
+              {intl.formatMessage({ id: ETranslations.global_available })}
             </SizableText>
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -192,6 +195,7 @@ function Portfolio({
   onClaim,
   onPortfolioDetails,
 }: IPortfolioValue) {
+  const intl = useIntl();
   if (
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
@@ -200,14 +204,16 @@ function Portfolio({
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
         <XStack justifyContent="space-between">
-          <SizableText size="$headingLg">Portfolio</SizableText>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+          </SizableText>
           {onPortfolioDetails !== undefined ? (
             <Button
               variant="tertiary"
               iconAfter="ChevronRightOutline"
               onPress={onPortfolioDetails}
             >
-              Details
+              {intl.formatMessage({ id: ETranslations.global_details })}
             </Button>
           ) : null}
         </XStack>
@@ -217,7 +223,9 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={pendingInactive}
-              statusText="Withdrawal requested"
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_withdrawal_requested,
+              })}
             />
           ) : null}
           {pendingActive && Number(pendingActive) ? (
@@ -225,7 +233,9 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={pendingActive}
-              statusText="Activing"
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_pending_activation,
+              })}
             />
           ) : null}
           {claimable && Number(claimable) > 0 ? (
@@ -233,9 +243,13 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={claimable}
-              statusText="Claimable"
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_claimable,
+              })}
               onPress={onClaim}
-              buttonText="Claim"
+              buttonText={intl.formatMessage({
+                id: ETranslations.earn_claim,
+              })}
             />
           ) : null}
         </YStack>
@@ -308,11 +322,17 @@ export function Profit({
           },
     [gtMd],
   );
+  const intl = useIntl();
   return (
     <YStack py="$8" px="$5">
       <SizableText size="$headingLg">Profit</SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
-        <GridItem title="Rewards (%)" {...gridItemStyle}>
+        <GridItem
+          title={intl.formatMessage({
+            id: ETranslations.earn_rewards_percentage,
+          })}
+          {...gridItemStyle}
+        >
           <NumberSizeableText
             formatter="priceChange"
             formatterOptions={{ tokenSymbol: 'APR' }}
@@ -321,7 +341,10 @@ export function Profit({
           </NumberSizeableText>
         </GridItem>
         {earningsIn24h ? (
-          <GridItem title="24h earnings" {...gridItemStyle}>
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
+            {...gridItemStyle}
+          >
             <NumberSizeableText
               formatter="priceChange"
               formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
@@ -331,12 +354,20 @@ export function Profit({
           </GridItem>
         ) : null}
         {rewardTokens ? (
-          <GridItem title="Reward tokens" {...gridItemStyle}>
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_reward_tokens })}
+            {...gridItemStyle}
+          >
             {rewardTokens}
           </GridItem>
         ) : null}
         {updateFrequency ? (
-          <GridItem title="Update frequency" {...gridItemStyle}>
+          <GridItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_update_frequency,
+            })}
+            {...gridItemStyle}
+          >
             {updateFrequency}
           </GridItem>
         ) : null}
@@ -365,15 +396,27 @@ export function Provider({
           },
     [gtMd],
   );
+  const intl = useIntl();
   return (
     <YStack py="$8" px="$5">
-      <SizableText size="$headingLg">Provider</SizableText>
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
+      </SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
-        <GridItem title="Validator" {...gridItemStyle} link={validator.link}>
+        <GridItem
+          title={intl.formatMessage({ id: ETranslations.earn_validator })}
+          {...gridItemStyle}
+          link={validator.link}
+        >
           {validator.name}
         </GridItem>
         {minStaking ? (
-          <GridItem title="Min. staking" {...gridItemStyle}>
+          <GridItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_min_max_staking,
+            })}
+            {...gridItemStyle}
+          >
             <NumberSizeableText
               formatter="value"
               formatterOptions={{ tokenSymbol: minStaking.token }}
@@ -384,18 +427,20 @@ export function Provider({
         ) : null}
         {untilNextLaunch ? (
           <GridItem
-            title="Until next launch"
+            title={intl.formatMessage({
+              id: ETranslations.earn_until_next_launch,
+            })}
             tooltip={untilNextLaunch.tooltip}
             {...gridItemStyle}
           >
             <SizableText>
-              <NumberSizeableText
-                formatter="value"
-                formatterOptions={{ tokenSymbol: untilNextLaunch.token }}
-              >
-                {untilNextLaunch.value}
-              </NumberSizeableText>
-              {' left'}
+              {intl.formatMessage(
+                { id: ETranslations.earn_number_symbol_left },
+                {
+                  number: Number(untilNextLaunch.value).toFixed(2),
+                  symbol: untilNextLaunch.token,
+                },
+              )}
             </SizableText>
           </GridItem>
         ) : null}

@@ -156,9 +156,12 @@ const HistoryList = () => {
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
   );
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="History" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_history })}
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={SimpleSpinnerSkeleton}
