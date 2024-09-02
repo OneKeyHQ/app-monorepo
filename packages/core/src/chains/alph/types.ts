@@ -4,7 +4,16 @@ import type {
   SignTransferTxParams,
 } from '@alephium/web3';
 
-export type IEncodedTxAlph =
-  | SignTransferTxParams
-  | SignDeployContractTxParams
-  | SignExecuteScriptTxParams;
+export enum EAlphTxType {
+  Transfer = 'Transfer',
+  DeployContract = 'DeployContract',
+  ExecuteScript = 'ExecuteScript',
+}
+
+export type IEncodedTxAlph = {
+  type: EAlphTxType;
+  params:
+    | SignTransferTxParams
+    | SignDeployContractTxParams
+    | SignExecuteScriptTxParams;
+};

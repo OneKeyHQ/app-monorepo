@@ -2,7 +2,10 @@
 import { AddressType, bs58, isValidAddress } from '@alephium/web3';
 import BigNumber from 'bignumber.js';
 
-import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
+import {
+  EAlphTxType,
+  type IEncodedTxAlph,
+} from '@onekeyhq/core/src/chains/alph/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
@@ -109,18 +112,22 @@ export default class Vault extends VaultBase {
         },
       ];
     }
-    return encodedTx;
+    return {
+      type: EAlphTxType.Transfer,
+      params: encodedTx,
+    };
   }
 
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
-    const from = encodedTx.signerAddress;
+    const from = encodedTx.params.signerAddress;
     const actions: IDecodedTx['actions'] = [];
     const network = await this.getNetwork();
-    if ((encodedTx as SignTransferTxParams).destinations) {
-      const destinations = (encodedTx as SignTransferTxParams).destinations;
+    if (encodedTx.type === EAlphTxType.Transfer) {
+      const destinations = (encodedTx.params as SignTransferTxParams)
+        .destinations;
       const token = await this.backgroundApi.serviceToken.getNativeToken({
         networkId: network.id,
         accountId: this.accountId,
@@ -206,8 +213,8 @@ export default class Vault extends VaultBase {
           nativeSymbol: network.symbol,
         },
         gas: {
-          gasPrice: encodedTx.gasPrice?.toString() ?? '0',
-          gasLimit: encodedTx.gasAmount?.toString() ?? '0',
+          gasPrice: encodedTx.params.gasPrice?.toString() ?? '0',
+          gasLimit: encodedTx.params.gasAmount?.toString() ?? '0',
         },
       },
       extraInfo: null,
@@ -231,32 +238,32 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    let encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
     if (params.feeInfo) {
-      encodedTx.gasPrice = params.feeInfo.gas?.gasPrice;
-      encodedTx.gasAmount = Number(params.feeInfo.gas?.gasLimit);
+      encodedTx.params.gasPrice = params.feeInfo.gas?.gasPrice;
+      encodedTx.params.gasAmount = Number(params.feeInfo.gas?.gasLimit);
     }
 
     // max amount
     if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
-      encodedTx = encodedTx as SignTransferTxParams;
-      if (encodedTx.destinations[0].attoAlphAmount.toString() !== '0') {
+      const txParams = encodedTx.params as SignTransferTxParams;
+      if (txParams.destinations[0].attoAlphAmount.toString() !== '0') {
         const network = await this.getNetwork();
-        encodedTx.destinations[0].attoAlphAmount =
+        txParams.destinations[0].attoAlphAmount =
           chainValueUtils.convertAmountToChainValue({
             value: params.nativeAmountInfo.maxSendAmount,
             network,
           });
       } else {
-        if (!encodedTx.destinations[0].tokens) {
+        if (!txParams.destinations[0].tokens) {
           throw new OneKeyInternalError('No tokens found');
         }
         const token = await this.backgroundApi.serviceToken.getToken({
           networkId: this.networkId,
           accountId: this.accountId,
-          tokenIdOnNetwork: encodedTx.destinations[0].tokens[0].id,
+          tokenIdOnNetwork: txParams.destinations[0].tokens[0].id,
         });
-        encodedTx.destinations[0].tokens[0].amount = new BigNumber(
+        txParams.destinations[0].tokens[0].amount = new BigNumber(
           params.nativeAmountInfo.maxSendAmount,
         )
           .shiftedBy(token?.decimals ?? 0)
