@@ -66,6 +66,7 @@ export type IDesktopAPI = {
   downloadUpdate: () => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
+  clearUpdate: () => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -244,6 +245,7 @@ const desktopApi = {
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
   installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
+  clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>
