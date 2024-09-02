@@ -267,6 +267,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
         if (isExist) {
           fs.unlinkSync(cachePath);
         }
+        logger.info('auto-updater', `removed: ${cachePath}`);
       }
     } catch (error) {
       logger.info('auto-updater', 'Error clearing cache: ', error);
