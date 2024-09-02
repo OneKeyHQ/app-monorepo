@@ -13,6 +13,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -90,8 +91,8 @@ const ProtocolDetailsPage = () => {
     provider,
   ]);
 
-  const onWithdraw = useCallback(() => {
-    handleWithdraw({
+  const onWithdraw = useCallback(async () => {
+    await handleWithdraw({
       details: result,
       accountId: earnAccount?.accountId,
       networkId,
@@ -112,17 +113,17 @@ const ProtocolDetailsPage = () => {
 
   const onPortfolioDetails = useMemo(
     () =>
-      ['btc', 'sbtc'].includes(symbol.toLowerCase())
+      networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
         ? () => {
             appNavigation.push(EModalStakingRoutes.PortfolioDetails, {
-              accountId,
+              accountId: earnAccount?.accountId,
               networkId,
               symbol,
               provider,
             });
           }
         : undefined,
-    [appNavigation, accountId, networkId, symbol, provider],
+    [appNavigation, earnAccount?.accountId, networkId, symbol, provider],
   );
 
   const intl = useIntl();
