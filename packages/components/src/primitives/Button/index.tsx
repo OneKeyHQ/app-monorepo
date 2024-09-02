@@ -16,7 +16,6 @@ import { useSharedPress } from './useEvent';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ColorTokens, FontSizeTokens, ThemeableStackProps } from 'tamagui';
-import { Text } from 'react-native';
 
 export interface IButtonProps extends ThemeableStackProps {
   size?: 'small' | 'medium' | 'large';
