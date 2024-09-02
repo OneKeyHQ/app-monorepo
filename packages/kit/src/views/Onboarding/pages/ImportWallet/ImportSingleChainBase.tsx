@@ -161,6 +161,7 @@ export function ImportSingleChainBase({
               placeholder={inputPlaceholder}
               size={media.gtMd ? 'medium' : 'large'}
               testID={inputTestID}
+              onPaste={clearText}
               addOns={[
                 {
                   iconName: 'ScanOutline',
