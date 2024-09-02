@@ -22,6 +22,7 @@ import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -39,6 +40,7 @@ export function useSwapQuote() {
     recoverQuoteInterval,
     quoteEventHandler,
   } = useSwapActions().current;
+  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -49,6 +51,10 @@ export function useSwapQuote() {
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
+  const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
+  if (swapQuoteActionLockRef.current !== swapQuoteActionLock) {
+    swapQuoteActionLockRef.current = swapQuoteActionLock;
+  }
   if (swapShouldRefreshRef.current !== swapShouldRefresh) {
     swapShouldRefreshRef.current = swapShouldRefresh;
   }
@@ -141,6 +147,24 @@ export function useSwapQuote() {
     ) {
       return;
     }
+    // fromToken & address change will trigger effect twice. so this use skip
+    if (
+      swapQuoteActionLockRef.current?.actionLock &&
+      swapQuoteActionLockRef.current?.fromTokenAmount === fromAmountDebounce &&
+      swapQuoteActionLockRef.current?.fromToken?.networkId ===
+        fromToken?.networkId &&
+      swapQuoteActionLockRef.current?.fromToken?.contractAddress ===
+        fromToken?.contractAddress &&
+      swapQuoteActionLockRef.current?.toToken?.networkId ===
+        toToken?.networkId &&
+      swapQuoteActionLockRef.current?.toToken?.contractAddress ===
+        toToken?.contractAddress &&
+      swapQuoteActionLockRef.current.accountId ===
+        activeAccountRef.current?.accountInfo?.account?.id &&
+      swapQuoteActionLockRef.current?.address === swapAddressInfo.address
+    ) {
+      return;
+    }
     alignmentDecimal();
     void quoteAction(
       activeAccountRef.current?.address,
@@ -158,6 +182,7 @@ export function useSwapQuote() {
     toToken?.networkId,
     toToken?.contractAddress,
     alignmentDecimal,
+    fromAmountDebounce,
   ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.

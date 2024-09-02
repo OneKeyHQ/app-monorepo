@@ -84,8 +84,7 @@ const SwapTokenSelectPage = () => {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { selectFromToken, selectToToken, swapLoadAllNetworkTokenList } =
-    useSwapActions().current;
+  const { selectFromToken, selectToToken } = useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
@@ -225,22 +224,9 @@ const SwapTokenSelectPage = () => {
           num: type === ESwapDirectionType.FROM ? 0 : 1,
           networkId: network.networkId,
         });
-      } else {
-        void swapLoadAllNetworkTokenList(
-          network.networkId,
-          type === ESwapDirectionType.FROM
-            ? swapFromAddressInfo.accountInfo?.indexedAccount?.id
-            : swapToAddressInfo.accountInfo?.indexedAccount?.id,
-        );
       }
     },
-    [
-      swapFromAddressInfo.accountInfo?.indexedAccount?.id,
-      swapLoadAllNetworkTokenList,
-      swapToAddressInfo.accountInfo?.indexedAccount?.id,
-      type,
-      updateSelectedAccountNetwork,
-    ],
+    [type, updateSelectedAccountNetwork],
   );
 
   const sameTokenDisabled = useCallback(
