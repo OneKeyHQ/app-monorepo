@@ -133,7 +133,6 @@ export function WalletListItem({
         {...rest}
       >
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-        
         <SizableText
           flex={1}
           numberOfLines={1}
