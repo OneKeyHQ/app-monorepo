@@ -238,7 +238,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
-        set(swapQuoteActionLockAtom(), false);
+        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
@@ -277,7 +277,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           enableInterval = false;
         }
       } finally {
-        set(swapQuoteActionLockAtom(), false);
+        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         if (enableInterval) {
           const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
           if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
@@ -405,7 +405,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           break;
         }
         case 'done': {
-          set(swapQuoteActionLockAtom(), false);
+          set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
           if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
             void this.recoverQuoteInterval.call(
@@ -425,7 +425,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         case 'close': {
           set(swapQuoteFetchingAtom(), false);
-          set(swapQuoteActionLockAtom(), false);
+          set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           break;
         }
         default:
@@ -449,7 +449,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
-        set(swapQuoteActionLockAtom(), false);
+        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
@@ -475,15 +475,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
     ) => {
-      set(swapQuoteActionLockAtom(), true);
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      set(swapQuoteActionLockAtom(), (v) => ({
+        ...v,
+        actionLock: true,
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        accountId,
+        address,
+      }));
       this.cleanQuoteInterval();
       this.closeQuoteEvent();
       set(swapQuoteIntervalCountAtom(), 0);
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
-      const fromToken = get(swapSelectFromTokenAtom());
-      const toToken = get(swapSelectToTokenAtom());
-      const fromTokenAmount = get(swapFromTokenAmountAtom());
       const { slippageItem } = get(swapSlippagePercentageAtom());
       const fromTokenAmountNumber = Number(fromTokenAmount);
       if (
@@ -507,7 +515,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteEventTotalCountAtom(), 0);
         set(swapQuoteListAtom(), []);
-        set(swapQuoteActionLockAtom(), false);
+        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
       }
     },
   );
@@ -600,7 +608,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       unResetCount?: boolean,
     ) => {
-      const swapQuoteActionLock = get(swapQuoteActionLockAtom());
+      const { actionLock: swapQuoteActionLock } = get(
+        swapQuoteActionLockAtom(),
+      );
       if (swapQuoteActionLock) {
         return;
       }
