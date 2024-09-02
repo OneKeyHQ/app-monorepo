@@ -145,7 +145,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     [actions, num],
   );
 
-  const CELL_HEIGHT = useMedia().gtMd ? 68 : 48;
+  const CELL_HEIGHT = 68;
 
   const layoutList = useMemo(() => {
     let offset = 0;
@@ -172,7 +172,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   return (
     <Stack
       testID="account-selector-wallet-list"
-      w="$16"
+      w="$24"
       $gtMd={{
         w: '$32',
       }}
@@ -182,7 +182,12 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     >
       {/* Close action */}
       {isShowCloseButton ? (
-        <XStack py="$4" justifyContent="center">
+        <XStack
+          py="$4"
+          justifyContent="center"
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderBottomColor="$neutral3"
+        >
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>

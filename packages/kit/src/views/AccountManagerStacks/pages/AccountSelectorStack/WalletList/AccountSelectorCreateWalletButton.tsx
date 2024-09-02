@@ -42,27 +42,25 @@ export function AccountSelectorCreateWalletButton() {
   );
   return (
     <Stack p="$1" alignItems="center">
-      {media.gtMd ? (
-        <>
-          {onboardingButton}
-          <SizableText
-            textAlign="center"
-            size="$bodySm"
-            color="$textSubdued"
-            mt="$1"
-          >
-            {intl.formatMessage({ id: ETranslations.global_add_wallet })}
-          </SizableText>
-        </>
-      ) : (
-        <Tooltip
-          renderContent={intl.formatMessage({
-            id: ETranslations.global_add_wallet,
-          })}
-          renderTrigger={onboardingButton}
-          placement="right"
-        />
-      )}
+      <IconButton
+        onPress={() => {
+          void toOnBoardingPage({
+            params: {
+              showCloseButton: true,
+            },
+          });
+        }}
+        icon="PlusSmallOutline"
+        testID="add-wallet"
+      />
+      <SizableText
+        textAlign="center"
+        size="$bodySm"
+        color="$textSubdued"
+        mt="$1"
+      >
+        {intl.formatMessage({ id: ETranslations.global_add_wallet })}
+      </SizableText>
     </Stack>
   );
 }
