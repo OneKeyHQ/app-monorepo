@@ -241,11 +241,6 @@ export const useSuggestion = (
       if (arrays.length === phraseLength) {
         setTimeout(() => {
           clearText();
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_pasted_and_cleared,
-            }),
-          });
           form.reset(
             arrays.reduce((prev, next, index) => {
               prev[`phrase${index + 1}`] = next;
@@ -261,7 +256,7 @@ export const useSuggestion = (
       }
       return false;
     },
-    [checkAllWords, clearText, form, intl, phraseLength, resetSuggestions],
+    [checkAllWords, clearText, form, phraseLength, resetSuggestions],
   );
 
   const closePopover = useCallback(() => {
