@@ -16,7 +16,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const StakePage = () => {
   const route = useAppRoute<

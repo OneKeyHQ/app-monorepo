@@ -12,8 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { LIDO_LOGO_URI } from '../../utils/const';
-
 type IListItemTypography = string | ReactElement;
 
 type IShouldUnderstandListItemProps = {
@@ -45,6 +43,9 @@ type IShouldUnderstandProps = {
   subtitle?: string;
   items: { title: IListItemTypography; description: IListItemTypography }[];
 };
+
+export const LIDO_LOGO_URI =
+  'https://uni.onekey-asset.com/static/logo/Lido.png';
 
 const ShouldUnderstand = ({
   title,

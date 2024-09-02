@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -37,6 +38,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { capitalizeString } from '../../utils/utils';
 
 type IPortfolioItemProps = {
   item: IPortfolioItem;
@@ -67,6 +69,15 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const statusBadgeType: Record<
+    string,
+    ComponentProps<typeof Badge>['badgeType']
+  > = {
+    'active': 'success',
+    'withdrawn': 'warning',
+  };
+
   return (
     <Stack px={20}>
       <Stack
@@ -75,7 +86,9 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
         borderRadius="$3"
       >
         <XStack px={14} pt={14} justifyContent="space-between">
-          <Badge>{item.status}</Badge>
+          <Badge badgeType={statusBadgeType[item.status] ?? 'default'}>
+            {capitalizeString(item.status)}
+          </Badge>
           <Button
             onPress={onPress}
             size="small"

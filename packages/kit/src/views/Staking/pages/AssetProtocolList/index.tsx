@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 import {
   Badge,
   ListView,
-  NumberSizeableText,
   Page,
   SizableText,
   Spinner,
@@ -30,6 +29,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { capitalizeString } from '../../utils/utils';
 
 function formatNumber(num: number): string {
   if (num >= 1_000_000_000) {
@@ -96,7 +96,7 @@ const AssetProtocolListContent = ({
               </Stack>
               <YStack flex={1} justifyContent="center">
                 <SizableText size="$bodyLgMedium">
-                  {item.provider.name}
+                  {capitalizeString(item.provider.name)}
                 </SizableText>
                 {Number(item.provider.apr) > 0 ? (
                   <XStack alignItems="center">
@@ -124,7 +124,7 @@ const AssetProtocolListContent = ({
                     Number(item.provider.totalStaked),
                   )} ${symbol}`}
                 </SizableText>
-                <XStack w="$1.5" h="$0.5" />
+                <XStack w="$1" h="$0.5" />
                 <SizableText size="$bodyMd" color="$textSubdued">
                   (
                   {`${currencySymbol} ${formatNumber(

@@ -24,7 +24,7 @@ import {
 import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { buildLocalTxStatusSyncId } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import {
   useHandleClaim,

@@ -16,7 +16,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/const';
+import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const WithdrawPage = () => {
   const intl = useIntl();
