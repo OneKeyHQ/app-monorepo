@@ -41,7 +41,7 @@ const ClaimOptions = () => {
 
   const onPress = useCallback<IOnSelectOption>(
     ({ item }) => {
-      appNavigation.push(EModalStakingRoutes.UniversalClaim, {
+      appNavigation.push(EModalStakingRoutes.Claim, {
         accountId,
         networkId,
         symbol,

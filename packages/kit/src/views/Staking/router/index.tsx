@@ -11,16 +11,16 @@ const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
-const UniversalWithdraw = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalWithdraw'),
+const Withdraw = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
 
-const UniversalStake = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalStake'),
+const Stake = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Stake'),
 );
 
-const UniversalClaim = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/UniversalClaim'),
+const Claim = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Claim'),
 );
 
 const AssetProtocolList = LazyLoad(
@@ -56,12 +56,12 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     component: ProtocolDetails,
   },
   {
-    name: EModalStakingRoutes.UniversalStake,
-    component: UniversalStake,
+    name: EModalStakingRoutes.Stake,
+    component: Stake,
   },
   {
-    name: EModalStakingRoutes.UniversalWithdraw,
-    component: UniversalWithdraw,
+    name: EModalStakingRoutes.Withdraw,
+    component: Withdraw,
   },
   {
     name: EModalStakingRoutes.AssetProtocolList,
@@ -72,8 +72,8 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     component: ApproveBaseStake,
   },
   {
-    name: EModalStakingRoutes.UniversalClaim,
-    component: UniversalClaim,
+    name: EModalStakingRoutes.Claim,
+    component: Claim,
   },
   {
     name: EModalStakingRoutes.ClaimOptions,

@@ -2,10 +2,10 @@ import type { IStakeProtocolDetails } from '../../types/staking';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
-  UniversalStake = 'UniversalStake',
-  UniversalWithdraw = 'UniversalWithdraw',
-  UniversalClaim = 'UniversalClaim',
-  ProtocolDetails = 'UniversalProtocolDetails',
+  Stake = 'Stake',
+  Withdraw = 'Withdraw',
+  Claim = 'Claim',
+  ProtocolDetails = 'ProtocolDetails',
   AssetProtocolList = 'AssetProtocolList',
   ApproveBaseStake = 'ApproveBaseStake',
   ClaimOptions = 'ClaimOptions',
@@ -27,7 +27,7 @@ export type IModalStakingParamList = {
     provider: string;
     details?: IStakeProtocolDetails;
   };
-  [EModalStakingRoutes.UniversalStake]: IBaseRouteParams & {
+  [EModalStakingRoutes.Stake]: IBaseRouteParams & {
     minTransactionFee?: string;
     symbol: string;
     provider: string;
@@ -40,7 +40,7 @@ export type IModalStakingParamList = {
     details: IStakeProtocolDetails;
     currentAllowance: string;
   };
-  [EModalStakingRoutes.UniversalWithdraw]: IBaseRouteParams & {
+  [EModalStakingRoutes.Withdraw]: IBaseRouteParams & {
     rate?: string;
     symbol: string;
     provider: string;
@@ -48,7 +48,7 @@ export type IModalStakingParamList = {
     identity?: string;
     amount?: string;
   };
-  [EModalStakingRoutes.UniversalClaim]: IBaseRouteParams & {
+  [EModalStakingRoutes.Claim]: IBaseRouteParams & {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;

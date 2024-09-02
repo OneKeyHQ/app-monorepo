@@ -41,7 +41,7 @@ export const useHandleClaim = () => {
         });
         return;
       }
-      appNavigation.push(EModalStakingRoutes.UniversalClaim, {
+      appNavigation.push(EModalStakingRoutes.Claim, {
         accountId,
         networkId,
         details,
@@ -92,7 +92,7 @@ export const useHandleWithdraw = () => {
         });
         return;
       }
-      appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
+      appNavigation.push(EModalStakingRoutes.Withdraw, {
         accountId,
         networkId,
         details,
@@ -140,7 +140,7 @@ export const useHandleStake = () => {
         }
         return;
       }
-      appNavigation.push(EModalStakingRoutes.UniversalStake, {
+      appNavigation.push(EModalStakingRoutes.Stake, {
         accountId,
         networkId,
         details,

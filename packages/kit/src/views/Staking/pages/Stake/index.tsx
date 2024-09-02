@@ -14,35 +14,39 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { UniversalWithdraw } from '../../components/UniversalWithdraw';
-import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
+import { UniversalStake } from '../../components/UniversalStake';
+import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
-const UniversalWithdrawPage = () => {
-  const intl = useIntl();
+const StakePage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalWithdraw
+    EModalStakingRoutes.Stake
   >();
   const {
     accountId,
     networkId,
+    minTransactionFee = '0',
     details,
-    identity,
-    amount: initialAmount,
   } = route.params;
+  const { token, provider } = details;
+  const { balanceParsed, price } = token;
+  const tokenInfo = token.info;
 
-  const { token, provider, staked } = details;
-  const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
+
+  const minAmount = useMemo(() => {
+    if (provider.minStakeAmount) return provider.minStakeAmount;
+    return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
+  }, [tokenInfo, provider]);
+
+  const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
-  const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
-      await handleWithdraw({
+      await handleStake({
         amount,
-        identity,
-        symbol: tokenInfo.symbol,
+        symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Unknown,
@@ -52,7 +56,7 @@ const UniversalWithdrawPage = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.unstaking({
+          defaultLogger.staking.page.staking({
             token: tokenInfo,
             amount,
             stakingProtocol: provider.name,
@@ -65,43 +69,28 @@ const UniversalWithdrawPage = () => {
         },
       });
     },
-    [
-      handleWithdraw,
-      tokenInfo,
-      appNavigation,
-      price,
-      provider,
-      actionTag,
-      identity,
-    ],
+    [handleStake, appNavigation, tokenInfo, price, provider, actionTag],
   );
-
-  const warningMessages = useMemo<string[] | undefined>(() => {
-    if (
-      token.info.symbol.toLowerCase() === 'apt' &&
-      provider.name === 'everstake'
-    ) {
-      return [
-        'This transaction requests withdrawing all staked APT, as this withdrawal will result in a total staked amount less than 10.1 APT.',
-      ];
-    }
-  }, [token, provider]);
-
+  const intl = useIntl();
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_stake_token },
+          { 'token': tokenInfo.symbol },
+        )}
       />
       <Page.Body>
-        <UniversalWithdraw
+        <UniversalStake
+          minTransactionFee={minTransactionFee}
+          apr={Number.isNaN(provider.apr) ? 4 : Number(provider.apr)}
           price={price}
-          balance={staked}
-          initialAmount={initialAmount}
+          balance={balanceParsed}
+          minAmount={minAmount}
+          tokenImageUri={tokenInfo.logoURI ?? ''}
           tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
-          warningMessages={warningMessages}
           onConfirm={onConfirm}
         />
       </Page.Body>
@@ -109,4 +98,4 @@ const UniversalWithdrawPage = () => {
   );
 };
 
-export default UniversalWithdrawPage;
+export default StakePage;

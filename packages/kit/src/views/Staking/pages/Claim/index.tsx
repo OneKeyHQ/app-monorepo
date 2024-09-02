@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,39 +14,34 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { UniversalStake } from '../../components/UniversalStake';
-import { useUniversalStake } from '../../hooks/useUniversalHooks';
+import { UniversalClaim } from '../../components/UniversalClaim';
+import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
-const UniversalStakePage = () => {
+const ClaimPage = () => {
+  const intl = useIntl();
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalStake
+    EModalStakingRoutes.Claim
   >();
   const {
     accountId,
     networkId,
-    minTransactionFee = '0',
     details,
+    amount: initialAmount,
+    identity,
   } = route.params;
   const { token, provider } = details;
-  const { balanceParsed, price } = token;
-  const tokenInfo = token.info;
-
+  const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
-
-  const minAmount = useMemo(() => {
-    if (provider.minStakeAmount) return provider.minStakeAmount;
-    return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
-  }, [tokenInfo, provider]);
-
-  const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
+  const handleClaim = useUniversalClaim({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
-      await handleStake({
+      await handleClaim({
         amount,
-        symbol: tokenInfo.symbol.toUpperCase(),
+        identity,
+        symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Unknown,
@@ -56,7 +51,7 @@ const UniversalStakePage = () => {
         },
         onSuccess: (txs) => {
           appNavigation.pop();
-          defaultLogger.staking.page.staking({
+          defaultLogger.staking.page.unstaking({
             token: tokenInfo,
             amount,
             stakingProtocol: provider.name,
@@ -69,26 +64,29 @@ const UniversalStakePage = () => {
         },
       });
     },
-    [handleStake, appNavigation, tokenInfo, price, provider, actionTag],
+    [
+      handleClaim,
+      tokenInfo,
+      appNavigation,
+      price,
+      provider,
+      actionTag,
+      identity,
+    ],
   );
-  const intl = useIntl();
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage(
-          { id: ETranslations.earn_stake_token },
-          { 'token': tokenInfo.symbol },
-        )}
+        title={intl.formatMessage({ id: ETranslations.earn_claim })}
       />
       <Page.Body>
-        <UniversalStake
-          minTransactionFee={minTransactionFee}
-          apr={Number.isNaN(provider.apr) ? 4 : Number(provider.apr)}
+        <UniversalClaim
+          receivingTokenSymbol=""
           price={price}
-          balance={balanceParsed}
-          minAmount={minAmount}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          initialAmount={initialAmount}
+          balance={details.claimable ?? '0'}
           tokenSymbol={tokenInfo.symbol}
+          tokenImageUri={tokenInfo.logoURI ?? ''}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
@@ -98,4 +96,4 @@ const UniversalStakePage = () => {
   );
 };
 
-export default UniversalStakePage;
+export default ClaimPage;

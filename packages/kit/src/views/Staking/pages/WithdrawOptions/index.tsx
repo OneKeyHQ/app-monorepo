@@ -41,7 +41,7 @@ const WithdrawOptions = () => {
 
   const onPress = useCallback<IOnSelectOption>(
     ({ item }) => {
-      appNavigation.push(EModalStakingRoutes.UniversalWithdraw, {
+      appNavigation.push(EModalStakingRoutes.Withdraw, {
         accountId,
         networkId,
         symbol,

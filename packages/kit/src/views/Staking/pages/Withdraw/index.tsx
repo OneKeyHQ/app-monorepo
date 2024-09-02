@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,31 +14,32 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { UniversalClaim } from '../../components/UniversalClaim';
-import { useUniversalClaim } from '../../hooks/useUniversalHooks';
+import { UniversalWithdraw } from '../../components/UniversalWithdraw';
+import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/const';
 
-const UniversalClaimPage = () => {
+const WithdrawPage = () => {
   const intl = useIntl();
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.UniversalClaim
+    EModalStakingRoutes.Withdraw
   >();
   const {
     accountId,
     networkId,
     details,
-    amount: initialAmount,
     identity,
+    amount: initialAmount,
   } = route.params;
-  const { token, provider } = details;
+
+  const { token, provider, staked } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
-  const handleClaim = useUniversalClaim({ accountId, networkId });
+  const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (amount: string) => {
-      await handleClaim({
+      await handleWithdraw({
         amount,
         identity,
         symbol: tokenInfo.symbol,
@@ -65,7 +66,7 @@ const UniversalClaimPage = () => {
       });
     },
     [
-      handleClaim,
+      handleWithdraw,
       tokenInfo,
       appNavigation,
       price,
@@ -74,21 +75,33 @@ const UniversalClaimPage = () => {
       identity,
     ],
   );
+
+  const warningMessages = useMemo<string[] | undefined>(() => {
+    if (
+      token.info.symbol.toLowerCase() === 'apt' &&
+      provider.name === 'everstake'
+    ) {
+      return [
+        'This transaction requests withdrawing all staked APT, as this withdrawal will result in a total staked amount less than 10.1 APT.',
+      ];
+    }
+  }, [token, provider]);
+
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_claim })}
+        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
       />
       <Page.Body>
-        <UniversalClaim
-          receivingTokenSymbol=""
+        <UniversalWithdraw
           price={price}
+          balance={staked}
           initialAmount={initialAmount}
-          balance={details.claimable ?? '0'}
           tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          warningMessages={warningMessages}
           onConfirm={onConfirm}
         />
       </Page.Body>
@@ -96,4 +109,4 @@ const UniversalClaimPage = () => {
   );
 };
 
-export default UniversalClaimPage;
+export default WithdrawPage;
