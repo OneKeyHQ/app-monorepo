@@ -38,15 +38,12 @@ const EthLidoWithdraw = () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token,
-            amount: value,
             stakingProtocol: 'lido',
-            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [lidoWithdraw, token, appNavigation, price],
+    [lidoWithdraw, token, appNavigation],
   );
   return (
     <LidoWithdraw

@@ -27,21 +27,15 @@ export class SendScene extends BaseScene {
     tokenType,
     tokenSymbol,
     tokenAddress,
-    tokenAmount,
-    tokenValue,
   }: {
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
-    tokenAmount: string | undefined;
-    tokenValue: string | undefined;
   }) {
     return {
       tokenType,
       tokenSymbol,
       tokenAddress,
-      tokenAmount,
-      tokenValue,
     };
   }
 
@@ -58,43 +52,27 @@ export class SendScene extends BaseScene {
 
   @LogToServer()
   public sendConfirm({
-    txnHash,
     network,
     txnType,
-    fromAddress,
-    toAddress,
-    fee,
     interactContract,
     tokenType,
     tokenSymbol,
     tokenAddress,
-    tokenAmount,
   }: {
-    txnHash: string | undefined;
     network: string | undefined;
     txnType: string | undefined;
-    fromAddress: string | undefined;
-    toAddress: string | undefined;
-    fee: string | undefined;
     interactContract: string | undefined;
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
     tokenAddress: string | undefined;
-    tokenAmount: string | undefined;
-    tokenValue: string | undefined;
   }) {
     return {
-      txnHash,
       network,
       txnType,
-      fromAddress,
-      toAddress,
-      fee,
       interactContract,
       tokenType,
       tokenSymbol,
       tokenAddress,
-      tokenAmount,
     };
   }
 }

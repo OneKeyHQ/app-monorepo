@@ -40,15 +40,12 @@ const MaticLidoWithdraw = () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token,
-            amount: value,
             stakingProtocol: 'lido',
-            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [token, lidoWithdraw, appNavigation, price],
+    [token, lidoWithdraw, appNavigation],
   );
   return (
     <LidoWithdraw
