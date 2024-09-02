@@ -249,3 +249,28 @@ export type IGetPortfolioParams = {
   provider: string;
   symbol: string;
 };
+
+export interface IInvestmentTokenInfo {
+  uniqueKey: string;
+  address: string;
+  decimals: number;
+  isNative: boolean;
+  logoURI: string;
+  name: string;
+  symbol: string;
+  totalSupply: string;
+  riskLevel: number;
+  networkId: string;
+}
+
+export interface IInvestment {
+  active: string;
+  claimable: string;
+  overflow: string;
+  tokenInfo: IInvestmentTokenInfo;
+}
+export interface IEarnInvestmentItem {
+  name: string;
+  logoURI: string;
+  investment: IInvestment[];
+}

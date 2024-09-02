@@ -19,6 +19,7 @@ import type {
   IAvailableAsset,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnInvestmentItem,
   IGetPortfolioParams,
   IPortfolioItem,
   IStakeBaseParams,
@@ -435,6 +436,22 @@ class ServiceStaking extends ServiceBase {
     );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
+  }
+
+  @backgroundMethod()
+  async fetchInvestmentDetail(
+    list: {
+      accountAddress: string;
+      networkId: string;
+    }[],
+  ) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IEarnInvestmentItem[];
+    }>(`/earn/v1/investment/detail`, {
+      list,
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()

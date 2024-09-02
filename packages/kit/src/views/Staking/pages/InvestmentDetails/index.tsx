@@ -1,19 +1,18 @@
-import { useCallback, useMemo } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { useCallback } from 'react';
 
 import {
   Badge,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   SectionList,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import {
   EJotaiContextStoreNames,
@@ -21,16 +20,37 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAvailableAsset } from '@onekeyhq/shared/types/staking';
+import type { IInvestment } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
+  console.log('accounts', accounts);
+
+  const { result: earnInvestmentItems } = usePromiseResult(
+    () =>
+      accounts
+        ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
+            accounts?.map(({ networkId, accountAddress }) => ({
+              networkId,
+              accountAddress,
+            })),
+          )
+        : Promise.resolve([]),
+    [accounts],
+    {
+      initResult: [],
+    },
+  );
+
+  const sectionData = earnInvestmentItems.map((item) => ({
+    title: item.name,
+    logoURI: item.logoURI,
+    data: item.investment,
+  }));
   const renderItem = useCallback(
-    ({ item }: { item: any }) => (
+    ({ item }: { item: IInvestment }) => (
       <ListItem
         drillIn
         mx={0}
@@ -80,14 +100,14 @@ function BasicInvestmentDetails() {
             </YStack>
           }
           renderItem={renderItem}
-          sections={[]}
+          sections={sectionData}
           py="$3"
-          renderSectionHeader={({ section: { title, iconUrl }, index }) => (
+          renderSectionHeader={({ section: { title, logoURI }, index }) => (
             <XStack px="$5" gap="$1.5" pt={index !== 0 ? '$8' : undefined}>
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
                   source={{
-                    uri: iconUrl,
+                    uri: logoURI,
                   }}
                 />
                 <Image.Fallback
