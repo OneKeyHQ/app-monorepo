@@ -67,14 +67,14 @@ const toTokenProviderListPage = async (
   });
 };
 
-function RecommendedItem({ token }: { token: ITokenAccount }) {
+function RecommendedItem({ token }: { token?: ITokenAccount }) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const onPress = useCallback(async () => {
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if (account) {
+    if (account && token) {
       await toTokenProviderListPage(navigation, {
         indexedAccountId: indexedAccount?.id,
         accountId: account?.id ?? '',
@@ -82,7 +82,10 @@ function RecommendedItem({ token }: { token: ITokenAccount }) {
         symbol: token.symbol,
       });
     }
-  }, [accountInfo, navigation, token.account.networkId, token.symbol]);
+  }, [accountInfo, navigation, token]);
+  if (!token) {
+    return null;
+  }
   return (
     <YStack
       gap="$3"
