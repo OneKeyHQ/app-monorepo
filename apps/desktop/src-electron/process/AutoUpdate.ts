@@ -257,6 +257,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   const clearUpdateCache = async () => {
+    logger.info('auto-updater', 'start clearing cache');
     try {
       // @ts-ignore
       if (autoUpdater.downloadedUpdateHelper) {
@@ -267,7 +268,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
         );
         // @ts-ignore
         await autoUpdater.downloadedUpdateHelper.clear();
-        logger.info('auto-updater', 'clearing cache');
+        logger.info('auto-updater', 'end clearing cache');
       }
     } catch (error) {
       logger.info('auto-updater', 'Error clearing cache: ', error);
