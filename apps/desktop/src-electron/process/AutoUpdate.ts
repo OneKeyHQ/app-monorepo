@@ -257,18 +257,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   const clearUpdateCache = async () => {
-    logger.info('auto-updater', 'start clearing cache');
     try {
       // @ts-ignore
-      if (autoUpdater.downloadedUpdateHelper) {
-        logger.info(
-          'auto-updater',
-          // @ts-ignore
-          autoUpdater.downloadedUpdateHelper.cacheDir,
-        );
-        // @ts-ignore
-        await autoUpdater.downloadedUpdateHelper.clear();
-        logger.info('auto-updater', 'end clearing cache');
+      const baseCachePath = autoUpdater?.app?.baseCachePath;
+      if (baseCachePath) {
+        const cachePath = path.join(baseCachePath, '@onekeyhqdesktop-updater');
+        logger.info('auto-updater', `cachePath: ${cachePath}`);
+        const isExist = fs.existsSync(cachePath);
+        if (isExist) {
+          fs.unlinkSync(cachePath);
+        }
       }
     } catch (error) {
       logger.info('auto-updater', 'Error clearing cache: ', error);
