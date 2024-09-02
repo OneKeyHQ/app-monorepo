@@ -30,6 +30,7 @@ const WithdrawPage = () => {
     details,
     identity,
     amount: initialAmount,
+    onSuccess,
   } = route.params;
 
   const { token, provider, staked } = details;
@@ -62,6 +63,7 @@ const WithdrawPage = () => {
                 : '0',
             txnHash: txs[0].signedTx.txid,
           });
+          onSuccess?.();
         },
       });
     },
@@ -73,6 +75,7 @@ const WithdrawPage = () => {
       provider,
       actionTag,
       identity,
+      onSuccess,
     ],
   );
 

@@ -18,7 +18,7 @@ interface IStakingFlowConfig {
   displayProfit: boolean;
   stakingWithApprove?: boolean;
   withdrawWithTx?: boolean;
-  withdrawWithSignMessage?: boolean;
+  unstakeWithSignMessage?: boolean;
   withdrawSignOnly?: boolean;
   claimWithTx?: boolean;
   usePublicKey?: boolean;

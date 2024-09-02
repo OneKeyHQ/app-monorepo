@@ -49,6 +49,10 @@ const WithdrawOptions = () => {
         details,
         identity: item.id,
         amount: item.amount,
+        onSuccess: () => {
+          // pop to portfolio details page
+          setTimeout(() => appNavigation.pop(), 4);
+        },
       });
     },
     [appNavigation, accountId, networkId, symbol, provider, details],

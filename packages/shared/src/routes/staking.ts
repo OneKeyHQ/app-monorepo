@@ -32,6 +32,7 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
+    onSuccess?: () => void;
   };
   [EModalStakingRoutes.ApproveBaseStake]: IBaseRouteParams & {
     minTransactionFee?: string;
@@ -39,6 +40,7 @@ export type IModalStakingParamList = {
     provider: string;
     details: IStakeProtocolDetails;
     currentAllowance: string;
+    onSuccess?: () => void;
   };
   [EModalStakingRoutes.Withdraw]: IBaseRouteParams & {
     rate?: string;
@@ -47,6 +49,7 @@ export type IModalStakingParamList = {
     details: IStakeProtocolDetails;
     identity?: string;
     amount?: string;
+    onSuccess?: () => void;
   };
   [EModalStakingRoutes.Claim]: IBaseRouteParams & {
     symbol: string;
@@ -54,6 +57,7 @@ export type IModalStakingParamList = {
     details: IStakeProtocolDetails;
     identity?: string;
     amount?: string;
+    onSuccess?: () => void;
   };
   [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & {
     symbol: string;

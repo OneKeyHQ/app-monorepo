@@ -30,6 +30,7 @@ const ClaimPage = () => {
     details,
     amount: initialAmount,
     identity,
+    onSuccess,
   } = route.params;
   const { token, provider } = details;
   const { price, info: tokenInfo } = token;
@@ -61,6 +62,7 @@ const ClaimPage = () => {
                 : '0',
             txnHash: txs[0].signedTx.txid,
           });
+          onSuccess?.();
         },
       });
     },
@@ -72,6 +74,7 @@ const ClaimPage = () => {
       provider,
       actionTag,
       identity,
+      onSuccess,
     ],
   );
   return (

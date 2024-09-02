@@ -98,7 +98,7 @@ export function useUniversalWithdraw({
           symbol,
           provider,
         });
-      if (stakingConfig?.withdrawWithSignMessage) {
+      if (stakingConfig?.unstakeWithSignMessage) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
           networkId,
