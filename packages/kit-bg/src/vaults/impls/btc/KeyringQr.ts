@@ -1,4 +1,5 @@
 import { Psbt } from 'bitcoinjs-lib';
+import { isEqual } from 'lodash';
 
 import {
   convertBtcForkXpub,
@@ -17,7 +18,6 @@ import { getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
 import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
-  OneKeyErrorAirGapInvalidQrCode,
 } from '@onekeyhq/shared/src/errors';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -148,23 +148,10 @@ export class KeyringQr extends KeyringQrBase {
       },
       signedResultBuilder: async ({ signatureUr }) => {
         const sdk = getAirGapSdk();
-        let psbtHex = '';
-        try {
-          // **** sign message
-          // const sig = sdk.btc.parseSignature(ur);
-          // **** sign psbt
-          psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
-        } catch (error) {
-          // eslint-disable-next-line spellcheck/spell-checker
-          // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
-          //        throw new Error('type not match');
-          throw new OneKeyErrorAirGapInvalidQrCode();
-        }
-
-        if (!psbtHex) {
-          throw new Error('BTC QR sign ERROR: psbtHex not found');
-        }
-
+        // **** sign message
+        // const sig = sdk.btc.parseSignature(ur);
+        // **** sign psbt
+        const psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
         const signedPsbt = Psbt.fromHex(psbtHex, {
           network,
           maximumFeeRate: network.maximumFeeRate,

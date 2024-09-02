@@ -6,10 +6,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { AirGapUR } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
-import {
-  NotImplemented,
-  OneKeyErrorAirGapInvalidQrCode,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -272,10 +269,6 @@ export abstract class KeyringQrBase extends KeyringBase {
         requestUr,
         allowPlainTextResponse: true,
       });
-    // expect qr on device is address, but not UR
-    if (raw && raw?.toLowerCase()?.startsWith('ur:')) {
-      throw new OneKeyErrorAirGapInvalidQrCode();
-    }
     ret.push({
       address: raw || '',
       publicKey: '',

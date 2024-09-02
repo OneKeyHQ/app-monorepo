@@ -32,12 +32,9 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
-  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
