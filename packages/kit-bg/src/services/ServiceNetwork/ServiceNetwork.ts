@@ -38,7 +38,7 @@ const defaultPinnedNetworkIds = [
   getNetworkIdsMap().sol,
   getNetworkIdsMap().bsc,
   getNetworkIdsMap().polygon,
-  getNetworkIdsMap().bsc,
+  getNetworkIdsMap().ton,
 ];
 
 @backgroundClass()
@@ -444,6 +444,7 @@ class ServiceNetwork extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getDeriveTypeByAddressEncoding({
     networkId,
     encoding,

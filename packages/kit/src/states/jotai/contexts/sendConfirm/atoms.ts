@@ -93,3 +93,12 @@ export const { atom: preCheckTxStatusAtom, use: usePreCheckTxStatusAtom } =
 
 export const { atom: isSinglePresetAtom, use: useIsSinglePresetAtom } =
   contextAtom<boolean>(true);
+
+export const { atom: tokenApproveInfoAtom, use: useTokenApproveInfoAtom } =
+  contextAtom<{
+    allowance: string;
+    isUnlimited: boolean;
+  }>({
+    allowance: '',
+    isUnlimited: false,
+  });
