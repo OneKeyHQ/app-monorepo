@@ -104,7 +104,6 @@ function ConnectionModal() {
             action: 'ConnectWallet',
             network: selectedAccount?.network?.name,
             failReason: 'no injected scope',
-            walletAddress: selectedAccount?.account?.address,
           });
         }
         return;
@@ -117,7 +116,6 @@ function ConnectionModal() {
           action: 'ConnectWallet',
           network: selectedAccount?.network?.name,
           failReason: 'no account',
-          walletAddress: selectedAccount?.account?.address,
         });
         return;
       }
@@ -149,7 +147,6 @@ function ConnectionModal() {
             action: 'ConnectWallet',
             network: network?.name,
             failReason: 'no accountSelectorNum',
-            walletAddress: account?.address,
           });
           throw new Error('no accountSelectorNum');
         }
@@ -180,7 +177,6 @@ function ConnectionModal() {
         dappDomain: $sourceInfo?.origin,
         action: 'ConnectWallet',
         network: network?.name,
-        walletAddress: account?.address,
       });
     },
     [

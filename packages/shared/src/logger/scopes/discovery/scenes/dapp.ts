@@ -33,7 +33,6 @@ export class DappScene extends BaseScene {
     dappDomain: string;
     action: 'ConnectWallet' | 'SendTxn';
     network?: string;
-    walletAddress?: string;
     failReason?: string;
   }) {
     return params;
