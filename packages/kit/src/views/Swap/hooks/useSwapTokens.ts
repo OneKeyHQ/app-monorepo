@@ -363,12 +363,7 @@ export function useSwapTokenList(
         })
       : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
     {
-      keys: ['symbol'].concat(
-        (tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || []).length ===
-          1
-          ? ['contractAddress']
-          : [],
-      ),
+      keys: ['symbol', 'contractAddress'],
     },
   );
 
