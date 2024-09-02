@@ -22,12 +22,16 @@ export const useHandleClaim = () => {
       provider: string;
     }) => {
       if (!details || !accountId) return;
-      if (
-        (symbol.toLowerCase() === 'matic' &&
-          provider.toLowerCase() === 'lido') ||
-        (symbol.toLowerCase() === 'sol' &&
-          provider.toLowerCase() === 'everstake')
-      ) {
+      const stakingConfig =
+        await backgroundApiProxy.serviceStaking.getStakingConfigs({
+          networkId,
+          symbol,
+          provider,
+        });
+      if (!stakingConfig) {
+        throw new Error('Staking config not found');
+      }
+      if (stakingConfig.claimWithTx) {
         appNavigation.push(EModalStakingRoutes.ClaimOptions, {
           accountId,
           networkId,
@@ -55,7 +59,7 @@ export const useHandleClaim = () => {
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
-    ({
+    async ({
       details,
       accountId,
       networkId,
@@ -69,10 +73,16 @@ export const useHandleWithdraw = () => {
       provider: string;
     }) => {
       if (!details || !accountId) return;
-      if (
-        symbol.toLowerCase() === 'sol' &&
-        provider.toLowerCase() === 'everstake'
-      ) {
+      const stakingConfig =
+        await backgroundApiProxy.serviceStaking.getStakingConfigs({
+          networkId,
+          symbol,
+          provider,
+        });
+      if (!stakingConfig) {
+        throw new Error('Staking config not found');
+      }
+      if (stakingConfig.withdrawWithTx) {
         appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
           accountId,
           networkId,

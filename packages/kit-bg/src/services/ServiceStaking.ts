@@ -374,14 +374,10 @@ class ServiceStaking extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
-    const providerKey = earnUtils.getEarnProviderEnumKey(provider);
-    if (!providerKey) {
-      throw new Error('Invalid provider');
-    }
     const stakingConfig = await this.getStakingConfigs({
       networkId,
-      symbol: symbol.toUpperCase() as ISupportedSymbol,
-      provider: providerKey,
+      symbol,
+      provider,
     });
     if (!stakingConfig) {
       throw new Error('Staking config not found');
@@ -600,7 +596,11 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountAsset(params: { networkId: string; accountAddress: string }) {
+  async getAccountAsset(params: {
+    networkId: string;
+    accountAddress: string;
+    publicKey?: string;
+  }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: IEarnAccountResponse;
@@ -625,7 +625,11 @@ class ServiceStaking extends ServiceBase {
       accountId,
       networkId,
     });
-    const accountParams: { networkId: string; accountAddress: string }[] = [];
+    const accountParams: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[] = [];
 
     assets.forEach((asset) => {
       const account = accounts.find((i) => i.networkId === asset.networkId);
@@ -633,6 +637,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.push({
           accountAddress: account?.apiAddress,
           networkId: asset.networkId,
+          publicKey: account?.pub,
         });
       }
     });
@@ -668,9 +673,14 @@ class ServiceStaking extends ServiceBase {
     provider,
   }: {
     networkId: string;
-    symbol: ISupportedSymbol;
-    provider: EEarnProviderEnum;
+    symbol: string;
+    provider: string;
   }) {
+    const providerKey = earnUtils.getEarnProviderEnumKey(provider);
+    if (!providerKey) {
+      throw new Error('Invalid provider');
+    }
+
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     const allStakingConfig = vaultSettings.stakingConfig;
@@ -683,13 +693,13 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
-    const providerConfig = stakingConfig.providers[provider];
+    const providerConfig = stakingConfig.providers[providerKey];
     if (!providerConfig) {
       return null;
     }
 
-    if (providerConfig.supportedSymbols.includes(symbol)) {
-      return providerConfig.configs[symbol];
+    if (providerConfig.supportedSymbols.includes(symbol as ISupportedSymbol)) {
+      return providerConfig.configs[symbol as ISupportedSymbol];
     }
 
     return null;

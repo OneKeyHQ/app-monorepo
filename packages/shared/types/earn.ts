@@ -17,9 +17,9 @@ interface IStakingFlowConfig {
   tokenAddress: string;
   displayProfit: boolean;
   stakingWithApprove?: boolean;
-  unstakeWithTx?: boolean;
-  unstakeWithSignMessage?: boolean;
   withdrawWithTx?: boolean;
+  withdrawWithSignMessage?: boolean;
+  claimWithTx?: boolean;
   usePublicKey?: boolean;
 }
 

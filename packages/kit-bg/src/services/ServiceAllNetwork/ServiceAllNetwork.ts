@@ -20,6 +20,7 @@ export type IAllNetworkAccountInfo = {
   accountId: string;
   apiAddress: string;
   accountXpub: string | undefined;
+  pub: string | undefined;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
 };
@@ -246,6 +247,7 @@ class ServiceAllNetwork extends ServiceBase {
                 networkId: realNetworkId,
                 accountId: a.id,
                 apiAddress,
+                pub: a?.pub,
                 accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
@@ -267,6 +269,7 @@ class ServiceAllNetwork extends ServiceBase {
             networkId: realNetworkId,
             accountId: '',
             apiAddress: '',
+            pub: undefined,
             accountXpub: undefined,
             isNftEnabled,
             isBackendIndexed,

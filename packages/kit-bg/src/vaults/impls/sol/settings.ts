@@ -92,8 +92,8 @@ const settings: IVaultSettings = {
             'SOL': {
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
-              unstakeWithTx: true,
               withdrawWithTx: true,
+              claimWithTx: true,
             },
           },
         },

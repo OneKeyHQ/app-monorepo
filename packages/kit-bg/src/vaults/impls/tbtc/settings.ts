@@ -78,8 +78,8 @@ const settings: IVaultSettings = {
             'SBTC': {
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
-              unstakeWithTx: true,
               withdrawWithTx: true,
+              claimWithTx: true,
               usePublicKey: true,
             },
           },

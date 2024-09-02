@@ -51,6 +51,7 @@ const lidoConfig = {
   },
   MATIC: {
     ...commonStakeConfigs.MATIC,
+    claimWithTx: true,
   },
 };
 
