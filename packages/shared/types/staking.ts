@@ -93,6 +93,7 @@ export type IStakeProviderInfo = {
   maxStakeAmount: string;
   isNative: string;
   nextLaunchLeft?: string;
+  labels?: string[];
 };
 
 export type IStakeBaseParams = {

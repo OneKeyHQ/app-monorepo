@@ -165,7 +165,6 @@ export function useUniversalWithdraw({
               });
               onSuccess?.(data);
             }
-            console.log('data', data);
           }
         },
         onFail,

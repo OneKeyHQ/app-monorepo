@@ -20,11 +20,18 @@ type IStakingListItemProps = {
 const StakingEntryListItemContent = ({
   aprValue,
   onPress,
+  primaryTitle,
 }: {
-  aprValue: string | number;
-  onPress: () => void;
+  aprValue?: string | number;
+  onPress?: () => void;
+  primaryTitle?: string;
 }) => {
   const intl = useIntl();
+  const primary =
+    primaryTitle ||
+    intl.formatMessage({
+      id: ETranslations.earn_stake_and_earn,
+    });
   return (
     <>
       <ListItem
@@ -45,11 +52,15 @@ const StakingEntryListItemContent = ({
         </Stack>
         <ListItem.Text
           flex={1}
-          primary="新质押入口"
-          secondary={intl.formatMessage(
-            { id: ETranslations.earn_up_to_number_in_annual_rewards },
-            { number: `${aprValue}%` },
-          )}
+          primary={primary}
+          secondary={
+            aprValue && Number(aprValue) > 0
+              ? intl.formatMessage(
+                  { id: ETranslations.earn_up_to_number_in_annual_rewards },
+                  { number: `${aprValue}%` },
+                )
+              : undefined
+          }
           secondaryTextProps={{
             size: '$bodyMdMedium',
             color: '$textSuccess',
@@ -64,15 +75,16 @@ const StakingEntryListItem = ({
   networkId,
   accountId,
   symbol,
-}: IStakingListItemProps & { symbol: string }) => {
+  aprValue,
+}: IStakingListItemProps & { symbol: string; aprValue: string }) => {
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.AssetProtocolList,
-      params: { networkId, accountId, symbol },
+      params: { networkId, accountId, symbol, filter: true },
     });
   }, [navigation, networkId, accountId, symbol]);
-  return <StakingEntryListItemContent aprValue={4} onPress={onPress} />;
+  return <StakingEntryListItemContent aprValue={aprValue} onPress={onPress} />;
 };
 
 export const TokenDetailStakingEntry = ({
@@ -86,7 +98,18 @@ export const TokenDetailStakingEntry = ({
         networkId,
         tokenAddress,
       });
-    return symbolInfo;
+    if (!symbolInfo) {
+      return undefined;
+    }
+    const protocolList =
+      await backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol: symbolInfo?.symbol,
+      });
+    const aprItems = protocolList
+      .map((o) => Number(o.provider.apr))
+      .filter((n) => Number(n) > 0);
+    const maxApr = Math.max(0, ...aprItems);
+    return { symbolInfo, maxApr };
   }, [networkId, tokenAddress]);
   if (result) {
     return (
@@ -94,7 +117,8 @@ export const TokenDetailStakingEntry = ({
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenAddress}
-        symbol={result.symbol}
+        symbol={result.symbolInfo.symbol}
+        aprValue={String(result.maxApr)}
       />
     );
   }

@@ -45,14 +45,14 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
-    identity?: string; // identity is nft id (lido matic nft)/ pubkey(solana)
+    identity?: string;
     amount?: string;
   };
   [EModalStakingRoutes.UniversalClaim]: IBaseRouteParams & {
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
-    identity?: string; // identity is nft id (lido matic nft)/ pubkey(solana)
+    identity?: string;
     amount?: string;
   };
   [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & {
@@ -67,6 +67,7 @@ export type IModalStakingParamList = {
   };
   [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
     symbol: string;
+    filter?: boolean;
   };
   [EModalStakingRoutes.PortfolioDetails]: IBaseRouteParams & {
     symbol: string;

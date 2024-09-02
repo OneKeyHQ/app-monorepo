@@ -483,13 +483,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         accountAddress: acc.address,
         networkId,
-        publicKey: [
-          getNetworkIdsMap().btc,
-          getNetworkIdsMap().sbtc,
-          getNetworkIdsMap().tbtc,
-        ].includes(networkId)
-          ? acc.pub
-          : undefined,
+        publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
     });
@@ -531,32 +525,37 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  _getProtocolList = memoizee(
+    async (params: { networkId?: string; symbol: string }) => {
+      const { symbol } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const protocolListResp = await client.get<{
+        data: { protocols: IStakeProtocolListItem[] };
+      }>('/earn/v1/stake-protocol/list', {
+        params: {
+          symbol: symbol.toUpperCase(),
+        },
+      });
+      const protocols = protocolListResp.data.data.protocols;
+      return protocols;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
   @backgroundMethod()
   async getProtocolList(params: {
-    networkId: string;
-    accountId: string;
-    indexedAccountId?: string;
+    networkId?: string;
     symbol: string;
+    filter?: boolean;
   }) {
-    const { networkId, accountId, indexedAccountId, symbol } = params;
-    const account = await this.getEarnAccount({
-      networkId,
-      accountId,
-      indexedAccountId,
-    });
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const protocolListResp = await client.get<{
-      data: { protocols: IStakeProtocolListItem[] };
-    }>('/earn/v1/stake-protocol/list', {
-      params: {
-        accountAddress: account?.accountAddress
-          ? account.accountAddress
-          : undefined,
-        symbol: symbol.toUpperCase(),
-      },
-    });
-    const protocols = protocolListResp.data.data.protocols;
-    return protocols;
+    let items = await this._getProtocolList(params);
+    if (params.filter && params.networkId) {
+      items = items.filter((o) => o.network.networkId === params.networkId);
+    }
+    return items;
   }
 
   @backgroundMethod()
@@ -577,13 +576,7 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountAddress: acc.address,
         symbol: symbol.toUpperCase(),
-        publicKey: [
-          getNetworkIdsMap().btc,
-          getNetworkIdsMap().sbtc,
-          getNetworkIdsMap().tbtc,
-        ].includes(networkId)
-          ? acc.pub
-          : undefined,
+        publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
     });

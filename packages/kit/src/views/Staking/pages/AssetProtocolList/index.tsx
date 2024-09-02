@@ -15,7 +15,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -80,20 +79,21 @@ const AssetProtocolListContent = ({
                 <SizableText size="$bodyLgMedium">
                   {item.provider.name}
                 </SizableText>
-                {Number.isNaN(Number(item.provider.apr)) ? undefined : (
+                {Number(item.provider.apr) > 0 ? (
                   <XStack alignItems="center">
                     <SizableText size="$bodyMdMedium" color="$textSuccess">
                       {` ${BigNumber(item.provider.apr).toFixed(2)}%`}
                     </SizableText>
                   </XStack>
-                )}
-              </YStack>
-              <YStack alignItems="flex-end" justifyContent="space-around">
-                <Badge>Native staking</Badge>
-                {item.isEarning ? (
-                  <Badge badgeType="success">Staking</Badge>
                 ) : null}
               </YStack>
+              {item.provider.labels && item.provider.labels.length > 0 ? (
+                <YStack alignItems="flex-end" justifyContent="space-around">
+                  {item.provider.labels.map((label) => (
+                    <Badge key={label}>{label}</Badge>
+                  ))}
+                </YStack>
+              ) : null}
             </XStack>
             <XStack h="$10" px="$4" ai="center" jc="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -121,16 +121,15 @@ const AssetProtocolList = () => {
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
-  const { networkId, accountId, indexedAccountId, symbol } = appRoute.params;
+  const { filter, symbol, networkId } = appRoute.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolList({
         networkId,
-        accountId,
-        indexedAccountId,
         symbol,
+        filter,
       }),
-    [networkId, accountId, indexedAccountId, symbol],
+    [filter, symbol, networkId],
     { watchLoading: true },
   );
 
