@@ -170,6 +170,7 @@ export type IStakeProtocolDetails = {
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;
+  earnHistoryEnable?: boolean;
 };
 
 export type IStakeProtocolListItem = {

@@ -127,7 +127,7 @@ const ProtocolDetailsPage = () => {
   );
 
   const onHistory = useMemo(() => {
-    if (!earnAccount?.accountId || networkUtils.isBTCNetwork(networkId)) {
+    if (!result?.earnHistoryEnable || !earnAccount?.accountId) {
       return undefined;
     }
     return () => {
@@ -138,7 +138,14 @@ const ProtocolDetailsPage = () => {
         provider,
       });
     };
-  }, [appNavigation, earnAccount?.accountId, networkId, symbol, provider]);
+  }, [
+    appNavigation,
+    earnAccount?.accountId,
+    networkId,
+    symbol,
+    provider,
+    result,
+  ]);
 
   const intl = useIntl();
   return (

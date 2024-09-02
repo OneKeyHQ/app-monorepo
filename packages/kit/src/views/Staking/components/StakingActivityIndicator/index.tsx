@@ -39,20 +39,22 @@ const StakingActivityIndicator = ({
   onPress,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
-  const headerRight = useCallback(
-    () =>
-      num > 0 ? (
-        <PendingIndicator num={num} onPress={onPress} />
-      ) : (
+  const headerRight = useCallback(() => {
+    if (num > 0) {
+      return <PendingIndicator num={num} onPress={onPress} />;
+    }
+    if (onPress) {
+      return (
         <IconButton
           variant="tertiary"
           size="medium"
           icon="ClockTimeHistoryOutline"
           onPress={onPress}
         />
-      ),
-    [num, onPress],
-  );
+      );
+    }
+    return null;
+  }, [num, onPress]);
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,

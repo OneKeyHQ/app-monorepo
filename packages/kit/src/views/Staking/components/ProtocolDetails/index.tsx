@@ -217,7 +217,7 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={pendingInactive}
-              statusText="Pending"
+              statusText="Withdrawal requested"
             />
           ) : null}
           {pendingActive && Number(pendingActive) ? (
