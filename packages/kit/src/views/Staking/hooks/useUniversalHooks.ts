@@ -175,7 +175,7 @@ export function useUniversalClaim({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const encodedTx =
+      const stakeTx =
         await backgroundApiProxy.serviceStaking.buildClaimTransaction({
           networkId,
           accountId,
@@ -184,6 +184,8 @@ export function useUniversalClaim({
           amount,
           identity,
         });
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,

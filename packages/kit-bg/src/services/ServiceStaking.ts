@@ -551,19 +551,23 @@ class ServiceStaking extends ServiceBase {
     provider: string;
   }) {
     const { networkId, accountId, symbol, ...rest } = params;
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: IClaimableListResponse;
     }>('/earn/v1/claimable/list', {
       params: {
         networkId,
-        accountAddress,
+        accountAddress: acc.address,
         symbol: symbol.toUpperCase(),
+        publicKey: [
+          getNetworkIdsMap().btc,
+          getNetworkIdsMap().sbtc,
+          getNetworkIdsMap().tbtc,
+        ].includes(networkId)
+          ? acc.pub
+          : undefined,
         ...rest,
       },
     });
