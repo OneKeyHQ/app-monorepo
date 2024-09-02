@@ -85,6 +85,12 @@ const stakingConfig: IStakingConfig = {
         supportedSymbols: ['ETH'],
         configs: { ETH: commonStakeConfigs.ETH },
       },
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ...lidoConfig,
+        },
+      },
     },
   },
 };
