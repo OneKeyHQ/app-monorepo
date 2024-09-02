@@ -256,7 +256,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
-  const clearUpdateCache = () => {
+  const clearUpdateCache = async () => {
     try {
       // @ts-ignore
       if (autoUpdater.downloadedUpdateHelper) {
@@ -345,7 +345,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
     }
-    clearUpdateCache();
+    await clearUpdateCache();
     updateCancellationToken = new CancellationToken();
     autoUpdater
       .downloadUpdate(updateCancellationToken)
@@ -412,8 +412,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
-  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR, () => {
-    clearUpdateCache();
+  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR, async () => {
+    await clearUpdateCache();
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
