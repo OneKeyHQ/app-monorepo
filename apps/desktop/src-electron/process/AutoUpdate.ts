@@ -265,7 +265,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
         logger.info('auto-updater', `cachePath: ${cachePath}`);
         const isExist = fs.existsSync(cachePath);
         if (isExist) {
-          fs.unlinkSync(cachePath);
+          fs.rmSync(cachePath, { recursive: true, force: true });
         }
         logger.info('auto-updater', `removed: ${cachePath}`);
       }
