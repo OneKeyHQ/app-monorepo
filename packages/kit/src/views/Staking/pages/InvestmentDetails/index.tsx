@@ -11,22 +11,22 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IInvestment } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
-  console.log('accounts', accounts);
+  const navigation = useAppNavigation();
 
   const { result: earnInvestmentItems } = usePromiseResult(
     () =>
@@ -45,23 +45,37 @@ function BasicInvestmentDetails() {
       initResult: [],
     },
   );
+  const accountInfo = useActiveAccount({ num: 0 });
 
   const sectionData = earnInvestmentItems.map((item) => ({
     title: item.name,
     logoURI: item.logoURI,
-    data: item.investment,
+    data: item.investment.map((i) => ({ ...i, providerName: item.name })),
   }));
   const renderItem = useCallback(
     ({
-      item: { tokenInfo, active, claimable, overflow },
+      item: { tokenInfo, active, claimable, overflow, providerName },
     }: {
-      item: IInvestment;
+      item: IInvestment & { providerName: string };
     }) => (
       <ListItem
         drillIn
         mx={0}
         px="$5"
-        onPress={() => {}}
+        onPress={() => {
+          const {
+            activeAccount: { account, indexedAccount },
+          } = accountInfo;
+          if (account && tokenInfo) {
+            navigation.push(EModalStakingRoutes.ProtocolDetails, {
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
+              networkId: tokenInfo.networkId,
+              symbol: tokenInfo.symbol.toUpperCase(),
+              provider: providerName,
+            });
+          }
+        }}
         avatarProps={{
           src: tokenInfo.logoURI,
         }}
@@ -139,8 +153,16 @@ function BasicInvestmentDetails() {
 
 export default function InvestmentDetails() {
   return (
-    <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-      <BasicInvestmentDetails />
-    </EarnProviderMirror>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicInvestmentDetails />
+      </EarnProviderMirror>
+    </AccountSelectorProviderMirror>
   );
 }
