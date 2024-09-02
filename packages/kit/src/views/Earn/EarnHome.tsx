@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -18,6 +19,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -149,11 +151,14 @@ function Recommended() {
       profit: totalProfit,
     };
   }, [accounts]);
+  const intl = useIntl();
   if (tokens.length) {
     return (
       <YStack userSelect="none" px="$5">
         <YStack gap="$1" mt="$2">
-          <SizableText size="$headingLg">Recommended</SizableText>
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.earn_recommended })}
+          </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             {'Missing rewards: '}
             <NumberSizeableText
@@ -221,6 +226,7 @@ function Overview() {
       screen: EModalStakingRoutes.InvestmentDetails,
     });
   }, [navigation]);
+  const intl = useIntl();
   return (
     <YStack
       gap="$1"
@@ -231,10 +237,12 @@ function Overview() {
       onPress={onPress}
     >
       <XStack justifyContent="space-between">
-        <SizableText size="$bodyLg">Total staked value</SizableText>
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
+        </SizableText>
         <XStack>
           <SizableText color="$textSubdued" size="$bodyLgMedium">
-            Details
+            {intl.formatMessage({ id: ETranslations.global_details })}
           </SizableText>
           <Icon name="ChevronRightSmallSolid" color="$textSubdued" />
         </XStack>
@@ -259,7 +267,7 @@ function Overview() {
           {earnings24h.toFixed()}
         </NumberSizeableText>
         <SizableText size="$bodyLg" color="$textSubdued">
-          24h earnings
+          {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
         </SizableText>
       </XStack>
     </YStack>
@@ -272,12 +280,13 @@ function AvailableAssets() {
   } = useActiveAccount({ num: 0 });
   const [{ availableAssets: assets = [] }] = useEarnAtom();
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   if (assets.length) {
     return (
       <YStack gap="$2" userSelect="none">
         <SizableText px="$5" size="$headingLg">
-          Available assets
+          {intl.formatMessage({ id: ETranslations.earn_available_assets })}
         </SizableText>
         {assets.map(({ name, logoURI, apr, networkId, symbol, tags = [] }) => (
           <ListItem
