@@ -24,6 +24,7 @@ type IUniversalStakeProps = {
   price: string;
   balance: string;
   minAmount?: string;
+  maxAmount?: string;
 
   tokenImageUri: string;
   tokenSymbol: string;
@@ -42,6 +43,7 @@ export const UniversalStake = ({
   price,
   balance,
   apr,
+  maxAmount,
   minAmount = '0',
   minTransactionFee = '0',
   tokenImageUri,
@@ -110,6 +112,13 @@ export const UniversalStake = ({
     return false;
   }, [minAmount, amountValue]);
 
+  const isGreaterThanMaxAmount = useMemo(() => {
+    if (maxAmount && Number(maxAmount) > 0 && Number(amountValue) > 0) {
+      return new BigNumber(amountValue).isGreaterThan(maxAmount);
+    }
+    return false;
+  }, [maxAmount, amountValue]);
+
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
     return (
@@ -167,7 +176,7 @@ export const UniversalStake = ({
               type="critical"
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${tokenSymbol}` },
+                { number: minAmount, symbol: tokenSymbol },
               )}
             />
           ) : null}
@@ -178,6 +187,18 @@ export const UniversalStake = ({
               title={intl.formatMessage({
                 id: ETranslations.earn_insufficient_balance,
               })}
+            />
+          ) : null}
+          {isGreaterThanMaxAmount ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={intl.formatMessage(
+                {
+                  id: ETranslations.earn_maximum_staking_alert,
+                },
+                { number: maxAmount ?? '', symbol: tokenSymbol },
+              )}
             />
           ) : null}
         </YStack>

@@ -46,16 +46,18 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
     subtitle={provider}
   >
     <YStack>
-      <NumberSizeableText
-        size="$bodyLgMedium"
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: token?.symbol,
-          showPlusMinusSigns: true,
-        }}
-      >
-        {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
-      </NumberSizeableText>
+      {Number(item.amount) > 0 ? (
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: token?.symbol,
+            showPlusMinusSigns: true,
+          }}
+        >
+          {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+        </NumberSizeableText>
+      ) : null}
     </YStack>
   </ListItem>
 );
