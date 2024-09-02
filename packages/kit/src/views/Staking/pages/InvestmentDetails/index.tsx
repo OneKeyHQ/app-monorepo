@@ -32,10 +32,12 @@ function BasicInvestmentDetails() {
     () =>
       accounts
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            accounts?.map(({ networkId, accountAddress }) => ({
-              networkId,
-              accountAddress,
-            })),
+            accounts
+              ?.map(({ networkId, accountAddress }) => ({
+                networkId,
+                accountAddress,
+              }))
+              .filter((c) => !c.networkId.includes('btc')),
           )
         : Promise.resolve([]),
     [accounts],
@@ -50,14 +52,18 @@ function BasicInvestmentDetails() {
     data: item.investment,
   }));
   const renderItem = useCallback(
-    ({ item }: { item: IInvestment }) => (
+    ({
+      item: { tokenInfo, active, claimable, overflow },
+    }: {
+      item: IInvestment;
+    }) => (
       <ListItem
         drillIn
         mx={0}
         px="$5"
         onPress={() => {}}
         avatarProps={{
-          src: 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+          src: tokenInfo.logoURI,
         }}
         renderItemText={
           <XStack justifyContent="space-between" flex={1}>
@@ -103,7 +109,7 @@ function BasicInvestmentDetails() {
           sections={sectionData}
           py="$3"
           renderSectionHeader={({ section: { title, logoURI }, index }) => (
-            <XStack px="$5" gap="$1.5" pt={index !== 0 ? '$8' : undefined}>
+            <XStack px="$5" gap="$1.5" height={44} alignItems="center">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
                   source={{
