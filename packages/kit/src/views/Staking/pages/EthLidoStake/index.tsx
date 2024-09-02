@@ -50,15 +50,12 @@ const EthLidoStake = () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token,
-            amount: value,
             stakingProtocol: 'lido',
-            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [lidoStake, appNavigation, token, stToken, price],
+    [lidoStake, appNavigation, token, stToken],
   );
   const intl = useIntl();
   return (

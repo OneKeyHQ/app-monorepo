@@ -54,15 +54,12 @@ const MaticLidoStake = () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token,
-            amount: value,
             stakingProtocol: 'lido',
-            tokenValue: BigNumber(value).multipliedBy(price).toFixed(),
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [lidoStake, token, appNavigation, rate, stToken, price],
+    [lidoStake, token, appNavigation, rate, stToken],
   );
   const intl = useIntl();
   return (

@@ -8,24 +8,15 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public staking({
     token,
-    amount,
     stakingProtocol,
-    txnHash,
-    tokenValue,
   }: {
     token: IToken;
-    amount: string;
     stakingProtocol: string;
-    txnHash: string;
-    tokenValue: string;
   }) {
     return {
       tokenSymbol: token.symbol,
       tokenAddress: token.address,
-      tokenAmount: amount,
       stakingProtocol,
-      txnHash,
-      tokenValue,
     };
   }
 
@@ -33,24 +24,15 @@ export class PageScene extends BaseScene {
   @LogToLocal()
   public unstaking({
     token,
-    amount,
     stakingProtocol,
-    txnHash,
-    tokenValue,
   }: {
     token: IToken;
-    amount: string;
     stakingProtocol: string;
-    txnHash: string;
-    tokenValue: string;
   }) {
     return {
       tokenSymbol: token.symbol,
       tokenAddress: token.address,
-      tokenAmount: amount,
       stakingProtocol,
-      txnHash,
-      tokenValue,
     };
   }
 }

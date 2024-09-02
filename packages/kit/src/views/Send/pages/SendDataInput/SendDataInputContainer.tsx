@@ -472,8 +472,6 @@ function SendDataInputContainer() {
             tokenAddress: isNFT
               ? `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`
               : tokenInfo?.address,
-            tokenAmount: realAmount,
-            tokenValue: linkedAmount.originalAmount,
           });
 
           await sendConfirm.navigationToSendConfirm({
