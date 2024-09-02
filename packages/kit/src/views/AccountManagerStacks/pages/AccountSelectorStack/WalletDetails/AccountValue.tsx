@@ -28,6 +28,7 @@ function AccountValue(accountValue: {
 
   return (
     <Spotlight
+      containerProps={{ flexShrink: 1 }}
       isVisible={accountValue?.showSpotlight}
       message={intl.formatMessage({
         id: ETranslations.spotlight_enable_account_asset_message,
