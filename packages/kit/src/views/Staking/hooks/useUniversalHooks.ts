@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
@@ -8,7 +7,10 @@ import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeTxResponse,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 
 export function useUniversalStake({
   networkId,
@@ -89,7 +91,7 @@ export function useUniversalWithdraw({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      let encodedTx: IEncodedTx | undefined;
+      let stakeTx: IStakeTxResponse | undefined;
       if (symbol.toLowerCase() === 'eth' && provider.toLowerCase() === 'lido') {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
@@ -117,7 +119,7 @@ export function useUniversalWithdraw({
             sceneName: EAccountSelectorSceneName.home,
           })) as string;
 
-        encodedTx =
+        stakeTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
             amount,
             networkId,
@@ -128,7 +130,7 @@ export function useUniversalWithdraw({
             deadline,
           });
       } else {
-        encodedTx =
+        stakeTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
             amount,
             identity,
@@ -138,10 +140,34 @@ export function useUniversalWithdraw({
             provider,
           });
       }
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
+      const isBabylon =
+        networkUtils.isBTCNetwork(networkId) &&
+        provider.toLowerCase() === 'babylon';
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
-        onSuccess,
+        signOnly: isBabylon,
+        onSuccess: async (data) => {
+          if (!isBabylon) {
+            onSuccess?.(data);
+          } else {
+            const psbtHex = data[0].signedTx.psbtHex;
+            if (psbtHex && identity) {
+              await backgroundApiProxy.serviceStaking.unstakePush({
+                txId: identity,
+                networkId,
+                accountId,
+                symbol,
+                provider,
+                unstakeTxHex: psbtHex,
+              });
+              onSuccess?.(data);
+            }
+            console.log('data', data);
+          }
+        },
         onFail,
       });
     },

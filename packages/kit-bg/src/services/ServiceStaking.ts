@@ -1,5 +1,4 @@
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -37,6 +36,7 @@ import type {
   IStakeProtocolListItem,
   IStakeTag,
   IStakeTxResponse,
+  IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
@@ -405,12 +405,28 @@ class ServiceStaking extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const acc = await vault.getAccount();
     const resp = await client.post<{
-      data: IEncodedTx;
+      data: IStakeTxResponse;
     }>(`/earn/v1/unstake`, {
       accountAddress: acc.address,
       networkId,
       publicKey:
         networkId === getNetworkIdsMap().cosmoshub ? acc.pub : undefined,
+      ...rest,
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async unstakePush(params: IUnstakePushParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v1/unstake/push`, {
+      accountAddress: acc.address,
+      networkId,
       ...rest,
     });
     return resp.data.data;
@@ -427,7 +443,7 @@ class ServiceStaking extends ServiceBase {
       });
 
     const resp = await client.post<{
-      data: IEncodedTx;
+      data: IStakeTxResponse;
     }>(`/earn/v1/claim`, { accountAddress, networkId, ...rest });
     return resp.data.data;
   }

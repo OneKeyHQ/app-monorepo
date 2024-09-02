@@ -118,6 +118,15 @@ export type IWithdrawBaseParams = {
   deadline?: number; // lido unstake
 };
 
+export type IUnstakePushParams = {
+  accountId: string;
+  networkId: string;
+  symbol: string;
+  provider: string;
+  txId: string;
+  unstakeTxHex: string;
+};
+
 export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
