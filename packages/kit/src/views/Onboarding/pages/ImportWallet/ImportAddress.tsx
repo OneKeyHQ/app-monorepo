@@ -200,7 +200,6 @@ function ImportAddress() {
           );
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
-        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -210,7 +209,6 @@ function ImportAddress() {
       setValidateResult(undefined);
     }
   }, [
-    clearText,
     inputTextDebounced,
     networkIdText,
     setValue,
@@ -303,6 +301,7 @@ function ImportAddress() {
                   })}
                   testID="import-address-input"
                   size={media.gtMd ? 'medium' : 'large'}
+                  onPaste={clearText}
                   addOns={[
                     {
                       iconName: 'ScanOutline',

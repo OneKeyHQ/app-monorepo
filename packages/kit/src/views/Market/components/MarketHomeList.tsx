@@ -671,7 +671,7 @@ function BasicMarketHomeList({
             gtLg
               ? {
                   title: intl.formatMessage({
-                    id: ETranslations.market_seven_day_percentage,
+                    id: ETranslations.market_24h_vol_usd,
                   }),
                   align: 'right',
                   columnProps: {
