@@ -40,6 +40,7 @@ export type IStakeProviderInfo = {
   apr: string;
   poolFee: string;
   totalStaked: string;
+  totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
   isNative: string;

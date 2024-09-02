@@ -19,6 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -29,6 +30,19 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+
+function formatNumber(num: number): string {
+  if (num >= 1_000_000_000) {
+    return `${(num / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  }
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  }
+  return num.toFixed(2);
+}
 
 const AssetProtocolListContent = ({
   items,
@@ -53,6 +67,11 @@ const AssetProtocolListContent = ({
     },
     [appNavigation, accountId, indexedAccountId, symbol],
   );
+  const [
+    {
+      currencyInfo: { symbol: currencySymbol },
+    },
+  ] = useSettingsPersistAtom();
   return (
     <ListView
       estimatedItemSize={60}
@@ -99,9 +118,21 @@ const AssetProtocolListContent = ({
               <SizableText size="$bodyMd" color="$textSubdued">
                 Provider staked
               </SizableText>
-              <NumberSizeableText formatter="balance">
-                {item.provider.totalStaked}
-              </NumberSizeableText>
+              <XStack alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {`${formatNumber(
+                    Number(item.provider.totalStaked),
+                  )} ${symbol}`}
+                </SizableText>
+                <XStack w="$1.5" h="$0.5" />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  (
+                  {`${currencySymbol} ${formatNumber(
+                    Number(item.provider.totalFiatValue),
+                  )}`}
+                  )
+                </SizableText>
+              </XStack>
             </XStack>
           </YStack>
         </YStack>
