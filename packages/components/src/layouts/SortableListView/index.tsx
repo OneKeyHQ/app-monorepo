@@ -105,7 +105,7 @@ function DragCellRendererComponent<T>({
                   acc[reloadKey] = dragHandleProps[key];
                   return acc;
                 }, {} as Record<string, any>),
-                getIndex: () => 0,
+                getIndex: () => index,
                 isActive: false,
               })}
             </div>
