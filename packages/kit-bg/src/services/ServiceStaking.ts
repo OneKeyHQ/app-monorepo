@@ -373,7 +373,7 @@ class ServiceStaking extends ServiceBase {
     const { networkId, accountId, provider, symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const acc = await vault.getAccount();
+    const account = await vault.getAccount();
     const stakingConfig = await this.getStakingConfigs({
       networkId,
       symbol,
@@ -385,8 +385,8 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v1/stake`, {
-      accountAddress: acc.address,
-      publicKey: stakingConfig.usePublicKey ? acc.pub : undefined,
+      accountAddress: account.address,
+      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       // TODO: use real data
       term: 150,
       feeRate: 1,
@@ -403,14 +403,21 @@ class ServiceStaking extends ServiceBase {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const acc = await vault.getAccount();
+    const account = await vault.getAccount();
+    const stakingConfig = await this.getStakingConfigs({
+      networkId,
+      symbol: params.symbol,
+      provider: params.provider,
+    });
+    if (!stakingConfig) {
+      throw new Error('Staking config not found');
+    }
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v1/unstake`, {
-      accountAddress: acc.address,
+      accountAddress: account.address,
       networkId,
-      publicKey:
-        networkId === getNetworkIdsMap().cosmoshub ? acc.pub : undefined,
+      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       ...rest,
     });
     return resp.data.data;

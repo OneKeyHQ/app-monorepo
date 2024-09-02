@@ -266,13 +266,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signedPsbt = response.psbt;
 
     let rawTx = '';
+    const finalizedPsbt = BitcoinJS.Psbt.fromHex(psbt.toHex(), {
+      network: btcNetwork,
+    });
+    inputsToSign.forEach((v) => {
+      finalizedPsbt.finalizeInput(v.index);
+    });
     if (!signOnly) {
-      const finalizedPsbt = BitcoinJS.Psbt.fromHex(psbt.toHex(), {
-        network: btcNetwork,
-      });
-      inputsToSign.forEach((v) => {
-        finalizedPsbt.finalizeInput(v.index);
-      });
       rawTx = finalizedPsbt.extractTransaction().toHex();
     }
 
@@ -281,6 +281,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       txid: '',
       rawTx,
       psbtHex: signedPsbt,
+      finalizedPsbtHex: finalizedPsbt.toHex(),
     };
   }
 

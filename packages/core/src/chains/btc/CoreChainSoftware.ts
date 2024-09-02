@@ -636,11 +636,11 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     }
 
     let rawTx = '';
+    const finalizedPsbt = Psbt.fromHex(psbt.toHex(), { network });
+    inputsToSign.forEach((v) => {
+      finalizedPsbt.finalizeInput(v.index);
+    });
     if (!signOnly) {
-      const finalizedPsbt = Psbt.fromHex(psbt.toHex(), { network });
-      inputsToSign.forEach((v) => {
-        finalizedPsbt.finalizeInput(v.index);
-      });
       rawTx = finalizedPsbt.extractTransaction().toHex();
     }
 
@@ -649,6 +649,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       txid: '',
       rawTx,
       psbtHex: psbt.toHex(),
+      finalizedPsbtHex: finalizedPsbt.toHex(),
     };
   }
 

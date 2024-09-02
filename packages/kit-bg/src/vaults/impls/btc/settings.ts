@@ -139,6 +139,7 @@ const settings: IVaultSettings = {
               withdrawWithTx: true,
               claimWithTx: true,
               usePublicKey: true,
+              withdrawSignOnly: true,
             },
           },
         },
