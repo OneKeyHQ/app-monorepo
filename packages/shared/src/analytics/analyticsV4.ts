@@ -2,7 +2,7 @@ import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/Interceptor';
 
 import { getDeviceInfo } from './deviceInfo';
-import firebaseConfig from './firebase.web.json';
+import { firebaseConfig } from './firebaseConfig';
 
 const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';
 
@@ -39,7 +39,14 @@ async function collectData(
   params?: Record<string, unknown>,
 ) {
   return fetch(
-    `${GA_ENDPOINT}?measurement_id=${firebaseConfig.measurementId}&api_secret=${firebaseConfig.apiKey}`,
+    `${GA_ENDPOINT}?measurement_id=${firebaseConfig.measurementId}&api_secret=${
+      (
+        firebaseConfig as {
+          measurementId: string;
+          apiSecret: string;
+        }
+      ).apiSecret
+    }`,
     {
       method: 'POST',
       body: JSON.stringify({
