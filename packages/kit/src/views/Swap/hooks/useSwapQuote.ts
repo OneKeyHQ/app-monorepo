@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
@@ -142,8 +143,16 @@ export function useSwapQuote() {
     if (!isFocusRef.current) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      (fromToken?.networkId === toToken?.networkId &&
-        fromToken?.contractAddress === toToken?.contractAddress)
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      })
     ) {
       return;
     }
@@ -151,14 +160,20 @@ export function useSwapQuote() {
     if (
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount === fromAmountDebounce &&
-      swapQuoteActionLockRef.current?.fromToken?.networkId ===
-        fromToken?.networkId &&
-      swapQuoteActionLockRef.current?.fromToken?.contractAddress ===
-        fromToken?.contractAddress &&
-      swapQuoteActionLockRef.current?.toToken?.networkId ===
-        toToken?.networkId &&
-      swapQuoteActionLockRef.current?.toToken?.contractAddress ===
-        toToken?.contractAddress &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.fromToken,
+        token2: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.toToken,
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      }) &&
       swapQuoteActionLockRef.current.accountId ===
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address
@@ -178,7 +193,8 @@ export function useSwapQuote() {
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
-    fromToken,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
     alignmentDecimal,
@@ -190,8 +206,16 @@ export function useSwapQuote() {
     if (isFocusRef.current) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      (fromToken?.networkId === toToken?.networkId &&
-        fromToken?.contractAddress === toToken?.contractAddress)
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      })
     ) {
       return;
     }

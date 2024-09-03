@@ -1,0 +1,201 @@
+import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
+import {
+  Badge,
+  Button,
+  Empty,
+  Icon,
+  ListView,
+  NumberSizeableText,
+  Page,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalStakingRoutes,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IPortfolioItem } from '@onekeyhq/shared/types/staking';
+
+import {
+  PageFrame,
+  SimpleSpinnerSkeleton,
+  isErrorState,
+  isLoadingState,
+} from '../../components/PageFrame';
+import { capitalizeString } from '../../utils/utils';
+
+type IPortfolioItemProps = {
+  item: IPortfolioItem;
+  network?: IServerNetwork;
+};
+
+const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.ProtocolDetails
+  >();
+  const { networkId } = route.params;
+  const onPress = useCallback(async () => {
+    await openTransactionDetailsUrl({ networkId, txid: item.txId });
+  }, [item, networkId]);
+  const day = Math.floor(
+    Math.max(1, (item.endTime ?? 0) - (item.startTime ?? 0)) /
+      (1000 * 60 * 60 * 24),
+  );
+  const startDate = formatDate(new Date(Number(item.startTime)), {
+    hideTimeForever: true,
+  });
+  const endDate = formatDate(new Date(Number(item.endTime)), {
+    hideTimeForever: true,
+  });
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
+
+  const statusBadgeType: Record<
+    string,
+    ComponentProps<typeof Badge>['badgeType']
+  > = {
+    'active': 'success',
+    'withdrawn': 'warning',
+  };
+  const intl = useIntl();
+  return (
+    <Stack px={20}>
+      <Stack
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+      >
+        <XStack px={14} pt={14} justifyContent="space-between">
+          <Badge badgeType={statusBadgeType[item.status] ?? 'default'}>
+            {capitalizeString(item.status)}
+          </Badge>
+          <Button
+            onPress={onPress}
+            size="small"
+            variant="tertiary"
+            iconAfter="OpenOutline"
+          >
+            {accountUtils.shortenAddress({ address: item.txId })}
+          </Button>
+        </XStack>
+        <XStack p={14} alignItems="center">
+          <Stack pr={12}>
+            <Token tokenImageUri={network?.logoURI} />
+          </Stack>
+          <Stack>
+            <SizableText size="$headingLg">
+              {item.amount} {network?.symbol ?? ''}
+            </SizableText>
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: symbol }}
+            >
+              {item.fiatValue}
+            </NumberSizeableText>
+          </Stack>
+        </XStack>
+        <XStack p={14} bg="$bgSubdued" alignItems="center">
+          <Icon name="Calendar2Outline" />
+          <XStack w="$1.5" />
+          <SizableText size="$bodyMd">
+            {`${intl.formatMessage(
+              { id: ETranslations.earn_number_day },
+              { number: day },
+            )} • ${startDate} - ${endDate}`}
+          </SizableText>
+        </XStack>
+      </Stack>
+    </Stack>
+  );
+};
+
+const ItemSeparatorComponent = () => <Stack h="$4" />;
+
+const PortfolioDetails = () => {
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.ProtocolDetails
+  >();
+  const { accountId, networkId, symbol, provider } = route.params;
+  const { result, isLoading, run } = usePromiseResult(
+    () =>
+      Promise.all([
+        backgroundApiProxy.serviceStaking.getPortfolioList({
+          accountId,
+          networkId,
+          symbol,
+          provider,
+        }),
+        backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
+      ]),
+    [accountId, networkId, symbol, provider],
+    { watchLoading: true },
+  );
+  const renderItem = useCallback(
+    ({ item }: { item: IPortfolioItem }) => (
+      <PortfolioItem item={item} network={result?.[1]} />
+    ),
+    [result],
+  );
+  const intl = useIntl();
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.earn_portfolio_details })}
+      />
+      <Page.Body>
+        <PageFrame
+          LoadingSkeleton={SimpleSpinnerSkeleton}
+          error={isErrorState({ result, isLoading })}
+          loading={isLoadingState({ result, isLoading })}
+          onRefresh={run}
+        >
+          {result ? (
+            <ListView
+              estimatedItemSize={60}
+              data={result[0]}
+              renderItem={renderItem}
+              ListFooterComponent={<Stack h="$2" />}
+              ItemSeparatorComponent={ItemSeparatorComponent}
+              ListEmptyComponent={
+                <Empty
+                  icon="ClockTimeHistoryOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_transactions_yet,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.global_no_transactions_yet_desc,
+                  })}
+                />
+              }
+            />
+          ) : null}
+        </PageFrame>
+      </Page.Body>
+    </Page>
+  );
+};
+
+export default PortfolioDetails;
