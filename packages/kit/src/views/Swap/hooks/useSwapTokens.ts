@@ -27,7 +27,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapAllNetworkTokenListAtom,
+  useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
   useSwapProviderSortAtom,
   useSwapSelectFromTokenAtom,
@@ -252,7 +252,7 @@ export function useSwapTokenList(
     (ISwapToken | IFuseResult<ISwapToken>)[]
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
-  const [swapAllNetworkTokenList] = useSwapAllNetworkTokenListAtom();
+  const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapNetworks] = useSwapNetworksAtom();
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
@@ -272,6 +272,20 @@ export function useSwapTokenList(
       swapAddressInfo?.address,
       swapAddressInfo?.networkId,
       swapAddressInfo?.accountInfo?.account,
+    ],
+  );
+
+  const swapAllNetworkTokenList = useMemo(
+    () =>
+      swapAllNetworkTokenListMap[
+        swapAddressInfo?.accountInfo?.indexedAccount?.id ??
+          swapAddressInfo?.accountInfo?.account?.id ??
+          ''
+      ],
+    [
+      swapAllNetworkTokenListMap,
+      swapAddressInfo?.accountInfo?.indexedAccount?.id,
+      swapAddressInfo?.accountInfo?.account?.id,
     ],
   );
 
