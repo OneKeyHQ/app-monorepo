@@ -35,6 +35,7 @@ type IUniversalWithdrawProps = {
   tokenImageUri?: string;
   tokenSymbol?: string;
   minAmount?: string;
+  unstakingPeriod?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -47,6 +48,7 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
+  unstakingPeriod,
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
@@ -207,6 +209,25 @@ export const UniversalWithdraw = ({
             <XStack gap="$2" alignItems="center">
               <Token size="xs" tokenImageUri={providerLogo} />
               <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+            </XStack>
+          </ListItem>
+        ) : null}
+        {unstakingPeriod ? (
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_unstaking_period,
+            })}
+            titleProps={fieldTitleProps}
+          >
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.earn_up_to_number_days,
+                  },
+                  { 'number': unstakingPeriod },
+                )}
+              </SizableText>
             </XStack>
           </ListItem>
         ) : null}
