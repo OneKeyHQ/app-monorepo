@@ -7,6 +7,7 @@ import {
   Page,
   SectionList,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +25,7 @@ import type { IInvestment } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
+const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
   const navigation = useAppNavigation();
@@ -87,16 +89,28 @@ function BasicInvestmentDetails() {
                 $333.13
               </SizableText>
             </YStack>
-            <XStack>
-              <Badge
-                badgeType="critical"
-                badgeSize="sm"
-                userSelect="none"
-                my="auto"
-              >
-                <Badge.Text>Hot</Badge.Text>
-              </Badge>
-            </XStack>
+            <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
+              {isTrue(claimable) ? (
+                <Badge
+                  badgeType="info"
+                  badgeSize="sm"
+                  userSelect="none"
+                  my="auto"
+                >
+                  <Badge.Text>Claimable</Badge.Text>
+                </Badge>
+              ) : null}
+              {isTrue(overflow) ? (
+                <Badge
+                  badgeType="critical"
+                  badgeSize="sm"
+                  userSelect="none"
+                  my="auto"
+                >
+                  <Badge.Text>Overflow</Badge.Text>
+                </Badge>
+              ) : null}
+            </Stack>
           </XStack>
         }
       />
