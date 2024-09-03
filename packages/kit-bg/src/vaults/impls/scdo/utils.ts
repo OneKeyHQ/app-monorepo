@@ -55,14 +55,17 @@ export function serializeSignedTransaction(
   ).toString('base64');
 }
 
-export function publicKeyToAddress(publicKey: string) {
+export function publicKeyToAddress(publicKey: Buffer) {
+  let publicKeyBytes = Buffer.alloc(0);
+  if (publicKey.length === 33) {
+    publicKeyBytes = secp256k1.transformPublicKey(publicKey).subarray(1);
+  } else if (publicKey.length === 65) {
+    publicKeyBytes = publicKey.subarray(1);
+  } else {
+    throw new Error('Invalid public key');
+  }
   const shard = 1;
-  const publicKeyBytes = Buffer.from(hexUtils.stripHexPrefix(publicKey), 'hex');
-  const publicKeyBytesCompressed =
-    publicKeyBytes.length === 33
-      ? publicKeyBytes
-      : secp256k1.transformPublicKey(publicKeyBytes);
-  const pubkey = RLP.encode(publicKeyBytesCompressed);
+  const pubkey = RLP.encode(publicKeyBytes);
   const pubkeyHash = bufferUtils.hexToBytes(
     hexUtils.stripHexPrefix(keccak256(pubkey)),
   );

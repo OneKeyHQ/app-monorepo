@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -41,8 +42,6 @@ import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-
-import type { ScrollView as RNScrollView } from 'react-native';
 
 const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
@@ -94,14 +93,17 @@ function DesktopCustomTabBar() {
     };
   }, [tabs]);
 
-  // scroll to top when new tab is added
-  const scrollViewRef = useRef<RNScrollView>(null);
+  const scrollViewRef = useRef<ISortableSectionListRef<any>>(null);
   const previousTabsLength = usePrevious(tabs?.length);
   useEffect(() => {
     if (previousTabsLength && tabs?.length > previousTabsLength) {
-      scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      scrollViewRef.current?.scrollToLocation({
+        sectionIndex: 0,
+        itemIndex: result?.pinnedTabs?.length ?? 0,
+        animated: true,
+      });
     }
-  }, [previousTabsLength, tabs?.length]);
+  }, [previousTabsLength, tabs?.length, result?.pinnedTabs]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -296,6 +298,7 @@ function DesktopCustomTabBar() {
     <Stack testID="sideabr-browser-section" flex={1}>
       <HandleRebuildBrowserData />
       <SortableSectionList
+        ref={scrollViewRef}
         sections={sections}
         renderItem={({
           item: t,
