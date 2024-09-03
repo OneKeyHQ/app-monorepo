@@ -165,6 +165,7 @@ function ApproveEditor(props: IProps) {
           />
         </Form.Field>
         <Form.Field
+          horizontal
           label={intl.formatMessage({
             id: ETranslations.approve_edit_unlimited_amount,
           })}
