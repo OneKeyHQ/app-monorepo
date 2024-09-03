@@ -7,5 +7,4 @@ export enum ETranslationsMock {
   // ----------------------------------------------
   unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
   testnet = 'Testnet',
-  global_earn = 'Earn',
 }
