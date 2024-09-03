@@ -53,14 +53,20 @@
       </intent-filter>
     </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
-      <provider
-          android:name="so.onekey.app.wallet.OnekeyFileProvider"
-          android:authorities="${applicationId}.onekeyfile"
-          android:exported="false"
-          android:grantUriPermissions="true">
-          <meta-data
-              android:name="android.support.FILE_PROVIDER_PATHS"
-              android:resource="@xml/provider_paths"/>
-      </provider>
-      </application>
+    <provider
+        android:name="so.onekey.app.wallet.OnekeyFileProvider"
+        android:authorities="${applicationId}.onekeyfile"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/provider_paths"/>
+    </provider>
+    <meta-data
+      android:name="JPUSH_CHANNEL"
+      android:value="${JPUSH_CHANNEL}" />
+    <meta-data
+      android:name="JPUSH_APPKEY"
+      android:value="${JPUSH_APPKEY}" />
+  </application>
 </manifest>

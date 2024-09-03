@@ -11,6 +11,7 @@ import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -347,10 +348,17 @@ export function useSwapTokenList(
         const filterRecommendTokenList =
           swapAllNetRecommend?.filter(
             (token) =>
-              !haveBalanceTokenList?.find(
-                (balanceToken) =>
-                  balanceToken?.contractAddress === token?.contractAddress &&
-                  balanceToken?.networkId === token?.networkId,
+              !haveBalanceTokenList?.find((balanceToken) =>
+                equalTokenNoCaseSensitive({
+                  token1: {
+                    networkId: balanceToken?.networkId,
+                    contractAddress: balanceToken?.contractAddress,
+                  },
+                  token2: {
+                    networkId: token?.networkId,
+                    contractAddress: token?.contractAddress,
+                  },
+                }),
               ),
           ) ?? [];
         const allNetTokens = [
