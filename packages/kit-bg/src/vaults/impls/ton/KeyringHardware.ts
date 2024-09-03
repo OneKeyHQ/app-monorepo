@@ -146,6 +146,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       if (decodedPayload.comment) {
         hwParams.comment = decodedPayload.comment;
         hwParams.isRawData = false;
+      } else {
+        hwParams.comment = Buffer.from(msg.payload, 'base64').toString('hex');
+        hwParams.isRawData = true;
       }
     }
     if (encodedTx.messages.length > 1) {
