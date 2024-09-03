@@ -1,0 +1,12 @@
+diff --git a/node_modules/@react-native-community/slider/common/cpp/react/renderer/components/RNCSlider/RNCSliderShadowNode.h b/node_modules/@react-native-community/slider/common/cpp/react/renderer/components/RNCSlider/RNCSliderShadowNode.h
+index 85b2ff9..b30099f 100644
+--- a/node_modules/@react-native-community/slider/common/cpp/react/renderer/components/RNCSlider/RNCSliderShadowNode.h
++++ b/node_modules/@react-native-community/slider/common/cpp/react/renderer/components/RNCSlider/RNCSliderShadowNode.h
+@@ -1,7 +1,6 @@
+ #pragma once
+ 
+ #include <jsi/jsi.h>
+-#include <react/renderer/components/rncore/EventEmitters.h>
+ #include <react/renderer/components/RNCSlider/RNCSliderState.h>
+ #include <react/renderer/components/RNCSlider/Props.h>
+ #include <react/renderer/components/RNCSlider/EventEmitters.h>

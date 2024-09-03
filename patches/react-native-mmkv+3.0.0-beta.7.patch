@@ -1,0 +1,42 @@
+diff --git a/node_modules/react-native-mmkv/cpp/MmkvHostObject.cpp b/node_modules/react-native-mmkv/cpp/MmkvHostObject.cpp
+index 38ee310..2bd84ea 100644
+--- a/node_modules/react-native-mmkv/cpp/MmkvHostObject.cpp
++++ b/node_modules/react-native-mmkv/cpp/MmkvHostObject.cpp
+@@ -1,4 +1,4 @@
+-//
++
+ //  MmkvHostObject.cpp
+ //  Mmkv
+ //
+@@ -69,11 +69,11 @@ MMKVMode MmkvHostObject::getMMKVMode(const facebook::react::MMKVConfig& config)
+   if (!config.mode.has_value()) {
+     return MMKVMode::MMKV_SINGLE_PROCESS;
+   }
+-  react::MmkvCxxMode mode = config.mode.value();
++  react::NativeMmkvMode mode = config.mode.value();
+   switch (mode) {
+-    case react::MmkvCxxMode::SINGLE_PROCESS:
++    case react::NativeMmkvMode::SINGLE_PROCESS:
+       return MMKVMode::MMKV_SINGLE_PROCESS;
+-    case react::MmkvCxxMode::MULTI_PROCESS:
++    case react::NativeMmkvMode::MULTI_PROCESS:
+       return MMKVMode::MMKV_MULTI_PROCESS;
+     default:
+       [[unlikely]] throw std::runtime_error("Invalid MMKV Mode value!");
+diff --git a/node_modules/react-native-mmkv/cpp/NativeMmkvModule.h b/node_modules/react-native-mmkv/cpp/NativeMmkvModule.h
+index e0aaf82..b750555 100644
+--- a/node_modules/react-native-mmkv/cpp/NativeMmkvModule.h
++++ b/node_modules/react-native-mmkv/cpp/NativeMmkvModule.h
+@@ -20,9 +20,9 @@
+ namespace facebook::react {
+ 
+ // The MMKVConfiguration type from JS
+-using MMKVConfig = MmkvCxxConfiguration<std::string, std::optional<std::string>,
+-                                        std::optional<std::string>, std::optional<MmkvCxxMode>>;
+-template <> struct Bridging<MMKVConfig> : MmkvCxxConfigurationBridging<MMKVConfig> {};
++using MMKVConfig = NativeMmkvConfiguration<std::string, std::optional<std::string>,
++                                        std::optional<std::string>, std::optional<NativeMmkvMode>>;
++template <> struct Bridging<MMKVConfig> : NativeMmkvConfigurationBridging<MMKVConfig> {};
+ 
+ // The TurboModule itself
+ class NativeMmkvModule : public NativeMmkvCxxSpec<NativeMmkvModule> {

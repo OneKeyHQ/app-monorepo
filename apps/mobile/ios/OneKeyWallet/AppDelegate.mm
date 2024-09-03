@@ -35,11 +35,34 @@
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
 {
-#if DEBUG
-  return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
-#else
-  return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
-#endif
+   return [self bundleURL];
+}
+
+- (NSURL *)bundleURL
+{
+  #if DEBUG
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
+  #else
+    return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
+  #endif
+}
+
+- (BOOL)turboModuleEnabled {
+  return true;
+}
+
+- (BOOL)fabricEnabled{
+  return true;
+}
+
+- (BOOL)bridgelessEnabled
+{
+    return YES;
+}
+- (BOOL)concurrentRootEnabled
+{
+  // Switch this bool to turn on and off the concurrent root
+  return YES;
 }
 
 // Linking API
