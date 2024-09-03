@@ -126,7 +126,9 @@ function BasicInvestmentDetails() {
                   userSelect="none"
                   my="auto"
                 >
-                  <Badge.Text>Claimable</Badge.Text>
+                  <Badge.Text>
+                    {intl.formatMessage({ id: ETranslations.earn_claimable })}
+                  </Badge.Text>
                 </Badge>
               ) : null}
               {isTrue(overflow) ? (
@@ -136,7 +138,9 @@ function BasicInvestmentDetails() {
                   userSelect="none"
                   my="auto"
                 >
-                  <Badge.Text>Overflow</Badge.Text>
+                  <Badge.Text>
+                    {intl.formatMessage({ id: ETranslations.earn_overflow })}
+                  </Badge.Text>
                 </Badge>
               ) : null}
             </Stack>
