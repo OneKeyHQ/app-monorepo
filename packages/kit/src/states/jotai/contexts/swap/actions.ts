@@ -297,13 +297,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         event: ISwapQuoteEvent;
         type: 'done' | 'close' | 'error' | 'message' | 'open';
         params: IFetchQuotesParams;
+        tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
         accountId?: string;
       },
     ) => {
       switch (event.type) {
         case 'open': {
-          set(swapQuoteEventTotalCountAtom(), 0);
-          set(swapQuoteListAtom(), []);
           break;
         }
         case 'message': {
@@ -356,10 +355,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
             ) {
               const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
-              if (totalQuoteCount === 0) {
-                set(swapQuoteListAtom(), []);
-              }
               set(swapQuoteEventTotalCountAtom(), totalQuoteCount);
+              if (totalQuoteCount === 0) {
+                set(swapQuoteListAtom(), [
+                  {
+                    info: { provider: '', providerName: '' },
+                    fromTokenInfo: event.tokenPairs.fromToken,
+                    toTokenInfo: event.tokenPairs.toToken,
+                  },
+                ]);
+              }
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
               const swapAutoSlippageSuggestedValue = get(
