@@ -203,15 +203,25 @@ class ServiceStaking extends ServiceBase {
   async buildClaimTransaction(params: IStakeClaimBaseParams) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const stakingConfig = await this.getStakingConfigs({
+      networkId,
+      symbol: params.symbol,
+      provider: params.provider,
+    });
+    if (!stakingConfig) {
+      throw new Error('Staking config not found');
+    }
 
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/claim`, { accountAddress, networkId, ...rest });
+    }>(`/earn/v1/claim`, {
+      accountAddress: account.address,
+      networkId,
+      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      ...rest,
+    });
     return resp.data.data;
   }
 
