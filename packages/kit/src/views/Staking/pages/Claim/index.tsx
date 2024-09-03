@@ -15,6 +15,7 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalClaim } from '../../components/UniversalClaim';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -77,6 +78,9 @@ const ClaimPage = () => {
       onSuccess,
     ],
   );
+
+  const providerLabel = useProviderLabel(provider.name);
+
   return (
     <Page>
       <Page.Header
@@ -95,6 +99,7 @@ const ClaimPage = () => {
           tokenImageUri={tokenInfo.logoURI ?? ''}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          providerLabel={providerLabel}
           onConfirm={onConfirm}
         />
       </Page.Body>

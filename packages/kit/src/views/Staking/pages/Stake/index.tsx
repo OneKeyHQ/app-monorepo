@@ -16,6 +16,7 @@ import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -91,7 +92,10 @@ const StakePage = () => {
       btcStakingTerm,
     ],
   );
+
   const intl = useIntl();
+  const providerLabel = useProviderLabel(provider.name);
+
   return (
     <Page>
       <Page.Header
@@ -115,6 +119,7 @@ const StakePage = () => {
           tokenSymbol={tokenInfo.symbol}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          providerLabel={providerLabel}
           onConfirm={onConfirm}
         />
       </Page.Body>

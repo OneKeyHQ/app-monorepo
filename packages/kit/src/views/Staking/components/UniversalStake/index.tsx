@@ -31,16 +31,19 @@ import { ValuePriceListItem } from '../ValuePriceListItem';
 type IUniversalStakeProps = {
   price: string;
   balance: string;
+
+  details: IStakeProtocolDetails;
+
+  providerLabel?: string;
+
+  tokenImageUri?: string;
+  tokenSymbol?: string;
+
   minAmount?: string;
   maxAmount?: string;
 
-  tokenImageUri: string;
-  tokenSymbol: string;
-
-  providerName: string;
-  providerLogo: string;
-
-  details: IStakeProtocolDetails;
+  providerName?: string;
+  providerLogo?: string;
 
   minTransactionFee?: string;
   apr?: number;
@@ -59,6 +62,7 @@ export const UniversalStake = ({
   maxAmount,
   minAmount = '0',
   minTransactionFee = '0',
+  providerLabel,
   minStakeTerm,
   unbondingTime,
   tokenImageUri,
@@ -144,7 +148,7 @@ export const UniversalStake = ({
     return (
       <ValuePriceListItem
         amount={amountBN.toFixed()}
-        tokenSymbol={tokenSymbol}
+        tokenSymbol={tokenSymbol ?? ''}
         fiatSymbol={symbol}
         fiatValue={amountBN.multipliedBy(price).toFixed()}
       />
@@ -206,7 +210,7 @@ export const UniversalStake = ({
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol.toUpperCase(),
+            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
           }}
           balanceProps={{
             value: balance,
@@ -267,7 +271,7 @@ export const UniversalStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          {apr ? (
+          {apr && Number(apr) > 0 ? (
             <ListItem
               title={intl.formatMessage({ id: ETranslations.global_apr })}
               titleProps={fieldTitleProps}
@@ -291,15 +295,20 @@ export const UniversalStake = ({
               <ListItem.Text primary={btcUnbondingTime} />
             </ListItem>
           ) : null}
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.global_protocol })}
-            titleProps={fieldTitleProps}
-          >
-            <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
-              <SizableText size="$bodyLgMedium">{providerName}</SizableText>
-            </XStack>
-          </ListItem>
+          {providerLogo && providerName ? (
+            <ListItem
+              title={
+                providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })
+              }
+              titleProps={fieldTitleProps}
+            >
+              <XStack gap="$2" alignItems="center">
+                <Token size="xs" tokenImageUri={providerLogo} />
+                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              </XStack>
+            </ListItem>
+          ) : null}
         </YStack>
       </Stack>
       <Page.Footer

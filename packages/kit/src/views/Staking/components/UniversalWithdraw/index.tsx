@@ -31,6 +31,8 @@ type IUniversalWithdrawProps = {
   providerLogo?: string;
   providerName?: string;
 
+  providerLabel?: string;
+
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;
@@ -49,6 +51,7 @@ export const UniversalWithdraw = ({
   initialAmount,
   minAmount = '0',
   unstakingPeriod,
+  providerLabel,
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
@@ -201,9 +204,12 @@ export const UniversalWithdraw = ({
         ) : null}
         {providerLogo && providerName ? (
           <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.global_protocol,
-            })}
+            title={
+              providerLabel ??
+              intl.formatMessage({
+                id: ETranslations.global_protocol,
+              })
+            }
             titleProps={fieldTitleProps}
           >
             <XStack gap="$2" alignItems="center">
