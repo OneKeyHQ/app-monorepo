@@ -370,6 +370,11 @@ export function useSwapTokenList(
       if (swapSearchTokens) {
         const allNetSearchTokens = swapSearchTokens
           .map((token) => {
+            if (
+              !swapNetworks.find((net) => net.networkId === token.networkId)
+            ) {
+              return undefined;
+            }
             const balanceToken = haveBalanceTokenList.find(
               (walletToken) =>
                 walletToken?.contractAddress === token?.contractAddress &&
@@ -378,10 +383,8 @@ export function useSwapTokenList(
             if (balanceToken) {
               return balanceToken;
             }
-            if (swapNetworks.find((net) => net.networkId === token.networkId)) {
-              return token;
-            }
-            return undefined;
+
+            return token;
           })
           .filter((token) => token) as ISwapToken[];
         return sortAllNetworkTokens(allNetSearchTokens ?? []);
@@ -400,6 +403,7 @@ export function useSwapTokenList(
         })
       : tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
     {
+      shouldSort: false,
       keys: ['symbol', 'contractAddress'],
     },
   );
