@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Icon,
@@ -23,6 +25,7 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IInvestment } from '@onekeyhq/shared/types/staking';
@@ -34,6 +37,7 @@ function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const { result: earnInvestmentItems } = usePromiseResult(
     () =>
@@ -140,21 +144,25 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [accountInfo, navigation],
+    [accountInfo, navigation, settings.currencyInfo.symbol],
   );
   return (
     <Page scrollEnabled>
-      <Page.Header title="Investment details" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.earn_investment_details,
+        })}
+      />
       <Page.Body>
         <SectionList
           ListEmptyComponent={
             <YStack flex={1} alignItems="center">
               <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
               <SizableText mt="$6" size="$headingXl">
-                No orders
+                {intl.formatMessage({ id: ETranslations.earn_no_orders })}
               </SizableText>
               <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
-                You haven’t staked any assets yet.
+                {intl.formatMessage({ id: ETranslations.earn_no_orders_desc })}
               </SizableText>
             </YStack>
           }
