@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -397,10 +397,8 @@ function BasicEarnHome() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [isFetchingAccounts, setIsFetchAccounts] = useState(false);
-  usePromiseResult(
+  const { isLoading: isFetchingAccounts } = usePromiseResult(
     async () => {
-      setIsFetchAccounts(true);
       const assets =
         await backgroundApiProxy.serviceStaking.getAvailableAssets();
       actions.current.updateAvailableAssets(assets);
@@ -411,7 +409,6 @@ function BasicEarnHome() {
           networkId: network?.id ?? '',
         });
       actions.current.updateEarnAccounts(accounts);
-      setIsFetchAccounts(false);
     },
     [account, network, actions],
     {
