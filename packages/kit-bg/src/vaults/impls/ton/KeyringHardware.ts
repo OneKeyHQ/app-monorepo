@@ -122,6 +122,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       seqno: encodedTx.sequenceNo || 0,
       expireAt: encodedTx.validUntil || 0,
       comment: msg.payload,
+      isRawData: true,
       mode: msg.sendMode,
       walletVersion: versionMap[version as keyof typeof versionMap],
     };
@@ -133,10 +134,18 @@ export class KeyringHardware extends KeyringHardwareBase {
         hwParams.fwdFee = Number(msg.jetton.fwdFee);
       }
       hwParams.comment = undefined;
+      if (msg.jetton.fwdPayload) {
+        const decodedPayload = decodePayload(msg.jetton.fwdPayload);
+        if (decodedPayload.comment) {
+          hwParams.comment = decodedPayload.comment;
+          hwParams.isRawData = false;
+        }
+      }
     } else if (msg.payload) {
       const decodedPayload = decodePayload(msg.payload);
       if (decodedPayload.comment) {
         hwParams.comment = decodedPayload.comment;
+        hwParams.isRawData = false;
       }
     }
     if (encodedTx.messages.length > 1) {
