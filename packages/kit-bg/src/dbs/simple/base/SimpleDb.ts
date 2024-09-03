@@ -9,6 +9,7 @@ import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -59,6 +60,8 @@ export class SimpleDb {
   feeInfo = new SimpleDbEntityFeeInfo();
 
   marketWatchList = new SimpleDbEntityMarketWatchList();
+
+  earn = new SimpleDbEntityEarn();
 
   universalSearch = new SimpleDbEntityUniversalSearch();
 

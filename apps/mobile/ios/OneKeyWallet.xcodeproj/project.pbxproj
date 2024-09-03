@@ -18,6 +18,7 @@
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C28C89F62C85D3A600D9A657 /* JPushManager.m */; };
 		C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C29B68382B46F90E0084CE36 /* RCTBundleModule.m */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
@@ -71,6 +72,8 @@
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C28C89F62C85D3A600D9A657 /* JPushManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = JPushManager.m; path = OneKeyWallet/JPushManager.m; sourceTree = "<group>"; };
+		C28C89F72C85D3A700D9A657 /* JPushManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JPushManager.h; path = OneKeyWallet/JPushManager.h; sourceTree = "<group>"; };
 		C29B68382B46F90E0084CE36 /* RCTBundleModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RCTBundleModule.m; path = OneKeyWallet/RCTBundleModule.m; sourceTree = "<group>"; };
 		C29B68392B46F90E0084CE36 /* RCTBundleModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RCTBundleModule.h; path = OneKeyWallet/RCTBundleModule.h; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
@@ -131,6 +134,8 @@
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
+				C28C89F72C85D3A700D9A657 /* JPushManager.h */,
+				C28C89F62C85D3A600D9A657 /* JPushManager.m */,
 				C252A0802B46FBCC00F5B925 /* RCTBridge+RNPrivateBridge.h */,
 				C29B68392B46F90E0084CE36 /* RCTBundleModule.h */,
 				C29B68382B46F90E0084CE36 /* RCTBundleModule.m */,
@@ -528,6 +533,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */,
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,

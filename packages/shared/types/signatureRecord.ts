@@ -1,7 +1,7 @@
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IServerNetwork } from '.';
-import type { ELidoLabels } from './staking';
+import type { EEarnLabels } from './staking';
 
 export type IBaseToken = {
   name: string;
@@ -63,7 +63,7 @@ export interface ISwapTransactionData extends IBaseTransactionData {
 
 export interface IEarnTransactionData extends IBaseTransactionData {
   type: ETransactionType.EARN;
-  label: ELidoLabels;
+  label: EEarnLabels;
   send?: { amount: string; token: IBaseToken };
   receive?: { amount: string; token: IBaseToken };
 }

@@ -11,6 +11,7 @@ import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -27,7 +28,7 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapAllNetworkTokenListAtom,
+  useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
   useSwapProviderSortAtom,
   useSwapSelectFromTokenAtom,
@@ -43,6 +44,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setSelectSort] = useSwapProviderSortAtom();
+  const { syncNetworksSort } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -126,6 +128,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       setFromToken(params.importFromToken);
       setToToken(params.importToToken);
+      void syncNetworksSort(
+        params.importFromToken?.networkId ??
+          params.importToToken?.networkId ??
+          getNetworkIdsMap().onekeyall,
+      );
       return;
     }
     if (
@@ -166,12 +173,14 @@ export function useSwapInit(params?: ISwapInitParams) {
             ...defaultFromToken,
             networkLogoURI: netInfo?.logoURI,
           });
+          void syncNetworksSort(defaultFromToken.networkId);
         }
         if (defaultToToken) {
           setToToken({
             ...defaultToToken,
             networkLogoURI: netInfo?.logoURI,
           });
+          void syncNetworksSort(defaultToToken.networkId);
         }
       }
     }
@@ -181,6 +190,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     setFromToken,
     setToToken,
+    syncNetworksSort,
   ]);
 
   useEffect(() => {
@@ -243,7 +253,7 @@ export function useSwapTokenList(
     (ISwapToken | IFuseResult<ISwapToken>)[]
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
-  const [swapAllNetworkTokenList] = useSwapAllNetworkTokenListAtom();
+  const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapNetworks] = useSwapNetworksAtom();
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
@@ -263,6 +273,20 @@ export function useSwapTokenList(
       swapAddressInfo?.address,
       swapAddressInfo?.networkId,
       swapAddressInfo?.accountInfo?.account,
+    ],
+  );
+
+  const swapAllNetworkTokenList = useMemo(
+    () =>
+      swapAllNetworkTokenListMap[
+        swapAddressInfo?.accountInfo?.indexedAccount?.id ??
+          swapAddressInfo?.accountInfo?.account?.id ??
+          ''
+      ],
+    [
+      swapAllNetworkTokenListMap,
+      swapAddressInfo?.accountInfo?.indexedAccount?.id,
+      swapAddressInfo?.accountInfo?.account?.id,
     ],
   );
 
@@ -324,10 +348,17 @@ export function useSwapTokenList(
         const filterRecommendTokenList =
           swapAllNetRecommend?.filter(
             (token) =>
-              !haveBalanceTokenList?.find(
-                (balanceToken) =>
-                  balanceToken?.contractAddress === token?.contractAddress &&
-                  balanceToken?.networkId === token?.networkId,
+              !haveBalanceTokenList?.find((balanceToken) =>
+                equalTokenNoCaseSensitive({
+                  token1: {
+                    networkId: balanceToken?.networkId,
+                    contractAddress: balanceToken?.contractAddress,
+                  },
+                  token2: {
+                    networkId: token?.networkId,
+                    contractAddress: token?.contractAddress,
+                  },
+                }),
               ),
           ) ?? [];
         const allNetTokens = [
@@ -337,17 +368,22 @@ export function useSwapTokenList(
         return sortAllNetworkTokens(allNetTokens ?? []);
       }
       if (swapSearchTokens) {
-        const allNetSearchTokens = swapSearchTokens.map((token) => {
-          const balanceToken = haveBalanceTokenList.find(
-            (walletToken) =>
-              walletToken?.contractAddress === token?.contractAddress &&
-              walletToken?.networkId === token?.networkId,
-          );
-          if (balanceToken) {
-            return balanceToken;
-          }
-          return token;
-        });
+        const allNetSearchTokens = swapSearchTokens
+          .map((token) => {
+            const balanceToken = haveBalanceTokenList.find(
+              (walletToken) =>
+                walletToken?.contractAddress === token?.contractAddress &&
+                walletToken?.networkId === token?.networkId,
+            );
+            if (balanceToken) {
+              return balanceToken;
+            }
+            if (swapNetworks.find((net) => net.networkId === token.networkId)) {
+              return token;
+            }
+            return undefined;
+          })
+          .filter((token) => token) as ISwapToken[];
         return sortAllNetworkTokens(allNetSearchTokens ?? []);
       }
       return [];

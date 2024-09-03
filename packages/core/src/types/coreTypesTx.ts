@@ -110,6 +110,7 @@ export type ISignedTx = {
   txid: string;
   rawTx: string;
   psbtHex?: string;
+  finalizedPsbtHex?: string; // used for btc dApp
 };
 export type ISignedTxResult = ISignedTx & {
   signatureScheme?: ICurveName;
