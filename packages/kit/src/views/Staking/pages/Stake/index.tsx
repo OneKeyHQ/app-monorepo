@@ -102,8 +102,9 @@ const StakePage = () => {
       />
       <Page.Body>
         <UniversalStake
+          details={details}
           minTransactionFee={minTransactionFee}
-          apr={Number.isNaN(provider.apr) ? 4 : Number(provider.apr)}
+          apr={Number(provider.apr) > 0 ? Number(provider.apr) : undefined}
           price={price}
           balance={balanceParsed}
           minAmount={minAmount}

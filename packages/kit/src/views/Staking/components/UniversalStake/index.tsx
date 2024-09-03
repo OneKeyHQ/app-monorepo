@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Dialog,
   Page,
   SizableText,
   Stack,
@@ -22,7 +23,9 @@ import {
   formatMillisecondsToBlocks,
   formatMillisecondsToDays,
 } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -37,6 +40,8 @@ type IUniversalStakeProps = {
   providerName: string;
   providerLogo: string;
 
+  details: IStakeProtocolDetails;
+
   minTransactionFee?: string;
   apr?: number;
   minStakeTerm?: number;
@@ -50,6 +55,7 @@ export const UniversalStake = ({
   price,
   balance,
   apr,
+  details,
   maxAmount,
   minAmount = '0',
   minTransactionFee = '0',
@@ -80,15 +86,6 @@ export const UniversalStake = ({
     }
     setAmountValue(value);
   }, []);
-
-  const onPress = useCallback(async () => {
-    setLoading(true);
-    try {
-      await onConfirm?.(amountValue);
-    } finally {
-      setLoading(false);
-    }
-  }, [onConfirm, amountValue]);
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
@@ -172,6 +169,33 @@ export const UniversalStake = ({
     }
     return null;
   }, [unbondingTime]);
+
+  const onPress = useCallback(async () => {
+    Dialog.show({
+      renderContent: (
+        <StakeShouldUnderstand
+          provider={details.provider.name.toLowerCase()}
+          symbol={details.token.info.symbol.toLowerCase()}
+          logoURI={details.token.info.logoURI}
+          apr={details.provider.apr}
+          updateFrequency={details.updateFrequency}
+          unstakingPeriod={details.unstakingPeriod}
+          receiveSymbol={details.rewardToken}
+        />
+      ),
+      onConfirm: async (inst) => {
+        try {
+          setLoading(true);
+          await inst.close();
+          await onConfirm?.(amountValue);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+      showCancelButton: false,
+    });
+  }, [onConfirm, amountValue, details, intl]);
 
   return (
     <YStack>
@@ -279,7 +303,9 @@ export const UniversalStake = ({
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
         confirmButtonProps={{
           onPress,
           loading,
