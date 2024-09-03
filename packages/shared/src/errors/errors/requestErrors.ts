@@ -19,7 +19,7 @@ export class ResponseError extends Error {
   }
 }
 
-export class JsonPRCResponseError extends ResponseError {
+export class JsonRPCResponseError extends ResponseError {
   readonly error?: unknown;
 
   constructor(message?: string, response?: IErrorResponse, error?: unknown) {

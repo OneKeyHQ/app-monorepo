@@ -5,7 +5,7 @@ import type { IJsonRpcResponsePro } from '@onekeyhq/shared/types/request';
 
 import {
   AxiosResponseError,
-  JsonPRCResponseError,
+  JsonRPCResponseError,
   ResponseError,
 } from '../errors';
 
@@ -54,12 +54,12 @@ class JsonRPCRequest {
         response,
       );
     } else if (response.error) {
-      let message = 'Error JSON PRC response';
+      let message = 'Error JSON RPC response';
       const error = response.error as { message?: string };
       if (error?.message && typeof error?.message === 'string') {
-        message = `Error JSON PRC response: ${error?.message}`;
+        message = `Error JSON RPC response: ${error?.message}`;
       }
-      throw new JsonPRCResponseError(message, response);
+      throw new JsonRPCResponseError(message, response);
     } else if (!('result' in response)) {
       throw new ResponseError(
         'Invalid JSON RPC response, result not found',
@@ -167,7 +167,7 @@ class JsonRPCRequest {
         .map((resp) =>
           // @ts-ignore
           JsonRPCRequest.parseRPCResponse(resp).catch((e) => {
-            if (e instanceof JsonPRCResponseError && ignoreSoloError) {
+            if (e instanceof JsonRPCResponseError && ignoreSoloError) {
               return undefined;
             }
             throw e;

@@ -1,4 +1,4 @@
-import { JsonPRCResponseError, ResponseError } from '../errors';
+import { JsonRPCResponseError, ResponseError } from '../errors';
 
 import type { IJsonRpcResponsePro } from '../../types/request';
 
@@ -11,12 +11,12 @@ export function parseRPCResponse<T>(
       response,
     );
   } else if (response.error) {
-    let message = 'Error JSON PRC response';
+    let message = 'Error JSON RPC response';
     const error = response.error as { message?: string };
     if (error?.message && typeof error?.message === 'string') {
-      message = `Error JSON PRC response: ${error?.message}`;
-    }
-    throw new JsonPRCResponseError(message, response);
+      message = `Error JSON RPC response: ${error?.message}`;
+    } 
+    throw new JsonRPCResponseError(message, response);
   } else if (!('result' in response)) {
     throw new ResponseError(
       'Invalid JSON RPC response, result not found',
