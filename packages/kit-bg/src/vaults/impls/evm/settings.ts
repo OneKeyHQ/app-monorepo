@@ -48,6 +48,7 @@ const lidoConfig = {
   ETH: {
     ...commonStakeConfigs.ETH,
     unstakeWithSignMessage: true,
+    // claimWithTx: true,
   },
   MATIC: {
     ...commonStakeConfigs.MATIC,
@@ -84,6 +85,12 @@ const stakingConfig: IStakingConfig = {
       [EEarnProviderEnum.Everstake]: {
         supportedSymbols: ['ETH'],
         configs: { ETH: commonStakeConfigs.ETH },
+      },
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: lidoConfig.ETH,
+        },
       },
     },
   },

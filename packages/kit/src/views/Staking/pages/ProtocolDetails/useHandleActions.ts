@@ -48,11 +48,7 @@ export const useHandleClaim = () => {
         networkId,
         details,
         onSuccess,
-        amount:
-          symbol.toLowerCase() === 'eth' &&
-          provider.toLowerCase() === 'everstake'
-            ? details.claimable
-            : undefined,
+        amount: symbol.toLowerCase() === 'eth' ? details.claimable : undefined,
       });
     },
     [appNavigation],
