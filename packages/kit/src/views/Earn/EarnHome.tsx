@@ -87,11 +87,11 @@ function RecommendedSkeletonItem() {
         flexGrow: 1,
       }}
     >
-      <XStack gap="$2">
+      <XStack gap="$2" h={24} alignItems="center">
         <Skeleton width="$6" height="$6" radius="round" />
         <Skeleton w={80} h={12} borderRadius="$3" />
       </XStack>
-      <Skeleton w={120} h={12} borderRadius="$3" />
+      <Skeleton w={120} h={28} borderRadius="$3" />
     </YStack>
   );
 }
