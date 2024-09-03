@@ -48,6 +48,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   allowZeroFee: true,
   estimatedFeePollingInterval: 6,
+  editApproveAmountEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

@@ -2413,7 +2413,7 @@ const ton: IServerNetwork = {
   'impl': 'ton',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
-  'name': 'Toncoin',
+  'name': 'TON',
   'shortcode': 'ton',
   'shortname': 'ton',
   'symbol': 'TON',

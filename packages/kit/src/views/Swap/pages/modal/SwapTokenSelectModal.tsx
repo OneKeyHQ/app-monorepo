@@ -6,8 +6,11 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  ActionList,
   Alert,
+  Divider,
   Empty,
+  Icon,
   Image,
   ListView,
   Page,
@@ -16,6 +19,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -30,20 +34,25 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import {
   useSwapActions,
   useSwapNetworksAtom,
+  useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   swapNetworksCommonCount,
   swapNetworksCommonCountMD,
+  swapPopularTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
@@ -54,6 +63,7 @@ import {
 
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
+import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -75,6 +85,8 @@ const SwapTokenSelectPage = () => {
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   const [swapNetworks] = useSwapNetworksAtom();
+  const [swapNetworksIncludeAllNetwork] =
+    useSwapNetworksIncludeAllNetworkAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -86,42 +98,42 @@ const SwapTokenSelectPage = () => {
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
       if (swapFromAddressInfo.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) =>
               item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
     } else {
       if (toToken?.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
       if (swapToAddressInfo.networkId) {
         return (
-          swapNetworks.find(
+          swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) =>
               item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworks?.[0]
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
 
-      return swapNetworks?.[0];
+      return swapNetworksIncludeAllNetwork?.[0];
     }
   }, [
     fromToken?.networkId,
     swapFromAddressInfo.networkId,
-    swapNetworks,
+    swapNetworksIncludeAllNetwork,
     swapToAddressInfo.networkId,
     toToken?.networkId,
     type,
@@ -166,10 +178,11 @@ const SwapTokenSelectPage = () => {
   const checkRiskToken = useCallback(
     async (token: ISwapToken) => {
       const isRiskLevel =
-        !token.price ||
-        new BigNumber(token.price).isZero() ||
-        token.riskLevel === ETokenRiskLevel.SPAM ||
-        token.riskLevel === ETokenRiskLevel.MALICIOUS;
+        !token.isPopular &&
+        (!token.price ||
+          new BigNumber(token.price).isZero() ||
+          token.riskLevel === ETokenRiskLevel.SPAM ||
+          token.riskLevel === ETokenRiskLevel.MALICIOUS);
       if (isRiskLevel) {
         if (!settingsPersistAtom.tokenRiskReminder) return false;
         const checkConfirmRiskToken =
@@ -215,27 +228,34 @@ const SwapTokenSelectPage = () => {
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
-      void updateSelectedAccountNetwork({
-        num: type === ESwapDirectionType.FROM ? 0 : 1,
-        networkId: network.networkId,
-      });
+      if (network.networkId !== getNetworkIdsMap().onekeyall) {
+        void updateSelectedAccountNetwork({
+          num: type === ESwapDirectionType.FROM ? 0 : 1,
+          networkId: network.networkId,
+        });
+      }
     },
     [type, updateSelectedAccountNetwork],
   );
 
   const sameTokenDisabled = useCallback(
-    (token: ISwapToken) => {
-      if (type === ESwapDirectionType.FROM) {
-        return (
-          toToken?.contractAddress === token.contractAddress &&
-          toToken?.networkId === token.networkId
-        );
-      }
-      return (
-        fromToken?.contractAddress === token.contractAddress &&
-        fromToken?.networkId === token.networkId
-      );
-    },
+    (token: ISwapToken) =>
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId:
+            type === ESwapDirectionType.FROM
+              ? toToken?.networkId
+              : fromToken?.networkId,
+          contractAddress:
+            type === ESwapDirectionType.FROM
+              ? toToken?.contractAddress
+              : fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: token.networkId,
+          contractAddress: token.contractAddress,
+        },
+      }),
     [
       fromToken?.contractAddress,
       fromToken?.networkId,
@@ -246,7 +266,7 @@ const SwapTokenSelectPage = () => {
   );
 
   const { md } = useMedia();
-
+  const { copyText } = useClipboard();
   const renderItem = useCallback(
     ({
       item,
@@ -304,12 +324,51 @@ const SwapTokenSelectPage = () => {
               />
             </Stack>
           ) : null}
-          <TokenListItem {...tokenItem} />
+          <TokenListItem
+            {...tokenItem}
+            moreComponent={
+              <ActionList
+                title={tokenItem.tokenSymbol ?? ''}
+                renderTrigger={<Icon name="DotVerSolid" />}
+                items={[
+                  {
+                    icon: 'Copy3Outline',
+                    label: intl.formatMessage({
+                      id: ETranslations.global_copy_address,
+                    }),
+                    onPress: () => {
+                      copyText(rawItem.contractAddress);
+                    },
+                    disabled: rawItem.isNative,
+                  },
+                  {
+                    icon: 'OpenOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.swap_token_selector_contract_info,
+                    }),
+                    onPress: async () => {
+                      const url =
+                        await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
+                          {
+                            networkId: rawItem.networkId,
+                            type: 'token',
+                            param: rawItem.contractAddress,
+                          },
+                        );
+                      openUrlExternal(url);
+                    },
+                    disabled: rawItem.isNative,
+                  },
+                ]}
+              />
+            }
+          />
         </>
       );
     },
     [
       alertIndex,
+      copyText,
       intl,
       md,
       onSelectToken,
@@ -322,24 +381,24 @@ const SwapTokenSelectPage = () => {
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
     let swapNetworksMoreCount;
-    if (swapNetworks && swapNetworks.length) {
+    if (swapNetworksIncludeAllNetwork && swapNetworksIncludeAllNetwork.length) {
       if (md) {
         swapNetworksCommon =
-          swapNetworks.length > swapNetworksCommonCountMD
-            ? swapNetworks.slice(0, swapNetworksCommonCountMD)
-            : swapNetworks;
+          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCountMD
+            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCountMD)
+            : swapNetworksIncludeAllNetwork;
         swapNetworksMoreCount =
-          swapNetworks.length - swapNetworksCommonCountMD > 0
-            ? swapNetworks.length - swapNetworksCommonCountMD
+          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD > 0
+            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCountMD
             : undefined;
       } else {
         swapNetworksCommon =
-          swapNetworks.length > swapNetworksCommonCount
-            ? swapNetworks.slice(0, swapNetworksCommonCount)
-            : swapNetworks;
+          swapNetworksIncludeAllNetwork.length > swapNetworksCommonCount
+            ? swapNetworksIncludeAllNetwork.slice(0, swapNetworksCommonCount)
+            : swapNetworksIncludeAllNetwork;
         swapNetworksMoreCount =
-          swapNetworks.length - swapNetworksCommonCount > 0
-            ? swapNetworks.length - swapNetworksCommonCount
+          swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount > 0
+            ? swapNetworksIncludeAllNetwork.length - swapNetworksCommonCount
             : undefined;
       }
     }
@@ -347,11 +406,17 @@ const SwapTokenSelectPage = () => {
       swapNetworksCommon,
       swapNetworksMoreCount,
     };
-  }, [md, swapNetworks]);
+  }, [md, swapNetworksIncludeAllNetwork]);
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();
-
+  const currentNetworkPopularTokens = useMemo(
+    () =>
+      currentSelectNetwork?.networkId
+        ? swapPopularTokens[currentSelectNetwork?.networkId] ?? []
+        : [],
+    [currentSelectNetwork?.networkId],
+  );
   return (
     <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -367,27 +432,6 @@ const SwapTokenSelectPage = () => {
         }}
       />
       <Page.Body>
-        <NetworkToggleGroup
-          onMoreNetwork={() => {
-            openChainSelector({
-              defaultNetworkId: currentSelectNetwork?.networkId,
-              networkIds: swapNetworks.map((item) => item.networkId),
-              grouped: false,
-              onSelect: (network) => {
-                if (!network) return;
-                const findSwapNetwork = swapNetworks.find(
-                  (net) => net.networkId === network.id,
-                );
-                if (!findSwapNetwork) return;
-                onSelectCurrentNetwork(findSwapNetwork);
-              },
-            });
-          }}
-          networks={networkFilterData.swapNetworksCommon}
-          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
-          selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={onSelectCurrentNetwork}
-        />
         <XStack px="$5" py="$2">
           <SizableText size="$headingSm" pr="$2">
             {`${intl.formatMessage({
@@ -410,6 +454,51 @@ const SwapTokenSelectPage = () => {
             </SizableText>
           </XStack>
         </XStack>
+        <NetworkToggleGroup
+          onMoreNetwork={() => {
+            openChainSelector({
+              defaultNetworkId: currentSelectNetwork?.networkId,
+              networkIds: swapNetworks.map((item) => item.networkId),
+              grouped: false,
+              onSelect: (network) => {
+                if (!network) return;
+                const findSwapNetwork = swapNetworks.find(
+                  (net) => net.networkId === network.id,
+                );
+                if (!findSwapNetwork) return;
+                onSelectCurrentNetwork(findSwapNetwork);
+              },
+            });
+          }}
+          networks={networkFilterData.swapNetworksCommon}
+          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
+          selectedNetwork={currentSelectNetwork}
+          onSelectNetwork={onSelectCurrentNetwork}
+        />
+        <Divider my="$2" />
+        <YStack px="$5" py="$1">
+          {currentNetworkPopularTokens.length > 0 ? (
+            <>
+              <SizableText size="$headingSm" pr="$2">
+                {`${intl.formatMessage({
+                  id: ETranslations.swap_token_selector_popular_token,
+                })}:`}
+              </SizableText>
+              <SwapPopularTokenGroup
+                onSelectToken={onSelectToken}
+                selectedToken={
+                  type === ESwapDirectionType.FROM ? toToken : fromToken
+                }
+                tokens={currentNetworkPopularTokens}
+              />
+            </>
+          ) : null}
+          <SizableText size="$headingSm" pr="$2" mt="$1">
+            {`${intl.formatMessage({
+              id: ETranslations.swap_token_selector_all_token,
+            })}:`}
+          </SizableText>
+        </YStack>
         {fetchLoading ? (
           Array.from({ length: 5 }).map((_, index) => (
             <ListItem key={index}>

@@ -21,7 +21,7 @@ import {
   useAccountManualCreatingAtom,
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -233,9 +233,9 @@ const SwapAccountAddressContainer = ({
     // all net need hidden
     if (
       swapAddressInfo.accountInfo?.network?.id ===
-        dangerAllNetworkRepresent.id ||
+        getNetworkIdsMap().onekeyall ||
       swapAnotherAddressInfo.accountInfo?.network?.id ===
-        dangerAllNetworkRepresent.id
+        getNetworkIdsMap().onekeyall
     ) {
       return null;
     }
