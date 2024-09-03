@@ -409,10 +409,14 @@ export function useSwapTokenList(
       void swapLoadAllNetworkTokenList(
         tokenFetchParams.networkId,
         swapAddressInfo?.accountInfo?.indexedAccount?.id,
+        !swapAddressInfo?.accountInfo?.indexedAccount?.id
+          ? swapAddressInfo?.accountInfo?.account?.id
+          : undefined,
       );
     }
     void tokenListFetchAction(tokenFetchParams);
   }, [
+    swapAddressInfo?.accountInfo?.account?.id,
     swapAddressInfo?.accountInfo?.indexedAccount?.id,
     swapLoadAllNetworkTokenList,
     tokenFetchParams,
