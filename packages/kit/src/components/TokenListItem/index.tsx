@@ -17,6 +17,7 @@ export type ITokenListItemProps = {
   valueProps?: { value: string; currency?: string };
   disabled?: boolean;
   titleMatchStr?: IFuseResultMatch;
+  moreComponent?: React.ReactNode;
 } & IListItemProps;
 
 export function TokenListItem({
@@ -30,6 +31,7 @@ export function TokenListItem({
   valueProps,
   disabled,
   titleMatchStr,
+  moreComponent,
   ...rest
 }: ITokenListItemProps) {
   return (
@@ -102,6 +104,7 @@ export function TokenListItem({
           ) : null
         }
       />
+      {moreComponent}
     </ListItem>
   );
 }

@@ -3,7 +3,11 @@ import { forEach, isNil, uniqBy } from 'lodash';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
+import networkUtils from './networkUtils';
+
 import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
+
+export const caseSensitiveNetworkImpl = ['sol', 'stc', 'tron', 'aptos', 'sui'];
 
 export function getMergedTokenData({
   tokens,
@@ -243,4 +247,25 @@ export function mergeDeriveTokenList({
   }
 
   return newTokens;
+}
+
+export function equalTokenNoCaseSensitive({
+  token1,
+  token2,
+}: {
+  token1?: { networkId?: string; contractAddress?: string };
+  token2?: { networkId?: string; contractAddress?: string };
+}) {
+  if (!token1 || !token2 || !token1.networkId || !token2.networkId) {
+    return false;
+  }
+  if (token1?.networkId !== token2?.networkId) return false;
+  const impl = networkUtils.getNetworkImpl({ networkId: token1.networkId });
+  if (caseSensitiveNetworkImpl.includes(impl)) {
+    return token1?.contractAddress === token2?.contractAddress;
+  }
+  return (
+    token1?.contractAddress?.toLowerCase() ===
+    token2?.contractAddress?.toLowerCase()
+  );
 }
