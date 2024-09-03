@@ -1,4 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import { Dialog, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout/DAppRiskyAlertDetail';
@@ -11,6 +14,7 @@ export function DappInfoPopoverContent({
   hostSecurity?: IHostSecurity;
   closePopover: () => void;
 }) {
+  const intl = useIntl();
   return (
     <Stack
       onPress={(e) => {
@@ -33,16 +37,33 @@ export function DappInfoPopoverContent({
       />
       <Stack p="$5" pt="$2">
         <SizableText mb="$3" size="$headingMd">
-          dApp listed by
+          {intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          })}
         </SizableText>
         <SizableText mb="$3" size="$headingMd">
-          Risk detection
+          {intl.formatMessage({
+            id: ETranslations.browser_risk_detection,
+          })}
         </SizableText>
         <XStack ai="center">
           <Icon name="BadgeVerifiedSolid" color="$iconSuccess" />
           <Stack ml="$3" flex={1}>
-            <SizableText size="$bodyMdMedium">Verified</SizableText>
-            <SizableText size="$bodyMd">From GoPlus & Blockaid</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.dapp_connect_verified_site,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.global_from_provider,
+                },
+                {
+                  provider: 'From GoPlus & Blockaid',
+                },
+              )}
+            </SizableText>
           </Stack>
           <XStack
             ai="center"
@@ -57,7 +78,11 @@ export function DappInfoPopoverContent({
               });
             }}
           >
-            <SizableText size="$bodyMdMedium">Details</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_details,
+              })}
+            </SizableText>
             <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
           </XStack>
         </XStack>
