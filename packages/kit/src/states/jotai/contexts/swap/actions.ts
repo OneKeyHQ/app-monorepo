@@ -10,7 +10,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -18,6 +17,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapApprovingStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
@@ -322,10 +322,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               const quoteResult = get(swapQuoteListAtom());
               const quoteUpdateSlippage = quoteResult.map((quotRes) => {
                 if (
-                  quotRes.fromTokenInfo.networkId === fromNetworkId &&
-                  quotRes.fromTokenInfo.contractAddress === fromTokenAddress &&
-                  quotRes.toTokenInfo.networkId === toNetworkId &&
-                  quotRes.toTokenInfo.contractAddress === toTokenAddress &&
+                  equalTokenNoCaseSensitive({
+                    token1: quotRes.fromTokenInfo,
+                    token2: {
+                      networkId: fromNetworkId,
+                      contractAddress: fromTokenAddress,
+                    },
+                  }) &&
+                  equalTokenNoCaseSensitive({
+                    token1: quotRes.toTokenInfo,
+                    token2: {
+                      networkId: toNetworkId,
+                      contractAddress: toTokenAddress,
+                    },
+                  }) &&
                   !quotRes.autoSuggestedSlippage
                 ) {
                   return {
@@ -1042,28 +1052,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             const newTokens =
               result.filter(
                 (t) =>
-                  !tokens?.find(
-                    (tk) =>
-                      tk.networkId === t.networkId &&
-                      tk.contractAddress === t.contractAddress,
+                  !tokens?.find((tk) =>
+                    equalTokenNoCaseSensitive({
+                      token1: tk,
+                      token2: t,
+                    }),
                   ),
               ) ?? [];
             const needUpdateTokens =
               result.filter(
                 (t) =>
-                  !newTokens.find(
-                    (tk) =>
-                      tk.networkId === t.networkId &&
-                      tk.contractAddress === t.contractAddress,
+                  !newTokens.find((tk) =>
+                    equalTokenNoCaseSensitive({
+                      token1: tk,
+                      token2: t,
+                    }),
                   ),
               ) ?? [];
             const filterTokens =
               tokens?.filter(
                 (tk) =>
-                  !needUpdateTokens.find(
-                    (t) =>
-                      tk.networkId === t.networkId &&
-                      tk.contractAddress === t.contractAddress,
+                  !needUpdateTokens.find((t) =>
+                    equalTokenNoCaseSensitive({
+                      token1: tk,
+                      token2: t,
+                    }),
                   ),
               ) ?? [];
             return [...filterTokens, ...needUpdateTokens, ...newTokens];
@@ -1076,25 +1089,36 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   swapLoadAllNetworkTokenList = contextAtomMethod(
-    async (get, set, networkId: string, indexedAccountId?: string) => {
+    async (
+      get,
+      set,
+      networkId: string,
+      indexedAccountId?: string,
+      otherWalletTypeAccountId?: string,
+    ) => {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       if (swapAllNetworkActionLock) {
         return;
       }
       const swapSupportNetworks = get(swapNetworks());
-      if (indexedAccountId) {
+      if (indexedAccountId || otherWalletTypeAccountId) {
         try {
           set(swapAllNetworkActionLockAtom(), true);
           const currentSwapAllNetworkTokenList = get(
             swapAllNetworkTokenListAtom(),
           );
-          const account =
-            await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
-              indexedAccountId,
-            });
+          const allNetAccountId = indexedAccountId
+            ? (
+                await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount(
+                  {
+                    indexedAccountId,
+                  },
+                )
+              ).id
+            : otherWalletTypeAccountId ?? '';
           const { accountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-              accountId: account.id,
+              accountId: allNetAccountId,
               networkId,
             });
           const noBtcAccounts = accountsInfo.filter(
