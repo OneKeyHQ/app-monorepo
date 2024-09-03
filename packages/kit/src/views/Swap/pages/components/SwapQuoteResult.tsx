@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -28,6 +28,7 @@ import {
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -44,6 +45,7 @@ const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
 }: ISwapQuoteResultProps) => {
+  const [openResult, setOpenResult] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
@@ -94,18 +96,32 @@ const SwapQuoteResult = ({
   return (
     <HeightTransition>
       <YStack gap="$4">
-        {quoteResult.allowanceResult ? (
+        <SwapQuoteResultRate
+          rate={quoteResult.instantRate}
+          fromToken={fromToken}
+          toToken={toToken}
+          providerIcon={quoteResult.info.providerLogo ?? ''}
+          providerName={quoteResult.info.providerName ?? ''}
+          isLoading={swapQuoteLoading}
+          onOpenResult={
+            quoteResult.info.provider
+              ? () => setOpenResult(!openResult)
+              : undefined
+          }
+          openResult={openResult}
+        />
+        {quoteResult.allowanceResult && openResult ? (
           <SwapApproveAllowanceSelectContainer
             allowanceResult={quoteResult.allowanceResult}
             fromTokenSymbol={fromToken?.symbol ?? ''}
             isLoading={swapQuoteLoading}
           />
         ) : null}
-        {!isNil(quoteResult.info.provider) ? (
+        {!isNil(quoteResult.info.provider) && openResult ? (
           <SwapProviderInfoItem
             providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
+            providerName={quoteResult.info.providerName ?? ''}
             isLoading={swapQuoteLoading}
-            rate={quoteResult.instantRate}
             fromToken={fromToken}
             toToken={toToken}
             showLock={!!quoteResult.allowanceResult}
@@ -118,7 +134,8 @@ const SwapQuoteResult = ({
             }
           />
         ) : null}
-        {quoteResult.toAmount &&
+        {openResult &&
+        quoteResult.toAmount &&
         !quoteResult.allowanceResult &&
         !quoteResult.unSupportSlippage ? (
           <SwapSlippageTriggerContainer
@@ -126,7 +143,7 @@ const SwapQuoteResult = ({
             onPress={slippageHandleClick}
           />
         ) : null}
-        {quoteResult.fee?.estimatedFeeFiatValue ? (
+        {openResult && quoteResult.fee?.estimatedFeeFiatValue ? (
           <SwapCommonInfoItem
             title={intl.formatMessage({
               id: ETranslations.swap_page_provider_est_network_fee,

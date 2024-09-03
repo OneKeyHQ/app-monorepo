@@ -453,6 +453,7 @@ export default class ServiceSwap extends ServiceBase {
             url: swapEventUrl,
           },
           params,
+          tokenPairs: { fromToken, toToken },
           accountId,
         });
       };
@@ -468,6 +469,7 @@ export default class ServiceSwap extends ServiceBase {
             event: { type: 'done' },
             params,
             accountId,
+            tokenPairs: { fromToken, toToken },
           });
         } else {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
@@ -480,6 +482,7 @@ export default class ServiceSwap extends ServiceBase {
             },
             params,
             accountId,
+            tokenPairs: { fromToken, toToken },
           });
         }
         await this.cancelFetchQuoteEvents();
@@ -490,6 +493,7 @@ export default class ServiceSwap extends ServiceBase {
           event: { type: 'open' },
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       };
     } else {
@@ -505,6 +509,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('message', (event) => {
@@ -513,6 +518,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('done', (event) => {
@@ -521,6 +527,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('close', (event) => {
@@ -529,6 +536,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('error', (event) => {
@@ -537,6 +545,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
     }

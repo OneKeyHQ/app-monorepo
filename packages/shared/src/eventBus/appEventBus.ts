@@ -14,6 +14,7 @@ import type { IFeeSelectorItem } from '../../types/fee';
 import type {
   IFetchQuotesParams,
   ISwapQuoteEvent,
+  ISwapToken,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
@@ -204,6 +205,7 @@ export interface IAppEventBusPayload {
     event: ISwapQuoteEvent;
     params: IFetchQuotesParams;
     accountId?: string;
+    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
 }
 
