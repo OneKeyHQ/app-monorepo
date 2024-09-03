@@ -149,7 +149,7 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
-      term: 150,
+      term: params.term,
       networkId,
       symbol,
       provider,
