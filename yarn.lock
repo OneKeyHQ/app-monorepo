@@ -6509,6 +6509,8 @@ __metadata:
     expo-status-bar: "npm:~1.6.0"
     folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
+    jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c"
+    jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:6.3.1"
     path-browserify: "npm:^1.0.1"
@@ -24691,6 +24693,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c":
+  version: 2.0.3
+  resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=2cadf288224242cec715a2e260f872235c58874c"
+  peerDependencies:
+    react-native: ">= 0.60"
+  checksum: 10/577b53bcc4b9d95d379f260944d7501e2b28e50812c34da87fa658892354d68680fa20ac39b3b94eaef549b5e99a081d8dce556eef559bba056f6a0c8ca52f2b
+  languageName: node
+  linkType: hard
+
 "jest-changed-files@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest-changed-files@npm:29.7.0"
@@ -25290,6 +25301,16 @@ __metadata:
     react:
       optional: true
   checksum: 10/7e635f4f5052582095ed3949aa46f26213b10237bc4876db242c936f0f4d4272129727d7419e4fd5b1b83fa55b7ad737575453116a955dcc6b3a26cba14591f2
+  languageName: node
+  linkType: hard
+
+"jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7":
+  version: 2.9.2
+  resolution: "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#commit=f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
+  peerDependencies:
+    jcore-react-native: ">= 1.9.3"
+    react-native: ">= 0.50"
+  checksum: 10/de080e22ec2dfcaea20526182cafe1fe2ccc81eb52178987356aba058cedad3522541ce918c7847e2e89609ee8d81e74bab9570e85f7e3a27d4dc15df0f19bd1
   languageName: node
   linkType: hard
 
