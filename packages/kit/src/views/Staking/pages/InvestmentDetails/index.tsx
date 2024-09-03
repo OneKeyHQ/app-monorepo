@@ -1,43 +1,83 @@
-import { useCallback, useMemo } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { useCallback } from 'react';
 
 import {
   Badge,
   Icon,
   Image,
-  NumberSizeableText,
   Page,
   SectionList,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAvailableAsset } from '@onekeyhq/shared/types/staking';
+import type { IInvestment } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
+  const navigation = useAppNavigation();
+
+  const { result: earnInvestmentItems } = usePromiseResult(
+    () =>
+      accounts
+        ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
+            accounts
+              ?.map(({ networkId, accountAddress }) => ({
+                networkId,
+                accountAddress,
+              }))
+              .filter((c) => !c.networkId.includes('btc')),
+          )
+        : Promise.resolve([]),
+    [accounts],
+    {
+      initResult: [],
+    },
+  );
+  const accountInfo = useActiveAccount({ num: 0 });
+
+  const sectionData = earnInvestmentItems.map((item) => ({
+    title: item.name,
+    logoURI: item.logoURI,
+    data: item.investment.map((i) => ({ ...i, providerName: item.name })),
+  }));
   const renderItem = useCallback(
-    ({ item }: { item: any }) => (
+    ({
+      item: { tokenInfo, active, claimable, overflow, providerName },
+    }: {
+      item: IInvestment & { providerName: string };
+    }) => (
       <ListItem
         drillIn
         mx={0}
         px="$5"
-        onPress={() => {}}
+        onPress={() => {
+          const {
+            activeAccount: { account, indexedAccount },
+          } = accountInfo;
+          if (account && tokenInfo) {
+            navigation.push(EModalStakingRoutes.ProtocolDetails, {
+              indexedAccountId: indexedAccount?.id,
+              accountId: account?.id ?? '',
+              networkId: tokenInfo.networkId,
+              symbol: tokenInfo.symbol.toUpperCase(),
+              provider: providerName,
+            });
+          }
+        }}
         avatarProps={{
-          src: 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+          src: tokenInfo.logoURI,
         }}
         renderItemText={
           <XStack justifyContent="space-between" flex={1}>
@@ -80,14 +120,14 @@ function BasicInvestmentDetails() {
             </YStack>
           }
           renderItem={renderItem}
-          sections={[]}
+          sections={sectionData}
           py="$3"
-          renderSectionHeader={({ section: { title, iconUrl }, index }) => (
-            <XStack px="$5" gap="$1.5" pt={index !== 0 ? '$8' : undefined}>
+          renderSectionHeader={({ section: { title, logoURI }, index }) => (
+            <XStack px="$5" gap="$1.5" height={44} alignItems="center">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
                   source={{
-                    uri: iconUrl,
+                    uri: logoURI,
                   }}
                 />
                 <Image.Fallback
@@ -113,8 +153,16 @@ function BasicInvestmentDetails() {
 
 export default function InvestmentDetails() {
   return (
-    <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-      <BasicInvestmentDetails />
-    </EarnProviderMirror>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicInvestmentDetails />
+      </EarnProviderMirror>
+    </AccountSelectorProviderMirror>
   );
 }
