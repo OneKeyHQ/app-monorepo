@@ -13,7 +13,6 @@ export function PriceChangePercentage({
     <NumberSizeableText
       adjustsFontSizeToFit
       numberOfLines={platformEnv.isNative ? 1 : 2}
-      width="100%"
       userSelect="none"
       size="$bodyMd"
       formatter="priceChange"
