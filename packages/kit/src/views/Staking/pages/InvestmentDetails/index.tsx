@@ -173,7 +173,14 @@ function BasicInvestmentDetails() {
           renderItem={renderItem}
           sections={sectionData}
           py="$3"
-          renderSectionHeader={({ section: { title, logoURI }, index }) => (
+          renderSectionHeader={({
+            section: { title, logoURI },
+          }: {
+            section: {
+              title: string;
+              logoURI: string;
+            };
+          }) => (
             <XStack px="$5" gap="$1.5" py="$3">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
@@ -191,7 +198,7 @@ function BasicInvestmentDetails() {
                 </Image.Fallback>
               </Image>
               <SizableText color="$textSubdued" size="$bodyMdMedium">
-                {title}
+                {`${title.charAt(0).toUpperCase()}${title.slice(1)}`}
               </SizableText>
             </XStack>
           )}
