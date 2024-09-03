@@ -126,6 +126,7 @@ export type ICoreApiSignBasePayload = {
 
   account: ICoreApiSignAccount;
   relPaths?: string[]; // used for get privateKey of other utxo address
+  signOnly?: boolean;
 };
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;

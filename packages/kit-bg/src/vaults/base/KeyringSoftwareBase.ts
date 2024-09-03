@@ -76,7 +76,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const vault = this.vault as VaultBtc;
 
-    const { password, unsignedTx } = params;
+    const { password, unsignedTx, signOnly } = params;
 
     const credentials = await this.baseGetCredentialsInfo(params);
 
@@ -95,6 +95,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       password,
       credentials,
       btcExtraInfo, // TODO move btcExtraInfo to unsignedTx
+      signOnly,
     });
     return result;
   }

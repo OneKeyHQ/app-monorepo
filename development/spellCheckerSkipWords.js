@@ -753,4 +753,6 @@ module.exports = [
   'payout',
   'alph',
   'onopen',
+  'everstake',
+  'unbonding',
 ];

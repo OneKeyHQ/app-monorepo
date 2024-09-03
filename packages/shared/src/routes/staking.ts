@@ -1,61 +1,84 @@
-import type { ILidoMaticRequest } from '../../types/staking';
-import type { IToken } from '../../types/token';
+import type { IStakeProtocolDetails } from '../../types/staking';
 
 export enum EModalStakingRoutes {
-  EthLidoOverview = 'EthLidoOverview',
-  EthLidoStake = 'EthLidoStake',
-  EthLidoWithdraw = 'EthLidoWithdraw',
-  EthLidoHistory = 'EthLidoHistory',
-  MaticLidoOverview = 'MaticLidoOverview',
-  MaticLidoStake = 'MaticLidoStake',
-  MaticLidoWithdraw = 'MaticLidoWithdraw',
-  MaticLidoHistory = 'MaticLidoHistory',
-  MaticLidoClaim = 'MaticLidoClaim',
+  InvestmentDetails = 'InvestmentDetails',
+  Stake = 'Stake',
+  Withdraw = 'Withdraw',
+  Claim = 'Claim',
+  ProtocolDetails = 'ProtocolDetails',
+  AssetProtocolList = 'AssetProtocolList',
+  ApproveBaseStake = 'ApproveBaseStake',
+  ClaimOptions = 'ClaimOptions',
+  WithdrawOptions = 'WithdrawOptions',
+  PortfolioDetails = 'PortfolioDetails',
+  HistoryList = 'HistoryList',
 }
 
 type IBaseRouteParams = {
   networkId: string;
   accountId: string;
+  indexedAccountId?: string;
 };
 
 export type IModalStakingParamList = {
-  [EModalStakingRoutes.EthLidoOverview]: IBaseRouteParams;
-  [EModalStakingRoutes.EthLidoStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    stToken: IToken;
-    apr?: number;
+  [EModalStakingRoutes.InvestmentDetails]: undefined;
+  [EModalStakingRoutes.ProtocolDetails]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details?: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.Stake]: IBaseRouteParams & {
     minTransactionFee?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+    onSuccess?: () => void;
   };
-  [EModalStakingRoutes.EthLidoWithdraw]: IBaseRouteParams & {
-    balance: string;
-    price: string;
-    token: IToken;
-    receivingToken: IToken;
-    rate?: string;
-  };
-  [EModalStakingRoutes.EthLidoHistory]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoOverview]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoStake]: IBaseRouteParams & {
-    price: string;
-    balance: string;
-    token: IToken;
-    stToken: IToken;
+  [EModalStakingRoutes.ApproveBaseStake]: IBaseRouteParams & {
+    minTransactionFee?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
     currentAllowance: string;
-    apr?: number;
-    rate?: string;
+    onSuccess?: () => void;
   };
-  [EModalStakingRoutes.MaticLidoWithdraw]: IBaseRouteParams & {
-    balance: string;
-    price: string;
-    token: IToken;
-    receivingToken: IToken;
+  [EModalStakingRoutes.Withdraw]: IBaseRouteParams & {
     rate?: string;
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+    identity?: string;
+    amount?: string;
+    onSuccess?: () => void;
   };
-  [EModalStakingRoutes.MaticLidoHistory]: IBaseRouteParams;
-  [EModalStakingRoutes.MaticLidoClaim]: IBaseRouteParams & {
-    requests: ILidoMaticRequest[];
-    token: IToken;
+  [EModalStakingRoutes.Claim]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+    identity?: string;
+    amount?: string;
+    onSuccess?: () => void;
+  };
+  [EModalStakingRoutes.ClaimOptions]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.WithdrawOptions]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+    details: IStakeProtocolDetails;
+  };
+  [EModalStakingRoutes.AssetProtocolList]: IBaseRouteParams & {
+    symbol: string;
+    filter?: boolean;
+  };
+  [EModalStakingRoutes.PortfolioDetails]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
+  };
+  [EModalStakingRoutes.HistoryList]: IBaseRouteParams & {
+    symbol: string;
+    provider: string;
   };
 };

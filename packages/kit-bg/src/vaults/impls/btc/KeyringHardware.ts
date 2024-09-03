@@ -176,7 +176,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   };
 
   async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
-    const { unsignedTx } = params;
+    const { unsignedTx, signOnly } = params;
     const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
     if (!psbtHex || !inputsToSign) {
       throw new Error('invalid psbt');
@@ -265,11 +265,23 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const signedPsbt = response.psbt;
 
+    let rawTx = '';
+    const finalizedPsbt = BitcoinJS.Psbt.fromHex(psbt.toHex(), {
+      network: btcNetwork,
+    });
+    inputsToSign.forEach((v) => {
+      finalizedPsbt.finalizeInput(v.index);
+    });
+    if (!signOnly) {
+      rawTx = finalizedPsbt.extractTransaction().toHex();
+    }
+
     return {
       encodedTx: unsignedTx.encodedTx,
       txid: '',
-      rawTx: '',
+      rawTx,
       psbtHex: signedPsbt,
+      finalizedPsbtHex: finalizedPsbt.toHex(),
     };
   }
 

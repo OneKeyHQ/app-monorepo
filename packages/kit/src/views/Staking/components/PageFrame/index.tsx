@@ -2,7 +2,7 @@ import type { ComponentType, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty } from '@onekeyhq/components';
+import { Empty, Spinner, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const PageErrOccurred = ({ onPress }: { onPress?: () => void }) => {
@@ -28,6 +28,31 @@ type IPageFrameProps = {
   error?: boolean;
   onRefresh?: () => void;
 };
+
+export const SimpleSpinnerSkeleton = () => (
+  <Stack w="100%" h="$40" jc="center" ai="center">
+    <Spinner size="large" />
+  </Stack>
+);
+
+export const isLoadingState = ({
+  result,
+  isLoading,
+}: {
+  result: unknown;
+  isLoading: boolean | undefined;
+}) =>
+  Boolean(
+    result === undefined && (isLoading === undefined || isLoading === true),
+  );
+
+export const isErrorState = ({
+  result,
+  isLoading,
+}: {
+  result: unknown;
+  isLoading: boolean | undefined;
+}) => Boolean(result === undefined && isLoading === false);
 
 export const PageFrame = ({
   children,

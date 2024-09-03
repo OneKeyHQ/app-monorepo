@@ -39,20 +39,22 @@ const StakingActivityIndicator = ({
   onPress,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
-  const headerRight = useCallback(
-    () =>
-      num > 0 ? (
-        <PendingIndicator num={num} onPress={onPress} />
-      ) : (
+  const headerRight = useCallback(() => {
+    if (num > 0) {
+      return <PendingIndicator num={num} onPress={onPress} />;
+    }
+    if (onPress) {
+      return (
         <IconButton
           variant="tertiary"
           size="medium"
           icon="ClockTimeHistoryOutline"
           onPress={onPress}
         />
-      ),
-    [num, onPress],
-  );
+      );
+    }
+    return null;
+  }, [num, onPress]);
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,
@@ -68,19 +70,23 @@ export const StakingTransactionIndicator = ({
   onRefresh,
   onPress,
 }: {
-  accountId: string;
+  accountId?: string;
   networkId: string;
   stakeTag: IStakeTag;
   onRefresh?: () => void;
   onPress?: () => void;
 }) => {
   const { result: txs, run } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
+    async () => {
+      if (!accountId) {
+        return [];
+      }
+      return backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
         accountId,
         networkId,
         stakeTag,
-      }),
+      });
+    },
     [accountId, networkId, stakeTag],
     { initResult: [] },
   );
@@ -97,10 +103,12 @@ export const StakingTransactionIndicator = ({
   useEffect(() => {
     if (!isPending) return;
     const timer = setInterval(async () => {
-      await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
-        networkId,
-      });
+      if (accountId) {
+        await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+        });
+      }
       await run();
     }, 15 * 1000);
     return () => clearInterval(timer);
