@@ -56,7 +56,7 @@ import {
   rateDifferenceAtom,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
-  swapAllNetworkTokenListAtom,
+  swapAllNetworkTokenListMapAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
@@ -1037,6 +1037,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       accountAddress?: string,
       isFirstFetch?: boolean,
+      allNetAccountId?: string,
     ) => {
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
@@ -1047,12 +1048,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         isAllNetworkFetchAccountTokens: true,
       });
       if (result?.length) {
-        if (isFirstFetch) {
-          set(swapAllNetworkTokenListAtom(), (tokens) => {
+        if (isFirstFetch && allNetAccountId) {
+          set(swapAllNetworkTokenListMapAtom(), (v) => {
+            const oldTokens = v[allNetAccountId] ?? [];
             const newTokens =
               result.filter(
                 (t) =>
-                  !tokens?.find((tk) =>
+                  !oldTokens?.find((tk) =>
                     equalTokenNoCaseSensitive({
                       token1: tk,
                       token2: t,
@@ -1070,7 +1072,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ),
               ) ?? [];
             const filterTokens =
-              tokens?.filter(
+              oldTokens?.filter(
                 (tk) =>
                   !needUpdateTokens.find((t) =>
                     equalTokenNoCaseSensitive({
@@ -1079,7 +1081,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     }),
                   ),
               ) ?? [];
-            return [...filterTokens, ...needUpdateTokens, ...newTokens];
+            return {
+              ...v,
+              [allNetAccountId]: [
+                ...filterTokens,
+                ...needUpdateTokens,
+                ...newTokens,
+              ],
+            };
           });
         } else {
           return result;
@@ -1104,9 +1113,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (indexedAccountId || otherWalletTypeAccountId) {
         try {
           set(swapAllNetworkActionLockAtom(), true);
-          const currentSwapAllNetworkTokenList = get(
-            swapAllNetworkTokenListAtom(),
-          );
+
           const allNetAccountId = indexedAccountId
             ? (
                 await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount(
@@ -1116,6 +1123,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 )
               ).id
             : otherWalletTypeAccountId ?? '';
+          const currentSwapAllNetworkTokenList = get(
+            swapAllNetworkTokenListMapAtom(),
+          )[indexedAccountId ?? otherWalletTypeAccountId ?? ''];
           const { accountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
               accountId: allNetAccountId,
@@ -1185,6 +1195,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               accountId,
               apiAddress,
               !currentSwapAllNetworkTokenList,
+              indexedAccountId ?? otherWalletTypeAccountId ?? '',
             );
           });
 
@@ -1193,7 +1204,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           } else {
             const result = await Promise.all(requests);
             const allTokensResult = (result.filter(Boolean) ?? []).flat();
-            set(swapAllNetworkTokenListAtom(), allTokensResult);
+            set(swapAllNetworkTokenListMapAtom(), (v) => ({
+              ...v,
+              [indexedAccountId ?? otherWalletTypeAccountId ?? '']:
+                allTokensResult,
+            }));
           }
         } catch (e) {
           console.error(e);

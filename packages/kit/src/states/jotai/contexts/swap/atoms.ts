@@ -111,9 +111,9 @@ export const {
 } = contextAtom('');
 
 export const {
-  atom: swapAllNetworkTokenListAtom,
-  use: useSwapAllNetworkTokenListAtom,
-} = contextAtom<ISwapToken[] | undefined>(undefined);
+  atom: swapAllNetworkTokenListMapAtom,
+  use: useSwapAllNetworkTokenListMapAtom,
+} = contextAtom<Record<string, ISwapToken[]>>({});
 
 export const {
   atom: swapAllNetworkActionLockAtom,
