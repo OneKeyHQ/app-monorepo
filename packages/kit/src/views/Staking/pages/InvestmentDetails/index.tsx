@@ -148,7 +148,7 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [accountInfo, navigation, settings.currencyInfo.symbol],
+    [accountInfo, intl, navigation, settings.currencyInfo.symbol],
   );
   return (
     <Page scrollEnabled>
