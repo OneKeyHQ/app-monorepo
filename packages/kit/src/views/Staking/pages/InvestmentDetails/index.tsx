@@ -137,7 +137,7 @@ function BasicInvestmentDetails() {
           sections={sectionData}
           py="$3"
           renderSectionHeader={({ section: { title, logoURI }, index }) => (
-            <XStack px="$5" gap="$1.5" height={44} alignItems="center">
+            <XStack px="$5" gap="$1.5" py="$3">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
                   source={{
