@@ -61,7 +61,10 @@ const WithdrawOptions = () => {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_withdraw_token },
+          { 'token': symbol },
+        )}
       />
       <Page.Body>
         <PageFrame

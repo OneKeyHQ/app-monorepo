@@ -299,7 +299,8 @@ class ServiceStaking extends ServiceBase {
       '/earn/v1/stake-protocol/detail',
       { params: requestParams },
     );
-    return resp.data.data;
+    const result = resp.data.data;
+    return result;
   }
 
   _getProtocolList = memoizee(

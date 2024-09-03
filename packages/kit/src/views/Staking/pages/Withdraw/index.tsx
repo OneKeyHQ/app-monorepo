@@ -102,6 +102,8 @@ const WithdrawPage = () => {
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
+          minAmount={BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed()}
+          withdrawMinAmount={details.minUnstakeAmount}
           unstakingPeriod={details.unstakingPeriod}
           providerLabel={providerLabel}
         />
