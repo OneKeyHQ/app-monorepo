@@ -64,9 +64,10 @@ function BasicInvestmentDetails() {
     () =>
       accounts
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            accounts?.map(({ networkId, accountAddress }) => ({
+            accounts?.map(({ networkId, accountAddress, publicKey }) => ({
               networkId,
               accountAddress,
+              publicKey,
             })),
           )
         : new Promise<IEarnInvestmentItem[]>((resolve) => {

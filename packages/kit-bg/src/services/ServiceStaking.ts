@@ -449,6 +449,7 @@ class ServiceStaking extends ServiceBase {
     list: {
       accountAddress: string;
       networkId: string;
+      publicKey?: string;
     }[],
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
