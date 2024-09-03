@@ -196,12 +196,13 @@ const ProtocolDetailsPage = () => {
                 disabled: !earnAccount?.accountAddress,
               }}
               onCancelText={intl.formatMessage({
-                id: ETranslations.earn_redeem,
+                id: ETranslations.global_withdraw,
               })}
               cancelButtonProps={{
                 onPress: onWithdraw,
                 disabled:
-                  !earnAccount?.accountAddress || Number(result?.staked) <= 0,
+                  !earnAccount?.accountAddress ||
+                  Number(result?.staked) - Number(result?.pendingInactive) <= 0,
               }}
             />
             {result ? (

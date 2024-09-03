@@ -4,9 +4,11 @@ import {
   Badge,
   Icon,
   Image,
+  NumberSizeableText,
   Page,
   SectionList,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +26,7 @@ import type { IInvestment } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
+const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
   const navigation = useAppNavigation();
@@ -82,26 +85,44 @@ function BasicInvestmentDetails() {
         renderItemText={
           <XStack justifyContent="space-between" flex={1}>
             <YStack>
-              <SizableText size="$bodyLgMedium">0.1 ETH</SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+              >
+                {active}
+              </NumberSizeableText>
               <SizableText size="$bodyMd" color="$textSubdued">
                 $333.13
               </SizableText>
             </YStack>
-            <XStack>
-              <Badge
-                badgeType="critical"
-                badgeSize="sm"
-                userSelect="none"
-                my="auto"
-              >
-                <Badge.Text>Hot</Badge.Text>
-              </Badge>
-            </XStack>
+            <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
+              {isTrue(claimable) ? (
+                <Badge
+                  badgeType="info"
+                  badgeSize="sm"
+                  userSelect="none"
+                  my="auto"
+                >
+                  <Badge.Text>Claimable</Badge.Text>
+                </Badge>
+              ) : null}
+              {isTrue(overflow) ? (
+                <Badge
+                  badgeType="critical"
+                  badgeSize="sm"
+                  userSelect="none"
+                  my="auto"
+                >
+                  <Badge.Text>Overflow</Badge.Text>
+                </Badge>
+              ) : null}
+            </Stack>
           </XStack>
         }
       />
     ),
-    [],
+    [accountInfo, navigation],
   );
   return (
     <Page scrollEnabled>
@@ -123,7 +144,7 @@ function BasicInvestmentDetails() {
           sections={sectionData}
           py="$3"
           renderSectionHeader={({ section: { title, logoURI }, index }) => (
-            <XStack px="$5" gap="$1.5" height={44} alignItems="center">
+            <XStack px="$5" gap="$1.5" py="$3">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
                   source={{

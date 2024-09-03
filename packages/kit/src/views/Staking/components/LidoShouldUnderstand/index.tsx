@@ -40,6 +40,7 @@ const ShouldUnderstandListItemListItem = ({
 
 type IShouldUnderstandProps = {
   title: string;
+  logoURI?: string;
   subtitle?: string;
   items: { title: IListItemTypography; description: IListItemTypography }[];
 };
@@ -49,6 +50,7 @@ export const LIDO_LOGO_URI =
 
 const ShouldUnderstand = ({
   title,
+  logoURI = LIDO_LOGO_URI,
   subtitle,
   items,
 }: IShouldUnderstandProps) => (
@@ -56,7 +58,7 @@ const ShouldUnderstand = ({
     <ScrollView maxHeight={560}>
       <YStack py="$5">
         <Stack>
-          <Image w="$14" h="$14" src={LIDO_LOGO_URI} />
+          <Image w="$14" h="$14" src={logoURI} />
           <YStack mt="$5">
             <SizableText size="$headingXl">{title}</SizableText>
             {subtitle ? (

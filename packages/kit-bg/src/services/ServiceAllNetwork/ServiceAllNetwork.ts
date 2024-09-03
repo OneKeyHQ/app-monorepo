@@ -61,13 +61,13 @@ class ServiceAllNetwork extends ServiceBase {
     singleNetworkDeriveType,
     indexedAccountId,
     othersWalletAccountId,
-    fetchAllNetworkAccounts,
+    fetchAllNetworkAccounts = false,
   }: {
     networkId: string;
     singleNetworkDeriveType: IAccountDeriveTypes | undefined;
     indexedAccountId: string | undefined;
     othersWalletAccountId: string | undefined;
-    fetchAllNetworkAccounts: boolean | undefined;
+    fetchAllNetworkAccounts?: boolean;
   }): Promise<IDBAccount[]> {
     const isAllNetwork =
       fetchAllNetworkAccounts ||

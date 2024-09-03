@@ -80,7 +80,10 @@ const ClaimPage = () => {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_claim })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_claim_token },
+          { token: token.info.symbol },
+        )}
       />
       <Page.Body>
         <UniversalClaim

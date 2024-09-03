@@ -432,8 +432,16 @@ class ServiceStaking extends ServiceBase {
     const resp = await Promise.allSettled(
       uniqueAccountParams.map((params) => this.getAccountAsset(params)),
     );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return resp.filter((v) => v.status === 'fulfilled').map((i) => i.value);
+    return (
+      resp.filter((v) => v.status === 'fulfilled') as {
+        value: {
+          earn: IEarnAccountResponse;
+          networkId: string;
+          accountAddress: string;
+          publicKey?: string;
+        };
+      }[]
+    ).map((i) => i.value);
   }
 
   @backgroundMethod()
