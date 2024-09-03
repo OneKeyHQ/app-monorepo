@@ -183,7 +183,7 @@ function BookmarkListModal() {
             index,
           })}
           onDragEnd={(ret) => onSortBookmarks(ret.data)}
-          renderItem={({ item, getIndex, drag }) => (
+          renderItem={({ item, getIndex, drag, dragProps }) => (
             <ListItem
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
@@ -216,13 +216,11 @@ function BookmarkListModal() {
                   }}
                   onPress={() => {
                     void deleteCell(getIndex);
-                    void removeBrowserBookmark(item.url);
                     Toast.success({
                       title: intl.formatMessage({
                         id: ETranslations.explore_removed_success,
                       }),
                     });
-                    void run();
                   }}
                   testID="action-list-item-rename"
                 />
@@ -257,6 +255,7 @@ function BookmarkListModal() {
                     cursor="move"
                     icon="DragOutline"
                     onPressIn={drag}
+                    dataSet={dragProps}
                   />
                 </XStack>
               ) : null}
