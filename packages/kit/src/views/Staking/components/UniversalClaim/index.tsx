@@ -134,107 +134,100 @@ export const UniversalClaim = ({
   const editable = initialAmount === undefined;
 
   return (
-    <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
-      />
-      <Page.Body>
-        <YStack>
-          <Stack mx="$2" px="$3" gap="$5">
-            <Stack position="relative" opacity={editable ? 1 : 0.7}>
-              <AmountInput
-                bg={editable ? '$bgApp' : '$bgDisabled'}
-                hasError={isInsufficientBalance || isLessThanMinAmount}
-                value={amountValue}
-                onChange={onChangeAmountValue}
-                tokenSelectorTriggerProps={{
-                  selectedTokenImageUri: tokenImageUri,
-                  selectedTokenSymbol: tokenSymbol,
-                }}
-                inputProps={{
-                  placeholder: '0',
-                }}
-                balanceProps={{
-                  value: balance,
-                  onPress: onMax,
-                }}
-                valueProps={{
-                  value: currentValue,
-                  currency: currentValue ? symbol : undefined,
-                }}
-              />
-              {!editable ? (
-                <Stack position="absolute" w="100%" h="100%" />
-              ) : null}
-            </Stack>
+    <YStack>
+      <Stack mx="$2" px="$3" gap="$5">
+        <Stack position="relative" opacity={editable ? 1 : 0.7}>
+          <AmountInput
+            bg={editable ? '$bgApp' : '$bgDisabled'}
+            hasError={isInsufficientBalance || isLessThanMinAmount}
+            value={amountValue}
+            onChange={onChangeAmountValue}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: tokenImageUri,
+              selectedTokenSymbol: tokenSymbol,
+            }}
+            inputProps={{
+              placeholder: '0',
+            }}
+            balanceProps={{
+              value: balance,
+              onPress: onMax,
+            }}
+            valueProps={{
+              value: currentValue,
+              currency: currentValue ? symbol : undefined,
+            }}
+          />
+          {!editable ? <Stack position="absolute" w="100%" h="100%" /> : null}
+        </Stack>
 
-            <YStack gap="$1">
-              {isLessThanMinAmount ? (
-                <Alert
-                  icon="InfoCircleOutline"
-                  type="critical"
-                  title={intl.formatMessage(
-                    { id: ETranslations.earn_minimum_amount },
-                    { number: `${minAmount} ${tokenSymbol}` },
-                  )}
-                />
-              ) : null}
-              {isInsufficientBalance ? (
-                <Alert
-                  icon="InfoCircleOutline"
-                  type="critical"
-                  title={intl.formatMessage({
-                    id: ETranslations.earn_insufficient_staked_balance,
-                  })}
-                />
-              ) : null}
-            </YStack>
-          </Stack>
-          <YStack>
-            {receiving ? (
-              <ListItem
-                title={intl.formatMessage({ id: ETranslations.earn_receive })}
-                titleProps={fieldTitleProps}
-              >
-                {receiving}
-              </ListItem>
-            ) : null}
-            {amountValue ? (
-              <ListItem
-                title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
-                titleProps={fieldTitleProps}
-              >
-                <SizableText>
-                  <NumberSizeableText
-                    formatter="balance"
-                    size="$bodyLgMedium"
-                    formatterOptions={{ tokenSymbol }}
-                  >
-                    {amountValue}
-                  </NumberSizeableText>
-                </SizableText>
-              </ListItem>
-            ) : null}
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.global_protocol })}
-              titleProps={fieldTitleProps}
-            >
-              <XStack gap="$2" alignItems="center">
-                <Token size="xs" tokenImageUri={providerLogo} />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
-              </XStack>
-            </ListItem>
-          </YStack>
+        <YStack gap="$1">
+          {isLessThanMinAmount ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={intl.formatMessage(
+                { id: ETranslations.earn_minimum_amount },
+                { number: `${minAmount} ${tokenSymbol}` },
+              )}
+            />
+          ) : null}
+          {isInsufficientBalance ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={intl.formatMessage({
+                id: ETranslations.earn_insufficient_staked_balance,
+              })}
+            />
+          ) : null}
         </YStack>
-      </Page.Body>
+      </Stack>
+      <YStack>
+        {receiving ? (
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.earn_receive })}
+            titleProps={fieldTitleProps}
+          >
+            {receiving}
+          </ListItem>
+        ) : null}
+        {amountValue ? (
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
+            titleProps={fieldTitleProps}
+          >
+            <SizableText>
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyLgMedium"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {amountValue}
+              </NumberSizeableText>
+            </SizableText>
+          </ListItem>
+        ) : null}
+        <ListItem
+          title={intl.formatMessage({ id: ETranslations.global_protocol })}
+          titleProps={fieldTitleProps}
+        >
+          <XStack gap="$2" alignItems="center">
+            <Token size="xs" tokenImageUri={providerLogo} />
+            <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+          </XStack>
+        </ListItem>
+      </YStack>
       <Page.Footer
-        onConfirmText={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.earn_redeem,
+        })}
         confirmButtonProps={{
           onPress,
           loading,
           disabled: isDisable,
         }}
       />
-    </Page>
+    </YStack>
   );
 };

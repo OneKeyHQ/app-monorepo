@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -33,7 +33,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, staked } = details;
+  const { token, provider, staked, pendingInactive } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -79,32 +79,25 @@ const WithdrawPage = () => {
     ],
   );
 
-  const warningMessages = useMemo<string[] | undefined>(() => {
-    if (
-      token.info.symbol.toLowerCase() === 'apt' &&
-      provider.name === 'everstake'
-    ) {
-      return [
-        'This transaction requests withdrawing all staked APT, as this withdrawal will result in a total staked amount less than 10.1 APT.',
-      ];
-    }
-  }, [token, provider]);
+  const balance = Number(staked) - Number(pendingInactive);
 
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_withdraw_token },
+          { token: tokenInfo.symbol },
+        )}
       />
       <Page.Body>
         <UniversalWithdraw
           price={price}
-          balance={staked}
+          balance={String(balance)}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
-          warningMessages={warningMessages}
           onConfirm={onConfirm}
         />
       </Page.Body>
