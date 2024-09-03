@@ -828,7 +828,6 @@ function SendDataInputContainer() {
 
     return (
       <>
-        <XStack pt="$5" />
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
           labelAddon={
@@ -860,7 +859,7 @@ function SendDataInputContainer() {
         >
           <TextArea
             numberOfLines={2}
-            size="large"
+            size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
@@ -868,7 +867,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
+  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, numericOnlyMemo]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
