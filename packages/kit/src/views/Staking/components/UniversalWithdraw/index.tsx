@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Dialog,
   NumberSizeableText,
   Page,
   SizableText,
@@ -18,6 +19,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
@@ -55,14 +58,31 @@ export const UniversalWithdraw = ({
     },
   ] = useSettingsPersistAtom();
 
+  const intl = useIntl();
+
   const onPress = useCallback(async () => {
-    try {
-      setLoading(true);
-      await onConfirm?.(amountValue);
-    } finally {
-      setLoading(false);
-    }
-  }, [amountValue, onConfirm]);
+    Dialog.show({
+      renderContent: (
+        <WithdrawShouldUnderstand
+          provider={providerName ?? ''}
+          logoURI={tokenImageUri ?? ''}
+          symbol={tokenSymbol ?? ''}
+          withdrawalPeriod={3}
+        />
+      ),
+      onConfirm: async (inst) => {
+        try {
+          setLoading(true);
+          await inst.close();
+          await onConfirm?.(amountValue);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
+      showCancelButton: false,
+    });
+  }, [amountValue, onConfirm, intl, tokenImageUri, tokenSymbol, providerName]);
 
   const onChangeAmountValue = useCallback((value: string) => {
     const valueBN = new BigNumber(value);
@@ -110,7 +130,6 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
-  const intl = useIntl();
   return (
     <YStack>
       <Stack mx="$2" px="$3" gap="$5">
