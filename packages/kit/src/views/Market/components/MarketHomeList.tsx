@@ -390,6 +390,9 @@ function BasicMarketHomeList({
                   borderRadius="$2"
                 >
                   <NumberSizeableText
+                    adjustsFontSizeToFit
+                    px="$1"
+                    numberOfLines={platformEnv.isNative ? 1 : 2}
                     userSelect="none"
                     size="$bodyMdMedium"
                     color="white"
