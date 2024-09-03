@@ -36,6 +36,9 @@ type IBuildUnsignedTxParams = {
   onCancel?: () => void;
   sameModal?: boolean;
   transferPayload?: ITransferPayload;
+  signOnly?: boolean;
+  useFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
 };
 
 function useSendConfirm(params: IParams) {
@@ -51,6 +54,9 @@ function useSendConfirm(params: IParams) {
         onFail,
         onCancel,
         transferPayload,
+        signOnly,
+        useFeeInTx,
+        feeInfoEditable,
         ...rest
       } = params;
       try {
@@ -69,6 +75,9 @@ function useSendConfirm(params: IParams) {
             onFail,
             onCancel,
             transferPayload,
+            signOnly,
+            useFeeInTx,
+            feeInfoEditable,
           });
         } else {
           navigation.pushModal(EModalRoutes.SendModal, {
@@ -81,6 +90,9 @@ function useSendConfirm(params: IParams) {
               onFail,
               onCancel,
               transferPayload,
+              signOnly,
+              useFeeInTx,
+              feeInfoEditable,
             },
           });
         }

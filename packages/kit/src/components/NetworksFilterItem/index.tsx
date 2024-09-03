@@ -22,10 +22,10 @@ export function NetworksFilterItem({
       justifyContent="center"
       px="$3"
       py="$1.5"
-      bg={isSelected ? '$bgPrimary' : '$bgStrong'}
       borderRadius="$2"
       userSelect="none"
-      borderCurve="continuous"
+      borderWidth="1px"
+      borderColor={isSelected ? '$borderActive' : '$border'}
       {...(!isSelected &&
         !disabled && {
           focusable: true,
