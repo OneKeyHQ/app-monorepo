@@ -4,6 +4,7 @@ import {
   Badge,
   Icon,
   Image,
+  NumberSizeableText,
   Page,
   SectionList,
   SizableText,
@@ -84,7 +85,13 @@ function BasicInvestmentDetails() {
         renderItemText={
           <XStack justifyContent="space-between" flex={1}>
             <YStack>
-              <SizableText size="$bodyLgMedium">0.1 ETH</SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+              >
+                {active}
+              </NumberSizeableText>
               <SizableText size="$bodyMd" color="$textSubdued">
                 $333.13
               </SizableText>
