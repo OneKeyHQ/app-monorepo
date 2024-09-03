@@ -21,8 +21,8 @@ export function Progress({
   gap = 0,
   ...props
 }: Omit<IProgressProps, 'max' | 'gap'> & {
-  colors: IProgressProps['backgroundColor'][];
-  gap: number;
+  colors?: IProgressProps['backgroundColor'][];
+  gap?: number;
 }) {
   const h = useMemo(() => (size === 'medium' ? '$1' : '$0.5'), [size]);
   const val = useMemo(
