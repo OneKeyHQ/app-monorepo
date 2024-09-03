@@ -113,7 +113,7 @@ function RecommendedItem({ token }: { token?: ITokenAccount }) {
     }
   }, [accountInfo, navigation, token]);
   if (!token) {
-    return null;
+    return <YStack width="$40" flexGrow={1} />;
   }
   return (
     <YStack
