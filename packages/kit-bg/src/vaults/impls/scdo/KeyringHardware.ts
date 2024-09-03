@@ -68,7 +68,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: address ?? '',
             publicKey: '',
             path,
-            relPath: addressRelPath,
             xpub: '',
             addresses: {
               [addressRelPath]: address ?? '',

@@ -1,6 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { keccak256, recoverPublicKey } from 'viem';
+import * as ethUtils from 'ethereumjs-util';
+import { keccak256 } from 'viem';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import {
@@ -11,7 +12,6 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -131,6 +131,11 @@ class ProviderApiScdo extends ProviderApiBase {
       params: [encodedTx],
     } = request.data as { method: string; params: [IEncodedTxScdo] };
     const { account, accountInfo } = accounts[0];
+    if (accountInfo?.address !== encodedTx.From) {
+      throw web3Errors.rpc.invalidParams(
+        '"from" address is invalid for this account',
+      );
+    }
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -194,28 +199,23 @@ class ProviderApiScdo extends ProviderApiBase {
     message: string,
     signature: string,
   ) {
-    defaultLogger.discovery.dapp.dappRequest({ request });
-    const signatureBytes =
-      typeof signature === 'string'
-        ? Buffer.from(signature, 'base64')
-        : Buffer.alloc(0);
-    if (
-      typeof message === 'string' &&
-      typeof signature === 'string' &&
-      signatureBytes.length === 65
-    ) {
-      const msgHash = bufferUtils.hexToBytes(
-        hexUtils.stripHexPrefix(keccak256(Buffer.from(message))),
-      );
-      const pubKey = await recoverPublicKey({
-        hash: msgHash,
-        signature: signatureBytes,
-      });
-      return publicKeyToAddress(pubKey);
-    }
-    throw web3Errors.rpc.invalidParams(
-      'scdo_ecRecover requires a message and a 65 bytes signature.',
+    const sigBuffer = Buffer.from(signature, 'base64');
+    const messageString = `\x19SCDO Signed Message:\n${message.length}${message}`;
+    const messageBuffer = Buffer.from(messageString, 'utf8');
+    const msgHash = keccak256(messageBuffer);
+
+    const [r, s, v] = [
+      sigBuffer.subarray(0, 32),
+      sigBuffer.subarray(32, 64),
+      sigBuffer[64],
+    ];
+    const publicKey = ethUtils.ecrecover(
+      Buffer.from(bufferUtils.hexToBytes(hexUtils.stripHexPrefix(msgHash))),
+      v,
+      r,
+      s,
     );
+    return publicKeyToAddress(Buffer.concat([Buffer.from([4]), publicKey]));
   }
 }
 
