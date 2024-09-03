@@ -12,6 +12,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
@@ -41,6 +42,13 @@ const StakePage = () => {
     return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo, provider]);
 
+  const btcStakingTerm = useMemo(() => {
+    if (provider?.minStakeTerm) {
+      return formatMillisecondsToBlocks(provider.minStakeTerm);
+    }
+    return 0;
+  }, [provider]);
+
   const handleStake = useUniversalStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
@@ -55,6 +63,7 @@ const StakePage = () => {
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
+        term: btcStakingTerm,
         onSuccess: (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
@@ -79,6 +88,7 @@ const StakePage = () => {
       provider,
       actionTag,
       onSuccess,
+      btcStakingTerm,
     ],
   );
   const intl = useIntl();
@@ -98,6 +108,8 @@ const StakePage = () => {
           balance={balanceParsed}
           minAmount={minAmount}
           maxAmount={provider.maxStakeAmount}
+          minStakeTerm={provider?.minStakeTerm}
+          unbondingTime={provider?.unbondingTime}
           tokenImageUri={tokenInfo.logoURI ?? ''}
           tokenSymbol={tokenInfo.symbol}
           providerLogo={provider.logoURI}

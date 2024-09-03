@@ -46,6 +46,9 @@ export type IStakeProviderInfo = {
   isNative: string;
   nextLaunchLeft?: string;
   labels?: string[];
+  minStakeTerm?: number;
+  maxStakeTerm?: number;
+  unbondingTime?: number;
 };
 
 export type IStakeBaseParams = {
@@ -55,6 +58,7 @@ export type IStakeBaseParams = {
   symbol: string;
   provider: string;
 
+  term?: number; // Babylon
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
 };
@@ -267,6 +271,8 @@ export interface IInvestment {
   active: string;
   claimable: string;
   overflow: string;
+  staked: string;
+  stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
 }
 export interface IEarnInvestmentItem {

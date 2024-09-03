@@ -23,14 +23,16 @@ export function useUniversalStake({
   return useCallback(
     async ({
       amount,
-      provider,
       symbol,
+      term,
+      provider,
       stakingInfo,
       onSuccess,
       onFail,
     }: {
       amount: string;
       symbol: string;
+      term?: number;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -42,6 +44,7 @@ export function useUniversalStake({
           networkId,
           accountId,
           symbol,
+          term,
           provider,
         });
       const vault = await vaultFactory.getVault({ networkId, accountId });

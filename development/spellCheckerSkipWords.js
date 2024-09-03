@@ -754,4 +754,5 @@ module.exports = [
   'alph',
   'onopen',
   'everstake',
+  'unbonding',
 ];

@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Icon,
@@ -19,7 +21,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IInvestment } from '@onekeyhq/shared/types/staking';
@@ -29,7 +35,9 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
+  const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const { result: earnInvestmentItems } = usePromiseResult(
     () =>
@@ -57,7 +65,14 @@ function BasicInvestmentDetails() {
   }));
   const renderItem = useCallback(
     ({
-      item: { tokenInfo, active, claimable, overflow, providerName },
+      item: {
+        tokenInfo,
+        staked,
+        stakedFiatValue,
+        claimable,
+        overflow,
+        providerName,
+      },
     }: {
       item: IInvestment & { providerName: string };
     }) => (
@@ -90,11 +105,18 @@ function BasicInvestmentDetails() {
                 formatter="balance"
                 formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
               >
-                {active}
+                {staked}
               </NumberSizeableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                $333.13
-              </SizableText>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="balance"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                }}
+              >
+                {stakedFiatValue}
+              </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
               {isTrue(claimable) ? (
@@ -104,7 +126,9 @@ function BasicInvestmentDetails() {
                   userSelect="none"
                   my="auto"
                 >
-                  <Badge.Text>Claimable</Badge.Text>
+                  <Badge.Text>
+                    {intl.formatMessage({ id: ETranslations.earn_claimable })}
+                  </Badge.Text>
                 </Badge>
               ) : null}
               {isTrue(overflow) ? (
@@ -114,7 +138,9 @@ function BasicInvestmentDetails() {
                   userSelect="none"
                   my="auto"
                 >
-                  <Badge.Text>Overflow</Badge.Text>
+                  <Badge.Text>
+                    {intl.formatMessage({ id: ETranslations.earn_overflow })}
+                  </Badge.Text>
                 </Badge>
               ) : null}
             </Stack>
@@ -122,21 +148,25 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [accountInfo, navigation],
+    [accountInfo, intl, navigation, settings.currencyInfo.symbol],
   );
   return (
     <Page scrollEnabled>
-      <Page.Header title="Investment details" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.earn_investment_details,
+        })}
+      />
       <Page.Body>
         <SectionList
           ListEmptyComponent={
             <YStack flex={1} alignItems="center">
               <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
               <SizableText mt="$6" size="$headingXl">
-                No orders
+                {intl.formatMessage({ id: ETranslations.earn_no_orders })}
               </SizableText>
               <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
-                You haven’t staked any assets yet.
+                {intl.formatMessage({ id: ETranslations.earn_no_orders_desc })}
               </SizableText>
             </YStack>
           }

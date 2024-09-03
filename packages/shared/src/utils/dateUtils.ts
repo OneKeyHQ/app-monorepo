@@ -3,8 +3,10 @@ import {
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDuration as fnsFormatDuration,
+  intervalToDuration,
   isToday,
   isYesterday,
+  millisecondsToSeconds,
   parseISO,
 } from 'date-fns';
 
@@ -189,4 +191,17 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
   }
 
   return formatDateFns(parsedDate, formatTemplate) ?? '';
+}
+
+export function formatMillisecondsToDays(milliseconds: number): number {
+  const duration = intervalToDuration({ start: 0, end: milliseconds });
+  return duration.days ?? 0;
+}
+
+export function formatMillisecondsToBlocks(
+  milliseconds: number,
+  blockIntervalSeconds = 600,
+): number {
+  const seconds = millisecondsToSeconds(milliseconds);
+  return Math.ceil(seconds / blockIntervalSeconds);
 }

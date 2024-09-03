@@ -149,9 +149,7 @@ class ServiceStaking extends ServiceBase {
     }>(`/earn/v1/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
-      // TODO: use real data
-      term: 150,
-      feeRate: 1,
+      term: params.term,
       networkId,
       symbol,
       provider,

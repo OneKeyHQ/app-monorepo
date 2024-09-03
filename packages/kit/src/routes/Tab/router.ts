@@ -6,7 +6,6 @@ import type {
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -81,7 +80,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'CoinsSolid' : 'CoinsOutline',
-          translationId: ETranslationsMock.global_earn,
+          translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: '/earn',
           exact: true,
