@@ -76,6 +76,7 @@ function DeriveTypeVisibleController({
 
   return (
     <Stack
+      position={!usedVisible ? 'absolute' : 'relative'}
       height={!usedVisible ? 0 : undefined}
       width={!usedVisible ? 0 : undefined}
       opacity={!usedVisible ? 0 : undefined}

@@ -111,9 +111,9 @@ export const {
 } = contextAtom('');
 
 export const {
-  atom: swapAllNetworkTokenListAtom,
-  use: useSwapAllNetworkTokenListAtom,
-} = contextAtom<ISwapToken[] | undefined>(undefined);
+  atom: swapAllNetworkTokenListMapAtom,
+  use: useSwapAllNetworkTokenListMapAtom,
+} = contextAtom<Record<string, ISwapToken[]>>({});
 
 export const {
   atom: swapAllNetworkActionLockAtom,
@@ -135,7 +135,14 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
 export const {
   atom: swapQuoteActionLockAtom,
   use: useSwapQuoteActionLockAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<{
+  actionLock: boolean;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  accountId?: string;
+  address?: string;
+}>({ actionLock: false });
 
 export const {
   atom: swapQuoteIntervalCountAtom,

@@ -13,6 +13,7 @@ import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
 import { discoveryRouters } from './Discovery/router';
+import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
@@ -74,6 +75,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/market',
           exact: true,
           children: marketRouters,
+        },
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'CoinsSolid' : 'CoinsOutline',
+          translationId: ETranslations.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/earn',
+          exact: true,
+          children: earnRouters,
         },
         {
           name: ETabRoutes.Swap,

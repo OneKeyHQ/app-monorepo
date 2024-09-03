@@ -71,6 +71,8 @@
     "expo-splash-screen": "0.26.4",
     "expo-status-bar": "~1.6.0",
     "https-browserify": "^1.0.0",
+    "jcore-react-native": "https://github.com/OneKeyHQ/jcore-react-native.git#2cadf288224242cec715a2e260f872235c58874c",
+    "jpush-react-native": "https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7",
     "lottie-react": "^2.4.0",
     "lottie-react-native": "6.3.1",
     "path-browserify": "^1.0.1",
