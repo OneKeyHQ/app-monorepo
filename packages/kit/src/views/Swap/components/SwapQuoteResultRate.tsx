@@ -117,7 +117,11 @@ const SwapQuoteResultRate = ({
         )}
 
         <XStack alignItems="center" userSelect="none" gap="$1">
-          {!providerIcon || !fromToken || !toToken || openResult ? null : (
+          {!providerIcon ||
+          !fromToken ||
+          !toToken ||
+          openResult ||
+          !onOpenResult ? null : (
             <>
               <Image
                 source={{ uri: providerIcon }}
@@ -170,7 +174,7 @@ const SwapQuoteResultRate = ({
           ) : null}
         </XStack>
       </XStack>
-      {openResult ? <Divider mt="$2" /> : null}
+      {openResult && onOpenResult ? <Divider mt="$2" /> : null}
     </YStack>
   );
 };

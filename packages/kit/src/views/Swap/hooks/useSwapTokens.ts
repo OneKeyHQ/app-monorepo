@@ -281,15 +281,16 @@ export function useSwapTokenList(
       swapAllNetworkTokenListMap[
         swapAddressInfo?.accountInfo?.indexedAccount?.id ??
           swapAddressInfo?.accountInfo?.account?.id ??
-          ''
+          swapAddressInfo?.accountInfo?.dbAccount?.id ??
+          'noAccountId'
       ],
     [
       swapAllNetworkTokenListMap,
       swapAddressInfo?.accountInfo?.indexedAccount?.id,
       swapAddressInfo?.accountInfo?.account?.id,
+      swapAddressInfo?.accountInfo?.dbAccount?.id,
     ],
   );
-
   const sortAllNetworkTokens = useCallback((tokens: ISwapToken[]) => {
     const havePriceTokens = tokens
       .filter((token) => {
@@ -322,6 +323,9 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
+      if (swapAllNetRecommend?.length && !swapAllNetworkTokenList) {
+        return [];
+      }
       const allNetworkTokenList =
         swapAllNetworkTokenList
           ?.map((token) => {
@@ -430,13 +434,15 @@ export function useSwapTokenList(
         tokenFetchParams.networkId,
         swapAddressInfo?.accountInfo?.indexedAccount?.id,
         !swapAddressInfo?.accountInfo?.indexedAccount?.id
-          ? swapAddressInfo?.accountInfo?.account?.id
+          ? swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id
           : undefined,
       );
     }
     void tokenListFetchAction(tokenFetchParams);
   }, [
     swapAddressInfo?.accountInfo?.account?.id,
+    swapAddressInfo?.accountInfo?.dbAccount?.id,
     swapAddressInfo?.accountInfo?.indexedAccount?.id,
     swapLoadAllNetworkTokenList,
     tokenFetchParams,
