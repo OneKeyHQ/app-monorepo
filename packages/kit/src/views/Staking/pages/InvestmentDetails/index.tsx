@@ -19,7 +19,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IInvestment } from '@onekeyhq/shared/types/staking';
@@ -29,6 +32,7 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const [{ accounts }] = useEarnAtom();
+  const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
 
   const { result: earnInvestmentItems } = usePromiseResult(
@@ -57,7 +61,14 @@ function BasicInvestmentDetails() {
   }));
   const renderItem = useCallback(
     ({
-      item: { tokenInfo, active, claimable, overflow, providerName },
+      item: {
+        tokenInfo,
+        staked,
+        stakedFiatValue,
+        claimable,
+        overflow,
+        providerName,
+      },
     }: {
       item: IInvestment & { providerName: string };
     }) => (
@@ -90,11 +101,18 @@ function BasicInvestmentDetails() {
                 formatter="balance"
                 formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
               >
-                {active}
+                {staked}
               </NumberSizeableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                $333.13
-              </SizableText>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="balance"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                }}
+              >
+                {stakedFiatValue}
+              </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
               {isTrue(claimable) ? (

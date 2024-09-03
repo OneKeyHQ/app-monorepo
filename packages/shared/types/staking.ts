@@ -267,6 +267,8 @@ export interface IInvestment {
   active: string;
   claimable: string;
   overflow: string;
+  staked: string;
+  stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
 }
 export interface IEarnInvestmentItem {
