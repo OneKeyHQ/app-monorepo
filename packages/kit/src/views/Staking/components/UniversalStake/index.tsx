@@ -17,6 +17,11 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  formatDate,
+  formatMillisecondsToBlocks,
+  formatMillisecondsToDays,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -34,6 +39,8 @@ type IUniversalStakeProps = {
 
   minTransactionFee?: string;
   apr?: number;
+  minStakeTerm?: number;
+  unbondingTime?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -46,6 +53,8 @@ export const UniversalStake = ({
   maxAmount,
   minAmount = '0',
   minTransactionFee = '0',
+  minStakeTerm,
+  unbondingTime,
   tokenImageUri,
   tokenSymbol,
   providerName,
@@ -145,6 +154,25 @@ export const UniversalStake = ({
     );
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 
+  const btcStakeTerm = useMemo(() => {
+    if (minStakeTerm) {
+      const blocks = formatMillisecondsToBlocks(minStakeTerm);
+      const days = formatMillisecondsToDays(minStakeTerm);
+      return `${days} days (${blocks} blocks)`;
+    }
+    return null;
+  }, [minStakeTerm]);
+
+  const btcUnbondingTime = useMemo(() => {
+    if (unbondingTime) {
+      const currentDate = new Date();
+      const endDate = new Date(currentDate.getTime() + unbondingTime);
+
+      return formatDate(endDate, { hideTimeForever: true });
+    }
+    return null;
+  }, [unbondingTime]);
+
   return (
     <YStack>
       <Stack mx="$2" px="$3" gap="$5">
@@ -224,6 +252,16 @@ export const UniversalStake = ({
                 primary={`${apr}%`}
                 primaryTextProps={{ color: '$textSuccess' }}
               />
+            </ListItem>
+          ) : null}
+          {btcStakeTerm ? (
+            <ListItem title="Term" titleProps={fieldTitleProps}>
+              <ListItem.Text primary={btcStakeTerm} />
+            </ListItem>
+          ) : null}
+          {btcUnbondingTime ? (
+            <ListItem title="Unbonding Time" titleProps={fieldTitleProps}>
+              <ListItem.Text primary={btcUnbondingTime} />
             </ListItem>
           ) : null}
           <ListItem
