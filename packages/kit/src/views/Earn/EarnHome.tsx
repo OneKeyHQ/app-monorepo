@@ -190,7 +190,11 @@ function RecommendedContainer({
   );
 }
 
-function Recommended({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
+function Recommended({
+  isFetchingAccounts = false,
+}: {
+  isFetchingAccounts?: boolean;
+}) {
   const { gtMd } = useMedia();
   const [{ accounts }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
