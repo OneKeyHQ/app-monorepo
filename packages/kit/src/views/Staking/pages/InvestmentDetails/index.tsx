@@ -101,7 +101,7 @@ function BasicInvestmentDetails() {
         }
       />
     ),
-    [],
+    [accountInfo, navigation],
   );
   return (
     <Page scrollEnabled>
