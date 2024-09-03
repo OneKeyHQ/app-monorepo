@@ -325,7 +325,9 @@ export function Profit({
   const intl = useIntl();
   return (
     <YStack py="$8" px="$5">
-      <SizableText size="$headingLg">Profit</SizableText>
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.global_profit })}
+      </SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
         <GridItem
           title={intl.formatMessage({

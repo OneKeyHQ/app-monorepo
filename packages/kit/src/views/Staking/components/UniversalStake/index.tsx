@@ -255,7 +255,10 @@ export const UniversalStake = ({
             </ListItem>
           ) : null}
           {btcStakeTerm ? (
-            <ListItem title="Term" titleProps={fieldTitleProps}>
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_term })}
+              titleProps={fieldTitleProps}
+            >
               <ListItem.Text primary={btcStakeTerm} />
             </ListItem>
           ) : null}

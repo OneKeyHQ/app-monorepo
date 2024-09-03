@@ -42,11 +42,11 @@ const StakePage = () => {
     return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo, provider]);
 
-  const btcStakingTerm = useMemo(() => {
+  const btcStakingTerm = useMemo<number | undefined>(() => {
     if (provider?.minStakeTerm) {
       return formatMillisecondsToBlocks(provider.minStakeTerm);
     }
-    return 0;
+    return undefined;
   }, [provider]);
 
   const handleStake = useUniversalStake({ accountId, networkId });
