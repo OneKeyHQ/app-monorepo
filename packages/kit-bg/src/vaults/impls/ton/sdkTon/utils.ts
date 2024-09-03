@@ -17,7 +17,7 @@ import type { Cell } from 'tonweb/dist/types/boc/cell';
 import type { TransferBodyParams } from 'tonweb/dist/types/contract/token/ft/jetton-wallet';
 import type { Address } from 'tonweb/dist/types/utils/address';
 
-export function decodePayload(payload?: string | Uint8Array | Cell): {
+export function decodePayload(payload?: string | Uint8Array): {
   type: EDecodedTxActionType;
   bytes?: Uint8Array;
   jetton?: {
@@ -27,6 +27,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
     forwardAmount?: string;
     responseAddress?: string;
     forwardPayload?: Uint8Array;
+    comment?: string;
   };
   comment?: string;
 } {
@@ -46,8 +47,8 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
         // ignore
       }
     }
-  } else if (payload instanceof Uint8Array) {
-    bytes = payload;
+  } else {
+    bytes = Buffer.from(payload);
   }
 
   let jetton;
@@ -67,6 +68,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
         const forwardAmount = slice.loadCoins();
         const isForwardPayloadRef = slice.loadBit();
         let forwardPayload;
+        let comment;
         if (isForwardPayloadRef) {
           const ref = slice.loadRef();
           if (ref && ref.getFreeBits() > 0) {
@@ -77,6 +79,17 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
         }
         if (!forwardPayload) {
           type = EDecodedTxActionType.ASSET_TRANSFER;
+        } else {
+          const fwdBuf = Buffer.from(forwardPayload);
+          const fwdOp = new BigNumber(
+            fwdBuf.subarray(0, 4).toString('hex'),
+            16,
+          ).toString(16);
+          if (fwdOp === '0') {
+            // comment
+            type = EDecodedTxActionType.ASSET_TRANSFER;
+            comment = fwdBuf.subarray(4).toString();
+          }
         }
         jetton = {
           queryId: queryId ? queryId.toString() : undefined,
@@ -91,6 +104,7 @@ export function decodePayload(payload?: string | Uint8Array | Cell): {
             ? (responseAddress.toString as IAddressToString)(true, true, false)
             : undefined,
           forwardPayload,
+          comment,
         };
       } else if (op === '0') {
         // comment
@@ -220,7 +234,7 @@ export interface IJettonTransferBodyParams {
   toAddress: string;
   responseAddress: string;
   forwardAmount?: string;
-  forwardPayload?: Uint8Array | Cell;
+  forwardPayload?: string;
 }
 
 export async function encodeJettonPayload({
@@ -249,7 +263,11 @@ export async function encodeJettonPayload({
     forwardAmount: params.forwardAmount
       ? new TonWeb.utils.BN(params.forwardAmount)
       : undefined,
-    forwardPayload: params.forwardPayload,
+    forwardPayload: params.forwardPayload
+      ? TonWeb.boc.Cell.oneFromBoc(
+          Buffer.from(params.forwardPayload, 'base64').toString('hex'),
+        )
+      : undefined,
   } as unknown as TransferBodyParams);
   return {
     payload: Buffer.from(await body.toBoc()).toString('base64'),
@@ -272,6 +290,26 @@ export async function getJettonData({
     } as any,
   );
   return jettonWallet.getData();
+}
+
+export async function getJettonWalletAddress({
+  backgroundApi,
+  networkId,
+  masterAddress,
+  address,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  masterAddress: string;
+  address: string;
+}) {
+  const jettonMinter = new TonWeb.token.jetton.JettonMinter(
+    new Provider({ backgroundApi, networkId }),
+    {
+      address: masterAddress,
+    } as any,
+  );
+  return jettonMinter.getJettonWalletAddress(new TonWeb.Address(address));
 }
 
 export async function encodeComment(comment: string) {
