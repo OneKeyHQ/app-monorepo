@@ -65,17 +65,11 @@ const StakePage = () => {
           tags: [actionTag],
         },
         term: btcStakingTerm,
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: tokenInfo,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
           onSuccess?.();
         },
@@ -85,7 +79,6 @@ const StakePage = () => {
       handleStake,
       appNavigation,
       tokenInfo,
-      price,
       provider,
       actionTag,
       onSuccess,
