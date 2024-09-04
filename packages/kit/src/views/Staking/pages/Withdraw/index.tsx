@@ -15,6 +15,7 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -79,6 +80,8 @@ const WithdrawPage = () => {
     ],
   );
 
+  const providerLabel = useProviderLabel(provider.name);
+
   const balance = Number(staked) - Number(pendingInactive);
 
   return (
@@ -99,6 +102,10 @@ const WithdrawPage = () => {
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
+          minAmount={BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed()}
+          withdrawMinAmount={details.minUnstakeAmount}
+          unstakingPeriod={details.unstakingPeriod}
+          providerLabel={providerLabel}
         />
       </Page.Body>
     </Page>
