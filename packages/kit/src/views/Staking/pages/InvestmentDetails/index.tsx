@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -80,11 +81,15 @@ function BasicInvestmentDetails() {
   );
   const accountInfo = useActiveAccount({ num: 0 });
 
-  const sectionData = earnInvestmentItems.map((item) => ({
-    title: item.name,
-    logoURI: item.logoURI,
-    data: item.investment.map((i) => ({ ...i, providerName: item.name })),
-  }));
+  const sectionData = earnInvestmentItems
+    .map((item) => ({
+      title: item.name,
+      logoURI: item.logoURI,
+      data: item.investment
+        .map((i) => ({ ...i, providerName: item.name }))
+        .filter((i) => !new BigNumber(i.staked).isZero()),
+    }))
+    .filter((i) => i.data.length > 0);
   const renderItem = useCallback(
     ({
       item: {
