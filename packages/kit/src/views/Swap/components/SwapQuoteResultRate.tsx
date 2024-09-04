@@ -70,6 +70,9 @@ const SwapQuoteResultRate = ({
       <XStack
         gap="$2"
         alignItems="center"
+        hoverStyle={{
+          opacity: 0.5,
+        }}
         onPress={() => {
           setIsReverse(!isReverse);
         }}
