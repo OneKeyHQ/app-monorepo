@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Dialog,
   Page,
   SizableText,
   Stack,
@@ -22,20 +23,27 @@ import {
   formatMillisecondsToBlocks,
   formatMillisecondsToDays,
 } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
   price: string;
   balance: string;
+
+  details: IStakeProtocolDetails;
+
+  providerLabel?: string;
+
+  tokenImageUri?: string;
+  tokenSymbol?: string;
+
   minAmount?: string;
   maxAmount?: string;
 
-  tokenImageUri: string;
-  tokenSymbol: string;
-
-  providerName: string;
-  providerLogo: string;
+  providerName?: string;
+  providerLogo?: string;
 
   minTransactionFee?: string;
   apr?: number;
@@ -50,9 +58,11 @@ export const UniversalStake = ({
   price,
   balance,
   apr,
+  details,
   maxAmount,
   minAmount = '0',
   minTransactionFee = '0',
+  providerLabel,
   minStakeTerm,
   unbondingTime,
   tokenImageUri,
@@ -80,15 +90,6 @@ export const UniversalStake = ({
     }
     setAmountValue(value);
   }, []);
-
-  const onPress = useCallback(async () => {
-    setLoading(true);
-    try {
-      await onConfirm?.(amountValue);
-    } finally {
-      setLoading(false);
-    }
-  }, [onConfirm, amountValue]);
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
@@ -147,7 +148,7 @@ export const UniversalStake = ({
     return (
       <ValuePriceListItem
         amount={amountBN.toFixed()}
-        tokenSymbol={tokenSymbol}
+        tokenSymbol={tokenSymbol ?? ''}
         fiatSymbol={symbol}
         fiatValue={amountBN.multipliedBy(price).toFixed()}
       />
@@ -173,6 +174,33 @@ export const UniversalStake = ({
     return null;
   }, [unbondingTime]);
 
+  const onPress = useCallback(async () => {
+    Dialog.show({
+      renderContent: (
+        <StakeShouldUnderstand
+          provider={details.provider.name.toLowerCase()}
+          symbol={details.token.info.symbol.toLowerCase()}
+          logoURI={details.token.info.logoURI}
+          apr={details.provider.apr}
+          updateFrequency={details.updateFrequency}
+          unstakingPeriod={details.unstakingPeriod}
+          receiveSymbol={details.rewardToken}
+        />
+      ),
+      onConfirm: async (inst) => {
+        try {
+          setLoading(true);
+          await inst.close();
+          await onConfirm?.(amountValue);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+      showCancelButton: false,
+    });
+  }, [onConfirm, amountValue, details, intl]);
+
   return (
     <YStack>
       <Stack mx="$2" px="$3" gap="$5">
@@ -182,7 +210,7 @@ export const UniversalStake = ({
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol.toUpperCase(),
+            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
           }}
           balanceProps={{
             value: balance,
@@ -243,7 +271,7 @@ export const UniversalStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          {apr ? (
+          {apr && Number(apr) > 0 ? (
             <ListItem
               title={intl.formatMessage({ id: ETranslations.global_apr })}
               titleProps={fieldTitleProps}
@@ -267,19 +295,26 @@ export const UniversalStake = ({
               <ListItem.Text primary={btcUnbondingTime} />
             </ListItem>
           ) : null}
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.global_protocol })}
-            titleProps={fieldTitleProps}
-          >
-            <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
-              <SizableText size="$bodyLgMedium">{providerName}</SizableText>
-            </XStack>
-          </ListItem>
+          {providerLogo && providerName ? (
+            <ListItem
+              title={
+                providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })
+              }
+              titleProps={fieldTitleProps}
+            >
+              <XStack gap="$2" alignItems="center">
+                <Token size="xs" tokenImageUri={providerLogo} />
+                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              </XStack>
+            </ListItem>
+          ) : null}
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
         confirmButtonProps={{
           onPress,
           loading,
