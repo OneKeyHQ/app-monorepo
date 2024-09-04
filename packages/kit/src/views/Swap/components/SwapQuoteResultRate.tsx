@@ -169,6 +169,7 @@ const SwapQuoteResultRate = ({
                 pressStyle={{
                   bg: '$background',
                 }}
+                cursor="pointer"
               />
             </MotiView>
           ) : null}

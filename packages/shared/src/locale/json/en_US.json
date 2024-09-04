@@ -1668,7 +1668,7 @@
   "token_no_search_results_desc": "No match found for your search. Please re-enter.",
   "token_selector.empty_content": "The token selected does not support cross-chain to this network.",
   "token_selector.empty_title": "Unsupported",
-  "token_selector.network": "Network",
+  "token_selector.network": "Network:",
   "token_selector.risk_reminder.button_cancel": "Cancel",
   "token_selector.risk_reminder.button_ok": "OK",
   "token_selector.risk_reminder.checkbox": "Don't show this alert for all non-verified tokens",
