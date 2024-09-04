@@ -34,6 +34,11 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     }));
   });
 
+  getAvailableAssets = contextAtomMethod((get) => {
+    const { availableAssets } = get(earnAtom());
+    return availableAssets || [];
+  });
+
   updateAvailableAssets = contextAtomMethod(
     (_, set, availableAssets: IAvailableAsset[]) => {
       this.syncToDb.call(set, {
@@ -53,10 +58,12 @@ const createActions = memoFn(() => new ContextJotaiActionsMarket());
 
 export function useEarnActions() {
   const actions = createActions();
+  const getAvailableAssets = actions.getAvailableAssets.use();
   const updateAvailableAssets = actions.updateAvailableAssets.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
 
   return useRef({
+    getAvailableAssets,
     updateAvailableAssets,
     updateEarnAccounts,
   });
