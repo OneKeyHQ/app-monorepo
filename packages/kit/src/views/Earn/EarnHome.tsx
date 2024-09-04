@@ -260,22 +260,22 @@ function Recommended({
 }
 
 const totalFiatMap: Record<string, [string, string]> = {};
-const buildTotalFiatMapKey = (account = '', network = '') =>
-  `${account}-${network}`;
 
 function Overview() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
   const totalFiatMapKey = useMemo(
-    () => buildTotalFiatMapKey(account?.id, network?.id),
-    [account?.id, network?.id],
+    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
+    [account?.id, actions, network?.id],
   );
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(() => {
-    if (accounts) {
-      const sum = accounts
+    const list = accounts?.[totalFiatMapKey] || [];
+    if (list?.length) {
+      const sum = list
         .reduce(
           (prev, currentAccount) =>
             prev.plus(currentAccount.earn.totalFiatValue || 0),
@@ -289,8 +289,9 @@ function Overview() {
     return totalFiatMap[totalFiatMapKey]?.[0] || 0;
   }, [accounts, totalFiatMapKey]);
   const earnings24h = useMemo(() => {
-    if (accounts) {
-      const sum = accounts.reduce(
+    const list = accounts?.[totalFiatMapKey] || [];
+    if (list?.length) {
+      const sum = list.reduce(
         (prev, currentAccount) =>
           prev.plus(currentAccount.earn.earnings24h || 0),
         new BigNumber(0),
@@ -420,6 +421,10 @@ function BasicEarnHome() {
   const actions = useEarnActions();
   const { isLoading: isFetchingAccounts } = usePromiseResult(
     async () => {
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
+        account?.id,
+        network?.id,
+      );
       let assets = actions.current.getAvailableAssets();
       if (assets.length === 0) {
         assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
@@ -438,9 +443,12 @@ function BasicEarnHome() {
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
         });
-      actions.current.updateEarnAccounts(accounts);
+      actions.current.updateEarnAccounts({
+        key: totalFiatMapKey,
+        accounts,
+      });
     },
-    [account, network, actions],
+    [actions, account?.id, network?.id],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),

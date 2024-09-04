@@ -235,7 +235,7 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: IEarnAccount[];
+  accounts?: Record<string, IEarnAccount[]>;
   availableAssets?: IAvailableAsset[];
 }
 
