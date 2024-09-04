@@ -408,9 +408,11 @@ function BasicEarnHome() {
         assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
         actions.current.updateAvailableAssets(assets);
       } else {
-        void backgroundApiProxy.serviceStaking
-          .getAvailableAssets()
-          .then(actions.current.updateAvailableAssets);
+        setTimeout(() => {
+          void backgroundApiProxy.serviceStaking
+            .getAvailableAssets()
+            .then(actions.current.updateAvailableAssets);
+        });
       }
 
       const accounts =
