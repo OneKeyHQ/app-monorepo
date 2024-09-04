@@ -27,7 +27,7 @@ import {
   useTokenSelectorSearchTokenListAtom,
   useTokenSelectorSearchTokenStateAtom,
 } from '../../states/jotai/contexts/tokenList';
-import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo.ext';
+import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
