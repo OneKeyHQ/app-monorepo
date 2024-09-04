@@ -51,7 +51,7 @@
     "burnt": "0.12.2",
     "expo": "50.0.20",
     "expo-application": "5.8.3",
-    "expo-barcode-scanner": "12.7.0",
+    "expo-barcode-scanner": "12.9.3",
     "expo-blur": "12.9.1",
     "expo-clipboard": "5.0.1",
     "expo-device": "5.9.3",
