@@ -109,11 +109,10 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async getSafeItems({
-    networkId,
-  }: {
+  async getSafeItems(params?: {
     networkId?: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
+    const { networkId } = params ?? {};
     // throw new Error('address book failed to verify hash');
     const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {

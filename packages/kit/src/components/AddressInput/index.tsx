@@ -116,6 +116,15 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   return null;
 };
 
+const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
+  const intl = useIntl();
+  return isContract ? (
+    <Badge badgeType="critical" badgeSize="sm">
+      {intl.formatMessage({ id: ETranslations.global_contract })}
+    </Badge>
+  ) : null;
+};
+
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
@@ -167,6 +176,7 @@ export type IAddressQueryResult = {
   resolveAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: IAddressInteractionStatus;
+  isContract?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -213,9 +223,10 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <Stack my="$0.5">
+        <XStack my="$0.5" gap="$1">
           <AddressInteractionStatus status={result.addressInteractionStatus} />
-        </Stack>
+          <AddressContractStatus isContract={result.isContract} />
+        </XStack>
       </XStack>
     );
   }

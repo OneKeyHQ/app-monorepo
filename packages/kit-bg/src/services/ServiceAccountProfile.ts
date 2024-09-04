@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -16,6 +17,7 @@ import type {
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
+  IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
 import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -139,7 +141,7 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressInteractionStatus({
+  private async getAddressAccountBadge({
     accountId,
     networkId,
     fromAddress,
@@ -149,56 +151,55 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     fromAddress: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus> {
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{
-        data: {
-          status: EServerInteractedStatus;
-        };
-      }>('/wallet/v1/account/interacted', {
-        params: {
-          networkId,
-          accountAddress: fromAddress,
-          toAccountAddress: toAddress,
-        },
-        headers: await this._getWalletTypeHeader({ accountId }),
-      });
-      const statusMap: Record<
-        EServerInteractedStatus,
-        IAddressInteractionStatus
-      > = {
-        [EServerInteractedStatus.FALSE]: 'not-interacted',
-        [EServerInteractedStatus.TRUE]: 'interacted',
-        [EServerInteractedStatus.UNKNOWN]: 'unknown',
-      };
-      return statusMap[resp.data.data.status] ?? 'unknown';
-    } catch {
-      return 'unknown';
-    }
+  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{
+      data: IServerAccountBadgeResp;
+    }>('/wallet/v1/account/badges', {
+      params: {
+        networkId,
+        fromAddress,
+        toAddress,
+      },
+      headers: await this._getWalletTypeHeader({ accountId }),
+    });
+    const { isContract, interacted } = resp.data.data;
+    const statusMap: Record<
+      EServerInteractedStatus,
+      IAddressInteractionStatus
+    > = {
+      [EServerInteractedStatus.FALSE]: 'not-interacted',
+      [EServerInteractedStatus.TRUE]: 'interacted',
+      [EServerInteractedStatus.UNKNOWN]: 'unknown',
+    };
+    return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
   }
 
   private async checkAccountInteractionStatus({
     networkId,
     accountId,
     toAddress,
+    result,
   }: {
     networkId: string;
     accountId: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus | undefined> {
+    result: IAddressQueryResult;
+  }): Promise<void> {
     const acc = await this.backgroundApi.serviceAccount.getAccount({
       networkId,
       accountId,
     });
+    const { isContract, interacted } = await this.getAddressAccountBadge({
+      accountId,
+      networkId,
+      fromAddress: acc.address,
+      toAddress,
+    });
     if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
-      return this.getAddressInteractionStatus({
-        accountId,
-        networkId,
-        fromAddress: acc.address,
-        toAddress,
-      });
+      result.addressInteractionStatus = interacted;
     }
+    result.isContract = isContract;
   }
 
   private async verifyCannotSendToSelf({
@@ -273,12 +274,13 @@ class ServiceAccountProfile extends ServiceBase {
         return result;
       }
     }
-
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =
         await this.backgroundApi.serviceAddressBook.findItem({
-          networkId,
+          networkId: !networkUtils.isEvmNetwork({ networkId })
+            ? networkId
+            : undefined,
           address: resolveAddress,
         });
       result.addressBookName = addressBookItem?.name;
@@ -318,12 +320,12 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (enableAddressInteractionStatus && resolveAddress && accountId) {
-      result.addressInteractionStatus =
-        await this.checkAccountInteractionStatus({
-          networkId,
-          accountId,
-          toAddress: resolveAddress,
-        });
+      await this.checkAccountInteractionStatus({
+        networkId,
+        accountId,
+        toAddress: resolveAddress,
+        result,
+      });
     }
     return result;
   }
