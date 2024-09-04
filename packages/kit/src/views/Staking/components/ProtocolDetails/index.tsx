@@ -80,7 +80,6 @@ type IEarnTokenDetailResult = {
   portfolio: IPortfolioValue;
   profit: IProfit;
   provider: IProvider;
-  solutions: ISolutions;
 };
 
 function StakedValue({
@@ -708,32 +707,29 @@ export function ProtocolDetails({
       portfolio,
       profit,
       provider,
-      solutions: [
-        {
-          question: 'Lido 协议是如何工作的？',
-          answer:
-            'Lido 为传统 PoS 权益证明所带来的难题提供了一种创新解决方案，有效地降低了进入门槛和将资产锁定在单一协议中的成本。当用户将他们的资产存入 Lido 时，这些代币会通过协议在 Lido 多区块链上进行权益证明。',
-        },
-        {
-          question: '为什么你会收到 stETH？',
-          answer:
-            '当你向 Lido 存入 ETH 时，你会收到 Lido 的流动性质押代币，即 stETH，它代表了你在 Lido 中对 ETH 的比例索赔。当在 Lido 上运行的验证者获得奖励时，你有资格按照你的质押比例获得奖励，这通常预期每天发生。',
-        },
-        {
-          question: 'Lido 的可能风险是什么？',
-          answer:
-            '使用 Lido 进行质押存在一定的风险，例如网络或验证器故障可能导致质押资产的损失（罚款），或者 Lido 智能合约的漏洞或错误。尽管该代码已经开源，经过审计并得到广泛关注，但任何加密货币投资都存在风险，需要独立评估。',
-        },
-      ],
     };
     return data;
   }, [details]);
+
+  const { result: solutions } = usePromiseResult(
+    async () =>
+      details
+        ? backgroundApiProxy.serviceStaking.getFAQList({
+            symbol: details.token.info.symbol,
+            provider: details.provider.name,
+          })
+        : Promise.resolve([]),
+    [details],
+    {
+      initResult: [],
+    },
+  );
 
   if (!result) {
     return null;
   }
 
-  const { solutions, stakedValue, portfolio, profit, provider } = result;
+  const { stakedValue, portfolio, profit, provider } = result;
   return (
     <YStack>
       {earnAccount?.accountAddress ? (

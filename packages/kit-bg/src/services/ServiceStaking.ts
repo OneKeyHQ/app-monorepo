@@ -19,6 +19,7 @@ import type {
   IAvailableAsset,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
   IPortfolioItem,
@@ -664,6 +665,19 @@ class ServiceStaking extends ServiceBase {
           !isTaprootAddress(account.apiAddress)
         ),
     );
+  }
+
+  @backgroundMethod()
+  async getFAQList(params: { provider: string; symbol: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        list: IEarnFAQList;
+      };
+    }>(`/earn/v1/faq/list`, {
+      params,
+    });
+    return resp.data.data.list;
   }
 }
 
