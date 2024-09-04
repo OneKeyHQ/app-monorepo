@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -11,6 +12,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -69,6 +71,31 @@ const toTokenProviderListPage = async (
   });
 };
 
+function RecommendedSkeletonItem() {
+  return (
+    <YStack
+      gap="$3"
+      px="$4"
+      width="$40"
+      py="$3.5"
+      mt="$3"
+      borderRadius="$3"
+      bg="$bg"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      $md={{
+        flexGrow: 1,
+      }}
+    >
+      <XStack gap="$2" h={24} alignItems="center">
+        <Skeleton width="$6" height="$6" radius="round" />
+        <Skeleton w={80} h={12} borderRadius="$3" />
+      </XStack>
+      <Skeleton w={120} h={28} borderRadius="$3" />
+    </YStack>
+  );
+}
+
 function RecommendedItem({ token }: { token?: ITokenAccount }) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
@@ -86,7 +113,7 @@ function RecommendedItem({ token }: { token?: ITokenAccount }) {
     }
   }, [accountInfo, navigation, token]);
   if (!token) {
-    return null;
+    return <YStack width="$40" flexGrow={1} />;
   }
   return (
     <YStack
@@ -130,10 +157,46 @@ function RecommendedItem({ token }: { token?: ITokenAccount }) {
   );
 }
 
-function Recommended() {
+function RecommendedContainer({
+  profit,
+  children,
+}: PropsWithChildren<{ profit: BigNumber }>) {
+  const [settings] = useSettingsPersistAtom();
+  const intl = useIntl();
+  return (
+    <YStack userSelect="none" px="$5">
+      <YStack gap="$1" mt="$2">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_recommended })}
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {`${intl.formatMessage({
+            id: ETranslations.earn_missing_rewards,
+          })}: `}
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="balance"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {profit.toString()}
+          </NumberSizeableText>
+        </SizableText>
+      </YStack>
+      {children}
+    </YStack>
+  );
+}
+
+function Recommended({
+  isFetchingAccounts = false,
+}: {
+  isFetchingAccounts?: boolean;
+}) {
   const { gtMd } = useMedia();
   const [{ accounts }] = useEarnAtom();
-  const [settings] = useSettingsPersistAtom();
   const { tokens, profit } = useMemo(() => {
     const accountTokens: ITokenAccount[] = [];
     const totalProfit = new BigNumber(0);
@@ -151,28 +214,29 @@ function Recommended() {
       profit: totalProfit,
     };
   }, [accounts]);
-  const intl = useIntl();
+  if (isFetchingAccounts && tokens.length < 1) {
+    return (
+      <RecommendedContainer profit={profit}>
+        {gtMd ? (
+          <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
+            <RecommendedSkeletonItem />
+            <RecommendedSkeletonItem />
+            <RecommendedSkeletonItem />
+          </XStack>
+        ) : (
+          <YStack>
+            <XStack gap="$3" justifyContent="space-between">
+              <RecommendedSkeletonItem />
+              <RecommendedSkeletonItem />
+            </XStack>
+          </YStack>
+        )}
+      </RecommendedContainer>
+    );
+  }
   if (tokens.length) {
     return (
-      <YStack userSelect="none" px="$5">
-        <YStack gap="$1" mt="$2">
-          <SizableText size="$headingLg">
-            {intl.formatMessage({ id: ETranslations.earn_recommended })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {'Missing rewards: '}
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="balance"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-            >
-              {profit.toString()}
-            </NumberSizeableText>
-          </SizableText>
-        </YStack>
+      <RecommendedContainer profit={profit}>
         {gtMd ? (
           <XStack gap="$3" $gtMd={{ flexWrap: 'wrap' }}>
             {tokens.map((token) => (
@@ -189,7 +253,7 @@ function Recommended() {
             ))}
           </YStack>
         )}
-      </YStack>
+      </RecommendedContainer>
     );
   }
   return null;
@@ -337,12 +401,11 @@ function BasicEarnHome() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  usePromiseResult(
+  const { isLoading: isFetchingAccounts } = usePromiseResult(
     async () => {
       const assets =
         await backgroundApiProxy.serviceStaking.getAvailableAssets();
       actions.current.updateAvailableAssets(assets);
-
       const accounts =
         await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
           assets,
@@ -368,7 +431,7 @@ function BasicEarnHome() {
         <YStack alignItems="center" py="$5">
           <YStack maxWidth="$180" w="100%" gap="$8">
             <Overview />
-            <Recommended />
+            <Recommended isFetchingAccounts={isFetchingAccounts} />
             <AvailableAssets />
           </YStack>
         </YStack>

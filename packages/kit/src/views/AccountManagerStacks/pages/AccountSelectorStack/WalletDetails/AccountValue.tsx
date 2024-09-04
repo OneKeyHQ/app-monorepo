@@ -60,6 +60,7 @@ function AccountValueWithSpotlight({
   const intl = useIntl();
   return (
     <Spotlight
+      delayMs={300}
       containerProps={{ flexShrink: 1 }}
       isVisible={shouldShowSpotlight}
       message={intl.formatMessage({

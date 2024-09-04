@@ -222,6 +222,7 @@ export type IEarnAccount = {
   earn: IEarnAccountResponse;
   networkId: string;
   accountAddress: string;
+  publicKey?: string;
 };
 
 export type IAvailableAsset = {
