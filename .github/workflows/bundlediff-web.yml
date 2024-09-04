@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-web-base, build-web-head]
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4.1.7
 
       - uses: github/webpack-bundlesize-compare-action@v1.7.0
         with:
