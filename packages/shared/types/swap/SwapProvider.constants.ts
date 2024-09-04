@@ -615,6 +615,20 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
     },
     {
       'networkId': 'evm--42161',
+      'contractAddress': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png',
+
+      'isNative': false,
+      'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+    {
+      'networkId': 'evm--42161',
       'contractAddress': '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f',
       'name': 'Wrapped BTC',
       'symbol': 'WBTC',

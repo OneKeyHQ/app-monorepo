@@ -136,12 +136,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onToAnotherAddressModal={onToAnotherAddressModal}
           />
-          {quoteResult ? (
-            <SwapQuoteResult
-              onOpenProviderList={onOpenProviderList}
-              quoteResult={quoteResult}
-            />
-          ) : null}
+          <SwapQuoteResult
+            onOpenProviderList={onOpenProviderList}
+            quoteResult={quoteResult}
+          />
           {alerts.states.length > 0 &&
           !quoteLoading &&
           !quoteEventFetching &&
