@@ -39,7 +39,7 @@ jobs:
       - name: Setup Expo
         uses: OneKeyHQ/actions/expo-server@main
         with:
-          eas-version: 5.x
+          eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup ENV BUILD_NUMBER to 1
