@@ -209,12 +209,12 @@ function Recommended({
     const accountTokens: ITokenAccount[] = [];
     let totalProfit = new BigNumber(0);
     const list = accounts?.[totalFiatMapKey] || [];
-    list?.forEach((account) => {
-      account.earn.tokens.forEach((token) => {
+    list?.forEach((accountItem) => {
+      accountItem.earn.tokens.forEach((token) => {
         totalProfit = totalProfit.plus(token.profit || 0);
         accountTokens.push({
           ...token,
-          account,
+          account: accountItem,
         });
       });
     });
