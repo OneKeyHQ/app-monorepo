@@ -48,7 +48,9 @@ export const useHandleClaim = () => {
         networkId,
         details,
         onSuccess,
-        amount: symbol.toLowerCase() === 'eth' ? details.claimable : undefined,
+        amount: ['eth', 'atom'].includes(symbol.toLowerCase())
+          ? details.claimable
+          : undefined,
       });
     },
     [appNavigation],

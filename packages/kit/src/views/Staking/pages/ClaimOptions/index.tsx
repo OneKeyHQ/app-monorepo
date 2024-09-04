@@ -14,6 +14,8 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -97,6 +99,32 @@ const ClaimOptions = () => {
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              extraFields={
+                networkUtils.isBTCNetwork(networkId)
+                  ? [
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_status,
+                        }),
+                        value() {
+                          return intl.formatMessage({
+                            id: ETranslations.earn_claimable,
+                          });
+                        },
+                      },
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_transaction_id,
+                        }),
+                        value({ item }) {
+                          return accountUtils.shortenAddress({
+                            address: item.id,
+                          });
+                        },
+                      },
+                    ]
+                  : undefined
+              }
             />
           ) : null}
         </PageFrame>

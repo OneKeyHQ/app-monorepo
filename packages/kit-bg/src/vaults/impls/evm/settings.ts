@@ -64,8 +64,11 @@ const stakingConfig: IStakingConfig = {
         configs: lidoConfig,
       },
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH'],
-        configs: { ETH: commonStakeConfigs.ETH },
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: commonStakeConfigs.ETH,
+          MATIC: commonStakeConfigs.MATIC,
+        },
       },
     },
   },
@@ -83,13 +86,16 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().holesky]: {
     providers: {
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH'],
-        configs: { ETH: commonStakeConfigs.ETH },
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: commonStakeConfigs.ETH,
+          MATIC: commonStakeConfigs.MATIC,
+        },
       },
       [EEarnProviderEnum.Lido]: {
         supportedSymbols: ['ETH'],
         configs: {
-          ...lidoConfig,
+          ETH: lidoConfig.ETH,
         },
       },
     },
