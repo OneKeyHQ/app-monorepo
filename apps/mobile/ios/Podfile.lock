@@ -18,14 +18,14 @@ PODS:
     - ZXingObjC/PDF417
   - EXConstants (15.4.5):
     - ExpoModulesCore
-  - EXFont (11.10.2):
+  - EXFont (11.10.3):
     - ExpoModulesCore
   - EXImageLoader (4.4.0):
     - ExpoModulesCore
     - React-Core
   - EXNotifications (0.27.6):
     - ExpoModulesCore
-  - Expo (50.0.5):
+  - Expo (50.0.20):
     - ExpoModulesCore
   - ExpoBlur (12.9.1):
     - ExpoModulesCore
@@ -50,7 +50,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLocalization (14.5.0):
     - ExpoModulesCore
-  - ExpoModulesCore (1.11.8):
+  - ExpoModulesCore (1.11.13):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -61,7 +61,7 @@ PODS:
     - ExpoModulesCore
   - ExpoSharing (11.10.0):
     - ExpoModulesCore
-  - EXScreenCapture (5.8.1):
+  - EXScreenCapture (5.8.0):
     - ExpoModulesCore
   - EXSplashScreen (0.26.4):
     - ExpoModulesCore
@@ -1818,10 +1818,10 @@ SPEC CHECKSUMS:
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
-  EXFont: 21b9c760abd593ce8f0d5386b558ced76018506f
+  EXFont: f20669cb266ef48b004f1eb1f2b20db96cd1df9f
   EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
   EXNotifications: e11f0e9a5b657c064a481a5d522f3bc5a07bf7cd
-  Expo: 49cded7844f2ec4ffb1cc3b86504853f26952935
+  Expo: d86f597bbab83615207499c5b3bfd80992e2bbd3
   ExpoBlur: 2eb7f7ac50c0818ee7d596996e4c0112b3d225f6
   ExpoClipboard: b597982124f067ff9f5b89093eb3d97898d5d877
   ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
@@ -1833,10 +1833,10 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: d10226652f849e675528883aa45afd2358c2f92f
   ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
-  ExpoModulesCore: 2346e83abf90c2b2c16a54c3fc4a1169ae12816c
+  ExpoModulesCore: 370096473359f5f6aade0871400d063333747719
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
   ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
-  EXScreenCapture: 7a491c16de021638078f50281d411e3352bb28c2
+  EXScreenCapture: d23d01882ce614ba2a341f9fe4bf4a9559830d92
   EXSplashScreen: 6bd596128cd52fac91997ebc64f3d394c843a8f9
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
