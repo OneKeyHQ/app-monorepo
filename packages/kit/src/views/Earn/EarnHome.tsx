@@ -259,7 +259,7 @@ function Recommended({
   return null;
 }
 
-function Overview() {
+function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const totalFiatValue = useMemo(
@@ -316,7 +316,7 @@ function Overview() {
         formatter="price"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
       >
-        {totalFiatValue}
+        {isFetchingAccounts ? 0 : totalFiatValue}
       </NumberSizeableText>
       <XStack gap="$1.5">
         <NumberSizeableText
@@ -430,7 +430,7 @@ function BasicEarnHome() {
       <Page.Body>
         <YStack alignItems="center" py="$5">
           <YStack maxWidth="$180" w="100%" gap="$8">
-            <Overview />
+            <Overview isFetchingAccounts={isFetchingAccounts} />
             <Recommended isFetchingAccounts={isFetchingAccounts} />
             <AvailableAssets />
           </YStack>
