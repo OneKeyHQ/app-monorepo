@@ -31,6 +31,7 @@ type IUniversalClaimProps = {
   providerLogo: string;
   providerName: string;
   receivingTokenSymbol: string;
+  providerLabel?: string;
   initialAmount?: string;
   rate?: string;
   minAmount?: string;
@@ -45,6 +46,7 @@ export const UniversalClaim = ({
   providerLogo,
   providerName,
   receivingTokenSymbol,
+  providerLabel,
   initialAmount,
   minAmount = '0',
   rate = '1',
@@ -209,7 +211,10 @@ export const UniversalClaim = ({
           </ListItem>
         ) : null}
         <ListItem
-          title={intl.formatMessage({ id: ETranslations.global_protocol })}
+          title={
+            providerLabel ??
+            intl.formatMessage({ id: ETranslations.global_protocol })
+          }
           titleProps={fieldTitleProps}
         >
           <XStack gap="$2" alignItems="center">

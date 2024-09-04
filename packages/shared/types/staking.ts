@@ -175,6 +175,8 @@ export type IStakeProtocolDetails = {
   rewardToken: string;
   approveTarget?: string;
   earnHistoryEnable?: boolean;
+  unstakingPeriod?: number;
+  minUnstakeAmount?: number;
 };
 
 export type IStakeProtocolListItem = {
