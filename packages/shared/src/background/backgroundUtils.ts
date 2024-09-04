@@ -309,8 +309,6 @@ export const scopeNetworks: Record<
   '$private': undefined,
   '$privateExternalAccount': [IMPL_BTC, IMPL_TBTC],
   '$walletConnect': undefined,
-  scdo: undefined,
-  ton: undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
