@@ -309,6 +309,7 @@ export function Spotlight(props: {
   isVisible?: boolean;
   message: string;
   tourName: ESpotlightTour;
+  delayMs?: number;
   children: ReactNode;
 }) {
   const {
@@ -317,9 +318,19 @@ export function Spotlight(props: {
     message,
     children,
     containerProps,
+    delayMs = 0,
   } = props;
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
-  const visible = isFirstVisit && isVisible;
+  const [isShow, setIsShow] = useState(false);
+  useEffect(() => {
+    setTimeout(
+      () => {
+        setIsShow(isVisible);
+      },
+      isVisible ? delayMs : 0,
+    );
+  }, [delayMs, isVisible]);
+  const visible = isFirstVisit && isShow;
 
   return (
     <SpotlightView
