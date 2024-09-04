@@ -190,6 +190,7 @@
   "dapp_connect.attackers_disguise_sites_warning": "Kẻ tấn công có thể giả mạo các trang web độc hại thành các trang Web3 nổi tiếng bằng cách thay thế bằng các ký tự không phổ biến. Kiểm tra lại URL trước khi chấp thuận bất kỳ yêu cầu nào.",
   "dapp_connect.authorization_successful": "Ủy quyền thành công",
   "dapp_connect.confirm": "Xác nhận",
+  "dapp_connect.connect_to_website": "Đã kết nối tới {url}",
   "dapp_connect.connection_request": "Yêu cầu Kết nối",
   "dapp_connect.create": "Tạo",
   "dapp_connect.create_invoice_request": "Tạo Yêu Cầu Hóa Đơn",
