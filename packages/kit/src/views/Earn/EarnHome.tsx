@@ -259,31 +259,48 @@ function Recommended({
   return null;
 }
 
-function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
+const totalFiatMap: Record<string, [string, string]> = {};
+const buildTotalFiatMapKey = (account = '', network = '') =>
+  `${account}-${network}`;
+
+function Overview() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const totalFiatMapKey = useMemo(
+    () => buildTotalFiatMapKey(account?.id, network?.id),
+    [account?.id, network?.id],
+  );
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
-  const totalFiatValue = useMemo(
-    () =>
-      accounts
-        ? accounts
-            .reduce(
-              (prev, account) => prev.plus(account.earn.totalFiatValue || 0),
-              new BigNumber(0),
-            )
-            .toString()
-        : 0,
-    [accounts],
-  );
-  const earnings24h = useMemo(
-    () =>
-      accounts
-        ? accounts.reduce(
-            (prev, account) => prev.plus(account.earn.earnings24h || 0),
-            new BigNumber(0),
-          )
-        : new BigNumber(0),
-    [accounts],
-  );
+  const totalFiatValue = useMemo(() => {
+    if (accounts) {
+      const sum = accounts
+        .reduce(
+          (prev, currentAccount) =>
+            prev.plus(currentAccount.earn.totalFiatValue || 0),
+          new BigNumber(0),
+        )
+        .toFixed();
+      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
+      totalFiatMap[totalFiatMapKey][0] = sum;
+      return sum;
+    }
+    return totalFiatMap[totalFiatMapKey]?.[0] || 0;
+  }, [accounts, totalFiatMapKey]);
+  const earnings24h = useMemo(() => {
+    if (accounts) {
+      const sum = accounts.reduce(
+        (prev, currentAccount) =>
+          prev.plus(currentAccount.earn.earnings24h || 0),
+        new BigNumber(0),
+      );
+      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
+      totalFiatMap[totalFiatMapKey][1] = sum.toFixed();
+      return sum;
+    }
+    return new BigNumber(totalFiatMap[totalFiatMapKey]?.[1] || 0);
+  }, [accounts, totalFiatMapKey]);
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -316,7 +333,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         formatter="price"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
       >
-        {isFetchingAccounts ? 0 : totalFiatValue}
+        {totalFiatValue}
       </NumberSizeableText>
       <XStack gap="$1.5">
         <NumberSizeableText
@@ -439,7 +456,7 @@ function BasicEarnHome() {
       <Page.Body>
         <YStack alignItems="center" py="$5">
           <YStack maxWidth="$180" w="100%" gap="$8">
-            <Overview isFetchingAccounts={isFetchingAccounts} />
+            <Overview />
             <Recommended isFetchingAccounts={isFetchingAccounts} />
             <AvailableAssets />
           </YStack>
