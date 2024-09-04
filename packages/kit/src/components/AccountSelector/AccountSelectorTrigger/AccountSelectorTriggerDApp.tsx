@@ -262,8 +262,6 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
   return (
     <XStack
       alignItems="center"
-      p="$1.5"
-      m="-$1.5"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',

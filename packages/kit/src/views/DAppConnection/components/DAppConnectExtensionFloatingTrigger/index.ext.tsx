@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import { useCallback } from 'react';
 
 import {
   Icon,
@@ -17,21 +15,15 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDAppConnectionModal,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
+import useActiveTabDAppInfo from '../../hooks/useActiveTabDAppInfo';
 import {
   type IHandleAccountChangedParams,
   useHandleDiscoveryAccountChanged,
@@ -71,125 +63,129 @@ function SingleAccountAddressSelectorTrigger({
 }
 
 export default function DAppConnectExtensionFloatingTrigger() {
-  const intl = useIntl();
-  const [activeTabId, setActiveTabId] = useState<number | null>(null);
-  const { result, run } = usePromiseResult(
-    () =>
-      new Promise<{
-        url: string;
-        origin: string;
-        showFloatingButton: boolean;
-        connectedAccountsInfo: IConnectionAccountInfoWithNum[] | null;
-        faviconUrl: string | undefined;
-        originFaviconUrl: string | undefined;
-        connectLabel: string;
-        networkIcons: string[];
-        addressLabel: string;
-      } | null>((resolve) => {
-        chrome.tabs.query(
-          { active: true, currentWindow: true },
-          async (tabs) => {
-            if (tabs[0]) {
-              try {
-                const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
-                const hostName = new URL(currentOrigin).hostname;
-                const connectLabel = `Connected to ${hostName}`;
-                const connectedAccountsInfo =
-                  (await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-                    currentOrigin,
-                  )) ?? [];
-                const networkIcons = await Promise.all(
-                  connectedAccountsInfo.map(async (accountInfo) => {
-                    const network =
-                      await backgroundApiProxy.serviceNetwork.getNetwork({
-                        networkId: accountInfo.networkId,
-                      });
-                    return network.logoURI ?? '';
-                  }),
-                );
-                let addressLabel = '';
-                if (connectedAccountsInfo.length > 0) {
-                  if (connectedAccountsInfo.length === 1) {
-                    addressLabel = accountUtils.shortenAddress({
-                      address: connectedAccountsInfo[0].address,
-                    });
-                  } else {
-                    addressLabel = intl.formatMessage(
-                      { id: ETranslations.global_count_addresses },
-                      { count: connectedAccountsInfo.length },
-                    );
-                  }
-                }
-                const faviconUrl =
-                  await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-                    currentOrigin,
-                    40,
-                  );
-                resolve({
-                  url: tabs[0].url ?? '',
-                  origin: currentOrigin,
-                  showFloatingButton: (connectedAccountsInfo ?? []).length > 0,
-                  connectedAccountsInfo,
-                  faviconUrl,
-                  originFaviconUrl: tabs[0].favIconUrl,
-                  connectLabel,
-                  networkIcons,
-                  addressLabel,
-                });
-                return;
-              } catch (error) {
-                console.error('DappConnectExtensionPanel error:', error);
-                resolve(null);
-                return;
-              }
-            }
-            resolve(null);
-          },
-        );
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeTabId],
-    {
-      checkIsFocused: false,
-    },
-  );
+  // const intl = useIntl();
+  const { result, refreshConnectionInfo } = useActiveTabDAppInfo();
+  // const [activeTabId, setActiveTabId] = useState<number | null>(null);
+  // const { result, run } = usePromiseResult(
+  //   () =>
+  //     new Promise<{
+  //       url: string;
+  //       origin: string;
+  //       showFloatingButton: boolean;
+  //       connectedAccountsInfo: IConnectionAccountInfoWithNum[] | null;
+  //       faviconUrl: string | undefined;
+  //       originFaviconUrl: string | undefined;
+  //       connectLabel: string;
+  //       networkIcons: string[];
+  //       addressLabel: string;
+  //     } | null>((resolve) => {
+  //       chrome.tabs.query(
+  //         { active: true, currentWindow: true },
+  //         async (tabs) => {
+  //           if (tabs[0]) {
+  //             try {
+  //               const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
+  //               const hostName = new URL(currentOrigin).hostname;
+  //               const connectLabel = intl.formatMessage(
+  //                 { id: ETranslations.dapp_connect_connect_to_website },
+  //                 { url: hostName },
+  //               );
+  //               const connectedAccountsInfo =
+  //                 (await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+  //                   currentOrigin,
+  //                 )) ?? [];
+  //               const networkIcons = await Promise.all(
+  //                 connectedAccountsInfo.map(async (accountInfo) => {
+  //                   const network =
+  //                     await backgroundApiProxy.serviceNetwork.getNetwork({
+  //                       networkId: accountInfo.networkId,
+  //                     });
+  //                   return network.logoURI ?? '';
+  //                 }),
+  //               );
+  //               let addressLabel = '';
+  //               if (connectedAccountsInfo.length > 0) {
+  //                 if (connectedAccountsInfo.length === 1) {
+  //                   addressLabel = accountUtils.shortenAddress({
+  //                     address: connectedAccountsInfo[0].address,
+  //                   });
+  //                 } else {
+  //                   addressLabel = intl.formatMessage(
+  //                     { id: ETranslations.global_count_addresses },
+  //                     { count: connectedAccountsInfo.length },
+  //                   );
+  //                 }
+  //               }
+  //               const faviconUrl =
+  //                 await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+  //                   currentOrigin,
+  //                   40,
+  //                 );
+  //               resolve({
+  //                 url: tabs[0].url ?? '',
+  //                 origin: currentOrigin,
+  //                 showFloatingButton: (connectedAccountsInfo ?? []).length > 0,
+  //                 connectedAccountsInfo,
+  //                 faviconUrl,
+  //                 originFaviconUrl: tabs[0].favIconUrl,
+  //                 connectLabel,
+  //                 networkIcons,
+  //                 addressLabel,
+  //               });
+  //               return;
+  //             } catch (error) {
+  //               console.error('DappConnectExtensionPanel error:', error);
+  //               resolve(null);
+  //               return;
+  //             }
+  //           }
+  //           resolve(null);
+  //         },
+  //       );
+  //     }),
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  //   [activeTabId],
+  //   {
+  //     checkIsFocused: false,
+  //   },
+  // );
 
-  useEffect(() => {
-    const handleTabChange = (
-      tabId: number,
-      changeInfo: chrome.tabs.TabChangeInfo,
-      tab: chrome.tabs.Tab,
-    ) => {
-      if (changeInfo.status === 'complete' && tab.active) {
-        setActiveTabId(tabId);
-      }
-    };
+  // useEffect(() => {
+  //   const handleTabChange = (
+  //     tabId: number,
+  //     changeInfo: chrome.tabs.TabChangeInfo,
+  //     tab: chrome.tabs.Tab,
+  //   ) => {
+  //     if (changeInfo.status === 'complete' && tab.active) {
+  //       setActiveTabId(tabId);
+  //     }
+  //   };
 
-    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
-      setActiveTabId(activeInfo.tabId);
-    };
+  //   const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+  //     setActiveTabId(activeInfo.tabId);
+  //   };
 
-    chrome.tabs.onUpdated.addListener(handleTabChange);
-    chrome.tabs.onActivated.addListener(handleTabActivated);
+  //   chrome.tabs.onUpdated.addListener(handleTabChange);
+  //   chrome.tabs.onActivated.addListener(handleTabActivated);
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        setActiveTabId(tabs[0].id ?? null);
-      }
-    });
+  //   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  //     if (tabs[0]) {
+  //       setActiveTabId(tabs[0].id ?? null);
+  //     }
+  //   });
 
-    return () => {
-      chrome.tabs.onUpdated.removeListener(handleTabChange);
-      chrome.tabs.onActivated.removeListener(handleTabActivated);
-    };
-  }, []);
+  //   return () => {
+  //     chrome.tabs.onUpdated.removeListener(handleTabChange);
+  //     chrome.tabs.onActivated.removeListener(handleTabActivated);
+  //   };
+  // }, []);
 
-  useEffect(() => {
-    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
-    return () => {
-      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, run);
-    };
-  }, [run]);
+  // useEffect(() => {
+  //   appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
+  //   return () => {
+  //     appEventBus.off(EAppEventBusNames.DAppConnectUpdate, run);
+  //   };
+  // }, [run]);
 
   const navigation = useAppNavigation();
   const handlePressFloatingButton = useCallback(() => {
@@ -208,11 +204,11 @@ export default function DAppConnectExtensionFloatingTrigger() {
         origin: result?.origin ?? '',
         storageType: result?.connectedAccountsInfo?.[0].storageType,
       });
-      void run();
+      void refreshConnectionInfo();
     }
-  }, [result?.origin, result?.connectedAccountsInfo, run]);
+  }, [result?.origin, result?.connectedAccountsInfo, refreshConnectionInfo]);
 
-  if (!result?.showFloatingButton) {
+  if (!result?.showFloatingPanel) {
     return null;
   }
 
@@ -265,7 +261,7 @@ export default function DAppConnectExtensionFloatingTrigger() {
             <Stack w="$2" h="$2" bg="$iconSuccess" borderRadius="$full" />
           </Stack>
         </Stack>
-        <YStack flex={1} maxWidth={276}>
+        <YStack maxWidth={276}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {result?.connectLabel}
           </SizableText>
@@ -295,15 +291,13 @@ export default function DAppConnectExtensionFloatingTrigger() {
                 num={result?.connectedAccountsInfo?.[0]?.num}
                 account={result?.connectedAccountsInfo?.[0]}
                 afterChangeAccount={() => {
-                  void run();
+                  void refreshConnectionInfo();
                 }}
               />
             </AccountSelectorProviderMirror>
           ) : (
             <XStack
               alignItems="center"
-              p="$1.5"
-              m="-$1.5"
               borderRadius="$2"
               hoverStyle={{
                 bg: '$bgHover',
