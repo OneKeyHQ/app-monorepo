@@ -20,6 +20,10 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import {
+  getBabylonPortfolioStatus,
+  useBabylonStatusMap,
+} from '../../utils/babylon';
 
 const WithdrawOptions = () => {
   const appRoute = useAppRoute<
@@ -60,6 +64,8 @@ const WithdrawOptions = () => {
     [appNavigation, accountId, networkId, symbol, provider, details],
   );
 
+  const babylonStatusMap = useBabylonStatusMap();
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -91,15 +97,22 @@ const WithdrawOptions = () => {
                         name: intl.formatMessage({
                           id: ETranslations.global_status,
                         }),
-                        value({ item }) {
-                          return item.babylonExtra?.status ?? '';
+                        renderItem({ item }) {
+                          if (item.babylonExtra) {
+                            return (
+                              babylonStatusMap[
+                                getBabylonPortfolioStatus(item.babylonExtra)
+                              ] ?? item.babylonExtra.status
+                            );
+                          }
+                          return '';
                         },
                       },
                       {
                         name: intl.formatMessage({
                           id: ETranslations.earn_unlock_time,
                         }),
-                        value({ item }) {
+                        renderItem({ item }) {
                           return item.babylonExtra?.endTime
                             ? formatDate(new Date(item.babylonExtra?.endTime), {
                                 hideTimeForever: true,

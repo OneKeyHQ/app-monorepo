@@ -1,4 +1,5 @@
 import {
+  Suspense,
   createContext,
   useCallback,
   useContext,
@@ -31,7 +32,7 @@ type IOptionItem = IClaimableListItem;
 
 type IExtraField = {
   name: string;
-  value: ({ item }: { item: IClaimableListItem }) => string;
+  renderItem: ({ item }: { item: IClaimableListItem }) => string;
 };
 
 type IOptionListContext = {
@@ -43,6 +44,21 @@ const OptionListContext = createContext<IOptionListContext>({});
 export type IOnSelectOption = (params: {
   item: IOptionItem;
 }) => void | Promise<void>;
+
+const ExtraField = ({
+  name,
+  renderItem,
+  item,
+}: IExtraField & { item: IClaimableListItem }) => (
+  <XStack justifyContent="space-between">
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {name}
+    </SizableText>
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {renderItem({ item })}
+    </SizableText>
+  </XStack>
+);
 
 const OptionItem = ({
   item,
@@ -106,14 +122,13 @@ const OptionItem = ({
         {extraFields && extraFields.length > 0 ? (
           <YStack py={12} px={14} gap={10}>
             {extraFields.map((o) => (
-              <XStack key={o.name} justifyContent="space-between">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {o.name}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {o.value({ item })}
-                </SizableText>
-              </XStack>
+              <Suspense key={o.name} fallback={null}>
+                <ExtraField
+                  name={o.name}
+                  renderItem={o.renderItem}
+                  item={item}
+                />
+              </Suspense>
             ))}
           </YStack>
         ) : null}

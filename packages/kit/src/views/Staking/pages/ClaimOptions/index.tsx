@@ -106,7 +106,7 @@ const ClaimOptions = () => {
                         name: intl.formatMessage({
                           id: ETranslations.global_status,
                         }),
-                        value() {
+                        renderItem() {
                           return intl.formatMessage({
                             id: ETranslations.earn_claimable,
                           });
@@ -116,7 +116,7 @@ const ClaimOptions = () => {
                         name: intl.formatMessage({
                           id: ETranslations.global_transaction_id,
                         }),
-                        value({ item }) {
+                        renderItem({ item }) {
                           return accountUtils.shortenAddress({
                             address: item.id,
                           });

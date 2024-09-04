@@ -191,9 +191,15 @@ export type IStakeProtocolListItem = {
   isEarning: boolean;
 };
 
-export type IPortfolioItem = {
+export type IBabylonPortfolioStatus =
+  | 'active'
+  | 'withdraw_requested'
+  | 'claimable'
+  | 'claimed';
+
+export type IBabylonPortfolioItem = {
   txId: string;
-  status: string;
+  status: IBabylonPortfolioStatus;
   amount: string;
   fiatValue: string;
   startTime?: number;
@@ -201,8 +207,6 @@ export type IPortfolioItem = {
   lockBlocks: number;
   isOverflow: string;
 };
-
-type IBabylonPortfolioItem = IPortfolioItem;
 
 export type IClaimableListItem = {
   id: string;
