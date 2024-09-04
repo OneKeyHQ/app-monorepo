@@ -15,17 +15,19 @@ const SwapPopularTokenGroup = ({
   selectedToken,
   tokens,
 }: ISwapPopularTokenGroupProps) => (
-  <XStack pt="$1" pb="$3" gap="$2" flexWrap="wrap">
+  <XStack pt="$1" pb="$3" gap="$1.5" flexWrap="wrap">
     {tokens.map((token) => (
       <Button
         key={token.contractAddress}
         variant="secondary"
         borderRadius="$4"
+        px="$1.5"
         size="small"
         borderColor="$borderSubdued"
         flexDirection="row"
+        justifyContent="center"
+        alignItems="center"
         backgroundColor="$background"
-        gap="$0.5"
         disabled={
           !!equalTokenNoCaseSensitive({
             token1: selectedToken,

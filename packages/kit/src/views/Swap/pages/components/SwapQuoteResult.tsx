@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -93,8 +94,13 @@ const SwapQuoteResult = ({
     slippageOnSave,
     setSwapSlippageDialogOpening,
   ]);
-
-  if (!fromToken || !toToken || !fromTokenAmount) {
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
+  if (
+    !fromToken ||
+    !toToken ||
+    fromTokenAmountBN.isZero() ||
+    fromTokenAmountBN.isNaN()
+  ) {
     return null;
   }
   return (

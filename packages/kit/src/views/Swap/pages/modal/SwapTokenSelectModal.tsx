@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -68,6 +68,7 @@ import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { FlatList } from 'react-native';
 
 const SwapTokenSelectPage = () => {
   const navigation =
@@ -140,6 +141,7 @@ const SwapTokenSelectPage = () => {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(syncDefaultNetworkSelect);
+  const listViewRef = useRef<FlatList>(null);
 
   useEffect(() => {
     const accountNet =
@@ -233,6 +235,10 @@ const SwapTokenSelectPage = () => {
           networkId: network.networkId,
         });
       }
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: true,
+      });
     },
     [type, updateSelectedAccountNetwork],
   );
@@ -472,6 +478,7 @@ const SwapTokenSelectPage = () => {
         <Divider mt="$2" />
         <YStack flex={1}>
           <ListView
+            ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}
             estimatedItemSize={60}

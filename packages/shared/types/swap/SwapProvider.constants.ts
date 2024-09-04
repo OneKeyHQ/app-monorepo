@@ -432,6 +432,42 @@ export const swapDefaultSetTokens: Record<
       'isNative': false,
     },
   },
+  'sui--mainnet': {
+    fromToken: {
+      'networkId': 'sui--mainnet',
+      'contractAddress': '0x2::sui::SUI',
+      'name': 'Sui',
+      'symbol': 'SUI',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0x2::sui::SUI.png',
+      'isNative': true,
+    },
+  },
+  'ton--mainnet': {
+    fromToken: {
+      'networkId': 'ton--mainnet',
+      'contractAddress': '',
+      'name': 'Toncoin',
+      'symbol': 'TON',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'aptos--1': {
+    fromToken: {
+      'networkId': 'aptos--1',
+      'contractAddress': '0x1::aptos_coin::AptosCoin',
+      'name': 'Aptos Coin',
+      'symbol': 'APT',
+      'decimals': 8,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
+      'isNative': true,
+    },
+  },
 };
 
 export const swapPopularTokens: Record<string, ISwapToken[]> = {
