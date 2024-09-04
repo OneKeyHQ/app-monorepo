@@ -78,6 +78,12 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
   }
   return appLocale.intl.formatNumber(value, options);
 };
+
+const lazyDecimalSymbol = (digits: number) =>
+  formatNumber(0.1, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
 const formatLocalNumber = (
   value: BigNumber | string,
   digits = 2,
@@ -102,7 +108,9 @@ const formatLocalNumber = (
   const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
     new BigNumber(integerPart).plus(plus).toFixed() as any,
   )}`;
-  const decimalSymbol = formatDecimal ? formatDecimal[1] : '.';
+  const decimalSymbol = formatDecimal
+    ? formatDecimal[1]
+    : lazyDecimalSymbol(digits)[1];
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
   return keepTrailingZeros ? stripTrailingZero(result, decimalSymbol) : result;
 };
