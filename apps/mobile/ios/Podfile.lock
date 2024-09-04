@@ -11,7 +11,7 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (5.8.3):
     - ExpoModulesCore
-  - EXBarCodeScanner (13.0.1):
+  - EXBarCodeScanner (12.9.3):
     - EXImageLoader
     - ExpoModulesCore
     - ZXingObjC/OneD
@@ -1816,7 +1816,7 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
-  EXBarCodeScanner: e2dd9b42c1b522a2adc9202b1dfbc64cb34456d1
+  EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
   EXFont: f20669cb266ef48b004f1eb1f2b20db96cd1df9f
   EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
