@@ -196,11 +196,20 @@ function Recommended({
   isFetchingAccounts?: boolean;
 }) {
   const { gtMd } = useMedia();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
+  const totalFiatMapKey = useMemo(
+    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
+    [account?.id, actions, network?.id],
+  );
   const [{ accounts }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
     const accountTokens: ITokenAccount[] = [];
     let totalProfit = new BigNumber(0);
-    accounts?.forEach((account) => {
+    const list = accounts?.[totalFiatMapKey] || [];
+    list?.forEach((account) => {
       account.earn.tokens.forEach((token) => {
         totalProfit = totalProfit.plus(token.profit || 0);
         accountTokens.push({
@@ -213,7 +222,7 @@ function Recommended({
       tokens: accountTokens,
       profit: totalProfit,
     };
-  }, [accounts]);
+  }, [accounts, totalFiatMapKey]);
   if (isFetchingAccounts && tokens.length < 1) {
     return (
       <RecommendedContainer profit={profit}>
