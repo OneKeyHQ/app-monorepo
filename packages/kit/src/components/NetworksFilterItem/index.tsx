@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native';
+
 import { Image, SizableText, Tooltip, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
@@ -24,7 +26,7 @@ export function NetworksFilterItem({
       py="$1.5"
       borderRadius="$2"
       userSelect="none"
-      borderWidth="1px"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor={isSelected ? '$borderActive' : '$border'}
       {...(!isSelected &&
         !disabled && {
