@@ -13,6 +13,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,7 +28,47 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
+
+import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
+import {
+  type IHandleAccountChangedParams,
+  useHandleDiscoveryAccountChanged,
+} from '../../hooks/useHandleAccountChanged';
+
+function SingleAccountAddressSelectorTrigger({
+  origin,
+  num,
+  account,
+  afterChangeAccount,
+}: {
+  origin: string;
+  num: number;
+  account: IConnectionAccountInfoWithNum;
+  afterChangeAccount: () => void;
+}) {
+  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
+  const handleAccountChanged = useCallback(
+    async (accountChangedParams: IHandleAccountChangedParams) => {
+      await handleAccountInfoChanged({
+        origin,
+        accountSelectorNum: num,
+        prevAccountInfo: account,
+        accountChangedParams,
+        storageType: account.storageType,
+        afterUpdate: afterChangeAccount,
+      });
+    },
+    [num, account, afterChangeAccount, handleAccountInfoChanged, origin],
+  );
+
+  useHandleDiscoveryAccountChanged({
+    num,
+    handleAccountChanged,
+  });
+  return <AccountSelectorTriggerAddressSingle num={num} />;
+}
 
 export default function DAppConnectExtensionFloatingTrigger() {
   const intl = useIntl();
@@ -160,6 +202,16 @@ export default function DAppConnectExtensionFloatingTrigger() {
     });
   }, [result, navigation]);
 
+  const onDisconnect = useCallback(async () => {
+    if (result?.connectedAccountsInfo?.[0].storageType) {
+      await backgroundApiProxy.serviceDApp.disconnectWebsite({
+        origin: result?.origin ?? '',
+        storageType: result?.connectedAccountsInfo?.[0].storageType,
+      });
+      void run();
+    }
+  }, [result?.origin, result?.connectedAccountsInfo, run]);
+
   if (!result?.showFloatingButton) {
     return null;
   }
@@ -217,52 +269,87 @@ export default function DAppConnectExtensionFloatingTrigger() {
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {result?.connectLabel}
           </SizableText>
-          <XStack
-            alignItems="center"
-            p="$1.5"
-            m="-$1.5"
-            borderRadius="$2"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusable
-            focusVisibleStyle={{
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }}
-            onPress={() => {
-              console.log('open account selector');
-            }}
-          >
-            {result?.networkIcons.slice(0, 2).map((icon, index) => (
-              <Token
-                key={icon}
-                size="xs"
-                tokenImageUri={icon}
-                ml={index === 1 ? '$-2' : undefined}
-                borderColor={index === 1 ? '$bgApp' : undefined}
-                borderWidth={index === 1 ? 2 : undefined}
-                borderStyle={index === 1 ? 'solid' : undefined}
-                // @ts-expect-error
-                style={index === 1 ? { boxSizing: 'content-box' } : undefined}
+          {result?.connectedAccountsInfo?.length === 1 ? (
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: result?.origin ?? '',
+              }}
+              enabledNum={result?.connectedAccountsInfo?.map(
+                (account) => account.num,
+              )}
+              availableNetworksMap={result?.connectedAccountsInfo?.reduce(
+                (acc, account) => {
+                  if (Array.isArray(account.availableNetworkIds)) {
+                    acc[account.num] = {
+                      networkIds: account.availableNetworkIds,
+                    };
+                  }
+                  return acc;
+                },
+                {} as Record<number, { networkIds: string[] }>,
+              )}
+            >
+              <SingleAccountAddressSelectorTrigger
+                origin={result?.origin ?? ''}
+                num={result?.connectedAccountsInfo?.[0]?.num}
+                account={result?.connectedAccountsInfo?.[0]}
+                afterChangeAccount={() => {
+                  void run();
+                }}
               />
-            ))}
-            <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-              {result?.addressLabel}
-            </SizableText>
-            <Icon
-              size="$4"
-              color="$iconSubdued"
-              name="ChevronRightSmallOutline"
-            />
-          </XStack>
+            </AccountSelectorProviderMirror>
+          ) : (
+            <XStack
+              alignItems="center"
+              p="$1.5"
+              m="-$1.5"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }}
+              onPress={() => {}}
+            >
+              {result?.networkIcons.slice(0, 2).map((icon, index) => (
+                <Token
+                  key={icon}
+                  size="xs"
+                  tokenImageUri={icon}
+                  ml={index === 1 ? '$-2' : undefined}
+                  borderColor={index === 1 ? '$bgApp' : undefined}
+                  borderWidth={index === 1 ? 2 : undefined}
+                  borderStyle={index === 1 ? 'solid' : undefined}
+                  // @ts-expect-error
+                  style={index === 1 ? { boxSizing: 'content-box' } : undefined}
+                />
+              ))}
+              <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+                {result?.addressLabel}
+              </SizableText>
+              <Icon
+                size="$4"
+                color="$iconSubdued"
+                name="ChevronRightSmallOutline"
+              />
+            </XStack>
+          )}
         </YStack>
       </XStack>
-      <IconButton icon="BrokenLinkOutline" size="medium" variant="tertiary" />
+      <IconButton
+        icon="BrokenLinkOutline"
+        size="medium"
+        variant="tertiary"
+        onPress={onDisconnect}
+      />
     </Stack>
   );
 }

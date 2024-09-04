@@ -10,6 +10,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
@@ -240,6 +241,52 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </>
       ) : null}
+    </XStack>
+  );
+}
+
+export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+  const {
+    activeAccount: { account, network },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+  const handlePress = useCallback(async () => {
+    showAccountSelector();
+  }, [showAccountSelector]);
+
+  const addressText = accountUtils.shortenAddress({
+    address: account?.address || '',
+  });
+
+  return (
+    <XStack
+      alignItems="center"
+      p="$1.5"
+      m="-$1.5"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      onPress={(event) => {
+        event.stopPropagation();
+        void handlePress();
+      }}
+    >
+      <Token size="xs" tokenImageUri={network?.logoURI} />
+      <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+        {addressText}
+      </SizableText>
+      <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
     </XStack>
   );
 }
