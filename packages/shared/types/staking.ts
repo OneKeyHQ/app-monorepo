@@ -48,6 +48,8 @@ export type IStakeProviderInfo = {
   labels?: string[];
   minStakeTerm?: number;
   maxStakeTerm?: number;
+  minStakeBlocks?: number;
+  maxStakeBlocks?: number;
   unbondingTime?: number;
 };
 

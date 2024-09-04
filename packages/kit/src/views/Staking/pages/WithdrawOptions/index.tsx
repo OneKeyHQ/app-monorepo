@@ -10,7 +10,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -100,7 +100,11 @@ const WithdrawOptions = () => {
                           id: ETranslations.earn_unlock_time,
                         }),
                         value({ item }) {
-                          return '';
+                          return item.babylonExtra?.endTime
+                            ? formatDate(new Date(item.babylonExtra?.endTime), {
+                                hideTimeForever: true,
+                              })
+                            : '';
                         },
                       },
                     ]
