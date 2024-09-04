@@ -6567,7 +6567,7 @@ __metadata:
     expo-local-authentication: "npm:13.6.0"
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:0.27.6"
-    expo-screen-capture: "npm:5.8.1"
+    expo-screen-capture: "npm:5.8.0"
     expo-secure-store: "npm:12.5.0"
     expo-sharing: "npm:11.10.0"
     expo-splash-screen: "npm:0.26.4"
@@ -21323,12 +21323,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-screen-capture@npm:5.8.1":
-  version: 5.8.1
-  resolution: "expo-screen-capture@npm:5.8.1"
+"expo-screen-capture@npm:5.8.0":
+  version: 5.8.0
+  resolution: "expo-screen-capture@npm:5.8.0"
   peerDependencies:
     expo: "*"
-  checksum: 10/8b4b47e000a0dd6d718c72875d8ac54fb05c218ebb187abd7f0004881ab3169b5624b1ec2dd43e37074ad72bef3dea832f8b0c275426765911431fe3699c6fdf
+  checksum: 10/68bc77b29881f93588ba6fda062fa719c709ea779f76dd5aa19ef61c82bb7ae4f5e1d7af61a868c4808964a129e2c8b1344ced56dc38fdc8217d1b6efdc97d4b
   languageName: node
   linkType: hard
 

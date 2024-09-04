@@ -61,7 +61,7 @@ PODS:
     - ExpoModulesCore
   - ExpoSharing (11.10.0):
     - ExpoModulesCore
-  - EXScreenCapture (5.8.1):
+  - EXScreenCapture (5.8.0):
     - ExpoModulesCore
   - EXSplashScreen (0.26.4):
     - ExpoModulesCore
@@ -1836,7 +1836,7 @@ SPEC CHECKSUMS:
   ExpoModulesCore: 370096473359f5f6aade0871400d063333747719
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
   ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
-  EXScreenCapture: 7a491c16de021638078f50281d411e3352bb28c2
+  EXScreenCapture: d23d01882ce614ba2a341f9fe4bf4a9559830d92
   EXSplashScreen: 6bd596128cd52fac91997ebc64f3d394c843a8f9
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
