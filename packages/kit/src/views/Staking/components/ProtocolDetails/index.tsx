@@ -410,7 +410,9 @@ export function Provider({
           {...gridItemStyle}
           link={validator.link}
         >
-          {validator.name}
+          {`${validator.name.charAt(0).toUpperCase()}${validator.name.slice(
+            1,
+          )}`}
         </GridItem>
         {minStaking ? (
           <GridItem
