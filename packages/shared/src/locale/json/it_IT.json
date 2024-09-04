@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Non hai ancora scommesso nessun asset.",
   "earn.number_day": "{number} giorno",
   "earn.number_days": "{number} giorno(i)",
-  "earn.number_days_number_block": "{number} giorni ({number} blocco)",
+  "earn.number_days_number_block": "{number_days} giorni ({number} blocco)",
   "earn.number_hours": "{number} ore",
   "earn.number_minutes": "{number} minuti",
   "earn.number_seconds": "{number} secondi",

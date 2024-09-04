@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "您还没有质押任何资产。",
   "earn.number_day": "{number} 天",
   "earn.number_days": "{number} 天",
-  "earn.number_days_number_block": "{number} 天（{number} 块）",
+  "earn.number_days_number_block": "{number_days} 天（{number} 块）",
   "earn.number_hours": "{number} 小时",
   "earn.number_minutes": "{number} 分钟",
   "earn.number_seconds": "{number} 秒",

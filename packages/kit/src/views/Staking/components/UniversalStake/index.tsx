@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { formatBabylonUnlockTime } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -159,17 +160,17 @@ export const UniversalStake = ({
     if (minStakeTerm) {
       const blocks = formatMillisecondsToBlocks(minStakeTerm);
       const days = formatMillisecondsToDays(minStakeTerm);
-      return `${days} days (${blocks} blocks)`;
+      return intl.formatMessage(
+        { id: ETranslations.earn_number_days_number_block },
+        { 'number_days': days, 'number': blocks },
+      );
     }
     return null;
-  }, [minStakeTerm]);
+  }, [minStakeTerm, intl]);
 
   const btcUnbondingTime = useMemo(() => {
     if (unbondingTime) {
-      const currentDate = new Date();
-      const endDate = new Date(currentDate.getTime() + unbondingTime);
-
-      return formatDate(endDate, { hideTimeForever: true });
+      return formatBabylonUnlockTime(unbondingTime);
     }
     return null;
   }, [unbondingTime]);

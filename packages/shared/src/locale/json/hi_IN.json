@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "आपने अभी तक किसी संपत्ति को दांव पर नहीं लगाया है।",
   "earn.number_day": "{number} दिन",
   "earn.number_days": "{number} दिन",
-  "earn.number_days_number_block": "{number} दिन ({number} ब्लॉक)",
+  "earn.number_days_number_block": "{number_days} दिन ({number} ब्लॉक)",
   "earn.number_hours": "{number} घंटे",
   "earn.number_minutes": "{number} मिनट",
   "earn.number_seconds": "{number} सेकंड",

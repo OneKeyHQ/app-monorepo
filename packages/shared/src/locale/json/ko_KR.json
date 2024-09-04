@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "아직 자산을 스테이킹하지 않았습니다.",
   "earn.number_day": "{number} 일",
   "earn.number_days": "{number} 일",
-  "earn.number_days_number_block": "{number} 일 ({number} 블록)",
+  "earn.number_days_number_block": "{number_days} 일 ({number} 블록)",
   "earn.number_hours": "{number} 시간",
   "earn.number_minutes": "{number} 분",
   "earn.number_seconds": "{number} 초",

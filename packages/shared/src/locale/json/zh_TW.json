@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "您尚未抵押任何資產。",
   "earn.number_day": "{number} 天",
   "earn.number_days": "{number} 天",
-  "earn.number_days_number_block": "{number} 天（{number} 個區塊）",
+  "earn.number_days_number_block": "{number_days} 天（{number} 個區塊）",
   "earn.number_hours": "{number} 小時",
   "earn.number_minutes": "{number} 分鐘",
   "earn.number_seconds": "{number} 秒",

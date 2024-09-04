@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Aún no has apostado ningún activo.",
   "earn.number_day": "{number} día",
   "earn.number_days": "{number} día(s)",
-  "earn.number_days_number_block": "{number} días ({number} bloque)",
+  "earn.number_days_number_block": "{number_days} días ({number} bloque)",
   "earn.number_hours": "{number} horas",
   "earn.number_minutes": "{number} minutos",
   "earn.number_seconds": "{number} segundos",

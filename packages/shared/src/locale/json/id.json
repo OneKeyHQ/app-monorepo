@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Anda belum mempertaruhkan aset apa pun.",
   "earn.number_day": "{number} hari",
   "earn.number_days": "{number} hari",
-  "earn.number_days_number_block": "{number} hari ({number} blok)",
+  "earn.number_days_number_block": "{number_days} hari ({number} blok)",
   "earn.number_hours": "{number} jam",
   "earn.number_minutes": "{number} menit",
   "earn.number_seconds": "{number} detik",

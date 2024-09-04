@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Ви ще не внесли жодних активів.",
   "earn.number_day": "{number} день",
   "earn.number_days": "{number} дні(в)",
-  "earn.number_days_number_block": "{number} днів ({number} блок)",
+  "earn.number_days_number_block": "{number_days} днів ({number} блок)",
   "earn.number_hours": "{number} годин",
   "earn.number_minutes": "{number} хвилин",
   "earn.number_seconds": "{number} секунд",

@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Вы еще не ставили никаких активов.",
   "earn.number_day": "{number} день",
   "earn.number_days": "{number} день(дней)",
-  "earn.number_days_number_block": "{number} дней ({number} блок)",
+  "earn.number_days_number_block": "{number_days} дней ({number} блок)",
   "earn.number_hours": "{number} часов",
   "earn.number_minutes": "{number} минут",
   "earn.number_seconds": "{number} секунд",

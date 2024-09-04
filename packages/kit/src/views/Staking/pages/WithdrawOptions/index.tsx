@@ -10,6 +10,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
@@ -82,6 +84,28 @@ const WithdrawOptions = () => {
               onConfirmText={intl.formatMessage({
                 id: ETranslations.global_withdraw,
               })}
+              extraFields={
+                networkUtils.isBTCNetwork(networkId)
+                  ? [
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_status,
+                        }),
+                        value({ item }) {
+                          return item.babylonExtra?.status ?? '';
+                        },
+                      },
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.earn_unlock_time,
+                        }),
+                        value({ item }) {
+                          return '';
+                        },
+                      },
+                    ]
+                  : undefined
+              }
             />
           ) : null}
         </PageFrame>

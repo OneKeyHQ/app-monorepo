@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Bạn chưa cược bất kỳ tài sản nào.",
   "earn.number_day": "{number} ngày",
   "earn.number_days": "{number} ngày",
-  "earn.number_days_number_block": "{number} ngày ({number} khối)",
+  "earn.number_days_number_block": "{number_days} ngày ({number} khối)",
   "earn.number_hours": "{number} giờ",
   "earn.number_minutes": "{number} phút",
   "earn.number_seconds": "{number} giây",

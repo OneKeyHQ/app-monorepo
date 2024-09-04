@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "আপনি এখনো কোনো সম্পদ বাঁধি নি।",
   "earn.number_day": "{number} দিন",
   "earn.number_days": "{number} দিন",
-  "earn.number_days_number_block": "{number} দিন ({number} ব্লক)",
+  "earn.number_days_number_block": "{number_days} দিন ({number} ব্লক)",
   "earn.number_hours": "{number} ঘন্টা",
   "earn.number_minutes": "{number} মিনিট",
   "earn.number_seconds": "{number} সেকেন্ড",

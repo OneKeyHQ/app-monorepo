@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "Sie haben noch keine Vermögenswerte eingesetzt.",
   "earn.number_day": "{number} Tag",
   "earn.number_days": "{number} Tag(e)",
-  "earn.number_days_number_block": "{number} Tage ({number} Block)",
+  "earn.number_days_number_block": "{number_days} Tage ({number} Block)",
   "earn.number_hours": "{number} Stunden",
   "earn.number_minutes": "{number} Minuten",
   "earn.number_seconds": "{number} Sekunden",

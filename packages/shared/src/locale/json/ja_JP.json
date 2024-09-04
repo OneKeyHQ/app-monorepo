@@ -345,7 +345,7 @@
   "earn.no_orders_desc": "まだ資産をステークしていません。",
   "earn.number_day": "{number}日目",
   "earn.number_days": "{number} 日",
-  "earn.number_days_number_block": "{number}日間（{number}ブロック）",
+  "earn.number_days_number_block": "{number_days}日間（{number}ブロック）",
   "earn.number_hours": "{number} 時間",
   "earn.number_minutes": "{number} 分",
   "earn.number_seconds": "{number} 秒",
