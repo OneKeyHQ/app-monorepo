@@ -1,6 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
