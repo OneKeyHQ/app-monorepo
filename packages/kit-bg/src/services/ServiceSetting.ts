@@ -24,6 +24,7 @@ import {
   getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
+import { clearPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -237,6 +238,10 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
+    }
+    // clear updated package folder
+    if (platformEnv.isNativeAndroid || platformEnv.isDesktop) {
+      await clearPackage();
     }
   }
 

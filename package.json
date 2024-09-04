@@ -92,7 +92,7 @@
     "eslint": "^8.25.0",
     "event-source-polyfill": "^1.0.31",
     "expiry-map": "^2.0.0",
-    "expo": "50.0.5",
+    "expo": "50.0.20",
     "jotai": "^2.5.0",
     "lightweight-charts": "^3.8.0",
     "long": "^5.2.1",
@@ -215,7 +215,7 @@
     "worker-loader": "^3.0.8"
   },
   "resolutions": {
-    "expo-modules-core": "1.11.8",
+    "expo-modules-core": "1.11.13",
     "tronweb@^5.1.0": "5.1.0",
     "@babel/core": "7.23.5",
     "@babel/code-frame": "7.23.5",
