@@ -48,6 +48,7 @@ const SwapProviderInfoItem = ({
             opacity: 0.5,
           }}
           onPress={onPress}
+          cursor={onPress ? 'pointer' : undefined}
         >
           {!providerIcon || !fromToken || !toToken ? null : (
             <>

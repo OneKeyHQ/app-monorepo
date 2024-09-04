@@ -428,6 +428,7 @@ export function useSwapTokenList(
     }
     if (
       tokenFetchParams.networkId &&
+      !keywords &&
       networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
     ) {
       void swapLoadAllNetworkTokenList(
@@ -447,6 +448,7 @@ export function useSwapTokenList(
     swapLoadAllNetworkTokenList,
     tokenFetchParams,
     tokenListFetchAction,
+    keywords,
   ]);
 
   useEffect(() => {

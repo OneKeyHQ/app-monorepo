@@ -476,7 +476,8 @@ const SwapTokenSelectPage = () => {
             renderItem={renderItem}
             estimatedItemSize={60}
             ListHeaderComponent={
-              currentNetworkPopularTokens.length > 0 ? (
+              currentNetworkPopularTokens.length > 0 &&
+              !searchKeywordDebounce ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$headingSm" color="$textSubdued" pr="$2">
                     {`${intl.formatMessage({
