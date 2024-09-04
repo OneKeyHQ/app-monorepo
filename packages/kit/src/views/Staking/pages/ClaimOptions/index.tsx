@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -8,8 +9,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  EModalStakingRoutes,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
@@ -18,6 +23,8 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { useUniversalClaim } from '../../hooks/useUniversalHooks';
+import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimOptions = () => {
   const appRoute = useAppRoute<
@@ -39,23 +46,38 @@ const ClaimOptions = () => {
     { watchLoading: true },
   );
 
+  const handleClaim = useUniversalClaim({ accountId, networkId });
+
   const onPress = useCallback<IOnSelectOption>(
-    ({ item }) => {
-      appNavigation.push(EModalStakingRoutes.Claim, {
-        accountId,
-        networkId,
-        symbol,
-        provider,
-        details,
+    async ({ item }) => {
+      await handleClaim({
         identity: item.id,
-        amount: item.amount,
-        onSuccess: () => {
-          // pop to portfolio details page
-          setTimeout(() => appNavigation.pop(), 4);
+        symbol: details.token.info.symbol,
+        provider,
+        stakingInfo: {
+          label: EEarnLabels.Unknown,
+          protocol: provider,
+          send: { token: details.token.info, amount: item.amount },
+          tags: [buildLocalTxStatusSyncId(details)],
+        },
+        onSuccess: (txs) => {
+          appNavigation.pop();
+          defaultLogger.staking.page.unstaking({
+            token: details.token.info,
+            amount: item.amount,
+            stakingProtocol: provider,
+            tokenValue:
+              Number(details.token.price) > 0
+                ? BigNumber(item.amount)
+                    .multipliedBy(details.token.price)
+                    .toFixed()
+                : '0',
+            txnHash: txs[0].signedTx.txid,
+          });
         },
       });
     },
-    [appNavigation, accountId, networkId, symbol, provider, details],
+    [appNavigation, details, handleClaim, provider],
   );
 
   const intl = useIntl();
@@ -63,7 +85,9 @@ const ClaimOptions = () => {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_claim })}
+        title={intl.formatMessage({
+          id: ETranslations.earn_select_a_claimable_order,
+        })}
       />
       <Page.Body>
         <PageFrame
@@ -78,6 +102,9 @@ const ClaimOptions = () => {
               token={result.token}
               network={result.network}
               onPress={onPress}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.earn_claim,
+              })}
             />
           ) : null}
         </PageFrame>

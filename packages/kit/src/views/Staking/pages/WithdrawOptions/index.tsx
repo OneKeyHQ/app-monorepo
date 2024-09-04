@@ -61,7 +61,10 @@ const WithdrawOptions = () => {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_withdraw_token },
+          { 'token': symbol },
+        )}
       />
       <Page.Body>
         <PageFrame
@@ -76,6 +79,9 @@ const WithdrawOptions = () => {
               token={result.token}
               network={result.network}
               onPress={onPress}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              })}
             />
           ) : null}
         </PageFrame>
