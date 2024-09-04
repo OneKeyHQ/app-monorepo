@@ -181,7 +181,7 @@ function RecommendedContainer({
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {profit.toString()}
+            {profit.toFixed()}
           </NumberSizeableText>
         </SizableText>
       </YStack>
@@ -199,10 +199,10 @@ function Recommended({
   const [{ accounts }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
     const accountTokens: ITokenAccount[] = [];
-    const totalProfit = new BigNumber(0);
+    let totalProfit = new BigNumber(0);
     accounts?.forEach((account) => {
       account.earn.tokens.forEach((token) => {
-        totalProfit.plus(token.profit || 0);
+        totalProfit = totalProfit.plus(token.profit || 0);
         accountTokens.push({
           ...token,
           account,
