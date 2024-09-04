@@ -191,6 +191,7 @@ export enum ETranslations {
   dapp_connect_attackers_disguise_sites_warning = 'dapp_connect.attackers_disguise_sites_warning',
   dapp_connect_authorization_successful = 'dapp_connect.authorization_successful',
   dapp_connect_confirm = 'dapp_connect.confirm',
+  dapp_connect_connect_to_website = 'dapp_connect.connect_to_website',
   dapp_connect_connection_request = 'dapp_connect.connection_request',
   dapp_connect_create = 'dapp_connect.create',
   dapp_connect_create_invoice_request = 'dapp_connect.create_invoice_request',
