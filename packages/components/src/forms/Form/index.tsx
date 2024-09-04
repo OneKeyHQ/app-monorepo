@@ -9,7 +9,14 @@ import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HeightTransition } from '../../content';
-import { Label, SizableText, View, XStack, YStack } from '../../primitives';
+import {
+  Label,
+  SizableText,
+  Stack,
+  View,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -90,6 +97,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     testID?: string;
     label?: string;
     description?: string | ReactNode;
+    horizontal?: boolean;
     optional?: boolean;
     labelAddon?: string | ReactElement;
   }>;
@@ -101,6 +109,7 @@ function Field({
   description,
   rules,
   children,
+  horizontal = false,
   testID = '',
   labelAddon,
 }: IFieldProps) {
@@ -131,25 +140,35 @@ function Field({
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
           {label ? (
-            <XStack mb="$1.5" justifyContent="space-between">
-              <View>
-                <Label htmlFor={name}>{label}</Label>
-                {optional ? (
-                  <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                    {`(${intl.formatMessage({
-                      id: ETranslations.form_optional_indicator,
-                    })})`}
-                  </SizableText>
-                ) : null}
-              </View>
-              {renderLabelAddon()}
-            </XStack>
+            <Stack
+              flexDirection={horizontal ? 'row' : 'column'}
+              jc={horizontal ? 'space-between' : undefined}
+              alignItems={horizontal ? 'center' : undefined}
+              mb={horizontal ? '$1.5' : undefined}
+            >
+              <XStack
+                mb={horizontal ? undefined : '$1.5'}
+                justifyContent="space-between"
+              >
+                <Stack>
+                  <Label htmlFor={name}>{label}</Label>
+                  {optional ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                      {`(${intl.formatMessage({
+                        id: ETranslations.form_optional_indicator,
+                      })})`}
+                    </SizableText>
+                  ) : null}
+                </Stack>
+                {renderLabelAddon()}
+              </XStack>
+              {Children.map(children as ReactNode[], (child) =>
+                isValidElement(child)
+                  ? cloneElement(child, getChildProps(child, field, error))
+                  : child,
+              )}
+            </Stack>
           ) : null}
-          {Children.map(children as ReactNode[], (child) =>
-            isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field, error))
-              : child,
-          )}
           <HeightTransition>
             {error?.message ? (
               <SizableText
