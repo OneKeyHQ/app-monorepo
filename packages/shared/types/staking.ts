@@ -175,6 +175,8 @@ export type IStakeProtocolDetails = {
   rewardToken: string;
   approveTarget?: string;
   earnHistoryEnable?: boolean;
+  unstakingPeriod?: number;
+  minUnstakeAmount?: number;
 };
 
 export type IStakeProtocolListItem = {
@@ -220,6 +222,7 @@ export type IEarnAccount = {
   earn: IEarnAccountResponse;
   networkId: string;
   accountAddress: string;
+  publicKey?: string;
 };
 
 export type IAvailableAsset = {

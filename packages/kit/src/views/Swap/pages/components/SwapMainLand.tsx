@@ -122,7 +122,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         <YStack
           pt="$2.5"
           px="$5"
-          // pb="$5"
+          pb="$5"
           gap="$5"
           flex={1}
           $gtMd={{
@@ -136,12 +136,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onToAnotherAddressModal={onToAnotherAddressModal}
           />
-          {quoteResult ? (
-            <SwapQuoteResult
-              onOpenProviderList={onOpenProviderList}
-              quoteResult={quoteResult}
-            />
-          ) : null}
+          <SwapQuoteResult
+            onOpenProviderList={onOpenProviderList}
+            quoteResult={quoteResult}
+          />
           {alerts.states.length > 0 &&
           !quoteLoading &&
           !quoteEventFetching &&
