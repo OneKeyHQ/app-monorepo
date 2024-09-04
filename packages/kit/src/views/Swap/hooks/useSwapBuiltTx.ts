@@ -28,6 +28,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -42,6 +43,7 @@ export function useSwapBuildTx() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
+  const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -58,6 +60,7 @@ export function useSwapBuildTx() {
     async (data: ISendTxOnSuccessData[]) => {
       if (data?.[0]) {
         setSwapFromTokenAmount(''); // send success, clear from token amount
+        setSwapQuoteResultList([]);
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
@@ -74,7 +77,12 @@ export function useSwapBuildTx() {
       }
       setSwapBuildTxFetching(false);
     },
-    [generateSwapHistoryItem, setSwapBuildTxFetching, setSwapFromTokenAmount],
+    [
+      generateSwapHistoryItem,
+      setSwapBuildTxFetching,
+      setSwapFromTokenAmount,
+      setSwapQuoteResultList,
+    ],
   );
 
   const handleApproveTxSuccess = useCallback(
