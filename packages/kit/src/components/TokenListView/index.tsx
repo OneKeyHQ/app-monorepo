@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
@@ -27,6 +27,7 @@ import {
   useTokenSelectorSearchTokenListAtom,
   useTokenSelectorSearchTokenStateAtom,
 } from '../../states/jotai/contexts/tokenList';
+import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -112,6 +113,12 @@ function TokenListView(props: IProps) {
       inTabList,
     });
 
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+
   const [isInRequest, setIsInRequest] = useState(false);
   useEffect(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -196,6 +203,7 @@ function TokenListView(props: IProps) {
               </SizableText>
             </Stack>
           ) : null}
+          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
     />

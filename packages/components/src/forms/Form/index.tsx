@@ -139,13 +139,13 @@ function Field({
       rules={rules}
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
-          {label ? (
-            <Stack
-              flexDirection={horizontal ? 'row' : 'column'}
-              jc={horizontal ? 'space-between' : undefined}
-              alignItems={horizontal ? 'center' : undefined}
-              mb={horizontal ? '$1.5' : undefined}
-            >
+          <Stack
+            flexDirection={horizontal ? 'row' : 'column'}
+            jc={horizontal ? 'space-between' : undefined}
+            alignItems={horizontal ? 'center' : undefined}
+            mb={horizontal ? '$1.5' : undefined}
+          >
+            {label ? (
               <XStack
                 mb={horizontal ? undefined : '$1.5'}
                 justifyContent="space-between"
@@ -162,13 +162,13 @@ function Field({
                 </Stack>
                 {renderLabelAddon()}
               </XStack>
-              {Children.map(children as ReactNode[], (child) =>
-                isValidElement(child)
-                  ? cloneElement(child, getChildProps(child, field, error))
-                  : child,
-              )}
-            </Stack>
-          ) : null}
+            ) : null}
+            {Children.map(children as ReactNode[], (child) =>
+              isValidElement(child)
+                ? cloneElement(child, getChildProps(child, field, error))
+                : child,
+            )}
+          </Stack>
           <HeightTransition>
             {error?.message ? (
               <SizableText
