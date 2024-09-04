@@ -49,7 +49,7 @@
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",
     "burnt": "0.12.2",
-    "expo": "50.0.5",
+    "expo": "50.0.20",
     "expo-application": "5.8.3",
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
