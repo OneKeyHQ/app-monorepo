@@ -56,13 +56,7 @@ const WithdrawPage = () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
           onSuccess?.();
         },
@@ -72,7 +66,6 @@ const WithdrawPage = () => {
       handleWithdraw,
       tokenInfo,
       appNavigation,
-      price,
       provider,
       actionTag,
       identity,

@@ -7,6 +7,7 @@ import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
 
 import type {
+  IClearPackage,
   IDownloadPackage,
   IInstallPackage,
   IUseDownloadProgress,
@@ -32,6 +33,16 @@ const { AutoUpdateModule } = NativeModules as {
       sha256?: string;
     }) => Promise<void>;
   };
+};
+
+export const clearPackage: IClearPackage = async () => {
+  if (!RNFS) {
+    return;
+  }
+  const isExist = await RNFS.exists(DIR_PATH);
+  if (isExist) {
+    await RNFS.unlink(DIR_PATH);
+  }
 };
 
 export const downloadPackage: IDownloadPackage = async ({

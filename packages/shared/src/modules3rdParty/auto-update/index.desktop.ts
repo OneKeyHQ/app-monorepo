@@ -7,6 +7,7 @@ import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
 
 import type {
+  IClearPackage,
   IDownloadPackage,
   IInstallPackage,
   IUpdateDownloadedEvent,
@@ -169,4 +170,8 @@ export const useDownloadProgress: IUseDownloadProgress = (
     updateErrorTasks.push(onFailed);
   }, [onFailed, onSuccess, updatePercent]);
   return percent;
+};
+
+export const clearPackage: IClearPackage = async () => {
+  window.desktopApi.clearUpdate();
 };

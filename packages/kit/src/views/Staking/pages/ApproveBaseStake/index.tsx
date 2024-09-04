@@ -47,18 +47,12 @@ const ApproveBaseStakePage = () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: token.info,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [token, appNavigation, handleStake, price, provider, actionTag],
+    [token, appNavigation, handleStake, provider, actionTag],
   );
   const intl = useIntl();
   return (

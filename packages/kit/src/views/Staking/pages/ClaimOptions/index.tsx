@@ -64,15 +64,7 @@ const ClaimOptions = () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: details.token.info,
-            amount: item.amount,
             stakingProtocol: provider,
-            tokenValue:
-              Number(details.token.price) > 0
-                ? BigNumber(item.amount)
-                    .multipliedBy(details.token.price)
-                    .toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });

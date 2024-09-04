@@ -212,9 +212,6 @@ class ProviderApiWalletConnect {
         dappDomain: metadata.url,
         action: 'ConnectWallet',
         network: optionalNamespacesString,
-        walletAddress: result.accountsInfo
-          .map((account) => account.address)
-          .join(', '),
       });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
@@ -230,9 +227,6 @@ class ProviderApiWalletConnect {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         failReason: `${e?.message ?? e}`,
-        walletAddress: modalResult?.accountsInfo
-          .map((account) => account.address)
-          .join(', '),
       });
     }
   };

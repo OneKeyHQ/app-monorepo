@@ -81,17 +81,11 @@ function SendConfirmFromDApp() {
         dappDomain: $sourceInfo.origin,
         action: 'SendTxn',
         network: networkId,
-        walletAddress: (
-          await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          })
-        ).address,
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         failReason: error ? `${error?.message ?? error}` : undefined,
       });
     },
-    [$sourceInfo, accountId, networkId],
+    [$sourceInfo, networkId],
   );
 
   useEffect(() => {
