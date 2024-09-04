@@ -67,7 +67,17 @@ const SwapQuoteResultRate = ({
     }
     const rateBN = new BigNumber(rate ?? 0);
     return (
-      <XStack gap="$2" alignItems="center">
+      <XStack
+        gap="$2"
+        alignItems="center"
+        hoverStyle={{
+          opacity: 0.5,
+        }}
+        onPress={() => {
+          setIsReverse(!isReverse);
+        }}
+        cursor="pointer"
+      >
         <SizableText
           size="$bodyMdMedium"
           pl="$1"
@@ -88,20 +98,6 @@ const SwapQuoteResultRate = ({
             {` ${isReverse ? fromToken.symbol : toToken.symbol}`}
           </SizableText>
         </SizableText>
-        <IconButton
-          size="small"
-          icon="RepeatOutline"
-          variant="tertiary"
-          hoverStyle={{
-            bg: '$background',
-          }}
-          pressStyle={{
-            bg: '$background',
-          }}
-          onPress={() => {
-            setIsReverse(!isReverse);
-          }}
-        />
       </XStack>
     );
   }, [fromToken, intl, isReverse, md, onOpenResult, rate, rateIsExit, toToken]);
@@ -129,7 +125,12 @@ const SwapQuoteResultRate = ({
                 h="$5"
                 borderRadius="$1"
               />
-              <SizableText size="$bodyMdMedium" ml="$1">
+              <SizableText
+                numberOfLines={1}
+                size="$bodyMdMedium"
+                ml="$1"
+                maxWidth="$20"
+              >
                 {providerName ?? ''}
               </SizableText>
             </>
@@ -169,6 +170,10 @@ const SwapQuoteResultRate = ({
                 pressStyle={{
                   bg: '$background',
                 }}
+                focusStyle={{
+                  bg: '$background',
+                }}
+                cursor="pointer"
               />
             </MotiView>
           ) : null}
