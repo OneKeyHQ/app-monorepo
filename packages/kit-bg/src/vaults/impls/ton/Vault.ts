@@ -121,7 +121,7 @@ export default class Vault extends VaultBase {
           let forwardPayload;
           if (transfer.memo) {
             forwardPayload = await encodeComment(transfer.memo);
-            fwdFee = TonWeb.utils.toNano('0.05').toString();
+            fwdFee = '1';
           }
           const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
