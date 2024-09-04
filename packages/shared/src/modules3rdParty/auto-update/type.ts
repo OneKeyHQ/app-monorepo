@@ -21,3 +21,5 @@ export type IUseDownloadProgress = (
   onSuccess: () => void,
   onFailed: (params: { message: string }) => void,
 ) => number;
+
+export type IClearPackage = () => Promise<void>;

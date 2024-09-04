@@ -16,6 +16,7 @@ export const ipcMessageKeys = {
   UPDATE_VERIFY: 'update/verify',
   UPDATE_VERIFIED: 'update/verified',
   UPDATE_INSTALL: 'update/install',
+  UPDATE_CLEAR: 'update/clear',
   UPDATE_CHECKING: 'update/checking',
   UPDATE_AVAILABLE: 'update/available',
   UPDATE_NOT_AVAILABLE: 'update/not-available',
