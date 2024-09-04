@@ -79,6 +79,9 @@ const WithdrawOptions = () => {
               token={result.token}
               network={result.network}
               onPress={onPress}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              })}
             />
           ) : null}
         </PageFrame>
