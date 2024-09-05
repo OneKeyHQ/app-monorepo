@@ -181,7 +181,7 @@ function RecommendedContainer({
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {profit.toString()}
+            {profit.toFixed()}
           </NumberSizeableText>
         </SizableText>
       </YStack>
@@ -196,16 +196,25 @@ function Recommended({
   isFetchingAccounts?: boolean;
 }) {
   const { gtMd } = useMedia();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
+  const totalFiatMapKey = useMemo(
+    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
+    [account?.id, actions, network?.id],
+  );
   const [{ accounts }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
     const accountTokens: ITokenAccount[] = [];
-    const totalProfit = new BigNumber(0);
-    accounts?.forEach((account) => {
-      account.earn.tokens.forEach((token) => {
-        totalProfit.plus(token.profit || 0);
+    let totalProfit = new BigNumber(0);
+    const list = accounts?.[totalFiatMapKey] || [];
+    list?.forEach((accountItem) => {
+      accountItem.earn.tokens.forEach((token) => {
+        totalProfit = totalProfit.plus(token.profit || 0);
         accountTokens.push({
           ...token,
-          account,
+          account: accountItem,
         });
       });
     });
@@ -213,7 +222,7 @@ function Recommended({
       tokens: accountTokens,
       profit: totalProfit,
     };
-  }, [accounts]);
+  }, [accounts, totalFiatMapKey]);
   if (isFetchingAccounts && tokens.length < 1) {
     return (
       <RecommendedContainer profit={profit}>
@@ -259,31 +268,49 @@ function Recommended({
   return null;
 }
 
+const totalFiatMap: Record<string, [string, string]> = {};
+
 function Overview() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
+  const totalFiatMapKey = useMemo(
+    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
+    [account?.id, actions, network?.id],
+  );
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
-  const totalFiatValue = useMemo(
-    () =>
-      accounts
-        ? accounts
-            .reduce(
-              (prev, account) => prev.plus(account.earn.totalFiatValue || 0),
-              new BigNumber(0),
-            )
-            .toString()
-        : 0,
-    [accounts],
-  );
-  const earnings24h = useMemo(
-    () =>
-      accounts
-        ? accounts.reduce(
-            (prev, account) => prev.plus(account.earn.earnings24h || 0),
-            new BigNumber(0),
-          )
-        : new BigNumber(0),
-    [accounts],
-  );
+  const totalFiatValue = useMemo(() => {
+    const list = accounts?.[totalFiatMapKey] || [];
+    if (list?.length) {
+      const sum = list
+        .reduce(
+          (prev, currentAccount) =>
+            prev.plus(currentAccount.earn.totalFiatValue || 0),
+          new BigNumber(0),
+        )
+        .toFixed();
+      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
+      totalFiatMap[totalFiatMapKey][0] = sum;
+      return sum;
+    }
+    return totalFiatMap[totalFiatMapKey]?.[0] || 0;
+  }, [accounts, totalFiatMapKey]);
+  const earnings24h = useMemo(() => {
+    const list = accounts?.[totalFiatMapKey] || [];
+    if (list?.length) {
+      const sum = list.reduce(
+        (prev, currentAccount) =>
+          prev.plus(currentAccount.earn.earnings24h || 0),
+        new BigNumber(0),
+      );
+      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
+      totalFiatMap[totalFiatMapKey][1] = sum.toFixed();
+      return sum;
+    }
+    return new BigNumber(totalFiatMap[totalFiatMapKey]?.[1] || 0);
+  }, [accounts, totalFiatMapKey]);
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -403,18 +430,34 @@ function BasicEarnHome() {
   const actions = useEarnActions();
   const { isLoading: isFetchingAccounts } = usePromiseResult(
     async () => {
-      const assets =
-        await backgroundApiProxy.serviceStaking.getAvailableAssets();
-      actions.current.updateAvailableAssets(assets);
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
+        account?.id,
+        network?.id,
+      );
+      let assets = actions.current.getAvailableAssets();
+      if (assets.length === 0) {
+        assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
+        actions.current.updateAvailableAssets(assets);
+      } else {
+        setTimeout(() => {
+          void backgroundApiProxy.serviceStaking
+            .getAvailableAssets()
+            .then(actions.current.updateAvailableAssets);
+        });
+      }
+
       const accounts =
         await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
           assets,
           accountId: account?.id ?? '',
           networkId: network?.id ?? '',
         });
-      actions.current.updateEarnAccounts(accounts);
+      actions.current.updateEarnAccounts({
+        key: totalFiatMapKey,
+        accounts,
+      });
     },
-    [account, network, actions],
+    [actions, account?.id, network?.id],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
