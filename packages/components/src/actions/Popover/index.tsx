@@ -365,7 +365,6 @@ function RawPopover({
                 showsVerticalScrollIndicator={false}
                 marginHorizontal="$5"
                 marginBottom={bottom || '$5'}
-                alignContent="center"
                 borderCurve="continuous"
               >
                 {content}

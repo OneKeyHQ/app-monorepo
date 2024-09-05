@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -32,7 +33,6 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
