@@ -94,6 +94,7 @@ const AssetProtocolListContent = ({
               <Stack pr="$3">
                 <Token
                   size="lg"
+                  borderRadius="$2"
                   tokenImageUri={item.provider.logoURI}
                   networkImageUri={item.network.logoURI}
                 />
