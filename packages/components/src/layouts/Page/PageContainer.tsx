@@ -1,8 +1,11 @@
 import { useCallback, useContext, useMemo } from 'react';
 
+import Animated from 'react-native-reanimated';
+
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
+import { useSafeKeyboardAnimationStyle } from './hooks';
 import { PageContext } from './PageContext';
 import { BasicPageFooter } from './PageFooter';
 
@@ -19,6 +22,7 @@ export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
     },
     [pageOffsetRef],
   );
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return useMemo(
     () => (
@@ -30,7 +34,9 @@ export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
             onScroll={handleScroll as any}
             {...scrollProps}
           >
-            {children}
+            <Animated.View style={safeKeyboardAnimationStyle}>
+              {children}
+            </Animated.View>
           </ScrollView>
         ) : (
           children
