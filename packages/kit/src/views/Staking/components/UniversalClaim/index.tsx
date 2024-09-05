@@ -179,7 +179,7 @@ export const UniversalClaim = ({
               icon="InfoCircleOutline"
               type="critical"
               title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_staked_balance,
+                id: ETranslations.earn_insufficient_claimable_balance,
               })}
             />
           ) : null}

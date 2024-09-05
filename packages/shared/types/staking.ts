@@ -12,6 +12,7 @@ export enum EEarnLabels {
   Stake = 'Stake',
   Claim = 'Claim',
   Redeem = 'Redeem',
+  Withdraw = 'Withdraw',
   Unknown = 'Unknown',
 }
 

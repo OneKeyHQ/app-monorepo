@@ -59,7 +59,7 @@ const StakePage = () => {
         symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Stake,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
