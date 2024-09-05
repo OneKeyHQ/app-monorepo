@@ -39,7 +39,7 @@ const StakePage = () => {
   const actionTag = buildLocalTxStatusSyncId(details);
 
   const minAmount = useMemo(() => {
-    if (provider.minStakeAmount) return provider.minStakeAmount;
+    if (Number(provider.minStakeAmount) > 0) return provider.minStakeAmount;
     return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo, provider]);
 
