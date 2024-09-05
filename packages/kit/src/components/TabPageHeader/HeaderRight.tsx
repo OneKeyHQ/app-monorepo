@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, useMedia } from '@onekeyhq/components';
+import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -15,6 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -60,6 +61,12 @@ export function HeaderRight({
   );
 
   const media = useMedia();
+  const openNotificationsModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+    });
+  }, [navigation]);
+
   const items = useMemo(() => {
     const settingsButton = (
       <HeaderIconButton
@@ -132,6 +139,40 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
+    const notificationsButton = (
+      <Stack>
+        <HeaderIconButton
+          key="notifications"
+          title="Notifications"
+          icon="BellOutline"
+          onPress={openNotificationsModal}
+        />
+        <Stack
+          borderRadius="$full"
+          bg="$bgApp"
+          position="absolute"
+          right="0"
+          top="$-2"
+          x="50%"
+          borderWidth={2}
+          borderColor="$transparent"
+          pointerEvents="none"
+        >
+          <Stack
+            px="$1"
+            borderRadius="$full"
+            bg="$bgCriticalStrong"
+            minWidth="$4"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText color="$textOnColor" size="$bodySm">
+              5
+            </SizableText>
+          </Stack>
+        </Stack>
+      </Stack>
+    );
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
     ) : null;
@@ -149,8 +190,15 @@ export function HeaderRight({
       return [layoutExtView, settingsButton];
     }
 
-    return [scanButton, settingsButton, searchInput];
-  }, [intl, media.gtMd, onScanButtonPressed, openSettingPage, sceneName]);
+    return [scanButton, notificationsButton, settingsButton, searchInput];
+  }, [
+    intl,
+    media.gtMd,
+    onScanButtonPressed,
+    openSettingPage,
+    sceneName,
+    openNotificationsModal,
+  ]);
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
