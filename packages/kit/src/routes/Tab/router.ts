@@ -130,9 +130,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
-  platformEnv.isDesktop
-    ? {
-        name: ETabRoutes.MultiTabBrowser,
-        children: multiTabBrowserRouters,
-      }
-    : undefined;
+  {
+    name: ETabRoutes.MultiTabBrowser,
+    children: multiTabBrowserRouters,
+  };
