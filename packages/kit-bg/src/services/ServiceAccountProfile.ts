@@ -142,64 +142,78 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   private async getAddressAccountBadge({
-    accountId,
     networkId,
     fromAddress,
     toAddress,
   }: {
-    accountId: string;
+    fromAddress?: string;
     networkId: string;
-    fromAddress: string;
     toAddress: string;
   }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
-      data: IServerAccountBadgeResp;
-    }>('/wallet/v1/account/badges', {
-      params: {
-        networkId,
-        fromAddress,
-        toAddress,
-      },
-      headers: await this._getWalletTypeHeader({ accountId }),
-    });
-    const { isContract, interacted } = resp.data.data;
-    const statusMap: Record<
-      EServerInteractedStatus,
-      IAddressInteractionStatus
-    > = {
-      [EServerInteractedStatus.FALSE]: 'not-interacted',
-      [EServerInteractedStatus.TRUE]: 'interacted',
-      [EServerInteractedStatus.UNKNOWN]: 'unknown',
-    };
-    return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+    try {
+      const resp = await client.get<{
+        data: IServerAccountBadgeResp;
+      }>('/wallet/v1/account/badges', {
+        params: {
+          networkId,
+          fromAddress,
+          toAddress,
+        },
+      });
+      const { isContract, interacted } = resp.data.data;
+      const statusMap: Record<
+        EServerInteractedStatus,
+        IAddressInteractionStatus
+      > = {
+        [EServerInteractedStatus.FALSE]: 'not-interacted',
+        [EServerInteractedStatus.TRUE]: 'interacted',
+        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+      };
+      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+    } catch {
+      return { interacted: 'unknown' };
+    }
   }
 
-  private async checkAccountInteractionStatus({
+  private async checkAccountBadges({
     networkId,
     accountId,
     toAddress,
+    checkInteractionStatus,
+    checkAddressContract,
     result,
   }: {
+    accountId?: string;
+    checkInteractionStatus?: boolean;
+    checkAddressContract?: boolean;
     networkId: string;
-    accountId: string;
     toAddress: string;
     result: IAddressQueryResult;
   }): Promise<void> {
-    const acc = await this.backgroundApi.serviceAccount.getAccount({
-      networkId,
-      accountId,
-    });
+    let fromAddress: string | undefined;
+    if (accountId) {
+      const acc = await this.backgroundApi.serviceAccount.getAccount({
+        networkId,
+        accountId,
+      });
+      fromAddress = acc.address;
+    }
     const { isContract, interacted } = await this.getAddressAccountBadge({
-      accountId,
       networkId,
-      fromAddress: acc.address,
+      fromAddress,
       toAddress,
     });
-    if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
+    if (
+      checkInteractionStatus &&
+      toAddress.toLowerCase() !== fromAddress &&
+      fromAddress
+    ) {
       result.addressInteractionStatus = interacted;
     }
-    result.isContract = isContract;
+    if (checkAddressContract) {
+      result.isContract = isContract;
+    }
   }
 
   private async verifyCannotSendToSelf({
@@ -235,6 +249,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    enableAddressContract,
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
@@ -262,7 +277,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (!skipValidateAddress && result.validStatus !== 'valid') {
       return result;
     }
-    const resolveAddress = result.resolveAddress ?? result.input;
+    const resolveAddress = result.resolveAddress ?? address;
     if (enableVerifySendFundToSelf && accountId && resolveAddress) {
       const disableFundToSelf = await this.verifyCannotSendToSelf({
         networkId,
@@ -319,11 +334,15 @@ class ServiceAccountProfile extends ServiceBase {
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
       }
     }
-    if (enableAddressInteractionStatus && resolveAddress && accountId) {
-      await this.checkAccountInteractionStatus({
+    if (resolveAddress) {
+      await this.checkAccountBadges({
         networkId,
         accountId,
         toAddress: resolveAddress,
+        checkAddressContract: enableAddressContract,
+        checkInteractionStatus: Boolean(
+          enableAddressInteractionStatus && accountId,
+        ),
         result,
       });
     }

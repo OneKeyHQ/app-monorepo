@@ -57,12 +57,12 @@ const ClaimOptions = () => {
         symbol: details.token.info.symbol,
         provider,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Claim,
           protocol: provider,
           send: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],
         },
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: details.token.info,

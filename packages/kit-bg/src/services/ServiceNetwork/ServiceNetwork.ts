@@ -798,8 +798,10 @@ class ServiceNetwork extends ServiceBase {
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
+    walletId: _walletId,
   }: {
     accountId?: string;
+    walletId?: string;
     networkIds?: string[];
   }): Promise<{
     mainnetItems: IServerNetwork[];
@@ -822,14 +824,20 @@ class ServiceNetwork extends ServiceBase {
 
     let dbAccount: IDBAccount | undefined;
     let networkIdsDisabled: string[] = [];
+    let walletId: string | undefined = _walletId;
 
     if (accountId) {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
         accountId,
       });
+      if (!walletId) {
+        walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      }
+    }
+    if (walletId) {
       const compatibleResp = await this.getNetworkIdsCompatibleWithWalletId({
         networkIds,
-        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+        walletId,
       });
       networkIdsDisabled = compatibleResp.networkIdsIncompatible;
     }

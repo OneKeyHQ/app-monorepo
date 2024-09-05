@@ -7,9 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
   Page,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { capitalizeString } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -285,10 +288,25 @@ export const UniversalStake = ({
             </ListItem>
           ) : null}
           {btcStakeTerm ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_term })}
-              titleProps={fieldTitleProps}
-            >
+            <ListItem>
+              <XStack flex={1} alignItems="center" gap="$1">
+                <SizableText {...fieldTitleProps}>
+                  {intl.formatMessage({ id: ETranslations.earn_term })}
+                </SizableText>
+                <Tooltip
+                  renderTrigger={
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="InfoCircleOutline"
+                    />
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.earn_term_tooltip,
+                  })}
+                  // placement="right"
+                />
+              </XStack>
               <ListItem.Text primary={btcStakeTerm} />
             </ListItem>
           ) : null}
@@ -310,7 +328,9 @@ export const UniversalStake = ({
             >
               <XStack gap="$2" alignItems="center">
                 <Token size="xs" tokenImageUri={providerLogo} />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
               </XStack>
             </ListItem>
           ) : null}

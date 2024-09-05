@@ -45,7 +45,7 @@ const EditableAccountChainSelector = ({
   onPressItem,
 }: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, account, wallet },
   } = useActiveAccount({ num });
   const { result: chainSelectorNetworks, run: refreshLocalData } =
     usePromiseResult(
@@ -53,10 +53,11 @@ const EditableAccountChainSelector = ({
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           {
             accountId: account?.id,
+            walletId: wallet?.id,
             networkIds,
           },
         ),
-      [account?.id, networkIds],
+      [account?.id, networkIds, wallet?.id],
       { initResult: defaultChainSelectorNetworks },
     );
 

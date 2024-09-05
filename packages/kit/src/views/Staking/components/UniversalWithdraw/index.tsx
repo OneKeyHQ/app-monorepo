@@ -7,10 +7,12 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -20,6 +22,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { capitalizeString } from '../../utils/utils';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -115,15 +118,21 @@ export const UniversalWithdraw = ({
 
   const isLessThanMinAmountResp = useMemo<{
     result: boolean;
-    value: number;
+    value: string;
   }>(() => {
-    const minValue = Math.max(Number(withdrawMinAmount), Number(minAmount));
-    const minAmountBn = new BigNumber(minValue);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return { result: amountValueBn.isLessThan(minAmountBn), value: minValue };
+    const minValue = Math.max(
+      Number(withdrawMinAmount ?? 0),
+      Number(minAmount ?? 0),
+    );
+    const minAmountBN = new BigNumber(minValue);
+    const amountValueBN = new BigNumber(amountValue);
+    if (minAmountBN.gt(0) && amountValueBN.gt(0)) {
+      return {
+        result: amountValueBN.isLessThan(minAmountBN),
+        value: minAmountBN.toFixed(),
+      };
     }
-    return { result: false, value: minValue };
+    return { result: false, value: minAmountBN.toFixed() };
   }, [minAmount, amountValue, withdrawMinAmount]);
 
   const isLessThanWithdrawMinAmountWarning = useMemo<boolean>(() => {
@@ -253,17 +262,34 @@ export const UniversalWithdraw = ({
           >
             <XStack gap="$2" alignItems="center">
               <Token size="xs" tokenImageUri={providerLogo} />
-              <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              <SizableText size="$bodyLgMedium">
+                {capitalizeString(providerName)}
+              </SizableText>
             </XStack>
           </ListItem>
         ) : null}
         {unstakingPeriod ? (
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_unstaking_period,
-            })}
-            titleProps={fieldTitleProps}
-          >
+          <ListItem>
+            <XStack flex={1} alignItems="center" gap="$1">
+              <SizableText {...fieldTitleProps}>
+                {intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
+              </SizableText>
+              <Tooltip
+                renderTrigger={
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="InfoCircleOutline"
+                  />
+                }
+                renderContent={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period_tooltip,
+                })}
+                // placement="right"
+              />
+            </XStack>
             <XStack gap="$2" alignItems="center">
               <SizableText size="$bodyLgMedium">
                 {intl.formatMessage(

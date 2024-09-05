@@ -201,6 +201,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               autoError={false}
               testID="address-form-address"
               enableNameResolve
+              enableAddressContract
             />
           </Form.Field>
         </Form>

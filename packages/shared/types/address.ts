@@ -136,6 +136,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
   enableAddressInteractionStatus?: boolean;
+  enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   skipValidateAddress?: boolean;
 };
