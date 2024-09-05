@@ -38,7 +38,7 @@ const SwapPopularTokenGroup = ({
           onSelectToken(token);
         }}
       >
-        <XStack justifyContent="center" gap="$1" alignItems="center">
+        <XStack justifyContent="center" gap="$1" alignItems="center" flex={1}>
           <Image height="$4.5" width="$4.5" borderRadius="$full">
             <Image.Source
               source={{

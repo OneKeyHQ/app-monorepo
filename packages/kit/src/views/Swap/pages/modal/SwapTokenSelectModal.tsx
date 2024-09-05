@@ -92,7 +92,8 @@ const SwapTokenSelectPage = () => {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { selectFromToken, selectToToken, syncNetworksSort } =
+    useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
@@ -237,7 +238,7 @@ const SwapTokenSelectPage = () => {
       }
       listViewRef.current?.scrollToOffset({
         offset: 0,
-        animated: true,
+        animated: false,
       });
     },
     [type, updateSelectedAccountNetwork],
@@ -467,6 +468,7 @@ const SwapTokenSelectPage = () => {
                 );
                 if (!findSwapNetwork) return;
                 onSelectCurrentNetwork(findSwapNetwork);
+                void syncNetworksSort(findSwapNetwork.networkId);
               },
             });
           }}
