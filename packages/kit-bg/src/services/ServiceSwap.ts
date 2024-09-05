@@ -392,6 +392,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchQuotesEvents({
     fromToken,
     toToken,

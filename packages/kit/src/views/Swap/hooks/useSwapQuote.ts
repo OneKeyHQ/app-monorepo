@@ -238,8 +238,6 @@ export function useSwapQuote() {
         if (isFocus) {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-        } else {
-          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         }
       }
       setTimeout(() => {
