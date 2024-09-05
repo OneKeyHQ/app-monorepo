@@ -356,7 +356,7 @@
   "earn.number_seconds": "{number} 秒",
   "earn.number_symbol_left": "剩餘 {number} {symbol}",
   "earn.overflow": "溢出",
-  "earn.overflow_alert": "應撤銷並領取超額賭注。",
+  "earn.overflow_alert": "應提款並領出溢出的質押。",
   "earn.overflow_number_alert": "{number} BTC 已經溢出，應該提款並領出。",
   "earn.pay_with": "支付",
   "earn.pending_activation": "待啟用",
