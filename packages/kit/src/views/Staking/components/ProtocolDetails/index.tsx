@@ -56,6 +56,7 @@ type IProfit = {
 
 type IProvider = {
   validator: {
+    isProtocol?: boolean;
     name: string;
     link: string;
   };
@@ -405,7 +406,11 @@ export function Provider({
       </SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
         <GridItem
-          title={intl.formatMessage({ id: ETranslations.earn_validator })}
+          title={
+            validator.isProtocol
+              ? intl.formatMessage({ id: ETranslations.global_protocol })
+              : intl.formatMessage({ id: ETranslations.earn_validator })
+          }
           {...gridItemStyle}
           link={validator.link}
         >
@@ -486,11 +491,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
     </YStack>
   );
 }
-function FAQ({
-  solutions,
-}: {
-  solutions: { question: string; answer: string }[];
-}) {
+function FAQ({ solutions }: { solutions: ISolutions }) {
   return (
     <YStack py="$8" gap="$6">
       <SizableText size="$headingLg" px="$5">
@@ -670,6 +671,7 @@ export function ProtocolDetails({
       validator: {
         name: details.provider.name,
         link: details.provider.website,
+        isProtocol: details.provider.name.toLowerCase() !== 'everstake',
       },
     };
     const portfolio: IPortfolioValue = {
