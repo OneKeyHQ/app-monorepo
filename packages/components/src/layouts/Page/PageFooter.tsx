@@ -22,11 +22,12 @@ const PageFooterContainer = ({
   disableKeyboardAnimation,
 }: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
-  const { gtMd } = useMedia();
   return (
     <Animated.View
       style={
-        gtMd && disableKeyboardAnimation ? null : safeKeyboardAnimationStyle
+        gtMd || disableKeyboardAnimation
+          ? undefined
+          : safeKeyboardAnimationStyle
       }
     >
       {children}
