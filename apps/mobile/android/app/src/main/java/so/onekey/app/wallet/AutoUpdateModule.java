@@ -33,6 +33,7 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -46,6 +47,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
+    private Thread rThread;
     private Boolean isDownloading = false;
     private int notifiactionId = 1;
     private String channelId = "updateApp";
@@ -153,6 +155,15 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void clearCache(final ReadableMap map, final Promise promise) {
+        if (rThread != null) {
+            rThread.interrupt();
+            isDownloading = false;
+        }
+        promise.resolve(null);
+    }
+
+    @ReactMethod
     public void downloadAPK(final ReadableMap map, final Promise promise) {
         String url = map.getString("url");
         String filePath = map.getString("filePath");
@@ -162,7 +173,16 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             return;
         }
         this.isDownloading = true;
-        new Thread(new Runnable() {
+        rThread = new Thread(new Runnable() {
+            private Call call;
+            boolean checkInterrupt() {
+                boolean isInterrupted = Thread.currentThread().isInterrupted();
+                if (isInterrupted && call != null) {
+                    call.cancel();
+                }
+                return isInterrupted;
+            };
+
             public void run() {
                 File downloadedFile = buildFile(filePath);
                 if (downloadedFile.exists()) {
@@ -187,8 +207,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .connectTimeout(10, TimeUnit.MILLISECONDS)
                         .build();
                 Response response = null;
+                call = client.newCall(request);
                 try {
-                    response = client.newCall(request).execute();
+                    response = call.execute();
                 } catch (IOException e) {
                     sendDownloadError(e, promise);
                     return;
@@ -239,6 +260,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                             mBuilder.setProgress(100, progress, false);
                             notifyNotification(notifiactionId, mBuilder);
                             prevProgress = progress;
+                            if (this.checkInterrupt()) {
+                                return;
+                            }
                         }
                     }
                 } catch (IOException e) {
@@ -256,10 +280,12 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 Log.d("UPDATE APP", "downloadPackage: Download completed");
                 sendEvent("update/downloaded", null);
 
+                if (this.checkInterrupt()) {
+                    return;
+                }
                 isDownloading = false;
 
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
-
 
                 boolean isValidAPK = checkFilePackage(downloadedFile, sha256, promise);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
@@ -280,7 +306,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 Log.d("UPDATE APP", "downloadPackage: notifyNotification done");
                 promise.resolve(null);
             }
-        }).start();
+        });
+        rThread.start();
     }
 
 
