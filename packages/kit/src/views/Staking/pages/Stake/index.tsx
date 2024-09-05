@@ -107,8 +107,8 @@ const StakePage = () => {
           minAmount={minAmount}
           maxAmount={provider.maxStakeAmount}
           minStakeTerm={provider?.minStakeTerm}
-          unbondingTime={provider?.unbondingTime}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          minStakeBlocks={provider?.minStakeBlocks}
+          tokenImageUri={tokenInfo.logoURI}
           tokenSymbol={tokenInfo.symbol}
           providerLogo={provider.logoURI}
           providerName={provider.name}

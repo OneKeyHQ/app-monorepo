@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -34,6 +34,11 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     }));
   });
 
+  getAvailableAssets = contextAtomMethod((get) => {
+    const { availableAssets } = get(earnAtom());
+    return availableAssets || [];
+  });
+
   updateAvailableAssets = contextAtomMethod(
     (_, set, availableAssets: IAvailableAsset[]) => {
       this.syncToDb.call(set, {
@@ -42,22 +47,46 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
-  updateEarnAccounts = contextAtomMethod((_, set, accounts: IEarnAccount[]) => {
-    this.syncToJotai.call(set, {
-      accounts,
-    });
-  });
+  updateEarnAccounts = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        key,
+        accounts,
+      }: {
+        key: string;
+        accounts: IEarnAccount[];
+      },
+    ) => {
+      const earnData = get(earnAtom());
+      this.syncToJotai.call(set, {
+        accounts: {
+          ...earnData.accounts,
+          [key]: accounts,
+        },
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsMarket());
 
 export function useEarnActions() {
   const actions = createActions();
+  const getAvailableAssets = actions.getAvailableAssets.use();
   const updateAvailableAssets = actions.updateAvailableAssets.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
 
+  const buildEarnAccountsKey = useCallback(
+    (account = '', network = '') => `${account}-${network}`,
+    [],
+  );
+
   return useRef({
+    getAvailableAssets,
     updateAvailableAssets,
+    buildEarnAccountsKey,
     updateEarnAccounts,
   });
 }

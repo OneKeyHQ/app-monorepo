@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,7 +22,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
@@ -55,16 +59,23 @@ function ListSkeletonItem() {
 
 const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
+  const accountInfo = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
   const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
-    () =>
-      accounts
+    () => {
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
+        accountInfo.activeAccount?.account?.id,
+        accountInfo.activeAccount?.network?.id,
+      );
+      const list = accounts?.[totalFiatMapKey] || [];
+      return list.length
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            accounts?.map(({ networkId, accountAddress, publicKey }) => ({
+            list.map(({ networkId, accountAddress, publicKey }) => ({
               networkId,
               accountAddress,
               publicKey,
@@ -72,19 +83,28 @@ function BasicInvestmentDetails() {
           )
         : new Promise<IEarnInvestmentItem[]>((resolve) => {
             setTimeout(() => resolve([]), 1500);
-          }),
-    [accounts],
+          });
+    },
+    [
+      accountInfo.activeAccount?.account?.id,
+      accountInfo.activeAccount?.network?.id,
+      accounts,
+      actions,
+    ],
     {
       watchLoading: true,
     },
   );
-  const accountInfo = useActiveAccount({ num: 0 });
 
-  const sectionData = earnInvestmentItems.map((item) => ({
-    title: item.name,
-    logoURI: item.logoURI,
-    data: item.investment.map((i) => ({ ...i, providerName: item.name })),
-  }));
+  const sectionData = earnInvestmentItems
+    .map((item) => ({
+      title: item.name,
+      logoURI: item.logoURI,
+      data: item.investment
+        .map((i) => ({ ...i, providerName: item.name }))
+        .filter((i) => !new BigNumber(i.staked).isZero()),
+    }))
+    .filter((i) => i.data.length > 0);
   const renderItem = useCallback(
     ({
       item: {
