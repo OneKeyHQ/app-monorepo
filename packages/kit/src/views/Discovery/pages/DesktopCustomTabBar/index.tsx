@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -349,7 +350,7 @@ function DesktopCustomTabBar() {
                     }}
                     style={{
                       containerType: 'normal',
-                      transform: 'translateY(-50%)',
+                      transform: platformEnv.isNative ? '' : 'translateY(-50%)',
                     }}
                     onPress={closeAllWebTabs}
                   >
