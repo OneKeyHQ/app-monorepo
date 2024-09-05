@@ -7,10 +7,12 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -267,12 +269,27 @@ export const UniversalWithdraw = ({
           </ListItem>
         ) : null}
         {unstakingPeriod ? (
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_unstaking_period,
-            })}
-            titleProps={fieldTitleProps}
-          >
+          <ListItem>
+            <XStack flex={1} alignItems="center" gap="$1">
+              <SizableText {...fieldTitleProps}>
+                {intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
+              </SizableText>
+              <Tooltip
+                renderTrigger={
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="InfoCircleOutline"
+                  />
+                }
+                renderContent={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period_tooltip,
+                })}
+                // placement="right"
+              />
+            </XStack>
             <XStack gap="$2" alignItems="center">
               <SizableText size="$bodyLgMedium">
                 {intl.formatMessage(

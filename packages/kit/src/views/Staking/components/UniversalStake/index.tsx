@@ -7,9 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
   Page,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -286,10 +288,25 @@ export const UniversalStake = ({
             </ListItem>
           ) : null}
           {btcStakeTerm ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_term })}
-              titleProps={fieldTitleProps}
-            >
+            <ListItem>
+              <XStack flex={1} alignItems="center" gap="$1">
+                <SizableText {...fieldTitleProps}>
+                  {intl.formatMessage({ id: ETranslations.earn_term })}
+                </SizableText>
+                <Tooltip
+                  renderTrigger={
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="InfoCircleOutline"
+                    />
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.earn_term_tooltip,
+                  })}
+                  // placement="right"
+                />
+              </XStack>
               <ListItem.Text primary={btcStakeTerm} />
             </ListItem>
           ) : null}

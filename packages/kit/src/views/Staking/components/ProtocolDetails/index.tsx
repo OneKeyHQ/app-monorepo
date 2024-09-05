@@ -40,7 +40,9 @@ type IStakedValue = {
 
 type IPortfolioValue = {
   pendingInactive?: string;
+  pendingInactivePeriod?: string;
   pendingActive?: string;
+  pendingActiveTooltip?: string;
   claimable?: string;
   token: IToken;
   onClaim?: () => void;
@@ -67,7 +69,6 @@ type IProvider = {
   untilNextLaunch?: {
     value: number;
     token: string;
-    tooltip: string;
   };
 };
 
@@ -153,6 +154,7 @@ const PortfolioItem = ({
   statusText,
   onPress,
   buttonText,
+  tooltip,
 }: {
   tokenImageUri?: string;
   tokenSymbol: string;
@@ -160,11 +162,11 @@ const PortfolioItem = ({
   statusText: string;
   onPress?: () => void;
   buttonText?: string;
+  tooltip?: string;
 }) => (
   <XStack alignItems="center" justifyContent="space-between">
-    <XStack alignItems="center">
+    <XStack alignItems="center" gap="$1.5">
       <Token size="sm" tokenImageUri={tokenImageUri} />
-      <XStack w="$1.5" />
       <NumberSizeableText
         size="$bodyLgMedium"
         formatter="value"
@@ -172,10 +174,18 @@ const PortfolioItem = ({
       >
         {amount}
       </NumberSizeableText>
-      <XStack w="$1.5" />
       <XStack gap="$1" ai="center">
         <SizableText size="$bodyLg">{statusText}</SizableText>
       </XStack>
+      {tooltip ? (
+        <Tooltip
+          placement="top"
+          renderContent={tooltip}
+          renderTrigger={
+            <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+          }
+        />
+      ) : null}
     </XStack>
     {buttonText && onPress ? (
       <XStack>
@@ -189,7 +199,9 @@ const PortfolioItem = ({
 
 function Portfolio({
   pendingInactive,
+  pendingInactivePeriod,
   pendingActive,
+  pendingActiveTooltip,
   claimable,
   token,
   onClaim,
@@ -226,6 +238,16 @@ function Portfolio({
               statusText={intl.formatMessage({
                 id: ETranslations.earn_withdrawal_requested,
               })}
+              tooltip={
+                pendingInactivePeriod
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.earn_withdrawal_up_to_number_days,
+                      },
+                      { number: pendingInactivePeriod },
+                    )
+                  : undefined
+              }
             />
           ) : null}
           {pendingActive && Number(pendingActive) ? (
@@ -233,6 +255,7 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={pendingActive}
+              tooltip={pendingActiveTooltip}
               statusText={intl.formatMessage({
                 id: ETranslations.earn_pending_activation,
               })}
@@ -345,6 +368,9 @@ export function Profit({
         {earningsIn24h ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_24h_earnings_tooltip,
+            })}
             {...gridItemStyle}
           >
             <NumberSizeableText
@@ -438,7 +464,9 @@ export function Provider({
             title={intl.formatMessage({
               id: ETranslations.earn_until_next_launch,
             })}
-            tooltip={untilNextLaunch.tooltip}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_until_next_launch_tooltip,
+            })}
             {...gridItemStyle}
           >
             <SizableText>
@@ -663,6 +691,7 @@ export function ProtocolDetails({
   onPortfolioDetails,
   onCreateAddress,
 }: IProtocolDetails) {
+  const intl = useIntl();
   const result: IEarnTokenDetailResult | null = useMemo(() => {
     if (!details) {
       return null;
@@ -674,9 +703,29 @@ export function ProtocolDetails({
         isProtocol: details.provider.name.toLowerCase() !== 'everstake',
       },
     };
+    let pendingActiveTooltip: string | undefined;
+    if (
+      details.provider.name.toLowerCase() === 'everstake' &&
+      details.token.info.name.toLowerCase() === 'eth'
+    ) {
+      pendingActiveTooltip = intl.formatMessage({
+        id: ETranslations.earn_pending_activation_tooltip_eth,
+      });
+    } else if (details.pendingActivatePeriod) {
+      pendingActiveTooltip = intl.formatMessage(
+        {
+          id: ETranslations.earn_pending_activation_tooltip,
+        },
+        { number: pendingActiveTooltip },
+      );
+    }
     const portfolio: IPortfolioValue = {
       pendingInactive: details.pendingInactive,
+      pendingInactivePeriod: details.unstakingPeriod
+        ? String(details.unstakingPeriod)
+        : undefined,
       pendingActive: details.pendingActive,
+      pendingActiveTooltip,
       claimable: details.claimable,
       token: details.token.info,
     };
@@ -690,7 +739,6 @@ export function ProtocolDetails({
       provider.untilNextLaunch = {
         value: Number(details.provider.nextLaunchLeft),
         token: details.token.info.symbol,
-        tooltip: 'tooltip',
       };
     }
     const profit: IProfit = {
@@ -711,7 +759,7 @@ export function ProtocolDetails({
       provider,
     };
     return data;
-  }, [details]);
+  }, [details, intl]);
 
   const { result: solutions } = usePromiseResult(
     async () =>
