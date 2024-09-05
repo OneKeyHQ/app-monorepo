@@ -15,6 +15,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
@@ -29,6 +30,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteListAtom,
+  useSwapRecentTokenPairsAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -47,6 +49,7 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapRecentTokenPairs] = useSwapRecentTokenPairsAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -56,6 +59,26 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
+
+  const syncRecentTokenPairs = useCallback(
+    async ({
+      swapFromToken,
+      swapToToken,
+    }: {
+      swapFromToken: ISwapToken;
+      swapToToken: ISwapToken;
+    }) => {
+      setSwapRecentTokenPairs([
+        { fromToken: swapFromToken, toToken: swapToToken },
+      ]);
+      await backgroundApiProxy.simpleDb.swapConfigs.addRecentTokenPair(
+        swapFromToken,
+        swapToToken,
+      );
+    },
+    [setSwapRecentTokenPairs],
+  );
+
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       if (data?.[0]) {
@@ -67,6 +90,10 @@ export function useSwapBuildTx() {
         const { swapInfo } = transactionSignedInfo;
         const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
         if (swapInfo) {
+          await syncRecentTokenPairs({
+            swapFromToken: swapInfo.sender.token,
+            swapToToken: swapInfo.receiver.token,
+          });
           await generateSwapHistoryItem({
             txId,
             gasFeeFiatValue: totalFeeFiatValue,
@@ -82,6 +109,7 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching,
       setSwapFromTokenAmount,
       setSwapQuoteResultList,
+      syncRecentTokenPairs,
     ],
   );
 
