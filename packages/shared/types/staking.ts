@@ -48,6 +48,8 @@ export type IStakeProviderInfo = {
   labels?: string[];
   minStakeTerm?: number;
   maxStakeTerm?: number;
+  minStakeBlocks?: number;
+  maxStakeBlocks?: number;
   unbondingTime?: number;
 };
 
@@ -189,6 +191,30 @@ export type IStakeProtocolListItem = {
   isEarning: boolean;
 };
 
+export type IBabylonPortfolioStatus =
+  | 'active'
+  | 'withdraw_requested'
+  | 'claimable'
+  | 'claimed';
+
+export type IBabylonPortfolioItem = {
+  txId: string;
+  status: IBabylonPortfolioStatus;
+  amount: string;
+  fiatValue: string;
+  startTime?: number;
+  endTime?: number;
+  lockBlocks: number;
+  isOverflow: string;
+};
+
+export type IClaimableListItem = {
+  id: string;
+  amount: string;
+  fiatValue?: string;
+  babylonExtra?: IBabylonPortfolioItem;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -196,7 +222,7 @@ export type IClaimableListResponse = {
     name: string;
     logoURI: string;
   };
-  items: { id: string; amount: string }[];
+  items: IClaimableListItem[];
 };
 
 export interface IEarnAccountToken {
@@ -238,17 +264,6 @@ export interface IEarnAtomData {
   accounts?: Record<string, IEarnAccount[]>;
   availableAssets?: IAvailableAsset[];
 }
-
-export type IPortfolioItem = {
-  txId: string;
-  status: string;
-  amount: string;
-  fiatValue: string;
-  startTime?: number;
-  endTime?: number;
-  lockBlocks: number;
-  isOverflow: string;
-};
 
 export type IGetPortfolioParams = {
   networkId: string;
