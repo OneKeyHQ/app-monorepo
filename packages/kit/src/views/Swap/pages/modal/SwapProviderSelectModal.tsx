@@ -17,7 +17,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapFromTokenAmountAtom,
@@ -79,9 +78,6 @@ const SwapProviderSelectModal = () => {
   const onSelectSortChange = useCallback(
     (value: ESwapProviderSort) => {
       setProviderSort(value);
-      void backgroundApiProxy.simpleDb.swapConfigs.setRawData({
-        providerSort: value,
-      });
     },
     [setProviderSort],
   );
