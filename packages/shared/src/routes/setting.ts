@@ -10,6 +10,7 @@ export enum EModalSettingRoutes {
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
+  SettingNotifications = 'SettingNotifications',
 }
 
 export type IModalSettingParamList = {
@@ -24,4 +25,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
+  [EModalSettingRoutes.SettingNotifications]: undefined;
 };
