@@ -151,9 +151,8 @@ export function HeaderRight({
           borderRadius="$full"
           bg="$bgApp"
           position="absolute"
-          right="0"
+          right="$-2.5"
           top="$-2"
-          x="50%"
           borderWidth={2}
           borderColor="$transparent"
           pointerEvents="none"
