@@ -11,7 +11,11 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
+import type {
+  IStakingConfig,
+  IStakingFlowConfig,
+  ISupportedSymbol,
+} from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -44,10 +48,11 @@ const commonStakeConfigs = {
   },
 };
 
-const lidoConfig = {
+const lidoConfig: { ETH: IStakingFlowConfig; MATIC: IStakingFlowConfig } = {
   ETH: {
     ...commonStakeConfigs.ETH,
     unstakeWithSignMessage: true,
+    claimWithAmount: true,
     // claimWithTx: true,
   },
   MATIC: {
@@ -64,8 +69,14 @@ const stakingConfig: IStakingConfig = {
         configs: lidoConfig,
       },
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH'],
-        configs: { ETH: commonStakeConfigs.ETH },
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: {
+            ...commonStakeConfigs.ETH,
+            claimWithAmount: true,
+          },
+          MATIC: commonStakeConfigs.MATIC,
+        },
       },
     },
   },
@@ -83,13 +94,16 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().holesky]: {
     providers: {
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH'],
-        configs: { ETH: commonStakeConfigs.ETH },
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: commonStakeConfigs.ETH,
+          MATIC: commonStakeConfigs.MATIC,
+        },
       },
       [EEarnProviderEnum.Lido]: {
         supportedSymbols: ['ETH'],
         configs: {
-          ...lidoConfig,
+          ETH: lidoConfig.ETH,
         },
       },
     },

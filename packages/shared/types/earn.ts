@@ -13,7 +13,7 @@ export type ISupportedSymbol =
   | 'BTC'
   | 'SBTC';
 
-interface IStakingFlowConfig {
+export interface IStakingFlowConfig {
   tokenAddress: string;
   displayProfit: boolean;
   stakingWithApprove?: boolean;
@@ -22,6 +22,7 @@ interface IStakingFlowConfig {
   withdrawSignOnly?: boolean;
   claimWithTx?: boolean;
   usePublicKey?: boolean;
+  claimWithAmount?: boolean;
 }
 
 interface IProviderConfig {

@@ -225,7 +225,7 @@ export const UniversalClaim = ({
       </YStack>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.earn_redeem,
+          id: ETranslations.earn_claim,
         })}
         confirmButtonProps={{
           onPress,

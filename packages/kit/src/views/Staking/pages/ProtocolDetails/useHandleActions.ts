@@ -48,7 +48,7 @@ export const useHandleClaim = () => {
         networkId,
         details,
         onSuccess,
-        amount: symbol.toLowerCase() === 'eth' ? details.claimable : undefined,
+        amount: stakingConfig.claimWithAmount ? details.claimable : undefined,
       });
     },
     [appNavigation],

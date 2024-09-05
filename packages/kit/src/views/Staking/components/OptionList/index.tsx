@@ -1,4 +1,11 @@
-import { useCallback, useState } from 'react';
+import {
+  Suspense,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -8,6 +15,7 @@ import {
   ListView,
   NumberSizeableText,
   Page,
+  SizableText,
   Stack,
   XStack,
   YStack,
@@ -17,13 +25,40 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import type { IClaimableListItem } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-type IOptionItem = { id: string; amount: string; fiatValue?: string };
+type IOptionItem = IClaimableListItem;
+
+type IExtraField = {
+  name: string;
+  renderItem: ({ item }: { item: IClaimableListItem }) => string;
+};
+
+type IOptionListContext = {
+  extraFields?: IExtraField[];
+};
+
+const OptionListContext = createContext<IOptionListContext>({});
 
 export type IOnSelectOption = (params: {
   item: IOptionItem;
 }) => void | Promise<void>;
+
+const ExtraField = ({
+  name,
+  renderItem,
+  item,
+}: IExtraField & { item: IClaimableListItem }) => (
+  <XStack justifyContent="space-between">
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {name}
+    </SizableText>
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {renderItem({ item })}
+    </SizableText>
+  </XStack>
+);
 
 const OptionItem = ({
   item,
@@ -47,6 +82,7 @@ const OptionItem = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+  const { extraFields } = useContext(OptionListContext);
   return (
     <Stack px="$5" py="$2">
       <YStack
@@ -83,6 +119,19 @@ const OptionItem = ({
             </NumberSizeableText>
           </YStack>
         </XStack>
+        {extraFields && extraFields.length > 0 ? (
+          <YStack py={12} px={14} gap={10}>
+            {extraFields.map((o) => (
+              <Suspense key={o.name} fallback={null}>
+                <ExtraField
+                  name={o.name}
+                  renderItem={o.renderItem}
+                  item={item}
+                />
+              </Suspense>
+            ))}
+          </YStack>
+        ) : null}
       </YStack>
     </Stack>
   );
@@ -113,6 +162,7 @@ type IOptionListProps = {
     name: string;
     logoURI: string;
   };
+  extraFields?: IExtraField[];
 };
 
 export const OptionList = ({
@@ -121,6 +171,7 @@ export const OptionList = ({
   network,
   onPress,
   onConfirmText,
+  extraFields,
 }: IOptionListProps) => {
   const appNavigation = useAppNavigation();
   const [activeId, setActiveId] = useState(items[0]?.id);
@@ -150,27 +201,31 @@ export const OptionList = ({
     }
   }, [items, activeId, onPress]);
 
+  const ctx = useMemo(() => ({ extraFields }), [extraFields]);
+
   return (
-    <Stack>
-      <ListView
-        estimatedItemSize="$5"
-        data={items}
-        renderItem={renderItem}
-        ListEmptyComponent={ListEmptyComponent}
-      />
-      <Page.Footer
-        onConfirmText={onConfirmText}
-        confirmButtonProps={{
-          onPress: onSubmit,
-          disabled: !activeId,
-          loading,
-        }}
-        cancelButtonProps={{
-          onPress: () => {
-            appNavigation.pop();
-          },
-        }}
-      />
-    </Stack>
+    <OptionListContext.Provider value={ctx}>
+      <Stack>
+        <ListView
+          estimatedItemSize="$5"
+          data={items}
+          renderItem={renderItem}
+          ListEmptyComponent={ListEmptyComponent}
+        />
+        <Page.Footer
+          onConfirmText={onConfirmText}
+          confirmButtonProps={{
+            onPress: onSubmit,
+            disabled: !activeId,
+            loading,
+          }}
+          cancelButtonProps={{
+            onPress: () => {
+              appNavigation.pop();
+            },
+          }}
+        />
+      </Stack>
+    </OptionListContext.Provider>
   );
 };
