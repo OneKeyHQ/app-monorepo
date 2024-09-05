@@ -32,6 +32,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
@@ -250,7 +251,7 @@ function HeaderRightToolBar() {
       return (
         <Stack
           $gtMd={{
-            width: '100%',
+            width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
           }}
         >
