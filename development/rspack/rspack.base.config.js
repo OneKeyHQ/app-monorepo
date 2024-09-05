@@ -349,7 +349,7 @@ module.exports = ({ platform, basePath, configName }) => ({
   experiments: {
     asyncWebAssembly: true,
   },
-  performance: { maxAssetSize: 600_000, maxEntrypointSize: 600_000 },
+  performance: { maxAssetSize: 600000, maxEntrypointSize: 600000 },
 });
 
 module.exports.basePlugins = basePlugins;
