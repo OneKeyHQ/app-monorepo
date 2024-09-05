@@ -261,7 +261,7 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: IEarnAccount[];
+  accounts?: Record<string, IEarnAccount[]>;
   availableAssets?: IAvailableAsset[];
 }
 
@@ -298,3 +298,9 @@ export interface IEarnInvestmentItem {
   logoURI: string;
   investment: IInvestment[];
 }
+
+export interface IEarnFAQListItem {
+  question: string;
+  answer: string;
+}
+export type IEarnFAQList = IEarnFAQListItem[];

@@ -80,13 +80,14 @@ const AssetProtocolListContent = ({
       estimatedItemSize={60}
       data={items}
       renderItem={({ item }: { item: IStakeProtocolListItem }) => (
-        <YStack w="100%" py="$2" px="$5" onPress={() => onPress?.({ item })}>
+        <YStack w="100%" py="$2" px="$5">
           <YStack
             borderRadius="$3"
             borderCurve="continuous"
             overflow="hidden"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
+            onPress={() => onPress?.({ item })}
             {...listItemPressStyle}
           >
             <XStack bg="$bgSubdued" p="$4">
