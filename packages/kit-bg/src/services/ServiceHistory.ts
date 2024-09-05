@@ -42,7 +42,7 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork, isManualRefresh } = params;
+    const { accountId, networkId, tokenIdOnNetwork } = params;
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -434,29 +434,30 @@ class ServiceHistory extends ServiceBase {
       isManualRefresh,
       isAllNetworks,
     } = params;
-    const extraParams = await this.buildFetchHistoryListParams(params);
-    let extraRequestParams = extraParams;
-    if (networkId === getNetworkIdsMap().onekeyall) {
-      extraRequestParams = {
-        allNetworkAccounts: (
-          extraParams as unknown as {
-            allNetworkAccounts: IAllNetworkHistoryExtraItem[];
-          }
-        ).allNetworkAccounts.map((i) => ({
-          networkId: i.networkId,
-          accountAddress: i.accountAddress,
-          xpub: i.accountXpub,
-        })),
-      };
-    }
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
-    try {
-      resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+    let extraParams: any;
+    const fetchHistoryFromServer = async () => {
+      extraParams = await this.buildFetchHistoryListParams(params);
+      let extraRequestParams = extraParams;
+      if (networkId === getNetworkIdsMap().onekeyall) {
+        extraRequestParams = {
+          allNetworkAccounts: (
+            extraParams as unknown as {
+              allNetworkAccounts: IAllNetworkHistoryExtraItem[];
+            }
+          ).allNetworkAccounts.map((i) => ({
+            networkId: i.networkId,
+            accountAddress: i.accountAddress,
+            xpub: i.accountXpub,
+          })),
+        };
+      }
+      return client.post<{ data: IFetchAccountHistoryResp }>(
         '/wallet/v1/account/history/list',
         {
           networkId,
@@ -476,15 +477,19 @@ class ServiceHistory extends ServiceBase {
             ),
         },
       );
+    };
+    try {
+      resp = await fetchHistoryFromServer();
     } catch (e) {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.message?.code === 50_401) {
+      if (error.data?.code === 50_401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
+        resp = await fetchHistoryFromServer();
+      } else {
+        throw e;
       }
-      throw e;
     }
 
     const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
@@ -501,7 +506,7 @@ class ServiceHistory extends ServiceBase {
             tokens,
             nfts,
             index,
-            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             allNetworkHistoryExtraItems: extraParams?.allNetworkAccounts,
           }),
         ),
