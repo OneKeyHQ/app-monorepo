@@ -12,13 +12,22 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { ListItem } from '../../../components/ListItem';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
 function HeaderRight() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  const handleSettingsButtonPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingNotifications,
+    });
+  }, [navigation]);
 
   return (
     <HeaderButtonGroup>
@@ -36,7 +45,10 @@ function HeaderRight() {
           });
         }}
       />
-      <HeaderIconButton icon="SettingsOutline" />
+      <HeaderIconButton
+        icon="SettingsOutline"
+        onPress={handleSettingsButtonPress}
+      />
     </HeaderButtonGroup>
   );
 }
