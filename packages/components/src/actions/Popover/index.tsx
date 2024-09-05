@@ -27,6 +27,7 @@ import { Trigger } from '../Trigger';
 
 import { PopoverContent } from './PopoverContent';
 
+import type { UseMediaState } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type {
   PopoverContentTypeProps,
@@ -230,6 +231,11 @@ function RawPopover({
   );
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const keyboardHeight = useKeyboardHeight();
+  const when = useCallback(
+    (state?: { media?: UseMediaState }) =>
+      platformEnv.isNative || !!state?.media?.md,
+    [],
+  );
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
@@ -296,7 +302,7 @@ function RawPopover({
       </TMPopover.Content>
       {/* sheet */}
       {usingSheet ? (
-        <TMPopover.Adapt when="md">
+        <TMPopover.Adapt when={when}>
           <TMPopover.Sheet
             dismissOnSnapToBottom
             animation="quick"
@@ -359,6 +365,7 @@ function RawPopover({
                 showsVerticalScrollIndicator={false}
                 marginHorizontal="$5"
                 marginBottom={bottom || '$5'}
+                alignContent="center"
                 borderCurve="continuous"
               >
                 {content}
