@@ -12,6 +12,7 @@ export enum EEarnLabels {
   Stake = 'Stake',
   Claim = 'Claim',
   Redeem = 'Redeem',
+  Withdraw = 'Withdraw',
   Unknown = 'Unknown',
 }
 
@@ -177,6 +178,7 @@ export type IStakeProtocolDetails = {
   rewardToken: string;
   approveTarget?: string;
   earnHistoryEnable?: boolean;
+  pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   minUnstakeAmount?: number;
 };
