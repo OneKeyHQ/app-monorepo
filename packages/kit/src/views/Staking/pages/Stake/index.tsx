@@ -39,7 +39,7 @@ const StakePage = () => {
   const actionTag = buildLocalTxStatusSyncId(details);
 
   const minAmount = useMemo(() => {
-    if (provider.minStakeAmount) return provider.minStakeAmount;
+    if (Number(provider.minStakeAmount) > 0) return provider.minStakeAmount;
     return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo, provider]);
 
@@ -59,7 +59,7 @@ const StakePage = () => {
         symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Stake,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
