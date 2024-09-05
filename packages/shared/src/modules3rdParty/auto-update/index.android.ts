@@ -40,8 +40,8 @@ export const clearPackage: IClearPackage = async () => {
   if (!RNFS) {
     return;
   }
-  const isExist = await RNFS.exists(DIR_PATH);
   await AutoUpdateModule.clearCache();
+  const isExist = await RNFS.exists(DIR_PATH);
   if (isExist) {
     await RNFS.unlink(DIR_PATH);
   }
