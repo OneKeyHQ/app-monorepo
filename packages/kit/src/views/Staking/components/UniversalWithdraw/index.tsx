@@ -20,6 +20,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { capitalizeString } from '../../utils/utils';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -259,7 +260,9 @@ export const UniversalWithdraw = ({
           >
             <XStack gap="$2" alignItems="center">
               <Token size="xs" tokenImageUri={providerLogo} />
-              <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              <SizableText size="$bodyLgMedium">
+                {capitalizeString(providerName)}
+              </SizableText>
             </XStack>
           </ListItem>
         ) : null}

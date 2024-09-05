@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { capitalizeString } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -310,7 +311,9 @@ export const UniversalStake = ({
             >
               <XStack gap="$2" alignItems="center">
                 <Token size="xs" tokenImageUri={providerLogo} />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
               </XStack>
             </ListItem>
           ) : null}
