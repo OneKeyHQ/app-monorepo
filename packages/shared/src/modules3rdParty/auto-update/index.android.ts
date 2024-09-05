@@ -37,10 +37,10 @@ const { AutoUpdateModule } = NativeModules as {
 };
 
 export const clearPackage: IClearPackage = async () => {
+  await AutoUpdateModule.clearCache();
   if (!RNFS) {
     return;
   }
-  await AutoUpdateModule.clearCache();
   const isExist = await RNFS.exists(DIR_PATH);
   if (isExist) {
     await RNFS.unlink(DIR_PATH);
