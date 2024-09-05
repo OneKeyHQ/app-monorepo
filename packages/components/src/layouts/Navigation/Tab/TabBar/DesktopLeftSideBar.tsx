@@ -4,7 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { getTokens, useTheme } from 'tamagui';
+import { getTokens, useMedia, useTheme } from 'tamagui';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
 import {
@@ -147,6 +147,9 @@ export function DesktopLeftSideBar({
 
   const sidebarWidth = getSizeTokens.sideBarWidth.val;
 
+  const { gtMd } = useMedia();
+  const isShowWebTabBar =
+    platformEnv.isDesktop || (platformEnv.isNative && gtMd);
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -170,7 +173,7 @@ export function DesktopLeftSideBar({
           }
         };
 
-        if (platformEnv.isDesktop && route.name === extraConfig?.name) {
+        if (isShowWebTabBar && route.name === extraConfig?.name) {
           return (
             <YStack flex={1} key={route.key}>
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
@@ -194,6 +197,7 @@ export function DesktopLeftSideBar({
       state.index,
       state.key,
       descriptors,
+      isShowWebTabBar,
       extraConfig?.name,
       isCollapse,
       navigation,

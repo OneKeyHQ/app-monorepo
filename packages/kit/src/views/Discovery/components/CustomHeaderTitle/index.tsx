@@ -31,6 +31,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       $md={{
         flex: 1,
       }}
+      $platform-native={{ flex: 1 }}
       hoverStyle={{
         bg: '$bgHover',
       }}

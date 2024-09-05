@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
+import { Platform } from 'react-native';
 
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
@@ -13,6 +14,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../types';
@@ -93,7 +95,7 @@ export function Banner({
                 position="absolute"
                 left="$10"
                 top="50%"
-                transform="translateY(-50%)"
+                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 icon="ChevronLeftOutline"
                 variant="tertiary"
                 iconProps={{
@@ -113,7 +115,7 @@ export function Banner({
                 position="absolute"
                 right="$10"
                 top="50%"
-                transform="translateY(-50%)"
+                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 iconProps={{
                   color:
                     banners[currentIndex]?.theme === 'light'

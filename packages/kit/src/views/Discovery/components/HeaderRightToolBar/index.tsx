@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -250,7 +251,7 @@ function HeaderRightToolBar() {
       return (
         <Stack
           $gtMd={{
-            width: '100%',
+            width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
           }}
         >

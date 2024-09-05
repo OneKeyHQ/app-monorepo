@@ -102,7 +102,7 @@ export function DesktopTabItem(
         ) : null}
         {actionList ? (
           <ActionList
-            title="Action List"
+            title=""
             placement="right-start"
             renderTrigger={
               selected ? (

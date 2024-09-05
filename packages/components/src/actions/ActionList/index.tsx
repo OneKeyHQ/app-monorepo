@@ -1,10 +1,12 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
@@ -162,6 +164,7 @@ function BasicActionList({
   renderItems,
   renderItemsAsync,
   estimatedContentHeight,
+  title,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
@@ -182,6 +185,7 @@ function BasicActionList({
   }, [handleOpenStatusChange]);
 
   const { md } = useMedia();
+  const intl = useIntl();
   useEffect(() => {
     if (renderItemsAsync && isOpen) {
       if (platformEnv.isDev && md && !estimatedContentHeight) {
@@ -217,6 +221,7 @@ function BasicActionList({
   );
   return (
     <Popover
+      title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
