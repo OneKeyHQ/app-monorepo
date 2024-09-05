@@ -173,12 +173,12 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             return;
         }
         this.isDownloading = true;
-        rThread = new Thread(new Runnable() {
+        this.rThread = new Thread(new Runnable() {
             private Call call;
             boolean checkInterrupt() {
                 boolean isInterrupted = Thread.currentThread().isInterrupted();
                 if (isInterrupted && call != null) {
-                    call.cancel();
+                    this.call.cancel();
                 }
                 return isInterrupted;
             };
@@ -207,9 +207,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .connectTimeout(10, TimeUnit.MILLISECONDS)
                         .build();
                 Response response = null;
-                call = client.newCall(request);
+                this.call = client.newCall(request);
                 try {
-                    response = call.execute();
+                    response = this.call.execute();
                 } catch (IOException e) {
                     sendDownloadError(e, promise);
                     return;
@@ -307,7 +307,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 promise.resolve(null);
             }
         });
-        rThread.start();
+        this.rThread.start();
     }
 
 
