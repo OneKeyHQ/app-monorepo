@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated from 'react-native-reanimated';
+import { useMedia } from 'tamagui';
 
 import { OptimizationView } from '../../optimization';
 
@@ -21,9 +22,12 @@ const PageFooterContainer = ({
   disableKeyboardAnimation,
 }: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const { gtMd } = useMedia();
   return (
     <Animated.View
-      style={disableKeyboardAnimation ? null : safeKeyboardAnimationStyle}
+      style={
+        gtMd && disableKeyboardAnimation ? null : safeKeyboardAnimationStyle
+      }
     >
       {children}
     </Animated.View>
