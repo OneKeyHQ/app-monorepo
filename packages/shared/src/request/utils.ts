@@ -15,7 +15,7 @@ export function parseRPCResponse<T>(
     const error = response.error as { message?: string };
     if (error?.message && typeof error?.message === 'string') {
       message = `Error JSON RPC response: ${error?.message}`;
-    } 
+    }
     throw new JsonRPCResponseError(message, response);
   } else if (!('result' in response)) {
     throw new ResponseError(
