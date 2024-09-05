@@ -153,26 +153,30 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
   }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{
-      data: IServerAccountBadgeResp;
-    }>('/wallet/v1/account/badges', {
-      params: {
-        networkId,
-        fromAddress,
-        toAddress,
-      },
-      headers: await this._getWalletTypeHeader({ accountId }),
-    });
-    const { isContract, interacted } = resp.data.data;
-    const statusMap: Record<
-      EServerInteractedStatus,
-      IAddressInteractionStatus
-    > = {
-      [EServerInteractedStatus.FALSE]: 'not-interacted',
-      [EServerInteractedStatus.TRUE]: 'interacted',
-      [EServerInteractedStatus.UNKNOWN]: 'unknown',
-    };
-    return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+    try {
+      const resp = await client.get<{
+        data: IServerAccountBadgeResp;
+      }>('/wallet/v1/account/badges', {
+        params: {
+          networkId,
+          fromAddress,
+          toAddress,
+        },
+        headers: await this._getWalletTypeHeader({ accountId }),
+      });
+      const { isContract, interacted } = resp.data.data;
+      const statusMap: Record<
+        EServerInteractedStatus,
+        IAddressInteractionStatus
+      > = {
+        [EServerInteractedStatus.FALSE]: 'not-interacted',
+        [EServerInteractedStatus.TRUE]: 'interacted',
+        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+      };
+      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+    } catch {
+      return { interacted: 'unknown' };
+    }
   }
 
   private async checkAccountInteractionStatus({
