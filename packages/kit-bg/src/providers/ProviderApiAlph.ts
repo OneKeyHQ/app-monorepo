@@ -16,8 +16,11 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
+  Account,
   EnableOptionsBase,
   SignMessageParams,
+  SignTransferTxParams,
+  SignTransferTxResult,
   SignUnsignedTxParams,
 } from '@alephium/web3';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
@@ -54,7 +57,7 @@ class ProviderApiAlph extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
-  private wrapperConnectAccount(account: IConnectedAccountInfo) {
+  private wrapperConnectAccount(account: IConnectedAccountInfo): Account {
     return {
       address: account.account.address,
       publicKey: account.account.pub ?? '',
@@ -161,8 +164,20 @@ class ProviderApiAlph extends ProviderApiBase {
     return Promise.resolve('mainnet');
   }
 
-  private async getTransaction(request: IJsBridgeMessagePayload, txid: string) {
-    return {} as unknown;
+  @providerApiMethod()
+  public async unsafeGetSelectedAccount(
+    request: IJsBridgeMessagePayload,
+  ): Promise<Account> {
+    const accountsInfo = await this.getAccountsInfo(request);
+    return this.wrapperConnectAccount(accountsInfo[0]);
+  }
+
+  @providerApiMethod()
+  public async getSelectedAccount(
+    request: IJsBridgeMessagePayload,
+  ): Promise<Account> {
+    const accountsInfo = await this.getAccountsInfo(request);
+    return this.wrapperConnectAccount(accountsInfo[0]);
   }
 
   @permissionRequired()
@@ -170,7 +185,7 @@ class ProviderApiAlph extends ProviderApiBase {
   public async signAndSubmitTransferTx(
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAlph,
-  ): Promise<string> {
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
     const accounts = await this.getAccountsInfo(request);
@@ -183,9 +198,18 @@ class ProviderApiAlph extends ProviderApiBase {
         networkId: accountInfo?.networkId ?? '',
       });
 
-    const tx = await this.getTransaction(request, result.txid);
-
-    return Promise.resolve(JSON.stringify(tx));
+    const encodedTx = result.encodedTx as IEncodedTxAlph;
+    const res: SignTransferTxResult = {
+      ...JSON.parse(result.rawTx),
+      txId: result.txid,
+      gasPrice: encodedTx.params.gasPrice,
+      gasAmount: encodedTx.params.gasAmount,
+      fromGroup: groupOfAddress(encodedTx.params.signerAddress),
+      toGroup: groupOfAddress(
+        (encodedTx.params as SignTransferTxParams).destinations[0].address,
+      ),
+    };
+    return res;
   }
 
   @permissionRequired()

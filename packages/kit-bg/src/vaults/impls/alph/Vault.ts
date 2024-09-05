@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { AddressType, bs58, isValidAddress } from '@alephium/web3';
+import {
+  AddressType,
+  DUST_AMOUNT,
+  bs58,
+  contractIdFromAddress,
+  isValidAddress,
+} from '@alephium/web3';
 import BigNumber from 'bignumber.js';
 
 import {
@@ -12,6 +18,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
@@ -39,6 +46,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { MAX_GAS_AMOUNT } from './sdkAlph/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -88,7 +96,6 @@ export default class Vault extends VaultBase {
     if (!transfersInfo) {
       throw new OneKeyInternalError('Invalid transfersInfo');
     }
-    const network = await this.getNetwork();
     const signerAddress = await this.getAccountAddress();
     const transfer = transfersInfo[0];
     const amount = new BigNumber(transfer.amount)
@@ -107,9 +114,12 @@ export default class Vault extends VaultBase {
 
     if (!transfer.tokenInfo?.isNative) {
       encodedTx.destinations[0].attoAlphAmount = '0';
+      const id = bufferUtils.bytesToHex(
+        contractIdFromAddress(transfer.tokenInfo?.address as string),
+      );
       encodedTx.destinations[0].tokens = [
         {
-          id: transfer.tokenInfo?.address ?? '',
+          id,
           amount,
         },
       ];
@@ -243,7 +253,10 @@ export default class Vault extends VaultBase {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
     if (params.feeInfo) {
       if (params.feeInfo.gas?.gasPrice) {
-        encodedTx.params.gasPrice = params.feeInfo.gas?.gasPrice;
+        encodedTx.params.gasPrice = chainValueUtils.convertAmountToChainValue({
+          value: params.feeInfo.gas?.gasPrice,
+          network: await this.getNetwork(),
+        });
       }
       if (params.feeInfo.gas?.gasLimit) {
         encodedTx.params.gasAmount = Number(params.feeInfo.gas?.gasLimit);
@@ -255,11 +268,14 @@ export default class Vault extends VaultBase {
       const txParams = encodedTx.params as SignTransferTxParams;
       if (txParams.destinations[0].attoAlphAmount.toString() !== '0') {
         const network = await this.getNetwork();
-        txParams.destinations[0].attoAlphAmount =
+        txParams.destinations[0].attoAlphAmount = new BigNumber(
           chainValueUtils.convertAmountToChainValue({
             value: params.nativeAmountInfo.maxSendAmount,
             network,
-          });
+          }),
+        )
+          .minus(DUST_AMOUNT.toString())
+          .toFixed();
       } else {
         if (!txParams.destinations[0].tokens) {
           throw new OneKeyInternalError('No tokens found');
@@ -345,15 +361,33 @@ export default class Vault extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
+    encodedTx: IEncodedTxAlph | undefined;
   }): Promise<{
     encodedTx: IEncodedTx | undefined;
     estimateFeeParams?: IEstimateFeeParams;
   }> {
     const account = await this.getAccount();
+    if (encodedTx?.type === EAlphTxType.Transfer) {
+      const balance =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountNativeBalance(
+          {
+            account,
+            networkId: this.networkId,
+          },
+        );
+      const params = encodedTx.params as SignTransferTxParams;
+      if (balance.balance === params.destinations[0].attoAlphAmount) {
+        const amount = new BigNumber(params.destinations[0].attoAlphAmount)
+          .minus(MAX_GAS_AMOUNT)
+          .minus(DUST_AMOUNT.toString());
+        params.destinations[0].attoAlphAmount = amount.gt(0)
+          ? amount.toFixed(0)
+          : '0';
+      }
+    }
     return {
       encodedTx: {
-        ...(encodedTx as IEncodedTxAlph)?.params,
+        ...encodedTx?.params,
         networkId: 'mainnet',
         fromPublicKey: account.pub,
         fromPublicKeyType: 'default',

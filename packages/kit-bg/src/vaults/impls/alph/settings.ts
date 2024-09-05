@@ -7,8 +7,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
-import { NATIVE_TOKEN_ADDRESS } from './sdkAlph/utils';
-
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 // default: 0
@@ -44,7 +42,7 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
 
@@ -53,7 +51,6 @@ const settings: IVaultSettings = {
     default: {
       curve: 'secp256k1',
       addressPrefix: '',
-      nativeTokenAddress: NATIVE_TOKEN_ADDRESS,
     },
   },
 };

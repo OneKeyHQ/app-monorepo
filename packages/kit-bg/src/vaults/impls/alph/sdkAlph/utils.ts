@@ -17,6 +17,8 @@ import type {
 export const NATIVE_TOKEN_ADDRESS =
   '0000000000000000000000000000000000000000000000000000000000000000';
 
+export const MAX_GAS_AMOUNT = '3000000000000000';
+
 export function serializeUnsignedTransaction({
   tx,
   publicKey,

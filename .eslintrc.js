@@ -242,6 +242,8 @@ module.exports = {
           /scdo/i,
           /faq/i,
           /atto/i,
+          /alephium/i,
+          /Preauthorized/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
