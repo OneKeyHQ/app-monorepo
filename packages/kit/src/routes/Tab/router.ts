@@ -23,9 +23,18 @@ type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
 };
 
-const isShowDesktopDiscover = platformEnv.isDesktop;
+const useIsShowDesktopDiscover = () => {
+  const { gtMd } = useMedia();
+  return useMemo(
+    () => platformEnv.isDesktop || (platformEnv.isNative && gtMd),
+    [gtMd],
+  );
+};
 
-const getDiscoverRouterConfig = (params?: IGetTabRouterParams) => {
+const getDiscoverRouterConfig = (
+  params?: IGetTabRouterParams,
+  tabBarStyle?: ITabNavigatorConfig<ETabRoutes>['tabBarStyle'],
+) => {
   const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
     name: ETabRoutes.Discovery,
     rewrite: '/discovery',
@@ -35,23 +44,22 @@ const getDiscoverRouterConfig = (params?: IGetTabRouterParams) => {
     translationId: ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
-    tabBarStyle: platformEnv.isDesktop
-      ? {
-          marginTop: getTokenValue('$4', 'size'),
-        }
-      : undefined,
+    tabBarStyle,
   };
   return discoverRouterConfig;
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
+
+  const isShowDesktopDiscover = useIsShowDesktopDiscover();
+
   const isShowMDDiscover = useMemo(
     () =>
-      !platformEnv.isDesktop &&
+      !isShowDesktopDiscover &&
       !platformEnv.isExtensionUiPopup &&
       !(platformEnv.isExtensionUiSidePanel && md),
-    [md],
+    [isShowDesktopDiscover, md],
   );
   return useMemo(
     () =>
@@ -121,11 +129,15 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               children: developerRouters,
             }
           : undefined,
-        isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
+        isShowDesktopDiscover
+          ? getDiscoverRouterConfig(params, {
+              marginTop: getTokenValue('$4', 'size'),
+            })
+          : undefined,
       ].filter<ITabNavigatorConfig<ETabRoutes>>(
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
-    [isShowMDDiscover, params],
+    [isShowDesktopDiscover, isShowMDDiscover, params],
   );
 };
 
