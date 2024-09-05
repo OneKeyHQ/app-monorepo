@@ -19,7 +19,7 @@ const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { AutoUpdateModule } = NativeModules as {
   AutoUpdateModule: {
-    clearPackage: () => Promise<void>;
+    clearCache: () => Promise<void>;
     downloadAPK: (params: {
       url: string;
       filePath: string;
@@ -41,7 +41,7 @@ export const clearPackage: IClearPackage = async () => {
     return;
   }
   const isExist = await RNFS.exists(DIR_PATH);
-  await AutoUpdateModule.clearPackage();
+  await AutoUpdateModule.clearCache();
   if (isExist) {
     await RNFS.unlink(DIR_PATH);
   }
