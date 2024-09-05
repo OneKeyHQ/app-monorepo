@@ -115,15 +115,21 @@ export const UniversalWithdraw = ({
 
   const isLessThanMinAmountResp = useMemo<{
     result: boolean;
-    value: number;
+    value: string;
   }>(() => {
-    const minValue = Math.max(Number(withdrawMinAmount), Number(minAmount));
-    const minAmountBn = new BigNumber(minValue);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return { result: amountValueBn.isLessThan(minAmountBn), value: minValue };
+    const minValue = Math.max(
+      Number(withdrawMinAmount ?? 0),
+      Number(minAmount ?? 0),
+    );
+    const minAmountBN = new BigNumber(minValue);
+    const amountValueBN = new BigNumber(amountValue);
+    if (minAmountBN.gt(0) && amountValueBN.gt(0)) {
+      return {
+        result: amountValueBN.isLessThan(minAmountBN),
+        value: minAmountBN.toFixed(),
+      };
     }
-    return { result: false, value: minValue };
+    return { result: false, value: minAmountBN.toFixed() };
   }, [minAmount, amountValue, withdrawMinAmount]);
 
   const isLessThanWithdrawMinAmountWarning = useMemo<boolean>(() => {
