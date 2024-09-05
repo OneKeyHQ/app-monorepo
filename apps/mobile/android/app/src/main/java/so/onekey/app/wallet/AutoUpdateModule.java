@@ -155,11 +155,11 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void clearCache(final ReadableMap map, final Promise promise) {
+    public void clearCache(final Promise promise) {
         if (this.rThread != null) {
             this.rThread.interrupt();
-            this.isDownloading = false;
         }
+        this.isDownloading = false;
         promise.resolve(null);
     }
 
