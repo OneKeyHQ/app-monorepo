@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:117481276073:android:bdffdba4b36cd239b5dfb8",
         "android_client_info": {
-          "package_name": "so.onekey.app.wallet.dev1"
+          "package_name": "so.onekey.app.wallet.dev"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "117481276073-f3s78ljijap43crv50qvk21h5m7k5mbq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "so.onekey.app.wallet.dev1",
+            "package_name": "so.onekey.app.wallet.dev",
             "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
