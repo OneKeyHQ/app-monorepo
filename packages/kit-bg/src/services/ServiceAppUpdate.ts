@@ -141,6 +141,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
+    clearTimeout(extensionSyncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
