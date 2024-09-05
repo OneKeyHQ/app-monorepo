@@ -3,6 +3,10 @@ import { NodeProvider } from '@alephium/web3';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 import type { ApiRequestArguments } from '@alephium/web3';
+import type {
+  BuildTransaction,
+  BuildTransactionResult,
+} from '@alephium/web3/dist/src/api/api-alephium';
 
 export class Provider extends NodeProvider {
   backgroundApi: IBackgroundApi;
@@ -19,9 +23,16 @@ export class Provider extends NodeProvider {
     super('');
     this.backgroundApi = backgroundApi;
     this.networkId = networkId;
+
+    this.transactions.postTransactionsBuild = async (data: BuildTransaction) =>
+      this.request({
+        path: 'transactions',
+        method: 'postTransactionsBuild',
+        params: [data],
+      }) as Promise<BuildTransactionResult>;
   }
 
-  override request = async ({ method, params }: ApiRequestArguments) => {
+  override request = async ({ path, method, params }: ApiRequestArguments) => {
     const res = await this.backgroundApi.serviceAccountProfile.sendProxyRequest(
       {
         networkId: this.networkId,
@@ -29,6 +40,7 @@ export class Provider extends NodeProvider {
           {
             route: 'rpc',
             params: {
+              path,
               method,
               params,
             },
@@ -36,6 +48,6 @@ export class Provider extends NodeProvider {
         ],
       },
     );
-    return res?.[0] as Response;
+    return res?.[0];
   };
 }

@@ -21,6 +21,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -95,6 +96,7 @@ export default class Vault extends VaultBase {
       .toFixed(0);
     const encodedTx: SignTransferTxParams = {
       signerAddress,
+      signerKeyType: 'default',
       destinations: [
         {
           address: transfer.to,
@@ -103,7 +105,7 @@ export default class Vault extends VaultBase {
       ],
     };
 
-    if (transfer.tokenInfo?.isNative) {
+    if (!transfer.tokenInfo?.isNative) {
       encodedTx.destinations[0].attoAlphAmount = '0';
       encodedTx.destinations[0].tokens = [
         {
@@ -240,8 +242,12 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
     if (params.feeInfo) {
-      encodedTx.params.gasPrice = params.feeInfo.gas?.gasPrice;
-      encodedTx.params.gasAmount = Number(params.feeInfo.gas?.gasLimit);
+      if (params.feeInfo.gas?.gasPrice) {
+        encodedTx.params.gasPrice = params.feeInfo.gas?.gasPrice;
+      }
+      if (params.feeInfo.gas?.gasLimit) {
+        encodedTx.params.gasAmount = Number(params.feeInfo.gas?.gasLimit);
+      }
     }
 
     // max amount
@@ -334,5 +340,24 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new NotImplemented();
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{
+    encodedTx: IEncodedTx | undefined;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    const account = await this.getAccount();
+    return {
+      encodedTx: {
+        ...(encodedTx as IEncodedTxAlph)?.params,
+        networkId: 'mainnet',
+        fromPublicKey: account.pub,
+        fromPublicKeyType: 'default',
+      } as unknown as IEncodedTxAlph,
+    };
   }
 }

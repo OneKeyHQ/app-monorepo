@@ -1,5 +1,6 @@
 import type {
   EMessageTypesAda,
+  EMessageTypesAlph,
   EMessageTypesAptos,
   EMessageTypesBtc,
   EMessageTypesCommon,
@@ -65,6 +66,11 @@ export type IUnsignedMessageBtc = {
 
 export type IUnsignedMessageCfx = IUnsignedMessageEth;
 
+export type IUnsignedMessageAlph = {
+  type: EMessageTypesAlph;
+  message: string;
+};
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
@@ -72,4 +78,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageAptos
   | IUnsignedMessageTon
   | IUnsignedMessageAda
+  | IUnsignedMessageAlph
   | IUnsignedMessageCfx;

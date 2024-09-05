@@ -1,6 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import ProviderApiAlgo from './ProviderApiAlgo';
+import ProviderApiAlph from './ProviderApiAlph';
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
@@ -63,6 +64,9 @@ function createBackgroundProviders({
       backgroundApi,
     }),
     [IInjectedProviderNames.ton]: new ProviderApiTon({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.alephium]: new ProviderApiAlph({
       backgroundApi,
     }),
     [IInjectedProviderNames.scdo]: new ProviderApiScdo({

@@ -48,6 +48,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                   `${index}`,
                 )}`,
                 showOnOneKey: showOnOnekeyFn(arrIndex),
+                includePublicKey: true,
               })),
             });
             return response;
@@ -57,10 +58,10 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address } = item;
+          const { path, address, publicKey } = item;
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
-            publicKey: '',
+            publicKey: publicKey ?? '',
             path,
             xpub: '',
             addresses: {},
@@ -103,7 +104,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     return {
       txid: '',
-      rawTx,
+      rawTx: JSON.stringify({
+        unsignedTx: rawTx,
+        signature: res.signature,
+      }),
       encodedTx: unsignedTx.encodedTx,
       signature: res.signature,
     };
