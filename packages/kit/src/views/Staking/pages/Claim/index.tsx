@@ -46,12 +46,12 @@ const ClaimPage = () => {
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Claim,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo,
