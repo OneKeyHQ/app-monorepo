@@ -51,6 +51,7 @@ export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
       pageRef,
       handleScroll,
       scrollProps,
+      safeKeyboardAnimationStyle,
       children,
     ],
   );

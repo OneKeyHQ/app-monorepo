@@ -197,6 +197,7 @@ export function DesktopLeftSideBar({
       state.index,
       state.key,
       descriptors,
+      isShowWebTabBar,
       extraConfig?.name,
       isCollapse,
       navigation,
