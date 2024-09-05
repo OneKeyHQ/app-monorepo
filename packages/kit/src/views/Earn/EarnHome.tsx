@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Badge,
+  Button,
   Icon,
   Image,
   NumberSizeableText,
@@ -319,24 +320,19 @@ function Overview() {
   }, [navigation]);
   const intl = useIntl();
   return (
-    <YStack
-      gap="$1"
-      px="$5"
-      borderRadius="$3"
-      userSelect="none"
-      {...listItemPressStyle}
-      onPress={onPress}
-    >
+    <YStack gap="$1" px="$5" borderRadius="$3" userSelect="none">
       <XStack justifyContent="space-between">
         <SizableText size="$bodyLg">
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
-        <XStack>
-          <SizableText color="$textSubdued" size="$bodyLgMedium">
-            {intl.formatMessage({ id: ETranslations.global_details })}
-          </SizableText>
-          <Icon name="ChevronRightSmallSolid" color="$textSubdued" />
-        </XStack>
+        <Button
+          variant="tertiary"
+          onPress={onPress}
+          iconAfter="ChevronRightSmallSolid"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({ id: ETranslations.global_details })}
+        </Button>
       </XStack>
       <NumberSizeableText
         size="$heading5xl"
