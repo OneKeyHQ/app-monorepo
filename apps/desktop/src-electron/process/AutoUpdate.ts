@@ -413,6 +413,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   ipcMain.on(ipcMessageKeys.UPDATE_CLEAR, async () => {
+    if (updateCancellationToken) {
+      updateCancellationToken.cancel();
+    }
+    isDownloading = false;
     await clearUpdateCache();
   });
 
