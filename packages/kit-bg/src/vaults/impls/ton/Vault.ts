@@ -102,7 +102,7 @@ export default class Vault extends VaultBase {
         const msg: IEncodedTxTon['messages'][0] = {
           address: transfer.to,
           amount,
-          sendMode: 0,
+          sendMode: 3,
         };
         if (transfer.memo) {
           msg.payload = await encodeComment(transfer.memo);

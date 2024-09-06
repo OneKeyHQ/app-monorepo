@@ -27,7 +27,8 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsHd(params);
+    throw new NotImplemented();
+    // return this.basePrepareAccountsHd(params);
   }
 
   override async signTransaction(
