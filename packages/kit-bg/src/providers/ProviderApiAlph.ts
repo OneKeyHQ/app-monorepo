@@ -2,7 +2,7 @@ import { groupOfAddress } from '@alephium/web3';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
+import { EAlphTxType } from '@onekeyhq/core/src/chains/alph/types';
 import {
   backgroundClass,
   permissionRequired,
@@ -20,9 +20,16 @@ import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
   Account,
   EnableOptionsBase,
+  SignDeployContractTxParams,
+  SignDeployContractTxResult,
+  SignExecuteScriptTxParams,
+  SignExecuteScriptTxResult,
   SignMessageParams,
+  SignMessageResult,
+  SignTransferTxParams,
   SignTransferTxResult,
   SignUnsignedTxParams,
+  SignUnsignedTxResult,
 } from '@alephium/web3';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -185,7 +192,7 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitTransferTx(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAlph,
+    params: SignTransferTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
@@ -194,12 +201,14 @@ class ProviderApiAlph extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params,
+        encodedTx: {
+          type: EAlphTxType.Transfer,
+          params,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
 
-    const encodedTx = result.encodedTx as IEncodedTxAlph;
     const rawTx = JSON.parse(result.rawTx) as {
       unsignedTx: string;
       signature: string;
@@ -212,10 +221,92 @@ class ProviderApiAlph extends ProviderApiBase {
     const res: SignTransferTxResult = {
       ...rawTx,
       txId: result.txid,
-      gasPrice: encodedTx.params.gasPrice || '0',
-      gasAmount: encodedTx.params.gasAmount || 0,
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
       fromGroup: decodedUnsignedTx.fromGroup,
       toGroup: decodedUnsignedTx.toGroup,
+    };
+    return res;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signAndSubmitDeployContractTx(
+    request: IJsBridgeMessagePayload,
+    params: SignDeployContractTxParams,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const accounts = await this.getAccountsInfo(request);
+    const { account, accountInfo } = accounts[0];
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          type: EAlphTxType.DeployContract,
+          params,
+        },
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    const rawTx = JSON.parse(result.rawTx) as {
+      unsignedTx: string;
+      signature: string;
+    };
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
+    const res: SignDeployContractTxResult = {
+      ...rawTx,
+      txId: result.txid,
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      groupIndex: 0,
+      contractId: '',
+      contractAddress: '',
+    };
+    return res;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signAndSubmitExecuteScriptTx(
+    request: IJsBridgeMessagePayload,
+    params: SignExecuteScriptTxParams,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const accounts = await this.getAccountsInfo(request);
+    const { account, accountInfo } = accounts[0];
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          type: EAlphTxType.ExecuteScript,
+          params,
+        },
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    const rawTx = JSON.parse(result.rawTx) as {
+      unsignedTx: string;
+      signature: string;
+    };
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
+    const res: SignExecuteScriptTxResult = {
+      ...rawTx,
+      txId: result.txid,
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      groupIndex: 0,
     };
     return res;
   }
@@ -238,7 +329,21 @@ class ProviderApiAlph extends ProviderApiBase {
         networkId: accountInfo?.networkId ?? '',
       });
 
-    return result.rawTx;
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+        unsignedTx: params.unsignedTx,
+        backgroundApi: this.backgroundApi,
+        networkId: accountInfo?.networkId ?? '',
+      });
+    const res: SignUnsignedTxResult = {
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      fromGroup: decodedUnsignedTx.fromGroup,
+      toGroup: decodedUnsignedTx.toGroup,
+      unsignedTx: params.unsignedTx,
+      txId: result.txid,
+      signature: result.signature as string,
+    }
+    return res;
   }
 
   @permissionRequired()
@@ -261,9 +366,10 @@ class ProviderApiAlph extends ProviderApiBase {
       networkId: accountInfo?.networkId ?? '',
     })) as string;
 
-    return Promise.resolve({
+    const res: SignMessageResult = {
       signature: result,
-    });
+    };
+    return res;
   }
 }
 
