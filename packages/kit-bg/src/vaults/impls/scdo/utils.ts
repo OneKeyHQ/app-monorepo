@@ -1,4 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
+import BigNumber from 'bignumber.js';
 import RLP from 'rlp';
 import { keccak256 } from 'viem';
 
@@ -6,8 +7,6 @@ import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import { secp256k1 } from '@onekeyhq/core/src/secret';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-
-import type BigNumber from 'bignumber.js';
 
 const TransferMethod = '0xa9059cbb';
 
@@ -90,7 +89,10 @@ export function decodeTransferPayload(payload: string):
       ['address', 'uint256'],
       `0x${payload.slice(TransferMethod.length)}`,
     );
-    return { address, amount: (amount as BigNumber).toFixed() };
+    return {
+      address,
+      amount: new BigNumber((amount as BigNumber).toString()).toFixed(),
+    };
   } catch (error) {
     return undefined;
   }
