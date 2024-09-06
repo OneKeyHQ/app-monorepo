@@ -28,7 +28,7 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 @backgroundClass()
 class ProviderApiAlph extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.alephium;
+  public providerName = IInjectedProviderNames.ton;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
