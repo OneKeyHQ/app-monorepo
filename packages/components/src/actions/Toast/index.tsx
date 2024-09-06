@@ -119,7 +119,7 @@ const RenderLines = ({
   );
 };
 
-function Title({
+export function ToastContent({
   title,
   message,
   icon,
@@ -225,7 +225,7 @@ function toastMessage({
   }
   showMessage({
     renderContent: (props) => (
-      <Title
+      <ToastContent
         title={title}
         maxWidth={props?.width}
         message={message}
