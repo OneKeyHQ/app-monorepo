@@ -50,6 +50,9 @@ type IUniversalStakeProps = {
   minStakeBlocks?: number;
   minStakeTerm?: number;
 
+  isReachBabylonCap?: boolean;
+  isDisabled?: boolean;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -70,6 +73,8 @@ export const UniversalStake = ({
   tokenSymbol,
   providerName,
   providerLogo,
+  isReachBabylonCap,
+  isDisabled,
   onConfirm,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
@@ -136,9 +141,15 @@ export const UniversalStake = ({
       amountValueBN.isNaN() ||
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount
+      isLessThanMinAmount ||
+      isReachBabylonCap
     );
-  }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
+  }, [
+    amountValue,
+    isInsufficientBalance,
+    isLessThanMinAmount,
+    isReachBabylonCap,
+  ]);
 
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);
@@ -206,27 +217,31 @@ export const UniversalStake = ({
   return (
     <YStack>
       <Stack mx="$2" px="$3" gap="$5">
-        <AmountInput
-          hasError={isInsufficientBalance || isLessThanMinAmount}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-          }}
-          balanceProps={{
-            value: balance,
-            onPress: onMax,
-          }}
-          inputProps={{
-            placeholder: '0',
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
-          enableMaxAmount
-        />
+        <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
+          <AmountInput
+            bg={isDisabled ? '$bgDisabled' : '$bgApp'}
+            hasError={isInsufficientBalance || isLessThanMinAmount}
+            value={amountValue}
+            onChange={onChangeAmountValue}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: tokenImageUri,
+              selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+            }}
+            balanceProps={{
+              value: balance,
+              onPress: onMax,
+            }}
+            inputProps={{
+              placeholder: '0',
+            }}
+            valueProps={{
+              value: currentValue,
+              currency: currentValue ? symbol : undefined,
+            }}
+            enableMaxAmount
+          />
+          {isDisabled ? <Stack position="absolute" w="100%" h="100%" /> : null}
+        </Stack>
         <YStack gap="$1">
           {isLessThanMinAmount ? (
             <Alert
@@ -257,6 +272,15 @@ export const UniversalStake = ({
                 },
                 { number: maxAmount ?? '', symbol: tokenSymbol },
               )}
+            />
+          ) : null}
+          {isReachBabylonCap ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={intl.formatMessage({
+                id: ETranslations.earn_reaching_staking_cap,
+              })}
             />
           ) : null}
         </YStack>

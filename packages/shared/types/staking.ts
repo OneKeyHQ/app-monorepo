@@ -38,11 +38,14 @@ export type IStakeProviderInfo = {
   isNative: string;
   nextLaunchLeft?: string;
   labels?: string[];
+
+  // babylon
   minStakeTerm?: number;
   maxStakeTerm?: number;
   minStakeBlocks?: number;
   maxStakeBlocks?: number;
   unbondingTime?: number;
+  stakingCap?: string;
 };
 
 export type IStakeBaseParams = {
