@@ -72,10 +72,8 @@ import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermission
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EOnboardingPages,
-  IOnboardingParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';

@@ -102,7 +102,7 @@ function CommonAssetContent(props: IProps) {
         {details.map(({ label, value, onPress, iconAfter, source }) => (
           <DescriptionList.Item key={label}>
             <DescriptionList.Item.Key
-              maxWidth="30%"
+              maxWidth="40%"
               size="$bodyMd"
               color="$textSubdued"
             >

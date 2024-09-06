@@ -115,8 +115,8 @@ function useAllNetworkRequests<T>(params: {
 
       const {
         accountsInfo,
-        // accountsInfoBackendIndexed,
-        // accountsInfoBackendNotIndexed,
+        accountsInfoBackendIndexed,
+        accountsInfoBackendNotIndexed,
       } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
         accountId: account.id,
         networkId: network.id,
@@ -129,12 +129,6 @@ function useAllNetworkRequests<T>(params: {
         isFetching.current = false;
         return;
       }
-
-      // const concurrentNetworks = accountsInfoBackendIndexed;
-
-      // const sequentialNetworks = await reorderByPinnedNetworkIds(
-      //   accountsInfoBackendNotIndexed,
-      // );
 
       let resp: Array<T> | null = null;
 
@@ -179,26 +173,47 @@ function useAllNetworkRequests<T>(params: {
           abortAllNetworkRequests?.();
         }
       } else {
-        // 处理并发请求的网络
-        const concurrentRequests = Array.from(accountsInfo).map(
-          (networkDataString) => {
-            const { accountId, networkId, apiAddress } = networkDataString;
-            console.log(
-              'concurrentRequests: =====>>>>>: ',
-              accountId,
-              networkId,
-              apiAddress,
-            );
-            return allNetworkRequests({
-              accountId,
-              networkId,
-              allNetworkDataInit: allNetworkDataInit.current,
-            });
-          },
-        );
+        try {
+          await Promise.all(
+            Array.from(accountsInfoBackendIndexed).map((networkDataString) => {
+              const { accountId, networkId, apiAddress } = networkDataString;
+              console.log(
+                'accountsBackedIndexedRequests: =====>>>>>: ',
+                accountId,
+                networkId,
+                apiAddress,
+              );
+              return allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
+            }),
+          );
+        } catch (e) {
+          console.error(e);
+          // pass
+        }
 
         try {
-          await Promise.all(concurrentRequests);
+          await Promise.all(
+            Array.from(accountsInfoBackendNotIndexed).map(
+              (networkDataString) => {
+                const { accountId, networkId, apiAddress } = networkDataString;
+                console.log(
+                  'accountsBackedNotIndexedRequests: =====>>>>>: ',
+                  accountId,
+                  networkId,
+                  apiAddress,
+                );
+                return allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+              },
+            ),
+          );
         } catch (e) {
           console.error(e);
           // pass
