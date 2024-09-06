@@ -1,10 +1,13 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  type ESwapProviderSort,
+  maxRecentTokenPairs,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-const maxRecentTokenPairs = 10;
 export interface ISwapConfigs {
   providerSort?: ESwapProviderSort;
   recentTokenPairs?: { fromToken: ISwapToken; toToken: ISwapToken }[];
@@ -20,20 +23,34 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
   }
 
   @backgroundMethod()
-  async addRecentTokenPair(fromToken: ISwapToken, toToken: ISwapToken) {
+  async addRecentTokenPair(
+    fromToken: ISwapToken,
+    toToken: ISwapToken,
+    isExit: boolean,
+  ) {
     const data = await this.getRawData();
     let recentTokenPairs = data?.recentTokenPairs ?? [];
-    if (
-      recentTokenPairs.find(
-        (pair) =>
-          pair.fromToken.contractAddress === fromToken.contractAddress &&
-          pair.toToken.contractAddress === toToken.contractAddress,
-      )
-    ) {
+    if (isExit) {
       recentTokenPairs = recentTokenPairs.filter(
         (pair) =>
-          pair.fromToken.contractAddress !== fromToken.contractAddress &&
-          pair.toToken.contractAddress !== toToken.contractAddress,
+          !(
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.fromToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.toToken,
+              })) ||
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.toToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.fromToken,
+              }))
+          ),
       );
     }
     recentTokenPairs.unshift({ fromToken, toToken });
