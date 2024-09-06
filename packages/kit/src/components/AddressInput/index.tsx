@@ -162,6 +162,8 @@ type IAddressInputProps = Omit<
   enableWalletName?: boolean;
 
   accountId?: string;
+
+  enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
 
@@ -261,6 +263,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableWalletName,
     accountId,
     enableAddressInteractionStatus,
+    enableAddressContract,
     enableVerifySendFundToSelf,
     onInputTypeChange,
     ...rest
@@ -328,6 +331,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableNameResolve,
       enableWalletName,
       enableVerifySendFundToSelf,
+      enableAddressContract,
     });
   }, [
     inputText,
@@ -337,6 +341,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    enableAddressContract,
     enableVerifySendFundToSelf,
     refreshNum,
     queryAddress,

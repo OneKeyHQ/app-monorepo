@@ -14,6 +14,8 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -55,12 +57,12 @@ const ClaimOptions = () => {
         symbol: details.token.info.symbol,
         provider,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Claim,
           protocol: provider,
           send: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],
         },
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: details.token.info,
@@ -97,6 +99,32 @@ const ClaimOptions = () => {
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              extraFields={
+                networkUtils.isBTCNetwork(networkId)
+                  ? [
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_status,
+                        }),
+                        renderItem() {
+                          return intl.formatMessage({
+                            id: ETranslations.earn_claimable,
+                          });
+                        },
+                      },
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_transaction_id,
+                        }),
+                        renderItem({ item }) {
+                          return accountUtils.shortenAddress({
+                            address: item.id,
+                          });
+                        },
+                      },
+                    ]
+                  : undefined
+              }
             />
           ) : null}
         </PageFrame>

@@ -19,6 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { capitalizeString } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -179,7 +180,7 @@ export const UniversalClaim = ({
               icon="InfoCircleOutline"
               type="critical"
               title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_staked_balance,
+                id: ETranslations.earn_insufficient_claimable_balance,
               })}
             />
           ) : null}
@@ -219,13 +220,15 @@ export const UniversalClaim = ({
         >
           <XStack gap="$2" alignItems="center">
             <Token size="xs" tokenImageUri={providerLogo} />
-            <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+            <SizableText size="$bodyLgMedium">
+              {capitalizeString(providerName)}
+            </SizableText>
           </XStack>
         </ListItem>
       </YStack>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.earn_redeem,
+          id: ETranslations.earn_claim,
         })}
         confirmButtonProps={{
           onPress,

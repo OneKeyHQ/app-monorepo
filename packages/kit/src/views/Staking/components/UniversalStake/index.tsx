@@ -7,9 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
   Page,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -20,11 +22,11 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatDate,
-  formatMillisecondsToBlocks,
   formatMillisecondsToDays,
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { capitalizeString } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -47,8 +49,10 @@ type IUniversalStakeProps = {
 
   minTransactionFee?: string;
   apr?: number;
+
+  minStakeBlocks?: number;
   minStakeTerm?: number;
-  unbondingTime?: number;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -64,7 +68,7 @@ export const UniversalStake = ({
   minTransactionFee = '0',
   providerLabel,
   minStakeTerm,
-  unbondingTime,
+  minStakeBlocks,
   tokenImageUri,
   tokenSymbol,
   providerName,
@@ -156,23 +160,24 @@ export const UniversalStake = ({
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 
   const btcStakeTerm = useMemo(() => {
-    if (minStakeTerm) {
-      const blocks = formatMillisecondsToBlocks(minStakeTerm);
+    if (minStakeTerm && minStakeBlocks) {
       const days = formatMillisecondsToDays(minStakeTerm);
-      return `${days} days (${blocks} blocks)`;
+      return intl.formatMessage(
+        { id: ETranslations.earn_number_days_number_block },
+        { 'number_days': days, 'number': minStakeBlocks },
+      );
     }
     return null;
-  }, [minStakeTerm]);
+  }, [minStakeTerm, minStakeBlocks, intl]);
 
-  const btcUnbondingTime = useMemo(() => {
-    if (unbondingTime) {
+  const btcUnlockTime = useMemo(() => {
+    if (minStakeTerm) {
       const currentDate = new Date();
-      const endDate = new Date(currentDate.getTime() + unbondingTime);
-
+      const endDate = new Date(currentDate.getTime() + minStakeTerm);
       return formatDate(endDate, { hideTimeForever: true });
     }
     return null;
-  }, [unbondingTime]);
+  }, [minStakeTerm]);
 
   const onPress = useCallback(async () => {
     Dialog.show({
@@ -283,16 +288,34 @@ export const UniversalStake = ({
             </ListItem>
           ) : null}
           {btcStakeTerm ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_term })}
-              titleProps={fieldTitleProps}
-            >
+            <ListItem>
+              <XStack flex={1} alignItems="center" gap="$1">
+                <SizableText {...fieldTitleProps}>
+                  {intl.formatMessage({ id: ETranslations.earn_term })}
+                </SizableText>
+                <Tooltip
+                  renderTrigger={
+                    <IconButton
+                      variant="tertiary"
+                      size="small"
+                      icon="InfoCircleOutline"
+                    />
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.earn_term_tooltip,
+                  })}
+                  // placement="right"
+                />
+              </XStack>
               <ListItem.Text primary={btcStakeTerm} />
             </ListItem>
           ) : null}
-          {btcUnbondingTime ? (
-            <ListItem title="Unbonding Time" titleProps={fieldTitleProps}>
-              <ListItem.Text primary={btcUnbondingTime} />
+          {btcUnlockTime ? (
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_unlock_time })}
+              titleProps={fieldTitleProps}
+            >
+              <ListItem.Text primary={btcUnlockTime} />
             </ListItem>
           ) : null}
           {providerLogo && providerName ? (
@@ -305,7 +328,9 @@ export const UniversalStake = ({
             >
               <XStack gap="$2" alignItems="center">
                 <Token size="xs" tokenImageUri={providerLogo} />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
               </XStack>
             </ListItem>
           ) : null}

@@ -17,6 +17,7 @@ import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
+import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -138,6 +139,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.WalletAddress,
     children: WalletAddressModalRouter,
+  },
+  {
+    name: EModalRoutes.NotificationsModal,
+    children: ModalNotificationsRouter,
   },
 ];
 

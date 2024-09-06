@@ -17,11 +17,12 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
+  IBabylonPortfolioItem,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
-  IPortfolioItem,
   IStakeBaseParams,
   IStakeClaimBaseParams,
   IStakeHistoriesResponse,
@@ -255,7 +256,7 @@ class ServiceStaking extends ServiceBase {
     const acc = await vault.getAccount();
 
     const resp = await client.get<{
-      data: IPortfolioItem[];
+      data: IBabylonPortfolioItem[];
     }>(`/earn/v1/portfolio/list`, {
       params: {
         accountAddress: acc.address,
@@ -664,6 +665,19 @@ class ServiceStaking extends ServiceBase {
           !isTaprootAddress(account.apiAddress)
         ),
     );
+  }
+
+  @backgroundMethod()
+  async getFAQList(params: { provider: string; symbol: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        list: IEarnFAQList;
+      };
+    }>(`/earn/v1/faq/list`, {
+      params,
+    });
+    return resp.data.data.list;
   }
 }
 

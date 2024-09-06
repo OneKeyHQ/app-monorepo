@@ -133,6 +133,11 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapRecentTokenPairsAtom,
+  use: useSwapRecentTokenPairsAtom,
+} = contextAtom<{ fromToken: ISwapToken; toToken: ISwapToken }[]>([]);
+
+export const {
   atom: swapQuoteActionLockAtom,
   use: useSwapQuoteActionLockAtom,
 } = contextAtom<{
@@ -256,7 +261,6 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
-  const totalQuoteCount = get(swapQuoteEventTotalCountAtom());
   const manualSelectQuoteResult = list.find(
     (item) =>
       item.info.provider === manualSelectQuoteProviders?.info.provider &&
@@ -269,11 +273,7 @@ export const {
         item.info.providerName === manualSelectQuoteProviders.info.providerName,
     );
   }
-  if (
-    list?.length > 0 &&
-    (list.some((item) => item.toAmount) ||
-      (totalQuoteCount <= list.length && list.every((item) => !item.toAmount)))
-  ) {
+  if (list?.length > 0) {
     return list[0];
   }
   return undefined;
