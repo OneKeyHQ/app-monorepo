@@ -4,6 +4,8 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 import type { ApiRequestArguments } from '@alephium/web3';
 import type {
+  BuildDeployContractTx,
+  BuildDeployContractTxResult,
   BuildTransaction,
   BuildTransactionResult,
   DecodeUnsignedTx,
@@ -32,6 +34,13 @@ export class Provider extends NodeProvider {
         method: 'postTransactionsBuild',
         params: [data],
       }) as Promise<BuildTransactionResult>;
+    
+    this.contracts.postContractsUnsignedTxDeployContract = async (data: BuildDeployContractTx) =>
+      this.request({
+        path: 'contracts',
+        method: 'postContractsUnsignedTxDeployContract',
+        params: [data],
+      }) as Promise<BuildDeployContractTxResult>;
 
     this.transactions.postTransactionsDecodeUnsignedTx = async (
       data: DecodeUnsignedTx,

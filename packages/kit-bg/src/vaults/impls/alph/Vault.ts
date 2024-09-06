@@ -385,9 +385,18 @@ export default class Vault extends VaultBase {
           : '0';
       }
     }
+
+    const type = {
+      [EAlphTxType.Transfer]: 'buildTransferTx',
+      [EAlphTxType.DeployContract]: 'buildDeployContractTx',
+      [EAlphTxType.ExecuteScript]: 'buildExecuteScriptTx',
+      [EAlphTxType.UnsignedTx]: 'buildUnsignedTx',
+    }[encodedTx?.type as EAlphTxType];
+
     return {
       encodedTx: {
         ...encodedTx?.params,
+        type,
         networkId: 'mainnet',
         fromPublicKey: account.pub,
         fromPublicKeyType: 'default',

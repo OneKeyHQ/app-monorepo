@@ -35,7 +35,7 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 @backgroundClass()
 class ProviderApiAlph extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.ton;
+  public providerName = IInjectedProviderNames.alephium;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -311,27 +311,32 @@ class ProviderApiAlph extends ProviderApiBase {
     return res;
   }
 
-  @permissionRequired()
-  @providerApiMethod()
-  public async signUnsignedTx(
+  private async _signUnsignedTx(
     request: IJsBridgeMessagePayload,
     params: SignUnsignedTxParams,
+    signOnly: boolean,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: params.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params as any,
-        signOnly: true,
+        encodedTx: {
+          type: EAlphTxType.UnsignedTx,
+          params: {
+            ...params,
+            gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+            gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+          },
+        },
+        signOnly,
         accountId: account.id,
-        networkId: accountInfo?.networkId ?? '',
-      });
-
-    const decodedUnsignedTx = await deserializeUnsignedTransaction({
-        unsignedTx: params.unsignedTx,
-        backgroundApi: this.backgroundApi,
         networkId: accountInfo?.networkId ?? '',
       });
     const res: SignUnsignedTxResult = {
@@ -344,6 +349,24 @@ class ProviderApiAlph extends ProviderApiBase {
       signature: result.signature as string,
     }
     return res;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signAndSubmitUnsignedTx(
+    request: IJsBridgeMessagePayload,
+    params: SignUnsignedTxParams,
+  ) {
+    return this._signUnsignedTx(request, params, false);
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signUnsignedTx(
+    request: IJsBridgeMessagePayload,
+    params: SignUnsignedTxParams,
+  ) {
+    return this._signUnsignedTx(request, params, true);
   }
 
   @permissionRequired()

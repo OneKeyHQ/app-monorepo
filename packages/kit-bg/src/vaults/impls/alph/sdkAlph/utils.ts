@@ -12,6 +12,7 @@ import type {
   SignDeployContractTxParams,
   SignExecuteScriptTxParams,
   SignTransferTxParams,
+  SignUnsignedTxParams,
 } from '@alephium/web3';
 
 export const NATIVE_TOKEN_ADDRESS =
@@ -45,6 +46,11 @@ export function serializeUnsignedTransaction({
     return builder.buildDeployContractTx(
       encodedTx.params as SignDeployContractTxParams,
       publicKey,
+    );
+  }
+  if (encodedTx.type === EAlphTxType.UnsignedTx) {
+    return builder.buildUnsignedTx(
+      encodedTx.params as SignUnsignedTxParams,
     );
   }
   return builder.buildTransferTx(

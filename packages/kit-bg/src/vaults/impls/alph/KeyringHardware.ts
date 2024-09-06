@@ -12,7 +12,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { serializeUnsignedTransaction } from './sdkAlph/utils';
+import { deserializeUnsignedTransaction, serializeUnsignedTransaction } from './sdkAlph/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -91,10 +91,20 @@ export class KeyringHardware extends KeyringHardwareBase {
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
+    const {
+      unsignedTx: {
+        scriptOpt
+      }
+    } = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx,
+      networkId: this.vault.networkId,
+      backgroundApi: this.vault.backgroundApi,
+    })
     const hwParams = {
       ...deviceCommonParams,
       path: account.path,
       rawTx,
+      scriptOpt,
     };
     const res = await convertDeviceResponse(() =>
       sdk.alephiumSignTransaction(connectId, deviceId, hwParams),
