@@ -21,7 +21,7 @@ export function MarketHomeHeaderSearchBar() {
     });
   }, [navigation]);
   return (
-    <XStack $gtMd={{ minWidth: 280 }}>
+    <XStack $gtMd={{ width: 280 }}>
       <SearchBar
         placeholder={intl.formatMessage({
           id: ETranslations.global_search_tokens,

@@ -5,10 +5,10 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
+  Accordion,
   Dialog,
-  HeightTransition,
+  Divider,
   NumberSizeableText,
-  YStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -113,76 +113,96 @@ const SwapQuoteResult = ({
     !new BigNumber(fromAmountDebounce).isNaN()
   ) {
     return (
-      <HeightTransition>
-        <YStack gap="$4">
-          <SwapQuoteResultRate
-            rate={quoteResult?.instantRate}
-            fromToken={fromToken}
-            toToken={toToken}
-            providerIcon={quoteResult?.info.providerLogo ?? ''}
-            providerName={quoteResult?.info.providerName ?? ''}
-            isLoading={swapQuoteLoading}
-            onOpenResult={
-              quoteResult?.info.provider
-                ? () => setOpenResult(!openResult)
-                : undefined
-            }
-            openResult={openResult}
-          />
-          {quoteResult?.allowanceResult && openResult ? (
-            <SwapApproveAllowanceSelectContainer
-              allowanceResult={quoteResult?.allowanceResult}
-              fromTokenSymbol={fromToken?.symbol ?? ''}
-              isLoading={swapQuoteLoading}
-            />
-          ) : null}
-          {quoteResult?.info.provider && openResult ? (
-            <SwapProviderInfoItem
-              providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
-              providerName={quoteResult?.info.providerName ?? ''}
-              isLoading={swapQuoteLoading}
-              fromToken={fromToken}
-              toToken={toToken}
-              showLock={!!quoteResult?.allowanceResult}
-              onPress={
-                quoteResult?.info.provider
-                  ? () => {
-                      onOpenProviderList?.();
-                    }
-                  : undefined
-              }
-            />
-          ) : null}
-          {openResult &&
-          quoteResult?.toAmount &&
-          !quoteResult?.allowanceResult &&
-          !quoteResult?.unSupportSlippage ? (
-            <SwapSlippageTriggerContainer
-              isLoading={swapQuoteLoading}
-              onPress={slippageHandleClick}
-            />
-          ) : null}
-          {openResult && quoteResult?.fee?.estimatedFeeFiatValue ? (
-            <SwapCommonInfoItem
-              title={intl.formatMessage({
-                id: ETranslations.swap_page_provider_est_network_fee,
-              })}
-              isLoading={swapQuoteLoading}
-              valueComponent={
-                <NumberSizeableText
-                  size="$bodyMdMedium"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settingsPersistAtom.currencyInfo.symbol,
-                  }}
-                >
-                  {quoteResult.fee?.estimatedFeeFiatValue}
-                </NumberSizeableText>
-              }
-            />
-          ) : null}
-        </YStack>
-      </HeightTransition>
+      <Accordion type="single" collapsible>
+        <Accordion.Item value="1">
+          <Accordion.Trigger
+            unstyled
+            borderWidth={0}
+            bg="$transparent"
+            p="$0"
+            cursor="pointer"
+          >
+            {({ open }: { open: boolean }) => (
+              <SwapQuoteResultRate
+                rate={quoteResult?.instantRate}
+                fromToken={fromToken}
+                toToken={toToken}
+                providerIcon={quoteResult?.info.providerLogo ?? ''}
+                providerName={quoteResult?.info.providerName ?? ''}
+                isLoading={swapQuoteLoading}
+                onOpenResult={
+                  quoteResult?.info.provider
+                    ? () => setOpenResult(!openResult)
+                    : undefined
+                }
+                openResult={open}
+              />
+            )}
+          </Accordion.Trigger>
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content
+              gap="$4"
+              p="$0"
+              animation="quick"
+              enterStyle={{ opacity: 0 }}
+              exitStyle={{ opacity: 0 }}
+            >
+              <Divider mt="$4" />
+              {quoteResult?.allowanceResult ? (
+                <SwapApproveAllowanceSelectContainer
+                  allowanceResult={quoteResult?.allowanceResult}
+                  fromTokenSymbol={fromToken?.symbol ?? ''}
+                  isLoading={swapQuoteLoading}
+                />
+              ) : null}
+              {quoteResult?.info.provider ? (
+                <SwapProviderInfoItem
+                  providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
+                  providerName={quoteResult?.info.providerName ?? ''}
+                  isLoading={swapQuoteLoading}
+                  fromToken={fromToken}
+                  toToken={toToken}
+                  showLock={!!quoteResult?.allowanceResult}
+                  onPress={
+                    quoteResult?.info.provider
+                      ? () => {
+                          onOpenProviderList?.();
+                        }
+                      : undefined
+                  }
+                />
+              ) : null}
+              {quoteResult?.toAmount &&
+              !quoteResult?.allowanceResult &&
+              !quoteResult?.unSupportSlippage ? (
+                <SwapSlippageTriggerContainer
+                  isLoading={swapQuoteLoading}
+                  onPress={slippageHandleClick}
+                />
+              ) : null}
+              {quoteResult?.fee?.estimatedFeeFiatValue ? (
+                <SwapCommonInfoItem
+                  title={intl.formatMessage({
+                    id: ETranslations.swap_page_provider_est_network_fee,
+                  })}
+                  isLoading={swapQuoteLoading}
+                  valueComponent={
+                    <NumberSizeableText
+                      size="$bodyMdMedium"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settingsPersistAtom.currencyInfo.symbol,
+                      }}
+                    >
+                      {quoteResult.fee?.estimatedFeeFiatValue}
+                    </NumberSizeableText>
+                  }
+                />
+              ) : null}
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
     );
   }
 };

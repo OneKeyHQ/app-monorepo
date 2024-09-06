@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
@@ -71,11 +72,13 @@ import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermission
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
   type IOneKeyDeviceFeatures,
@@ -86,6 +89,7 @@ import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmw
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
 type IConnectYourDeviceItem = {
@@ -1143,16 +1147,18 @@ function ConnectByUSBOrBLE({
     </>
   );
 }
-enum EConnectDeviceTab {
-  usbOrBle = 'usbOrBle',
-  qr = 'qr',
-}
+
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamList, EOnboardingPages.ConnectYourDevice>
+    >();
+  const { channel } = route?.params ?? {};
 
-  const [tabValue, setTabValue] = useState<EConnectDeviceTab>(
-    EConnectDeviceTab.usbOrBle,
+  const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
+    channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
   const toOneKeyHardwareWalletPage = useCallback(() => {
@@ -1178,24 +1184,24 @@ export function ConnectYourDevicePage() {
                 label: platformEnv.isNative
                   ? intl.formatMessage({ id: ETranslations.global_bluetooth })
                   : 'USB',
-                value: EConnectDeviceTab.usbOrBle,
+                value: EConnectDeviceChannel.usbOrBle,
               },
               {
                 label: intl.formatMessage({ id: ETranslations.global_qr_code }),
-                value: EConnectDeviceTab.qr,
+                value: EConnectDeviceChannel.qr,
               },
             ]}
           />
         </Stack>
         <Divider />
 
-        {tabValue === EConnectDeviceTab.usbOrBle ? (
+        {tabValue === EConnectDeviceChannel.usbOrBle ? (
           <ConnectByUSBOrBLE
             toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
           />
         ) : null}
 
-        {tabValue === EConnectDeviceTab.qr ? (
+        {tabValue === EConnectDeviceChannel.qr ? (
           <ConnectByQrCodeComingSoon />
         ) : null}
 
