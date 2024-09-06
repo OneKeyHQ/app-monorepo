@@ -46,7 +46,9 @@ type IPortfolioValue = {
   claimable?: string;
   token: IToken;
   onClaim?: () => void;
+  onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
+  babylonOverflow?: string;
 };
 
 type IProfit = {
@@ -204,14 +206,17 @@ function Portfolio({
   pendingActiveTooltip,
   claimable,
   token,
+  babylonOverflow,
   onClaim,
+  onWithdraw,
   onPortfolioDetails,
 }: IPortfolioValue) {
   const intl = useIntl();
   if (
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
-    Number(pendingActive) > 0
+    Number(pendingActive) > 0 ||
+    Number(babylonOverflow) > 0
   ) {
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
@@ -276,6 +281,28 @@ function Portfolio({
             />
           ) : null}
         </YStack>
+        {Number(babylonOverflow) > 0 ? (
+          <Alert
+            mt="$3"
+            fullBleed
+            borderRadius="$3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderCautionSubdued"
+            type="critical"
+            title={intl.formatMessage(
+              {
+                id: ETranslations.earn_overflow_number_alert,
+              },
+              { number: babylonOverflow },
+            )}
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              }),
+              onPrimaryPress: onWithdraw,
+            }}
+          />
+        ) : null}
       </YStack>
     );
   }
@@ -677,6 +704,7 @@ type IProtocolDetails = {
     | undefined;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
+  onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
 };
@@ -688,6 +716,7 @@ export function ProtocolDetails({
   earnAccount,
   details,
   onClaim,
+  onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
 }: IProtocolDetails) {
@@ -727,6 +756,7 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
+      babylonOverflow: details.overflow,
       token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
@@ -788,6 +818,7 @@ export function ProtocolDetails({
           <Portfolio
             {...portfolio}
             onClaim={onClaim}
+            onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />
         </>
