@@ -476,7 +476,12 @@ export function PhaseInputArea({
     focusNextInput,
     onPasteMnemonic,
     isShowErrors,
-  } = useSuggestion(form, Number(phraseLength));
+  } = useSuggestion(form, Number(phraseLength), {
+    changePhraseLength: (length: number) => {
+      setPhraseLength(String(length));
+    },
+    phraseLengths,
+  });
 
   const handleReturnKeyPressed = useCallback(
     (index: number) => {

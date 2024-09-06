@@ -9,6 +9,7 @@ import type { useForm } from '@onekeyhq/components';
 import { Toast, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const isValidWord = (word: string) => wordLists.includes(word);
 
@@ -52,6 +53,13 @@ export const useSearchWords = () => {
 export const useSuggestion = (
   form: ReturnType<typeof useForm>,
   phraseLength = 12,
+  {
+    changePhraseLength,
+    phraseLengths,
+  }: {
+    changePhraseLength: (length: number) => void;
+    phraseLengths: number[];
+  },
 ) => {
   const intl = useIntl();
   const { fetchSuggestions, suggestions, updateSuggestions, suggestionsRef } =
@@ -238,8 +246,11 @@ export const useSuggestion = (
   const onPasteMnemonic = useCallback(
     (value: string) => {
       const arrays = value.split(' ');
-      if (arrays.length === phraseLength) {
-        setTimeout(() => {
+      if (phraseLengths.includes(arrays.length)) {
+        setTimeout(async () => {
+          await timerUtils.wait(10);
+          changePhraseLength(arrays.length);
+          await timerUtils.wait(10);
           clearText();
           form.reset(
             arrays.reduce((prev, next, index) => {
@@ -248,15 +259,21 @@ export const useSuggestion = (
             }, {} as Record<`phrase${number}`, string>),
           );
           resetSuggestions();
-          setTimeout(() => {
-            checkAllWords();
-          }, 10);
-        }, 10);
+          await timerUtils.wait(10);
+          checkAllWords();
+        });
         return true;
       }
       return false;
     },
-    [checkAllWords, clearText, form, phraseLength, resetSuggestions],
+    [
+      changePhraseLength,
+      checkAllWords,
+      clearText,
+      form,
+      phraseLengths,
+      resetSuggestions,
+    ],
   );
 
   const closePopover = useCallback(() => {
