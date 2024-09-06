@@ -334,7 +334,10 @@ class ServiceAccountProfile extends ServiceBase {
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
       }
     }
-    if (resolveAddress) {
+    if (
+      resolveAddress &&
+      (enableAddressContract || (enableAddressInteractionStatus && accountId))
+    ) {
       await this.checkAccountBadges({
         networkId,
         accountId,

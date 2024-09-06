@@ -65,6 +65,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.ton]: new ProviderApiTon({
       backgroundApi,
     }),
+    // [IInjectedProviderNames.alephium]: new ProviderApiAlph({
+    //   backgroundApi,
+    // }),
     [IInjectedProviderNames.scdo]: new ProviderApiScdo({
       backgroundApi,
     }),
