@@ -86,7 +86,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Account pub not found');
     }
     const { unsignedTx: rawTx } = await serializeUnsignedTransaction({
-      tx: encodedTx,
+      encodedTx,
       publicKey: account.pub,
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,

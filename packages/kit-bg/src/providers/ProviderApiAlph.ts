@@ -12,6 +12,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import type { EMessageTypesAlph } from '@onekeyhq/shared/types/message';
 
+import { deserializeUnsignedTransaction } from '../vaults/impls/alph/sdkAlph/utils';
+
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
@@ -19,7 +21,6 @@ import type {
   Account,
   EnableOptionsBase,
   SignMessageParams,
-  SignTransferTxParams,
   SignTransferTxResult,
   SignUnsignedTxParams,
 } from '@alephium/web3';
@@ -199,15 +200,22 @@ class ProviderApiAlph extends ProviderApiBase {
       });
 
     const encodedTx = result.encodedTx as IEncodedTxAlph;
+    const rawTx = JSON.parse(result.rawTx) as {
+      unsignedTx: string;
+      signature: string;
+    };
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
     const res: SignTransferTxResult = {
-      ...JSON.parse(result.rawTx),
+      ...rawTx,
       txId: result.txid,
-      gasPrice: encodedTx.params.gasPrice,
-      gasAmount: encodedTx.params.gasAmount,
-      fromGroup: groupOfAddress(encodedTx.params.signerAddress),
-      toGroup: groupOfAddress(
-        (encodedTx.params as SignTransferTxParams).destinations[0].address,
-      ),
+      gasPrice: encodedTx.params.gasPrice || '0',
+      gasAmount: encodedTx.params.gasAmount || 0,
+      fromGroup: decodedUnsignedTx.fromGroup,
+      toGroup: decodedUnsignedTx.toGroup,
     };
     return res;
   }

@@ -6,6 +6,8 @@ import type { ApiRequestArguments } from '@alephium/web3';
 import type {
   BuildTransaction,
   BuildTransactionResult,
+  DecodeUnsignedTx,
+  DecodeUnsignedTxResult,
 } from '@alephium/web3/dist/src/api/api-alephium';
 
 export class Provider extends NodeProvider {
@@ -30,6 +32,15 @@ export class Provider extends NodeProvider {
         method: 'postTransactionsBuild',
         params: [data],
       }) as Promise<BuildTransactionResult>;
+
+    this.transactions.postTransactionsDecodeUnsignedTx = async (
+      data: DecodeUnsignedTx,
+    ) =>
+      this.request({
+        path: 'transactions',
+        method: 'postTransactionsDecodeUnsignedTx',
+        params: [data],
+      }) as Promise<DecodeUnsignedTxResult>;
   }
 
   override request = async ({ path, method, params }: ApiRequestArguments) => {

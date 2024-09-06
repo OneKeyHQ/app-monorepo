@@ -20,12 +20,12 @@ export const NATIVE_TOKEN_ADDRESS =
 export const MAX_GAS_AMOUNT = '3000000000000000';
 
 export function serializeUnsignedTransaction({
-  tx,
+  encodedTx,
   publicKey,
   networkId,
   backgroundApi,
 }: {
-  tx: IEncodedTxAlph;
+  encodedTx: IEncodedTxAlph;
   publicKey: string;
   networkId: string;
   backgroundApi: IBackgroundApi;
@@ -35,17 +35,38 @@ export function serializeUnsignedTransaction({
     networkId,
   });
   const builder = TransactionBuilder.from(provider);
-  if (tx.type === EAlphTxType.ExecuteScript) {
+  if (encodedTx.type === EAlphTxType.ExecuteScript) {
     return builder.buildExecuteScriptTx(
-      tx.params as SignExecuteScriptTxParams,
+      encodedTx.params as SignExecuteScriptTxParams,
       publicKey,
     );
   }
-  if (tx.type === EAlphTxType.DeployContract) {
+  if (encodedTx.type === EAlphTxType.DeployContract) {
     return builder.buildDeployContractTx(
-      tx.params as SignDeployContractTxParams,
+      encodedTx.params as SignDeployContractTxParams,
       publicKey,
     );
   }
-  return builder.buildTransferTx(tx.params as SignTransferTxParams, publicKey);
+  return builder.buildTransferTx(
+    encodedTx.params as SignTransferTxParams,
+    publicKey,
+  );
+}
+
+export function deserializeUnsignedTransaction({
+  unsignedTx,
+  networkId,
+  backgroundApi,
+}: {
+  unsignedTx: string;
+  networkId: string;
+  backgroundApi: IBackgroundApi;
+}) {
+  const provider = new Provider({
+    backgroundApi,
+    networkId,
+  });
+  return provider.transactions.postTransactionsDecodeUnsignedTx({
+    unsignedTx,
+  });
 }
