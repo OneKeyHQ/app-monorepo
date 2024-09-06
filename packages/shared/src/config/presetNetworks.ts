@@ -2436,7 +2436,7 @@ const scdo: IServerNetwork = {
   'logoURI': 'https://uni.onekey-asset.com/static/chain/scdo.png',
   'name': 'SCDO',
   'shortcode': 'scdo',
-  'shortname': 'scdo',
+  'shortname': 'SCDO',
   'symbol': 'SCDO',
   'feeMeta': {
     'code': 'scdo',
