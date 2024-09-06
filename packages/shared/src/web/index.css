@@ -168,3 +168,8 @@ textarea {
 .app-region-no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* react-beautiful-dnd */
+[data-rbd-drag-handle-context-id] {
+  cursor: default !important;
+}

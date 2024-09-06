@@ -2,7 +2,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Stack,
+  Toast,
+  ToastContent,
+  rootNavigationRef,
+  useClipboard,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
@@ -20,8 +28,10 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -154,19 +164,48 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
+        case EQRCodeHandlerType.ANIMATION_CODE:
+          rootNavigationRef?.current?.goBack();
+          // eslint-disable-next-line no-case-declarations
+          const toast = Toast.show({
+            children: (
+              <Stack p="$4">
+                <ToastContent
+                  title="QR wallet detected. Go to connect this wallet?"
+                  actions={[
+                    <Button
+                      key="1"
+                      variant="primary"
+                      size="small"
+                      onPress={() => {
+                        void toast.close();
+                        navigation.pushModal(EModalRoutes.OnboardingModal, {
+                          screen: EOnboardingPages.ConnectYourDevice,
+                          params: {
+                            channel: EConnectDeviceChannel.qr,
+                          },
+                        });
+                      }}
+                    >
+                      Connect
+                    </Button>,
+                    <Button
+                      key="2"
+                      size="small"
+                      onPress={() => {
+                        void toast.close();
+                      }}
+                    >
+                      Ignore
+                    </Button>,
+                  ]}
+                />
+              </Stack>
+            ),
+          });
+          break;
         default: {
-          let content = value;
-          if (result.type === EQRCodeHandlerType.ANIMATION_CODE) {
-            const animationValue = result.data as IAnimationValue;
-            const animationFullData = animationValue.fullData;
-            if (!animationFullData) {
-              break;
-            }
-            content = animationFullData;
-            showCopyDialog(content);
-          } else {
-            showCopyDialog(content);
-          }
+          showCopyDialog(value);
         }
       }
       return result;
