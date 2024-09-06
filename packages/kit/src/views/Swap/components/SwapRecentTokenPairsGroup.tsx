@@ -2,9 +2,9 @@ import { memo, useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   HeightTransition,
   Icon,
   SizableText,
@@ -40,50 +40,77 @@ const SwapRecentTokenPairsGroup = ({
   const rerenderRecentTokenPairs = useCallback(() => {
     const tokenPairsToShow =
       !openMore && tokenPairs.length >= needFoldingMinCount
-        ? tokenPairs
-        : tokenPairs.slice(0, needFoldingMinCount - 1);
+        ? tokenPairs.slice(0, needFoldingMinCount - 1)
+        : tokenPairs;
 
     return (
       <XStack pt="$1" pb="$3" gap="$1.5" flexWrap="wrap">
         <>
           {tokenPairsToShow.map((tokenPair) => (
-            <Button
+            <XStack
               key={`${tokenPair.fromToken.contractAddress}-${tokenPair.toToken.contractAddress}`}
-              variant="secondary"
-              borderRadius="$4"
-              px="$1.5"
-              size="small"
-              borderColor="$borderSubdued"
-              flexDirection="row"
-              justifyContent="center"
+              role="button"
+              userSelect="none"
               alignItems="center"
-              backgroundColor="$background"
+              px="$1.5"
+              py="$1"
+              bg="$bg"
+              borderRadius="$4"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+                outlineOffset: 2,
+              }}
               onPress={() => {
                 onSelectTokenPairs(tokenPair);
               }}
             >
               <SizableText size="$bodyMdMedium">{`${tokenPair.fromToken.symbol}/${tokenPair.toToken.symbol}`}</SizableText>
-            </Button>
+            </XStack>
           ))}
           {tokenPairs.length >= needFoldingMinCount ? (
-            <Button
+            <Stack
               key="more-token-pairs"
-              variant="secondary"
-              borderRadius="$4"
-              px="$1.5"
-              size="small"
-              borderColor="$borderSubdued"
-              flexDirection="row"
-              justifyContent="center"
+              role="button"
+              userSelect="none"
               alignItems="center"
-              backgroundColor="$background"
+              px="$1.5"
+              py="$1"
+              bg="$bg"
+              borderRadius="$4"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+                outlineOffset: 2,
+              }}
               onPress={() => {
                 setOpenMore(!openMore);
               }}
             >
               <Stack
-                flex={1}
                 animation="quick"
+                justifyContent="center"
+                alignItems="center"
                 rotate={openMore ? '180deg' : '0deg'}
               >
                 <Icon
@@ -92,13 +119,16 @@ const SwapRecentTokenPairsGroup = ({
                   size="$5"
                 />
               </Stack>
-            </Button>
+            </Stack>
           ) : null}
         </>
       </XStack>
     );
   }, [onSelectTokenPairs, openMore, tokenPairs]);
-  if (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) {
+  if (
+    (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
+    !tokenPairs?.length
+  ) {
     return null;
   }
 
