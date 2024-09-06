@@ -24,16 +24,6 @@ export type IStakingInfo = {
   receive?: { amount: string; token: IToken };
 };
 
-export type ILidoHistorySendOrReceive = { amount: string; token: IToken };
-
-export type ILidoHistoryItem = {
-  label: string;
-  send?: ILidoHistorySendOrReceive;
-  receive?: ILidoHistorySendOrReceive;
-  txHash: string;
-  timestamp: number;
-};
-
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
