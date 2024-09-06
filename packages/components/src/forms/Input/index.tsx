@@ -223,11 +223,11 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       }
       if (platformEnv.isNative) {
         setTimeout(() => {
-          inputRef.current?.measureInWindow((y) => {
+          inputRef.current?.measureInWindow((x, y) => {
             const { pageOffsetRef, scrollViewRef } = actions;
             const windowHeight = Dimensions.get('window').height;
-            const minY = windowHeight / 3;
-            const scrollY = minY - y;
+            const minY = windowHeight / 4;
+            const scrollY = y - minY;
             if (scrollY > 0) {
               scrollViewRef.current?.scrollTo({
                 y: pageOffsetRef.current.y + scrollY,
@@ -235,7 +235,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
               });
             }
           });
-        }, 50);
+        }, 250);
       }
     },
     [onFocus, actions, selectTextOnFocus],

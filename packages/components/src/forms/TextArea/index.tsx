@@ -1,11 +1,18 @@
-import type { Ref } from 'react';
-import { forwardRef } from 'react';
+import type { ForwardedRef, MutableRefObject, Ref } from 'react';
+import { forwardRef, useCallback, useRef } from 'react';
 
+import {
+  Dimensions,
+  type NativeSyntheticEvent,
+  type TextInput,
+  type TextInputFocusEventData,
+} from 'react-native';
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';
+import { useScrollView } from '../../layouts/ScrollView';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
 import type { IInputProps } from '../Input';
@@ -17,6 +24,11 @@ export type ITextAreaProps = Pick<
 > &
   Omit<TextAreaProps, 'size'>;
 
+const useSafeRef = (ref: ForwardedRef<TextInput>) => {
+  const safeRef = useRef<MutableRefObject<TextInput>>();
+  return ref || (safeRef as unknown as typeof ref);
+};
+
 const defaultTextAlignVertical = platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
   {
@@ -24,10 +36,11 @@ function BaseTextArea(
     editable,
     error,
     size,
+    onFocus,
     textAlignVertical,
     ...props
   }: ITextAreaProps,
-  ref: Ref<any>,
+  ref: Ref<TextInput>,
 ) {
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -36,12 +49,39 @@ function BaseTextArea(
     size,
   });
 
+  const inputRef = useSafeRef(ref);
   const selectionColor = useSelectionColor();
+  const actions = useScrollView();
+  const handleFocus = useCallback(
+    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      onFocus?.(e);
+      if (platformEnv.isNative) {
+        setTimeout(() => {
+          const inputElement = (inputRef as MutableRefObject<TextInput>)
+            ?.current as unknown as TextInput | null;
+          inputElement?.measureInWindow((x, y) => {
+            const { pageOffsetRef, scrollViewRef } = actions;
+            const windowHeight = Dimensions.get('window').height;
+            const minY = windowHeight / 4;
+            const scrollY = y - minY;
+            if (scrollY > 0) {
+              scrollViewRef.current?.scrollTo({
+                y: pageOffsetRef.current.y + scrollY,
+                animated: true,
+              });
+            }
+          });
+        }, 250);
+      }
+    },
+    [onFocus, inputRef, actions],
+  );
 
   return (
     <TMTextArea
       unstyled
-      ref={ref}
+      ref={inputRef}
+      onFocus={handleFocus}
       fontSize={getFontSize('$bodyLg')}
       px={sharedStyles.px}
       py={size === 'large' ? '$3.5' : '$2.5'}
