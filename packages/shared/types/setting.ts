@@ -3,6 +3,7 @@ export type IClearCacheOnAppState = {
   transactionHistory: boolean;
   swapHistory: boolean;
   browserCache: boolean;
+  appUpdateCache: boolean;
   browserHistory: boolean;
   customToken: boolean;
   customRpc: boolean;

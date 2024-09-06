@@ -29,6 +29,7 @@ const ClearCacheOnAppContent = () => {
           transactionHistory: true,
           swapHistory: true,
           browserCache: true,
+          appUpdateCache: true,
           browserHistory: false,
           connectSites: false,
           signatureRecord: false,
@@ -63,6 +64,13 @@ const ClearCacheOnAppContent = () => {
           <Checkbox
             label={intl.formatMessage({
               id: ETranslations.settings_browser_cache,
+            })}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="appUpdateCache">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.settings_app_update_cache,
             })}
           />
         </Dialog.FormField>

@@ -1441,6 +1441,7 @@
   "settings.account_derivation_path_desc": "If you don’t see the accounts you expect, try switching the derivation path.",
   "settings.address_book": "Address book",
   "settings.app_update_available": "App update available",
+  "settings.app_update_cache": "App update cache",
   "settings.auto_lock": "Auto-lock",
   "settings.backup_recovery_phrase_to_onekey_keytag": "Backup your recovery phrase to OneKey KeyTag",
   "settings.backup_recovery_phrase_to_onekey_lite": "Backup your recovery phrase to OneKey Lite",

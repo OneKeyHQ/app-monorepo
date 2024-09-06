@@ -217,6 +217,9 @@ class ServiceSetting extends ServiceBase {
     if (values.browserCache) {
       await this.backgroundApi.serviceDiscovery.clearCache();
     }
+    if (values.appUpdateCache) {
+      await this.backgroundApi.serviceAppUpdate.clearCache();
+    }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
@@ -238,10 +241,6 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
-    }
-    // clear updated package folder
-    if (platformEnv.isNativeAndroid || platformEnv.isDesktop) {
-      await clearPackage();
     }
   }
 

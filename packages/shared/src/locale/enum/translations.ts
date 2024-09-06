@@ -1442,6 +1442,7 @@ export enum ETranslations {
   settings_account_derivation_path_desc = 'settings.account_derivation_path_desc',
   settings_address_book = 'settings.address_book',
   settings_app_update_available = 'settings.app_update_available',
+  settings_app_update_cache = 'settings.app_update_cache',
   settings_auto_lock = 'settings.auto_lock',
   settings_backup_recovery_phrase_to_onekey_keytag = 'settings.backup_recovery_phrase_to_onekey_keytag',
   settings_backup_recovery_phrase_to_onekey_lite = 'settings.backup_recovery_phrase_to_onekey_lite',

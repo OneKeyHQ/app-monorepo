@@ -19,6 +19,7 @@ const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { AutoUpdateModule } = NativeModules as {
   AutoUpdateModule: {
+    clearCache: () => Promise<void>;
     downloadAPK: (params: {
       url: string;
       filePath: string;
@@ -36,6 +37,7 @@ const { AutoUpdateModule } = NativeModules as {
 };
 
 export const clearPackage: IClearPackage = async () => {
+  await AutoUpdateModule.clearCache();
   if (!RNFS) {
     return;
   }
