@@ -1,3 +1,4 @@
+import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -50,7 +51,9 @@ export type IOnboardingParamList = {
   [EOnboardingPages.V4MigrationDone]: undefined;
 
   // connect hardware wallet
-  [EOnboardingPages.ConnectYourDevice]: undefined;
+  [EOnboardingPages.ConnectYourDevice]: {
+    channel?: EConnectDeviceChannel;
+  };
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;
   [EOnboardingPages.ActivateDevice]: {
     tutorialType: 'create' | 'restore';
