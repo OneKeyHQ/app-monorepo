@@ -106,7 +106,7 @@ const SwapToAnotherAddressPage = () => {
   );
 
   return accountInfo && accountInfo?.network?.id ? (
-    <Page>
+    <Page scrollEnabled>
       <Page.Body px="$5" gap="$4">
         <Form form={form}>
           <Form.Field
