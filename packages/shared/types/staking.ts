@@ -97,7 +97,7 @@ export type IStakeHistory = {
   txId: string;
   title: string;
   type: string;
-  amount: string;
+  amount?: string;
   timestamp: number;
   tokenAddress: string;
   direction: 'receive' | 'send';
