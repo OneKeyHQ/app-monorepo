@@ -42,7 +42,6 @@ import {
   useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
-  usePage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
