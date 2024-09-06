@@ -227,7 +227,10 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     }
   }
 
-  if (vaultSettings?.editApproveAmountEnabled) {
+  if (
+    vaultSettings?.editApproveAmountEnabled &&
+    new BigNumber(originalApproveAmount).gt(0)
+  ) {
     content = (
       <XStack
         gap="$2"
