@@ -69,6 +69,7 @@ export type IUnsignedMessageCfx = IUnsignedMessageEth;
 export type IUnsignedMessageAlph = {
   type: EMessageTypesAlph;
   message: string;
+  payload?: any;
 };
 
 export type IUnsignedMessage =
