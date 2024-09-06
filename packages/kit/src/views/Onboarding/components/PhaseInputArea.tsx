@@ -219,7 +219,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string) => boolean;
+    onPasteMnemonic: (text: string, index: number) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -257,7 +257,7 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (onPasteMnemonic(v)) {
+      if (onPasteMnemonic(v, index)) {
         onInputChange('');
         onChange?.('');
         return;
@@ -266,7 +266,7 @@ function BasicPhaseInput(
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange, onPasteMnemonic],
+    [index, onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
