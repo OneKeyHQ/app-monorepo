@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { Dimensions, InteractionManager } from 'react-native';
+import { InteractionManager } from 'react-native';
 import {
   Group,
   Input as TMInput,
@@ -21,7 +21,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';
-import { useScrollView } from '../../layouts';
+import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
@@ -207,8 +207,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     valueRef.current = value;
   }
 
-  const actions = useScrollView();
-
+  const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
     async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
@@ -221,24 +220,9 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           });
         });
       }
-      if (platformEnv.isNative) {
-        setTimeout(() => {
-          inputRef.current?.measureInWindow((x, y) => {
-            const { pageOffsetRef, scrollViewRef } = actions;
-            const windowHeight = Dimensions.get('window').height;
-            const minY = windowHeight / 4;
-            const scrollY = y - minY;
-            if (scrollY > 0) {
-              scrollViewRef.current?.scrollTo({
-                y: pageOffsetRef.current.y + scrollY,
-                animated: true,
-              });
-            }
-          });
-        }, 250);
-      }
+      scrollToView();
     },
-    [onFocus, actions, selectTextOnFocus],
+    [onFocus, selectTextOnFocus, scrollToView],
   );
 
   return (
