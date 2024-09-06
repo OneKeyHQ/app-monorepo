@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -42,7 +43,7 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork, isManualRefresh } = params;
+    const { accountId, networkId, tokenIdOnNetwork } = params;
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
@@ -118,10 +119,36 @@ class ServiceHistory extends ServiceBase {
       );
 
       if (confirmedTx) {
+        const confirmedTxNetworkId = localHistoryPendingTx.decodedTx.networkId;
+        const vaultSettings =
+          await this.backgroundApi.serviceNetwork.getVaultSettings({
+            networkId: confirmedTxNetworkId,
+          });
+        let fixedLocalHistoryId: string | undefined;
+        const remoteTxId = confirmedTx.data.eventId || confirmedTx.data.tx;
+        // If the vault uses the remote transaction ID, the local transaction ID needs to be fixed, like Ton
+        if (vaultSettings.useRemoteTxId) {
+          const confirmedTxAccountAddress =
+            await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId: localHistoryPendingTx.decodedTx.accountId,
+              networkId: confirmedTxNetworkId,
+            });
+          fixedLocalHistoryId = accountUtils.buildLocalHistoryId({
+            networkId: localHistoryPendingTx.decodedTx.networkId,
+            accountAddress: confirmedTxAccountAddress,
+            txid: remoteTxId,
+          });
+        }
         confirmedTxs.push({
           ...localHistoryPendingTx,
+          id: vaultSettings.useRemoteTxId
+            ? fixedLocalHistoryId || localHistoryPendingTx.id
+            : localHistoryPendingTx.id,
           decodedTx: {
             ...localHistoryPendingTx.decodedTx,
+            txid: vaultSettings.useRemoteTxId
+              ? remoteTxId
+              : localHistoryPendingTx.decodedTx.txid,
             status:
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
@@ -434,29 +461,30 @@ class ServiceHistory extends ServiceBase {
       isManualRefresh,
       isAllNetworks,
     } = params;
-    const extraParams = await this.buildFetchHistoryListParams(params);
-    let extraRequestParams = extraParams;
-    if (networkId === getNetworkIdsMap().onekeyall) {
-      extraRequestParams = {
-        allNetworkAccounts: (
-          extraParams as unknown as {
-            allNetworkAccounts: IAllNetworkHistoryExtraItem[];
-          }
-        ).allNetworkAccounts.map((i) => ({
-          networkId: i.networkId,
-          accountAddress: i.accountAddress,
-          xpub: i.accountXpub,
-        })),
-      };
-    }
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
-    try {
-      resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+    let extraParams: any;
+    const fetchHistoryFromServer = async () => {
+      extraParams = await this.buildFetchHistoryListParams(params);
+      let extraRequestParams = extraParams;
+      if (networkId === getNetworkIdsMap().onekeyall) {
+        extraRequestParams = {
+          allNetworkAccounts: (
+            extraParams as unknown as {
+              allNetworkAccounts: IAllNetworkHistoryExtraItem[];
+            }
+          ).allNetworkAccounts.map((i) => ({
+            networkId: i.networkId,
+            accountAddress: i.accountAddress,
+            xpub: i.accountXpub,
+          })),
+        };
+      }
+      return client.post<{ data: IFetchAccountHistoryResp }>(
         '/wallet/v1/account/history/list',
         {
           networkId,
@@ -476,15 +504,19 @@ class ServiceHistory extends ServiceBase {
             ),
         },
       );
+    };
+    try {
+      resp = await fetchHistoryFromServer();
     } catch (e) {
       const error = e as OneKeyServerApiError;
       // Exchange the token on the first error to ensure subsequent polling requests succeed
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.data?.data?.message?.code === 50_401) {
+      if (error.data?.code === 50_401) {
         // 50401 -> Lightning service special error code
         await (vault as ILightningVault).exchangeToken();
+        resp = await fetchHistoryFromServer();
+      } else {
+        throw e;
       }
-      throw e;
     }
 
     const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
@@ -501,7 +533,7 @@ class ServiceHistory extends ServiceBase {
             tokens,
             nfts,
             index,
-            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             allNetworkHistoryExtraItems: extraParams?.allNetworkAccounts,
           }),
         ),

@@ -108,6 +108,9 @@ export type IOnChainHistoryTx = {
 
   // Dynex
   paymentId?: string;
+
+  // TON
+  eventId?: string;
 };
 
 export type IAccountHistoryTx = {
