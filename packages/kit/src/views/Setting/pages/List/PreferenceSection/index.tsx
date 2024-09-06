@@ -144,6 +144,24 @@ const CurrencyListItem = () => {
   );
 };
 
+const NotificationsListItem = () => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const intl = useIntl();
+  const handleOnPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingNotifications);
+  }, [navigation]);
+
+  return (
+    <ListItem
+      icon="BellOutline"
+      title={intl.formatMessage({ id: ETranslations.global_notifications })}
+      drillIn
+      onPress={handleOnPress}
+    />
+  );
+};
+
 export const PreferenceSection = () => {
   const intl = useIntl();
   return (
@@ -153,6 +171,7 @@ export const PreferenceSection = () => {
       <CurrencyListItem />
       <LanguageListItem />
       <ThemeListItem />
+      <NotificationsListItem />
     </Section>
   );
 };
