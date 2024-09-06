@@ -278,9 +278,9 @@ function FeeEditor(props: IProps) {
 
       const maxFeeInfo = feeSelectorItems[0];
       const minFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
-      const min = minFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0';
+      const min = minFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0';
       const max = new BigNumber(
-        maxFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+        maxFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       )
         .times(100)
         .toFixed();
@@ -303,7 +303,7 @@ function FeeEditor(props: IProps) {
   }, [customFee?.gasEIP1559, feeSelectorItems, feeSymbol, intl]);
 
   const recommendGasLimit = useMemo(() => {
-    const feeInfo = feeSelectorItems[0].feeInfo ?? {};
+    const feeInfo = feeSelectorItems[0]?.feeInfo ?? {};
     const gasLimit = new BigNumber(
       feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
@@ -358,7 +358,7 @@ function FeeEditor(props: IProps) {
 
         const recommendMaxFee = feeSelectorItems
           .filter((item) => item.type === EFeeType.Standard)
-          .map((item) => item.feeInfo.gasEIP1559?.maxFeePerGas ?? '0')
+          .map((item) => item?.feeInfo?.gasEIP1559?.maxFeePerGas ?? '0')
           .filter((item) => item !== '0');
 
         const recommendMaxFeeMax = BigNumber.max(...recommendMaxFee);
@@ -517,7 +517,7 @@ function FeeEditor(props: IProps) {
       } else {
         const recommendGasPrice = feeSelectorItems
           .filter((item) => item.type === EFeeType.Standard)
-          .map((item) => item.feeInfo?.gas?.gasPrice ?? '0')
+          .map((item) => item?.feeInfo?.gas?.gasPrice ?? '0')
           .filter((item) => item !== '0');
 
         const recommendGasPriceMax = BigNumber.max(...recommendGasPrice);
@@ -584,7 +584,7 @@ function FeeEditor(props: IProps) {
 
       const recommendFeeRate = feeSelectorItems
         .filter((item) => item.type === EFeeType.Standard)
-        .map((item) => item.feeInfo.feeUTXO?.feeRate ?? '0')
+        .map((item) => item?.feeInfo.feeUTXO?.feeRate ?? '0')
         .filter((item) => item !== '0');
 
       const recommendFeeRateMax = BigNumber.max(...recommendFeeRate);
@@ -1001,7 +1001,7 @@ function FeeEditor(props: IProps) {
     const fee =
       (currentFeeType === EFeeType.Custom
         ? customFee
-        : feeSelectorItems[currentFeeIndex].feeInfo) ?? {};
+        : feeSelectorItems[currentFeeIndex]?.feeInfo) ?? {};
 
     if (fee.gasEIP1559) {
       let limit = new BigNumber(0);
@@ -1247,8 +1247,8 @@ function FeeEditor(props: IProps) {
     const fee =
       currentFeeType === EFeeType.Custom
         ? customFee
-        : feeSelectorItems[currentFeeIndex].feeInfo;
-    if (fee.feeTron) {
+        : feeSelectorItems[currentFeeIndex]?.feeInfo;
+    if (fee?.feeTron) {
       if (fee.feeTron.requiredBandwidth) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.bandwidth_consumed }),
