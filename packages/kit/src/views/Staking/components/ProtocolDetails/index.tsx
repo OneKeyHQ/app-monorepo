@@ -21,6 +21,7 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -44,9 +45,12 @@ type IPortfolioValue = {
   pendingActive?: string;
   pendingActiveTooltip?: string;
   claimable?: string;
+  minClaimableNum?: string;
   token: IToken;
   onClaim?: () => void;
+  onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
+  babylonOverflow?: string;
 };
 
 type IProfit = {
@@ -69,6 +73,9 @@ type IProvider = {
   untilNextLaunch?: {
     value: number;
     token: string;
+  };
+  network?: {
+    name: string;
   };
 };
 
@@ -155,6 +162,7 @@ const PortfolioItem = ({
   onPress,
   buttonText,
   tooltip,
+  disabled,
 }: {
   tokenImageUri?: string;
   tokenSymbol: string;
@@ -163,6 +171,7 @@ const PortfolioItem = ({
   onPress?: () => void;
   buttonText?: string;
   tooltip?: string;
+  disabled?: boolean;
 }) => (
   <XStack alignItems="center" justifyContent="space-between">
     <XStack alignItems="center" gap="$1.5">
@@ -189,7 +198,7 @@ const PortfolioItem = ({
     </XStack>
     {buttonText && onPress ? (
       <XStack>
-        <Button variant="primary" onPress={onPress}>
+        <Button disabled={disabled} variant="primary" onPress={onPress}>
           {buttonText}
         </Button>
       </XStack>
@@ -203,16 +212,25 @@ function Portfolio({
   pendingActive,
   pendingActiveTooltip,
   claimable,
+  minClaimableNum,
   token,
+  babylonOverflow,
   onClaim,
+  onWithdraw,
   onPortfolioDetails,
 }: IPortfolioValue) {
   const intl = useIntl();
   if (
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
-    Number(pendingActive) > 0
+    Number(pendingActive) > 0 ||
+    Number(babylonOverflow) > 0
   ) {
+    const isLessThanMinClaimable = Boolean(
+      minClaimableNum &&
+        claimable &&
+        Number(claimable) < Number(minClaimableNum),
+    );
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
         <XStack justifyContent="space-between">
@@ -273,9 +291,42 @@ function Portfolio({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              tooltip={
+                isLessThanMinClaimable
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.earn_minimum_claim_tooltip,
+                      },
+                      { number: minClaimableNum, symbol: token.symbol },
+                    )
+                  : undefined
+              }
+              disabled={isLessThanMinClaimable}
             />
           ) : null}
         </YStack>
+        {Number(babylonOverflow) > 0 ? (
+          <Alert
+            mt="$3"
+            fullBleed
+            borderRadius="$3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderCautionSubdued"
+            type="critical"
+            title={intl.formatMessage(
+              {
+                id: ETranslations.earn_overflow_number_alert,
+              },
+              { number: babylonOverflow },
+            )}
+            action={{
+              primary: intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              }),
+              onPrimaryPress: onWithdraw,
+            }}
+          />
+        ) : null}
       </YStack>
     );
   }
@@ -346,6 +397,12 @@ export function Profit({
     [gtMd],
   );
   const intl = useIntl();
+
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
   return (
     <YStack py="$8" px="$5">
       <SizableText size="$headingLg">
@@ -360,6 +417,7 @@ export function Profit({
         >
           <NumberSizeableText
             formatter="priceChange"
+            color="$textSuccess"
             formatterOptions={{ tokenSymbol: 'APR' }}
           >
             {apr}
@@ -374,8 +432,9 @@ export function Profit({
             {...gridItemStyle}
           >
             <NumberSizeableText
-              formatter="priceChange"
-              formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+              formatter="value"
+              color="$textSuccess"
+              formatterOptions={{ currency: symbol }}
             >
               {earningsIn24h}
             </NumberSizeableText>
@@ -408,6 +467,7 @@ export function Provider({
   validator,
   minStaking,
   untilNextLaunch,
+  network,
 }: IProvider) {
   const { gtMd } = useMedia();
   const gridItemStyle = useMemo(
@@ -480,6 +540,14 @@ export function Provider({
             </SizableText>
           </GridItem>
         ) : null}
+        {network?.name ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.global_network })}
+            {...gridItemStyle}
+          >
+            {network.name}
+          </GridItem>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -520,10 +588,11 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 function FAQ({ solutions }: { solutions: ISolutions }) {
+  const intl = useIntl();
   return (
     <YStack py="$8" gap="$6">
       <SizableText size="$headingLg" px="$5">
-        FAQ
+        {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
         {solutions.map(({ question, answer }, index) => (
@@ -677,6 +746,7 @@ type IProtocolDetails = {
     | undefined;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
+  onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
 };
@@ -688,6 +758,7 @@ export function ProtocolDetails({
   earnAccount,
   details,
   onClaim,
+  onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
 }: IProtocolDetails) {
@@ -727,6 +798,8 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
+      minClaimableNum: details.minClaimableAmount,
+      babylonOverflow: details.overflow,
       token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
@@ -740,6 +813,9 @@ export function ProtocolDetails({
         value: Number(details.provider.nextLaunchLeft),
         token: details.token.info.symbol,
       };
+    }
+    if (details.network) {
+      provider.network = details.network;
     }
     const profit: IProfit = {
       apr: details.provider.apr,
@@ -788,6 +864,7 @@ export function ProtocolDetails({
           <Portfolio
             {...portfolio}
             onClaim={onClaim}
+            onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />
         </>

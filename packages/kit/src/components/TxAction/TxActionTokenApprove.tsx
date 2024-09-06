@@ -229,7 +229,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
 
   if (
     vaultSettings?.editApproveAmountEnabled &&
-    new BigNumber(originalApproveAmount).gt(0)
+    (approveIsMax || new BigNumber(originalApproveAmount).gt(0))
   ) {
     content = (
       <XStack
