@@ -285,7 +285,7 @@ export function MarketDetailPools({
           return (
             <XStack
               px="$5"
-              $gtMd={{ pr: 0 }}
+              $gtMd={{ pr: platformEnv.isNative ? undefined : 0 }}
               py="$2"
               borderRadius="$3"
               {...listItemPressStyle}
