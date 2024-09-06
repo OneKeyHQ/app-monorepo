@@ -322,7 +322,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.conflux,
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
-  IInjectedProviderNames.alephium,
+  // IInjectedProviderNames.alephium,
   IInjectedProviderNames.sui,
   IInjectedProviderNames.ton,
   IInjectedProviderNames.scdo,
