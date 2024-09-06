@@ -17,7 +17,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'ALPH',
     labelKey: ETranslations.bip44__standard,
-    template: `m/44'/${COINTYPE_ALPH}/${KEY_TYPE_NUM}'/0/${INDEX_PLACEHOLDER}`,
+    template: `m/44'/${COINTYPE_ALPH}'/${KEY_TYPE_NUM}'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ALPH,
   },
 };
@@ -25,7 +25,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 const settings: IVaultSettings = {
   impl: IMPL_ALPH,
   coinTypeDefault: COINTYPE_ALPH,
-  accountType: EDBAccountType.UTXO,
+  accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: false,
   hardwareAccountEnabled: true,
@@ -37,12 +37,12 @@ const settings: IVaultSettings = {
 
   defaultFeePresetIndex: 0,
 
-  isUtxo: true,
+  isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
 

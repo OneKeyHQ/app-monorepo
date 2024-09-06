@@ -1,9 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { AddressType, bs58, isValidAddress } from '@alephium/web3';
+import {
+  AddressType,
+  DUST_AMOUNT,
+  bs58,
+  contractIdFromAddress,
+  isValidAddress,
+} from '@alephium/web3';
+import BigNumber from 'bignumber.js';
 
+import {
+  EAlphTxType,
+  type IEncodedTxAlph,
+} from '@onekeyhq/core/src/chains/alph/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -12,7 +28,16 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -21,6 +46,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { MAX_GAS_AMOUNT } from './sdkAlph/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -34,6 +60,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { SignTransferTxParams } from '@alephium/web3';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -62,24 +89,214 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new NotImplemented();
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    const { transfersInfo } = params;
+    if (!transfersInfo) {
+      throw new OneKeyInternalError('Invalid transfersInfo');
+    }
+    const signerAddress = await this.getAccountAddress();
+    const transfer = transfersInfo[0];
+    const amount = new BigNumber(transfer.amount)
+      .shiftedBy(transfer.tokenInfo?.decimals ?? 0)
+      .toFixed(0);
+    const encodedTx: SignTransferTxParams = {
+      signerAddress,
+      signerKeyType: 'default',
+      destinations: [
+        {
+          address: transfer.to,
+          attoAlphAmount: amount,
+        },
+      ],
+    };
+
+    if (!transfer.tokenInfo?.isNative) {
+      encodedTx.destinations[0].attoAlphAmount = '0';
+      const id = bufferUtils.bytesToHex(
+        contractIdFromAddress(transfer.tokenInfo?.address as string),
+      );
+      encodedTx.destinations[0].tokens = [
+        {
+          id,
+          amount,
+        },
+      ];
+    }
+    return {
+      type: EAlphTxType.Transfer,
+      params: encodedTx,
+    };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new NotImplemented();
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
+    const from = encodedTx.params.signerAddress;
+    const actions: IDecodedTx['actions'] = [];
+    const network = await this.getNetwork();
+    if (encodedTx.type === EAlphTxType.Transfer) {
+      const destinations = (encodedTx.params as SignTransferTxParams)
+        .destinations;
+      const token = await this.backgroundApi.serviceToken.getNativeToken({
+        networkId: network.id,
+        accountId: this.accountId,
+      });
+      const transfers: IDecodedTxTransferInfo[] = [];
+      await Promise.all(
+        destinations.map(async (dest) => {
+          if (dest.attoAlphAmount.toString() !== '0') {
+            transfers.push({
+              from,
+              to: dest.address,
+              amount: chainValueUtils.convertChainValueToAmount({
+                value: dest.attoAlphAmount.toString(),
+                network,
+              }),
+              icon: token?.logoURI ?? '',
+              symbol: token?.symbol ?? '',
+              name: token?.name ?? '',
+              tokenIdOnNetwork: token?.address ?? '',
+              isNative: true,
+            });
+          }
+          if (dest.tokens) {
+            await Promise.all(
+              dest.tokens.map(async (tokenData) => {
+                const tokenInfo =
+                  await this.backgroundApi.serviceToken.getToken({
+                    networkId: network.id,
+                    accountId: this.accountId,
+                    tokenIdOnNetwork: tokenData.id,
+                  });
+                if (tokenInfo) {
+                  transfers.push({
+                    from,
+                    to: dest.address,
+                    amount: chainValueUtils.convertTokenChainValueToAmount({
+                      value: tokenData.amount.toString(),
+                      token: tokenInfo,
+                    }),
+                    icon: tokenInfo.logoURI ?? '',
+                    symbol: tokenInfo.symbol ?? '',
+                    name: tokenInfo.name ?? '',
+                    tokenIdOnNetwork: tokenInfo.address ?? '',
+                    isNative: false,
+                  });
+                }
+              }),
+            );
+          }
+        }),
+      );
+      actions.push(
+        await this.buildTxTransferAssetAction({
+          from,
+          to: destinations[0].address,
+          transfers,
+        }),
+      );
+    } else {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        direction: EDecodedTxDirection.OTHER,
+        unknownAction: {
+          from,
+          to: '',
+        },
+      });
+    }
+    return {
+      txid: '',
+      owner: from,
+      signer: from,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      feeInfo: {
+        common: {
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+        gas: {
+          gasPrice: encodedTx.params.gasPrice?.toString() ?? '0',
+          gasLimit: encodedTx.params.gasAmount?.toString() ?? '0',
+        },
+      },
+      extraInfo: null,
+      encodedTx,
+    };
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo ?? [],
+      };
+    }
+    throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxAlph;
+    if (params.feeInfo) {
+      if (params.feeInfo.gas?.gasPrice) {
+        encodedTx.params.gasPrice = chainValueUtils.convertAmountToChainValue({
+          value: params.feeInfo.gas?.gasPrice,
+          network: await this.getNetwork(),
+        });
+      }
+      if (params.feeInfo.gas?.gasLimit) {
+        encodedTx.params.gasAmount = Number(params.feeInfo.gas?.gasLimit);
+      }
+    }
+
+    // max amount
+    if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
+      const txParams = encodedTx.params as SignTransferTxParams;
+      if (txParams.destinations[0].attoAlphAmount.toString() !== '0') {
+        const network = await this.getNetwork();
+        txParams.destinations[0].attoAlphAmount = new BigNumber(
+          chainValueUtils.convertAmountToChainValue({
+            value: params.nativeAmountInfo.maxSendAmount,
+            network,
+          }),
+        )
+          .minus(DUST_AMOUNT.toString())
+          .toFixed();
+      } else {
+        if (!txParams.destinations[0].tokens) {
+          throw new OneKeyInternalError('No tokens found');
+        }
+        const token = await this.backgroundApi.serviceToken.getToken({
+          networkId: this.networkId,
+          accountId: this.accountId,
+          tokenIdOnNetwork: txParams.destinations[0].tokens[0].id,
+        });
+        txParams.destinations[0].tokens[0].amount = new BigNumber(
+          params.nativeAmountInfo.maxSendAmount,
+        )
+          .shiftedBy(token?.decimals ?? 0)
+          .toFixed(0, BigNumber.ROUND_FLOOR);
+      }
+    }
+
+    return {
+      ...params.unsignedTx,
+      encodedTx,
+    };
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
@@ -139,5 +356,42 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new NotImplemented();
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxAlph | undefined;
+  }): Promise<{
+    encodedTx: IEncodedTx | undefined;
+    estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    const account = await this.getAccount();
+    if (encodedTx?.type === EAlphTxType.Transfer) {
+      const balance =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountNativeBalance(
+          {
+            account,
+            networkId: this.networkId,
+          },
+        );
+      const params = encodedTx.params as SignTransferTxParams;
+      if (balance.balance === params.destinations[0].attoAlphAmount) {
+        const amount = new BigNumber(params.destinations[0].attoAlphAmount)
+          .minus(MAX_GAS_AMOUNT)
+          .minus(DUST_AMOUNT.toString());
+        params.destinations[0].attoAlphAmount = amount.gt(0)
+          ? amount.toFixed(0)
+          : '0';
+      }
+    }
+    return {
+      encodedTx: {
+        ...encodedTx?.params,
+        networkId: 'mainnet',
+        fromPublicKey: account.pub,
+        fromPublicKeyType: 'default',
+      } as unknown as IEncodedTxAlph,
+    };
   }
 }

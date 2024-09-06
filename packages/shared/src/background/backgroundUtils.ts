@@ -17,6 +17,7 @@ import {
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BTC,
   IMPL_CFX,
@@ -297,6 +298,7 @@ export const scopeNetworks: Record<
   'martian': [IMPL_APTOS],
   'tron': [IMPL_TRON],
   'algo': [IMPL_ALGO],
+  // 'alephium': [IMPL_ALPH],
   'sui': [IMPL_SUI],
   'ton': [IMPL_TON],
   'scdo': [IMPL_SCDO],
@@ -320,6 +322,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.conflux,
   IInjectedProviderNames.tron,
   IInjectedProviderNames.algo,
+  // IInjectedProviderNames.alephium,
   IInjectedProviderNames.sui,
   IInjectedProviderNames.ton,
   IInjectedProviderNames.scdo,

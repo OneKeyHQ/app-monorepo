@@ -1,4 +1,5 @@
 export interface IProxyRequestParam {
+  path?: string;
   method: string;
   params: any;
   url?: string;

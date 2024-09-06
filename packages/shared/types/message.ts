@@ -29,3 +29,10 @@ export enum EMessageTypesTon {
   SIGN_DATA = 'tonSignData',
   SIGN_PROOF = 'tonSignProof',
 }
+
+export enum EMessageTypesAlph {
+  ALEPHIUM = 'alephium',
+  SHA256 = 'sha256',
+  BLAKE2B = 'blake2b',
+  IDENTITY = 'identity',
+}

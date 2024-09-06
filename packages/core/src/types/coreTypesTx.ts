@@ -7,6 +7,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
+import type { IEncodedTxAlph } from '../chains/alph/types';
 import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
@@ -46,6 +47,7 @@ export type IEncodedTx =
   | IEncodedTxTron
   | IEncodedTxNexa
   | IEncodedTxLightning
+  | IEncodedTxAlph
   | IEncodedTxNostr
   | IEncodedTxDot
   | IEncodedTxDnx
