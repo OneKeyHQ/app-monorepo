@@ -73,6 +73,9 @@ type IProvider = {
     value: number;
     token: string;
   };
+  network?: {
+    name: string;
+  };
 };
 
 type ISolutions = {
@@ -444,6 +447,7 @@ export function Provider({
   validator,
   minStaking,
   untilNextLaunch,
+  network,
 }: IProvider) {
   const { gtMd } = useMedia();
   const gridItemStyle = useMemo(
@@ -514,6 +518,14 @@ export function Provider({
                 },
               )}
             </SizableText>
+          </GridItem>
+        ) : null}
+        {network?.name ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.global_network })}
+            {...gridItemStyle}
+          >
+            {network.name}
           </GridItem>
         ) : null}
       </XStack>
@@ -779,6 +791,9 @@ export function ProtocolDetails({
         value: Number(details.provider.nextLaunchLeft),
         token: details.token.info.symbol,
       };
+    }
+    if (details.network) {
+      provider.network = details.network;
     }
     const profit: IProfit = {
       apr: details.provider.apr,

@@ -164,6 +164,9 @@ export type IStakeProtocolDetails = {
     price24h: string;
     info: IToken;
   };
+  network?: {
+    name: string;
+  };
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;
