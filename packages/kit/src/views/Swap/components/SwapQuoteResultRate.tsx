@@ -129,7 +129,10 @@ const SwapQuoteResultRate = ({
                 numberOfLines={1}
                 size="$bodyMdMedium"
                 ml="$1"
-                maxWidth="$20"
+                maxWidth="80px"
+                $gtMd={{
+                  maxWidth: '130px',
+                }}
               >
                 {providerName ?? ''}
               </SizableText>

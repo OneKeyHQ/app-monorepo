@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   YStack,
 } from '@onekeyhq/components';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
@@ -94,87 +95,96 @@ const SwapQuoteResult = ({
     slippageOnSave,
     setSwapSlippageDialogOpening,
   ]);
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
+  const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
+    leading: true,
+  });
   if (
     !fromToken ||
     !toToken ||
-    fromTokenAmountBN.isZero() ||
-    fromTokenAmountBN.isNaN()
+    new BigNumber(fromTokenAmount).isNaN() ||
+    new BigNumber(fromTokenAmount).isZero()
   ) {
     return null;
   }
-  return (
-    <HeightTransition>
-      <YStack gap="$4">
-        <SwapQuoteResultRate
-          rate={quoteResult?.instantRate}
-          fromToken={fromToken}
-          toToken={toToken}
-          providerIcon={quoteResult?.info.providerLogo ?? ''}
-          providerName={quoteResult?.info.providerName ?? ''}
-          isLoading={swapQuoteLoading}
-          onOpenResult={
-            quoteResult?.info.provider
-              ? () => setOpenResult(!openResult)
-              : undefined
-          }
-          openResult={openResult}
-        />
-        {quoteResult?.allowanceResult && openResult ? (
-          <SwapApproveAllowanceSelectContainer
-            allowanceResult={quoteResult?.allowanceResult}
-            fromTokenSymbol={fromToken?.symbol ?? ''}
-            isLoading={swapQuoteLoading}
-          />
-        ) : null}
-        {quoteResult?.info.provider && openResult ? (
-          <SwapProviderInfoItem
-            providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
-            providerName={quoteResult?.info.providerName ?? ''}
-            isLoading={swapQuoteLoading}
+  if (
+    fromToken &&
+    toToken &&
+    !new BigNumber(fromAmountDebounce).isZero() &&
+    !new BigNumber(fromAmountDebounce).isNaN()
+  ) {
+    return (
+      <HeightTransition>
+        <YStack gap="$4">
+          <SwapQuoteResultRate
+            rate={quoteResult?.instantRate}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResult?.allowanceResult}
-            onPress={
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
+            isLoading={swapQuoteLoading}
+            onOpenResult={
               quoteResult?.info.provider
-                ? () => {
-                    onOpenProviderList?.();
-                  }
+                ? () => setOpenResult(!openResult)
                 : undefined
             }
+            openResult={openResult}
           />
-        ) : null}
-        {openResult &&
-        quoteResult?.toAmount &&
-        !quoteResult?.allowanceResult &&
-        !quoteResult?.unSupportSlippage ? (
-          <SwapSlippageTriggerContainer
-            isLoading={swapQuoteLoading}
-            onPress={slippageHandleClick}
-          />
-        ) : null}
-        {openResult && quoteResult?.fee?.estimatedFeeFiatValue ? (
-          <SwapCommonInfoItem
-            title={intl.formatMessage({
-              id: ETranslations.swap_page_provider_est_network_fee,
-            })}
-            isLoading={swapQuoteLoading}
-            valueComponent={
-              <NumberSizeableText
-                size="$bodyMdMedium"
-                formatter="value"
-                formatterOptions={{
-                  currency: settingsPersistAtom.currencyInfo.symbol,
-                }}
-              >
-                {quoteResult.fee?.estimatedFeeFiatValue}
-              </NumberSizeableText>
-            }
-          />
-        ) : null}
-      </YStack>
-    </HeightTransition>
-  );
+          {quoteResult?.allowanceResult && openResult ? (
+            <SwapApproveAllowanceSelectContainer
+              allowanceResult={quoteResult?.allowanceResult}
+              fromTokenSymbol={fromToken?.symbol ?? ''}
+              isLoading={swapQuoteLoading}
+            />
+          ) : null}
+          {quoteResult?.info.provider && openResult ? (
+            <SwapProviderInfoItem
+              providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
+              providerName={quoteResult?.info.providerName ?? ''}
+              isLoading={swapQuoteLoading}
+              fromToken={fromToken}
+              toToken={toToken}
+              showLock={!!quoteResult?.allowanceResult}
+              onPress={
+                quoteResult?.info.provider
+                  ? () => {
+                      onOpenProviderList?.();
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
+          {openResult &&
+          quoteResult?.toAmount &&
+          !quoteResult?.allowanceResult &&
+          !quoteResult?.unSupportSlippage ? (
+            <SwapSlippageTriggerContainer
+              isLoading={swapQuoteLoading}
+              onPress={slippageHandleClick}
+            />
+          ) : null}
+          {openResult && quoteResult?.fee?.estimatedFeeFiatValue ? (
+            <SwapCommonInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_page_provider_est_network_fee,
+              })}
+              isLoading={swapQuoteLoading}
+              valueComponent={
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settingsPersistAtom.currencyInfo.symbol,
+                  }}
+                >
+                  {quoteResult.fee?.estimatedFeeFiatValue}
+                </NumberSizeableText>
+              }
+            />
+          ) : null}
+        </YStack>
+      </HeightTransition>
+    );
+  }
 };
 
 export default memo(SwapQuoteResult);
