@@ -234,7 +234,6 @@ function BasicPhaseInput(
 ) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const media = useMedia();
-  const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
 
@@ -251,30 +250,7 @@ function BasicPhaseInput(
 
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
-    if (platformEnv.isNative && pageRef) {
-      inputRef.current?.measure(
-        (
-          x: number,
-          y: number,
-          width: number,
-          height: number,
-          pageX: number,
-          pageY: number,
-        ) => {
-          const contentOffset = getContentOffset();
-          if (pageY > visibleHeight) {
-            setTimeout(() => {
-              pageRef.scrollTo({
-                x: 0,
-                y: contentOffset.y + pageY - visibleHeight,
-                animated: true,
-              });
-            });
-          }
-        },
-      );
-    }
-  }, [getContentOffset, index, onInputFocus, pageRef]);
+  }, [index, onInputFocus]);
 
   const handleInputBlur = useCallback(() => {
     onInputBlur(index);
@@ -487,8 +463,6 @@ export function PhaseInputArea({
     await serviceAccount.validateMnemonic(mnemonicEncoded);
     onConfirm(mnemonicEncoded);
   }, [form, onConfirm, serviceAccount, servicePassword]);
-
-  // useScrollToInputArea(alertRef);
 
   const {
     suggestions,
