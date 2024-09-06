@@ -46,7 +46,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
     subtitle={provider}
   >
     <YStack>
-      {Number(item.amount) > 0 ? (
+      {item.amount && Number(item.amount) > 0 ? (
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
