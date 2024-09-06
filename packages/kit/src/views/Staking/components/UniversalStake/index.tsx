@@ -20,10 +20,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  formatDate,
-  formatMillisecondsToDays,
-} from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../utils/utils';
@@ -160,8 +157,8 @@ export const UniversalStake = ({
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 
   const btcStakeTerm = useMemo(() => {
-    if (minStakeTerm && minStakeBlocks) {
-      const days = formatMillisecondsToDays(minStakeTerm);
+    if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
+      const days = Math.ceil(minStakeTerm / (1000 * 60 * 60 * 24));
       return intl.formatMessage(
         { id: ETranslations.earn_number_days_number_block },
         { 'number_days': days, 'number': minStakeBlocks },
