@@ -21,6 +21,7 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -373,6 +374,12 @@ export function Profit({
     [gtMd],
   );
   const intl = useIntl();
+
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
   return (
     <YStack py="$8" px="$5">
       <SizableText size="$headingLg">
@@ -387,6 +394,7 @@ export function Profit({
         >
           <NumberSizeableText
             formatter="priceChange"
+            color="$textSuccess"
             formatterOptions={{ tokenSymbol: 'APR' }}
           >
             {apr}
@@ -401,8 +409,9 @@ export function Profit({
             {...gridItemStyle}
           >
             <NumberSizeableText
-              formatter="priceChange"
-              formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+              formatter="value"
+              color="$textSuccess"
+              formatterOptions={{ currency: symbol }}
             >
               {earningsIn24h}
             </NumberSizeableText>
