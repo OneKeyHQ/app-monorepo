@@ -171,6 +171,7 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   minUnstakeAmount?: number;
+  overflow?: string;
 };
 
 export type IStakeProtocolListItem = {
