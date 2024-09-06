@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { ScrollView as ScrollViewNative } from 'react-native';
+import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,6 +21,7 @@ import type {
   NativeSyntheticEvent,
   ScrollViewProps as ScrollViewNativeProps,
   StyleProp,
+  TextInput,
   ViewStyle,
 } from 'react-native';
 
@@ -50,6 +51,29 @@ const scrollViewRefContext = createContext<{
 });
 const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
 export const useScrollView = () => useContext(scrollViewRefContext);
+
+export const useScrollToLocation = (inputRef: RefObject<TextInput>) => {
+  const actions = useScrollView();
+  const scrollToView = useCallback(() => {
+    if (platformEnv.isNative) {
+      setTimeout(() => {
+        inputRef.current?.measureInWindow((x, y) => {
+          const { pageOffsetRef, scrollViewRef } = actions;
+          const windowHeight = Dimensions.get('window').height;
+          const minY = windowHeight / 4;
+          const scrollY = y - minY;
+          if (scrollY > 0) {
+            scrollViewRef?.current?.scrollTo?.({
+              y: pageOffsetRef.current.y + scrollY,
+              animated: true,
+            });
+          }
+        });
+      }, 250);
+    }
+  }, [actions, inputRef]);
+  return useMemo(() => ({ scrollToView }), [scrollToView]);
+};
 
 const useSafeRef = (ref: ForwardedRef<IScrollViewRef>) => {
   const safeRef = useRef<ForwardedRef<IScrollViewRef>>();

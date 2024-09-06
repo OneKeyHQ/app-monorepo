@@ -1,21 +1,20 @@
-import type { ForwardedRef, MutableRefObject, Ref } from 'react';
+import type { ForwardedRef, MutableRefObject, Ref, RefObject } from 'react';
 import { forwardRef, useCallback, useRef } from 'react';
 
-import {
-  Dimensions,
-  type NativeSyntheticEvent,
-  type TextInput,
-  type TextInputFocusEventData,
-} from 'react-native';
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';
-import { useScrollView } from '../../layouts/ScrollView';
+import { useScrollToLocation } from '../../layouts/ScrollView';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
 import type { IInputProps } from '../Input';
+import type {
+  NativeSyntheticEvent,
+  TextInput,
+  TextInputFocusEventData,
+} from 'react-native';
 import type { TextAreaProps } from 'tamagui';
 
 export type ITextAreaProps = Pick<
@@ -51,30 +50,15 @@ function BaseTextArea(
 
   const inputRef = useSafeRef(ref);
   const selectionColor = useSelectionColor();
-  const actions = useScrollView();
+  const { scrollToView } = useScrollToLocation(
+    inputRef as RefObject<TextInput>,
+  );
   const handleFocus = useCallback(
     async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       onFocus?.(e);
-      if (platformEnv.isNative) {
-        setTimeout(() => {
-          const inputElement = (inputRef as MutableRefObject<TextInput>)
-            ?.current as unknown as TextInput | null;
-          inputElement?.measureInWindow((x, y) => {
-            const { pageOffsetRef, scrollViewRef } = actions;
-            const windowHeight = Dimensions.get('window').height;
-            const minY = windowHeight / 4;
-            const scrollY = y - minY;
-            if (scrollY > 0) {
-              scrollViewRef.current?.scrollTo({
-                y: pageOffsetRef.current.y + scrollY,
-                animated: true,
-              });
-            }
-          });
-        }, 250);
-      }
+      scrollToView();
     },
-    [onFocus, inputRef, actions],
+    [onFocus, scrollToView],
   );
 
   return (
