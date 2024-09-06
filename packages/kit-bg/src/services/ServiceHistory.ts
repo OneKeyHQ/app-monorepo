@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -118,10 +119,36 @@ class ServiceHistory extends ServiceBase {
       );
 
       if (confirmedTx) {
+        const confirmedTxNetworkId = localHistoryPendingTx.decodedTx.networkId;
+        const vaultSettings =
+          await this.backgroundApi.serviceNetwork.getVaultSettings({
+            networkId: confirmedTxNetworkId,
+          });
+        let fixedLocalHistoryId: string | undefined;
+        const remoteTxId = confirmedTx.data.eventId || confirmedTx.data.tx;
+        // If the vault uses the remote transaction ID, the local transaction ID needs to be fixed, like Ton
+        if (vaultSettings.useRemoteTxId) {
+          const confirmedTxAccountAddress =
+            await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              accountId: localHistoryPendingTx.decodedTx.accountId,
+              networkId: confirmedTxNetworkId,
+            });
+          fixedLocalHistoryId = accountUtils.buildLocalHistoryId({
+            networkId: localHistoryPendingTx.decodedTx.networkId,
+            accountAddress: confirmedTxAccountAddress,
+            txid: remoteTxId,
+          });
+        }
         confirmedTxs.push({
           ...localHistoryPendingTx,
+          id: vaultSettings.useRemoteTxId
+            ? fixedLocalHistoryId || localHistoryPendingTx.id
+            : localHistoryPendingTx.id,
           decodedTx: {
             ...localHistoryPendingTx.decodedTx,
+            txid: vaultSettings.useRemoteTxId
+              ? remoteTxId
+              : localHistoryPendingTx.decodedTx.txid,
             status:
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed

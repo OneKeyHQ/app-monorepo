@@ -228,6 +228,7 @@ export type IVaultSettings = {
 
   stakingConfig?: IStakingConfig;
   editApproveAmountEnabled?: boolean;
+  useRemoteTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
