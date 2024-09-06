@@ -78,9 +78,9 @@ export async function serializeProof({
   wcBuffer.writeUInt32BE(addr.wc, 0);
   const appDomainBuffer = Buffer.from(appDomain, 'utf-8');
   const appDomainLengthBuffer = Buffer.alloc(4);
-  appDomainLengthBuffer.writeUInt32BE(appDomainBuffer.length, 0);
+  appDomainLengthBuffer.writeUInt32LE(appDomainBuffer.length, 0);
   const timestampBuffer = Buffer.alloc(8);
-  timestampBuffer.writeBigUInt64BE(BigInt(timestamp), 0);
+  timestampBuffer.writeBigUInt64LE(BigInt(timestamp), 0);
   msgBytes = Buffer.concat([
     msgBytes,
     wcBuffer,
@@ -90,8 +90,8 @@ export async function serializeProof({
     timestampBuffer,
     Buffer.from(message, 'utf-8'),
   ]);
-  const hash = sha256(msgBytes);
-  const bytes = Buffer.concat([prefix, hash]);
+  const msgHash = sha256(msgBytes);
+  const bytes = sha256(Buffer.concat([prefix, msgHash]));
 
   return {
     msg: msgBytes,
