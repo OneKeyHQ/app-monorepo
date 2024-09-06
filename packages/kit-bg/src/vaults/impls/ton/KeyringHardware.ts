@@ -127,6 +127,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       walletVersion: versionMap[version as keyof typeof versionMap],
     };
     if (msg.jetton?.amount) {
+      hwParams.destination = msg.jetton.toAddress;
       hwParams.jettonAmount = Number(msg.jetton.amount);
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
       hwParams.jettonWalletAddress = msg.jetton.jettonWalletAddress;

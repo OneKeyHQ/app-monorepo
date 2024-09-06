@@ -144,6 +144,7 @@ export default class Vault extends VaultBase {
             jettonWalletAddress: jettonAddress,
             fwdFee,
             fwdPayload: forwardPayload,
+            toAddress: transfer.to,
           };
         }
         return msg;
