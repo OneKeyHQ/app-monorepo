@@ -174,7 +174,7 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   minUnstakeAmount?: number;
-  minClaimableAmount?: number;
+  minClaimableAmount?: string;
   overflow?: string;
 };
 

@@ -45,6 +45,7 @@ type IPortfolioValue = {
   pendingActive?: string;
   pendingActiveTooltip?: string;
   claimable?: string;
+  minClaimableNum?: string;
   token: IToken;
   onClaim?: () => void;
   onWithdraw?: () => void;
@@ -161,6 +162,7 @@ const PortfolioItem = ({
   onPress,
   buttonText,
   tooltip,
+  disabled,
 }: {
   tokenImageUri?: string;
   tokenSymbol: string;
@@ -169,6 +171,7 @@ const PortfolioItem = ({
   onPress?: () => void;
   buttonText?: string;
   tooltip?: string;
+  disabled?: boolean;
 }) => (
   <XStack alignItems="center" justifyContent="space-between">
     <XStack alignItems="center" gap="$1.5">
@@ -195,7 +198,7 @@ const PortfolioItem = ({
     </XStack>
     {buttonText && onPress ? (
       <XStack>
-        <Button variant="primary" onPress={onPress}>
+        <Button disabled={disabled} variant="primary" onPress={onPress}>
           {buttonText}
         </Button>
       </XStack>
@@ -209,6 +212,7 @@ function Portfolio({
   pendingActive,
   pendingActiveTooltip,
   claimable,
+  minClaimableNum,
   token,
   babylonOverflow,
   onClaim,
@@ -222,6 +226,11 @@ function Portfolio({
     Number(pendingActive) > 0 ||
     Number(babylonOverflow) > 0
   ) {
+    const isLessThanMinClaimable = Boolean(
+      minClaimableNum &&
+        claimable &&
+        Number(claimable) < Number(minClaimableNum),
+    );
     return (
       <YStack pt="$3" pb="$8" gap="$6" px="$5">
         <XStack justifyContent="space-between">
@@ -282,6 +291,17 @@ function Portfolio({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              tooltip={
+                isLessThanMinClaimable
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.earn_minimum_claim_tooltip,
+                      },
+                      { number: minClaimableNum, symbol: token.symbol },
+                    )
+                  : undefined
+              }
+              disabled={isLessThanMinClaimable}
             />
           ) : null}
         </YStack>
@@ -568,10 +588,11 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   );
 }
 function FAQ({ solutions }: { solutions: ISolutions }) {
+  const intl = useIntl();
   return (
     <YStack py="$8" gap="$6">
       <SizableText size="$headingLg" px="$5">
-        FAQ
+        {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
         {solutions.map(({ question, answer }, index) => (
@@ -777,6 +798,7 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
+      minClaimableNum: details.minClaimableAmount,
       babylonOverflow: details.overflow,
       token: details.token.info,
     };
