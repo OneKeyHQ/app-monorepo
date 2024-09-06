@@ -125,6 +125,7 @@ const settings: IVaultSettings = {
               tokenAddress: 'uatom',
               displayProfit: true,
               usePublicKey: true,
+              claimWithAmount: true,
             },
           },
         },

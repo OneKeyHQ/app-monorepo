@@ -138,11 +138,11 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'evm--137',
       'contractAddress': '',
-      'name': 'Matic',
-      'symbol': 'MATIC',
+      'name': 'Polygon',
+      'symbol': 'POL',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
 
       'isNative': true,
     },
@@ -188,7 +188,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1721283262262.png',
 
       'isNative': true,
     },
@@ -211,7 +211,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
       'isNative': true,
     },
     toToken: {
@@ -233,7 +233,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
       'isNative': true,
     },
     toToken: {
@@ -430,6 +430,42 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t-1720668500740.png',
       'isNative': false,
+    },
+  },
+  'sui--mainnet': {
+    fromToken: {
+      'networkId': 'sui--mainnet',
+      'contractAddress': '0x2::sui::SUI',
+      'name': 'Sui',
+      'symbol': 'SUI',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0x2::sui::SUI.png',
+      'isNative': true,
+    },
+  },
+  'ton--mainnet': {
+    fromToken: {
+      'networkId': 'ton--mainnet',
+      'contractAddress': '',
+      'name': 'Toncoin',
+      'symbol': 'TON',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'aptos--1': {
+    fromToken: {
+      'networkId': 'aptos--1',
+      'contractAddress': '0x1::aptos_coin::AptosCoin',
+      'name': 'Aptos Coin',
+      'symbol': 'APT',
+      'decimals': 8,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
+      'isNative': true,
     },
   },
 };
@@ -712,11 +748,12 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
     {
       'networkId': 'evm--137',
       'contractAddress': '',
-      'name': 'Matic',
-      'symbol': 'MATIC',
+      'name': 'Polygon',
+      'symbol': 'POL',
       'decimals': 18,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
+
       'isNative': true,
       'isPopular': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',

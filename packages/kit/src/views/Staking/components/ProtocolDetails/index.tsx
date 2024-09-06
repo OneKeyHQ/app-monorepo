@@ -40,7 +40,9 @@ type IStakedValue = {
 
 type IPortfolioValue = {
   pendingInactive?: string;
+  pendingInactivePeriod?: string;
   pendingActive?: string;
+  pendingActiveTooltip?: string;
   claimable?: string;
   token: IToken;
   onClaim?: () => void;
@@ -56,6 +58,7 @@ type IProfit = {
 
 type IProvider = {
   validator: {
+    isProtocol?: boolean;
     name: string;
     link: string;
   };
@@ -66,7 +69,6 @@ type IProvider = {
   untilNextLaunch?: {
     value: number;
     token: string;
-    tooltip: string;
   };
 };
 
@@ -80,7 +82,6 @@ type IEarnTokenDetailResult = {
   portfolio: IPortfolioValue;
   profit: IProfit;
   provider: IProvider;
-  solutions: ISolutions;
 };
 
 function StakedValue({
@@ -153,6 +154,7 @@ const PortfolioItem = ({
   statusText,
   onPress,
   buttonText,
+  tooltip,
 }: {
   tokenImageUri?: string;
   tokenSymbol: string;
@@ -160,11 +162,11 @@ const PortfolioItem = ({
   statusText: string;
   onPress?: () => void;
   buttonText?: string;
+  tooltip?: string;
 }) => (
   <XStack alignItems="center" justifyContent="space-between">
-    <XStack alignItems="center">
+    <XStack alignItems="center" gap="$1.5">
       <Token size="sm" tokenImageUri={tokenImageUri} />
-      <XStack w="$1.5" />
       <NumberSizeableText
         size="$bodyLgMedium"
         formatter="value"
@@ -172,10 +174,18 @@ const PortfolioItem = ({
       >
         {amount}
       </NumberSizeableText>
-      <XStack w="$1.5" />
       <XStack gap="$1" ai="center">
         <SizableText size="$bodyLg">{statusText}</SizableText>
       </XStack>
+      {tooltip ? (
+        <Tooltip
+          placement="top"
+          renderContent={tooltip}
+          renderTrigger={
+            <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+          }
+        />
+      ) : null}
     </XStack>
     {buttonText && onPress ? (
       <XStack>
@@ -189,7 +199,9 @@ const PortfolioItem = ({
 
 function Portfolio({
   pendingInactive,
+  pendingInactivePeriod,
   pendingActive,
+  pendingActiveTooltip,
   claimable,
   token,
   onClaim,
@@ -226,6 +238,16 @@ function Portfolio({
               statusText={intl.formatMessage({
                 id: ETranslations.earn_withdrawal_requested,
               })}
+              tooltip={
+                pendingInactivePeriod
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.earn_withdrawal_up_to_number_days,
+                      },
+                      { number: pendingInactivePeriod },
+                    )
+                  : undefined
+              }
             />
           ) : null}
           {pendingActive && Number(pendingActive) ? (
@@ -233,6 +255,7 @@ function Portfolio({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={pendingActive}
+              tooltip={pendingActiveTooltip}
               statusText={intl.formatMessage({
                 id: ETranslations.earn_pending_activation,
               })}
@@ -345,6 +368,9 @@ export function Profit({
         {earningsIn24h ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_24h_earnings_tooltip,
+            })}
             {...gridItemStyle}
           >
             <NumberSizeableText
@@ -406,11 +432,17 @@ export function Provider({
       </SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
         <GridItem
-          title={intl.formatMessage({ id: ETranslations.earn_validator })}
+          title={
+            validator.isProtocol
+              ? intl.formatMessage({ id: ETranslations.global_protocol })
+              : intl.formatMessage({ id: ETranslations.earn_validator })
+          }
           {...gridItemStyle}
           link={validator.link}
         >
-          {validator.name}
+          {`${validator.name.charAt(0).toUpperCase()}${validator.name.slice(
+            1,
+          )}`}
         </GridItem>
         {minStaking ? (
           <GridItem
@@ -432,7 +464,9 @@ export function Provider({
             title={intl.formatMessage({
               id: ETranslations.earn_until_next_launch,
             })}
-            tooltip={untilNextLaunch.tooltip}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_until_next_launch_tooltip,
+            })}
             {...gridItemStyle}
           >
             <SizableText>
@@ -485,11 +519,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
     </YStack>
   );
 }
-function FAQ({
-  solutions,
-}: {
-  solutions: { question: string; answer: string }[];
-}) {
+function FAQ({ solutions }: { solutions: ISolutions }) {
   return (
     <YStack py="$8" gap="$6">
       <SizableText size="$headingLg" px="$5">
@@ -661,6 +691,7 @@ export function ProtocolDetails({
   onPortfolioDetails,
   onCreateAddress,
 }: IProtocolDetails) {
+  const intl = useIntl();
   const result: IEarnTokenDetailResult | null = useMemo(() => {
     if (!details) {
       return null;
@@ -669,11 +700,32 @@ export function ProtocolDetails({
       validator: {
         name: details.provider.name,
         link: details.provider.website,
+        isProtocol: details.provider.name.toLowerCase() !== 'everstake',
       },
     };
+    let pendingActiveTooltip: string | undefined;
+    if (
+      details.provider.name.toLowerCase() === 'everstake' &&
+      details.token.info.name.toLowerCase() === 'eth'
+    ) {
+      pendingActiveTooltip = intl.formatMessage({
+        id: ETranslations.earn_pending_activation_tooltip_eth,
+      });
+    } else if (details.pendingActivatePeriod) {
+      pendingActiveTooltip = intl.formatMessage(
+        {
+          id: ETranslations.earn_pending_activation_tooltip,
+        },
+        { number: pendingActiveTooltip },
+      );
+    }
     const portfolio: IPortfolioValue = {
       pendingInactive: details.pendingInactive,
+      pendingInactivePeriod: details.unstakingPeriod
+        ? String(details.unstakingPeriod)
+        : undefined,
       pendingActive: details.pendingActive,
+      pendingActiveTooltip,
       claimable: details.claimable,
       token: details.token.info,
     };
@@ -687,7 +739,6 @@ export function ProtocolDetails({
       provider.untilNextLaunch = {
         value: Number(details.provider.nextLaunchLeft),
         token: details.token.info.symbol,
-        tooltip: 'tooltip',
       };
     }
     const profit: IProfit = {
@@ -706,32 +757,29 @@ export function ProtocolDetails({
       portfolio,
       profit,
       provider,
-      solutions: [
-        {
-          question: 'Lido 协议是如何工作的？',
-          answer:
-            'Lido 为传统 PoS 权益证明所带来的难题提供了一种创新解决方案，有效地降低了进入门槛和将资产锁定在单一协议中的成本。当用户将他们的资产存入 Lido 时，这些代币会通过协议在 Lido 多区块链上进行权益证明。',
-        },
-        {
-          question: '为什么你会收到 stETH？',
-          answer:
-            '当你向 Lido 存入 ETH 时，你会收到 Lido 的流动性质押代币，即 stETH，它代表了你在 Lido 中对 ETH 的比例索赔。当在 Lido 上运行的验证者获得奖励时，你有资格按照你的质押比例获得奖励，这通常预期每天发生。',
-        },
-        {
-          question: 'Lido 的可能风险是什么？',
-          answer:
-            '使用 Lido 进行质押存在一定的风险，例如网络或验证器故障可能导致质押资产的损失（罚款），或者 Lido 智能合约的漏洞或错误。尽管该代码已经开源，经过审计并得到广泛关注，但任何加密货币投资都存在风险，需要独立评估。',
-        },
-      ],
     };
     return data;
-  }, [details]);
+  }, [details, intl]);
+
+  const { result: solutions } = usePromiseResult(
+    async () =>
+      details
+        ? backgroundApiProxy.serviceStaking.getFAQList({
+            symbol: details.token.info.symbol,
+            provider: details.provider.name,
+          })
+        : Promise.resolve([]),
+    [details],
+    {
+      initResult: [],
+    },
+  );
 
   if (!result) {
     return null;
   }
 
-  const { solutions, stakedValue, portfolio, profit, provider } = result;
+  const { stakedValue, portfolio, profit, provider } = result;
   return (
     <YStack>
       {earnAccount?.accountAddress ? (

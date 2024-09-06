@@ -30,7 +30,7 @@ import {
   useSwapActions,
   useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
-  useSwapProviderSortAtom,
+  useSwapRecentTokenPairsAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenFetchingAtom,
@@ -43,7 +43,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const [, setSelectSort] = useSwapProviderSortAtom();
+  const [, setRecentTokenPairs] = useSwapRecentTokenPairsAtom();
   const { syncNetworksSort } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -195,19 +195,17 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      await fetchSwapNetworks();
+      const recentTokenPairs =
+        await backgroundApiProxy.simpleDb.swapConfigs.getRecentTokenPairs();
+      setRecentTokenPairs(recentTokenPairs);
     })();
-  }, [fetchSwapNetworks, swapNetworks.length]);
+  }, [setRecentTokenPairs]);
 
   useEffect(() => {
     void (async () => {
-      const swapConfigs =
-        await backgroundApiProxy.simpleDb.swapConfigs.getRawData();
-      if (swapConfigs?.providerSort) {
-        setSelectSort(swapConfigs.providerSort);
-      }
+      await fetchSwapNetworks();
     })();
-  }, [setSelectSort]);
+  }, [fetchSwapNetworks, swapNetworks.length]);
 
   useEffect(() => {
     void (async () => {
