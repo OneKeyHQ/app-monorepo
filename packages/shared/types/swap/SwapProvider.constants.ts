@@ -57,6 +57,8 @@ export const swapNetworksCommonCountMD = 5;
 export const swapRateDifferenceMax = -10;
 export const swapRateDifferenceMin = 0.05;
 
+export const maxRecentTokenPairs = 10;
+
 export enum ESwapProviderSort {
   RECOMMENDED = 'recommended',
   GAS_FEE = 'gasFee',
