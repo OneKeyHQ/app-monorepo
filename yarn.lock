@@ -6157,13 +6157,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.9":
-  version: 1.0.9
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.9"
+"@onekeyfe/react-native-lite-card@npm:1.0.10":
+  version: 1.0.10
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.10"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/d45ab7e4f1b6549e15ec4d2b01b96e9287787c80d03094baba4c5daea1ec6ab7be7f4637def45a2f4bfb3f32056f04657dbabf1b1c420a299def297a066f507e
+  checksum: 10/6b9f64b775b6f2f07a1a0754536aafde6347996eae8e6acf5f41cec82b5061966408d5938803f1631989fe2d378442f42efaf487d5716ff5b55f3393ef6d5236
   languageName: node
   linkType: hard
 
@@ -6534,7 +6534,7 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.9"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.10"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -6585,7 +6585,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-canvas: "npm:^0.1.39"
-    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.2"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-fast-image: "npm:8.6.3"
@@ -30598,10 +30598,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.2":
-  version: 2.6.2
-  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.2"
-  checksum: 10/7ed4a4b968859aeaeb264a8504b68b8f0b44e04550e303ce0e1d76295fb4ec75e5063991776658edde42f18108d185d71f9225fa27bc9e854a1f8524d42e152e
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.3":
+  version: 2.6.3
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.3"
+  checksum: 10/5ed16fd50e317820bec8f587144849ef9f21a5602bd5bde338330ee889c22f599212fd5728f678bdde693bb28a34899a8b86fb1634c350f871c6a899d7079d44
   languageName: node
   linkType: hard
 
