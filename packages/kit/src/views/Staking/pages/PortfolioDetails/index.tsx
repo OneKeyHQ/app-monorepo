@@ -187,7 +187,7 @@ const PortfolioDetails = () => {
         >
           {result ? (
             <ListView
-              estimatedItemSize={60}
+              estimatedItemSize={164}
               data={result[0]}
               renderItem={renderItem}
               ListFooterComponent={<Stack h="$2" />}

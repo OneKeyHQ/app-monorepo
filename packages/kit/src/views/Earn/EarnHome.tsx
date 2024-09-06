@@ -9,11 +9,13 @@ import {
   Badge,
   Button,
   Icon,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   YStack,
   useMedia,
@@ -170,21 +172,35 @@ function RecommendedContainer({
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_recommended })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {`${intl.formatMessage({
-            id: ETranslations.earn_missing_rewards,
-          })}: `}
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="balance"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-          >
-            {profit.toFixed()}
-          </NumberSizeableText>
-        </SizableText>
+        <XStack gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {`${intl.formatMessage({
+              id: ETranslations.earn_missing_rewards,
+            })}: `}
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {profit.toFixed()}
+            </NumberSizeableText>
+          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="InfoCircleOutline"
+              />
+            }
+            renderContent={intl.formatMessage({
+              id: ETranslations.earn_missing_rewards_tooltip,
+            })}
+          />
+        </XStack>
       </YStack>
       {children}
     </YStack>

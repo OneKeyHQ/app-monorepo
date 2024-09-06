@@ -24,16 +24,6 @@ export type IStakingInfo = {
   receive?: { amount: string; token: IToken };
 };
 
-export type ILidoHistorySendOrReceive = { amount: string; token: IToken };
-
-export type ILidoHistoryItem = {
-  label: string;
-  send?: ILidoHistorySendOrReceive;
-  receive?: ILidoHistorySendOrReceive;
-  txHash: string;
-  timestamp: number;
-};
-
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
@@ -107,7 +97,7 @@ export type IStakeHistory = {
   txId: string;
   title: string;
   type: string;
-  amount: string;
+  amount?: string;
   timestamp: number;
   tokenAddress: string;
   direction: 'receive' | 'send';
@@ -174,6 +164,9 @@ export type IStakeProtocolDetails = {
     price24h: string;
     info: IToken;
   };
+  network?: {
+    name: string;
+  };
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;
@@ -181,6 +174,8 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   minUnstakeAmount?: number;
+  minClaimableAmount?: string;
+  overflow?: string;
 };
 
 export type IStakeProtocolListItem = {
