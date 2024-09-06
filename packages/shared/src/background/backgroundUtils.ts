@@ -298,7 +298,7 @@ export const scopeNetworks: Record<
   'martian': [IMPL_APTOS],
   'tron': [IMPL_TRON],
   'algo': [IMPL_ALGO],
-  'alephium': [IMPL_ALPH],
+  // 'alephium': [IMPL_ALPH],
   'sui': [IMPL_SUI],
   'ton': [IMPL_TON],
   'scdo': [IMPL_SCDO],
