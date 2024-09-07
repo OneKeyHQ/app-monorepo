@@ -44,13 +44,8 @@ import okio.BufferedSource;
 import okio.Okio;
 
 public class AutoUpdateModule extends ReactContextBaseJavaModule {
-    private NotificationManagerCompat mNotifyManager;
-    private NotificationCompat.Builder mBuilder;
-    private ReactApplicationContext rContext;
-    private Thread rThread;
-    private Boolean isDownloading = false;
-    private int notifiactionId = 1;
-    private String channelId = "updateApp";
+    private static final String CHANNEL_ID = "updateApp";
+    private static final int NOTIFICATION_ID = 1;
     private static final String PUBLIC_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n" +
             "\n" +
             "mQINBGJATGwBEADL1K7b8dzYYzlSsvAGiA8mz042pygB7AAh/uFUycpNQdSzuoDE\n" +
@@ -104,13 +99,19 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             "=F0np\n" +
             "-----END PGP PUBLIC KEY BLOCK-----";
 
+    private NotificationManagerCompat mNotifyManager;
+    private NotificationCompat.Builder mBuilder;
+    private ReactApplicationContext rContext;
+    private Thread rThread;
+    private boolean isDownloading = false;
 
-    AutoUpdateModule(ReactApplicationContext context) {
+    public AutoUpdateModule(ReactApplicationContext context) {
         super(context);
         rContext = context;
         mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
     }
 
+    @Override
     public String getName() {
         return "AutoUpdateModule";
     }
@@ -130,10 +131,11 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     private File buildFile(String path) {
         return new File(path.replace("file:///", "/"));
     }
+
     private String bytesToHex(byte[] bytes) {
-        StringBuffer result = new StringBuffer();
-        for (byte byt : bytes) {
-            result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
         }
         return result.toString();
     }
