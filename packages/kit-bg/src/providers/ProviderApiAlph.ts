@@ -347,7 +347,7 @@ class ProviderApiAlph extends ProviderApiBase {
       unsignedTx: params.unsignedTx,
       txId: result.txid,
       signature: result.signature as string,
-    }
+    };
     return res;
   }
 
