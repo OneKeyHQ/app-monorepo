@@ -21,6 +21,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';
+import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
@@ -206,6 +207,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     valueRef.current = value;
   }
 
+  const { scrollToView } = useScrollToLocation(inputRef);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
     async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
@@ -218,8 +220,9 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           });
         });
       }
+      scrollToView();
     },
-    [onFocus, selectTextOnFocus],
+    [onFocus, selectTextOnFocus, scrollToView],
   );
 
   return (

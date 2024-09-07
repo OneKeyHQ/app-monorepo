@@ -159,6 +159,7 @@ function ScanQrCodeModalFooter({
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
+            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}

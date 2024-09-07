@@ -171,7 +171,7 @@ export function ImportSingleChainBase({
   const { start } = useScanQrCode();
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body px="$5">
         <Form form={form}>
