@@ -1,5 +1,11 @@
 package so.onekey.app.wallet;
 
+import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPSignature;
+import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
+import java.util.Base64;
+import java.io.ByteArrayInputStream;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -16,10 +22,13 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +41,8 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
@@ -140,7 +151,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         return result.toString();
     }
 
-    public boolean checkFilePackage(File file, @Nullable String sha256, Promise promise) {
+    public boolean checkFilePackage(File file, @Nullable String downloadUrl,  Promise promise) {
         PackageManager pm = getReactApplicationContext().getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
         String appPackageName = getReactApplicationContext().getPackageName();
@@ -157,7 +168,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             // Fetch the signature file
             String ascFileUrl = downloadUrl + ".SHA256SUMS.asc";
             URL url = new URL(ascFileUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
             BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
             StringBuilder ascFileContent = new StringBuilder();
             String line;
@@ -167,9 +178,11 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             reader.close();
             
             // Verify GPG signature
+
             PGPPublicKeyRing publicKeyRing = PGPPublicKeyRing.decodePublicKeyRing(Base64.getDecoder().decode(PUBLIC_KEY));
-            PGPSignature signature = PGPSignature.readSignatures(new ByteArrayInputStream(ascFileContent.toString().getBytes())).get(0);
-            signature.init(new BcPGPContentVerifierBuilderProvider(), publicKeyRing.getPublicKey());
+            JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(new ByteArrayInputStream(ascFileContent.toString().getBytes()));
+            PGPSignature signature = ((PGPSignatureList) pgpFact.nextObject()).get(0);
+            signature.init(new JcaPGPContentVerifierBuilderProvider().setProvider("BC"), publicKeyRing.getPublicKey());
             
             if (!signature.verify()) {
                 promise.reject(new Exception("GPG signature verification failed"));
@@ -207,13 +220,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String sha256 = map.getString("sha256");
+        String downloadUrl = map.getString("downloadUrl");
 
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("The APK file does not exist."));
         }
-        boolean isValidAPK = this.checkFilePackage(downloadedFile, sha256, promise);
+        boolean isValidAPK = this.checkFilePackage(downloadedFile, downloadUrl, promise);
         if (isValidAPK) {
             promise.resolve(null);
         }
@@ -233,7 +246,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("url");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
-        String sha256 = map.getString("sha256");
         boolean isResume = map.getBoolean("isResume");
         if (this.isDownloading) {
             return;
@@ -260,7 +272,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                     }
                 }
 
-                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId)
+                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), CHANNEL_ID)
                         .setContentTitle(notificationTitle)
                         .setContentText("Download in progress")
                         .setOngoing(true)
@@ -268,7 +280,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .setSmallIcon(R.drawable.ic_notification);
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel channel = new NotificationChannel(channelId, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
+                    NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
                     mNotifyManager.createNotificationChannel(channel);
                 }
 
@@ -331,7 +343,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                                 return;
                             }
                             mBuilder.setProgress(100, progress, false);
-                            notifyNotification(notifiactionId, mBuilder);
+                            notifyNotification(NOTIFICATION_ID, mBuilder);
                             prevProgress = progress;
                             if (this.checkInterrupt()) {
                                 return;
@@ -360,7 +372,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
 
-                boolean isValidAPK = checkFilePackage(downloadedFile, sha256, promise);
+                boolean isValidAPK = checkFilePackage(downloadedFile, url, promise);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
                 installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                 installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -368,14 +380,14 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 PendingIntent pendingIntent = isValidAPK ? PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                         : null;
 
-                mNotifyManager.cancel(notifiactionId);
+                mNotifyManager.cancel(NOTIFICATION_ID);
                 mBuilder.setContentText("Download completed, click to install")
                         .setProgress(0, 0, false)
                         .setOngoing(false)
                         .setContentIntent(pendingIntent)
                         .setAutoCancel(true);
 
-                notifyNotification(notifiactionId, mBuilder);
+                notifyNotification(NOTIFICATION_ID, mBuilder);
                 Log.d("UPDATE APP", "downloadPackage: notifyNotification done");
                 promise.resolve(null);
             }
@@ -399,9 +411,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String sha256 = map.getString("sha256");
+        String downloadUrl = map.getString("downloadUrl");
         File file = buildFile(filePath);
-        if (!this.checkFilePackage(file, sha256, promise)) {
+        if (!this.checkFilePackage(file, downloadUrl, promise)) {
             return;
         }
         try {
