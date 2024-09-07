@@ -4,6 +4,7 @@ import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureList;
 import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
+import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
 import java.util.Base64;
 import java.io.ByteArrayInputStream;
@@ -180,7 +181,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             
             // Verify GPG signature
 
-            PGPPublicKeyRing publicKeyRing = PGPPublicKeyRing.decodePublicKeyRing(Base64.getDecoder().decode(PUBLIC_KEY));
+            PGPPublicKeyRing publicKeyRing = new PGPPublicKeyRing(new ByteArrayInputStream(PUBLIC_KEY.getBytes()), new JcaKeyFingerprintCalculator());
             JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(new ByteArrayInputStream(ascFileContent.toString().getBytes()));
             PGPSignature signature = ((PGPSignatureList) pgpFact.nextObject()).get(0);
             signature.init(new JcaPGPContentVerifierBuilderProvider().setProvider("BC"), publicKeyRing.getPublicKey());
