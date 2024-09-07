@@ -13,7 +13,7 @@ import { Popover as TMPopover, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { FIX_SHEET_PROPS } from '../../composite';
+import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Portal } from '../../hocs';
 import {
   useBackHandler,
@@ -118,6 +118,7 @@ export const usePopoverContext = () => {
   };
 };
 
+const when: (state: { media: UseMediaState }) => boolean = () => true;
 function RawPopover({
   title,
   open: isOpen,
@@ -134,42 +135,32 @@ function RawPopover({
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
-  let transformOrigin;
-
-  switch (placement) {
-    case 'top':
-      transformOrigin = 'bottom center';
-      break;
-    case 'bottom':
-      transformOrigin = 'top center';
-      break;
-    case 'left':
-      transformOrigin = 'right center';
-      break;
-    case 'right':
-      transformOrigin = 'left center';
-      break;
-    case 'top-start':
-      transformOrigin = 'bottom left';
-      break;
-    case 'top-end':
-      transformOrigin = 'bottom right';
-      break;
-    case 'right-start':
-      transformOrigin = 'top left';
-      break;
-    case 'bottom-start':
-      transformOrigin = 'top left';
-      break;
-    case 'left-start':
-      transformOrigin = 'top right';
-      break;
-    case 'left-end':
-      transformOrigin = 'bottom right';
-      break;
-    default:
-      transformOrigin = 'top right';
-  }
+  const transformOrigin = useMemo(() => {
+    switch (placement) {
+      case 'top':
+        return 'bottom center';
+      case 'bottom':
+        return 'top center';
+      case 'left':
+        return 'right center';
+      case 'right':
+        return 'left center';
+      case 'top-start':
+        return 'bottom left';
+      case 'top-end':
+        return 'bottom right';
+      case 'right-start':
+        return 'top left';
+      case 'bottom-start':
+        return 'top left';
+      case 'left-start':
+        return 'top right';
+      case 'left-end':
+        return 'bottom right';
+      default:
+        return 'top right';
+    }
+  }, [placement]);
 
   const handleClosePopover = useCallback(
     () =>
@@ -231,11 +222,7 @@ function RawPopover({
   );
   const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const keyboardHeight = useKeyboardHeight();
-  const when = useCallback(
-    (state?: { media?: UseMediaState }) =>
-      platformEnv.isNative || !!state?.media?.md,
-    [],
-  );
+
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
@@ -250,6 +237,7 @@ function RawPopover({
       </PopoverContent>
     </PopoverContext.Provider>
   );
+
   return (
     <TMPopover
       offset={8}
@@ -302,7 +290,7 @@ function RawPopover({
       </TMPopover.Content>
       {/* sheet */}
       {usingSheet ? (
-        <TMPopover.Adapt when={when}>
+        <TMPopover.Adapt when={platformEnv.isNative ? when : 'md'}>
           <TMPopover.Sheet
             dismissOnSnapToBottom
             animation="quick"
