@@ -34,14 +34,18 @@ export type IStakeProviderInfo = {
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
+  minClaimableAmount?: string;
   isNative: string;
   nextLaunchLeft?: string;
   labels?: string[];
+
+  // babylon
   minStakeTerm?: number;
   maxStakeTerm?: number;
   minStakeBlocks?: number;
   maxStakeBlocks?: number;
   unbondingTime?: number;
+  stakingCap?: string;
 };
 
 export type IStakeBaseParams = {
@@ -174,7 +178,6 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   minUnstakeAmount?: number;
-  minClaimableAmount?: string;
   overflow?: string;
 };
 

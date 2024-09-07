@@ -13,7 +13,7 @@ export const useWalletAddress = ({
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
 }) => {
-  const { account, indexedAccount, network } = activeAccount;
+  const { account, indexedAccount, network, wallet } = activeAccount;
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
 
@@ -33,9 +33,10 @@ export const useWalletAddress = ({
       params: {
         accountId: account?.id,
         indexedAccountId: indexedAccount.id,
+        walletId: wallet?.id,
       },
     });
-  }, [appNavigation, account, indexedAccount]);
+  }, [appNavigation, account, indexedAccount, wallet]);
 
   return {
     isEnable,

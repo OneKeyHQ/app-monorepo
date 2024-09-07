@@ -89,6 +89,18 @@ const StakePage = () => {
   const intl = useIntl();
   const providerLabel = useProviderLabel(provider.name);
 
+  const isReachBabylonCap = useMemo<boolean | undefined>(() => {
+    if (provider && provider.name === 'babylon') {
+      const { stakingCap, totalStaked } = provider;
+      return (
+        Number(stakingCap) > 0 &&
+        Number(totalStaked) > 0 &&
+        Number(totalStaked) > Number(stakingCap)
+      );
+    }
+    return false;
+  }, [provider]);
+
   return (
     <Page>
       <Page.Header
@@ -113,6 +125,8 @@ const StakePage = () => {
           providerLogo={provider.logoURI}
           providerName={provider.name}
           providerLabel={providerLabel}
+          isReachBabylonCap={isReachBabylonCap}
+          isDisabled={isReachBabylonCap}
           onConfirm={onConfirm}
         />
       </Page.Body>
