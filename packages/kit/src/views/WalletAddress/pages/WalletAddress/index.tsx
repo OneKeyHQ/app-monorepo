@@ -396,12 +396,12 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, indexedAccountId } = route.params;
+  const { accountId, walletId, indexedAccountId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId },
+          { accountId, walletId },
         );
       const networkIds = Array.from(
         new Set(
@@ -418,7 +418,7 @@ export default function WalletAddressPage({
         );
       return { networksAccount, networks };
     },
-    [accountId, indexedAccountId],
+    [accountId, indexedAccountId, walletId],
     {
       initResult: {
         networksAccount: [],
