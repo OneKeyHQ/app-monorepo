@@ -236,13 +236,18 @@ export const useSuggestion = (
   const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
-    (value: string) => {
-      const arrays = value.split(' ');
-      if (arrays.length === phraseLength) {
+    (value: string, inputIndex: number) => {
+      const arrays = value.trim().split(' ');
+      if (arrays.length > 1) {
         setTimeout(() => {
           clearText();
+          const values: string[] = Object.values(form.getValues()).slice(
+            0,
+            inputIndex,
+          );
+          const words = [...values, ...arrays].slice(0, phraseLength);
           form.reset(
-            arrays.reduce((prev, next, index) => {
+            words.reduce((prev, next, index) => {
               prev[`phrase${index + 1}`] = next;
               return prev;
             }, {} as Record<`phrase${number}`, string>),

@@ -246,7 +246,7 @@ class ProviderApiTon extends ProviderApiBase {
     });
 
     return {
-      signature: result,
+      signature: Buffer.from(result as string, 'hex').toString('base64'),
       timestamp,
       domain: {
         lengthBytes: Buffer.from(appDomain).length,
