@@ -180,80 +180,90 @@ export default class VaultAptos extends VaultBase {
     const network = await this.getNetwork();
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+    const { swapInfo } = unsignedTx;
     const { type, function: fun } = encodedTx;
     const account = await this.getAccount();
     if (!encodedTx?.sender) {
       encodedTx.sender = account.address;
     }
     let action: IDecodedTxAction | null = null;
-    const actionType = getTransactionTypeByPayload({
-      type: type ?? 'entry_function_payload',
-      function_name: fun,
-    });
 
-    if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
-      const { sender } = encodedTx;
-      const [coinType] = encodedTx.type_arguments || [];
-      const [to, amountValue] = encodedTx.arguments || [];
-      const tokenInfo = await this.backgroundApi.serviceToken.getToken({
-        networkId: network.id,
-        accountId: this.accountId,
-        tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+    if (swapInfo) {
+      const [toAddress] = encodedTx.arguments || [];
+      action = await this.buildInternalSwapAction({
+        swapInfo,
+        swapToAddress: toAddress,
       });
-      if (tokenInfo) {
-        const amount = new BigNumber(amountValue)
-          .shiftedBy(-tokenInfo.decimals)
-          .toFixed();
+    } else {
+      const actionType = getTransactionTypeByPayload({
+        type: type ?? 'entry_function_payload',
+        function_name: fun,
+      });
 
-        action = await this.buildTxTransferAssetAction({
-          from: sender,
-          to,
-          transfers: [
-            {
-              from: sender,
-              to,
-              amount,
-              icon: tokenInfo.logoURI ?? '',
-              name: tokenInfo.symbol,
-              symbol: tokenInfo.symbol,
-              tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
-              isNative: !coinType || coinType === APTOS_NATIVE_COIN,
-            },
-          ],
+      if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+        const { sender } = encodedTx;
+        const [coinType] = encodedTx.type_arguments || [];
+        const [to, amountValue] = encodedTx.arguments || [];
+        const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+          networkId: network.id,
+          accountId: this.accountId,
+          tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
         });
-      }
-    } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
-      action = {
-        type: EDecodedTxActionType.FUNCTION_CALL,
-        direction: EDecodedTxDirection.OTHER,
-        functionCall: {
-          from: encodedTx.sender,
-          to: '',
-          functionName: fun ?? '',
-          args:
-            encodedTx.arguments?.map((a) => {
-              if (
-                typeof a === 'string' ||
-                typeof a === 'number' ||
-                typeof a === 'boolean' ||
-                typeof a === 'bigint'
-              ) {
-                return a.toString();
-              }
-              if (a instanceof Array) {
-                try {
-                  return bufferUtils.bytesToHex(a as unknown as Uint8Array);
-                } catch (e) {
-                  return JSON.stringify(a);
+        if (tokenInfo) {
+          const amount = new BigNumber(amountValue)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed();
+
+          action = await this.buildTxTransferAssetAction({
+            from: sender,
+            to,
+            transfers: [
+              {
+                from: sender,
+                to,
+                amount,
+                icon: tokenInfo.logoURI ?? '',
+                name: tokenInfo.symbol,
+                symbol: tokenInfo.symbol,
+                tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+                isNative: !coinType || coinType === APTOS_NATIVE_COIN,
+              },
+            ],
+          });
+        }
+      } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
+        action = {
+          type: EDecodedTxActionType.FUNCTION_CALL,
+          direction: EDecodedTxDirection.OTHER,
+          functionCall: {
+            from: encodedTx.sender,
+            to: '',
+            functionName: fun ?? '',
+            args:
+              encodedTx.arguments?.map((a) => {
+                if (
+                  typeof a === 'string' ||
+                  typeof a === 'number' ||
+                  typeof a === 'boolean' ||
+                  typeof a === 'bigint'
+                ) {
+                  return a.toString();
                 }
-              }
-              if (!a) {
-                return '';
-              }
-              return JSON.stringify(a);
-            }) ?? [],
-        },
-      };
+                if (a instanceof Array) {
+                  try {
+                    return bufferUtils.bytesToHex(a as unknown as Uint8Array);
+                  } catch (e) {
+                    return JSON.stringify(a);
+                  }
+                }
+                if (!a) {
+                  return '';
+                }
+                return JSON.stringify(a);
+              }) ?? [],
+          },
+        };
+      }
     }
 
     if (!action) {
