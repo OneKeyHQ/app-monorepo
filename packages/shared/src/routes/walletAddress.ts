@@ -34,6 +34,7 @@ export type IModalWalletAddressParamList = {
   [EModalWalletAddressRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
   [EModalWalletAddressRoutes.WalletAddress]: {
     accountId?: string;
+    walletId?: string;
     indexedAccountId: string;
   };
 };

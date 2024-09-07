@@ -66,8 +66,9 @@ type IProvider = {
     name: string;
     link: string;
   };
-  minStaking?: {
-    value: number;
+  minOrMaxStaking?: {
+    minValue?: number;
+    maxValue?: number;
     token: string;
   };
   untilNextLaunch?: {
@@ -465,7 +466,7 @@ export function Profit({
 
 export function Provider({
   validator,
-  minStaking,
+  minOrMaxStaking,
   untilNextLaunch,
   network,
 }: IProvider) {
@@ -504,19 +505,20 @@ export function Provider({
             1,
           )}`}
         </GridItem>
-        {minStaking ? (
+        {minOrMaxStaking ? (
           <GridItem
             title={intl.formatMessage({
               id: ETranslations.earn_min_max_staking,
             })}
             {...gridItemStyle}
           >
-            <NumberSizeableText
-              formatter="value"
-              formatterOptions={{ tokenSymbol: minStaking.token }}
-            >
-              {minStaking.value}
-            </NumberSizeableText>
+            <SizableText>
+              {minOrMaxStaking.minValue && minOrMaxStaking.maxValue
+                ? `${minOrMaxStaking.minValue}/${minOrMaxStaking.maxValue}${minOrMaxStaking.token}`
+                : `${
+                    minOrMaxStaking.minValue || minOrMaxStaking.maxValue || ''
+                  }${minOrMaxStaking.token}`}
+            </SizableText>
           </GridItem>
         ) : null}
         {untilNextLaunch ? (
@@ -798,13 +800,14 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
-      minClaimableNum: details.minClaimableAmount,
+      minClaimableNum: details.provider.minClaimableAmount,
       babylonOverflow: details.overflow,
       token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
-      provider.minStaking = {
-        value: Number(details.provider.minStakeAmount),
+      provider.minOrMaxStaking = {
+        minValue: Number(details.provider.minStakeAmount),
+        maxValue: Number(details.provider.maxStakeAmount),
         token: details.token.info.symbol,
       };
     }
