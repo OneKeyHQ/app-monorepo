@@ -169,6 +169,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
         String sha256 = map.getString("sha256");
+        boolean isResume = map.getBoolean("isResume");
         if (this.isDownloading) {
             return;
         }
@@ -185,8 +186,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
             public void run() {
                 File downloadedFile = buildFile(filePath);
+                long downloadedLength = 0;
                 if (downloadedFile.exists()) {
-                    downloadedFile.delete();
+                    if (isResume) {
+                        downloadedLength = downloadedFile.length();
+                    } else {
+                        downloadedFile.delete();
+                    }
                 }
 
                 mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId)
@@ -198,13 +204,15 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(channelId, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
-
                     mNotifyManager.createNotificationChannel(channel);
                 }
 
-                Request request = new Request.Builder().url(url).build();
+                Request request = new Request.Builder()
+                        .url(url)
+                        .addHeader("Range", "bytes=" + downloadedLength + "-")
+                        .build();
                 OkHttpClient client = new OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.MILLISECONDS)
+                        .connectTimeout(10, TimeUnit.SECONDS)
                         .build();
                 Response response = null;
                 this.call = client.newCall(request);
@@ -221,22 +229,22 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
 
                 ResponseBody body = response.body();
-                long contentLength = body.contentLength();
+                long contentLength = body.contentLength() + downloadedLength;
                 BufferedSource source = body.source();
 
                 BufferedSink sink = null;
                 try {
-                    sink = Okio.buffer(Okio.sink(downloadedFile));
+                    sink = Okio.buffer(Okio.appendingSink(downloadedFile));
                 } catch (FileNotFoundException e) {
                     sendDownloadError(e, promise);
                     return;
                 }
                 Buffer sinkBuffer = sink.buffer();
 
-                long totalBytesRead = 0;
+                long totalBytesRead = downloadedLength;
                 int bufferSize = 8 * 1024;
                 sendEvent("update/start", null);
-                int prevProgress = 0;
+                int prevProgress = (int) ((totalBytesRead * 100) / contentLength);
                 try {
                     for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1;) {
                         try {
