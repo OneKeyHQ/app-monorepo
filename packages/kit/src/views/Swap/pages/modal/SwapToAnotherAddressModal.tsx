@@ -54,11 +54,7 @@ const SwapToAnotherAddressPage = () => {
     reValidateMode: 'onBlur',
   });
   useEffect(() => {
-    if (
-      address &&
-      address !== paramAddress &&
-      accountInfo?.account?.address === address
-    ) {
+    if (address && accountInfo?.account?.address === address) {
       form.setValue('address', { raw: address });
     }
   }, [accountInfo?.account?.address, address, form, paramAddress]);

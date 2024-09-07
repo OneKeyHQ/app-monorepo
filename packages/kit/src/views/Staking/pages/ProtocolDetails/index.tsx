@@ -182,6 +182,7 @@ const ProtocolDetailsPage = () => {
               earnAccount={earnAccount}
               details={result}
               onClaim={onClaim}
+              onWithdraw={onWithdraw}
               onPortfolioDetails={onPortfolioDetails}
               onCreateAddress={onCreateAddress}
             />

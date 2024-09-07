@@ -26,11 +26,11 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import {
+  useSwapActions,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteListAtom,
-  useSwapRecentTokenPairsAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -49,8 +49,8 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapRecentTokenPairs] = useSwapRecentTokenPairsAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
+  const { swapRecentTokenPairsUpdate } = useSwapActions().current;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -68,15 +68,9 @@ export function useSwapBuildTx() {
       swapFromToken: ISwapToken;
       swapToToken: ISwapToken;
     }) => {
-      setSwapRecentTokenPairs([
-        { fromToken: swapFromToken, toToken: swapToToken },
-      ]);
-      await backgroundApiProxy.simpleDb.swapConfigs.addRecentTokenPair(
-        swapFromToken,
-        swapToToken,
-      );
+      await swapRecentTokenPairsUpdate(swapFromToken, swapToToken);
     },
-    [setSwapRecentTokenPairs],
+    [swapRecentTokenPairsUpdate],
   );
 
   const handleBuildTxSuccess = useCallback(
@@ -90,10 +84,6 @@ export function useSwapBuildTx() {
         const { swapInfo } = transactionSignedInfo;
         const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
         if (swapInfo) {
-          await syncRecentTokenPairs({
-            swapFromToken: swapInfo.sender.token,
-            swapToToken: swapInfo.receiver.token,
-          });
           await generateSwapHistoryItem({
             txId,
             gasFeeFiatValue: totalFeeFiatValue,
@@ -109,7 +99,6 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching,
       setSwapFromTokenAmount,
       setSwapQuoteResultList,
-      syncRecentTokenPairs,
     ],
   );
 
@@ -396,6 +385,10 @@ export function useSwapBuildTx() {
             onSuccess: handleBuildTxSuccess,
             onCancel: cancelBuildTx,
           });
+          void syncRecentTokenPairs({
+            swapFromToken: fromToken,
+            swapToToken: toToken,
+          });
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             swapType: EProtocolOfExchange.SWAP,
             slippage: slippageItem.value.toString(),
@@ -421,7 +414,6 @@ export function useSwapBuildTx() {
       }
     }
   }, [
-    setSettings,
     fromToken,
     toToken,
     selectQuote?.fromAmount,
@@ -439,7 +431,9 @@ export function useSwapBuildTx() {
     navigationToSendConfirm,
     handleBuildTxSuccess,
     cancelBuildTx,
+    syncRecentTokenPairs,
     isFirstTimeSwap,
+    setSettings,
     setSwapShouldRefreshQuote,
   ]);
 
