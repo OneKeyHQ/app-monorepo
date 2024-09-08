@@ -1,5 +1,6 @@
 import type {
   ISwapApproveTransaction,
+  ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -9,6 +10,7 @@ import { globalAtom } from '../utils';
 export type IInAppNotificationAtom = {
   swapHistoryPendingList: ISwapTxHistory[];
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
+  swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
 };
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
@@ -17,5 +19,6 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
     initialValue: {
       swapHistoryPendingList: [],
       swapApprovingTransaction: undefined,
+      swapRecentTokenPairs: [],
     },
   });

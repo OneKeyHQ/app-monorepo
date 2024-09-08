@@ -30,7 +30,6 @@ import {
   useSwapActions,
   useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
-  useSwapRecentTokenPairsAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenFetchingAtom,
@@ -43,7 +42,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const [, setRecentTokenPairs] = useSwapRecentTokenPairsAtom();
+  const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const { syncNetworksSort } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -197,9 +196,12 @@ export function useSwapInit(params?: ISwapInitParams) {
     void (async () => {
       const recentTokenPairs =
         await backgroundApiProxy.simpleDb.swapConfigs.getRecentTokenPairs();
-      setRecentTokenPairs(recentTokenPairs);
+      setInAppNotificationAtom((prev) => ({
+        ...prev,
+        swapRecentTokenPairs: recentTokenPairs,
+      }));
     })();
-  }, [setRecentTokenPairs]);
+  }, [setInAppNotificationAtom]);
 
   useEffect(() => {
     void (async () => {

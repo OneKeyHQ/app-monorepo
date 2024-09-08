@@ -19,8 +19,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  maxRecentTokenPairs,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
@@ -966,6 +968,73 @@ export default class ServiceSwap extends ServiceBase {
       statusPendingList.map(async (swapTxHistory) => {
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
+    );
+  }
+
+  @backgroundMethod()
+  async swapRecentTokenPairsUpdate({
+    fromToken,
+    toToken,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+  }) {
+    let { swapRecentTokenPairs: recentTokenPairs } =
+      await inAppNotificationAtom.get();
+    const isExit = recentTokenPairs.some(
+      (pair) =>
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.fromToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.toToken,
+          })) ||
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.toToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.fromToken,
+          })),
+    );
+    if (isExit) {
+      recentTokenPairs = recentTokenPairs.filter(
+        (pair) =>
+          !(
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.fromToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.toToken,
+              })) ||
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.toToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.fromToken,
+              }))
+          ),
+      );
+    }
+    let newRecentTokenPairs = [{ fromToken, toToken }, ...recentTokenPairs];
+    if (newRecentTokenPairs.length > maxRecentTokenPairs) {
+      newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: newRecentTokenPairs,
+    }));
+    await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
+      fromToken,
+      toToken,
+      isExit,
     );
   }
 }
