@@ -6,7 +6,6 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Portal } from '../../hocs';
 import {
@@ -125,12 +124,14 @@ export function ToastContent({
   icon,
   maxWidth,
   actions,
+  actionsAlign = 'right',
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
   actions?: IToastProps['actions'];
+  actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
@@ -180,7 +181,9 @@ export function ToastContent({
           {actions ? (
             <XStack
               gap="$2"
-              justifyContent="flex-end"
+              justifyContent={
+                actionsAlign === 'left' ? 'flex-start' : 'flex-end'
+              }
               paddingTop="$3"
               paddingRight="$0.5"
               paddingBottom="$0.5"

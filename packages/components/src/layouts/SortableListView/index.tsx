@@ -1,5 +1,5 @@
 import { Fragment, forwardRef, useCallback, useMemo } from 'react';
-import type { ForwardedRef } from 'react';
+import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { useStyle } from '@tamagui/core';
 // eslint-disable-next-line spellcheck/spell-checker
@@ -21,6 +21,19 @@ import { ListView } from '../ListView';
 import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { DragStart, DropResult } from 'react-beautiful-dnd';
 import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
+
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, '__react-beautiful-dnd-disable-dev-warnings', {
+    value: true,
+  });
+}
+
+function FragmentComponent({
+  key,
+  children,
+}: PropsWithChildren & { key?: React.Key }) {
+  return <Fragment key={key}>{children}</Fragment>;
+}
 
 let lastIndexHeight: undefined | number;
 
@@ -226,7 +239,7 @@ function BaseSortableListView<T>(
                 paddingBottom: overridePaddingBottom,
               }}
               renderItem={reloadRenderItem as ListRenderItem<T>}
-              CellRendererComponent={Fragment}
+              CellRendererComponent={FragmentComponent}
               getItemLayout={getItemLayout}
               keyExtractor={keyExtractor}
               stickyHeaderIndices={stickyHeaderIndices}

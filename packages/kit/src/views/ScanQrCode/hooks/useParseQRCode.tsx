@@ -171,7 +171,11 @@ const useParseQRCode = () => {
             children: (
               <Stack p="$4">
                 <ToastContent
-                  title="QR wallet detected. Go to connect this wallet?"
+                  title=""
+                  message={intl.formatMessage({
+                    id: ETranslations.scan_qr_wallet_detected,
+                  })}
+                  actionsAlign="left"
                   actions={[
                     <Button
                       key="1"
@@ -187,7 +191,9 @@ const useParseQRCode = () => {
                         });
                       }}
                     >
-                      Connect
+                      {intl.formatMessage({
+                        id: ETranslations.global_connect,
+                      })}
                     </Button>,
                     <Button
                       key="2"
@@ -196,7 +202,9 @@ const useParseQRCode = () => {
                         void toast.close();
                       }}
                     >
-                      Ignore
+                      {intl.formatMessage({
+                        id: ETranslations.global_ignore,
+                      })}
                     </Button>,
                   ]}
                 />
@@ -210,7 +218,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [navigation, showCopyDialog],
+    [navigation, showCopyDialog, intl],
   );
   return useMemo(() => ({ parse }), [parse]);
 };
