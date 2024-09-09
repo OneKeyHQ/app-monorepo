@@ -47,7 +47,7 @@ export const useDownloadPackage = () => {
             ...params,
             ...result,
           }),
-          timerUtils.wait(3000),
+          timerUtils.wait(4500),
         ]);
         await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       } catch (e) {
