@@ -20,7 +20,7 @@ export type IEncodedTxAlph = {
     | SignDeployContractTxParams
     | SignExecuteScriptTxParams
     | (SignUnsignedTxParams & {
-      gasAmount?: number;
-      gasPrice?: Number256;
-    });
+        gasAmount?: number;
+        gasPrice?: Number256;
+      });
 };
