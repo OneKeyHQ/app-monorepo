@@ -4,11 +4,11 @@ import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 function AccountValue(accountValue: {
   accountId: string;

@@ -17,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -55,7 +56,6 @@ import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 function getTxStatusTextProps(
   status: EDecodedTxStatus | EOnChainHistoryTxStatus,

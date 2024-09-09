@@ -7,6 +7,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 export interface ICurrencyProps extends INumberSizeableTextProps {

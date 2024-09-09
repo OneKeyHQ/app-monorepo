@@ -20,6 +20,7 @@ import {
 } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
 import { AddressInfo } from '../AddressInfo';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 import {
   TxActionCommonDetailView,
@@ -27,7 +28,6 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const { action } = props;

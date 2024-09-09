@@ -33,13 +33,13 @@ import {
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { AddressInfo } from '../AddressInfo';
 import { ListItem } from '../ListItem';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
-import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type ITransferBlock = {
   target: string;
