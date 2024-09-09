@@ -128,7 +128,7 @@ export default class Vault extends VaultBase {
           },
         });
       }
-      encodedTxParams.destinations[0].attoAlphAmount = '0';
+      encodedTxParams.destinations[0].attoAlphAmount = DUST_AMOUNT.toString();
       const id = bufferUtils.bytesToHex(
         contractIdFromAddress(transfer.tokenInfo?.address as string),
       );
@@ -221,19 +221,24 @@ export default class Vault extends VaultBase {
         to: destinations[0].address,
         transfers,
       });
-      action.assetTransfer?.sends.forEach((send) => {
-        if (!send.isNative) {
-          action.assetTransfer?.sends.push({
-            ...send,
-            amount: '0.001',
-            icon: nativeToken?.logoURI ?? '',
-            name: nativeToken?.name ?? '',
-            symbol: nativeToken?.symbol ?? '',
-            tokenIdOnNetwork: nativeToken?.address ?? '',
-            isNative: true,
-          });
-        }
-      });
+      const hasNativeAsset = action.assetTransfer?.sends.some(
+        (send) => send.isNative,
+      );
+      if (!hasNativeAsset) {
+        action.assetTransfer?.sends.forEach((send) => {
+          if (!send.isNative) {
+            action.assetTransfer?.sends.push({
+              ...send,
+              amount: '0.001',
+              icon: nativeToken?.logoURI ?? '',
+              name: nativeToken?.name ?? '',
+              symbol: nativeToken?.symbol ?? '',
+              tokenIdOnNetwork: nativeToken?.address ?? '',
+              isNative: true,
+            });
+          }
+        });
+      }
       actions.push(action);
     } else {
       actions.push({
