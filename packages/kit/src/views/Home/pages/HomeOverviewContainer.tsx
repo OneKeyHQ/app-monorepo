@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
-  Icon,
+  Button,
   IconButton,
-  NumberSizeableText,
   Skeleton,
-  Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsValuePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -22,6 +27,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -38,6 +44,7 @@ function HomeOverviewContainer() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
+  const intl = useIntl();
 
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
@@ -199,11 +206,30 @@ function HomeOverviewContainer() {
     );
   }, [handleRefreshWorth, isLoading]);
 
+  const handleBalanceOnPress = useCallback(async () => {
+    const settingsValue = await settingsValuePersistAtom.get();
+    await settingsValuePersistAtom.set({ hideValue: !settingsValue.hideValue });
+  }, []);
+
+  const handleBalanceDetailsOnPress = useCallback(() => {
+    if (balanceDialogInstance?.current) {
+      return;
+    }
+    balanceDialogInstance.current = showBalanceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        balanceDialogInstance.current = null;
+      },
+    });
+  }, [account, network]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
-      <Stack py="$2.5">
-        <Skeleton w="$40" h="$7" my="$2.5" />
-      </Stack>
+      <YStack gap="$2.5">
+        <Skeleton w="$48" h="$10" />
+        {vaultSettings?.hasFrozenBalance ? <Skeleton w="$32" h="$7" /> : null}
+      </YStack>
     );
 
   const balanceString = accountWorth.worth ?? '0';
@@ -217,28 +243,9 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
-  const basicTextElement = (
-    <NumberSizeableText
-      flexShrink={1}
-      minWidth={0}
-      {...numberFormatter}
-      size={
-        md
-          ? balanceSizeList.find(
-              (item) =>
-                numberFormat(String(balanceString), numberFormatter, true)
-                  .length >= item.length,
-            )?.size ?? defaultBalanceSize
-          : defaultBalanceSize
-      }
-    >
-      {balanceString}
-    </NumberSizeableText>
-  );
-
   return (
-    <XStack alignItems="center" gap="$3">
-      {vaultSettings?.hasFrozenBalance ? (
+    <YStack gap="$2.5" alignItems="flex-start">
+      <XStack alignItems="center" gap="$3">
         <XStack
           flexShrink={1}
           borderRadius="$3"
@@ -260,32 +267,41 @@ function HomeOverviewContainer() {
             outlineOffset: 0,
             outlineStyle: 'solid',
           }}
-          onPress={() => {
-            if (balanceDialogInstance?.current) {
-              return;
-            }
-            balanceDialogInstance.current = showBalanceDetailsDialog({
-              accountId: account?.id ?? '',
-              networkId: network?.id ?? '',
-              onClose: () => {
-                balanceDialogInstance.current = null;
-              },
-            });
-          }}
+          onPress={handleBalanceOnPress}
         >
-          {basicTextElement}
-          <Icon
-            flexShrink={0}
-            name="InfoCircleOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
+          <NumberSizeableTextWrapper
+            hideValue
+            flexShrink={1}
+            minWidth={0}
+            {...numberFormatter}
+            size={
+              md
+                ? balanceSizeList.find(
+                    (item) =>
+                      numberFormat(String(balanceString), numberFormatter, true)
+                        .length >= item.length,
+                  )?.size ?? defaultBalanceSize
+                : defaultBalanceSize
+            }
+          >
+            {balanceString}
+          </NumberSizeableTextWrapper>
         </XStack>
-      ) : (
-        basicTextElement
-      )}
-      {refreshButton}
-    </XStack>
+        {refreshButton}
+      </XStack>
+      {vaultSettings?.hasFrozenBalance ? (
+        <Button
+          onPress={handleBalanceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+        >
+          {intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+    </YStack>
   );
 }
 

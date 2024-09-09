@@ -44,6 +44,7 @@ type IProps = {
   initialized?: boolean;
   inTabList?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
+  hideValue?: boolean;
 };
 
 const ListFooterComponent = () => <Stack h="$5" />;
@@ -84,6 +85,7 @@ function TxHistoryListView(props: IProps) {
     initialized,
     contentContainerStyle,
     inTabList = false,
+    hideValue,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
@@ -108,6 +110,7 @@ function TxHistoryListView(props: IProps) {
   const renderItem = useCallback(
     (info: { item: IAccountHistoryTx; index: number }) => (
       <TxHistoryListItem
+        hideValue={hideValue}
         index={info.index}
         historyTx={info.item}
         showIcon={showIcon}
@@ -115,7 +118,7 @@ function TxHistoryListView(props: IProps) {
         tableLayout={tableLayout}
       />
     ),
-    [onPressHistory, showIcon, tableLayout],
+    [hideValue, onPressHistory, showIcon, tableLayout],
   );
   const renderSectionHeader = useCallback(
     ({
