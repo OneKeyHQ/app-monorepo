@@ -250,14 +250,6 @@ public class Verification {
         sigIn.close();
 
         boolean isVerified = sig.verify();
-        if (isVerified)
-        {
-            System.out.println("signature verified.");
-        }
-        else
-        {
-            System.out.println("signature verification failed.");
-        }
         return isVerified;
     }
 
