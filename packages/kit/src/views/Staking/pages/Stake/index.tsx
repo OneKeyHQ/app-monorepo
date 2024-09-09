@@ -111,6 +111,7 @@ const StakePage = () => {
       />
       <Page.Body>
         <UniversalStake
+          decimals={details.token.info.decimals}
           details={details}
           minTransactionFee={minTransactionFee}
           apr={Number(provider.apr) > 0 ? Number(provider.apr) : undefined}

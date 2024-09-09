@@ -36,6 +36,7 @@ type IUniversalClaimProps = {
   initialAmount?: string;
   rate?: string;
   minAmount?: string;
+  decimals?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 

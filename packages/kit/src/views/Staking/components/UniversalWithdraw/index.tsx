@@ -36,6 +36,8 @@ type IUniversalWithdrawProps = {
 
   providerLabel?: string;
 
+  decimals?: number;
+
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;

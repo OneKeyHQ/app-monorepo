@@ -23,7 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
-import { capitalizeString } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -37,6 +37,8 @@ type IUniversalStakeProps = {
 
   tokenImageUri?: string;
   tokenSymbol?: string;
+
+  decimals?: number;
 
   minAmount?: string;
   maxAmount?: string;
@@ -63,7 +65,7 @@ export const UniversalStake = ({
   balance,
   apr,
   details,
-  maxAmount,
+  decimals,
   minAmount = '0',
   minTransactionFee = '0',
   providerLabel,
@@ -75,6 +77,7 @@ export const UniversalStake = ({
   providerLogo,
   isReachBabylonCap,
   isDisabled,
+  maxAmount,
   onConfirm,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
@@ -118,6 +121,13 @@ export const UniversalStake = ({
     () => new BigNumber(amountValue).gt(balance),
     [amountValue, balance],
   );
+
+  const isOverflowDecimals = useMemo<boolean>(() => {
+    if (decimals && Number(decimals) > 0 && Number(amountValue) > 0) {
+      return countDecimalPlaces(amountValue) > decimals;
+    }
+    return false;
+  }, [decimals, amountValue]);
 
   const isLessThanMinAmount = useMemo<boolean>(() => {
     const minAmountBn = new BigNumber(minAmount);
@@ -250,6 +260,20 @@ export const UniversalStake = ({
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
                 { number: minAmount, symbol: tokenSymbol },
+              )}
+            />
+          ) : null}
+          {isOverflowDecimals && decimals && decimals > 0 ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={intl.formatMessage(
+                // TODO replace i18n
+                { id: ETranslations.earn_minimum_amount },
+                {
+                  number: BigNumber(1).shiftedBy(-decimals).toFixed(),
+                  symbol: tokenSymbol,
+                },
               )}
             />
           ) : null}
