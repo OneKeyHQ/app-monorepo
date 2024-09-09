@@ -127,20 +127,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             reader.close();
             
             // Verify GPG signature
+            // Extract SHA256 from the verified content
+            String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(line);
 
-            PGPPublicKeyRing publicKeyRing = new PGPPublicKeyRing(new ByteArrayInputStream(PUBLIC_KEY.getBytes()), new JcaKeyFingerprintCalculator());
-            JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(new ByteArrayInputStream(ascFileContent.toString().getBytes()));
-            PGPSignature signature = ((PGPSignatureList) pgpFact.nextObject()).get(0);
-            signature.init(new JcaPGPContentVerifierBuilderProvider().setProvider("BC"), publicKeyRing.getPublicKey());
-            
-            if (!signature.verify()) {
-                promise.reject(new Exception("GPG signature verification failed"));
+            if (extractedSha256.isEmpty()) {
+                promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
             }
-            
-            // Extract SHA256 from the verified content
-            String[] lines = ascFileContent.toString().split("\n");
-            String extractedSha256 = lines[0].split(" ")[0];
             
             // Verify SHA256
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -152,9 +145,10 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
             }
             String calculatedSha256 = bytesToHex(digest.digest());
-            
+
+            Log.d("cal-sha256", calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
             if (!calculatedSha256.equals(extractedSha256)) {
-                promise.reject(new Exception("SHA256 mismatch"));
+                promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
             }
             
@@ -163,8 +157,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             promise.reject(e);
             return false;
         }
-
-        return true;
     }
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
