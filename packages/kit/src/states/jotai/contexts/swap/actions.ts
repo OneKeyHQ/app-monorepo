@@ -19,7 +19,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
-  maxRecentTokenPairs,
   swapApprovingStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteFetchInterval,
@@ -69,7 +68,6 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
-  swapRecentTokenPairsAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
@@ -1237,67 +1235,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
     },
   );
-
-  swapRecentTokenPairsUpdate = contextAtomMethod(
-    async (get, set, fromToken: ISwapToken, toToken: ISwapToken) => {
-      let recentTokenPairsAtom = get(swapRecentTokenPairsAtom());
-      const isExit = recentTokenPairsAtom.some(
-        (pair) =>
-          (equalTokenNoCaseSensitive({
-            token1: fromToken,
-            token2: pair.fromToken,
-          }) &&
-            equalTokenNoCaseSensitive({
-              token1: toToken,
-              token2: pair.toToken,
-            })) ||
-          (equalTokenNoCaseSensitive({
-            token1: fromToken,
-            token2: pair.toToken,
-          }) &&
-            equalTokenNoCaseSensitive({
-              token1: toToken,
-              token2: pair.fromToken,
-            })),
-      );
-      if (isExit) {
-        recentTokenPairsAtom = recentTokenPairsAtom.filter(
-          (pair) =>
-            !(
-              (equalTokenNoCaseSensitive({
-                token1: fromToken,
-                token2: pair.fromToken,
-              }) &&
-                equalTokenNoCaseSensitive({
-                  token1: toToken,
-                  token2: pair.toToken,
-                })) ||
-              (equalTokenNoCaseSensitive({
-                token1: fromToken,
-                token2: pair.toToken,
-              }) &&
-                equalTokenNoCaseSensitive({
-                  token1: toToken,
-                  token2: pair.fromToken,
-                }))
-            ),
-        );
-      }
-      let newRecentTokenPairs = [
-        { fromToken, toToken },
-        ...recentTokenPairsAtom,
-      ];
-      if (newRecentTokenPairs.length > maxRecentTokenPairs) {
-        newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
-      }
-      set(swapRecentTokenPairsAtom(), newRecentTokenPairs);
-      await backgroundApiProxy.simpleDb.swapConfigs.addRecentTokenPair(
-        fromToken,
-        toToken,
-        isExit,
-      );
-    },
-  );
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -1325,7 +1262,6 @@ export const useSwapActions = () => {
     },
   );
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
-  const swapRecentTokenPairsUpdate = actions.swapRecentTokenPairsUpdate.use();
   const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({
@@ -1344,6 +1280,5 @@ export const useSwapActions = () => {
     loadSwapSelectTokenDetail,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
-    swapRecentTokenPairsUpdate,
   });
 };
