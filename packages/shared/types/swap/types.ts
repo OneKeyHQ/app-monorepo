@@ -379,6 +379,7 @@ export interface IFetchBuildTxOrderResponse {
   depositCoinAmt: string;
   depositCoinCode: string;
   orderId: string;
+  memo?: string;
 }
 export interface IFetchBuildTxChangellyOrderResponse {
   payinAddress: string;
