@@ -26,7 +26,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import {
-  useSwapActions,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -50,7 +49,6 @@ export function useSwapBuildTx() {
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
-  const { swapRecentTokenPairsUpdate } = useSwapActions().current;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -68,9 +66,12 @@ export function useSwapBuildTx() {
       swapFromToken: ISwapToken;
       swapToToken: ISwapToken;
     }) => {
-      await swapRecentTokenPairsUpdate(swapFromToken, swapToToken);
+      await backgroundApiProxy.serviceSwap.swapRecentTokenPairsUpdate({
+        fromToken: swapFromToken,
+        toToken: swapToToken,
+      });
     },
-    [swapRecentTokenPairsUpdate],
+    [],
   );
 
   const handleBuildTxSuccess = useCallback(
@@ -191,6 +192,10 @@ export function useSwapBuildTx() {
         onSuccess: handleBuildTxSuccess,
         onCancel: handleTxFail,
       });
+      void syncRecentTokenPairs({
+        swapFromToken: fromToken,
+        swapToToken: toToken,
+      });
     }
   }, [
     fromToken,
@@ -203,6 +208,7 @@ export function useSwapBuildTx() {
     navigationToSendConfirm,
     handleBuildTxSuccess,
     handleTxFail,
+    syncRecentTokenPairs,
   ]);
 
   const approveTx = useCallback(
@@ -313,6 +319,7 @@ export function useSwapBuildTx() {
               },
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
+              memo: res.swftOrder.memo,
             };
           } else if (res?.changellyOrder) {
             encodedTx = undefined;

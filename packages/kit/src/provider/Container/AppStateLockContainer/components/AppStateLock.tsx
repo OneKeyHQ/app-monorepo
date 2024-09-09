@@ -60,7 +60,7 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       });
       return animatedStyles;
     }
-  : () => ({});
+  : () => ({ flex: 1 });
 
 const AppStateLock = ({
   passwordVerifyContainer,

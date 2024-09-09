@@ -126,22 +126,24 @@ const SwapQuoteResultRate = ({
               numberOfLines={1}
               size="$bodyMdMedium"
               ml="$1"
-              maxWidth="80px"
+              maxWidth={80}
               $gtMd={{
-                maxWidth: '130px',
+                maxWidth: 130,
               }}
             >
               {providerName ?? ''}
             </SizableText>
           </XStack>
         )}
-        <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
-          <Icon
-            name="ChevronDownSmallOutline"
-            color={openResult ? '$iconActive' : '$iconSubdued'}
-            size="$5"
-          />
-        </Stack>
+        {!isLoading && onOpenResult ? (
+          <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+            <Icon
+              name="ChevronDownSmallOutline"
+              color={openResult ? '$iconActive' : '$iconSubdued'}
+              size="$5"
+            />
+          </Stack>
+        ) : null}
       </XStack>
     </XStack>
   );
