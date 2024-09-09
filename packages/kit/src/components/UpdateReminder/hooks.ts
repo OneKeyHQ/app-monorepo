@@ -36,11 +36,7 @@ export const useAppChangeLog = (version?: string) => {
 export const useDownloadPackage = () => {
   const intl = useIntl();
   return useCallback(
-    async (params: {
-      downloadUrl?: string;
-      latestVersion?: string;
-      sha256?: string;
-    }) => {
+    async (params: { downloadUrl?: string; latestVersion?: string }) => {
       try {
         await backgroundApiProxy.serviceAppUpdate.startDownloading();
         const result = await NativeDownloadPackage(params);

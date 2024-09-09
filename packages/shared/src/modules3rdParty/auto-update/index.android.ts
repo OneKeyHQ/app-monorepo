@@ -24,14 +24,16 @@ const { AutoUpdateModule } = NativeModules as {
       url: string;
       filePath: string;
       notificationTitle: string;
-      sha256?: string;
     }) => Promise<void>;
     // an exception will be thrown when validation fails.
-    verifyAPK: (params: { filePath: string; sha256?: string }) => Promise<void>;
+    verifyAPK: (params: {
+      filePath: string;
+      downloadUrl: string;
+    }) => Promise<void>;
     // verifyAPK will be called by default in the native module when calling to install the APK
     installAPK: (params: {
       filePath: string;
-      sha256?: string;
+      downloadUrl: string;
     }) => Promise<void>;
   };
 };
@@ -50,7 +52,6 @@ export const clearPackage: IClearPackage = async () => {
 export const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
-  sha256,
 }) => {
   const info = await RNFS?.getFSInfo();
   if (info?.freeSpace && info.freeSpace < 1024 * 1024 * 300) {
@@ -65,29 +66,30 @@ export const downloadPackage: IDownloadPackage = async ({
     url: downloadUrl,
     filePath,
     notificationTitle: 'Downloading',
-    sha256,
   });
   return {
     downloadedFile: filePath,
-    sha256,
   };
 };
 
 export const verifyPackage: IVerifyPackage = async (params) => {
   await AutoUpdateModule.verifyAPK({
     filePath: params.downloadedFile,
-    sha256: params.sha256,
+    downloadUrl: params.downloadUrl || '',
   });
 };
 
-export const installPackage: IInstallPackage = ({ latestVersion, sha256 }) => {
+export const installPackage: IInstallPackage = ({
+  latestVersion,
+  downloadUrl,
+}) => {
   defaultLogger.update.app.log('install', latestVersion);
   if (!latestVersion) {
     return Promise.resolve();
   }
   return AutoUpdateModule.installAPK({
     filePath: buildFilePath(latestVersion),
-    sha256,
+    downloadUrl: downloadUrl || '',
   });
 };
 
