@@ -82,6 +82,9 @@ class ProviderApiAlph extends ProviderApiBase {
       ) {
         throw web3Errors.rpc.methodNotSupported();
       }
+      if (params.addressGroup !== undefined && params.addressGroup !== 0) {
+        throw new Error('Only address group 0 is supported');
+      }
     }
   }
 
