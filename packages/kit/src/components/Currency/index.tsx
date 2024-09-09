@@ -3,11 +3,11 @@ import { memo, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 export interface ICurrencyProps extends INumberSizeableTextProps {
   // btc / eth / usd / sats / hkd
@@ -43,13 +43,13 @@ function BasicCurrency({
   );
 
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
       formatter="price"
       formatterOptions={{ currency: targetCurrencyInfo?.unit }}
       {...props}
     >
       {value}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 

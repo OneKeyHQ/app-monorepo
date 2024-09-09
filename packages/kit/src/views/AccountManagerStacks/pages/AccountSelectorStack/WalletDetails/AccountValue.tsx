@@ -3,12 +3,12 @@ import { useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { SizableText } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 
 function AccountValue(accountValue: {
   accountId: string;
@@ -25,10 +25,10 @@ function AccountValue(accountValue: {
     }
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
-  const intl = useIntl();
 
   return (
     <Currency
+      hideValue
       numberOfLines={1}
       flexShrink={1}
       size="$bodyMd"
@@ -75,9 +75,14 @@ function AccountValueWithSpotlight({
           value={accountValue.value ?? ''}
         />
       ) : (
-        <SizableText size="$bodyMd" color="$textDisabled">
+        <NumberSizeableTextWrapper
+          formatter="value"
+          hideValue
+          size="$bodyMd"
+          color="$textDisabled"
+        >
           --
-        </SizableText>
+        </NumberSizeableTextWrapper>
       )}
     </Spotlight>
   );

@@ -1,22 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
-  Icon,
   IconButton,
-  NumberSizeableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsValuePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -24,6 +27,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -34,8 +38,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -204,7 +206,10 @@ function HomeOverviewContainer() {
     );
   }, [handleRefreshWorth, isLoading]);
 
-  const handleBalanceOnPress = useCallback(() => {}, []);
+  const handleBalanceOnPress = useCallback(async () => {
+    const settingsValue = await settingsValuePersistAtom.get();
+    await settingsValuePersistAtom.set({ hideValue: !settingsValue.hideValue });
+  }, []);
 
   const handleBalanceDetailsOnPress = useCallback(() => {
     if (balanceDialogInstance?.current) {
@@ -238,25 +243,6 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
-  const basicTextElement = (
-    <NumberSizeableText
-      flexShrink={1}
-      minWidth={0}
-      {...numberFormatter}
-      size={
-        md
-          ? balanceSizeList.find(
-              (item) =>
-                numberFormat(String(balanceString), numberFormatter, true)
-                  .length >= item.length,
-            )?.size ?? defaultBalanceSize
-          : defaultBalanceSize
-      }
-    >
-      {balanceString}
-    </NumberSizeableText>
-  );
-
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <XStack alignItems="center" gap="$3">
@@ -283,7 +269,23 @@ function HomeOverviewContainer() {
           }}
           onPress={handleBalanceOnPress}
         >
-          {basicTextElement}
+          <NumberSizeableTextWrapper
+            hideValue
+            flexShrink={1}
+            minWidth={0}
+            {...numberFormatter}
+            size={
+              md
+                ? balanceSizeList.find(
+                    (item) =>
+                      numberFormat(String(balanceString), numberFormatter, true)
+                        .length >= item.length,
+                  )?.size ?? defaultBalanceSize
+                : defaultBalanceSize
+            }
+          >
+            {balanceString}
+          </NumberSizeableTextWrapper>
         </XStack>
         {refreshButton}
       </XStack>

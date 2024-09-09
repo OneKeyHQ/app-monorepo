@@ -97,7 +97,7 @@ export const {
   use: useSettingsValuePersistAtom,
 } = globalAtom<ISettingsValuePersistAtom>({
   persist: true,
-  name: EAtomNames.valuePersistAtom,
+  name: EAtomNames.settingsValuePersistAtom,
   initialValue: {
     hideValue: false,
   },
