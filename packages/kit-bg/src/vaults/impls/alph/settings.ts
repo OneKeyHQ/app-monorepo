@@ -9,15 +9,11 @@ import { EDBAccountType } from '../../../dbs/local/consts';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
-// default: 0
-// bip340-schnorr: 1 not supported
-const KEY_TYPE_NUM = 0;
-
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'ALPH',
     labelKey: ETranslations.bip44__standard,
-    template: `m/44'/${COINTYPE_ALPH}'/${KEY_TYPE_NUM}'/0/${INDEX_PLACEHOLDER}`,
+    template: `m/44'/${COINTYPE_ALPH}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_ALPH,
   },
 };
