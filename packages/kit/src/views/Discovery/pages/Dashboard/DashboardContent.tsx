@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { ScrollView, Stack } from '@onekeyhq/components';
+import { ScrollView, Stack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -34,6 +34,7 @@ function DashboardContent({
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
   const { displayHomePage } = useDisplayHomePageFlag();
+  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
   const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
     usePromiseResult(
@@ -106,6 +107,7 @@ function DashboardContent({
               openUrlExternal(webSite.url);
             } else if (webSite?.url) {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 webSite,
                 navigation,
                 shouldPopNavigation: false,
@@ -127,6 +129,7 @@ function DashboardContent({
             onPressMore={onPressMore}
             handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 webSite,
                 navigation,
                 shouldPopNavigation: false,
@@ -149,6 +152,7 @@ function DashboardContent({
             }
             handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 webSite,
                 navigation,
                 shouldPopNavigation: false,
