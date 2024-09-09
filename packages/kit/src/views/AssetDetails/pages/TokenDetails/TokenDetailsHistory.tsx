@@ -97,6 +97,7 @@ function TokenDetailsHistory(props: IProps) {
   return (
     <ProviderJotaiContextHistoryList>
       <TxHistoryListView
+        hideValue
         initialized={initialized}
         isLoading={isLoadingTokenHistory}
         data={tokenHistory ?? []}

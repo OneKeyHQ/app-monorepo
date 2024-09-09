@@ -84,12 +84,12 @@ const ClaimPage = () => {
       />
       <Page.Body>
         <UniversalClaim
-          receivingTokenSymbol=""
           price={price}
+          decimals={details.token.info.decimals}
           initialAmount={initialAmount}
           balance={details.claimable ?? '0'}
           tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           providerLabel={providerLabel}

@@ -23,7 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
-import { capitalizeString } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -37,6 +37,8 @@ type IUniversalStakeProps = {
 
   tokenImageUri?: string;
   tokenSymbol?: string;
+
+  decimals?: number;
 
   minAmount?: string;
   maxAmount?: string;
@@ -63,7 +65,7 @@ export const UniversalStake = ({
   balance,
   apr,
   details,
-  maxAmount,
+  decimals,
   minAmount = '0',
   minTransactionFee = '0',
   providerLabel,
@@ -75,6 +77,7 @@ export const UniversalStake = ({
   providerLogo,
   isReachBabylonCap,
   isDisabled,
+  maxAmount,
   onConfirm,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
@@ -86,16 +89,28 @@ export const UniversalStake = ({
     },
   ] = useSettingsPersistAtom();
   // const price = Number.isNaN(inputPrice) ? '0' : inputPrice;
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
