@@ -15,6 +15,7 @@ import {
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
+  MinimumTransferAmountError,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
@@ -29,6 +30,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -46,7 +48,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { MAX_GAS_AMOUNT } from './sdkAlph/utils';
+import { MAX_GAS_AMOUNT, serializeUnsignedTransaction } from './sdkAlph/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -98,10 +100,13 @@ export default class Vault extends VaultBase {
     }
     const signerAddress = await this.getAccountAddress();
     const transfer = transfersInfo[0];
-    const amount = new BigNumber(transfer.amount)
-      .shiftedBy(transfer.tokenInfo?.decimals ?? 0)
-      .toFixed(0);
-    const encodedTx: SignTransferTxParams = {
+    const amount = chainValueUtils.convertTokenAmountToChainValue({
+      value: transfer.amount,
+      token: transfer.tokenInfo as IToken,
+      decimalPlaces: 0,
+      roundingMode: BigNumber.ROUND_DOWN,
+    });
+    const encodedTxParams: SignTransferTxParams = {
       signerAddress,
       signerKeyType: 'default',
       destinations: [
@@ -113,20 +118,40 @@ export default class Vault extends VaultBase {
     };
 
     if (!transfer.tokenInfo?.isNative) {
-      encodedTx.destinations[0].attoAlphAmount = '0';
+      if (amount === '0') {
+        throw new MinimumTransferAmountError({
+          info: {
+            amount: chainValueUtils.convertTokenChainValueToAmount({
+              value: '1',
+              token: transfer.tokenInfo as IToken,
+            }),
+          },
+        });
+      }
+      encodedTxParams.destinations[0].attoAlphAmount = DUST_AMOUNT.toString();
       const id = bufferUtils.bytesToHex(
         contractIdFromAddress(transfer.tokenInfo?.address as string),
       );
-      encodedTx.destinations[0].tokens = [
+      encodedTxParams.destinations[0].tokens = [
         {
           id,
           amount,
         },
       ];
+    } else if (new BigNumber(amount).isLessThan(DUST_AMOUNT.toString())) {
+      throw new MinimumTransferAmountError({
+        info: {
+          amount: chainValueUtils.convertTokenChainValueToAmount({
+            value: DUST_AMOUNT.toString(),
+            token: transfer.tokenInfo,
+          }),
+        },
+      });
     }
+
     return {
       type: EAlphTxType.Transfer,
-      params: encodedTx,
+      params: encodedTxParams,
     };
   }
 
@@ -140,7 +165,7 @@ export default class Vault extends VaultBase {
     if (encodedTx.type === EAlphTxType.Transfer) {
       const destinations = (encodedTx.params as SignTransferTxParams)
         .destinations;
-      const token = await this.backgroundApi.serviceToken.getNativeToken({
+      const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
         networkId: network.id,
         accountId: this.accountId,
       });
@@ -155,10 +180,10 @@ export default class Vault extends VaultBase {
                 value: dest.attoAlphAmount.toString(),
                 network,
               }),
-              icon: token?.logoURI ?? '',
-              symbol: token?.symbol ?? '',
-              name: token?.name ?? '',
-              tokenIdOnNetwork: token?.address ?? '',
+              icon: nativeToken?.logoURI ?? '',
+              symbol: nativeToken?.symbol ?? '',
+              name: nativeToken?.name ?? '',
+              tokenIdOnNetwork: nativeToken?.address ?? '',
               isNative: true,
             });
           }
@@ -191,13 +216,30 @@ export default class Vault extends VaultBase {
           }
         }),
       );
-      actions.push(
-        await this.buildTxTransferAssetAction({
-          from,
-          to: destinations[0].address,
-          transfers,
-        }),
+      const action = await this.buildTxTransferAssetAction({
+        from,
+        to: destinations[0].address,
+        transfers,
+      });
+      const hasNativeAsset = action.assetTransfer?.sends.some(
+        (send) => send.isNative,
       );
+      if (!hasNativeAsset) {
+        action.assetTransfer?.sends.forEach((send) => {
+          if (!send.isNative) {
+            action.assetTransfer?.sends.push({
+              ...send,
+              amount: '0.001',
+              icon: nativeToken?.logoURI ?? '',
+              name: nativeToken?.name ?? '',
+              symbol: nativeToken?.symbol ?? '',
+              tokenIdOnNetwork: nativeToken?.address ?? '',
+              isNative: true,
+            });
+          }
+        });
+      }
+      actions.push(action);
     } else {
       actions.push({
         type: EDecodedTxActionType.UNKNOWN,

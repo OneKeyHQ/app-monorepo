@@ -56,6 +56,8 @@ const SwapToAnotherAddressPage = () => {
   useEffect(() => {
     if (address && accountInfo?.account?.address === address) {
       form.setValue('address', { raw: address });
+    } else if (paramAddress) {
+      form.setValue('address', { raw: paramAddress });
     }
   }, [accountInfo?.account?.address, address, form, paramAddress]);
 
@@ -102,7 +104,7 @@ const SwapToAnotherAddressPage = () => {
   );
 
   return accountInfo && accountInfo?.network?.id ? (
-    <Page>
+    <Page scrollEnabled>
       <Page.Body px="$5" gap="$4">
         <Form form={form}>
           <Form.Field
@@ -129,6 +131,7 @@ const SwapToAnotherAddressPage = () => {
               networkId={accountInfo?.network?.id}
               enableAddressBook
               enableWalletName
+              accountId={accountInfo?.account?.id}
               contacts
               accountSelector={accountSelector}
             />

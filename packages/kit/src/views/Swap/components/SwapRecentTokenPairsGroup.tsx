@@ -4,14 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  HeightTransition,
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -52,7 +45,7 @@ const SwapRecentTokenPairsGroup = ({
               role="button"
               userSelect="none"
               alignItems="center"
-              px="$1.5"
+              px="$2"
               py="$1"
               bg="$bg"
               borderRadius="$4"
@@ -133,14 +126,12 @@ const SwapRecentTokenPairsGroup = ({
   }
 
   return (
-    <HeightTransition>
-      <YStack gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.swap_page_recent_trade })}
-        </SizableText>
-        {rerenderRecentTokenPairs()}
-      </YStack>
-    </HeightTransition>
+    <YStack gap="$1">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.swap_page_recent_trade })}
+      </SizableText>
+      {rerenderRecentTokenPairs()}
+    </YStack>
   );
 };
 

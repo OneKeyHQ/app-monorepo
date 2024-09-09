@@ -133,11 +133,6 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
-  atom: swapRecentTokenPairsAtom,
-  use: useSwapRecentTokenPairsAtom,
-} = contextAtom<{ fromToken: ISwapToken; toToken: ISwapToken }[]>([]);
-
-export const {
   atom: swapQuoteActionLockAtom,
   use: useSwapQuoteActionLockAtom,
 } = contextAtom<{
