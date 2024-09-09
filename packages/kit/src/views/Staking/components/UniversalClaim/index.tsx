@@ -19,7 +19,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { capitalizeString } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -27,11 +27,11 @@ const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 type IUniversalClaimProps = {
   balance: string;
   price: string;
-  tokenImageUri: string;
-  tokenSymbol: string;
-  providerLogo: string;
-  providerName: string;
-  receivingTokenSymbol: string;
+
+  tokenImageUri?: string;
+  tokenSymbol?: string;
+  providerLogo?: string;
+  providerName?: string;
   providerLabel?: string;
   initialAmount?: string;
   rate?: string;
@@ -47,11 +47,11 @@ export const UniversalClaim = ({
   tokenSymbol,
   providerLogo,
   providerName,
-  receivingTokenSymbol,
   providerLabel,
   initialAmount,
   minAmount = '0',
   rate = '1',
+  decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
@@ -72,16 +72,28 @@ export const UniversalClaim = ({
     }
   }, [amountValue, onConfirm]);
 
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
@@ -129,10 +141,10 @@ export const UniversalClaim = ({
         amount={receivingAmount}
         fiatSymbol={symbol}
         fiatValue={receivingValue}
-        tokenSymbol={receivingTokenSymbol}
+        tokenSymbol={symbol}
       />
     );
-  }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
+  }, [amountValue, price, symbol, rate]);
   const intl = useIntl();
 
   const editable = initialAmount === undefined;
@@ -172,7 +184,7 @@ export const UniversalClaim = ({
               type="critical"
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${tokenSymbol}` },
+                { number: `${minAmount} ${tokenSymbol ?? ''}` },
               )}
             />
           ) : null}
@@ -212,20 +224,22 @@ export const UniversalClaim = ({
             </SizableText>
           </ListItem>
         ) : null}
-        <ListItem
-          title={
-            providerLabel ??
-            intl.formatMessage({ id: ETranslations.global_protocol })
-          }
-          titleProps={fieldTitleProps}
-        >
-          <XStack gap="$2" alignItems="center">
-            <Token size="xs" tokenImageUri={providerLogo} />
-            <SizableText size="$bodyLgMedium">
-              {capitalizeString(providerName)}
-            </SizableText>
-          </XStack>
-        </ListItem>
+        {providerName && providerLogo ? (
+          <ListItem
+            title={
+              providerLabel ??
+              intl.formatMessage({ id: ETranslations.global_protocol })
+            }
+            titleProps={fieldTitleProps}
+          >
+            <XStack gap="$2" alignItems="center">
+              <Token size="xs" tokenImageUri={providerLogo} />
+              <SizableText size="$bodyLgMedium">
+                {capitalizeString(providerName)}
+              </SizableText>
+            </XStack>
+          </ListItem>
+        ) : null}
       </YStack>
       <Page.Footer
         onConfirmText={intl.formatMessage({

@@ -38,11 +38,6 @@ const StakePage = () => {
 
   const actionTag = buildLocalTxStatusSyncId(details);
 
-  const minAmount = useMemo(() => {
-    if (Number(provider.minStakeAmount) > 0) return provider.minStakeAmount;
-    return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
-  }, [tokenInfo, provider]);
-
   const btcStakingTerm = useMemo<number | undefined>(() => {
     if (provider?.minStakeTerm) {
       return formatMillisecondsToBlocks(provider.minStakeTerm);
@@ -117,7 +112,7 @@ const StakePage = () => {
           apr={Number(provider.apr) > 0 ? Number(provider.apr) : undefined}
           price={price}
           balance={balanceParsed}
-          minAmount={minAmount}
+          minAmount={provider.minStakeAmount}
           maxAmount={provider.maxStakeAmount}
           minStakeTerm={provider?.minStakeTerm}
           minStakeBlocks={provider?.minStakeBlocks}

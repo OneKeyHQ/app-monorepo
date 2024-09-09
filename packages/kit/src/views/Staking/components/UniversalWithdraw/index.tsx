@@ -22,7 +22,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { capitalizeString } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -59,6 +59,7 @@ export const UniversalWithdraw = ({
   withdrawMinAmount,
   unstakingPeriod,
   providerLabel,
+  decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
@@ -96,16 +97,28 @@ export const UniversalWithdraw = ({
     });
   }, [amountValue, onConfirm, intl, tokenImageUri, tokenSymbol, providerName]);
 
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);

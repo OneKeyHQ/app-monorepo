@@ -89,16 +89,28 @@ export const UniversalStake = ({
     },
   ] = useSettingsPersistAtom();
   // const price = Number.isNaN(inputPrice) ? '0' : inputPrice;
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const onMax = useCallback(() => {
     const balanceBN = new BigNumber(balance);
@@ -121,13 +133,6 @@ export const UniversalStake = ({
     () => new BigNumber(amountValue).gt(balance),
     [amountValue, balance],
   );
-
-  const isOverflowDecimals = useMemo<boolean>(() => {
-    if (decimals && Number(decimals) > 0 && Number(amountValue) > 0) {
-      return countDecimalPlaces(amountValue) > decimals;
-    }
-    return false;
-  }, [decimals, amountValue]);
 
   const isLessThanMinAmount = useMemo<boolean>(() => {
     const minAmountBn = new BigNumber(minAmount);
@@ -260,20 +265,6 @@ export const UniversalStake = ({
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
                 { number: minAmount, symbol: tokenSymbol },
-              )}
-            />
-          ) : null}
-          {isOverflowDecimals && decimals && decimals > 0 ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                // TODO replace i18n
-                { id: ETranslations.earn_minimum_amount },
-                {
-                  number: BigNumber(1).shiftedBy(-decimals).toFixed(),
-                  symbol: tokenSymbol,
-                },
               )}
             />
           ) : null}

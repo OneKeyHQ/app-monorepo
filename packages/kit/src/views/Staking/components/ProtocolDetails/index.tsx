@@ -199,7 +199,12 @@ const PortfolioItem = ({
     </XStack>
     {buttonText && onPress ? (
       <XStack>
-        <Button disabled={disabled} variant="primary" onPress={onPress}>
+        <Button
+          size="small"
+          disabled={disabled}
+          variant="primary"
+          onPress={onPress}
+        >
           {buttonText}
         </Button>
       </XStack>
