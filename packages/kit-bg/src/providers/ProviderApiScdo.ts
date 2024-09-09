@@ -48,7 +48,7 @@ class ProviderApiScdo extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // ignore
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -84,7 +84,13 @@ class ProviderApiScdo extends ProviderApiBase {
 
   @providerApiMethod()
   public async scdo_getAccounts(request: IJsBridgeMessagePayload) {
-    const accountsInfo = await this.getAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      return [];
+    }
     return accountsInfo.map((i) => i.account?.address);
   }
 

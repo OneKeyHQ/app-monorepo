@@ -12,12 +12,13 @@ import type {
   SignDeployContractTxParams,
   SignExecuteScriptTxParams,
   SignTransferTxParams,
+  SignUnsignedTxParams,
 } from '@alephium/web3';
 
 export const NATIVE_TOKEN_ADDRESS =
   '0000000000000000000000000000000000000000000000000000000000000000';
 
-export const MAX_GAS_AMOUNT = '3000000000000000';
+export const MAX_GAS_AMOUNT = '10000000000000000';
 
 export function serializeUnsignedTransaction({
   encodedTx,
@@ -46,6 +47,9 @@ export function serializeUnsignedTransaction({
       encodedTx.params as SignDeployContractTxParams,
       publicKey,
     );
+  }
+  if (encodedTx.type === EAlphTxType.UnsignedTx) {
+    return builder.buildUnsignedTx(encodedTx.params as SignUnsignedTxParams);
   }
   return builder.buildTransferTx(
     encodedTx.params as SignTransferTxParams,
