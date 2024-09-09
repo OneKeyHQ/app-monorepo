@@ -1023,7 +1023,33 @@ export default class ServiceSwap extends ServiceBase {
           ),
       );
     }
-    let newRecentTokenPairs = [{ fromToken, toToken }, ...recentTokenPairs];
+    const fromTokenBaseInfo: ISwapToken = {
+      networkId: fromToken.networkId,
+      contractAddress: fromToken.contractAddress,
+      symbol: fromToken.symbol,
+      decimals: fromToken.decimals,
+      name: fromToken.name,
+      logoURI: fromToken.logoURI,
+      networkLogoURI: fromToken.networkLogoURI,
+      isNative: fromToken.isNative,
+    };
+    const toTokenBaseInfo: ISwapToken = {
+      networkId: toToken.networkId,
+      contractAddress: toToken.contractAddress,
+      symbol: toToken.symbol,
+      decimals: toToken.decimals,
+      name: toToken.name,
+      logoURI: toToken.logoURI,
+      networkLogoURI: toToken.networkLogoURI,
+      isNative: toToken.isNative,
+    };
+    let newRecentTokenPairs = [
+      {
+        fromToken: fromTokenBaseInfo,
+        toToken: toTokenBaseInfo,
+      },
+      ...recentTokenPairs,
+    ];
     if (newRecentTokenPairs.length > maxRecentTokenPairs) {
       newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
     }
