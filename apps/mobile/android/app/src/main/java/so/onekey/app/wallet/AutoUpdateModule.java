@@ -131,15 +131,21 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
             }
 
-            if (line == null) {
+            String ascFileContentString = ascFileContent.toString();
+            if (ascFileContentString.isEmpty()) {
                 promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
             }
-            Log.d("line", line);
+            Log.d("ascFileContent", ascFileContentString);
 
             // Verify GPG signature
             // Extract SHA256 from the verified content
-            String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(line);
+            String cacheFilePath = getReactApplicationContext().getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+            File cacheFile = new File(cacheFilePath);
+            if (cacheFile.exists()) {
+                cacheFile.delete();
+            }
+            String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
             Log.d("extractedSha256", extractedSha256);
 
             if (extractedSha256.isEmpty()) {
