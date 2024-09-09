@@ -7,12 +7,18 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { deserializeUnsignedTransaction, serializeUnsignedTransaction } from './sdkAlph/utils';
+import {
+  deserializeUnsignedTransaction,
+  serializeUnsignedTransaction,
+} from './sdkAlph/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -49,6 +55,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 )}`,
                 showOnOneKey: showOnOnekeyFn(arrIndex),
                 includePublicKey: true,
+                group: 0,
               })),
             });
             return response;
@@ -92,17 +99,25 @@ export class KeyringHardware extends KeyringHardwareBase {
       networkId: this.vault.networkId,
     });
     const {
-      unsignedTx: {
-        scriptOpt
-      }
+      unsignedTx: { scriptOpt },
     } = await deserializeUnsignedTransaction({
       unsignedTx: rawTx,
       networkId: this.vault.networkId,
       backgroundApi: this.vault.backgroundApi,
-    })
-    const hwParams = {
+    });
+    const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
       ...deviceCommonParams,
       path: account.path,
+      showOnOneKey: false,
+      includePublicKey: true,
+      group: 0,
+    });
+    if (!addressResponse.success) {
+      throw convertDeviceError(addressResponse.payload);
+    }
+    const hwParams = {
+      ...deviceCommonParams,
+      path: addressResponse.payload.derivedPath,
       rawTx,
       scriptOpt,
     };
@@ -132,10 +147,20 @@ export class KeyringHardware extends KeyringHardwareBase {
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
     const messageHex = Buffer.from(messages[0].message).toString('hex');
+    const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: account.path,
+      showOnOneKey: false,
+      includePublicKey: true,
+      group: 0,
+    });
+    if (!addressResponse.success) {
+      throw convertDeviceError(addressResponse.payload);
+    }
     const res = await convertDeviceResponse(() =>
       sdk.alephiumSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
-        path: account.path,
+        path: addressResponse.payload.derivedPath,
         messageHex,
         messageType: messages[0].type as any,
       }),

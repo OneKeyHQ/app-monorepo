@@ -34,8 +34,10 @@ export class Provider extends NodeProvider {
         method: 'postTransactionsBuild',
         params: [data],
       }) as Promise<BuildTransactionResult>;
-    
-    this.contracts.postContractsUnsignedTxDeployContract = async (data: BuildDeployContractTx) =>
+
+    this.contracts.postContractsUnsignedTxDeployContract = async (
+      data: BuildDeployContractTx,
+    ) =>
       this.request({
         path: 'contracts',
         method: 'postContractsUnsignedTxDeployContract',
@@ -50,6 +52,15 @@ export class Provider extends NodeProvider {
         method: 'postTransactionsDecodeUnsignedTx',
         params: [data],
       }) as Promise<DecodeUnsignedTxResult>;
+
+    this.contracts.postContractsUnsignedTxExecuteScript = async (
+      data: BuildDeployContractTx,
+    ) =>
+      this.request({
+        path: 'contracts',
+        method: 'postContractsUnsignedTxExecuteScript',
+        params: [data],
+      }) as Promise<BuildDeployContractTxResult>;
   }
 
   override request = async ({ path, method, params }: ApiRequestArguments) => {
