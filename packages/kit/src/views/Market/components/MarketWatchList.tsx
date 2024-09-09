@@ -128,6 +128,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
       <Button
         width="100%"
         size="large"
+        height="auto"
         disabled={!coingeckoIds.length}
         variant="primary"
         onPress={handleAddTokens}
@@ -207,7 +208,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                   })}
                 </XStack>
               ))}
-              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+              {gtMd ? <YStack pt="$8">{confirmButton}</YStack> : null}
             </YStack>
           </ScrollView>
           {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}
