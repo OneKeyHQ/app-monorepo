@@ -24,14 +24,29 @@ import java.nio.file.Files;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.Provider;
 import java.security.Security;
 import java.security.SignatureException;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class Verification {
-    static {
-        Security.addProvider(new BouncyCastleProvider());
+    private static final void setupBouncyCastle() {
+        final Provider provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME);
+        if (provider == null) {
+            // Web3j will set up the provider lazily when it's first used.
+            return;
+        }
+        if (provider.getClass().equals(BouncyCastleProvider.class)) {
+            // BC with same package name, shouldn't happen in real life.
+            return;
+        }
+        // Android registers its own BC provider. As it might be outdated and might not include
+        // all needed ciphers, we substitute it with a known BC bundled in the app.
+        // Android's BC has its package rewritten to "com.android.org.bouncycastle" and because
+        // of that it's possible to have another BC implementation loaded in VM.
+        Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME);
+        Security.insertProviderAt(new BouncyCastleProvider(), 1);
     }
 
     private static final String PUBLIC_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n" +
@@ -205,6 +220,7 @@ public class Verification {
         PGPSignatureList           p3 = (PGPSignatureList)pgpFact.nextObject();
         PGPSignature               sig = p3.get(0);
         PGPPublicKey publicKey = pgpRings.getPublicKey(sig.getKeyID());
+        setupBouncyCastle();
         sig.init(new JcaPGPContentVerifierBuilderProvider().setProvider("BC"), publicKey);
 
         //
