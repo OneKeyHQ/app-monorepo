@@ -67,6 +67,11 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
+      - name: Setup keys secret
+        run: |
+          rm -rf packages/shared/src/analytics/firebase.web.json
+          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
