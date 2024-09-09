@@ -125,10 +125,17 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 ascFileContent.append(line).append("\n");
             }
             reader.close();
-            
+
+            if (line == null) {
+                promise.reject(new Exception("Installation package possibly compromised"));
+                return false;
+            }
+            Log.d("line", line);
+
             // Verify GPG signature
             // Extract SHA256 from the verified content
             String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(line);
+            Log.d("extractedSha256", extractedSha256);
 
             if (extractedSha256.isEmpty()) {
                 promise.reject(new Exception("Installation package possibly compromised"));
