@@ -17,7 +17,9 @@ import {
   Badge,
   Icon,
   IconButton,
+  Popover,
   Select,
+  SizableText,
   Spinner,
   Stack,
   XStack,
@@ -34,6 +36,7 @@ import type {
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { BaseInput } from '../BaseInput';
 
 import { ClipboardPlugin } from './plugins/clipboard';
@@ -93,24 +96,67 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
 
 type IAddressInteractionStatusProps = {
   status?: IAddressInteractionStatus;
+  networkId: string;
 };
 
 const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   status,
+  networkId,
 }) => {
   const intl = useIntl();
+  const { result } = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
+    [networkId],
+  );
   if (status === 'not-interacted') {
     return (
-      <Badge badgeType="warning" badgeSize="sm">
-        {intl.formatMessage({ id: ETranslations.send_label_first_transfer })}
-      </Badge>
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.send_label_first_transfer,
+        })}
+        renderTrigger={
+          <Badge badgeType="warning" badgeSize="sm">
+            {intl.formatMessage({
+              id: ETranslations.send_label_first_transfer,
+            })}
+          </Badge>
+        }
+        renderContent={() => (
+          <Stack gap="$4" p="$5">
+            <SizableText>
+              {intl.formatMessage(
+                {
+                  id: ETranslations.address_input_first_transfer_popover,
+                },
+                { network: result?.name ?? '' },
+              )}
+            </SizableText>
+          </Stack>
+        )}
+      />
     );
   }
   if (status === 'interacted') {
     return (
-      <Badge badgeType="success" badgeSize="sm">
-        {intl.formatMessage({ id: ETranslations.send_label_transferred })}
-      </Badge>
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.send_label_transferred,
+        })}
+        renderTrigger={
+          <Badge badgeType="success" badgeSize="sm">
+            {intl.formatMessage({ id: ETranslations.send_label_transferred })}
+          </Badge>
+        }
+        renderContent={() => (
+          <Stack gap="$4" p="$5">
+            <SizableText>
+              {intl.formatMessage({
+                id: ETranslations.address_input_transferred_popover,
+              })}
+            </SizableText>
+          </Stack>
+        )}
+      />
     );
   }
   return null;
@@ -119,9 +165,23 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
 const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
   const intl = useIntl();
   return isContract ? (
-    <Badge badgeType="critical" badgeSize="sm">
-      {intl.formatMessage({ id: ETranslations.global_contract })}
-    </Badge>
+    <Popover
+      title={intl.formatMessage({ id: ETranslations.global_contract })}
+      renderTrigger={
+        <Badge badgeType="critical" badgeSize="sm">
+          {intl.formatMessage({ id: ETranslations.global_contract })}
+        </Badge>
+      }
+      renderContent={() => (
+        <Stack gap="$4" p="$5">
+          <SizableText>
+            {intl.formatMessage({
+              id: ETranslations.address_input_contract_popover,
+            })}
+          </SizableText>
+        </Stack>
+      )}
+    />
   ) : null;
 };
 
@@ -186,10 +246,11 @@ type IAddressInputBadgeGroupProps = {
   result?: IAddressQueryResult;
   setResolveAddress?: (address: string) => void;
   onRefresh?: () => void;
+  networkId: string;
 };
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
-  const { loading, result, setResolveAddress, onRefresh } = props;
+  const { loading, result, setResolveAddress, onRefresh, networkId } = props;
   if (loading) {
     return <Spinner />;
   }
@@ -226,7 +287,10 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
           </Stack>
         ) : null}
         <XStack my="$0.5" gap="$1">
-          <AddressInteractionStatus status={result.addressInteractionStatus} />
+          <AddressInteractionStatus
+            status={result.addressInteractionStatus}
+            networkId={networkId}
+          />
           <AddressContractStatus isContract={result.isContract} />
         </XStack>
       </XStack>
@@ -411,6 +475,7 @@ export function AddressInput(props: IAddressInputProps) {
             result={queryResult}
             setResolveAddress={setResolveAddress}
             onRefresh={onRefresh}
+            networkId={networkId}
           />
         </XStack>
         <XStack gap="$6">

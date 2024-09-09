@@ -28,7 +28,8 @@ export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
   website: string;
-  apr: string;
+  // btc don't have apr
+  apr?: string;
   poolFee: string;
   totalStaked: string;
   totalFiatValue: string;
@@ -98,7 +99,7 @@ export type IStakeHistoryParams = {
 };
 
 export type IStakeHistory = {
-  txId: string;
+  txHash: string;
   title: string;
   type: string;
   amount?: string;

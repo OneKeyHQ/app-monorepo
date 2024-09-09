@@ -70,7 +70,7 @@ type IHistoryContentProps = {
 };
 
 const keyExtractor = (item: unknown) => {
-  const key = (item as IStakeHistory)?.txId;
+  const key = (item as IStakeHistory)?.txHash;
   return key;
 };
 

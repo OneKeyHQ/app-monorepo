@@ -103,7 +103,7 @@ const AssetProtocolListContent = ({
                 <SizableText size="$bodyLgMedium">
                   {capitalizeString(item.provider.name)}
                 </SizableText>
-                {Number(item.provider.apr) > 0 ? (
+                {item.provider.apr && Number(item.provider.apr) > 0 ? (
                   <XStack alignItems="center">
                     <SizableText size="$bodyMdMedium" color="$textSuccess">
                       {` ${BigNumber(item.provider.apr).toFixed(2)}%`}

@@ -32,7 +32,9 @@ const ShouldUnderstandListItemListItem = ({
       <Stack w="$5">
         <SizableText>{index}.</SizableText>
       </Stack>
-      <SizableText>{title}</SizableText>
+      <Stack flex={1}>
+        <SizableText>{title}</SizableText>
+      </Stack>
     </XStack>
     {description ? (
       <XStack pl="$5">
@@ -57,7 +59,7 @@ const ShouldUnderstand = ({
 }: IShouldUnderstandProps) => (
   <YStack flex={1}>
     <ScrollView maxHeight={560}>
-      <YStack py="$5">
+      <YStack pb="$5">
         <Stack>
           <Image w="$14" h="$14" src={logoURI} />
           <YStack mt="$5">

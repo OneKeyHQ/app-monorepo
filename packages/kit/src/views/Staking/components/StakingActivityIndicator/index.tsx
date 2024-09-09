@@ -19,18 +19,20 @@ type IStakingActivityIndicatorProps = {
 const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
   const intl = useIntl();
   return (
-    <Badge badgeType="info" badgeSize="lg" onPress={onPress}>
-      <Stack borderRadius="$full" p={3} bg="$borderInfo">
-        <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
-      </Stack>
-      <Badge.Text pl="$2">
-        {num > 1
-          ? `${num} ${intl.formatMessage({
-              id: ETranslations.global_pending,
-            })} `
-          : intl.formatMessage({ id: ETranslations.global_pending })}
-      </Badge.Text>
-    </Badge>
+    <Stack cursor="pointer">
+      <Badge badgeType="info" badgeSize="lg" onPress={onPress}>
+        <Stack borderRadius="$full" p={3} bg="$borderInfo">
+          <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
+        </Stack>
+        <Badge.Text pl="$2">
+          {num > 1
+            ? `${num} ${intl.formatMessage({
+                id: ETranslations.global_pending,
+              })} `
+            : intl.formatMessage({ id: ETranslations.global_pending })}
+        </Badge.Text>
+      </Badge>
+    </Stack>
   );
 };
 

@@ -104,6 +104,8 @@ export const TokenDetailStakingEntry = ({
     const protocolList =
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: symbolInfo?.symbol,
+        networkId,
+        filter: true,
       });
     const aprItems = protocolList
       .map((o) => Number(o.provider.apr))
