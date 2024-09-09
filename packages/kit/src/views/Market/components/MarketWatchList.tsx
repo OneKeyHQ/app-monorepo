@@ -128,7 +128,6 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
       <Button
         width="100%"
         size="large"
-        height="auto"
         disabled={!coingeckoIds.length}
         variant="primary"
         onPress={handleAddTokens}
