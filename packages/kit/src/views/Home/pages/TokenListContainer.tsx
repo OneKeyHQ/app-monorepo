@@ -898,6 +898,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
       withFooter
       withPrice
       inTabList
+      hideValue
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}

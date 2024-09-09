@@ -8,6 +8,7 @@ import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type IProps = {
   $key: string;
+  hideValue?: boolean;
 } & ISizableTextProps;
 
 function TokenValueView(props: IProps) {
@@ -20,7 +21,6 @@ function TokenValueView(props: IProps) {
   const content = useMemo(
     () => (
       <NumberSizeableTextWrapper
-        hideValue
         formatter="value"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
         {...rest}

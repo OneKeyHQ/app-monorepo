@@ -19,6 +19,7 @@ type IProps = {
   isSendNativeToken?: boolean;
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
+  hideValue?: boolean;
 };
 
 function TxActionsListView(props: IProps) {
@@ -32,6 +33,7 @@ function TxActionsListView(props: IProps) {
     tableLayout,
     replaceType,
     swapInfo,
+    hideValue,
   } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
@@ -56,6 +58,7 @@ function TxActionsListView(props: IProps) {
       isSendNativeToken={isSendNativeToken}
       replaceType={replaceType}
       swapInfo={swapInfo}
+      hideValue={hideValue}
     />
   );
 }

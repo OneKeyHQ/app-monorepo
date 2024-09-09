@@ -27,6 +27,7 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const { action } = props;
@@ -61,8 +62,14 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 }
 
 function TxActionTokenApproveListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
-    props;
+  const {
+    tableLayout,
+    decodedTx,
+    componentProps,
+    showIcon,
+    replaceType,
+    hideValue,
+  } = props;
   const intl = useIntl();
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
@@ -107,7 +114,8 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   }
 
   const changeDescription = (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
       formatter="balance"
       formatterOptions={{
         tokenSymbol: approveSymbol,
@@ -121,7 +129,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
             id: ETranslations.swap_page_provider_approve_amount_un_limit,
           })
         : approveAmount}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 
   return (

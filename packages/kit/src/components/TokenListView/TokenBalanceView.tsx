@@ -8,6 +8,7 @@ import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 type IProps = {
   $key: string;
   symbol: string;
+  hideValue?: boolean;
 } & ISizableTextProps;
 
 function TokenBalanceView(props: IProps) {
@@ -18,7 +19,6 @@ function TokenBalanceView(props: IProps) {
   const content = useMemo(
     () => (
       <NumberSizeableTextWrapper
-        hideValue
         formatter="balance"
         formatterOptions={{ tokenSymbol: symbol }}
         {...rest}

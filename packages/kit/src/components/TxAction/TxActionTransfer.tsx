@@ -39,6 +39,7 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type ITransferBlock = {
   target: string;
@@ -249,8 +250,14 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
-    props;
+  const {
+    tableLayout,
+    decodedTx,
+    componentProps,
+    showIcon,
+    replaceType,
+    hideValue,
+  } = props;
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
   const { type } = payload ?? {};
@@ -370,7 +377,8 @@ function TxActionTransferListView(props: ITxActionProps) {
   }
 
   change = change ? (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
       formatter="balance"
       formatterOptions={{
         tokenSymbol: changeSymbol,
@@ -386,12 +394,19 @@ function TxActionTransferListView(props: ITxActionProps) {
       })}
     >
       {change as string}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   ) : (
-    <SizableText size="$bodyLgMedium">-</SizableText>
+    <NumberSizeableTextWrapper
+      size="$bodyLgMedium"
+      formatter="value"
+      hideValue={hideValue}
+    >
+      -
+    </NumberSizeableTextWrapper>
   );
   changeDescription = changeDescription ? (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
       formatter={changeDescriptionSymbol ? 'balance' : 'value'}
       formatterOptions={{
         tokenSymbol: changeDescriptionSymbol,
@@ -404,11 +419,16 @@ function TxActionTransferListView(props: ITxActionProps) {
       maxWidth="$40"
     >
       {changeDescription as string}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   ) : (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
+      size="$bodyMd"
+      color="$textSubdued"
+      formatter="value"
+    >
       -
-    </SizableText>
+    </NumberSizeableTextWrapper>
   );
 
   if (!isPending && label) {
