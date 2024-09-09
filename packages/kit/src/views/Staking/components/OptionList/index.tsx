@@ -37,6 +37,7 @@ type IExtraField = {
 
 type IOptionListContext = {
   extraFields?: IExtraField[];
+  activeId?: string;
 };
 
 const OptionListContext = createContext<IOptionListContext>({});
@@ -64,7 +65,6 @@ const OptionItem = ({
   item,
   token,
   network,
-  active,
   onPress,
 }: {
   item: IOptionItem;
@@ -74,7 +74,6 @@ const OptionItem = ({
     name: string;
     logoURI: string;
   };
-  active?: boolean;
   onPress?: IOnSelectOption;
 }) => {
   const [
@@ -82,7 +81,8 @@ const OptionItem = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
-  const { extraFields } = useContext(OptionListContext);
+  const { extraFields, activeId } = useContext(OptionListContext);
+  const active = activeId === item.id;
   return (
     <Stack px="$5" py="$2">
       <YStack
@@ -180,14 +180,13 @@ export const OptionList = ({
   const renderItem = useCallback(
     ({ item }: { item: IOptionItem }) => (
       <OptionItem
-        active={item.id === activeId}
         item={item}
         token={token}
         network={network}
         onPress={({ item: o }) => setActiveId(o.id)}
       />
     ),
-    [token, network, activeId],
+    [token, network],
   );
   const onSubmit = useCallback(async () => {
     const activeItem = items.find((o) => o.id === activeId);
@@ -201,7 +200,10 @@ export const OptionList = ({
     }
   }, [items, activeId, onPress]);
 
-  const ctx = useMemo(() => ({ extraFields }), [extraFields]);
+  const ctx = useMemo(
+    () => ({ extraFields, activeId }),
+    [extraFields, activeId],
+  );
 
   return (
     <OptionListContext.Provider value={ctx}>

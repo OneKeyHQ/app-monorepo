@@ -358,17 +358,19 @@ function Overview() {
         {totalFiatValue}
       </NumberSizeableText>
       <XStack gap="$1.5">
-        <NumberSizeableText
-          size="$bodyLgMedium"
-          formatter="price"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-            showPlusMinusSigns: !earnings24h.isZero(),
-          }}
-          color={earnings24h.isZero() ? '$textDisabled' : '$textInteractive'}
-        >
-          {earnings24h.toFixed()}
-        </NumberSizeableText>
+        <XStack alignItems="center">
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+              showPlusMinusSigns: !earnings24h.isZero(),
+            }}
+            color={earnings24h.isZero() ? '$textDisabled' : '$textInteractive'}
+          >
+            {earnings24h.toFixed()}
+          </NumberSizeableText>
+        </XStack>
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
         </SizableText>
