@@ -75,7 +75,7 @@ const WithdrawPage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
-  const balance = Number(staked) - Number(pendingInactive);
+  const balance = Number(staked) - Number(pendingInactive ?? '0');
 
   return (
     <Page>
@@ -88,7 +88,7 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
-          balance={String(balance)}
+          balance={BigNumber(balance).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
