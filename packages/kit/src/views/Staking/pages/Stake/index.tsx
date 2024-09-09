@@ -114,8 +114,8 @@ const StakePage = () => {
           balance={balanceParsed}
           minAmount={provider.minStakeAmount}
           maxAmount={provider.maxStakeAmount}
-          minStakeTerm={provider?.minStakeTerm}
-          minStakeBlocks={provider?.minStakeBlocks}
+          minStakeTerm={provider.minStakeTerm}
+          minStakeBlocks={provider.minStakeBlocks}
           tokenImageUri={tokenInfo.logoURI}
           tokenSymbol={tokenInfo.symbol}
           providerLogo={provider.logoURI}
