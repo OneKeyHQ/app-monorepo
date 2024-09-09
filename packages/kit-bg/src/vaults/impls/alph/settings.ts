@@ -13,7 +13,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'ALPH',
     labelKey: ETranslations.bip44__standard,
-    template: `m/44'/${COINTYPE_ALPH}'/${INDEX_PLACEHOLDER}'/0/0`,
+    template: `m/44'/${COINTYPE_ALPH}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_ALPH,
   },
 };
