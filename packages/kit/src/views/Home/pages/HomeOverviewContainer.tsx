@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  Button,
   Icon,
   IconButton,
   NumberSizeableText,
   Skeleton,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -32,12 +34,15 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function HomeOverviewContainer() {
   const num = 0;
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
+  const intl = useIntl();
 
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
@@ -199,11 +204,27 @@ function HomeOverviewContainer() {
     );
   }, [handleRefreshWorth, isLoading]);
 
+  const handleBalanceOnPress = useCallback(() => {}, []);
+
+  const handleBalanceDetailsOnPress = useCallback(() => {
+    if (balanceDialogInstance?.current) {
+      return;
+    }
+    balanceDialogInstance.current = showBalanceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        balanceDialogInstance.current = null;
+      },
+    });
+  }, [account, network]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
-      <Stack py="$2.5">
-        <Skeleton w="$40" h="$7" my="$2.5" />
-      </Stack>
+      <YStack gap="$2.5">
+        <Skeleton w="$48" h="$10" />
+        {vaultSettings?.hasFrozenBalance ? <Skeleton w="$32" h="$7" /> : null}
+      </YStack>
     );
 
   const balanceString = accountWorth.worth ?? '0';
@@ -237,8 +258,8 @@ function HomeOverviewContainer() {
   );
 
   return (
-    <XStack alignItems="center" gap="$3">
-      {vaultSettings?.hasFrozenBalance ? (
+    <YStack gap="$2.5" alignItems="flex-start">
+      <XStack alignItems="center" gap="$3">
         <XStack
           flexShrink={1}
           borderRadius="$3"
@@ -260,32 +281,25 @@ function HomeOverviewContainer() {
             outlineOffset: 0,
             outlineStyle: 'solid',
           }}
-          onPress={() => {
-            if (balanceDialogInstance?.current) {
-              return;
-            }
-            balanceDialogInstance.current = showBalanceDetailsDialog({
-              accountId: account?.id ?? '',
-              networkId: network?.id ?? '',
-              onClose: () => {
-                balanceDialogInstance.current = null;
-              },
-            });
-          }}
+          onPress={handleBalanceOnPress}
         >
           {basicTextElement}
-          <Icon
-            flexShrink={0}
-            name="InfoCircleOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
         </XStack>
-      ) : (
-        basicTextElement
-      )}
-      {refreshButton}
-    </XStack>
+        {refreshButton}
+      </XStack>
+      {vaultSettings?.hasFrozenBalance ? (
+        <Button
+          onPress={handleBalanceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+        >
+          {intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+    </YStack>
   );
 }
 
