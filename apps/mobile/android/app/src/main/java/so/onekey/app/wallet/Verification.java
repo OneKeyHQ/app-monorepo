@@ -155,8 +155,9 @@ public class Verification {
             InputStream        keyIn)
             throws Exception
     {
+        String resultName = "gpg-asc";
         ArmoredInputStream    aIn = new ArmoredInputStream(in);
-        OutputStream          out = new BufferedOutputStream(new FileOutputStream("gpg-asc"));
+        OutputStream          out = new BufferedOutputStream(new FileOutputStream(resultName));
 
 
 
