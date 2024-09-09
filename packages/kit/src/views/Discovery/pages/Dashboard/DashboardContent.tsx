@@ -169,13 +169,15 @@ function DashboardContent({
       </>
     ),
     [
+      homePageData?.banners,
+      homePageData?.categories,
+      isLoading,
       bookmarksData,
       historiesData,
       onPressMore,
       handleOpenWebSite,
+      gtMd,
       navigation,
-      homePageData,
-      isLoading,
     ],
   );
 
