@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  NumberSizeableText,
   Page,
   SizableText,
   Spinner,
@@ -18,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -153,10 +153,12 @@ export function AssetItem({
       );
     } else {
       primary = (
-        <SizableText
+        <NumberSizeableTextWrapper
+          hideValue
           textAlign="right"
           size="$bodyLgMedium"
           color="$textSuccess"
+          formatter="value"
         >
           {isApproveUnlimited
             ? intl.formatMessage({
@@ -169,19 +171,26 @@ export function AssetItem({
                   symbol: asset.symbol,
                 },
               )}
-        </SizableText>
+        </NumberSizeableTextWrapper>
       );
     }
   } else if (!amount) {
     primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
+      <NumberSizeableTextWrapper
+        hideValue
+        formatter="value"
+        textAlign="right"
+        size="$bodyLgMedium"
+        color="$text"
+      >
         -
-      </SizableText>
+      </NumberSizeableTextWrapper>
     );
     secondary = primary;
   } else {
     primary = (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
+        hideValue
         numberOfLines={1}
         textAlign="right"
         size="$bodyLgMedium"
@@ -193,10 +202,11 @@ export function AssetItem({
         }}
       >
         {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     );
     secondary = !isNil(asset.price) ? (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
+        hideValue
         textAlign="right"
         size="$bodyMd"
         color="$textSubdued"
@@ -204,7 +214,7 @@ export function AssetItem({
         formatterOptions={{ currency: currencySymbol }}
       >
         {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     ) : null;
   }
 
@@ -827,7 +837,7 @@ function HistoryDetails() {
   const renderFeeInfo = useCallback(
     () => (
       <XStack alignItems="center">
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
           formatter="balance"
           size="$bodyMd"
           color="$textSubdued"
@@ -836,18 +846,18 @@ function HistoryDetails() {
           }}
         >
           {txInfo?.gasFee}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
         {!isNil(txInfo?.gasFeeFiatValue) ? (
           <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
             (
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
               size="$bodyMd"
               color="$textSubdued"
             >
               {txInfo?.gasFeeFiatValue ?? '0'}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
             )
           </SizableText>
         ) : null}
