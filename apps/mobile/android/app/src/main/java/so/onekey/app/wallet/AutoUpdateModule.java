@@ -116,15 +116,20 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         try {
             // Fetch the signature file
             String ascFileUrl = downloadUrl + ".SHA256SUMS.asc";
-            URL url = new URL(ascFileUrl);
-            HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder()
+                .url(ascFileUrl)
+                .build();
+            Response response = client.newCall(request).execute();
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            
             StringBuilder ascFileContent = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                ascFileContent.append(line).append("\n");
+            String line = "";
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
+                while ((line = reader.readLine()) != null) {
+                    ascFileContent.append(line).append("\n");
+                }
             }
-            reader.close();
 
             if (line == null) {
                 promise.reject(new Exception("Installation package possibly compromised"));
