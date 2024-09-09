@@ -99,7 +99,7 @@ export type IStakeHistoryParams = {
 };
 
 export type IStakeHistory = {
-  txId: string;
+  txHash: string;
   title: string;
   type: string;
   amount?: string;
