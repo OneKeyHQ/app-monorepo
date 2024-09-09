@@ -165,7 +165,7 @@ export default class Vault extends VaultBase {
     if (encodedTx.type === EAlphTxType.Transfer) {
       const destinations = (encodedTx.params as SignTransferTxParams)
         .destinations;
-      const token = await this.backgroundApi.serviceToken.getNativeToken({
+      const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
         networkId: network.id,
         accountId: this.accountId,
       });
@@ -180,10 +180,10 @@ export default class Vault extends VaultBase {
                 value: dest.attoAlphAmount.toString(),
                 network,
               }),
-              icon: token?.logoURI ?? '',
-              symbol: token?.symbol ?? '',
-              name: token?.name ?? '',
-              tokenIdOnNetwork: token?.address ?? '',
+              icon: nativeToken?.logoURI ?? '',
+              symbol: nativeToken?.symbol ?? '',
+              name: nativeToken?.name ?? '',
+              tokenIdOnNetwork: nativeToken?.address ?? '',
               isNative: true,
             });
           }
@@ -216,13 +216,25 @@ export default class Vault extends VaultBase {
           }
         }),
       );
-      actions.push(
-        await this.buildTxTransferAssetAction({
-          from,
-          to: destinations[0].address,
-          transfers,
-        }),
-      );
+      const action = await this.buildTxTransferAssetAction({
+        from,
+        to: destinations[0].address,
+        transfers,
+      });
+      action.assetTransfer?.sends.forEach((send) => {
+        if (!send.isNative) {
+          action.assetTransfer?.sends.push({
+            ...send,
+            amount: '0.001',
+            icon: nativeToken?.logoURI ?? '',
+            name: nativeToken?.name ?? '',
+            symbol: nativeToken?.symbol ?? '',
+            tokenIdOnNetwork: nativeToken?.address ?? '',
+            isNative: true,
+          });
+        }
+      });
+      actions.push(action);
     } else {
       actions.push({
         type: EDecodedTxActionType.UNKNOWN,
