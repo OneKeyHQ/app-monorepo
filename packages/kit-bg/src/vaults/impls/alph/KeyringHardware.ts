@@ -52,7 +52,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: `${pathPrefix}/${pathSuffix.replace(
                   '{index}',
                   `${index}`,
-                )}`,
+                )}/0/0`,
                 showOnOneKey: showOnOnekeyFn(arrIndex),
                 includePublicKey: true,
                 group: 0,
@@ -65,13 +65,16 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address, publicKey } = item;
+          const { address, publicKey, derivedPath } = item;
+          const pathParts = derivedPath.split('/');
+          const basePath = pathParts.slice(0, -2).join('/');
+          const relPath = pathParts.slice(-2).join('/');
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
             publicKey: publicKey ?? '',
-            path,
+            path: basePath,
             xpub: '',
-            addresses: {},
+            relPath,
           };
           ret.push(addressInfo);
         }
@@ -107,7 +110,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
     const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
       ...deviceCommonParams,
-      path: account.path,
+      path: `${account.path}/0/0`,
       showOnOneKey: false,
       includePublicKey: true,
       group: 0,
@@ -149,7 +152,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const messageHex = Buffer.from(messages[0].message).toString('hex');
     const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
       ...deviceCommonParams,
-      path: account.path,
+      path: `${account.path}/0/0`,
       showOnOneKey: false,
       includePublicKey: true,
       group: 0,
