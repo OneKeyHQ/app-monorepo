@@ -801,7 +801,11 @@ export function ProtocolDetails({
       pendingActiveTooltip,
       claimable: details.claimable,
       minClaimableNum: details.provider.minClaimableAmount,
-      babylonOverflow: details.overflow,
+      babylonOverflow:
+        Number(details?.staked) - Number(details?.pendingInactive) &&
+        Number(details.overflow) > 0
+          ? details.overflow
+          : undefined,
       token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
