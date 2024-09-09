@@ -105,6 +105,11 @@ export function AmountInput({
           selection,
           onSelectionChange: ({ nativeEvent }) =>
             setSelection(nativeEvent.selection),
+          onFocus: () =>
+            setSelection({
+              start: value?.length ?? 0,
+              end: value?.length ?? 0,
+            }),
           onBlur: () => setSelection({ start: 0, end: 0 }),
         })}
         {...inputProps}

@@ -162,9 +162,11 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const swapInfo = params.unsignedTx.swapInfo;
     const from = await this.getAccountAddress();
     const network = await this.getNetwork();
-    const actions = await Promise.all(
+    let toAddress = '';
+    let actions = await Promise.all(
       encodedTx.messages.map(async (message) => {
         const decodedPayload = decodePayload(message.payload);
         if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
@@ -195,6 +197,7 @@ export default class Vault extends VaultBase {
           if (token) {
             amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
           }
+          toAddress = to;
           return this.buildTxTransferAssetAction({
             from,
             to,
@@ -222,6 +225,15 @@ export default class Vault extends VaultBase {
         };
       }),
     );
+
+    if (swapInfo) {
+      actions = [
+        await this.buildInternalSwapAction({
+          swapInfo,
+          swapToAddress: toAddress,
+        }),
+      ];
+    }
 
     const feeInfo = params.unsignedTx.feeInfo;
 

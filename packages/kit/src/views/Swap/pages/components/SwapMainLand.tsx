@@ -8,10 +8,12 @@ import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapRecentTokenPairsAtom,
   useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useInAppNotificationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -56,7 +58,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
-  const [recentTokenPairs] = useSwapRecentTokenPairsAtom();
+  const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -172,7 +174,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           ) : null}
           <SwapRecentTokenPairsGroup
             onSelectTokenPairs={onSelectRecentTokenPairs}
-            tokenPairs={recentTokenPairs}
+            tokenPairs={swapRecentTokenPairs}
             fromTokenAmount={fromTokenAmount}
           />
         </YStack>

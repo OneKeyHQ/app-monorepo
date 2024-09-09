@@ -22,6 +22,7 @@ import {
   openExplorerAddressUrl,
   openTransactionDetailsUrl,
 } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useEarnTxLabel } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnTxLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -157,6 +158,7 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => {
 };
 
 const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
+  const labelFn = useEarnTxLabel();
   let primary = data.receive ? { data: data.receive, symbol: '+' } : undefined;
   let secondary = data.send ? { data: data.send, symbol: '-' } : undefined;
   if (!primary && secondary) {
@@ -173,7 +175,7 @@ const EarnLidoTransactionItem = ({ data }: { data: IEarnTransactionData }) => {
           }
         />
         <SizableText ml="$3" size="$bodyLgMedium">
-          {data.label}
+          {labelFn(data.label)}
         </SizableText>
       </XStack>
       <YStack alignItems="flex-end" justifyContent="center">
