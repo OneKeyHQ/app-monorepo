@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
+const WebpackObfuscator = require('webpack-obfuscator');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
 const { exit } = require('process');
@@ -161,6 +162,19 @@ module.exports = ({ platform, basePath, configName }) => ({
         },
       },
       {
+        test: /(@firebase).*\.(ts|js)x?$/,
+        enforce: 'post',
+        use: {
+          loader: WebpackObfuscator.loader,
+          options: {
+            splitStrings: true,
+            stringArrayRotate: true,
+            stringArrayShuffle: true,
+            unicodeEscapeSequence: true,
+          },
+        },
+      },
+      {
         'oneOf': [
           {
             test: /\.wasm$/,
@@ -181,7 +195,6 @@ module.exports = ({ platform, basePath, configName }) => ({
             type: 'asset',
             parser: { dataUrlCondition: { maxSize: 1000 } },
           },
-
           {
             test: /\.(js|mjs|jsx|ts|tsx)$/,
             exclude: [/node_modules/],
@@ -349,7 +362,7 @@ module.exports = ({ platform, basePath, configName }) => ({
   experiments: {
     asyncWebAssembly: true,
   },
-  performance: { maxAssetSize: 600000, maxEntrypointSize: 600000 },
+  performance: { maxAssetSize: 600_000, maxEntrypointSize: 600_000 },
 });
 
 module.exports.basePlugins = basePlugins;

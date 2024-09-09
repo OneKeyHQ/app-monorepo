@@ -1,9 +1,19 @@
-import { getAnalytics, logEvent } from '@firebase/analytics';
 import { initializeApp } from '@firebase/app';
 
 import platformEnv from '../platformEnv';
 
 import firebaseConfig from './firebase.web.json';
+
+import type {
+  getAnalytics as getAnalyticsType,
+  logEvent as logEventType,
+} from '@firebase/analytics';
+
+const { getAnalytics, logEvent } =
+  require('../../../../node_modules/@firebase/analytics/dist/esm/index.esm') as {
+    getAnalytics: typeof getAnalyticsType;
+    logEvent: typeof logEventType;
+  };
 
 const getAnalyticsInstance = () => {
   const app = initializeApp(firebaseConfig);

@@ -9,9 +9,13 @@ module.exports = {
   optimization: {
     minimizer: [
       new TerserPlugin({
+        extractComments: false,
         terserOptions: {
           keep_classnames: true,
           keep_fnames: true,
+          format: {
+            comments: false,
+          },
         },
       }),
     ],
