@@ -139,15 +139,19 @@ function TableRow<T>({
       {...itemPressStyle}
       {...rowProps}
     >
-      {columns.map(
-        ({
+      {columns.map((column) => {
+        if (!column) {
+          return null;
+        }
+        const {
           dataIndex,
           align,
           render = renderContent,
           renderSkeleton,
           columnWidth = 40,
           columnProps,
-        }) => (
+        } = column;
+        return (
           <Column
             key={dataIndex}
             name={dataIndex}
@@ -165,8 +169,8 @@ function TableRow<T>({
                   index,
                 )}
           </Column>
-        ),
-      )}
+        );
+      })}
     </XStack>
   );
 }
@@ -196,9 +200,12 @@ export interface ITableProps<T> {
   showBackToTopButton?: boolean;
   dataSource: T[];
   columns: ITableColumn<T>[];
+  renderScrollComponent?: IListViewProps<T>['renderScrollComponent'];
+  TableHeaderComponent?: IListViewProps<T>['ListHeaderComponent'];
   TableFooterComponent?: IListViewProps<T>['ListFooterComponent'];
   TableEmptyComponent?: IListViewProps<T>['ListEmptyComponent'];
   extraData?: IListViewProps<T>['extraData'];
+  stickyHeader?: boolean;
   stickyHeaderHiddenOnScroll?: IListViewProps<T>['stickyHeaderHiddenOnScroll'];
   estimatedListSize?: { width: number; height: number };
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
@@ -322,16 +329,18 @@ function TableHeaderRow<T>({
   const [selectedColumnName, setSelectedColumnName] = useState('');
   return (
     <XStack {...rowProps} {...headerRowProps}>
-      {columns.map((column, index) => (
-        <MemoHeaderColumn
-          key={column.dataIndex}
-          selectedColumnName={selectedColumnName}
-          onChangeSelectedName={setSelectedColumnName}
-          column={column as any}
-          index={index}
-          onHeaderRow={onHeaderRow}
-        />
-      ))}
+      {columns.map((column, index) =>
+        column ? (
+          <MemoHeaderColumn
+            key={column.dataIndex}
+            selectedColumnName={selectedColumnName}
+            onChangeSelectedName={setSelectedColumnName}
+            column={column as any}
+            index={index}
+            onHeaderRow={onHeaderRow}
+          />
+        ) : null,
+      )}
     </XStack>
   );
 }
@@ -340,15 +349,18 @@ function BasicTable<T>({
   dataSource,
   columns,
   extraData,
+  TableHeaderComponent,
   TableFooterComponent,
   TableEmptyComponent,
   onHeaderRow,
   onRow,
   rowProps,
   headerRowProps,
+  renderScrollComponent,
   showHeader = true,
   estimatedItemSize = 60,
   estimatedListSize = { width: 370, height: 525 },
+  stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
 }: ITableProps<T>) {
@@ -388,16 +400,21 @@ function BasicTable<T>({
   );
 
   const enableBackToTopButton = showBackToTopButton && isShowBackToTopButton;
-  return (
-    <YStack flex={1}>
-      {showHeader ? (
+
+  const headerRow = useMemo(
+    () =>
+      showHeader ? (
         <TableHeaderRow
           columns={columns}
           rowProps={rowProps}
           headerRowProps={headerRowProps}
           onHeaderRow={onHeaderRow}
         />
-      ) : null}
+      ) : null,
+    [],
+  );
+  const list = useMemo(
+    () => (
       <ListView
         ref={listViewRef}
         stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -408,10 +425,40 @@ function BasicTable<T>({
         scrollEventThrottle={100}
         data={dataSource}
         renderItem={handleRenderItem}
+        ListHeaderComponent={
+          <>
+            {TableHeaderComponent}
+            {stickyHeader ? null : headerRow}
+          </>
+        }
         ListFooterComponent={TableFooterComponent}
         ListEmptyComponent={TableEmptyComponent}
         extraData={extraData}
+        renderScrollComponent={renderScrollComponent}
       />
+    ),
+    [
+      TableEmptyComponent,
+      TableFooterComponent,
+      TableHeaderComponent,
+      dataSource,
+      estimatedItemSize,
+      estimatedListSize,
+      extraData,
+      handleRenderItem,
+      handleScroll,
+      headerRow,
+      renderScrollComponent,
+      showBackToTopButton,
+      stickyHeader,
+      stickyHeaderHiddenOnScroll,
+    ],
+  );
+
+  return stickyHeader ? (
+    <YStack flex={1}>
+      {headerRow}
+      {list}
       {enableBackToTopButton ? (
         <Stack
           position="absolute"
@@ -431,6 +478,8 @@ function BasicTable<T>({
         </Stack>
       ) : null}
     </YStack>
+  ) : (
+    list
   );
 }
 
