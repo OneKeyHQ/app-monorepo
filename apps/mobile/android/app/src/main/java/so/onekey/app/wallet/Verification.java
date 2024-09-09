@@ -152,10 +152,11 @@ public class Verification {
      */
     private static boolean verifyFile(
             InputStream        in,
-            InputStream        keyIn)
+            InputStream        keyIn,
+            String             resultName
+    )
             throws Exception
     {
-        String resultName = "gpg-asc";
         ArmoredInputStream    aIn = new ArmoredInputStream(in);
         OutputStream          out = new BufferedOutputStream(new FileOutputStream(resultName));
 
@@ -315,10 +316,10 @@ public class Verification {
         return isLineEnding(b) || b == '\t' || b == ' ';
     }
 
-    public static String extractedSha256FromVerifyAscFile(String ascFileContent) throws Exception {
+    public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
         InputStream        keyIn = PGPUtil.getDecoderStream(new ByteArrayInputStream(PUBLIC_KEY.getBytes()));
         InputStream in = new ByteArrayInputStream(ascFileContent.getBytes());
-        boolean isVerified = verifyFile(in, keyIn);
+        boolean isVerified = verifyFile(in, keyIn, cacheFilePath);
         if (!isVerified) {
             return "";
         }
