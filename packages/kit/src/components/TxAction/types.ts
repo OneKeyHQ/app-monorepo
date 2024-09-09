@@ -22,6 +22,7 @@ export type ITxActionProps = {
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
+  hideValue?: boolean;
 };
 
 export type ITxActionComponents = {

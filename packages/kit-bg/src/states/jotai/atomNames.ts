@@ -30,6 +30,7 @@ export enum EAtomNames {
   accountManualCreatingAtom = 'accountManualCreatingAtom',
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
+  settingsValuePersistAtom = 'settingsValuePersistAtom',
 
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }

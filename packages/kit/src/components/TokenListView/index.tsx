@@ -57,6 +57,7 @@ type IProps = {
   searchAll?: boolean;
   isTokenSelector?: boolean;
   footerTipText?: string;
+  hideValue?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -79,6 +80,7 @@ function TokenListView(props: IProps) {
     searchAll,
     isTokenSelector,
     footerTipText,
+    hideValue,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -183,6 +185,7 @@ function TokenListView(props: IProps) {
       }
       renderItem={({ item }) => (
         <TokenListItem
+          hideValue={hideValue}
           token={item}
           key={item.$key}
           onPress={onPressToken}

@@ -372,6 +372,7 @@ export const NUMBER_FORMATTER = {
 };
 
 export interface INumberFormatProps {
+  hideValue?: boolean;
   formatter?: keyof typeof NUMBER_FORMATTER;
   formatterOptions?: IFormatterOptions;
 }

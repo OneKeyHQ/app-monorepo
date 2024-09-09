@@ -88,4 +88,19 @@ export const { target: settingsAtom, use: useSettingsAtom } =
     },
   });
 
+type ISettingsValuePersistAtom = {
+  hideValue: boolean;
+};
+
+export const {
+  target: settingsValuePersistAtom,
+  use: useSettingsValuePersistAtom,
+} = globalAtom<ISettingsValuePersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsValuePersistAtom,
+  initialValue: {
+    hideValue: false,
+  },
+});
+
 // extract high frequency refresh data to another atom

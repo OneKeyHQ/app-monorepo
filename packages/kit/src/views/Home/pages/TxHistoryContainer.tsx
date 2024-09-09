@@ -190,6 +190,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     <TxHistoryListView
       showIcon
       inTabList
+      hideValue
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
