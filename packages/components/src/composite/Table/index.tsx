@@ -411,7 +411,7 @@ function BasicTable<T>({
           onHeaderRow={onHeaderRow}
         />
       ) : null,
-    [],
+    [columns, headerRowProps, onHeaderRow, rowProps, showHeader],
   );
   const list = useMemo(
     () => (
