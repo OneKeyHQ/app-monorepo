@@ -91,7 +91,7 @@ const polygon: IServerNetwork = {
   'chainId': '137',
   'id': 'evm--137',
   'name': 'Polygon',
-  'symbol': 'MATIC',
+  'symbol': 'POL',
   'code': 'polygon',
   'shortcode': 'polygon',
   'shortname': 'Polygon',

@@ -150,7 +150,7 @@ function Field({
                 mb={horizontal ? undefined : '$1.5'}
                 justifyContent="space-between"
               >
-                <Stack>
+                <XStack>
                   <Label htmlFor={name}>{label}</Label>
                   {optional ? (
                     <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
@@ -159,7 +159,7 @@ function Field({
                       })})`}
                     </SizableText>
                   ) : null}
-                </Stack>
+                </XStack>
                 {renderLabelAddon()}
               </XStack>
             ) : null}

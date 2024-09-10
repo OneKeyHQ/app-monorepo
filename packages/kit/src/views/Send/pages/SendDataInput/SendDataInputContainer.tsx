@@ -485,6 +485,7 @@ function SendDataInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              originalRecipient: toAddress,
             },
           });
           setIsSubmitting(false);
@@ -828,13 +829,7 @@ function SendDataInputContainer() {
       <>
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
-          labelAddon={
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.form_optional_indicator,
-              })}
-            </SizableText>
-          }
+          optional
           name="memo"
           rules={{
             maxLength: {
@@ -874,13 +869,7 @@ function SendDataInputContainer() {
         <XStack pt="$5" />
         <Form.Field
           label="Payment ID"
-          labelAddon={
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.form_optional_indicator,
-              })}
-            </SizableText>
-          }
+          optional
           name="paymentId"
           rules={{
             validate: (value) => {
@@ -914,13 +903,7 @@ function SendDataInputContainer() {
         label={intl.formatMessage({
           id: ETranslations.global_Note,
         })}
-        labelAddon={
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.form_optional_indicator,
-            })}
-          </SizableText>
-        }
+        optional
         name="note"
         rules={{
           maxLength: {
