@@ -39,6 +39,7 @@ import {
   EHistoryTxDetailsBlock,
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
+  IAccountHistoryTx,
 } from '@onekeyhq/shared/types/history';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type {
@@ -261,7 +262,7 @@ function HistoryDetails() {
     networkId,
     transactionHash,
     notificationId,
-    historyTx,
+    historyTx: historyTxParam,
     isAllNetworks,
   } = route.params;
 
@@ -277,7 +278,7 @@ function HistoryDetails() {
   });
 
   const accountAddress = route.params?.accountAddress || account?.address;
-  const txid = transactionHash || historyTx?.decodedTx.txid || '';
+  const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
 
   const nativeToken = usePromiseResult(
     () =>
@@ -288,7 +289,7 @@ function HistoryDetails() {
     [accountId, networkId],
   ).result;
 
-  const { result: txDetails, isLoading } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
@@ -299,26 +300,45 @@ function HistoryDetails() {
       if (
         r?.data &&
         r?.data.status !== EOnChainHistoryTxStatus.Pending &&
-        historyTx?.decodedTx.status === EDecodedTxStatus.Pending
+        historyTxParam?.decodedTx.status === EDecodedTxStatus.Pending
       ) {
         historyConfirmed.current = true;
         appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
       }
 
-      return r?.data;
+      let decodedOnChainTx: IAccountHistoryTx | undefined = historyTxParam;
+
+      if (!decodedOnChainTx && r?.data) {
+        decodedOnChainTx =
+          await backgroundApiProxy.serviceHistory.decodeOnChainHistoryTx({
+            accountId,
+            networkId,
+            tx: r.data,
+            tokens: r.tokens,
+            nfts: r.nfts,
+          });
+      }
+
+      return {
+        txDetails: r?.data,
+        decodedOnChainTx,
+      };
     },
 
-    [accountId, networkId, txid, historyTx?.decodedTx.status],
+    [accountId, networkId, txid, historyTxParam?.decodedTx.status],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         (!historyInit.current ||
-          (historyTx?.decodedTx.status === EDecodedTxStatus.Pending &&
+          (historyTxParam?.decodedTx.status === EDecodedTxStatus.Pending &&
             !historyConfirmed.current)),
     },
   );
+
+  const { txDetails, decodedOnChainTx } = result || {};
+  const historyTx = historyTxParam ?? decodedOnChainTx;
 
   useEffect(() => {
     if (txDetails && notificationId) {
@@ -848,12 +868,10 @@ function HistoryDetails() {
     txDetails,
   ]);
 
-  const txInfo = historyTx
-    ? getHistoryTxDetailInfo({
-        txDetails,
-        historyTx,
-      })
-    : undefined;
+  const txInfo = getHistoryTxDetailInfo({
+    txDetails,
+    historyTx,
+  });
 
   const renderFeeInfo = useCallback(
     () => (
