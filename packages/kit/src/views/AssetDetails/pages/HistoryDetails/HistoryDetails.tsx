@@ -35,11 +35,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EHistoryTxDetailsBlock,
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
-  IAccountHistoryTx,
 } from '@onekeyhq/shared/types/history';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type {
@@ -325,7 +325,7 @@ function HistoryDetails() {
       };
     },
 
-    [accountId, networkId, txid, historyTxParam?.decodedTx.status],
+    [accountId, networkId, txid, historyTxParam],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
