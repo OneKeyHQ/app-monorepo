@@ -61,11 +61,13 @@ export const BIP39_DOT_MAP_URL = 'https://github.com/OneKeyHQ/bip39-dotmap';
 export const buildServiceEndpoint = ({
   serviceName,
   env,
+  isWebSocket,
 }: {
   serviceName: EServiceEndpointEnum;
   env: IEndpointEnv;
+  isWebSocket?: boolean;
 }) =>
-  `https://${serviceName}.${
+  `${isWebSocket ? 'wss' : 'https'}://${serviceName}.${
     env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
   }`;
 
