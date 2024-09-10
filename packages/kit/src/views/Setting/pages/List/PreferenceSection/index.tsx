@@ -95,14 +95,7 @@ const LanguageListItem = () => {
       backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
-  useEffect(() => {
-    noop(locale, currencyInfo);
-    void backgroundApiProxy.serviceNotification.registerClientWithAppendAccounts(
-      {
-        dbAccounts: [],
-      },
-    );
-  }, [locale, currencyInfo]);
+
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}

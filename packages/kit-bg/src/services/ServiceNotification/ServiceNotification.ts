@@ -544,12 +544,21 @@ export default class ServiceNotification extends ServiceBase {
   async registerClient(params: INotificationPushRegisterParams) {
     defaultLogger.notification.common.registerClient(params, null);
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post(
-      '/notification/v1/account/register',
-      params,
-    );
+    const result = await client.post<
+      IApiClientResponse<{
+        badges: number;
+        created: number;
+        removed: number;
+      }>
+    >('/notification/v1/account/register', params);
     // TODO return badge count
     defaultLogger.notification.common.registerClient(params, result.data);
+
+    const badge = result?.data?.data?.badges;
+    if (isNumber(badge)) {
+      void this.setBadge({ count: badge });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result.data;
   }
