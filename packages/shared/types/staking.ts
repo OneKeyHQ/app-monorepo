@@ -40,6 +40,9 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
   labels?: string[];
 
+  // native token only
+  minTransactionFee?: string;
+
   // babylon
   minStakeTerm?: number;
   maxStakeTerm?: number;

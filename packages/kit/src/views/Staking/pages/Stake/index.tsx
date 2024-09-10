@@ -24,13 +24,7 @@ const StakePage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const {
-    accountId,
-    networkId,
-    minTransactionFee = '0',
-    details,
-    onSuccess,
-  } = route.params;
+  const { accountId, networkId, details, onSuccess } = route.params;
   const { token, provider } = details;
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
@@ -114,7 +108,6 @@ const StakePage = () => {
         <UniversalStake
           decimals={details.token.info.decimals}
           details={details}
-          minTransactionFee={minTransactionFee}
           apr={Number(provider.apr) > 0 ? provider.apr : undefined}
           price={price}
           balance={balanceParsed}
@@ -131,6 +124,7 @@ const StakePage = () => {
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
           onConfirm={onConfirm}
+          minTransactionFee={provider.minTransactionFee}
         />
       </Page.Body>
     </Page>
