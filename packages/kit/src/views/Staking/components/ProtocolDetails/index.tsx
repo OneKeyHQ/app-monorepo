@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Accordion,
   Alert,
   Button,
   Icon,
@@ -555,40 +556,6 @@ export function Provider({
   );
 }
 
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [show, setShow] = useState(false);
-  const onToggle = useCallback(() => setShow((v) => !v), []);
-  return (
-    <YStack>
-      <XStack
-        mb="$2"
-        hoverStyle={{ backgroundColor: '$bgHover' }}
-        pressStyle={{ backgroundColor: '$bgHover' }}
-        borderRadius={12}
-        onPress={onToggle}
-        py="$2"
-      >
-        <XStack flex={1} mx="$5">
-          <XStack flex={1}>
-            <SizableText size="$headingMd">{question}</SizableText>
-          </XStack>
-          <XStack>
-            <Icon
-              name={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            />
-          </XStack>
-        </XStack>
-      </XStack>
-      <XStack px="$5">
-        {show ? (
-          <SizableText size="$bodyMd" pb="$5">
-            {answer}
-          </SizableText>
-        ) : null}
-      </XStack>
-    </YStack>
-  );
-}
 function FAQ({ solutions }: { solutions: ISolutions }) {
   const intl = useIntl();
   return (
@@ -597,9 +564,39 @@ function FAQ({ solutions }: { solutions: ISolutions }) {
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
-        {solutions.map(({ question, answer }, index) => (
-          <FAQItem question={question} answer={answer} key={String(index)} />
-        ))}
+        <Accordion type="multiple">
+          {solutions.map(({ question, answer }, index) => (
+            <Accordion.Item value={String(index)} key={String(index)}>
+              <Accordion.Trigger
+                unstyled
+                borderWidth={0}
+                bg="$transparent"
+                p="$0"
+                cursor="pointer"
+              >
+                {({ open }: { open: boolean }) => (
+                  <XStack flex={1} mx="$5" mb="$2" py="$2">
+                    <XStack flex={1}>
+                      <SizableText size="$headingMd">{question}</SizableText>
+                    </XStack>
+                    <XStack>
+                      <Icon
+                        name={
+                          open
+                            ? 'ChevronTopSmallOutline'
+                            : 'ChevronDownSmallOutline'
+                        }
+                      />
+                    </XStack>
+                  </XStack>
+                )}
+              </Accordion.Trigger>
+              <Accordion.Content pb="$5" mx="$3">
+                <SizableText size="$bodyMd">{answer}</SizableText>
+              </Accordion.Content>
+            </Accordion.Item>
+          ))}
+        </Accordion>
       </YStack>
     </YStack>
   );
