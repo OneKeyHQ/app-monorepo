@@ -450,8 +450,8 @@ export function Profit({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack $md={{ flexWrap: 'wrap' }}>
-        {apr ? (
+      <XStack flexWrap="wrap">
+        {apr && Number(apr) > 0 ? (
           <GridItem
             title={intl.formatMessage({
               id: ETranslations.earn_rewards_percentage,
@@ -516,8 +516,7 @@ export function Provider({
     () =>
       gtMd
         ? {
-            flexGrow: 1,
-            flexBasis: 0,
+            width: '33%',
             pt: '$6',
           }
         : {
@@ -532,7 +531,7 @@ export function Provider({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
-      <XStack $md={{ flexWrap: 'wrap' }}>
+      <XStack flexWrap="wrap">
         <GridItem
           title={
             validator.isProtocol

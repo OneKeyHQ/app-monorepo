@@ -8,6 +8,7 @@ import {
   Alert,
   Dialog,
   IconButton,
+  Image,
   NumberSizeableText,
   Page,
   Popover,
@@ -18,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -277,7 +277,12 @@ export const UniversalWithdraw = ({
             titleProps={fieldTitleProps}
           >
             <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
+              <Image
+                width="$5"
+                height="$5"
+                src={providerLogo}
+                borderRadius="$2"
+              />
               <SizableText size="$bodyLgMedium">
                 {capitalizeString(providerName)}
               </SizableText>
