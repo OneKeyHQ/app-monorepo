@@ -119,7 +119,7 @@ function DevOverlayWindow() {
     <Stack position="absolute" {...position} top={`${position.top}%`}>
       <Button
         circular
-        icon="MenuSolid"
+        icon="CodeOutline"
         alignContent="center"
         justifyContent="center"
         onPress={handlePress}
