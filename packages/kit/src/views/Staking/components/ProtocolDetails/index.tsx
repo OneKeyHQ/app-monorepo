@@ -44,6 +44,7 @@ type IStakedValue = {
 };
 
 type IPortfolioValue = {
+  active?: string;
   pendingInactive?: string;
   pendingInactivePeriod?: string;
   pendingActive?: string;
@@ -228,6 +229,7 @@ const PortfolioItem = ({
 );
 
 function Portfolio({
+  active,
   pendingInactive,
   pendingInactivePeriod,
   pendingActive,
@@ -245,7 +247,8 @@ function Portfolio({
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
     Number(pendingActive) > 0 ||
-    Number(babylonOverflow) > 0
+    Number(babylonOverflow) > 0 ||
+    Number(active) > 0
   ) {
     const isLessThanMinClaimable = Boolean(
       minClaimableNum &&
@@ -269,6 +272,16 @@ function Portfolio({
           ) : null}
         </XStack>
         <YStack gap="$3">
+          {active && Number(active) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={active}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_active,
+              })}
+            />
+          ) : null}
           {pendingInactive && Number(pendingInactive) ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
@@ -416,8 +429,7 @@ export function Profit({
     () =>
       gtMd
         ? {
-            flexGrow: 1,
-            flexBasis: 0,
+            width: '33%',
             pt: '$6',
           }
         : {
@@ -828,6 +840,7 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
+      active: details.active,
       minClaimableNum: details.provider.minClaimableAmount,
       babylonOverflow:
         Number(details?.staked) - Number(details?.pendingInactive) &&

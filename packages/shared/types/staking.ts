@@ -85,6 +85,14 @@ export type IUnstakePushParams = {
   unstakeTxHex: string;
 };
 
+export type IClaimRecordParams = {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountId: string;
+  identity: string;
+};
+
 export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
@@ -217,6 +225,7 @@ export type IClaimableListItem = {
   id: string;
   amount: string;
   fiatValue?: string;
+  isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
 };
 
