@@ -1,5 +1,13 @@
 package so.onekey.app.wallet;
 
+import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPSignature;
+import org.bouncycastle.openpgp.PGPSignatureList;
+import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
+import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
+import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
+import java.util.Base64;
+import java.io.ByteArrayInputStream;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -16,10 +24,13 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +44,8 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import javax.net.ssl.HttpsURLConnection;
+
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -44,21 +57,21 @@ import okio.BufferedSource;
 import okio.Okio;
 
 public class AutoUpdateModule extends ReactContextBaseJavaModule {
+    private static final String CHANNEL_ID = "updateApp";
+    private static final int NOTIFICATION_ID = 1;
     private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
     private Thread rThread;
-    private Boolean isDownloading = false;
-    private int notifiactionId = 1;
-    private String channelId = "updateApp";
+    private boolean isDownloading = false;
 
-
-    AutoUpdateModule(ReactApplicationContext context) {
+    public AutoUpdateModule(ReactApplicationContext context) {
         super(context);
         rContext = context;
         mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
     }
 
+    @Override
     public String getName() {
         return "AutoUpdateModule";
     }
@@ -78,15 +91,16 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     private File buildFile(String path) {
         return new File(path.replace("file:///", "/"));
     }
+
     private String bytesToHex(byte[] bytes) {
-        StringBuffer result = new StringBuffer();
-        for (byte byt : bytes) {
-            result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
+        StringBuilder result = new StringBuilder();
+        for (byte b : bytes) {
+            result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
         }
         return result.toString();
     }
 
-    public boolean checkFilePackage(File file, @Nullable String sha256, Promise promise) {
+    public boolean checkFilePackage(File file, @Nullable String downloadUrl,  Promise promise) {
         PackageManager pm = getReactApplicationContext().getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
         String appPackageName = getReactApplicationContext().getPackageName();
@@ -98,57 +112,80 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
         }
 
-        byte[] buffer= new byte[8192];
-        int count;
-        MessageDigest digest = null;
+        // Verify SHA256 and GPG signature
         try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            promise.reject(e);
-            return false;
-        }
-        BufferedInputStream bis = null;
-        try {
-            bis = new BufferedInputStream(new FileInputStream(file));
-        } catch (FileNotFoundException e) {
-            promise.reject(e);
-            return false;
-        }
-        while (true) {
-            try {
-                if (!((count = bis.read(buffer)) > 0)) break;
-            } catch (IOException e) {
-                promise.reject(e);
+            // Fetch the signature file
+            String ascFileUrl = downloadUrl + ".SHA256SUMS.asc";
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder()
+                .url(ascFileUrl)
+                .build();
+            Response response = client.newCall(request).execute();
+            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
+            
+            StringBuilder ascFileContent = new StringBuilder();
+            String line = "";
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
+                while ((line = reader.readLine()) != null) {
+                    ascFileContent.append(line).append("\n");
+                }
+            }
+
+            String ascFileContentString = ascFileContent.toString();
+            if (ascFileContentString.isEmpty()) {
+                promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
             }
-            digest.update(buffer, 0, count);
-        }
-        try {
-            bis.close();
-        } catch (IOException e) {
+            Log.d("ascFileContent", ascFileContentString);
+
+            // Verify GPG signature
+            // Extract SHA256 from the verified content
+            String cacheFilePath = getReactApplicationContext().getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+            File cacheFile = new File(cacheFilePath);
+            if (cacheFile.exists()) {
+                cacheFile.delete();
+            }
+            String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
+            Log.d("extractedSha256", extractedSha256);
+
+            if (extractedSha256.isEmpty()) {
+                promise.reject(new Exception("Installation package possibly compromised"));
+                return false;
+            }
+            
+            // Verify SHA256
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = bis.read(buffer)) > 0) {
+                    digest.update(buffer, 0, count);
+                }
+            }
+            String calculatedSha256 = bytesToHex(digest.digest());
+
+            Log.d("cal-sha256", calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
+            if (!calculatedSha256.equals(extractedSha256)) {
+                promise.reject(new Exception("Installation package possibly compromised"));
+                return false;
+            }
+            
+            return true;
+        } catch (Exception e) {
             promise.reject(e);
             return false;
         }
-
-        String fileSha256 = this.bytesToHex(digest.digest());
-        Log.d("cal-sha256", sha256 + " " + fileSha256 + " " + String.valueOf(fileSha256.equals(sha256)));
-        if (!fileSha256.equals(sha256)) {
-            promise.reject(new Exception("Installation package possibly compromised"));
-            return false;
-        }
-
-        return true;
     }
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String sha256 = map.getString("sha256");
+        String downloadUrl = map.getString("downloadUrl");
 
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("The APK file does not exist."));
         }
-        boolean isValidAPK = this.checkFilePackage(downloadedFile, sha256, promise);
+        boolean isValidAPK = this.checkFilePackage(downloadedFile, downloadUrl, promise);
         if (isValidAPK) {
             promise.resolve(null);
         }
@@ -168,7 +205,6 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("url");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
-        String sha256 = map.getString("sha256");
         if (this.isDownloading) {
             return;
         }
@@ -189,7 +225,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                     downloadedFile.delete();
                 }
 
-                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId)
+                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), CHANNEL_ID)
                         .setContentTitle(notificationTitle)
                         .setContentText("Download in progress")
                         .setOngoing(true)
@@ -197,14 +233,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .setSmallIcon(R.drawable.ic_notification);
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel channel = new NotificationChannel(channelId, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
-
+                    NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
                     mNotifyManager.createNotificationChannel(channel);
                 }
 
                 Request request = new Request.Builder().url(url).build();
                 OkHttpClient client = new OkHttpClient.Builder()
-                        .connectTimeout(10, TimeUnit.MILLISECONDS)
+                        .connectTimeout(10, TimeUnit.SECONDS)
                         .build();
                 Response response = null;
                 this.call = client.newCall(request);
@@ -258,7 +293,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                                 return;
                             }
                             mBuilder.setProgress(100, progress, false);
-                            notifyNotification(notifiactionId, mBuilder);
+                            notifyNotification(NOTIFICATION_ID, mBuilder);
                             prevProgress = progress;
                             if (this.checkInterrupt()) {
                                 return;
@@ -287,7 +322,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
 
-                boolean isValidAPK = checkFilePackage(downloadedFile, sha256, promise);
+                boolean isValidAPK = checkFilePackage(downloadedFile, url, promise);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
                 installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                 installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -295,14 +330,14 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 PendingIntent pendingIntent = isValidAPK ? PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
                         : null;
 
-                mNotifyManager.cancel(notifiactionId);
+                mNotifyManager.cancel(NOTIFICATION_ID);
                 mBuilder.setContentText("Download completed, click to install")
                         .setProgress(0, 0, false)
                         .setOngoing(false)
                         .setContentIntent(pendingIntent)
                         .setAutoCancel(true);
 
-                notifyNotification(notifiactionId, mBuilder);
+                notifyNotification(NOTIFICATION_ID, mBuilder);
                 Log.d("UPDATE APP", "downloadPackage: notifyNotification done");
                 promise.resolve(null);
             }
@@ -326,9 +361,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String sha256 = map.getString("sha256");
+        String downloadUrl = map.getString("downloadUrl");
         File file = buildFile(filePath);
-        if (!this.checkFilePackage(file, sha256, promise)) {
+        if (!this.checkFilePackage(file, downloadUrl, promise)) {
             return;
         }
         try {

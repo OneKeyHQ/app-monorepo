@@ -69,7 +69,6 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         isForceUpdate: false,
-        sha256: '',
         errorText: undefined,
         downloadedEvent: undefined,
         status: EAppUpdateStatus.done,

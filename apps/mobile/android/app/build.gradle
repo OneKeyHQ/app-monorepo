@@ -230,6 +230,9 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Add BouncyCastle OpenPGP dependency
+    implementation("org.bouncycastle:bcpg-jdk18on:1.77")
 }
 
 apply from: new File(["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json')"].execute(null, rootDir).text.trim(), "../native_modules.gradle");
