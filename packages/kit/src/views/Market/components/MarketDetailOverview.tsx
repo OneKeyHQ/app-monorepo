@@ -39,7 +39,11 @@ function OverviewPriceChange({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <PriceChangePercentage size="$bodyMdMedium" width="100%">
+      <PriceChangePercentage
+        size="$bodyMdMedium"
+        width="100%"
+        textAlign="center"
+      >
         {children}
       </PriceChangePercentage>
     </YStack>
@@ -244,20 +248,6 @@ function OverviewMarketVOL({
     </YStack>
   );
 }
-
-// function GoPlus() {
-//   return (
-//     <XStack jc="space-between" ai="center">
-//       <YStack gap="$1">
-//         <SizableText size="$headingMd">GoPlus</SizableText>
-//         <SizableText size="$bodyMd" color="$textSubdued">
-//           No risk detected
-//         </SizableText>
-//       </YStack>
-//       <Button h={38}>View</Button>
-//     </XStack>
-//   );
-// }
 
 export function MarketDetailOverview({
   token: {

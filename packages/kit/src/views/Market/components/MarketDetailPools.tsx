@@ -3,15 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  ISizableTextProps,
-  ITabPageProps,
-  ITableColumn,
-} from '@onekeyhq/components';
+import type { ITabPageProps, ITableColumn } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
-  ListView,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -24,14 +19,15 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type {
   IMarketDetailPool,
   IMarketResponsePool,
 } from '@onekeyhq/shared/types/market';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
+import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetailDialog } from './PoolDetailDialog';
@@ -41,24 +37,22 @@ function NetworkIdSelect({
   value,
   onChange,
   options,
+  oneKeyNetworkImages,
 }: {
   options: string[];
   value: number;
+  oneKeyNetworkImages: { logoURI: string }[];
   onChange: (selectedIndex: number) => void;
 }) {
   return (
     <XStack gap="$2" px="$5" pb="$2" mt="$5" $gtMd={{ pr: 0 }} py="$2">
       {options.map((networkId, index) => (
-        <Stack
+        <NetworksFilterItem
           key={networkId}
-          px="$3"
-          py="$2"
-          bg={value === index ? '$bgPrimary' : '$bgStrong'}
-          borderRadius="$2"
+          networkImageUri={oneKeyNetworkImages[index]?.logoURI}
+          isSelected={value === index}
           onPress={() => onChange(index)}
-        >
-          <NetworkAvatar networkId={networkId} size="$5" />
-        </Stack>
+        />
       ))}
     </XStack>
   );
@@ -75,6 +69,21 @@ export function MarketDetailPools({
     () =>
       pools.map((i) => i.onekeyNetworkId).filter((i) => Boolean(i)) as string[],
     [pools],
+  );
+
+  const { result: oneKeyNetworkImages } = usePromiseResult(
+    () =>
+      Promise.all(
+        oneKeyNetworkIds.map((networkId) =>
+          networkId
+            ? backgroundApiProxy.serviceNetwork.getNetwork({ networkId })
+            : Promise.resolve({ logoURI: '' }),
+        ),
+      ),
+    [oneKeyNetworkIds],
+    {
+      initResult: [],
+    },
   );
   const [index, selectIndex] = useState(0);
   const listData = useMemo(() => pools[index], [index, pools]);
@@ -295,6 +304,7 @@ export function MarketDetailPools({
       TableHeaderComponent={
         <NetworkIdSelect
           options={oneKeyNetworkIds}
+          oneKeyNetworkImages={oneKeyNetworkImages}
           value={index}
           onChange={handleChange}
         />

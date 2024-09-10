@@ -14,6 +14,7 @@ import {
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -104,6 +105,9 @@ function TokenListHeader({
             <SizableText
               flexGrow={1}
               flexBasis={0}
+              // TODO: quick fix
+              // should replace by Table Component
+              pl={platformEnv.isNativeIOSPad ? 44 : undefined}
               color="$textSubdued"
               size="$headingSm"
             >
@@ -115,6 +119,9 @@ function TokenListHeader({
             <SizableText
               flexGrow={1}
               flexBasis={0}
+              // TODO: quick fix
+              // should replace by Table Component
+              pl={platformEnv.isNativeIOSPad ? 48 : undefined}
               color="$textSubdued"
               size="$headingSm"
             >
