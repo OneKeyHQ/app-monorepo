@@ -797,7 +797,7 @@ function BasicMarketHomeList({
                 </XStack>
               ),
             },
-          ].filter(Boolean) as ITableProps<IMarketToken>['columns'])
+          ] as ITableProps<IMarketToken>['columns'])
         : [
             {
               title: '',
