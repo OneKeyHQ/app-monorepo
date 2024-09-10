@@ -46,9 +46,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type { Socket } from 'socket.io-client';
-import type { IDBAccount } from '../../dbs/local/types';
 import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
+import type { IDBAccount } from '../../dbs/local/types';
+import type { Socket } from 'socket.io-client';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -572,16 +572,33 @@ export default class ServiceNotification extends ServiceBase {
     });
   }
 
-  // TODO read ack
-  // TODO websocket ack
   @backgroundMethod()
   async ackNotificationMessage(params: INotificationPushMessageAckParams) {
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post('/notification/v1/message/ack', {
-      msgId: params.msgId,
-      action: params.action,
-    });
-    defaultLogger.notification.common.ackMessage(params, result.data);
+    let isWsAckSuccess = false;
+    if (this.notificationProvider?.webSocketProvider) {
+      try {
+        const res =
+          await this.notificationProvider.webSocketProvider.ackMessage(params);
+        if (res) {
+          isWsAckSuccess = true;
+        }
+      } catch (error) {
+        defaultLogger.notification.common.consoleLog(
+          'ackNotificationMessage error',
+          error,
+        );
+      }
+    }
+
+    if (!isWsAckSuccess) {
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      await client.post('/notification/v1/message/ack', {
+        msgId: params.msgId,
+        action: params.action,
+      });
+    }
+
+    defaultLogger.notification.common.ackMessage(params, null);
     void this.refreshBadgeFromServer();
     if (
       params.msgId &&
@@ -592,10 +609,6 @@ export default class ServiceNotification extends ServiceBase {
         [params.msgId as string]: true,
       }));
     }
-
-    // TODO return badge count
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return result.data;
   }
 
   @backgroundMethod()
