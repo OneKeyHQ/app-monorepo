@@ -516,19 +516,26 @@ function Overview() {
             }
           />
         </XStack>
-        <Button
-          variant="tertiary"
-          onPress={onPress}
-          iconAfter="ChevronRightSmallSolid"
-          color="$textSubdued"
-        >
-          {intl.formatMessage({ id: ETranslations.global_details })}
-        </Button>
       </XStack>
+
+      {/* details button */}
+      <Button
+        onPress={onPress}
+        variant="tertiary"
+        iconAfter="ChevronRightOutline"
+        position="absolute"
+        top={0}
+        right={0}
+        $gtLg={{
+          right: '$8',
+          top: '$8',
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_details })}
+      </Button>
     </YStack>
   );
 }
-
 function AvailableAssets() {
   const {
     activeAccount: { account, indexedAccount },
