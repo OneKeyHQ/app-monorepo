@@ -11,6 +11,7 @@ import {
   setNotificationHandler,
 } from 'expo-notifications';
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { setBadgeCountAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -61,6 +62,10 @@ export default class NotificationProvider extends NotificationProviderBase {
     // });
 
     const sub1 = addNotificationResponseReceivedListener(async (event) => {
+      defaultLogger.notification.common.consoleLog(
+        'native addNotificationResponseReceivedListener',
+        event.actionIdentifier, // TODO notification_closed
+      );
       const data = event?.notification?.request?.content
         ?.data as INotificationShowParams;
       if (data) {
@@ -219,5 +224,9 @@ export default class NotificationProvider extends NotificationProviderBase {
 
   override async showAndFocusApp(): Promise<void> {
     //
+  }
+
+  override async clearNotificationCache(): Promise<void> {
+    console.log('Native -- clearNotificationCache');
   }
 }
