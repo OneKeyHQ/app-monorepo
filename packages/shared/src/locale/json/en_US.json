@@ -53,7 +53,7 @@
   "address_book_select.title": "Select Contact",
   "address_input.contract_popover": "You are sending to a contract address, not a regular user address. Double-check the address and watch for risks.",
   "address_input.first_transfer_popover": "First transfer to this address on {network}. Double-check the address and watch for risks.",
-  "address_input.transferred_popover": "Detected previous transfer to this address. Please proceed, but stay cautious.",
+  "address_input.transferred_popover": "Detected previous transfer to this address",
   "address_type": "Address type",
   "approve_edit.approve_amount": "Approve amount",
   "approve_edit.title": "Edit allowance",

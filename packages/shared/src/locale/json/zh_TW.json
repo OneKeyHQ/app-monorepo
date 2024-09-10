@@ -53,7 +53,7 @@
   "address_book_select.title": "選擇聯絡人",
   "address_input.contract_popover": "您正在發送到合約地址，而不是常規用戶地址。仔細檢查地址並注意風險。",
   "address_input.first_transfer_popover": "首次轉移到{network}上的此位址。仔細檢查地址並注意風險。",
-  "address_input.transferred_popover": "檢測到之前已向此地址轉帳過。請繼續，但保持謹慎。",
+  "address_input.transferred_popover": "檢測到之前有向此地址的轉賬",
   "address_type": "地址類型",
   "approve_edit.approve_amount": "授權金額",
   "approve_edit.title": "編輯授權",

@@ -53,7 +53,7 @@
   "address_book_select.title": "选择联系人",
   "address_input.contract_popover": "您正在发送到合约地址，而非常规用户地址。请仔细检查地址并注意风险。",
   "address_input.first_transfer_popover": "首次在{network}上向此地址转账。仔细检查地址并注意风险。",
-  "address_input.transferred_popover": "检测到之前已向此地址转账过。请继续，但保持谨慎。",
+  "address_input.transferred_popover": "检测到之前有向此地址的转账",
   "address_type": "地址类型",
   "approve_edit.approve_amount": "授权金额",
   "approve_edit.title": "编辑授权",
