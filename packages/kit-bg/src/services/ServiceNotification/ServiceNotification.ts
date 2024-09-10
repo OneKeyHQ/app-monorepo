@@ -93,7 +93,7 @@ export default class ServiceNotification extends ServiceBase {
       );
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.notification_clicked,
-        this.onNotificationClick,
+        this.onNotificationClicked,
       );
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.notification_closed,
@@ -168,7 +168,7 @@ export default class ServiceNotification extends ServiceBase {
     void this.increaseBadgeCountWhenNotificationReceived(messageInfo);
   };
 
-  onNotificationClick = async ({
+  onNotificationClicked = async ({
     notificationId,
     params,
     webEvent,
@@ -228,7 +228,7 @@ export default class ServiceNotification extends ServiceBase {
     if (this.isColdStartByNotificationDone) {
       return;
     }
-    const r = await this.onNotificationClick({
+    const r = await this.onNotificationClicked({
       ...params,
       eventSource: 'coldStartByNotification',
     });
@@ -585,6 +585,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchMessageList(): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
@@ -595,6 +596,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async markNotificationReadAll() {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<

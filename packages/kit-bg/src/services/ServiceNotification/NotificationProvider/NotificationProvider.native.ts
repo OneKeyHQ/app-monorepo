@@ -61,6 +61,10 @@ export default class NotificationProvider extends NotificationProviderBase {
     // });
 
     const sub1 = addNotificationResponseReceivedListener(async (event) => {
+      defaultLogger.notification.common.consoleLog(
+        'native addNotificationResponseReceivedListener',
+        event.actionIdentifier, // TODO notification_closed
+      );
       const data = event?.notification?.request?.content
         ?.data as INotificationShowParams;
       if (data) {
