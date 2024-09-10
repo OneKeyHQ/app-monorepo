@@ -8,11 +8,12 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   NumberSizeableText,
+  Popover,
   Progress,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
   useMedia,
@@ -193,11 +194,20 @@ const PortfolioItem = ({
         <SizableText size="$bodyLg">{statusText}</SizableText>
       </XStack>
       {tooltip ? (
-        <Tooltip
-          placement="top"
-          renderContent={tooltip}
+        <Popover
+          title={statusText}
           renderTrigger={
-            <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+            <IconButton
+              iconColor="$iconSubdued"
+              size="small"
+              icon="InfoCircleOutline"
+              variant="tertiary"
+            />
+          }
+          renderContent={
+            <Stack p="$5">
+              <SizableText>{tooltip}</SizableText>
+            </Stack>
           }
         />
       ) : null}
@@ -365,11 +375,20 @@ function GridItem({
           {title}
         </SizableText>
         {tooltip ? (
-          <Tooltip
-            placement="top"
-            renderContent={tooltip}
+          <Popover
+            title={title}
             renderTrigger={
-              <Icon color="$iconSubdued" name="InfoCircleOutline" size="$5" />
+              <IconButton
+                iconColor="$iconSubdued"
+                size="small"
+                icon="InfoCircleOutline"
+                variant="tertiary"
+              />
+            }
+            renderContent={
+              <Stack p="$5">
+                <SizableText>{tooltip}</SizableText>
+              </Stack>
             }
           />
         ) : null}

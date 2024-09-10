@@ -10,9 +10,9 @@ import {
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -121,9 +121,10 @@ export const UniversalWithdraw = ({
   );
 
   const currentValue = useMemo<string | undefined>(() => {
-    const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.isNaN()) return undefined;
-    return amountValueBn.multipliedBy(price).toFixed();
+    if (Number(amountValue) > 0 && Number(price) > 0) {
+      return BigNumber(amountValue).multipliedBy(price).toFixed();
+    }
+    return undefined;
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
@@ -291,18 +292,27 @@ export const UniversalWithdraw = ({
                   id: ETranslations.earn_unstaking_period,
                 })}
               </SizableText>
-              <Tooltip
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
                 renderTrigger={
                   <IconButton
-                    variant="tertiary"
+                    iconColor="$iconSubdued"
                     size="small"
                     icon="InfoCircleOutline"
+                    variant="tertiary"
                   />
                 }
-                renderContent={intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period_tooltip,
-                })}
-                // placement="right"
+                renderContent={
+                  <Stack p="$5">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.earn_unstaking_period_tooltip,
+                      })}
+                    </SizableText>
+                  </Stack>
+                }
               />
             </XStack>
             <XStack gap="$2" alignItems="center">

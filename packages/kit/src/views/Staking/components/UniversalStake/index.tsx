@@ -8,10 +8,11 @@ import {
   Alert,
   Dialog,
   IconButton,
+  NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -47,7 +48,9 @@ type IUniversalStakeProps = {
   providerLogo?: string;
 
   minTransactionFee?: string;
-  apr?: number;
+  apr?: string;
+
+  showEstReceive?: boolean;
 
   minStakeBlocks?: number;
   minStakeTerm?: number;
@@ -76,6 +79,7 @@ export const UniversalStake = ({
   providerName,
   providerLogo,
   isReachBabylonCap,
+  showEstReceive,
   isDisabled,
   maxAmount,
   onConfirm,
@@ -122,8 +126,8 @@ export const UniversalStake = ({
   }, [onChangeAmountValue, balance, minTransactionFee]);
 
   const currentValue = useMemo<string | undefined>(() => {
-    const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.gt(0) || Number(price) > 0) {
+    if (Number(amountValue) > 0 && Number(price) > 0) {
+      const amountValueBn = new BigNumber(amountValue);
       return amountValueBn.multipliedBy(price).toFixed();
     }
     return undefined;
@@ -167,7 +171,7 @@ export const UniversalStake = ({
   ]);
 
   const estAnnualRewards = useMemo(() => {
-    if (Number(amountValue) > 0 && Number(price) > 0 && Number(apr) > 0) {
+    if (Number(amountValue) > 0 && Number(apr) > 0) {
       const amountBN = BigNumber(amountValue)
         .multipliedBy(apr ?? 0)
         .dividedBy(100);
@@ -176,7 +180,11 @@ export const UniversalStake = ({
           amount={amountBN.toFixed()}
           tokenSymbol={tokenSymbol ?? ''}
           fiatSymbol={symbol}
-          fiatValue={amountBN.multipliedBy(price).toFixed()}
+          fiatValue={
+            Number(price) > 0
+              ? amountBN.multipliedBy(price).toFixed()
+              : undefined
+          }
         />
       );
     }
@@ -313,6 +321,22 @@ export const UniversalStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
+          {showEstReceive && Number(amountValue) > 0 ? (
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              titleProps={fieldTitleProps}
+            >
+              <SizableText>
+                <NumberSizeableText
+                  formatter="balance"
+                  size="$bodyLgMedium"
+                  formatterOptions={{ tokenSymbol }}
+                >
+                  {amountValue}
+                </NumberSizeableText>
+              </SizableText>
+            </ListItem>
+          ) : null}
           {apr && Number(apr) > 0 ? (
             <ListItem
               title={intl.formatMessage({ id: ETranslations.global_apr })}
@@ -330,18 +354,25 @@ export const UniversalStake = ({
                 <SizableText {...fieldTitleProps}>
                   {intl.formatMessage({ id: ETranslations.earn_term })}
                 </SizableText>
-                <Tooltip
+                <Popover
+                  title={intl.formatMessage({ id: ETranslations.earn_term })}
                   renderTrigger={
                     <IconButton
-                      variant="tertiary"
+                      iconColor="$iconSubdued"
                       size="small"
                       icon="InfoCircleOutline"
+                      variant="tertiary"
                     />
                   }
-                  renderContent={intl.formatMessage({
-                    id: ETranslations.earn_term_tooltip,
-                  })}
-                  // placement="right"
+                  renderContent={
+                    <Stack p="$5">
+                      <SizableText>
+                        {intl.formatMessage({
+                          id: ETranslations.earn_term_tooltip,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  }
                 />
               </XStack>
               <ListItem.Text primary={btcStakeTerm} />

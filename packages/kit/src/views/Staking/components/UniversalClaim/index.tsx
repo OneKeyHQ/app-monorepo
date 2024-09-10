@@ -141,10 +141,10 @@ export const UniversalClaim = ({
         amount={receivingAmount}
         fiatSymbol={symbol}
         fiatValue={receivingValue}
-        tokenSymbol={symbol}
+        tokenSymbol={tokenSymbol ?? ''}
       />
     );
-  }, [amountValue, price, symbol, rate]);
+  }, [amountValue, price, tokenSymbol, rate, symbol]);
   const intl = useIntl();
 
   const editable = initialAmount === undefined;

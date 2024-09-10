@@ -9,7 +9,7 @@ export const ValuePriceListItem = ({
   amount: string;
   tokenSymbol: string;
   fiatSymbol: string;
-  fiatValue: string;
+  fiatValue?: string;
 }) => (
   <XStack gap="$1" maxWidth="$56" justifyContent="flex-end" flexWrap="wrap">
     <XStack>
@@ -22,17 +22,19 @@ export const ValuePriceListItem = ({
       </NumberSizeableText>
     </XStack>
     <XStack maxWidth="$56">
-      <SizableText>
-        (
-        <NumberSizeableText
-          size="$bodyLgMedium"
-          formatter="value"
-          formatterOptions={{ currency: fiatSymbol }}
-        >
-          {fiatValue}
-        </NumberSizeableText>
-        )
-      </SizableText>
+      {fiatValue ? (
+        <SizableText>
+          (
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="value"
+            formatterOptions={{ currency: fiatSymbol }}
+          >
+            {fiatValue}
+          </NumberSizeableText>
+          )
+        </SizableText>
+      ) : null}
     </XStack>
   </XStack>
 );
