@@ -17,12 +17,12 @@ export function Banner<
     bannerId: string;
   },
 >({
-  banners,
-  onPress,
+  data,
+  onItemPress,
   isLoading,
 }: {
-  banners: T[];
-  onPress: (item: T) => void;
+  data: T[];
+  onItemPress: (item: T) => void;
   isLoading: boolean | undefined;
 }) {
   const media = useMedia();
@@ -35,7 +35,7 @@ export function Banner<
         position="relative"
         userSelect="none"
         cursor="pointer"
-        onPress={() => onPress(item)}
+        onPress={() => onItemPress(item)}
       >
         <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
         <Stack
@@ -85,7 +85,7 @@ export function Banner<
                 variant="tertiary"
                 iconProps={{
                   color:
-                    banners[currentIndex]?.theme === 'light'
+                    data[currentIndex]?.theme === 'light'
                       ? '$iconSubduedLight'
                       : '$iconSubduedDark',
                 }}
@@ -93,7 +93,7 @@ export function Banner<
               />
             ) : null}
 
-            {currentIndex !== banners.length - 1 ? (
+            {currentIndex !== data.length - 1 ? (
               <IconButton
                 icon="ChevronRightOutline"
                 variant="tertiary"
@@ -103,19 +103,19 @@ export function Banner<
                 transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 iconProps={{
                   color:
-                    banners[currentIndex]?.theme === 'light'
+                    data[currentIndex]?.theme === 'light'
                       ? '$iconSubduedLight'
                       : '$iconSubduedDark',
                 }}
                 onPress={goToNextIndex}
-                disabled={currentIndex === banners.length - 1}
+                disabled={currentIndex === data.length - 1}
               />
             ) : null}
           </>
         ) : null}
-        {banners.length > 1 ? (
+        {data.length > 1 ? (
           <XStack gap="$1" position="absolute" right="$10" bottom="$10">
-            {banners.map((_, index) => (
+            {data.map((_, index) => (
               <Stack
                 key={index}
                 w="$3"
@@ -132,7 +132,7 @@ export function Banner<
         ) : null}
       </>
     ),
-    [media.gtMd, banners],
+    [media.gtMd, data],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
@@ -168,7 +168,7 @@ export function Banner<
         height: 404,
       }}
       keyExtractor={keyExtractor}
-      data={banners}
+      data={data}
       renderItem={renderItem}
       renderPagination={renderPagination}
     />
