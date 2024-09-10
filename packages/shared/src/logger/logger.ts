@@ -6,6 +6,7 @@ import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
+import { NotificationScope } from './scopes/notification/notification';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
 import { StakingScope } from './scopes/staking';
@@ -44,6 +45,8 @@ export class DefaultLogger {
   hardware = new HardwareScope();
 
   fiatCrypto = new FiatCryptoScope();
+
+  notification = new NotificationScope();
 }
 
 const defaultLogger = new DefaultLogger();

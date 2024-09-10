@@ -1,7 +1,12 @@
 import { filter, forEach } from 'lodash';
 
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import type { IEndpointDomainWhiteList } from '@onekeyhq/shared/types/endpoint';
+import type {
+  EServiceEndpointEnum,
+  IEndpointDomainWhiteList,
+  IEndpointInfo,
+} from '@onekeyhq/shared/types/endpoint';
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
@@ -13,6 +18,19 @@ export async function getEndpoints() {
     return endpointsMap.test;
   }
   return endpointsMap.prod;
+}
+
+export async function getEndpointInfo({
+  name,
+}: {
+  name: EServiceEndpointEnum;
+}): Promise<IEndpointInfo> {
+  const endpoints = await getEndpoints();
+  const endpoint = endpoints[name];
+  if (!endpoint) {
+    throw new OneKeyError(`Invalid endpoint name:${name}`);
+  }
+  return { endpoint, name };
 }
 
 export async function getEndpointDomainWhitelist() {
