@@ -15,6 +15,7 @@ import {
   Skeleton,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -56,6 +57,7 @@ function SearchModal() {
   const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
 
   const [searchValue, setSearchValue] = useState(url);
+  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const { serviceDiscovery } = backgroundApiProxy;
@@ -160,6 +162,7 @@ function SearchModal() {
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -175,6 +178,7 @@ function SearchModal() {
               });
             } else {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -190,7 +194,7 @@ function SearchModal() {
           testID={`dapp-search${index}`}
         />
       )),
-    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+    [gtMd, handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
   );
 
   return (
@@ -213,6 +217,7 @@ function SearchModal() {
             })}
             onSubmitEditing={() => {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -264,6 +269,7 @@ function SearchModal() {
                     }}
                     onPress={() => {
                       handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
                         navigation,
                         useCurrentWindow,
                         tabId,
@@ -343,6 +349,7 @@ function SearchModal() {
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
                     handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
                       navigation,
                       useCurrentWindow,
                       tabId,

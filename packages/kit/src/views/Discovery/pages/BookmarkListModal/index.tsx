@@ -7,10 +7,10 @@ import {
   Dialog,
   Input,
   Page,
-  Skeleton,
   SortableListView,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -163,7 +163,7 @@ function BookmarkListModal() {
     ),
     [isEditing, intl],
   );
-
+  const { gtMd } = useMedia();
   return (
     <Page>
       <Page.Header
@@ -191,6 +191,7 @@ function BookmarkListModal() {
                 onPress: () => {
                   handleOpenWebSite({
                     navigation,
+                    switchToMultiTabBrowser: gtMd,
                     webSite: {
                       url: item.url,
                       title: item.title,
