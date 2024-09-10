@@ -1,4 +1,3 @@
-import { analytics } from '../../analytics';
 import platformEnv from '../../platformEnv';
 import { getLoggerExtension } from '../extensions';
 import { defaultLoggerConfig } from '../loggerConfig';
@@ -72,7 +71,7 @@ export const logFn = ({
         break;
       case 'server':
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        analytics.trackEvent(methodName, obj.args[0]);
+        global?.$analytics?.trackEvent(methodName, obj.args[0]);
         break;
       case 'console':
       default: {

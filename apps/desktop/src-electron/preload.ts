@@ -1,13 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
-import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
+  IDesktopMainProcessDevOnlyApiParams,
   IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
+import type {
+  INotificationPermissionDetail,
+  INotificationSetBadgeParams,
+  INotificationShowParams,
+} from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
 
@@ -100,6 +105,10 @@ export type IDesktopAPI = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   setAllowedPhishingUrls: (urls: string[]) => void;
   clearWebViewCache: () => void;
+  showNotification: (params: INotificationShowParams) => void;
+  setBadge: (params: INotificationSetBadgeParams) => void;
+  getNotificationPermission: () => INotificationPermissionDetail;
+  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -196,7 +205,8 @@ const desktopApi = {
   },
   getMediaAccessStatus: (prefType: IMediaType) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
-  openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
+  openPreferences: (prefType: IPrefType) =>
+    ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES, prefType),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   changeDevTools: (isOpen: boolean) =>
@@ -316,6 +326,16 @@ const desktopApi = {
   clearWebViewCache: () => {
     ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
   },
+  showNotification: (params: INotificationShowParams) => {
+    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SHOW, params);
+  },
+  setBadge: (params: INotificationSetBadgeParams) => {
+    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
+  },
+  getNotificationPermission: () =>
+    ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
+  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
 };
 
 window.desktopApi = desktopApi;

@@ -20,7 +20,7 @@ function useReplaceTx({
   onSuccess,
   isConfirmed,
 }: {
-  historyTx: IAccountHistoryTx;
+  historyTx: IAccountHistoryTx | undefined;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   isConfirmed?: boolean;
 }) {
@@ -28,6 +28,7 @@ function useReplaceTx({
   const intl = useIntl();
 
   const canReplaceTx = usePromiseResult(async () => {
+    if (!historyTx) return false;
     const { accountId, networkId, status, encodedTx } = historyTx.decodedTx;
     if (isConfirmed) return false;
 
@@ -49,10 +50,13 @@ function useReplaceTx({
     });
   }, [historyTx, isConfirmed]).result;
 
-  const canCancelTx = historyTx.replacedType !== EReplaceTxType.Cancel;
+  const canCancelTx = historyTx
+    ? historyTx.replacedType !== EReplaceTxType.Cancel
+    : false;
 
   const handleReplaceTx = useCallback(
     async ({ replaceType }: { replaceType: EReplaceTxType }) => {
+      if (!historyTx) return;
       const { decodedTx } = historyTx;
       const { accountId, networkId } = decodedTx;
 

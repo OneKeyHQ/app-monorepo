@@ -1836,6 +1836,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     delete this.tempWallets[walletId];
+
+    appEventBus.emit(EAppEventBusNames.WalletRemove, {
+      walletId,
+    });
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
@@ -2331,6 +2335,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       }
     }
+
+    appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId,
+      accounts,
+    });
   }
 
   // ---------------------------------------------- account
@@ -2458,9 +2467,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getAllAccounts() {
+  async getAllAccounts({ ids }: { ids?: string[] } = {}) {
     const { records: accounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.Account,
+      ids,
     });
     return { accounts };
   }
@@ -2599,6 +2609,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async emitRenameDBAccountsEvent(params: IDBSetAccountNameParams) {
+    let accounts: IDBAccount[] = [];
+
+    if (params.indexedAccountId) {
+      // TODO low performance
+      accounts = await this.getAccountsInSameIndexedAccountId({
+        indexedAccountId: params.indexedAccountId,
+      });
+    }
+    if (params.accountId) {
+      const account = await this.getAccountSafe({
+        accountId: params.accountId,
+      });
+      accounts = [...accounts, account].filter(Boolean);
+    }
+    appEventBus.emit(EAppEventBusNames.RenameDBAccounts, {
+      accounts,
+    });
+  }
+
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const db = await this.readyDb;
 
@@ -2649,6 +2679,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
     });
+
+    void this.emitRenameDBAccountsEvent(params);
   }
 
   // ---------------------------------------------- device

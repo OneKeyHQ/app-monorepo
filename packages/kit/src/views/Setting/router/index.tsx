@@ -52,7 +52,10 @@ const ExportCustomNetworkConfig = LazyLoadPage(
 );
 
 const NotificationsSettings = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/Notifications'),
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'
+    ),
 );
 
 export const ModalSettingStack: IModalFlowNavigatorConfig<

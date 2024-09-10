@@ -7,6 +7,7 @@ import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
+import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -38,6 +39,7 @@ declare global {
   var $backgroundApiProxy: BackgroundApiProxy;
   var $$backgroundApi: BackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
+  var $analytics: Analytics;
 
   var $$Toast: any;
   var $$navigationShortcuts: any;
