@@ -10,8 +10,6 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: string;
-  // sha256 for downloaded package
-  sha256?: string;
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
