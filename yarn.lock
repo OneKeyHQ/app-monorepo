@@ -6538,7 +6538,6 @@ __metadata:
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
-    macos-notification-state: "npm:^3.0.0"
     node-fetch: "npm:^2.6.7"
     rimraf: "npm:^3"
     webpack: "npm:5.90.3"
@@ -26947,16 +26946,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"macos-notification-state@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "macos-notification-state@npm:3.0.0"
-  dependencies:
-    bindings: "npm:^1.5.0"
-    node-addon-api: "npm:3.0.0"
-  checksum: 10/83b6026901a89b18e1e7b3d1299f69955fbf9d7001d081fd9484546a9083460df29d1e072f3ce1fca61281302009de0cf322603f788943e7b2d5de642b62cc2c
-  languageName: node
-  linkType: hard
-
 "make-dir@npm:^2.0.0, make-dir@npm:^2.1.0":
   version: 2.1.0
   resolution: "make-dir@npm:2.1.0"
@@ -28306,15 +28295,6 @@ __metadata:
   version: 3.1.1
   resolution: "node-abort-controller@npm:3.1.1"
   checksum: 10/0a2cdb7ec0aeaf3cb31e1ca0e192f5add48f1c5c9c9ed822129f9dddbd9432f69b7425982f94ce803c56a2104884530aa67cd57696e5774b2e5b8ec2f58de042
-  languageName: node
-  linkType: hard
-
-"node-addon-api@npm:3.0.0":
-  version: 3.0.0
-  resolution: "node-addon-api@npm:3.0.0"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: 10/c31416228a4e862c618e767c5d15612cec49c75510204243530039677d7dc2fd3ce40e7138d7f73ee8f3cea7fc22f8a877be8ff0cae77c4fe96ca08b047d5d10
   languageName: node
   linkType: hard
 

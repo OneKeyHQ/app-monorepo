@@ -43,7 +43,7 @@ async function getElectronNotificationPermission() {
             getSessionState,
         } from 'macos-notification-state';
         */
-      // TODO cause app crash
+      // TODO cause app crash, production build error
       // Error: [macos-notification-state] notificationstate addon not loaded
       // const doNotDisturb = await getDoNotDisturb();
       // const notificationState = await getNotificationState();
