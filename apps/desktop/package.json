@@ -40,7 +40,6 @@
     "electron-store": "^8.1.0",
     "electron-updater": "6.1.8",
     "keytar": "^7.9.0",
-    "macos-notification-state": "^3.0.0",
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
