@@ -156,6 +156,7 @@ export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
   available: string;
+  active?: string;
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;

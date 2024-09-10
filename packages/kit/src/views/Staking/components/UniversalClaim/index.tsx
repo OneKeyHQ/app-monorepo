@@ -54,7 +54,7 @@ export const UniversalClaim = ({
   decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
-  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [

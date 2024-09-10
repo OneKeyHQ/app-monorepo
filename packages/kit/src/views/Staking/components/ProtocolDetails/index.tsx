@@ -834,7 +834,7 @@ export function ProtocolDetails({
       provider.network = details.network;
     }
     const profit: IProfit = {
-      apr: details.provider.apr,
+      apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
       earningsIn24h: details.earnings24h,
       rewardTokens: details.rewardToken,
       updateFrequency: details.updateFrequency,

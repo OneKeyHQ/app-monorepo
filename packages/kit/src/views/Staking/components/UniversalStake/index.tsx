@@ -88,7 +88,6 @@ export const UniversalStake = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
-  // const price = Number.isNaN(inputPrice) ? '0' : inputPrice;
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -124,9 +123,10 @@ export const UniversalStake = ({
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.isNaN() || !price || Number.isNaN(price))
-      return undefined;
-    return amountValueBn.multipliedBy(price).toFixed();
+    if (amountValueBn.gt(0) || Number(price) > 0) {
+      return amountValueBn.multipliedBy(price).toFixed();
+    }
+    return undefined;
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
@@ -167,19 +167,20 @@ export const UniversalStake = ({
   ]);
 
   const estAnnualRewards = useMemo(() => {
-    const bn = BigNumber(amountValue);
-    if (!amountValue || bn.isNaN() || !price || Number.isNaN(price) || !apr) {
-      return null;
+    if (Number(amountValue) > 0 && Number(price) > 0 && Number(apr) > 0) {
+      const amountBN = BigNumber(amountValue)
+        .multipliedBy(apr ?? 0)
+        .dividedBy(100);
+      return (
+        <ValuePriceListItem
+          amount={amountBN.toFixed()}
+          tokenSymbol={tokenSymbol ?? ''}
+          fiatSymbol={symbol}
+          fiatValue={amountBN.multipliedBy(price).toFixed()}
+        />
+      );
     }
-    const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
-    return (
-      <ValuePriceListItem
-        amount={amountBN.toFixed()}
-        tokenSymbol={tokenSymbol ?? ''}
-        fiatSymbol={symbol}
-        fiatValue={amountBN.multipliedBy(price).toFixed()}
-      />
-    );
+    return null;
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 
   const btcStakeTerm = useMemo(() => {
