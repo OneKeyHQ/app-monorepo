@@ -4,6 +4,7 @@ import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INotificationPermissionDetail,
   INotificationRemoveParams,
@@ -40,8 +41,18 @@ export default class NotificationProvider extends NotificationProviderBase {
     // );
   }
 
-  // TODO clear cache
   notificationCache = new Map<string, INotificationShowParams>();
+
+  override async clearNotificationCache() {
+    const oneDayAgo = Date.now() - timerUtils.getTimeDurationMs({ day: 1 });
+    if (this.notificationCache) {
+      this.notificationCache.forEach((notification, id) => {
+        if (!notification.time || notification.time < oneDayAgo) {
+          this.notificationCache.delete(id);
+        }
+      });
+    }
+  }
 
   handleNotificationClick = async (notificationId: string, ...others: any) => {
     // 处理通知点击的逻辑

@@ -49,4 +49,8 @@ export default class NotificationProviderWeb extends NotificationProviderBase {
   override setBadge(params: INotificationSetBadgeParams): Promise<void> {
     throw new NotImplemented();
   }
+
+  override async clearNotificationCache(): Promise<void> {
+    console.log('Web -- clearNotificationCache');
+  }
 }

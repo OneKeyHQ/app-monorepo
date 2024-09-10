@@ -11,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -93,7 +94,7 @@ export default class ServiceNotification extends ServiceBase {
       );
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.notification_clicked,
-        this.onNotificationClick,
+        this.onNotificationClicked,
       );
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.notification_closed,
@@ -151,7 +152,7 @@ export default class ServiceNotification extends ServiceBase {
     if (messageInfo.pushSource === 'websocket') {
       // jpush will show notification automatically
       // websocket should show notification by ourselves
-      await this.notificationProvider.showNotification({
+      await this.showNotification({
         notificationId: messageInfo.extras?.msgId,
         title: messageInfo.title,
         description: messageInfo.content,
@@ -168,7 +169,7 @@ export default class ServiceNotification extends ServiceBase {
     void this.increaseBadgeCountWhenNotificationReceived(messageInfo);
   };
 
-  onNotificationClick = async ({
+  onNotificationClicked = async ({
     notificationId,
     params,
     webEvent,
@@ -228,7 +229,7 @@ export default class ServiceNotification extends ServiceBase {
     if (this.isColdStartByNotificationDone) {
       return;
     }
-    const r = await this.onNotificationClick({
+    const r = await this.onNotificationClicked({
       ...params,
       eventSource: 'coldStartByNotification',
     });
@@ -298,7 +299,7 @@ export default class ServiceNotification extends ServiceBase {
       clearTimeout(this.clearDesktopNotificationCacheTimer);
       this.clearDesktopNotificationCacheTimer = setTimeout(() => {
         this.desktopNotificationCache = {};
-      }, 10_000);
+      }, timerUtils.getTimeDurationMs({ minute: 3 }));
     }
     return result;
   }
@@ -365,13 +366,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   convertToSyncAccounts = async (dbAccounts: IDBAccount[]) => {
-    const supportNetworks = await this.getSupportedNetworks();
-    const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
-      if (item.impl === IMPL_EVM) {
-        return item.impl;
-      }
-      return item.networkId;
-    });
+    const supportNetworksFiltered = await this.getSupportedNetworks();
 
     defaultLogger.notification.common.consoleLog('supportNetworksFiltered', {
       supportNetworksFiltered: supportNetworksFiltered.length,
@@ -416,10 +411,9 @@ export default class ServiceNotification extends ServiceBase {
 
     defaultLogger.notification.common.consoleLog('convertToSyncAccounts', {
       syncAccounts: syncAccounts.length,
-      supportNetworks: supportNetworks.length,
       supportNetworksFiltered: supportNetworksFiltered.length,
     });
-    return { syncAccounts, supportNetworks, supportNetworksFiltered };
+    return { syncAccounts, supportNetworksFiltered };
   };
 
   @backgroundMethod()
@@ -476,10 +470,17 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   _registerClientWithOverrideAllAccountsDebounced = debounce(
-    () =>
-      this.registerClientWithSyncAccounts({
-        syncMethod: ENotificationPushSyncMethod.override,
-      }),
+    async () => {
+      await InteractionManager.runAfterInteractions(async () => {
+        await this.registerClientWithSyncAccounts({
+          syncMethod: ENotificationPushSyncMethod.override,
+        });
+        await notificationsAtom.set((v) => ({
+          ...v,
+          lastRegisterTime: Date.now(),
+        }));
+      });
+    },
     5000,
     {
       leading: false,
@@ -519,15 +520,40 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  async registerClientDaily() {
+    const { lastRegisterTime } = await notificationsAtom.get();
+    if (
+      lastRegisterTime &&
+      Date.now() - lastRegisterTime <
+        timerUtils.getTimeDurationMs({
+          hour: 24,
+        })
+    ) {
+      return;
+    }
+    void this.notificationProvider.clearNotificationCache();
+    return this.registerClientWithOverrideAllAccounts();
+  }
+
+  @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
     defaultLogger.notification.common.registerClient(params, null);
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post(
-      '/notification/v1/account/register',
-      params,
-    );
+    const result = await client.post<
+      IApiClientResponse<{
+        badges: number;
+        created: number;
+        removed: number;
+      }>
+    >('/notification/v1/account/register', params);
     // TODO return badge count
     defaultLogger.notification.common.registerClient(params, result.data);
+
+    const badge = result?.data?.data?.badges;
+    if (isNumber(badge)) {
+      void this.setBadge({ count: badge });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result.data;
   }
@@ -540,16 +566,33 @@ export default class ServiceNotification extends ServiceBase {
     });
   }
 
-  // TODO read ack
-  // TODO websocket ack
   @backgroundMethod()
   async ackNotificationMessage(params: INotificationPushMessageAckParams) {
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post('/notification/v1/message/ack', {
-      msgId: params.msgId,
-      action: params.action,
-    });
-    defaultLogger.notification.common.ackMessage(params, result.data);
+    let isWsAckSuccess = false;
+    if (this.notificationProvider?.webSocketProvider) {
+      try {
+        const res =
+          await this.notificationProvider.webSocketProvider.ackMessage(params);
+        if (res) {
+          isWsAckSuccess = true;
+        }
+      } catch (error) {
+        defaultLogger.notification.common.consoleLog(
+          'ackNotificationMessage error',
+          error,
+        );
+      }
+    }
+
+    if (!isWsAckSuccess) {
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      await client.post('/notification/v1/message/ack', {
+        msgId: params.msgId,
+        action: params.action,
+      });
+    }
+
+    defaultLogger.notification.common.ackMessage(params, null);
     void this.refreshBadgeFromServer();
     if (
       params.msgId &&
@@ -560,31 +603,40 @@ export default class ServiceNotification extends ServiceBase {
         [params.msgId as string]: true,
       }));
     }
-
-    // TODO return badge count
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return result.data;
   }
 
-  @backgroundMethod()
-  async getSupportedNetworks() {
-    // /notification/v1/config/supported-networks
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.get<
-      IApiClientResponse<
-        {
-          networkId: string;
-          impl: string;
-          chainId: string;
-        }[]
-      >
-    >('/notification/v1/config/supported-networks');
+  getSupportedNetworks = memoizee(
+    async () => {
+      // /notification/v1/config/supported-networks
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.get<
+        IApiClientResponse<
+          {
+            networkId: string;
+            impl: string;
+            chainId: string;
+          }[]
+        >
+      >('/notification/v1/config/supported-networks');
 
-    // TODO save to simple db
-    return result?.data?.data ?? [];
-  }
+      const supportNetworks = result?.data?.data ?? [];
+      const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
+        if (item.impl === IMPL_EVM) {
+          return item.impl;
+        }
+        return item.networkId;
+      });
+      return supportNetworksFiltered;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({
+        hour: 1,
+      }),
+    },
+  );
 
   @backgroundMethod()
+  @toastIfError()
   async fetchMessageList(): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
@@ -595,6 +647,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async markNotificationReadAll() {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<

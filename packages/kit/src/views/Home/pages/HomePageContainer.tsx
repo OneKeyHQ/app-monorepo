@@ -11,6 +11,7 @@ import {
   useSelectedAccount,
   useSelectedAccountsAtom,
 } from '../../../states/jotai/contexts/accountSelector';
+import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
 
 import { HomePageView } from './HomePageView';
@@ -69,6 +70,7 @@ function HomePageContainer() {
       />
       <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
+      <NotificationRegisterDaily />
       {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
       {process.env.NODE_ENV !== 'production' ? (

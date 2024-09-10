@@ -2,7 +2,10 @@ import { io } from 'socket.io-client';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+import type {
+  INotificationPushMessageAckParams,
+  INotificationPushMessageInfo,
+} from '@onekeyhq/shared/types/notification';
 import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
 
 import { getEndpointInfo } from '../../../endpoints';
@@ -19,6 +22,17 @@ export class PushProviderWebSocket extends PushProviderBase {
   }
 
   private socket: Socket | null = null;
+
+  async ackMessage(params: INotificationPushMessageAckParams) {
+    const { msgId, action } = params;
+    if (this.socket && msgId && action) {
+      const r = await this.socket
+        .timeout(3000)
+        .emitWithAck('ack', { msgId, action });
+      return r as { updated: number };
+    }
+    return null;
+  }
 
   private async initWebSocket() {
     // const endpoint = 'http://localhost:4982';
