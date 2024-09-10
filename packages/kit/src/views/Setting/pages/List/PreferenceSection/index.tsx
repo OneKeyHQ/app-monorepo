@@ -1,5 +1,6 @@
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
@@ -84,7 +85,7 @@ const ThemeListItem = () => {
 const LanguageListItem = () => {
   const locales = useLocaleOptions();
   const intl = useIntl();
-  const [{ locale }] = useSettingsPersistAtom();
+  const [{ locale, currencyInfo }] = useSettingsPersistAtom();
   const onChange = useCallback(async (text: string) => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {
@@ -94,6 +95,7 @@ const LanguageListItem = () => {
       backgroundApiProxy.serviceApp.restartApp();
     }, 0);
   }, []);
+
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}

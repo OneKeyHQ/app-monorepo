@@ -471,6 +471,39 @@ function Overview() {
             }
           />
         </XStack>
+        <Button
+          variant="tertiary"
+          onPress={onPress}
+          iconAfter="ChevronRightSmallSolid"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({ id: ETranslations.global_details })}
+        </Button>
+      </XStack>
+      <NumberSizeableText
+        size="$heading5xl"
+        formatter="price"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+      >
+        {totalFiatValue}
+      </NumberSizeableText>
+      <XStack gap="$1.5">
+        <XStack alignItems="center">
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+              showPlusMinusSigns: !earnings24h.isZero(),
+            }}
+            color={earnings24h.isZero() ? '$textDisabled' : '$textInteractive'}
+          >
+            {earnings24h.toFixed()}
+          </NumberSizeableText>
+        </XStack>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
+        </SizableText>
       </XStack>
 
       {/* details button */}

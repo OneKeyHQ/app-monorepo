@@ -1,14 +1,8 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import {
-  Divider,
-  NumberSizeableText,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -158,14 +152,16 @@ function TokenDetailsHeader(props: IProps) {
               </YStack>
             ) : (
               <>
-                <NumberSizeableText
+                <NumberSizeableTextWrapper
+                  hideValue
                   size="$heading3xl"
                   formatter="balance"
                   formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
                 >
                   {tokenDetails?.balanceParsed ?? '0'}
-                </NumberSizeableText>
-                <NumberSizeableText
+                </NumberSizeableTextWrapper>
+                <NumberSizeableTextWrapper
+                  hideValue
                   formatter="value"
                   formatterOptions={{
                     currency: settings.currencyInfo.symbol,
@@ -174,7 +170,7 @@ function TokenDetailsHeader(props: IProps) {
                   size="$bodyLgMedium"
                 >
                   {tokenDetails?.fiatValue ?? '0'}
-                </NumberSizeableText>
+                </NumberSizeableTextWrapper>
               </>
             )}
           </Stack>

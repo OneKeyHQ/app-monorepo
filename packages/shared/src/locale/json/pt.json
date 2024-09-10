@@ -301,7 +301,7 @@
   "downgrade_warning_description": "NÃO faça o downgrade para o OneKey v4. O downgrade levará à perda irreversível de dados.",
   "downgrade_warning_title": "Importante: Não faça o downgrade",
   "earn.24h_earnings": "Ganhos de 24h",
-  "earn.24h_earnings_tooltip": "Ganhos nas últimas 24 horas com base no valor em staking.",
+  "earn.24h_earnings_tooltip": "Estimated earnings over the past 24 hours based on your staked amount.",
   "earn.active": "Ativo",
   "earn.annually": "Anualmente",
   "earn.approaching_staking_cap": "À medida que nos aproximamos do limite de staking, por favor, verifique seus resultados de staking. Você precisará fazer o restake se estiver marcado como excesso.",

@@ -319,6 +319,7 @@ export function useSwapBuildTx() {
               },
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
+              memo: res.swftOrder.memo,
             };
           } else if (res?.changellyOrder) {
             encodedTx = undefined;

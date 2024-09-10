@@ -207,7 +207,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                   })}
                 </XStack>
               ))}
-              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+              {gtMd ? <YStack pt="$8">{confirmButton}</YStack> : null}
             </YStack>
           </ScrollView>
           {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}

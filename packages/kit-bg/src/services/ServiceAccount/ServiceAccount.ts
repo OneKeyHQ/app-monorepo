@@ -1435,8 +1435,49 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  async getAllAccounts() {
-    return localDb.getAllAccounts();
+  async getAllAccounts({ ids }: { ids?: string[] } = {}) {
+    // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
+    const { accounts } = await localDb.getAllAccounts({ ids });
+    const removedWallet: {
+      [walletId: string]: true;
+    } = {};
+    const removedIndexedAccount: {
+      [indexedAccountId: string]: true;
+    } = {};
+    const accountsFiltered = await Promise.all(
+      accounts.map(async (account) => {
+        const { indexedAccountId, id } = account;
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId: id,
+        });
+        if (walletId) {
+          if (removedWallet[walletId]) {
+            return null;
+          }
+          const wallet = await this.getWalletSafe({ walletId });
+          if (!wallet) {
+            removedWallet[walletId] = true;
+            return null;
+          }
+        }
+        if (indexedAccountId) {
+          if (removedIndexedAccount[indexedAccountId]) {
+            return null;
+          }
+          const indexedAccount = await this.getIndexedAccountSafe({
+            id: indexedAccountId,
+          });
+          if (!indexedAccount) {
+            removedIndexedAccount[indexedAccountId] = true;
+            return null;
+          }
+        }
+        return account;
+      }),
+    );
+    return {
+      accounts: accountsFiltered.filter(Boolean),
+    };
   }
 
   async getAllWallets() {
@@ -1565,6 +1606,7 @@ class ServiceAccount extends ServiceBase {
     return localDb.ensureAccountNameNotDuplicate(params);
   }
 
+  // rename account
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {

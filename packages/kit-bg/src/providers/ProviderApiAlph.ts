@@ -2,7 +2,7 @@ import { groupOfAddress } from '@alephium/web3';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
+import { EAlphTxType } from '@onekeyhq/core/src/chains/alph/types';
 import {
   backgroundClass,
   permissionRequired,
@@ -12,7 +12,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IConnectedAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import type { EMessageTypesAlph } from '@onekeyhq/shared/types/message';
 
-import { deserializeUnsignedTransaction } from '../vaults/impls/alph/sdkAlph/utils';
+import {
+  deserializeUnsignedTransaction,
+  serializeUnsignedTransaction,
+} from '../vaults/impls/alph/sdkAlph/utils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -20,15 +23,22 @@ import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
   Account,
   EnableOptionsBase,
+  SignDeployContractTxParams,
+  SignDeployContractTxResult,
+  SignExecuteScriptTxParams,
+  SignExecuteScriptTxResult,
   SignMessageParams,
+  SignMessageResult,
+  SignTransferTxParams,
   SignTransferTxResult,
   SignUnsignedTxParams,
+  SignUnsignedTxResult,
 } from '@alephium/web3';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiAlph extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.ton;
+  public providerName = IInjectedProviderNames.alephium;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -74,6 +84,9 @@ class ProviderApiAlph extends ProviderApiBase {
         (params.networkId && params.networkId !== 'mainnet')
       ) {
         throw web3Errors.rpc.methodNotSupported();
+      }
+      if (params.addressGroup !== undefined && params.addressGroup !== 0) {
+        throw new Error('Only address group 0 is supported');
       }
     }
   }
@@ -185,7 +198,7 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitTransferTx(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAlph,
+    params: SignTransferTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
@@ -194,12 +207,14 @@ class ProviderApiAlph extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params,
+        encodedTx: {
+          type: EAlphTxType.Transfer,
+          params,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
 
-    const encodedTx = result.encodedTx as IEncodedTxAlph;
     const rawTx = JSON.parse(result.rawTx) as {
       unsignedTx: string;
       signature: string;
@@ -212,8 +227,8 @@ class ProviderApiAlph extends ProviderApiBase {
     const res: SignTransferTxResult = {
       ...rawTx,
       txId: result.txid,
-      gasPrice: encodedTx.params.gasPrice || '0',
-      gasAmount: encodedTx.params.gasAmount || 0,
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
       fromGroup: decodedUnsignedTx.fromGroup,
       toGroup: decodedUnsignedTx.toGroup,
     };
@@ -222,23 +237,141 @@ class ProviderApiAlph extends ProviderApiBase {
 
   @permissionRequired()
   @providerApiMethod()
-  public async signUnsignedTx(
+  public async signAndSubmitDeployContractTx(
     request: IJsBridgeMessagePayload,
-    params: SignUnsignedTxParams,
+    params: SignDeployContractTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const accounts = await this.getAccountsInfo(request);
+    const { account, accountInfo } = accounts[0];
+    const encodedTx = {
+      type: EAlphTxType.DeployContract,
+      params,
+    };
+    const deployTxInfo = (await serializeUnsignedTransaction({
+      encodedTx,
+      publicKey: account.pub ?? '',
+      networkId: accountInfo?.networkId ?? '',
+      backgroundApi: this.backgroundApi,
+    })) as Omit<SignDeployContractTxResult, 'signature'>;
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    const rawTx = JSON.parse(result.rawTx) as {
+      unsignedTx: string;
+      signature: string;
+    };
+
+    const res: SignDeployContractTxResult = {
+      ...deployTxInfo,
+      ...rawTx,
+    };
+    return res;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signAndSubmitExecuteScriptTx(
+    request: IJsBridgeMessagePayload,
+    params: SignExecuteScriptTxParams,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params as any,
-        signOnly: true,
+        encodedTx: {
+          type: EAlphTxType.ExecuteScript,
+          params,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
 
-    return result.rawTx;
+    const rawTx = JSON.parse(result.rawTx) as {
+      unsignedTx: string;
+      signature: string;
+    };
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
+    const res: SignExecuteScriptTxResult = {
+      ...rawTx,
+      txId: result.txid,
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      groupIndex: decodedUnsignedTx.fromGroup,
+    };
+    return res;
+  }
+
+  private async _signUnsignedTx(
+    request: IJsBridgeMessagePayload,
+    params: SignUnsignedTxParams,
+    signOnly: boolean,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const accounts = await this.getAccountsInfo(request);
+    const { account, accountInfo } = accounts[0];
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: params.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          type: EAlphTxType.UnsignedTx,
+          params: {
+            ...params,
+            gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+            gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+          },
+        },
+        signOnly,
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+    const res: SignUnsignedTxResult = {
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      fromGroup: decodedUnsignedTx.fromGroup,
+      toGroup: decodedUnsignedTx.toGroup,
+      unsignedTx: params.unsignedTx,
+      txId: result.txid,
+      signature: result.signature as string,
+    };
+    return res;
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signAndSubmitUnsignedTx(
+    request: IJsBridgeMessagePayload,
+    params: SignUnsignedTxParams,
+  ) {
+    return this._signUnsignedTx(request, params, false);
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  public async signUnsignedTx(
+    request: IJsBridgeMessagePayload,
+    params: SignUnsignedTxParams,
+  ) {
+    return this._signUnsignedTx(request, params, true);
   }
 
   @permissionRequired()
@@ -261,9 +394,10 @@ class ProviderApiAlph extends ProviderApiBase {
       networkId: accountInfo?.networkId ?? '',
     })) as string;
 
-    return Promise.resolve({
+    const res: SignMessageResult = {
       signature: result,
-    });
+    };
+    return res;
   }
 }
 

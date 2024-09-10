@@ -13,6 +13,7 @@ import {
   Skeleton,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -56,6 +57,7 @@ function HistoryListModal() {
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
+  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const [page, setPage] = useState(1);
@@ -170,6 +172,7 @@ function HistoryListModal() {
               {...(!isEditing && {
                 onPress: () => {
                   handleOpenWebSite({
+                    switchToMultiTabBrowser: gtMd,
                     navigation,
                     webSite: {
                       url: item.url,

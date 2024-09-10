@@ -47,6 +47,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
+  const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
+    useState<boolean>(false);
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
@@ -140,7 +142,8 @@ export function useSwapInit(params?: ISwapInitParams) {
       !swapNetworksRef.current.length ||
       (params?.importNetworkId &&
         swapAddressInfoRef.current?.networkId &&
-        params?.importNetworkId !== swapAddressInfoRef.current?.networkId)
+        params?.importNetworkId !== swapAddressInfoRef.current?.networkId) ||
+      skipSyncDefaultSelectedToken
     ) {
       return;
     }
@@ -189,6 +192,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     setFromToken,
     setToToken,
+    skipSyncDefaultSelectedToken,
     syncNetworksSort,
   ]);
 
@@ -238,6 +242,22 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
   ]);
+
+  const pageType = usePageType();
+  useListenTabFocusState(
+    ETabRoutes.Swap,
+    (isFocus: boolean, isHiddenModel: boolean) => {
+      if (pageType !== EPageType.modal) {
+        if (isFocus) {
+          if (isHiddenModel) {
+            setSkipSyncDefaultSelectedToken(true);
+          } else {
+            setSkipSyncDefaultSelectedToken(false);
+          }
+        }
+      }
+    },
+  );
 
   return {
     fetchLoading: networkListFetching,
