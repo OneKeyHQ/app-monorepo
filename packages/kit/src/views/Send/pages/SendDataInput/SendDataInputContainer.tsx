@@ -485,6 +485,7 @@ function SendDataInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              originalRecipient: toAddress,
             },
           });
           setIsSubmitting(false);
