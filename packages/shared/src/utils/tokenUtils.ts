@@ -84,7 +84,10 @@ export function getFilteredTokenBySearchKey({
 
   if (searchAll && searchTokenList) {
     mergedTokens = mergedTokens.concat(searchTokenList);
-    mergedTokens = uniqBy(mergedTokens, (token) => token.$key);
+    mergedTokens = uniqBy(
+      mergedTokens,
+      (token) => `${token.address}_${token.networkId ?? ''}`,
+    );
   }
   if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
     return mergedTokens;
