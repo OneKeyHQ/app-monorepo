@@ -1727,6 +1727,7 @@ export enum ETranslations {
   token_selector_search_placeholder = 'token_selector.search_placeholder',
   token_selector_title = 'token_selector.title',
   token_selector_unverified_token_warning = 'token_selector.unverified_token_warning',
+  touch_id_unlock_desc = 'touch_id_unlock_desc',
   transaction_advanced = 'transaction.advanced',
   transaction_application = 'transaction.application',
   transaction_cancel = 'transaction.cancel',
