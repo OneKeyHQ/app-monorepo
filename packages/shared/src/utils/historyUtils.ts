@@ -137,13 +137,13 @@ export function getHistoryTxDetailInfo({
   historyTx,
 }: {
   txDetails: IOnChainHistoryTx | undefined;
-  historyTx: IAccountHistoryTx;
+  historyTx: IAccountHistoryTx | undefined;
 }) {
-  const { decodedTx } = historyTx;
+  const decodedTx = historyTx?.decodedTx;
   let swapInfo;
   let nonce = txDetails?.nonce;
 
-  if (isNil(nonce) && !isNil(decodedTx.nonce)) {
+  if (isNil(nonce) && !isNil(decodedTx?.nonce)) {
     nonce = decodedTx.nonce;
   }
 
@@ -151,22 +151,19 @@ export function getHistoryTxDetailInfo({
 
   if (txDetails?.timestamp) {
     date = formatDate(new Date(txDetails.timestamp * 1000));
-  } else if (decodedTx.updatedAt || decodedTx.createdAt) {
+  } else if (decodedTx?.updatedAt || decodedTx?.createdAt) {
     date = formatDate(
-      new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
+      new Date(decodedTx?.updatedAt || decodedTx?.createdAt || 0),
     );
   }
 
-  const txid = decodedTx.txid;
-
-  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative;
+  const gasFee = txDetails?.gasFee ?? decodedTx?.totalFeeInNative;
   const gasFeeFiatValue =
-    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue;
+    txDetails?.gasFeeFiatValue ?? decodedTx?.totalFeeFiatValue;
   const confirmations = txDetails?.confirmations;
   const blockHeight = txDetails?.block;
 
   return {
-    txid,
     date,
     nonce,
     confirmations,

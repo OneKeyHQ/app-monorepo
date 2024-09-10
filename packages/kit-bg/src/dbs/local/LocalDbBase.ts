@@ -3,6 +3,7 @@
 
 import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
+import { InteractionManager } from 'react-native';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
@@ -2610,22 +2611,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async emitRenameDBAccountsEvent(params: IDBSetAccountNameParams) {
-    let accounts: IDBAccount[] = [];
+    await InteractionManager.runAfterInteractions(async () => {
+      let accounts: IDBAccount[] = [];
 
-    if (params.indexedAccountId) {
-      // TODO low performance
-      accounts = await this.getAccountsInSameIndexedAccountId({
-        indexedAccountId: params.indexedAccountId,
+      if (params.indexedAccountId) {
+        // TODO low performance
+        accounts = await this.getAccountsInSameIndexedAccountId({
+          indexedAccountId: params.indexedAccountId,
+        });
+      }
+      if (params.accountId) {
+        const account = await this.getAccountSafe({
+          accountId: params.accountId,
+        });
+        accounts = [...accounts, account].filter(Boolean);
+      }
+      appEventBus.emit(EAppEventBusNames.RenameDBAccounts, {
+        accounts,
       });
-    }
-    if (params.accountId) {
-      const account = await this.getAccountSafe({
-        accountId: params.accountId,
-      });
-      accounts = [...accounts, account].filter(Boolean);
-    }
-    appEventBus.emit(EAppEventBusNames.RenameDBAccounts, {
-      accounts,
     });
   }
 
