@@ -225,6 +225,8 @@ function HomeOverviewContainer() {
     });
   }, [account, network]);
 
+  const handleResourceDetailsOnPress = useCallback(() => {}, []);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
       <Stack py="$2.5">
@@ -298,6 +300,18 @@ function HomeOverviewContainer() {
         >
           {intl.formatMessage({
             id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+      {vaultSettings?.hasResource ? (
+        <Button
+          onPress={handleResourceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+        >
+          {intl.formatMessage({
+            id: vaultSettings.resourceKey,
           })}
         </Button>
       ) : undefined}
