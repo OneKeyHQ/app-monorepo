@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Banner } from '@onekeyhq/components';
+import { Banner, Skeleton, Stack } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../types';
@@ -26,6 +26,27 @@ export function DashboardBanner({
     <Banner
       data={data}
       isLoading={isLoading}
+      height={228}
+      $gtMd={{
+        height: 308,
+      }}
+      $gtLg={{
+        height: 404,
+      }}
+      emptyComponent={
+        <Stack p="$5">
+          <Skeleton
+            h={188}
+            w="100%"
+            $gtMd={{
+              height: 268,
+            }}
+            $gtLg={{
+              height: 364,
+            }}
+          />
+        </Stack>
+      }
       onItemPress={(item) => {
         handleOpenWebSite({
           webSite: {

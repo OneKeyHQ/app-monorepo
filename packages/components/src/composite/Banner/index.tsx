@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
@@ -9,23 +10,29 @@ import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Skeleton, Stack, XStack } from '../../primitives';
 
+import type { IStackStyle } from '../../primitives';
+
 export function Banner<
   T extends {
     title: string;
     imgUrl: string;
-    theme?: 'dark' | 'light';
+    theme?: 'dark' | 'light' | string;
     bannerId: string;
   },
 >({
   data,
   onItemPress,
   isLoading,
+  emptyComponent,
+  ...props
 }: {
   data: T[];
   onItemPress: (item: T) => void;
-  isLoading: boolean | undefined;
-}) {
+  isLoading?: boolean;
+  emptyComponent?: ReactElement;
+} & IStackStyle) {
   const media = useMedia();
+
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
       <Stack
@@ -138,20 +145,7 @@ export function Banner<
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
 
   if (isNil(isLoading) || isLoading) {
-    return (
-      <Stack p="$5">
-        <Skeleton
-          h={188}
-          w="100%"
-          $gtMd={{
-            height: 268,
-          }}
-          $gtLg={{
-            height: 364,
-          }}
-        />
-      </Stack>
-    );
+    return emptyComponent;
   }
 
   return (
@@ -160,17 +154,11 @@ export function Banner<
       autoplayLoop
       autoplayLoopKeepAnimation
       autoplayDelayMs={3000}
-      height={228}
-      $gtMd={{
-        height: 308,
-      }}
-      $gtLg={{
-        height: 404,
-      }}
       keyExtractor={keyExtractor}
       data={data}
       renderItem={renderItem}
       renderPagination={renderPagination}
+      {...(props as any)}
     />
   );
 }
