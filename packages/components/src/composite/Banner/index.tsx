@@ -63,7 +63,7 @@ export function Banner<
         </Stack>
       </Stack>
     ),
-    [onPress],
+    [onItemPress],
   );
 
   const renderPagination = useCallback(
