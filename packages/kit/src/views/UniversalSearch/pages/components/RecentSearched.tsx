@@ -84,7 +84,7 @@ export function RecentSearched({
   return recentSearch.length &&
     searchType === EUniversalSearchType.MarketToken ? (
     <YStack px="$5" pb="$5">
-      <XStack jc="space-between">
+      <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_recent_searched })}
         </SizableText>
@@ -102,5 +102,7 @@ export function RecentSearched({
         ))}
       </XStack>
     </YStack>
-  ) : null;
+  ) : (
+    <XStack pt="$5" />
+  );
 }
