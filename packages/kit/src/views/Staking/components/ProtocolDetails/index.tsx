@@ -6,6 +6,7 @@ import { StyleSheet } from 'react-native';
 import {
   Alert,
   Button,
+  Divider,
   Icon,
   NumberSizeableText,
   Progress,
@@ -29,6 +30,8 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import { capitalizeString } from '../../utils/utils';
 
 import type { YStackProps } from 'tamagui';
 
@@ -54,7 +57,7 @@ type IPortfolioValue = {
 };
 
 type IProfit = {
-  apr: string;
+  apr?: string;
   earningsIn24h?: string;
   rewardTokens?: string;
   updateFrequency?: string;
@@ -101,7 +104,8 @@ function StakedValue({
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   return (
-    <YStack gap="$6" pb="$8" px="$5">
+    <YStack pb="$8" px="$5">
+      <YStack h="$2" />
       <YStack gap="$2">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
@@ -115,6 +119,7 @@ function StakedValue({
           {value || 0}
         </NumberSizeableText>
       </YStack>
+      <YStack h="$6" />
       <YStack gap="$1.5">
         <YStack my="$1.5">
           <Progress
@@ -199,7 +204,12 @@ const PortfolioItem = ({
     </XStack>
     {buttonText && onPress ? (
       <XStack>
-        <Button disabled={disabled} variant="primary" onPress={onPress}>
+        <Button
+          size="small"
+          disabled={disabled}
+          variant="primary"
+          onPress={onPress}
+        >
           {buttonText}
         </Button>
       </XStack>
@@ -350,7 +360,7 @@ function GridItem({
   }, [link]);
   return (
     <YStack {...props}>
-      <XStack gap="$1">
+      <XStack gap="$1" mb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
@@ -359,7 +369,7 @@ function GridItem({
             placement="top"
             renderContent={tooltip}
             renderTrigger={
-              <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+              <Icon color="$iconSubdued" name="InfoCircleOutline" size="$5" />
             }
           />
         ) : null}
@@ -368,7 +378,7 @@ function GridItem({
         <SizableText size="$bodyLgMedium">{children}</SizableText>
         {link ? (
           <Stack onPress={openLink} cursor="pointer">
-            <Icon name="OpenOutline" color="$textSubdued" size="$5" />
+            <Icon name="OpenOutline" color="$iconSubdued" size="$5" />
           </Stack>
         ) : null}
       </XStack>
@@ -410,20 +420,20 @@ export function Profit({
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
       <XStack $md={{ flexWrap: 'wrap' }}>
-        <GridItem
-          title={intl.formatMessage({
-            id: ETranslations.earn_rewards_percentage,
-          })}
-          {...gridItemStyle}
-        >
-          <NumberSizeableText
-            formatter="priceChange"
-            color="$textSuccess"
-            formatterOptions={{ tokenSymbol: 'APR' }}
+        {apr ? (
+          <GridItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_rewards_percentage,
+            })}
+            {...gridItemStyle}
           >
-            {apr}
-          </NumberSizeableText>
-        </GridItem>
+            <SizableText size="$bodyLgMedium" color="$textSuccess">
+              {`${apr}% ${intl.formatMessage({
+                id: ETranslations.global_apr,
+              })}`}
+            </SizableText>
+          </GridItem>
+        ) : null}
         {earningsIn24h ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
@@ -501,9 +511,7 @@ export function Provider({
           {...gridItemStyle}
           link={validator.link}
         >
-          {`${validator.name.charAt(0).toUpperCase()}${validator.name.slice(
-            1,
-          )}`}
+          {capitalizeString(validator.name)}
         </GridItem>
         {minOrMaxStaking ? (
           <GridItem
@@ -512,7 +520,7 @@ export function Provider({
             })}
             {...gridItemStyle}
           >
-            <SizableText>
+            <SizableText size="$bodyLgMedium">
               {minOrMaxStaking.minValue && minOrMaxStaking.maxValue
                 ? `${minOrMaxStaking.minValue}/${minOrMaxStaking.maxValue}${minOrMaxStaking.token}`
                 : `${
@@ -531,7 +539,7 @@ export function Provider({
             })}
             {...gridItemStyle}
           >
-            <SizableText>
+            <SizableText size="$bodyLgMedium">
               {intl.formatMessage(
                 { id: ETranslations.earn_number_symbol_left },
                 {
@@ -560,15 +568,16 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const onToggle = useCallback(() => setShow((v) => !v), []);
   return (
     <YStack>
-      <XStack
-        mb="$2"
-        hoverStyle={{ backgroundColor: '$bgHover' }}
-        pressStyle={{ backgroundColor: '$bgHover' }}
-        borderRadius={12}
-        onPress={onToggle}
-        py="$2"
-      >
-        <XStack flex={1} mx="$5">
+      <XStack mb="$2" px="$2">
+        <XStack
+          flex={1}
+          hoverStyle={{ backgroundColor: '$bgHover' }}
+          pressStyle={{ backgroundColor: '$bgHover' }}
+          borderRadius={12}
+          onPress={onToggle}
+          py="$2"
+          px="$3"
+        >
           <XStack flex={1}>
             <SizableText size="$headingMd">{question}</SizableText>
           </XStack>
@@ -801,7 +810,11 @@ export function ProtocolDetails({
       pendingActiveTooltip,
       claimable: details.claimable,
       minClaimableNum: details.provider.minClaimableAmount,
-      babylonOverflow: details.overflow,
+      babylonOverflow:
+        Number(details?.staked) - Number(details?.pendingInactive) &&
+        Number(details.overflow) > 0
+          ? details.overflow
+          : undefined,
       token: details.token.info,
     };
     if (details.provider.minStakeAmount) {
@@ -870,6 +883,7 @@ export function ProtocolDetails({
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />
+          <Divider mx="$5" />
         </>
       ) : (
         <NoAddressWarning

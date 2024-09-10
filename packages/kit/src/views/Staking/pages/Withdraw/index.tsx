@@ -75,7 +75,7 @@ const WithdrawPage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
-  const balance = Number(staked) - Number(pendingInactive);
+  const balance = Number(staked) - Number(pendingInactive ?? '0');
 
   return (
     <Page>
@@ -88,14 +88,14 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
-          balance={String(balance)}
+          decimals={details.token.info.decimals}
+          balance={BigNumber(balance).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
-          minAmount={BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed()}
           withdrawMinAmount={details.minUnstakeAmount}
           unstakingPeriod={details.unstakingPeriod}
           providerLabel={providerLabel}

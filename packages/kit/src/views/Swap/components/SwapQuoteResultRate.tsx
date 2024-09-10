@@ -135,13 +135,15 @@ const SwapQuoteResultRate = ({
             </SizableText>
           </XStack>
         )}
-        <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
-          <Icon
-            name="ChevronDownSmallOutline"
-            color={openResult ? '$iconActive' : '$iconSubdued'}
-            size="$5"
-          />
-        </Stack>
+        {!isLoading && onOpenResult ? (
+          <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+            <Icon
+              name="ChevronDownSmallOutline"
+              color={openResult ? '$iconActive' : '$iconSubdued'}
+              size="$5"
+            />
+          </Stack>
+        ) : null}
       </XStack>
     </XStack>
   );

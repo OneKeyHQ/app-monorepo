@@ -7,12 +7,18 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { serializeUnsignedTransaction } from './sdkAlph/utils';
+import {
+  deserializeUnsignedTransaction,
+  serializeUnsignedTransaction,
+} from './sdkAlph/utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -46,9 +52,10 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: `${pathPrefix}/${pathSuffix.replace(
                   '{index}',
                   `${index}`,
-                )}`,
+                )}/0/0`,
                 showOnOneKey: showOnOnekeyFn(arrIndex),
                 includePublicKey: true,
+                group: 0,
               })),
             });
             return response;
@@ -58,13 +65,16 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address, publicKey } = item;
+          const { address, publicKey, derivedPath } = item;
+          const pathParts = derivedPath.split('/');
+          const basePath = pathParts.slice(0, -2).join('/');
+          const relPath = pathParts.slice(-2).join('/');
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
             publicKey: publicKey ?? '',
-            path,
+            path: basePath,
             xpub: '',
-            addresses: {},
+            relPath,
           };
           ret.push(addressInfo);
         }
@@ -91,10 +101,28 @@ export class KeyringHardware extends KeyringHardwareBase {
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
     });
+    const {
+      unsignedTx: { scriptOpt },
+    } = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx,
+      networkId: this.vault.networkId,
+      backgroundApi: this.vault.backgroundApi,
+    });
+    const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: `${account.path}/0/0`,
+      showOnOneKey: false,
+      includePublicKey: true,
+      group: 0,
+    });
+    if (!addressResponse.success) {
+      throw convertDeviceError(addressResponse.payload);
+    }
     const hwParams = {
       ...deviceCommonParams,
-      path: account.path,
+      path: addressResponse.payload.derivedPath,
       rawTx,
+      scriptOpt,
     };
     const res = await convertDeviceResponse(() =>
       sdk.alephiumSignTransaction(connectId, deviceId, hwParams),
@@ -122,10 +150,20 @@ export class KeyringHardware extends KeyringHardwareBase {
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
     const messageHex = Buffer.from(messages[0].message).toString('hex');
+    const addressResponse = await sdk.alephiumGetAddress(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: `${account.path}/0/0`,
+      showOnOneKey: false,
+      includePublicKey: true,
+      group: 0,
+    });
+    if (!addressResponse.success) {
+      throw convertDeviceError(addressResponse.payload);
+    }
     const res = await convertDeviceResponse(() =>
       sdk.alephiumSignMessage(connectId, deviceId, {
         ...deviceCommonParams,
-        path: account.path,
+        path: addressResponse.payload.derivedPath,
         messageHex,
         messageType: messages[0].type as any,
       }),
