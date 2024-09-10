@@ -310,11 +310,11 @@ export function UniversalSearch({
       case ESearchStatus.done:
         return (
           <SectionList
+            mt="$5"
             sections={sections}
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
               <Empty
-                mt="$5"
                 icon="SearchOutline"
                 title={intl.formatMessage({
                   id: ETranslations.global_no_results,
