@@ -20,6 +20,20 @@ export function NotificationDevSettings() {
       >
         重置首次通知权限引导提醒
       </Button>
+      <Button
+        onPress={() => {
+          setData((v) => ({
+            ...v,
+            lastRegisterTime: undefined,
+          }));
+          Toast.success({
+            title: '重置成功',
+            message: '进入首页将再次发起 register 请求',
+          });
+        }}
+      >
+        重置每日同步账户时间戳
+      </Button>
     </Stack>
   );
 }

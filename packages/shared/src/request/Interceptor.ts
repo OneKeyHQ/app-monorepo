@@ -3,7 +3,10 @@ import { Appearance } from 'react-native';
 
 import { defaultColorScheme } from '@onekeyhq/kit/src/hooks/useSystemColorScheme';
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsPersistAtom,
+  settingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -58,6 +61,7 @@ export const headerPlatform = [platformEnv.appPlatform, platformEnv.appChannel]
 
 export async function getRequestHeaders() {
   const settings = await settingsPersistAtom.get();
+  const valueSettings = await settingsValuePersistAtom.get();
 
   let { locale, theme } = settings;
 
@@ -79,6 +83,9 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Version')]: platformEnv.version,
+    [normalizeHeaderKey('X-Onekey-Hide-Asset-Details')]: (
+      valueSettings?.hideValue ?? false
+    )?.toString(),
     [normalizeHeaderKey('X-Onekey-Request-Build-Number')]:
       platformEnv.buildNumber,
   };
