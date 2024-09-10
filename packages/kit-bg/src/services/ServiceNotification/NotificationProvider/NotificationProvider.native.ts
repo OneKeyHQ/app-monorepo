@@ -11,6 +11,7 @@ import {
   setNotificationHandler,
 } from 'expo-notifications';
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { setBadgeCountAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,7 +37,6 @@ import type {
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor() {

@@ -12,8 +12,8 @@ import { getEndpointInfo } from '../../../endpoints';
 
 import { PushProviderBase } from './PushProviderBase';
 
-import type { Socket } from 'socket.io-client';
 import type { IPushProviderBaseProps } from './PushProviderBase';
+import type { Socket } from 'socket.io-client';
 
 export class PushProviderWebSocket extends PushProviderBase {
   constructor(props: IPushProviderBaseProps) {

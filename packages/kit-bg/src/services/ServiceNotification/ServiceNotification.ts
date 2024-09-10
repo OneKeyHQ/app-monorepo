@@ -11,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -365,13 +366,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   convertToSyncAccounts = async (dbAccounts: IDBAccount[]) => {
-    const supportNetworks = await this.getSupportedNetworks();
-    const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
-      if (item.impl === IMPL_EVM) {
-        return item.impl;
-      }
-      return item.networkId;
-    });
+    const supportNetworksFiltered = await this.getSupportedNetworks();
 
     defaultLogger.notification.common.consoleLog('supportNetworksFiltered', {
       supportNetworksFiltered: supportNetworksFiltered.length,
@@ -416,10 +411,9 @@ export default class ServiceNotification extends ServiceBase {
 
     defaultLogger.notification.common.consoleLog('convertToSyncAccounts', {
       syncAccounts: syncAccounts.length,
-      supportNetworks: supportNetworks.length,
       supportNetworksFiltered: supportNetworksFiltered.length,
     });
-    return { syncAccounts, supportNetworks, supportNetworksFiltered };
+    return { syncAccounts, supportNetworksFiltered };
   };
 
   @backgroundMethod()
@@ -611,23 +605,35 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async getSupportedNetworks() {
-    // /notification/v1/config/supported-networks
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.get<
-      IApiClientResponse<
-        {
-          networkId: string;
-          impl: string;
-          chainId: string;
-        }[]
-      >
-    >('/notification/v1/config/supported-networks');
+  getSupportedNetworks = memoizee(
+    async () => {
+      // /notification/v1/config/supported-networks
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.get<
+        IApiClientResponse<
+          {
+            networkId: string;
+            impl: string;
+            chainId: string;
+          }[]
+        >
+      >('/notification/v1/config/supported-networks');
 
-    // TODO save to simple db
-    return result?.data?.data ?? [];
-  }
+      const supportNetworks = result?.data?.data ?? [];
+      const supportNetworksFiltered = uniqBy(supportNetworks, (item) => {
+        if (item.impl === IMPL_EVM) {
+          return item.impl;
+        }
+        return item.networkId;
+      });
+      return supportNetworksFiltered;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({
+        hour: 1,
+      }),
+    },
+  );
 
   @backgroundMethod()
   @toastIfError()
