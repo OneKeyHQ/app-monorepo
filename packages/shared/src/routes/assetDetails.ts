@@ -36,7 +36,10 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.HistoryDetails]: {
     accountId: string;
     networkId: string;
-    historyTx: IAccountHistoryTx;
+    transactionHash?: string;
+    accountAddress?: string;
+    notificationId?: string;
+    historyTx: IAccountHistoryTx | undefined;
     isAllNetworks?: boolean;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {

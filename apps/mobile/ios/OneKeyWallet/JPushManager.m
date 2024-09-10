@@ -82,8 +82,13 @@ RCT_EXPORT_METHOD(registerNotification)
     NSLog(@"iOS 10 本地通知 前台收到消息");
     [[NSNotificationCenter defaultCenter] postNotificationName:J_LOCAL_NOTIFICATION_ARRIVED_EVENT object:userInfo];
   }
+
+
   //需要执行这个方法，选择是否提醒用户，有 Badge、Sound、Alert 三种类型可以选择设置
   completionHandler(UNNotificationPresentationOptionList | UNNotificationPresentationOptionBanner);
+  
+  // **** 默认不展示前台通知，交给业务处理 ****
+  // completionHandler(UNNotificationPresentationOptionNone);
 }
 
 - (void)jpushNotificationCenter:(UNUserNotificationCenter *)center openSettingsForNotification:(UNNotification *)notification {

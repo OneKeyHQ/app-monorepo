@@ -25,8 +25,16 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopAppState,
+  IDesktopSubModuleInitParams,
+  IMediaType,
+  IPrefType,
+} from '@onekeyhq/shared/types/desktop';
 
+import appDevOnlyApi from './appDevOnlyApi';
+import appNotification from './appNotification';
+import appPermission from './appPermission';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -482,25 +490,13 @@ function createMainWindow() {
     },
   );
 
-  ipcMain.on(
-    ipcMessageKeys.APP_OPEN_PREFERENCES,
-    (_event, prefType: IPrefType) => {
-      const platform = os.type();
-      if (platform === 'Darwin') {
-        void shell.openPath(
-          '/System/Library/PreferencePanes/Security.prefPane',
-        );
-      } else if (platform === 'Windows_NT') {
-        // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
-        if (prefType === 'camera') {
-          void shell.openExternal('ms-settings:privacy-webcam');
-        }
-        // BlueTooth is not supported on desktop currently
-      } else {
-        // Linux ??
-      }
-    },
-  );
+  const subModuleInitParams: IDesktopSubModuleInitParams = {
+    APP_NAME,
+    getSafelyMainWindow,
+  };
+  appNotification.init(subModuleInitParams);
+  appPermission.init(subModuleInitParams);
+  appDevOnlyApi.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -643,7 +639,8 @@ function createMainWindow() {
 
   browserWindow.on('focus', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, 'active');
+    const state: IDesktopAppState = 'active';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
@@ -652,16 +649,15 @@ function createMainWindow() {
 
   browserWindow.on('blur', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, 'blur');
+    const state: IDesktopAppState = 'blur';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.webContents.send(
-      ipcMessageKeys.APP_STATE,
-      'background',
-    );
+    const state: IDesktopAppState = 'background';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
   app.on('login', (event, webContents, request, authInfo, callback) => {

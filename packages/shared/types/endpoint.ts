@@ -4,16 +4,25 @@ export enum EServiceEndpointEnum {
   Utility = 'utility',
   Lightning = 'lightning',
   Earn = 'earn',
+  Notification = 'notification',
+  NotificationWebSocket = 'notificationWebSocket',
 }
 
 export type IEndpointEnv = 'test' | 'prod';
 
 export type IServiceEndpoint = {
-  wallet: string;
-  swap: string;
-  utility: string;
-  lightning: string;
-  earn: string;
+  [K in EServiceEndpointEnum]: string;
 };
 
 export type IEndpointDomainWhiteList = string[];
+
+export type IEndpointInfo = {
+  endpoint: string;
+  name: EServiceEndpointEnum;
+};
+
+export type IApiClientResponse<T> = {
+  code: number;
+  data: T;
+  message: string;
+};

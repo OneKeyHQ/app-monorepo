@@ -1,6 +1,7 @@
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 const { ENABLE_ANALYZER_HTML_REPORT, ANALYSE_MODULE } = require('./constant');
 
+console.log('ENABLE_ANALYZER_HTML_REPORT >>>>>> ', ENABLE_ANALYZER_HTML_REPORT);
 module.exports = ({ configName }) => ({
   plugins: [
     new BundleAnalyzerPlugin(

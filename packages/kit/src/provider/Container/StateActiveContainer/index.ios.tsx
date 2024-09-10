@@ -1,28 +1,15 @@
 import { useCallback } from 'react';
 
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
-import {
-  getBadgeCountAsync,
-  requestPermissionsAsync,
-  setBadgeCountAsync,
-} from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export const StateActiveContainer = () => {
-  const handler = useCallback(() => {
-    const main = async () => {
-      const badgeCount = await getBadgeCountAsync();
-      if (badgeCount > 0) {
-        const permissionsResult = await requestPermissionsAsync({
-          ios: { allowBadge: true },
-        });
-        if (permissionsResult.granted) {
-          await setBadgeCountAsync(0);
-        }
-      }
-    };
-    void main();
+  const callback = useCallback(() => {
+    void backgroundApiProxy.serviceNotification.clearBadgeWhenAppStart();
   }, []);
-  // clear ios app notification badge
-  useHandleAppStateActive(handler);
+  useHandleAppStateActive(callback, {
+    onActiveFromBlur: callback,
+  });
   return null;
 };

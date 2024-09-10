@@ -25,6 +25,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');
+    transformInlineEnvironmentVariables.push('JPUSH_CHANNEL');
   }
 
   return transformInlineEnvironmentVariables;

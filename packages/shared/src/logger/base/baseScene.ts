@@ -30,6 +30,16 @@ export abstract class BaseScene {
     return [];
   }
 
+  @LogToConsole()
+  consoleLog(...args: any[]) {
+    return args as unknown;
+  }
+
+  @LogToConsole({ level: 'error' })
+  consoleError(...args: any[]) {
+    return args as unknown;
+  }
+
   mockBaseSceneMethod() {
     return '';
   }

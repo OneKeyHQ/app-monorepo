@@ -15,6 +15,7 @@ module.exports = {
     'output': 'build-electron',
   },
   'files': [
+    'node_modules/macos-notification-state/**/*',
     'build/**/*',
     '!build/static/bin/**/*',
     'dist/**/*.js',

@@ -7,7 +7,7 @@ import { getDeviceInfo } from './deviceInfo';
 
 import type { AxiosInstance } from 'axios';
 
-class Analytics {
+export class Analytics {
   private instanceId = '';
 
   private baseURL = '';
@@ -113,3 +113,4 @@ class Analytics {
 }
 
 export const analytics = new Analytics();
+global.$analytics = analytics;
