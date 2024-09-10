@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -129,21 +128,22 @@ export const UniversalClaim = ({
   );
 
   const receiving = useMemo(() => {
-    const amountValueBN = BigNumber(amountValue);
-    if (amountValueBN.isNaN()) return null;
-    const receivingAmount = amountValueBN.dividedBy(rate).toFixed();
-    const receivingValue = amountValueBN
-      .multipliedBy(price)
-      .dividedBy(rate)
-      .toFixed();
-    return (
-      <ValuePriceListItem
-        amount={receivingAmount}
-        fiatSymbol={symbol}
-        fiatValue={receivingValue}
-        tokenSymbol={tokenSymbol ?? ''}
-      />
-    );
+    if (Number(amountValue) > 0) {
+      const receivingAmount = BigNumber(amountValue).dividedBy(rate);
+      return (
+        <ValuePriceListItem
+          amount={receivingAmount.toFixed()}
+          fiatSymbol={symbol}
+          fiatValue={
+            Number(price) > 0
+              ? receivingAmount.multipliedBy(price).dividedBy(rate).toFixed()
+              : undefined
+          }
+          tokenSymbol={tokenSymbol ?? ''}
+        />
+      );
+    }
+    return null;
   }, [amountValue, price, tokenSymbol, rate, symbol]);
   const intl = useIntl();
 
@@ -206,22 +206,6 @@ export const UniversalClaim = ({
             titleProps={fieldTitleProps}
           >
             {receiving}
-          </ListItem>
-        ) : null}
-        {amountValue ? (
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
-            titleProps={fieldTitleProps}
-          >
-            <SizableText>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
-            </SizableText>
           </ListItem>
         ) : null}
         {providerName && providerLogo ? (

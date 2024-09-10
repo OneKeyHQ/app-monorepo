@@ -185,7 +185,7 @@ const PortfolioItem = ({
       <Token size="sm" tokenImageUri={tokenImageUri} />
       <NumberSizeableText
         size="$bodyLgMedium"
-        formatter="value"
+        formatter="balance"
         formatterOptions={{ tokenSymbol }}
       >
         {amount}

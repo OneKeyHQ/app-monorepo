@@ -25,7 +25,7 @@ const StakePage = () => {
     EModalStakingRoutes.Stake
   >();
   const { accountId, networkId, details, onSuccess } = route.params;
-  const { token, provider } = details;
+  const { token, provider, rewardToken } = details;
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
@@ -90,10 +90,8 @@ const StakePage = () => {
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () =>
-      provider.name.toLowerCase() === 'lido' &&
-      tokenInfo.symbol.toLowerCase() === 'eth',
-    [provider, tokenInfo],
+    () => provider.name.toLowerCase() === 'lido',
+    [provider],
   );
 
   return (
@@ -123,6 +121,7 @@ const StakePage = () => {
           isReachBabylonCap={isReachBabylonCap}
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
+          estReceiveToken={rewardToken}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
         />

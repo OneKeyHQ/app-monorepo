@@ -51,6 +51,7 @@ type IUniversalStakeProps = {
   apr?: string;
 
   showEstReceive?: boolean;
+  estReceiveToken?: string;
 
   minStakeBlocks?: number;
   minStakeTerm?: number;
@@ -80,6 +81,7 @@ export const UniversalStake = ({
   providerLogo,
   isReachBabylonCap,
   showEstReceive,
+  estReceiveToken,
   isDisabled,
   maxAmount,
   onConfirm,
@@ -321,7 +323,7 @@ export const UniversalStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          {showEstReceive && Number(amountValue) > 0 ? (
+          {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
             <ListItem
               title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
               titleProps={fieldTitleProps}
@@ -330,7 +332,7 @@ export const UniversalStake = ({
                 <NumberSizeableText
                   formatter="balance"
                   size="$bodyLgMedium"
-                  formatterOptions={{ tokenSymbol }}
+                  formatterOptions={{ tokenSymbol: estReceiveToken }}
                 >
                   {amountValue}
                 </NumberSizeableText>
