@@ -270,15 +270,8 @@ export function useSwapQuote() {
       if (isFocused) {
         appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      } else {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
       }
     }
-    return () => {
-      if (pageType === EPageType.modal) {
-        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
-      }
-    };
   }, [isFocused, pageType, quoteEventHandler]);
 
   useEffect(() => {
