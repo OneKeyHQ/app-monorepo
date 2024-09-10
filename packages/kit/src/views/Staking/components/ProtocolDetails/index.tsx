@@ -817,7 +817,7 @@ export function ProtocolDetails({
         {
           id: ETranslations.earn_pending_activation_tooltip,
         },
-        { number: pendingActiveTooltip },
+        { number: details.pendingActivatePeriod },
       );
     }
     const portfolio: IPortfolioValue = {
