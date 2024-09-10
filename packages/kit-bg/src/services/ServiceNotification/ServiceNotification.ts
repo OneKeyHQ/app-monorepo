@@ -46,9 +46,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
-import type { IDBAccount } from '../../dbs/local/types';
 import type { Socket } from 'socket.io-client';
+import type { IDBAccount } from '../../dbs/local/types';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -151,7 +151,7 @@ export default class ServiceNotification extends ServiceBase {
     if (messageInfo.pushSource === 'websocket') {
       // jpush will show notification automatically
       // websocket should show notification by ourselves
-      await this.notificationProvider.showNotification({
+      await this.showNotification({
         notificationId: messageInfo.extras?.msgId,
         title: messageInfo.title,
         description: messageInfo.content,
@@ -298,7 +298,7 @@ export default class ServiceNotification extends ServiceBase {
       clearTimeout(this.clearDesktopNotificationCacheTimer);
       this.clearDesktopNotificationCacheTimer = setTimeout(() => {
         this.desktopNotificationCache = {};
-      }, 10_000);
+      }, timerUtils.getTimeDurationMs({ minute: 3 }));
     }
     return result;
   }
@@ -537,6 +537,7 @@ export default class ServiceNotification extends ServiceBase {
     ) {
       return;
     }
+    void this.notificationProvider.clearNotificationCache();
     return this.registerClientWithOverrideAllAccounts();
   }
 

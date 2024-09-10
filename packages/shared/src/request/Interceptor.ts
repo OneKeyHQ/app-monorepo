@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
 import { Appearance } from 'react-native';
 
+import { defaultColorScheme } from '@onekeyhq/kit/src/hooks/useSystemColorScheme';
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
 import {
   settingsPersistAtom,
   settingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { defaultColorScheme } from '@onekeyhq/kit/src/hooks/useSystemColorScheme';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';

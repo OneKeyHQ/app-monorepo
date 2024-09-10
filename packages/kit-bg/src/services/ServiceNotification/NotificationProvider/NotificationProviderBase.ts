@@ -2,16 +2,7 @@
 
 import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalAssetDetailRoutes,
-  EModalFirmwareUpdateRoutes,
-  EModalRoutes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import type {
   INotificationPermissionDetail,
   INotificationRemoveParams,
@@ -62,9 +53,12 @@ export default abstract class NotificationProviderBase {
 
   abstract showAndFocusApp(): Promise<void>;
 
+  abstract clearNotificationCache(): Promise<void>;
+
   fixShowParams(params: INotificationShowParams) {
     params.icon = params.icon || ONEKEY_LOGO_ICON_URL;
     params.notificationId = params.notificationId || generateUUID();
+    params.time = params.time || Date.now();
     return params;
   }
 }

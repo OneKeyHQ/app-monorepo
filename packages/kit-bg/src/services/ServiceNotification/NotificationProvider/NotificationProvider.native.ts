@@ -36,6 +36,7 @@ import type {
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor() {
@@ -223,5 +224,9 @@ export default class NotificationProvider extends NotificationProviderBase {
 
   override async showAndFocusApp(): Promise<void> {
     //
+  }
+
+  override async clearNotificationCache(): Promise<void> {
+    console.log('Native -- clearNotificationCache');
   }
 }
