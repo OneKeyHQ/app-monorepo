@@ -89,7 +89,6 @@ export function RecentSearched({
           {intl.formatMessage({ id: ETranslations.global_recent_searched })}
         </SizableText>
         <IconButton
-          top={20}
           variant="tertiary"
           icon="DeleteOutline"
           color="$textSubdued"
