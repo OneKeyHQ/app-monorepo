@@ -7,7 +7,14 @@ import networkUtils from './networkUtils';
 
 import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
 
-export const caseSensitiveNetworkImpl = ['sol', 'stc', 'tron', 'aptos', 'sui'];
+export const caseSensitiveNetworkImpl = [
+  'sol',
+  'stc',
+  'tron',
+  'aptos',
+  'sui',
+  'ton',
+];
 
 export function getMergedTokenData({
   tokens,
