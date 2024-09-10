@@ -300,7 +300,7 @@ export function UniversalSearch({
 
       case ESearchStatus.loading:
         return (
-          <YStack px="$5">
+          <YStack px="$5" pt="$5">
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
@@ -314,6 +314,7 @@ export function UniversalSearch({
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
               <Empty
+                mt="$5"
                 icon="SearchOutline"
                 title={intl.formatMessage({
                   id: ETranslations.global_no_results,
@@ -346,7 +347,7 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View p="$5" pt={0}>
+        <View px="$5">
           <SearchBar
             autoFocus
             placeholder={searchPlaceholderText}
