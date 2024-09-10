@@ -90,8 +90,10 @@ const StakePage = () => {
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () => provider.name.toLowerCase() === 'lido',
-    [provider],
+    () =>
+      provider.name.toLowerCase() === 'lido' &&
+      token.info.symbol.toLowerCase() === 'eth',
+    [provider, token],
   );
 
   return (
