@@ -7,7 +7,14 @@ import networkUtils from './networkUtils';
 
 import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
 
-export const caseSensitiveNetworkImpl = ['sol', 'stc', 'tron', 'aptos', 'sui'];
+export const caseSensitiveNetworkImpl = [
+  'sol',
+  'stc',
+  'tron',
+  'aptos',
+  'sui',
+  'ton',
+];
 
 export function getMergedTokenData({
   tokens,
@@ -84,7 +91,10 @@ export function getFilteredTokenBySearchKey({
 
   if (searchAll && searchTokenList) {
     mergedTokens = mergedTokens.concat(searchTokenList);
-    mergedTokens = uniqBy(mergedTokens, (token) => token.$key);
+    mergedTokens = uniqBy(
+      mergedTokens,
+      (token) => `${token.address}_${token.networkId ?? ''}`,
+    );
   }
   if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
     return mergedTokens;

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let extSpecialChecked = false;
@@ -11,10 +12,19 @@ let extSpecialChecked = false;
  * */
 export const StateActiveContainer = () => {
   useEffect(() => {
-    if (platformEnv.isExtension && !extSpecialChecked) {
-      extSpecialChecked = true;
-      void backgroundApiProxy.servicePassword.checkLockStatus();
-    }
+    void (async () => {
+      if (platformEnv.isExtension && !extSpecialChecked) {
+        extSpecialChecked = true;
+        await backgroundApiProxy.servicePassword.checkLockStatus();
+      }
+      void backgroundApiProxy.serviceNotification.clearBadgeWhenAppStart();
+    })();
   }, []);
+  const callback = useCallback(() => {
+    void backgroundApiProxy.serviceNotification.clearBadgeWhenAppStart();
+  }, []);
+  useHandleAppStateActive(callback, {
+    onActiveFromBlur: callback,
+  });
   return null;
 };

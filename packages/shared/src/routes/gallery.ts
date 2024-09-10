@@ -20,6 +20,7 @@ export enum EGalleryRoutes {
   ComponentEmpty = 'component-empty',
   ComponentSend = 'component-a-Send',
   ComponentSwitch = 'component-switch',
+  ComponentNotification = 'component-notification',
   ComponentInput = 'component-input',
   ComponentAlert = 'component-alert',
   ComponentScrollView = 'component-scrollView',

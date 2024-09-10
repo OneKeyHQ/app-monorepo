@@ -20,6 +20,9 @@ import type {
   IFetchHistoryTxDetailsParams,
   IFetchHistoryTxDetailsResp,
   IFetchTxDetailsParams,
+  IOnChainHistoryTx,
+  IOnChainHistoryTxNFT,
+  IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -596,6 +599,42 @@ class ServiceHistory extends ServiceBase {
       console.log(e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  public async decodeOnChainHistoryTx(params: {
+    accountId: string;
+    networkId: string;
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IOnChainHistoryTxNFT>;
+  }) {
+    const { accountId, networkId, tx, tokens, nfts } = params;
+
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+
+    const resp = await vault.buildOnChainHistoryTx({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      onChainHistoryTx: tx,
+      tokens,
+      nfts,
+    });
+
+    if (resp) return resp;
   }
 
   @backgroundMethod()
