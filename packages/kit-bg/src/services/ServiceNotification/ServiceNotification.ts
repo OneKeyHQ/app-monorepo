@@ -476,10 +476,17 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   _registerClientWithOverrideAllAccountsDebounced = debounce(
-    () =>
-      this.registerClientWithSyncAccounts({
-        syncMethod: ENotificationPushSyncMethod.override,
-      }),
+    async () => {
+      await InteractionManager.runAfterInteractions(async () => {
+        await this.registerClientWithSyncAccounts({
+          syncMethod: ENotificationPushSyncMethod.override,
+        });
+        await notificationsAtom.set((v) => ({
+          ...v,
+          lastRegisterTime: Date.now(),
+        }));
+      });
+    },
     5000,
     {
       leading: false,
@@ -516,6 +523,21 @@ export default class ServiceNotification extends ServiceBase {
       syncMethod,
       syncAccounts,
     });
+  }
+
+  @backgroundMethod()
+  async registerClientDaily() {
+    const { lastRegisterTime } = await notificationsAtom.get();
+    if (
+      lastRegisterTime &&
+      Date.now() - lastRegisterTime <
+        timerUtils.getTimeDurationMs({
+          hour: 24,
+        })
+    ) {
+      return;
+    }
+    return this.registerClientWithOverrideAllAccounts();
   }
 
   @backgroundMethod()
