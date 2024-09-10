@@ -6,6 +6,7 @@ import {
   Button,
   IconButton,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -226,10 +227,9 @@ function HomeOverviewContainer() {
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
-      <YStack gap="$2.5">
-        <Skeleton w="$48" h="$10" />
-        {vaultSettings?.hasFrozenBalance ? <Skeleton w="$32" h="$7" /> : null}
-      </YStack>
+      <Stack py="$2.5">
+        <Skeleton w="$40" h="$7" my="$2.5" />
+      </Stack>
     );
 
   const balanceString = accountWorth.worth ?? '0';
