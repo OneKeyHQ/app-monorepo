@@ -9,7 +9,7 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
-import { CodeStartByNotification, Container } from './Container';
+import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
@@ -38,7 +38,7 @@ export function KitProvider(props: any = {}) {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;
 
-  CodeStartByNotification.launchNotification = launchNotification;
+  ColdStartByNotification.launchNotification = launchNotification;
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (

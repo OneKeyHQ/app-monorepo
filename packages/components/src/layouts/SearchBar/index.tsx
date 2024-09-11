@@ -85,7 +85,7 @@ export function SearchBar({
       })}
       returnKeyType="search"
       returnKeyLabel="Search"
-      testID={testID ? 'nav-header-search-' + testID : 'nav-header-search'}
+      testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
       {...rest}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}

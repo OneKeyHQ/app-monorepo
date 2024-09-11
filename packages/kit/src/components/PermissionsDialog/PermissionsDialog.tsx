@@ -21,8 +21,8 @@ export const showNotificationPermissionsDialog = () =>
         <Button
           onPress={() => {
             void backgroundApiProxy.serviceNotification.showNotification({
-              title: '测试消息',
-              description: '测试消息',
+              title: 'test message',
+              description: 'This is a test message',
             });
           }}
         >
