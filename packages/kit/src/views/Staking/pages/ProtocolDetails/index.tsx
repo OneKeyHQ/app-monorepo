@@ -184,6 +184,7 @@ const ProtocolDetailsPage = () => {
             details={result}
             onClaim={onClaim}
             onWithdraw={onWithdraw}
+            onStake={onStake}
             onPortfolioDetails={onPortfolioDetails}
             onCreateAddress={onCreateAddress}
           />
