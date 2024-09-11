@@ -34,14 +34,22 @@ function GlobalRootAppNavigationUpdate() {
   return null;
 }
 
-export function CodeStartByNotification() {
+export function ColdStartByNotification() {
   useEffect(() => {
     const options: IJPushRemotePushMessageInfo | null =
-      CodeStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
+      ColdStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
     if (options) {
-      options.msgId = options.msgId || options._j_msgid?.toString() || '';
       console.log(
-        'codeStart CodeStartByNotification launchNotification',
+        'coldStart ColdStartByNotification launchNotification',
+        options,
+      );
+      options.msgId =
+        options?.params?.msgId ||
+        options?.msgId ||
+        options?._j_msgid?.toString() ||
+        '';
+      console.log(
+        'coldStart ColdStartByNotification launchNotification FIXED',
         options,
       );
       const title = options.aps?.alert?.title || '';
@@ -73,7 +81,7 @@ export function CodeStartByNotification() {
   }, []);
   return null;
 }
-CodeStartByNotification.launchNotification = null;
+ColdStartByNotification.launchNotification = null;
 
 export function Container() {
   return (
@@ -97,7 +105,7 @@ export function Container() {
               <FlipperPluginsContainer />
             </>
           ) : null}
-          <CodeStartByNotification />
+          <ColdStartByNotification />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>
