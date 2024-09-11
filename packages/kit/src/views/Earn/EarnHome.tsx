@@ -562,11 +562,12 @@ function AvailableAssets() {
           mx="$-5"
           $gtLg={{
             mx: 0,
+            overflow: 'hidden',
+            bg: '$bg',
             borderRadius: '$3',
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: '$borderSubdued',
             borderCurve: 'continuous',
-            overflow: 'hidden',
           }}
         >
           {assets.map(
@@ -584,6 +585,9 @@ function AvailableAssets() {
                 }}
                 avatarProps={{
                   src: logoURI,
+                  fallbackProps: {
+                    borderRadius: '$full',
+                  },
                   ...(media.gtLg
                     ? {
                         size: '$8',
@@ -648,6 +652,7 @@ function BasicEarnHome() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
+  const media = useMedia();
   const actions = useEarnActions();
   const { isLoading: isFetchingAccounts } = usePromiseResult(
     async () => {
@@ -772,42 +777,46 @@ function BasicEarnHome() {
               <Recommended isFetchingAccounts={isFetchingAccounts} />
               <AvailableAssets />
             </YStack>
-            <YStack
-              gap="$6"
-              p="$4"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$transparent"
-              borderRadius="$3"
-              borderCurve="continuous"
-              bg="$bgSubdued"
-              $gtMd={{
-                w: EARN_RIGHT_PANEL_WIDTH,
-              }}
-            >
-              <SizableText size="$headingSm">
-                {intl.formatMessage({
-                  id: ETranslations.earn_feature_list_title,
-                })}
-              </SizableText>
-              {INTRODUCTION_ITEMS.map((item, index) => (
-                <YStack key={index} gap="$3" alignItems="flex-start">
-                  <YStack
-                    p="$2"
-                    bg="$bgStrong"
-                    borderRadius="$3"
-                    borderCurve="continuous"
-                  >
-                    <Icon name={item.icon} color="$iconSubdued" />
+            {media.gtLg ? (
+              <YStack
+                gap="$6"
+                p="$4"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$transparent"
+                borderRadius="$3"
+                borderCurve="continuous"
+                bg="$bgSubdued"
+                $gtMd={{
+                  w: EARN_RIGHT_PANEL_WIDTH,
+                }}
+              >
+                <SizableText size="$headingSm">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_feature_list_title,
+                  })}
+                </SizableText>
+                {INTRODUCTION_ITEMS.map((item, index) => (
+                  <YStack key={index} gap="$3" alignItems="flex-start">
+                    <YStack
+                      p="$2"
+                      bg="$bgStrong"
+                      borderRadius="$3"
+                      borderCurve="continuous"
+                    >
+                      <Icon name={item.icon} color="$iconSubdued" />
+                    </YStack>
+                    <YStack gap="$1.5">
+                      <SizableText size="$bodyMdMedium">
+                        {item.title}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {item.description}
+                      </SizableText>
+                    </YStack>
                   </YStack>
-                  <YStack gap="$1.5">
-                    <SizableText size="$bodyMdMedium">{item.title}</SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {item.description}
-                    </SizableText>
-                  </YStack>
-                </YStack>
-              ))}
-            </YStack>
+                ))}
+              </YStack>
+            ) : null}
           </YStack>
         </YStack>
       </Page.Body>

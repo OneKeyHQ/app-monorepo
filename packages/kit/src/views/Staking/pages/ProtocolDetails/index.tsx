@@ -167,55 +167,53 @@ const ProtocolDetailsPage = () => {
           { 'symbol': symbol },
         )}
       />
-      <Page.Body>
+      <Page.Body px="$5">
         <PageFrame
           LoadingSkeleton={OverviewSkeleton}
           loading={isLoadingState({ result, isLoading })}
           error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
-          <Stack>
-            <ProtocolDetails
-              accountId={accountId}
+          <ProtocolDetails
+            accountId={accountId}
+            networkId={networkId}
+            indexedAccountId={indexedAccountId}
+            earnAccount={earnAccount}
+            details={result}
+            onClaim={onClaim}
+            onWithdraw={onWithdraw}
+            onPortfolioDetails={onPortfolioDetails}
+            onCreateAddress={onCreateAddress}
+          />
+          <Page.Footer
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.earn_stake,
+            })}
+            confirmButtonProps={{
+              variant: 'primary',
+              loading: stakeLoading,
+              onPress: onStake,
+              disabled: !earnAccount?.accountAddress,
+            }}
+            onCancelText={intl.formatMessage({
+              id: ETranslations.global_withdraw,
+            })}
+            cancelButtonProps={{
+              onPress: onWithdraw,
+              disabled:
+                !earnAccount?.accountAddress ||
+                Number(result?.staked) - Number(result?.pendingInactive) <= 0,
+            }}
+          />
+          {result ? (
+            <StakingTransactionIndicator
+              accountId={earnAccount?.accountId ?? ''}
               networkId={networkId}
-              indexedAccountId={indexedAccountId}
-              earnAccount={earnAccount}
-              details={result}
-              onClaim={onClaim}
-              onWithdraw={onWithdraw}
-              onPortfolioDetails={onPortfolioDetails}
-              onCreateAddress={onCreateAddress}
+              stakeTag={buildLocalTxStatusSyncId(result)}
+              onRefresh={run}
+              onPress={onHistory}
             />
-            <Page.Footer
-              onConfirmText={intl.formatMessage({
-                id: ETranslations.earn_stake,
-              })}
-              confirmButtonProps={{
-                variant: 'primary',
-                loading: stakeLoading,
-                onPress: onStake,
-                disabled: !earnAccount?.accountAddress,
-              }}
-              onCancelText={intl.formatMessage({
-                id: ETranslations.global_withdraw,
-              })}
-              cancelButtonProps={{
-                onPress: onWithdraw,
-                disabled:
-                  !earnAccount?.accountAddress ||
-                  Number(result?.staked) - Number(result?.pendingInactive) <= 0,
-              }}
-            />
-            {result ? (
-              <StakingTransactionIndicator
-                accountId={earnAccount?.accountId ?? ''}
-                networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId(result)}
-                onRefresh={run}
-                onPress={onHistory}
-              />
-            ) : null}
-          </Stack>
+          ) : null}
         </PageFrame>
       </Page.Body>
     </Page>

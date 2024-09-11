@@ -105,8 +105,7 @@ function StakedValue({
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   return (
-    <YStack pb="$8" px="$5">
-      <YStack h="$2" />
+    <YStack gap="$6">
       <YStack gap="$2">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
@@ -120,7 +119,6 @@ function StakedValue({
           {value || 0}
         </NumberSizeableText>
       </YStack>
-      <YStack h="$6" />
       <YStack gap="$1.5">
         <YStack my="$1.5">
           <Progress

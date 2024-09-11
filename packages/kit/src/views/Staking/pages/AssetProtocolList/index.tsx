@@ -2,19 +2,22 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import {
   Badge,
   ListView,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
   YStack,
+  getColor,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -23,7 +26,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -44,6 +46,43 @@ function formatNumber(num: number): string {
     return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   }
   return num.toFixed(2);
+}
+
+function StakeTypeBadge({
+  stakeType,
+  label,
+}: {
+  stakeType: string;
+  label: string;
+}) {
+  const getBadgeColors = (
+    type: string,
+  ): { bg: ColorTokens; color: ColorTokens } => {
+    switch (type) {
+      case 'liquid':
+        return { bg: '$purple3', color: '$purple11' };
+      case 'locked':
+        return { bg: '$pink3', color: '$pink11' };
+      default:
+        return { bg: '$blue3', color: '$blue11' };
+    }
+  };
+
+  const { bg, color } = getBadgeColors(stakeType);
+
+  return (
+    <Stack
+      backgroundColor={bg}
+      borderRadius="$1"
+      borderCurve="continuous"
+      px="$2"
+      py="$0.5"
+    >
+      <SizableText size="$bodySmMedium" color={color}>
+        {label}
+      </SizableText>
+    </Stack>
+  );
 }
 
 const AssetProtocolListContent = ({
@@ -74,81 +113,82 @@ const AssetProtocolListContent = ({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
-  const intl = useIntl();
+
   return (
     <ListView
       estimatedItemSize={60}
       data={items}
       renderItem={({ item }: { item: IStakeProtocolListItem }) => (
-        <YStack w="100%" py="$2" px="$5">
-          <YStack
-            borderRadius="$3"
-            borderCurve="continuous"
-            overflow="hidden"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            onPress={() => onPress?.({ item })}
-            {...listItemPressStyle}
-          >
-            <XStack bg="$bgSubdued" p="$4">
-              <Stack pr="$3">
-                <Token
-                  size="lg"
-                  borderRadius="$2"
-                  tokenImageUri={item.provider.logoURI}
-                  networkImageUri={item.network.logoURI}
-                />
-              </Stack>
-              <YStack flex={1} justifyContent="center">
-                <SizableText size="$bodyLgMedium">
-                  {capitalizeString(item.provider.name)}
-                </SizableText>
-                {item.provider.apr && Number(item.provider.apr) > 0 ? (
-                  <XStack alignItems="center">
-                    <SizableText size="$bodyMdMedium" color="$textSuccess">
-                      {` ${BigNumber(item.provider.apr).toFixed(2)}%`}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-              </YStack>
-              {item.provider.labels && item.provider.labels.length > 0 ? (
-                <YStack alignItems="flex-end" justifyContent="space-around">
-                  {item.provider.labels.map((label) => (
-                    <Badge key={label}>{label}</Badge>
-                  ))}
-                </YStack>
-              ) : null}
-            </XStack>
-            <XStack h="$10" px="$4" ai="center" jc="space-between">
+        <ListItem userSelect="none" onPress={() => onPress?.({ item })}>
+          <Token
+            size="lg"
+            borderRadius="$2"
+            tokenImageUri={item.provider.logoURI}
+            networkImageUri={item.network.logoURI}
+          />
+          <ListItem.Text
+            flex={1}
+            primary={capitalizeString(item.provider.name)}
+            secondary={
+              item.provider.labels && item.provider.labels.length > 0 ? (
+                <XStack flexWrap="wrap" gap="$1">
+                  {item.provider.labels.map((label) => {
+                    let stakeType: string;
+                    if (label.toLowerCase().includes('liquid')) {
+                      stakeType = 'liquid';
+                    } else if (label.toLowerCase().includes('native')) {
+                      stakeType = 'locked';
+                    } else {
+                      stakeType = 'current';
+                    }
+                    return (
+                      <StakeTypeBadge
+                        key={label}
+                        stakeType={stakeType}
+                        label={label}
+                      />
+                    );
+                  })}
+                </XStack>
+              ) : null
+            }
+          />
+          <ListItem.Text
+            align="right"
+            primary={
+              Number(item.provider.apr) > 0
+                ? `${BigNumber(item.provider.apr).toFixed(2)}%`
+                : null
+            }
+            secondary={
               <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.earn_provider_staked })}
+                {`TVL ${currencySymbol}${formatNumber(
+                  Number(item.provider.totalFiatValue),
+                )}`}
               </SizableText>
-              <XStack alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {`${formatNumber(
-                    Number(item.provider.totalStaked),
-                  )} ${symbol}`}
-                </SizableText>
-                <XStack w="$1" h="$0.5" />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  (
-                  {`${currencySymbol} ${formatNumber(
-                    Number(item.provider.totalFiatValue),
-                  )}`}
-                  )
-                </SizableText>
-              </XStack>
-            </XStack>
-          </YStack>
-        </YStack>
+            }
+          />
+        </ListItem>
       )}
     />
   );
 };
 
 const LoadingSkeleton = () => (
-  <Stack w="100%" h="$40" jc="center" ai="center">
-    <Spinner size="large" />
+  <Stack>
+    {Array.from({ length: 3 }).map((_, index) => (
+      <ListItem key={index}>
+        <Skeleton w="$10" h="$10" borderRadius="$2" />
+        <YStack>
+          <YStack py="$1">
+            <Skeleton h="$4" w={120} borderRadius="$2" />
+          </YStack>
+          <YStack py="$1">
+            <Skeleton h="$3" w={80} borderRadius="$2" />
+          </YStack>
+        </YStack>
+      </ListItem>
+    ))}
   </Stack>
 );
 
