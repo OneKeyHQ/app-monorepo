@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "網路費用",
   "swap_history_detail.order_status": "訂單狀態",
   "swap_history_detail.pay_address": "发送地址",
-  "swap_history_detail.protocol_fee": "協議費用",
+  "swap_history_detail.protocol_fee": "渠道商費用",
   "swap_history_detail.provider": "供應商",
   "swap_history_detail.rate": "匯率",
   "swap_history_detail.receive_amount": "+接收金額",

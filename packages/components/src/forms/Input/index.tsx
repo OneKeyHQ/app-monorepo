@@ -121,7 +121,10 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
-function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
+function BaseInput(
+  inputProps: IInputProps,
+  forwardedRef: ForwardedRef<IInputRef>,
+) {
   const {
     size = 'medium',
     leftAddOnProps,
@@ -180,7 +183,8 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     }
   }, [onPaste]);
 
-  useImperativeHandle(ref, () => ({
+  useImperativeHandle(forwardedRef, () => ({
+    ...inputRef.current,
     focus: () => {
       inputRef.current?.focus();
     },

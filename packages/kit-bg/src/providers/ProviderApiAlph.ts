@@ -272,6 +272,7 @@ class ProviderApiAlph extends ProviderApiBase {
     const res: SignDeployContractTxResult = {
       ...deployTxInfo,
       ...rawTx,
+      gasPrice: deployTxInfo.gasPrice.toString(),
     };
     return res;
   }
