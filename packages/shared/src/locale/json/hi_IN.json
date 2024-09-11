@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC अधिकता में है और इसे निकालकर दावा किया जाना चाहिए।",
   "earn.pay_with": "भुगतान करें",
   "earn.pending_activation": "सक्रियण बाकी",
-  "earn.pending_activation_tooltip": "नई स्टेकिंग को सक्रिय होने और इनाम कमाना शुरू करने से पहले लगभग {number} घंटे इंतजार करना होगा।",
+  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "आपका स्टेक किया हुआ ETH तभी सक्रिय होगा जब सत्यापक 32 ETH की आवश्यकता पूरी करेगा।",
   "earn.portfolio": "पोर्टफोलियो",
   "earn.portfolio_details": "पोर्टफोलियो विवरण",

@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTCがオーバーフローしており、引き出して請求する必要があります。",
   "earn.pay_with": "支払う",
   "earn.pending_activation": "有効化待ち",
-  "earn.pending_activation_tooltip": "新しいステーキングはアクティブになり、報酬を獲得し始めるまで約 {number} 時間待つ必要があります。",
+  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "バリデーターが32 ETHの要件を満たすと、あなたのステークしたETHがアクティブになります。",
   "earn.portfolio": "ポートフォリオ",
   "earn.portfolio_details": "ポートフォリオの詳細",

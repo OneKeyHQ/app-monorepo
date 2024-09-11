@@ -8,17 +8,17 @@ import {
   Alert,
   Dialog,
   IconButton,
+  Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -62,7 +62,7 @@ export const UniversalWithdraw = ({
   decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
-  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
@@ -121,9 +121,10 @@ export const UniversalWithdraw = ({
   );
 
   const currentValue = useMemo<string | undefined>(() => {
-    const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.isNaN()) return undefined;
-    return amountValueBn.multipliedBy(price).toFixed();
+    if (Number(amountValue) > 0 && Number(price) > 0) {
+      return BigNumber(amountValue).multipliedBy(price).toFixed();
+    }
+    return undefined;
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
@@ -276,7 +277,12 @@ export const UniversalWithdraw = ({
             titleProps={fieldTitleProps}
           >
             <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
+              <Image
+                width="$5"
+                height="$5"
+                src={providerLogo}
+                borderRadius="$2"
+              />
               <SizableText size="$bodyLgMedium">
                 {capitalizeString(providerName)}
               </SizableText>
@@ -291,18 +297,27 @@ export const UniversalWithdraw = ({
                   id: ETranslations.earn_unstaking_period,
                 })}
               </SizableText>
-              <Tooltip
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
                 renderTrigger={
                   <IconButton
-                    variant="tertiary"
+                    iconColor="$iconSubdued"
                     size="small"
                     icon="InfoCircleOutline"
+                    variant="tertiary"
                   />
                 }
-                renderContent={intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period_tooltip,
-                })}
-                // placement="right"
+                renderContent={
+                  <Stack p="$5">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.earn_unstaking_period_tooltip,
+                      })}
+                    </SizableText>
+                  </Stack>
+                }
               />
             </XStack>
             <XStack gap="$2" alignItems="center">

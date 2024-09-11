@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC ist im Überlauf und sollte abgehoben und beansprucht werden.",
   "earn.pay_with": "Bezahlen mit",
   "earn.pending_activation": "In Erwartung der Aktivierung",
-  "earn.pending_activation_tooltip": "Neues Staking muss etwa {number} Stunden warten, bevor es aktiv wird und Belohnungen zu verdienen beginnt.",
+  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "Ihr gestaketes ETH wird aktiv, sobald der Validator die 32 ETH-Anforderung erreicht.",
   "earn.portfolio": "Portfolio",
   "earn.portfolio_details": "Portfolio-Details",

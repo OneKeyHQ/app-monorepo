@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC is in overflow and should be withdrawn and claimed.",
   "earn.pay_with": "Pay with",
   "earn.pending_activation": "Pending activation",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} hours before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "Your staked ETH becomes active once the validator reaches the 32 ETH requirement.",
   "earn.portfolio": "Portfolio",
   "earn.portfolio_details": "Portfolio details",

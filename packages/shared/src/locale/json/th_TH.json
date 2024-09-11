@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC มีการเกินขีดจำกัดและควรถูกถอนและเรียกร้อง",
   "earn.pay_with": "ชำระด้วย",
   "earn.pending_activation": "รอการเปิดใช้งาน",
-  "earn.pending_activation_tooltip": "การวางเดิมพันใหม่ต้องรอประมาณ {number} ชั่วโมงก่อนที่จะเปิดใช้งานและเริ่มรับรางวัล",
+  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "ETH ที่คุณวางเดิมพันจะเปิดใช้งานเมื่อผู้ตรวจสอบถึงข้อกำหนด 32 ETH",
   "earn.portfolio": "พอร์ตฟอลิโอ",
   "earn.portfolio_details": "รายละเอียดพอร์ตฟอลิโอ",
