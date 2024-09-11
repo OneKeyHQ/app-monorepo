@@ -700,7 +700,7 @@ function BasicEarnHome() {
     },
   ];
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         showHeaderRight={false}
