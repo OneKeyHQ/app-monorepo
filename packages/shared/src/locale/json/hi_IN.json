@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "नेटवर्क शुल्क",
   "swap_history_detail.order_status": "आदेश की स्थिति",
   "swap_history_detail.pay_address": "पता भुगतान करें",
-  "swap_history_detail.protocol_fee": "प्रोटोकॉल शुल्क",
+  "swap_history_detail.protocol_fee": "प्रदाता शुल्क",
   "swap_history_detail.provider": "प्रदाता",
   "swap_history_detail.rate": "मूल्यांकन करें",
   "swap_history_detail.receive_amount": "+राशि प्राप्त करें",
