@@ -195,7 +195,7 @@ const SwapProviderSelectModal = () => {
     ],
   );
   const rightInfoComponent = useCallback(() => {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNative || platformEnv.isDesktop || platformEnv.isWeb) {
       return (
         <Popover
           title={intl.formatMessage({
@@ -209,41 +209,109 @@ const SwapProviderSelectModal = () => {
             />
           }
           renderContent={
-            <Stack px="$4" pb="$4" gap="$2">
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_approval_require_title,
-                })}
-              </SizableText>
-              <InformationItem
-                icon="LockOutline"
-                content={intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_approval_require_msg,
-                })}
-              />
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_order_info_title,
-                })}
-              </SizableText>
-              <InformationItem
-                icon="GasOutline"
-                content={intl.formatMessage({
-                  id: ETranslations.provider_network_fee,
-                })}
-              />
-              <InformationItem
-                icon="ClockTimeHistoryOutline"
-                content={intl.formatMessage({
-                  id: ETranslations.provider_swap_duration,
-                })}
-              />
-              <InformationItem
-                icon="HandCoinsOutline"
-                content={intl.formatMessage({
-                  id: ETranslations.provider_protocol_fee,
-                })}
-              />
+            <Stack p="$5" gap="$6">
+              <Stack gap="$2">
+                <SizableText size="$headingMd" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_order_info_title,
+                  })}
+                </SizableText>
+                <InformationItem
+                  icon="LockOutline"
+                  content={intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_approval_require_msg,
+                  })}
+                />
+                <InformationItem
+                  icon="GasOutline"
+                  content={intl.formatMessage({
+                    id: ETranslations.provider_network_fee,
+                  })}
+                />
+                <InformationItem
+                  icon="ClockTimeHistoryOutline"
+                  content={intl.formatMessage({
+                    id: ETranslations.provider_swap_duration,
+                  })}
+                />
+                <InformationItem
+                  icon="HandCoinsOutline"
+                  content={intl.formatMessage({
+                    id: ETranslations.provider_protocol_fee,
+                  })}
+                />
+              </Stack>
+              <Stack gap="$3">
+                <Stack gap="$1">
+                  <SizableText size="$headingMd" color="$text">
+                    {intl.formatMessage({
+                      id: ETranslations.provider_ios_popover_onekey_fee,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.provider_ios_popover_onekey_fee_content,
+                    })}
+                  </SizableText>
+                </Stack>
+                <Stack gap="$2">
+                  <XStack gap="$3">
+                    <SizableText size="$bodySm" color="$textSubdued" flex={100}>
+                      {intl.formatMessage({
+                        id: ETranslations.provider_popover_wallet,
+                      })}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      textAlign="right"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.provider_popover_fee_rate,
+                      })}
+                    </SizableText>
+                  </XStack>
+                  <XStack gap="$3" alignItems="center">
+                    <Stack flex={1}>
+                      <Stack
+                        backgroundColor="#F5841F"
+                        borderRadius="$full"
+                        width="100%"
+                        height="$1"
+                      ></Stack>
+                    </Stack>
+                    <SizableText size="$bodySm" color="$text" textAlign="right">
+                      {'0.875%'}
+                    </SizableText>
+                  </XStack>
+                  <XStack gap="$3" alignItems='center'>
+                    <Stack flex={1}>
+                    <Stack
+                      backgroundColor="#2461ED"
+                      borderRadius="$full"
+                      width={`${(0.8 / 0.875) * 100}%`}
+                      height="$1"
+                    ></Stack>
+                    </Stack>
+                    <SizableText size="$bodySm" color="$text" textAlign="right">
+                      {'0.80%'}
+                    </SizableText>
+                  </XStack>
+                  <XStack gap="$3" alignItems='center'>
+                    <Stack flex={1}>
+                    <Stack
+                      backgroundColor="#202020"
+                      borderRadius="$full"
+                      width={`${(0.3/0.875) * 100}%`}
+                      height="$1"
+                    ></Stack>
+                    </Stack>
+                    <SizableText size="$bodySm" color="$text" textAlign="right">
+                      {'0.3%'}
+                    </SizableText>
+                  </XStack>
+                </Stack>
+              </Stack>
             </Stack>
           }
         />
