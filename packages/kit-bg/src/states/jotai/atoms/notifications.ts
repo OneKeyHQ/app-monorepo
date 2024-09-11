@@ -6,6 +6,7 @@ export type INotificationsAtomData = {
   firstTimeGuideOpened: boolean | undefined;
   badge: number | undefined;
   lastReceivedTime: number | undefined;
+  lastRegisterTime: number | undefined;
 };
 export const { target: notificationsAtom, use: useNotificationsAtom } =
   globalAtom<INotificationsAtomData>({
@@ -15,6 +16,7 @@ export const { target: notificationsAtom, use: useNotificationsAtom } =
       firstTimeGuideOpened: undefined,
       badge: undefined,
       lastReceivedTime: undefined,
+      lastRegisterTime: undefined,
     },
   });
 

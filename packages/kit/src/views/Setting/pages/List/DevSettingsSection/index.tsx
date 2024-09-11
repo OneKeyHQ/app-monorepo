@@ -352,6 +352,9 @@ export const DevSettingsSection = () => {
                         await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
                           params,
                         );
+                        if (platformEnv.isExtension) {
+                          backgroundApiProxy.serviceApp.restartApp();
+                        }
                         Toast.success({
                           title: 'Success',
                         });
@@ -429,18 +432,6 @@ export const DevSettingsSection = () => {
           setTimeout(() => {
             void backgroundApiProxy.serviceSpotlight.reset();
           }, 5000);
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.reset();
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态为失败状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
         }}
       />
       {platformEnv.isNativeAndroid ? (

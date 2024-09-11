@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 export function AccountExportPrivateKeyButton({
+  testID,
   accountName,
   indexedAccount,
   account,
@@ -23,6 +24,7 @@ export function AccountExportPrivateKeyButton({
   label,
   exportType,
 }: {
+  testID?: string;
   accountName?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
@@ -37,6 +39,7 @@ export function AccountExportPrivateKeyButton({
 
   return (
     <ActionList.Item
+      testID={testID}
       icon={icon}
       label={label}
       onClose={onClose}

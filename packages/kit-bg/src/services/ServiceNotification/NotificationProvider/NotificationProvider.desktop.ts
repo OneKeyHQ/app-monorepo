@@ -140,4 +140,8 @@ export default class NotificationProvider extends NotificationProviderBase {
   override async showAndFocusApp(): Promise<void> {
     window.desktopApi.restore();
   }
+
+  override async clearNotificationCache(): Promise<void> {
+    console.log('Desktop -- clearNotificationCache');
+  }
 }

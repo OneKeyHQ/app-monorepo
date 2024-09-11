@@ -55,9 +55,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           iconColor: '$iconInfo',
           renderText() {
             return intl.formatMessage({
-              id: platformEnv.isNativeAndroid
-                ? ETranslations.update_verifying_sha256_and_package_name
-                : ETranslations.update_verify_file_signature,
+              id: ETranslations.update_verify_file_signature,
             });
           },
         },

@@ -17,6 +17,7 @@ export type INotificationShowParams = {
   icon?: string; // base64 or remote url
   title: string;
   description: string;
+  time?: number;
 
   remotePushMessageInfo?: INotificationPushMessageInfo;
 
