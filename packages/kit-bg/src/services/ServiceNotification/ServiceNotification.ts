@@ -693,4 +693,23 @@ export default class ServiceNotification extends ServiceBase {
     await client.post('/notification/v1/config/update', params);
     return true;
   }
+
+  @backgroundMethod()
+  async blockNotificationForTxId({
+    networkId,
+    tx,
+  }: {
+    networkId: string;
+    tx: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    const params = {
+      networkId,
+      tx,
+    };
+    await client.post<IApiClientResponse<INotificationPushSettings>>(
+      '/notification/v1/message/block-tx',
+      params,
+    );
+  }
 }
