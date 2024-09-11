@@ -9,12 +9,17 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InteractionManager } from 'react-native';
+import {
+  InteractionManager,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
   IActionListItemProps,
   IElement,
+  IStackStyle,
   ITableColumn,
   ITableProps,
 } from '@onekeyhq/components';
@@ -44,17 +49,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IMarketCategory,
   IMarketToken,
 } from '@onekeyhq/shared/types/market';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
+import { MarketTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
@@ -69,6 +77,42 @@ const colorMap = {
   light: ['rgba(0, 113, 63, 0.2)', 'rgba(196, 0, 6, 0.2)'],
   dark: ['rgba(70, 254, 165, 0.2)', 'rgba(255, 149, 146, 0.2)'],
 };
+
+const ROW_PROPS = {
+  gap: '$3',
+  px: '$3',
+  mx: '$2',
+};
+
+const HEADER_ROW_PROPS = {
+  minHeight: '$4',
+  py: '$2',
+  borderRadius: '$3',
+} as IStackStyle;
+
+function ListEmptyComponent({
+  columns,
+}: {
+  columns: ITableColumn<IMarketToken>[];
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timerId = setTimeout(
+      () => {
+        setIsVisible(true);
+      },
+      platformEnv.isNative ? 350 : 50,
+    );
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, []);
+
+  return isVisible ? (
+    <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />
+  ) : null;
+}
 
 function TableMdSkeletonRow() {
   return (
@@ -108,12 +152,6 @@ const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
 
-const ROW_PROPS = {
-  gap: '$3',
-  px: '$3',
-  mx: '$2',
-};
-
 function BasicMarketHomeList({
   category,
   tabIndex = 0,
@@ -129,34 +167,39 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
 
   const updateAtRef = useRef(0);
+  const updateTimer = useRef<ReturnType<typeof setInterval>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
+  const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
+
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
-    if (now - updateAtRef.current > 45 * 1000) {
+    if (
+      now - updateAtRef.current >
+        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
+      prevCoingeckoIdsLength !== category.coingeckoIds.length
+    ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
         category.coingeckoIds,
         true,
       );
+      updateAtRef.current = now;
       void InteractionManager.runAfterInteractions(() => {
         setListData(response);
       });
     }
-  }, [category.categoryId, category.coingeckoIds]);
+  }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
 
   useEffect(() => {
     void fetchCategory();
+    updateTimer.current = setInterval(() => {
+      void fetchCategory();
+    }, timerUtils.getTimeDurationMs({ seconds: 50 }));
+    return () => {
+      clearInterval(updateTimer.current);
+    };
   }, [fetchCategory]);
-
-  const toDetailPage = useCallback(
-    (item: IMarketToken) => {
-      navigation.push(ETabMarketRoutes.MarketDetail, {
-        token: item.coingeckoId,
-      });
-    },
-    [navigation],
-  );
 
   const { gtMd, md } = useMedia();
 
@@ -188,71 +231,84 @@ function BasicMarketHomeList({
   ]);
 
   const actions = useWatchListAction();
+  const isShowActionSheet = useRef(false);
+
+  const toDetailPage = useCallback(
+    (item: IMarketToken) => {
+      if (isShowActionSheet.current) {
+        return;
+      }
+      navigation.push(ETabMarketRoutes.MarketDetail, {
+        token: item.coingeckoId,
+      });
+    },
+    [navigation],
+  );
+
   const handleMdItemAction = useCallback(
     async ({ coingeckoId, symbol }: IMarketToken) => {
       const isInWatchList = actions.isInWatchList(coingeckoId);
       const title = symbol.toUpperCase();
-      ActionList.show(
-        isInWatchList
-          ? {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      destructive: true,
-                      icon: 'DeleteOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_remove_from_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.removeFormWatchList(coingeckoId);
-                      },
+      const onClose = () => {
+        isShowActionSheet.current = false;
+      };
+      isShowActionSheet.current = true;
+      ActionList.show({
+        title,
+        onClose,
+        sections: [
+          {
+            items: [
+              isInWatchList
+                ? {
+                    destructive: true,
+                    icon: 'DeleteOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_remove_from_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.removeFormWatchList(coingeckoId);
                     },
-                    showMoreAction && {
-                      icon: 'ArrowTopOutline',
-                      label: intl.formatMessage({
-                        id: ETranslations.market_move_to_top,
-                      }),
-                      onPress: () => {
-                        actions.MoveToTop(coingeckoId);
-                      },
+                  }
+                : {
+                    icon: 'StarOutline',
+                    label: intl.formatMessage({
+                      id: ETranslations.market_add_to_watchlist,
+                    }),
+                    onPress: () => {
+                      actions.addIntoWatchList(coingeckoId);
                     },
-                  ].filter(Boolean) as IActionListItemProps[],
+                  },
+              showMoreAction && {
+                icon: 'ArrowTopOutline',
+                label: intl.formatMessage({
+                  id: ETranslations.market_move_to_top,
+                }),
+                onPress: () => {
+                  actions.MoveToTop(coingeckoId);
                 },
-              ],
-            }
-          : {
-              title,
-              sections: [
-                {
-                  items: [
-                    {
-                      icon: 'StarOutline',
-
-                      label: intl.formatMessage({
-                        id: ETranslations.market_add_to_watchlist,
-                      }),
-                      onPress: () => {
-                        actions.addIntoWatchList(coingeckoId);
-                      },
-                    },
-                  ],
-                },
-              ],
-            },
-      );
+              },
+            ].filter(Boolean) as IActionListItemProps[],
+          },
+        ],
+      });
     },
     [actions, intl, showMoreAction],
   );
 
+  const { width: screenWidth } = useWindowDimensions();
+
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+
   const renderMdItem = useCallback(
     (item: IMarketToken) => {
       const pressEvents = {
         onPress: () => toDetailPage(item),
-        onLongPress: () => handleMdItemAction(item),
+        onLongPress: () => {
+          void handleMdItemAction(item);
+        },
+        delayLongPress: platformEnv.isNative ? undefined : 300,
       };
       return (
         <TouchableContainer
@@ -300,16 +356,26 @@ function BasicMarketHomeList({
               </YStack>
             </XStack>
             <XStack ai="center" gap="$5">
-              <NumberSizeableText
-                userSelect="none"
-                flexShrink={1}
-                numberOfLines={1}
-                size="$bodyLgMedium"
-                formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-                formatterOptions={{ currency }}
-              >
-                {item[mdColumnKeys[0]] as string}
-              </NumberSizeableText>
+              {mdColumnKeys[0] === 'price' ? (
+                <MarketTokenPrice
+                  size="$bodyLgMedium"
+                  price={String(item[mdColumnKeys[0]])}
+                  tokenName={item.name}
+                  tokenSymbol={item.symbol}
+                  lastUpdated={item.lastUpdated}
+                />
+              ) : (
+                <NumberSizeableText
+                  userSelect="none"
+                  flexShrink={1}
+                  numberOfLines={1}
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{ currency }}
+                >
+                  {item[mdColumnKeys[0]] as string}
+                </NumberSizeableText>
+              )}
               {item[mdColumnKeys[1]] ? (
                 <XStack
                   width="$20"
@@ -324,6 +390,9 @@ function BasicMarketHomeList({
                   borderRadius="$2"
                 >
                   <NumberSizeableText
+                    adjustsFontSizeToFit
+                    numberOfLines={platformEnv.isNative ? 1 : 2}
+                    px="$1"
                     userSelect="none"
                     size="$bodyMdMedium"
                     color="white"
@@ -346,11 +415,14 @@ function BasicMarketHomeList({
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
-      <XStack ai="center" gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-        <Icon name="ChevronDownSmallSolid" size="$4" />
+      <XStack ai="center" gap="$2">
+        <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {label}
+          </SizableText>
+          <Icon name="ChevronDownSmallSolid" size="$4" />
+        </XStack>
       </XStack>
     ),
     [],
@@ -552,15 +624,14 @@ function BasicMarketHomeList({
                 flexGrow: 1,
                 flexBasis: 0,
               },
-              render: (price: string) => (
-                <NumberSizeableText
-                  userSelect="none"
+              render: (price: string, record: IMarketToken) => (
+                <MarketTokenPrice
                   size="$bodyMd"
-                  formatter="price"
-                  formatterOptions={{ currency }}
-                >
-                  {price}
-                </NumberSizeableText>
+                  price={price}
+                  tokenName={record.name}
+                  tokenSymbol={record.symbol}
+                  lastUpdated={record.lastUpdated}
+                />
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
             },
@@ -621,7 +692,7 @@ function BasicMarketHomeList({
               : undefined,
             {
               title: intl.formatMessage({
-                id: ETranslations.market_seven_day_percentage,
+                id: ETranslations.market_24h_vol_usd,
               }),
               dataIndex: 'totalVolume',
               columnProps: {
@@ -726,7 +797,7 @@ function BasicMarketHomeList({
                 </XStack>
               ),
             },
-          ].filter(Boolean) as ITableProps<IMarketToken>['columns'])
+          ] as ITableProps<IMarketToken>['columns'])
         : [
             {
               title: '',
@@ -779,12 +850,16 @@ function BasicMarketHomeList({
     [handleSortTypeChange],
   );
 
-  const listEmptyComponent = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
-      return null;
+  const rowProps = useMemo(() => {
+    if (gtMd) {
+      return ROW_PROPS;
     }
-    return <Table.Skeleton count={6} columns={columns} rowProps={ROW_PROPS} />;
-  }, [columns]);
+    return platformEnv.isNativeAndroid
+      ? {
+          width: screenWidth,
+        }
+      : undefined;
+  }, [gtMd, screenWidth]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
@@ -799,20 +874,17 @@ function BasicMarketHomeList({
       {gtMd ? undefined : (
         <YStack
           px="$5"
-          borderBottomWidth="$px"
+          borderBottomWidth={StyleSheet.hairlineWidth}
           borderBottomColor="$borderSubdued"
         >
           <XStack h="$11" ai="center" justifyContent="space-between">
-            <XStack ai="center" gap="$2">
-              <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
-              <Select
-                items={selectOptions}
-                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
-                value={mdSortByType}
-                onChange={handleMdSortByTypeChange}
-                renderTrigger={renderSelectTrigger}
-              />
-            </XStack>
+            <Select
+              items={selectOptions}
+              title={intl.formatMessage({ id: ETranslations.market_sort_by })}
+              value={mdSortByType}
+              onChange={handleMdSortByTypeChange}
+              renderTrigger={renderSelectTrigger}
+            />
             {/* <Popover
               title="Settings"
               renderTrigger={
@@ -838,17 +910,22 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
+          headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
-          rowProps={gtMd ? ROW_PROPS : undefined}
+          rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
           dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
-          TableEmptyComponent={listEmptyComponent}
+          TableEmptyComponent={
+            platformEnv.isNativeAndroid ? (
+              <ListEmptyComponent columns={columns} />
+            ) : null
+          }
         />
       </YStack>
     </>

@@ -103,8 +103,8 @@ const DeriveTypesAddressItem = ({
       (_, key) =>
         !!(
           (item.account as IDBUtxoAccount)?.xpub &&
-          key.includes((item.account as IDBUtxoAccount)?.xpub ?? '')
-        ) || !!(item.account?.address && key.includes(item.account?.address)),
+          key.includes((item.account as IDBUtxoAccount)?.xpub)
+        ),
     );
   }
 
@@ -121,7 +121,6 @@ const DeriveTypesAddressItem = ({
         await copyAccountAddress({
           accountId: item.account.id,
           networkId: network.id,
-          deriveType: item.deriveType,
         });
       } else if (actionType === EDeriveAddressActionType.Select) {
         onSelected?.({
@@ -231,7 +230,7 @@ const DeriveTypesAddress = ({
   );
   return (
     <Stack flex={1}>
-      <ListView data={items} renderItem={renderItem} />
+      <ListView data={items} estimatedItemSize={60} renderItem={renderItem} />
     </Stack>
   );
 };

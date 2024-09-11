@@ -16,6 +16,7 @@ import Animated, {
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { Button, XStack } from '../../primitives';
@@ -24,7 +25,6 @@ import { DialogContext } from './context';
 import { useDialogInstance } from './hooks';
 
 import type { IDialogFooterProps } from './type';
-import type { IButtonProps } from '../../primitives';
 
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
@@ -126,7 +126,17 @@ const DialogFooterContainer = ({ children }: PropsWithChildren) => {
 
 export function Footer(props: IDialogFooterProps) {
   const intl = useIntl();
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const { props: restProps, onConfirm } = useDialogFooterProps(props);
+  const onConfirmWithLoading = useCallback(async () => {
+    try {
+      setConfirmLoading(true);
+      await onConfirm();
+      await timerUtils.wait(300); // wait for animation done
+    } finally {
+      setConfirmLoading(false);
+    }
+  }, [onConfirm]);
   const {
     showFooter,
     showCancelButton,
@@ -158,8 +168,8 @@ export function Footer(props: IDialogFooterProps) {
                   size: 'large',
                 } as any
               }
-              {...cancelButtonProps}
               onPress={onCancel}
+              {...cancelButtonProps}
             >
               {onCancelText ||
                 intl.formatMessage({ id: ETranslations.global_cancel })}
@@ -170,6 +180,7 @@ export function Footer(props: IDialogFooterProps) {
               variant={tone === 'destructive' ? 'destructive' : 'primary'}
               flexGrow={1}
               flexBasis={0}
+              loading={confirmLoading}
               disabled={confirmButtonDisabled}
               $md={
                 {
@@ -177,7 +188,7 @@ export function Footer(props: IDialogFooterProps) {
                 } as any
               }
               {...restConfirmButtonProps}
-              onPress={onConfirm}
+              onPress={onConfirmWithLoading}
             >
               {onConfirmText ||
                 intl.formatMessage({ id: ETranslations.global_confirm })}

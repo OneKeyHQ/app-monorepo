@@ -14,6 +14,7 @@ interface ISectionFieldItem extends PropsWithChildren {
   titleProps?: IListItemProps['titleProps'];
   subtitle?: IListItemProps['subtitle'];
   onValueChange?: (v: any) => void;
+  onBeforeValueChange?: () => Promise<void>;
 }
 
 export function SectionFieldItem({
@@ -24,6 +25,7 @@ export function SectionFieldItem({
   onValueChange,
   titleProps = { color: '$textCritical' },
   testID = '',
+  onBeforeValueChange,
 }: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
@@ -31,11 +33,14 @@ export function SectionFieldItem({
   const handleChange = useCallback(
     async (v: any) => {
       if (name) {
+        if (onBeforeValueChange) {
+          await onBeforeValueChange();
+        }
         await backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
         onValueChange?.(v);
       }
     },
-    [name, onValueChange],
+    [name, onBeforeValueChange, onValueChange],
   );
   const field = child
     ? cloneElement(child, {

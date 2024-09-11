@@ -22,4 +22,6 @@ export interface ITabProps extends IScrollViewProps {
   contentWidth?: number;
   onSelectedPageIndex?: (pageIndex: number) => void;
   shouldSelectedPageIndex?: (pageIndex: number) => boolean;
+  onRefresh?: () => void;
+  initialHeaderHeight?: number;
 }

@@ -57,6 +57,11 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    // const v4migrationPersistData = await v4migrationPersistAtom.get();
+    // const v4migrationAutoStartDisabled =
+    //   v4migrationPersistData?.v4migrationAutoStartDisabled;
+    // ----------------------------------------------
+
     // clean app storage
     try {
       await appStorage.clear();
@@ -81,6 +86,23 @@ class ServiceApp extends ServiceBase {
       console.error('localDb.reset() error');
     }
 
+    // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
+    //   {
+    //     v4migrationAutoStartDisabled,
+    //   },
+    // );
+
+    try {
+      const isV4DbExist: boolean =
+        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist) {
+        await v4dbHubs.v4localDb.reset();
+        await timerUtils.wait(600);
+      }
+    } catch (error) {
+      //
+    }
+
     await timerUtils.wait(1500);
 
     if (platformEnv.isRuntimeBrowser) {
@@ -89,6 +111,12 @@ class ServiceApp extends ServiceBase {
       } catch {
         console.error('window.localStorage.clear() error');
       }
+    }
+
+    try {
+      await this.backgroundApi.serviceNotification.unregisterClient();
+    } catch (error) {
+      //
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
@@ -118,10 +146,6 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async resetApp() {
-    // const v4migrationPersistData = await v4migrationPersistAtom.get();
-    // const v4migrationAutoStartDisabled =
-    //   v4migrationPersistData?.v4migrationAutoStartDisabled;
-
     resetUtils.startResetting();
     try {
       await this.resetData();
@@ -133,23 +157,6 @@ class ServiceApp extends ServiceBase {
 
     await timerUtils.wait(600);
 
-    // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
-    //   {
-    //     v4migrationAutoStartDisabled,
-    //   },
-    // );
-
-    try {
-      const isV4DbExist: boolean =
-        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
-      if (isV4DbExist) {
-        await v4dbHubs.v4localDb.reset();
-        await timerUtils.wait(600);
-      }
-    } catch (error) {
-      //
-    }
-
     this.restartApp();
   }
 
@@ -159,18 +166,8 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async openExtensionSidePanel(routeInfo: IOpenUrlRouteInfo) {
-    await extUtils.openSidePanel(routeInfo);
-  }
-
-  @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     await extUtils.openExpandTab(routeInfo);
-  }
-
-  @backgroundMethod()
-  async openExtensionSidePanelOnActionClick(isOpenPanelOnActionClick: boolean) {
-    await extUtils.openPanelOnActionClick(isOpenPanelOnActionClick);
   }
 }
 

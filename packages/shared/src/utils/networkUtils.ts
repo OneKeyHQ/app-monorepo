@@ -11,6 +11,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   SEPERATOR,
 } from '../engine/engineConsts';
+import platformEnv from '../platformEnv';
 
 import numberUtils from './numberUtils';
 
@@ -96,12 +97,21 @@ function isAllNetwork({
 }
 
 function getDefaultDeriveTypeVisibleNetworks() {
-  return [
-    getNetworkIdsMap().btc,
-    getNetworkIdsMap().tbtc,
-    getNetworkIdsMap().sbtc,
-    getNetworkIdsMap().ltc,
-  ];
+  return platformEnv.isE2E
+    ? [
+        getNetworkIdsMap().eth,
+        getNetworkIdsMap().sol,
+        getNetworkIdsMap().btc,
+        getNetworkIdsMap().tbtc,
+        getNetworkIdsMap().sbtc,
+        getNetworkIdsMap().ltc,
+      ]
+    : [
+        getNetworkIdsMap().btc,
+        getNetworkIdsMap().tbtc,
+        getNetworkIdsMap().sbtc,
+        getNetworkIdsMap().ltc,
+      ];
 }
 
 function toNetworkIdFallback({

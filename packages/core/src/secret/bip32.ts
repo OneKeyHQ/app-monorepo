@@ -5,6 +5,10 @@ import { hmacSHA512 } from './hash';
 
 import type { BaseCurve, CurveForKD } from './curves';
 
+export type IBip32ExtendedKeySerialized = {
+  key: string;
+  chainCode: string;
+};
 export type IBip32ExtendedKey = {
   key: Buffer;
   chainCode: Buffer;

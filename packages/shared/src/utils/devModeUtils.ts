@@ -3,9 +3,9 @@ const SensitiveMessage = '❃❃❃❃ sensitive information ❃❃❃❃';
 export function devOnlyData<T>(
   data: T,
   fallback = SensitiveMessage,
-): T | string {
+): string | unknown {
   if (process.env.NODE_ENV !== 'production') {
-    return data;
+    return data as unknown;
   }
   return fallback;
 }

@@ -29,4 +29,9 @@ export enum EAtomNames {
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
   accountManualCreatingAtom = 'accountManualCreatingAtom',
   galleryPersistAtom = 'galleryPersistAtom',
+  activeAccountValueAtom = 'activeAccountValueAtom',
+  settingsValuePersistAtom = 'settingsValuePersistAtom',
+  notificationsAtom = 'notificationsAtom',
+  notificationsReadedAtom = 'notificationsReadedAtom',
+  accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }

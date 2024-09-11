@@ -6,6 +6,7 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -16,6 +17,7 @@ import { getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
 import {
   NotImplemented,
   OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
 } from '@onekeyhq/shared/src/errors';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -38,6 +40,19 @@ import type {
 
 export class KeyringQr extends KeyringQrBase {
   override coreApi = coreChainApi.btc.hd;
+
+  override async verifySignedTxMatched({
+    unsignedPsbt,
+    signedPsbt,
+  }: {
+    unsignedPsbt: Psbt | undefined;
+    signedPsbt: Psbt | undefined;
+  }): Promise<void> {
+    return verifyBtcSignedPsbtMatched({
+      unsignedPsbt,
+      signedPsbt,
+    });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override getChildPathTemplates(
@@ -81,6 +96,7 @@ export class KeyringQr extends KeyringQrBase {
       throw new Error('addressEncoding not found');
     }
 
+    let unsignedPsbt: Psbt | undefined;
     const signedTx = await this.baseSignByQrcode(params, {
       signRequestUrBuilder: async ({
         path,
@@ -89,7 +105,7 @@ export class KeyringQr extends KeyringQrBase {
         requestId,
         xfp,
       }) => {
-        const psbt = await buildPsbt({
+        unsignedPsbt = await buildPsbt({
           network: getBtcForkNetwork(networkInfo.networkChainCode),
           unsignedTx,
           btcExtraInfo,
@@ -125,20 +141,43 @@ export class KeyringQr extends KeyringQrBase {
           },
           // Promise.resolve(),
         });
+
         const sdk = getAirGapSdk();
         // sdk.btc.generateSignRequest  signMessage
-        return sdk.btc.generatePSBT(psbt.toBuffer());
+        return sdk.btc.generatePSBT(unsignedPsbt.toBuffer());
       },
       signedResultBuilder: async ({ signatureUr }) => {
         const sdk = getAirGapSdk();
-        // **** sign message
-        // const sig = sdk.btc.parseSignature(ur);
-        // **** sign psbt
-        const psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
-        const psbt = Psbt.fromHex(psbtHex);
+        let psbtHex = '';
+        try {
+          // **** sign message
+          // const sig = sdk.btc.parseSignature(ur);
+          // **** sign psbt
+          psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
+        } catch (error) {
+          // eslint-disable-next-line spellcheck/spell-checker
+          // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
+          //        throw new Error('type not match');
+          throw new OneKeyErrorAirGapInvalidQrCode();
+        }
+
+        if (!psbtHex) {
+          throw new Error('BTC QR sign ERROR: psbtHex not found');
+        }
+
+        const signedPsbt = Psbt.fromHex(psbtHex, {
+          network,
+          maximumFeeRate: network.maximumFeeRate,
+        });
+
+        await this.verifySignedTxMatched({
+          unsignedPsbt,
+          signedPsbt,
+        });
+
         // TODO extension serializes Error?
         const { rawTx, txid } = await this.coreApi.extractPsbtToSignedTx({
-          psbt,
+          psbt: signedPsbt,
         });
         return Promise.resolve({
           txid,

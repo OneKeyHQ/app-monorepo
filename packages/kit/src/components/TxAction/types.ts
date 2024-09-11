@@ -22,6 +22,7 @@ export type ITxActionProps = {
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
   swapInfo?: ISwapTxInfo;
+  hideValue?: boolean;
 };
 
 export type ITxActionComponents = {
@@ -57,6 +58,7 @@ export type ITxActionCommonListViewProps = {
   hideFeeInfo?: boolean;
   replaceType?: EReplaceTxType;
   networkId: string;
+  networkLogoURI?: string;
 };
 
 export type ITxActionCommonDetailViewProps = {
@@ -68,7 +70,7 @@ export type ITxActionCommonDetailViewProps = {
       fallbackIcon?: IKeyOfIcons;
     };
     title?: string;
-    content: string;
+    content: React.ReactNode;
   };
   target?: {
     title?: string;

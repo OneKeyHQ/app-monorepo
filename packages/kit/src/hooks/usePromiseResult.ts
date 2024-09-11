@@ -19,7 +19,8 @@ type IRunnerConfig = {
 
 export type IPromiseResultOptions<T> = {
   initResult?: T; // TODO rename to initData
-  watchLoading?: boolean; // make isLoading work, which cause more once render
+  // make isLoading work, which cause more once render, use onIsLoadingChange+jotai for better performance
+  watchLoading?: boolean;
   loadingDelay?: number;
   checkIsMounted?: boolean;
   checkIsFocused?: boolean;
@@ -28,11 +29,12 @@ export type IPromiseResultOptions<T> = {
   undefinedResultIfError?: boolean;
   pollingInterval?: number;
   alwaysSetState?: boolean;
+  onIsLoadingChange?: (isLoading: boolean) => void;
 };
 
 export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
-  setResult: (value: T | undefined) => void;
+  setResult: React.Dispatch<React.SetStateAction<T | undefined>>;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
 };
@@ -152,9 +154,11 @@ export function usePromiseResult<T>(
       } = optionsRef.current;
 
       const setLoadingTrue = () => {
+        optionsRef.current.onIsLoadingChange?.(true);
         if (watchLoading) setIsLoading(true);
       };
       const setLoadingFalse = () => {
+        optionsRef.current.onIsLoadingChange?.(false);
         if (watchLoading) setIsLoading(false);
       };
       const shouldSetState = (config?: IRunnerConfig) => {
@@ -198,6 +202,7 @@ export function usePromiseResult<T>(
             }
           }
         } catch (err) {
+          console.error(err);
           if (shouldSetState(config) && undefinedResultIfError) {
             setResult(undefined);
           } else {

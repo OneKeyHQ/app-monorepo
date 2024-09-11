@@ -2,10 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { appLocale } from '../locale/appLocale';
+import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
 
 import hexUtils from './hexUtils';
+
+import type { FormatNumberOptions } from '@formatjs/intl';
 
 const toBigIntHex = (value: BigNumber): string => {
   let hexStr = value.integerValue().toString(16);
@@ -63,9 +65,25 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
   return counts > 0 ? counts : 0;
 };
 
-const stripTrailingZero = (x: string) =>
-  x.replace(/(\.[0-9]*[1-9])0+$|\.0*$/, '$1');
+const stripTrailingZero = (x: string, decimalSymbol: string) =>
+  x.replace(
+    new RegExp(`(\\${decimalSymbol}[0-9]*[1-9])0+$|\\${decimalSymbol}0*$`),
+    '$1',
+  );
 
+const formatNumber = (value: number, options?: FormatNumberOptions) => {
+  // Bengali number formatting falls back to default 'en' style.
+  if (['bn'].includes(appLocale.intl.locale)) {
+    return fallbackAppLocaleIntl.formatNumber(value, options);
+  }
+  return appLocale.intl.formatNumber(value, options);
+};
+
+const lazyDecimalSymbol = (digits: number) =>
+  formatNumber(0.1, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
 const formatLocalNumber = (
   value: BigNumber | string,
   digits = 2,
@@ -80,21 +98,21 @@ const formatLocalNumber = (
   const decimal = decimalPart ? `.${decimalPart}` : '';
 
   const formatDecimal = decimal
-    ? appLocale.intl.formatNumber(Number.parseFloat(decimal), {
+    ? formatNumber(Number.parseFloat(decimal), {
         maximumFractionDigits: digits,
         minimumFractionDigits: digits,
       })
     : '';
-
   const plus = Number(formatDecimal[0] || 0);
 
-  const integer = `${
-    integerPart === '-0' ? '-' : ''
-  }${appLocale.intl.formatNumber(
+  const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
     new BigNumber(integerPart).plus(plus).toFixed() as any,
   )}`;
+  const decimalSymbol = formatDecimal
+    ? formatDecimal[1]
+    : lazyDecimalSymbol(digits)[1];
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
-  return keepTrailingZeros ? stripTrailingZero(result) : result;
+  return keepTrailingZeros ? stripTrailingZero(result, decimalSymbol) : result;
 };
 
 export type IFormatNumberFunc = (
@@ -197,7 +215,7 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: '0.00',
+      formattedValue: formatLocalNumber('0', 2, false, true),
       meta: { value, isZero: true, symbol: '%', ...options },
     };
   }
@@ -216,13 +234,13 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: '0.00',
+      formattedValue: formatLocalNumber('0', 2, false, true),
       meta: { value, currency, isZero: true, ...options },
     };
   }
   if (val.lt(0.01)) {
     return {
-      formattedValue: '0.01',
+      formattedValue: formatLocalNumber('0.01', 2, true),
       meta: { value, leading: '< ', currency, ...options },
     };
   }
@@ -318,7 +336,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push('0.0');
+    strings.push(formatLocalNumber('0', 1, false, true));
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
@@ -354,6 +372,7 @@ export const NUMBER_FORMATTER = {
 };
 
 export interface INumberFormatProps {
+  hideValue?: boolean;
   formatter?: keyof typeof NUMBER_FORMATTER;
   formatterOptions?: IFormatterOptions;
 }

@@ -38,6 +38,9 @@ export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
   addressEncoding: EAddressEncodings;
 };
+export type ICoreApiGetAddressesQueryHdTon = ICoreApiGetAddressesQueryHdBase & {
+  addressEncoding: EAddressEncodings;
+};
 
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase
@@ -50,6 +53,10 @@ export type ICoreApiGetAddressQueryImportedBase = {
   privateKeyInfo?: ISecretPrivateKeyInfo;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
+  ICoreApiGetAddressQueryImportedBase & {
+    addressEncoding: EAddressEncodings | undefined;
+  };
+export type ICoreApiGetAddressQueryImportedTon =
   ICoreApiGetAddressQueryImportedBase & {
     addressEncoding: EAddressEncodings | undefined;
   };
@@ -119,6 +126,7 @@ export type ICoreApiSignBasePayload = {
 
   account: ICoreApiSignAccount;
   relPaths?: string[]; // used for get privateKey of other utxo address
+  signOnly?: boolean;
 };
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;

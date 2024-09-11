@@ -25,7 +25,7 @@ index 1aba85e..9d650be 100644
                  ...switchProps,
                  ...!disableActiveTheme && {
 diff --git a/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs b/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
-index dee26b0..e612d5a 100644
+index dee26b0..106f065 100644
 --- a/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
 +++ b/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
 @@ -105,7 +105,7 @@ function createSwitch(createProps) {
@@ -37,6 +37,15 @@ index dee26b0..e612d5a 100644
            ...(isWeb && {
              type: "button"
            }),
+@@ -120,7 +120,7 @@ function createSwitch(createProps) {
+             alignSelf: "stretch",
+             flex: 1,
+             onLayout: e => {
+-              setFrameWidth(e.nativeEvent.layout.width);
++              setFrameWidth(Math.max(e.nativeEvent.layout.width, propsActive.width - 4));
+             },
+             children: switchProps.children
+           })
 diff --git a/node_modules/@tamagui/switch/dist/jsx/createSwitch.js b/node_modules/@tamagui/switch/dist/jsx/createSwitch.js
 index 1aba85e..9d650be 100644
 --- a/node_modules/@tamagui/switch/dist/jsx/createSwitch.js

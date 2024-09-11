@@ -1,14 +1,20 @@
 import type { Ref } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';
+import { useScrollToLocation } from '../../layouts/ScrollView';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
 import type { IInputProps } from '../Input';
+import type {
+  NativeSyntheticEvent,
+  TextInput,
+  TextInputFocusEventData,
+} from 'react-native';
 import type { TextAreaProps } from 'tamagui';
 
 export type ITextAreaProps = Pick<
@@ -17,17 +23,19 @@ export type ITextAreaProps = Pick<
 > &
   Omit<TextAreaProps, 'size'>;
 
-const defaultTextAlignVertical = platformEnv.isNative ? 'top' : undefined;
+const defaultAlignVertical: TextAreaProps['verticalAlign'] =
+  platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
   {
     disabled,
     editable,
     error,
     size,
-    textAlignVertical,
+    onFocus,
+    verticalAlign,
     ...props
   }: ITextAreaProps,
-  ref: Ref<any>,
+  forwardedRef: Ref<TextInput>,
 ) {
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -35,13 +43,24 @@ function BaseTextArea(
     error,
     size,
   });
+  const ref = useRef<TextInput>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as TextInput);
 
   const selectionColor = useSelectionColor();
+  const { scrollToView } = useScrollToLocation(ref);
+  const handleFocus = useCallback(
+    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      onFocus?.(e);
+      scrollToView();
+    },
+    [onFocus, scrollToView],
+  );
 
   return (
     <TMTextArea
       unstyled
       ref={ref}
+      onFocus={handleFocus}
       fontSize={getFontSize('$bodyLg')}
       px={sharedStyles.px}
       py={size === 'large' ? '$3.5' : '$2.5'}
@@ -57,7 +76,7 @@ function BaseTextArea(
       cursor={sharedStyles.cursor}
       borderCurve="continuous"
       editable={editable}
-      textAlignVertical={textAlignVertical || defaultTextAlignVertical}
+      verticalAlign={verticalAlign || defaultAlignVertical}
       {...props}
     />
   );

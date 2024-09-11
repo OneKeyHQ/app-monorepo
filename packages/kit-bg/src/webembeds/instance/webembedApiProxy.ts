@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -12,9 +9,13 @@ import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 import type { IWebembedApi, IWebembedApiKeys } from './IWebembedApi';
 import type { IBackgroundApiWebembedCallMessage } from '../../apis/IBackgroundApi';
 import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
+import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
 
 class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
+  // backgroundApiProxy = global.$backgroundApiProxy;
+  // backgroundApiProxy = backgroundApiProxy;
+
   override checkEnvAvailable(): void {
     if (!platformEnv.isNative) {
       throw new Error(
@@ -50,12 +51,12 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
-    return backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
+    return global.$backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
   }
 
   async isSDKReady(): Promise<boolean> {
     const isWebEmbedApiReady =
-      await backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
+      await global.$backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
     return Promise.resolve(!!isWebEmbedApiReady);
   }
 
@@ -65,6 +66,9 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy', undefined, {
       asyncThenSupport: true,
     });
+
+  secret: WebEmbedApiSecret =
+    this._createProxyModule<IWebembedApiKeys>('secret');
 }
 
 const webembedApiProxy = new WebembedApiProxy();

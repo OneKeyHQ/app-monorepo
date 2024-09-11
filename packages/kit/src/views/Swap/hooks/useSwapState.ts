@@ -21,10 +21,12 @@ import {
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
-  useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
+  useSwapQuoteIntervalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -36,7 +38,6 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const [networks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
@@ -70,7 +71,6 @@ function useSwapWarningCheck() {
     toToken,
     fromTokenBalance,
     quoteCurrentSelect,
-    networks,
     isFocused,
   ]);
 }
@@ -81,9 +81,16 @@ export function useSwapQuoteLoading() {
   return quoteFetching || silenceQuoteLoading;
 }
 
+export function useSwapQuoteEventFetching() {
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteResult] = useSwapQuoteListAtom();
+  return quoteEventTotalCount > 0 && quoteResult.length < quoteEventTotalCount;
+}
+
 export function useSwapActionState() {
   const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -98,10 +105,10 @@ export function useSwapActionState() {
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { getQuoteIntervalCount } = useSwapActions().current;
+  const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const isRefreshQuote =
-    getQuoteIntervalCount() >= swapQuoteIntervalMaxCount || shouldRefreshQuote;
-  const hasError = alerts.some(
+    quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote;
+  const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
   const quoteResultNoMatch = useMemo(
@@ -137,7 +144,7 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
-    if (quoteLoading) {
+    if (quoteLoading || quoteEventFetching) {
       infoRes.label = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,
       });
@@ -220,6 +227,7 @@ export function useSwapActionState() {
     isCrossChain,
     isRefreshQuote,
     quoteCurrentSelect,
+    quoteEventFetching,
     quoteLoading,
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
@@ -231,7 +239,7 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading,
+    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
@@ -239,7 +247,9 @@ export function useSwapActionState() {
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
     isRefreshQuote:
-      (isRefreshQuote || quoteResultNoMatchDebounce) && !quoteLoading,
+      (isRefreshQuote || quoteResultNoMatchDebounce) &&
+      !quoteLoading &&
+      !quoteEventFetching,
   };
   return stepState;
 }

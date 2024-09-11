@@ -26,6 +26,9 @@ const loggerExtensions: Record<
 > = {};
 
 export function getLoggerExtension(name: string) {
+  if (!name) {
+    return dangerLogger;
+  }
   // eslint-disable-next-line no-param-reassign
   // name += '@*!&&';
   if (!loggerExtensions[name]) {

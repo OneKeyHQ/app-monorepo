@@ -39,6 +39,10 @@ type IHeaderSearchBarProps = {
    * Text displayed when search field is empty
    */
   placeholder?: string;
+  /**
+   * Test ID for e2e testing purposes.For different search bars.
+   */
+  testID?: string;
 };
 
 function HeaderSearchBar({
@@ -110,7 +114,6 @@ function HeaderSearchBar({
       onChangeText={handleChangeCallback}
       onSubmitEditing={onSubmitEditingCallback}
       placeholder={placeholder}
-      testID="nav-header-search"
     />
   );
 }

@@ -29,9 +29,12 @@ const ClearCacheOnAppContent = () => {
           transactionHistory: true,
           swapHistory: true,
           browserCache: true,
+          appUpdateCache: true,
           browserHistory: false,
           connectSites: false,
           signatureRecord: false,
+          customToken: false,
+          customRpc: false,
         } as IClearCacheOnAppState,
       }}
     >
@@ -64,12 +67,33 @@ const ClearCacheOnAppContent = () => {
             })}
           />
         </Dialog.FormField>
+        <Dialog.FormField name="appUpdateCache">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.settings_app_update_cache,
+            })}
+          />
+        </Dialog.FormField>
         <Dialog.FormField name="browserHistory">
           <Checkbox
             label={intl.formatMessage({
               id: ETranslations.settings_browser_history_bookmarks_pins_risk_dapp_whitelist,
             })}
             labelProps={{ flex: 1 } as any}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="customToken">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_title,
+            })}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="customRpc">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.custom_rpc_title,
+            })}
           />
         </Dialog.FormField>
         <Dialog.FormField name="connectSites">

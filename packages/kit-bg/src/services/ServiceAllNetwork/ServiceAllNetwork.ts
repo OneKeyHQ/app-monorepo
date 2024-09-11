@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_ALLNETWORKS,
+  IMPL_EVM,
   getEnabledNFTNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -19,6 +20,7 @@ export type IAllNetworkAccountInfo = {
   accountId: string;
   apiAddress: string;
   accountXpub: string | undefined;
+  pub: string | undefined;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
 };
@@ -33,6 +35,8 @@ export type IAllNetworkAccountsParams = {
   accountId: string;
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
+  includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  fetchAllNetworkAccounts?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -57,13 +61,17 @@ class ServiceAllNetwork extends ServiceBase {
     singleNetworkDeriveType,
     indexedAccountId,
     othersWalletAccountId,
+    fetchAllNetworkAccounts = false,
   }: {
     networkId: string;
     singleNetworkDeriveType: IAccountDeriveTypes | undefined;
     indexedAccountId: string | undefined;
     othersWalletAccountId: string | undefined;
+    fetchAllNetworkAccounts?: boolean;
   }): Promise<IDBAccount[]> {
-    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
+    const isAllNetwork =
+      fetchAllNetworkAccounts ||
+      (networkId && networkUtils.isAllNetwork({ networkId }));
     let dbAccounts: IDBAccount[] = [];
     const isOthersWallet = !!(
       othersWalletAccountId &&
@@ -129,9 +137,12 @@ class ServiceAllNetwork extends ServiceBase {
       networkId,
       deriveType: singleNetworkDeriveType,
       includingNonExistingAccount,
+      includingNotEqualGlobalDeriveTypeAccount,
+      fetchAllNetworkAccounts,
     } = params;
 
-    const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+    const isAllNetwork =
+      fetchAllNetworkAccounts || networkUtils.isAllNetwork({ networkId });
 
     // single network account or all network mocked account
     const networkAccount = await this.backgroundApi.serviceAccount.getAccount({
@@ -144,6 +155,7 @@ class ServiceAllNetwork extends ServiceBase {
       singleNetworkDeriveType,
       indexedAccountId: networkAccount.indexedAccountId,
       othersWalletAccountId: accountId,
+      fetchAllNetworkAccounts,
     });
 
     const accountsInfo: Array<IAllNetworkAccountInfo> = [];
@@ -159,7 +171,8 @@ class ServiceAllNetwork extends ServiceBase {
     await Promise.all(
       allNetworks.map(async (n) => {
         const { backendIndex: isBackendIndexed } = n;
-        const isNftEnabled = enableNFTNetworkIds.includes(n.id);
+        const realNetworkId = n.id;
+        const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
 
         const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
           if (!params.nftEnabledOnly || isNftEnabled) {
@@ -178,9 +191,43 @@ class ServiceAllNetwork extends ServiceBase {
           dbAccounts.map(async (a) => {
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,
-              networkId: n.id,
+              networkId: realNetworkId,
             });
-            const isMatched = isAllNetwork ? isCompatible : networkId === n.id;
+
+            let isMatched = isAllNetwork
+              ? isCompatible
+              : networkId === realNetworkId;
+
+            if (
+              !includingNotEqualGlobalDeriveTypeAccount &&
+              isAllNetwork &&
+              isMatched &&
+              a.template &&
+              !networkUtils
+                .getDefaultDeriveTypeVisibleNetworks()
+                .includes(realNetworkId)
+            ) {
+              const { deriveType } =
+                await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
+                  {
+                    networkId: realNetworkId,
+                    template: a.template,
+                  },
+                );
+              const globalDeriveType =
+                await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: realNetworkId,
+                  },
+                );
+              if (a.impl === IMPL_EVM) {
+                // console.log({ deriveType, globalDeriveType, realNetworkId });
+              }
+              if (deriveType !== globalDeriveType) {
+                isMatched = false;
+              }
+            }
+
             let apiAddress = '';
             let accountXpub: string | undefined;
             if (isMatched) {
@@ -188,18 +235,19 @@ class ServiceAllNetwork extends ServiceBase {
                 await this.backgroundApi.serviceAccount.getAccountAddressForApi(
                   {
                     accountId: a.id,
-                    networkId: n.id,
+                    networkId: realNetworkId,
                   },
                 );
               accountXpub =
                 await this.backgroundApi.serviceAccount.getAccountXpub({
                   accountId: a.id,
-                  networkId: n.id,
+                  networkId: realNetworkId,
                 });
               const accountInfo: IAllNetworkAccountInfo = {
-                networkId: n.id,
+                networkId: realNetworkId,
                 accountId: a.id,
                 apiAddress,
+                pub: a?.pub,
                 accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
@@ -214,13 +262,14 @@ class ServiceAllNetwork extends ServiceBase {
           !compatibleAccountExists &&
           includingNonExistingAccount &&
           isAllNetwork &&
-          !networkUtils.isAllNetwork({ networkId: n.id }) &&
+          !networkUtils.isAllNetwork({ networkId: realNetworkId }) &&
           !accountUtils.isOthersAccount({ accountId })
         ) {
           appendAccountInfo({
-            networkId: n.id,
+            networkId: realNetworkId,
             accountId: '',
             apiAddress: '',
+            pub: undefined,
             accountXpub: undefined,
             isNftEnabled,
             isBackendIndexed,

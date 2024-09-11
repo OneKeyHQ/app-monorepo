@@ -1,10 +1,17 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce } from 'lodash';
+import { debounce, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page, Popover, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Page,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import {
   ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH,
@@ -70,9 +77,24 @@ function TokenList() {
         title={intl.formatMessage({ id: ETranslations.low_value_assets })}
         renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
         renderContent={
-          <Stack p="$5">
-            <SizableText>{helpText}</SizableText>
-          </Stack>
+          <YStack p="$5" gap="$2">
+            {isString(helpText) ? (
+              <SizableText>{helpText}</SizableText>
+            ) : (
+              helpText.map((text, index) => (
+                <XStack key={index} gap="$2">
+                  <Stack
+                    w="$1.5"
+                    h="$1.5"
+                    bg="$textSubdued"
+                    borderRadius="$full"
+                    mt="$2"
+                  />
+                  <SizableText size="$bodyMd">{text}</SizableText>
+                </XStack>
+              ))
+            )}
+          </YStack>
         }
       />
     );

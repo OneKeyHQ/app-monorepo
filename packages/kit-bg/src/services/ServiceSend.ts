@@ -41,6 +41,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -150,13 +151,22 @@ class ServiceSend extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
-    }>('/wallet/v1/account/send-transaction', {
-      networkId,
-      accountAddress,
-      tx: signedTx.rawTx,
-      signature,
-      disableBroadcast,
-    });
+    }>(
+      '/wallet/v1/account/send-transaction',
+      {
+        networkId,
+        accountAddress,
+        tx: signedTx.rawTx,
+        signature,
+        disableBroadcast,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
     if (!disableBroadcast) {
       txid = resp.data.data.result;
     }
@@ -287,8 +297,10 @@ class ServiceSend extends ServiceBase {
     feeInfo: sendSelectedFeeInfo,
     nativeAmountInfo,
     unsignedTxs,
+    tokenApproveInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
+    tokenApproveInfo?: ITokenApproveInfo;
     feeInfo?: ISendSelectedFeeInfo;
     nativeAmountInfo?: INativeAmountInfo;
   }) {
@@ -301,6 +313,7 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo?.feeInfo,
         nativeAmountInfo,
+        tokenApproveInfo,
       });
 
       newUnsignedTxs.push(newUnsignedTx);

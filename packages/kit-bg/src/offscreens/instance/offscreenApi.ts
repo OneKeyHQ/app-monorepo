@@ -49,6 +49,7 @@ const createOffscreenApiModule = memoizee(
 const callOffscreenApiMethod =
   buildCallRemoteApiMethod<IOffscreenApiMessagePayload>(
     createOffscreenApiModule,
+    'offscreenApi',
   );
 
 export default {

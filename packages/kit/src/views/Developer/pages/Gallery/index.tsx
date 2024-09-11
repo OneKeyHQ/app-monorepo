@@ -410,6 +410,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const NotificationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NotificationGallery'
+    ),
+);
+
 const WebEmbedGallery = LazyLoadPage(
   () =>
     import(
@@ -428,6 +435,13 @@ const UsePromiseResultGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/UsePromiseResult'
+    ),
+);
+
+const ImageCropGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ImageCrop'
     ),
 );
 
@@ -615,6 +629,10 @@ export const galleryScreenList: {
     component: MarkdownGallery,
   },
   {
+    name: EGalleryRoutes.ComponentNotification,
+    component: NotificationGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentWebEmbed,
     component: WebEmbedGallery,
   },
@@ -625,6 +643,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentUsePromiseResult,
     component: UsePromiseResultGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImageCropGallery,
+    component: ImageCropGallery,
   },
   {
     name: EGalleryRoutes.ComponentCurrency,

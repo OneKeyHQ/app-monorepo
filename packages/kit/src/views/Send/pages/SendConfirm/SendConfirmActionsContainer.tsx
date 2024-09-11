@@ -15,6 +15,7 @@ import {
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
+  useTokenApproveInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -69,6 +70,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
+  const [tokenApproveInfo] = useTokenApproveInfoAtom();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -115,6 +117,7 @@ function SendConfirmActionsContainer(props: IProps) {
         accountId,
         networkId,
         unsignedTxs,
+        tokenApproveInfo,
         feeInfo: sendSelectedFeeInfo,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
@@ -164,21 +167,15 @@ function SendConfirmActionsContainer(props: IProps) {
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
       defaultLogger.transaction.send.sendConfirm({
-        txnHash: result?.[0].signedTx.txid,
         network: networkId,
         txnType: getTxnType({
           actions: result?.[0].decodedTx.actions,
           swapInfo,
           stakingInfo,
         }),
-        fromAddress: transferInfo?.from,
-        toAddress: transferInfo?.to,
-        fee: sendSelectedFeeInfo?.totalNative,
         tokenAddress: transferInfo?.tokenInfo?.address,
         tokenSymbol: transferInfo?.tokenInfo?.symbol,
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
-        tokenAmount: transferInfo?.amount,
-        tokenValue: undefined,
         interactContract: undefined,
       });
       onSuccess?.(result);
@@ -214,6 +211,7 @@ function SendConfirmActionsContainer(props: IProps) {
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onFail,
     dappApprove,
+    tokenApproveInfo,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     signOnly,

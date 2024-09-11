@@ -1,14 +1,19 @@
+import { type FC, useCallback, useMemo, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
   Empty,
   ListView,
+  SearchBar,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import type { IServerNetworkMatch } from '../../types';
 
@@ -24,18 +29,19 @@ const ListEmptyComponent = () => {
   );
 };
 
-export type IChainSelectorListViewProps = {
+type IChainSelectorListViewProps = {
   networks: IServerNetworkMatch[];
-  onPressItem?: (item: IServerNetworkMatch) => void;
   networkId?: string;
+  onPressItem?: (network: IServerNetworkMatch) => void;
 };
 
-export const ChainSelectorListView = ({
+const ChainSelectorListViewContent = ({
   networks,
   onPressItem,
   networkId,
 }: IChainSelectorListViewProps) => {
   const { bottom } = useSafeAreaInsets();
+  const intl = useIntl();
 
   return (
     <ListView
@@ -48,7 +54,11 @@ export const ChainSelectorListView = ({
         <ListItem
           h={48}
           renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-          title={item.name}
+          title={
+            item.isAllNetworks
+              ? intl.formatMessage({ id: ETranslations.global_all_networks })
+              : item.name
+          }
           titleMatch={item.titleMatch}
           onPress={() => onPressItem?.(item)}
           testID={`select-item-${item.id}`}
@@ -59,5 +69,42 @@ export const ChainSelectorListView = ({
         </ListItem>
       )}
     />
+  );
+};
+
+export const ChainSelectorListView: FC<IChainSelectorListViewProps> = ({
+  networks,
+  networkId,
+  onPressItem,
+}) => {
+  const [text, setText] = useState('');
+  const intl = useIntl();
+  const onChangeText = useCallback((value: string) => {
+    setText(value.trim());
+  }, []);
+
+  const networkFuseSearch = useFuseSearch(networks);
+
+  const data = useMemo(() => {
+    if (!text) {
+      return networks;
+    }
+    return networkFuseSearch(text);
+  }, [networkFuseSearch, text, networks]);
+  return (
+    <Stack flex={1}>
+      <Stack px="$5" pb="$4">
+        <SearchBar
+          placeholder={intl.formatMessage({ id: ETranslations.global_search })}
+          value={text}
+          onChangeText={onChangeText}
+        />
+      </Stack>
+      <ChainSelectorListViewContent
+        networkId={networkId}
+        networks={data}
+        onPressItem={onPressItem}
+      />
+    </Stack>
   );
 };

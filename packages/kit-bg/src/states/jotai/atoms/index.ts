@@ -1,4 +1,5 @@
 export * from './InAppNotification';
+export * from './notifications';
 export * from './account';
 export * from './addressBooks';
 export * from './appUpdate';
@@ -14,3 +15,4 @@ export * from './settings';
 export * from './spotlight';
 export * from './v4migration';
 export * from './gallery';
+export * from './activeAccountValue';

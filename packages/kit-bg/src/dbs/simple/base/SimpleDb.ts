@@ -1,4 +1,5 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -8,7 +9,9 @@ import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
@@ -58,6 +61,8 @@ export class SimpleDb {
 
   marketWatchList = new SimpleDbEntityMarketWatchList();
 
+  earn = new SimpleDbEntityEarn();
+
   universalSearch = new SimpleDbEntityUniversalSearch();
 
   customTokens = new SimpleDbEntityCustomTokens();
@@ -65,4 +70,8 @@ export class SimpleDb {
   customRpc = new SimpleDbEntityCustomRpc();
 
   v4MigrationResult = new SimpleDbEntityV4MigrationResult();
+
+  accountValue = new SimpleDbEntityAccountValue();
+
+  legacyWalletNames = new SimpleDbEntityLegacyWalletNames();
 }

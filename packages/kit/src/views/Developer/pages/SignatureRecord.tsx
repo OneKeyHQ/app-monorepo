@@ -125,7 +125,7 @@ const CustomSignMessage = ({ num }: { num: number }) => {
 };
 
 const DevHomeStack2 = () => {
-  const num = 1;
+  const num = 0;
   return (
     <Page>
       <YStack px="$4" gap="$4">

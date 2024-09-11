@@ -78,10 +78,10 @@ type IProps = {
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
 };
 
-const DEFAULT_GAS_LIMIT_MIN = 21000;
-const DEFAULT_GAS_LIMIT_MAX = 15000000;
+const DEFAULT_GAS_LIMIT_MIN = 21_000;
+const DEFAULT_GAS_LIMIT_MAX = 15_000_000;
 const DEFAULT_FEER_ATE_MIN = 0;
-const DEFAULT_FEE_RATE_MAX = 1000000; // shared cross multi-networks
+const DEFAULT_FEE_RATE_MAX = 1_000_000; // shared cross multi-networks
 
 const getPresetIndex = (
   sendSelectedFee: IProps['sendSelectedFee'],
@@ -206,22 +206,22 @@ function FeeEditor(props: IProps) {
   const form = useForm({
     defaultValues: {
       gasLimit: new BigNumber(
-        customFee.gas?.gasLimit ?? customFee.gasEIP1559?.gasLimit ?? '0',
+        customFee?.gas?.gasLimit ?? customFee?.gasEIP1559?.gasLimit ?? '0',
       ).toFixed(),
       // gas legacy
-      gasPrice: new BigNumber(customFee.gas?.gasPrice ?? '0').toFixed(),
+      gasPrice: new BigNumber(customFee?.gas?.gasPrice ?? '0').toFixed(),
       // gas eip1559
       priorityFee: new BigNumber(
-        customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+        customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
-      maxBaseFee: new BigNumber(customFee.gasEIP1559?.maxFeePerGas ?? '0')
-        .minus(customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0')
+      maxBaseFee: new BigNumber(customFee?.gasEIP1559?.maxFeePerGas ?? '0')
+        .minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0')
         .toFixed(),
       // fee utxo
-      feeRate: new BigNumber(customFee.feeUTXO?.feeRate ?? '0').toFixed(),
+      feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
       computeUnitPrice: new BigNumber(
-        customFee.feeSol?.computeUnitPrice ?? '0',
+        customFee?.feeSol?.computeUnitPrice ?? '0',
       ).toFixed(),
     },
     mode: 'onChange',
@@ -232,14 +232,14 @@ function FeeEditor(props: IProps) {
 
   const customFeeInfo = useMemo(
     () => ({
-      common: customFee.common,
-      gas: customFee.gas && {
+      common: customFee?.common,
+      gas: customFee?.gas && {
         gasPrice: watchAllFields.gasPrice,
         gasLimit: watchAllFields.gasLimit,
         gasLimitForDisplay: watchAllFields.gasLimit,
       },
-      gasEIP1559: customFee.gasEIP1559 && {
-        baseFeePerGas: customFee.gasEIP1559?.baseFeePerGas ?? '0',
+      gasEIP1559: customFee?.gasEIP1559 && {
+        baseFeePerGas: customFee?.gasEIP1559?.baseFeePerGas ?? '0',
         maxPriorityFeePerGas: watchAllFields.priorityFee,
         maxFeePerGas: new BigNumber(watchAllFields.maxBaseFee ?? '0')
           .plus(watchAllFields.priorityFee ?? '0')
@@ -247,20 +247,20 @@ function FeeEditor(props: IProps) {
         gasLimit: watchAllFields.gasLimit,
         gasLimitForDisplay: watchAllFields.gasLimit,
       },
-      feeUTXO: customFee.feeUTXO && {
+      feeUTXO: customFee?.feeUTXO && {
         feeRate: watchAllFields.feeRate,
       },
 
-      feeSol: customFee.feeSol && {
+      feeSol: customFee?.feeSol && {
         computeUnitPrice: watchAllFields.computeUnitPrice,
       },
     }),
     [
-      customFee.common,
-      customFee.feeSol,
-      customFee.feeUTXO,
-      customFee.gas,
-      customFee.gasEIP1559,
+      customFee?.common,
+      customFee?.feeSol,
+      customFee?.feeUTXO,
+      customFee?.gas,
+      customFee?.gasEIP1559,
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
       watchAllFields.gasLimit,
@@ -271,16 +271,16 @@ function FeeEditor(props: IProps) {
   );
 
   const recommendPriorityFee = useMemo(() => {
-    if (customFee.gasEIP1559) {
+    if (customFee?.gasEIP1559) {
       const priorityFee = new BigNumber(
-        customFee.gasEIP1559.maxPriorityFeePerGas ?? '0',
+        customFee?.gasEIP1559.maxPriorityFeePerGas ?? '0',
       );
 
       const maxFeeInfo = feeSelectorItems[0];
       const minFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
-      const min = minFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0';
+      const min = minFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0';
       const max = new BigNumber(
-        maxFeeInfo.feeInfo.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+        maxFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       )
         .times(100)
         .toFixed();
@@ -300,10 +300,10 @@ function FeeEditor(props: IProps) {
       min: '',
       description: '',
     };
-  }, [customFee.gasEIP1559, feeSelectorItems, feeSymbol, intl]);
+  }, [customFee?.gasEIP1559, feeSelectorItems, feeSymbol, intl]);
 
   const recommendGasLimit = useMemo(() => {
-    const feeInfo = feeSelectorItems[0].feeInfo;
+    const feeInfo = feeSelectorItems[0]?.feeInfo ?? {};
     const gasLimit = new BigNumber(
       feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
@@ -358,12 +358,12 @@ function FeeEditor(props: IProps) {
 
         const recommendMaxFee = feeSelectorItems
           .filter((item) => item.type === EFeeType.Standard)
-          .map((item) => item.feeInfo.gasEIP1559?.maxFeePerGas ?? '0')
+          .map((item) => item?.feeInfo?.gasEIP1559?.maxFeePerGas ?? '0')
           .filter((item) => item !== '0');
 
         const recommendMaxFeeMax = BigNumber.max(...recommendMaxFee);
 
-        if (maxBaseFee.isLessThan(customFee.gasEIP1559?.baseFeePerGas ?? 0)) {
+        if (maxBaseFee.isLessThan(customFee?.gasEIP1559?.baseFeePerGas ?? 0)) {
           setFeeAlert(
             intl.formatMessage({
               id: ETranslations.max_base_fee_lower_then_base_fee_alert_message,
@@ -394,7 +394,7 @@ function FeeEditor(props: IProps) {
       replaceTxOriginalFeeInfo?.gasEIP1559,
       intl,
       feeSelectorItems,
-      customFee.gasEIP1559?.baseFeePerGas,
+      customFee?.gasEIP1559?.baseFeePerGas,
     ],
   );
 
@@ -517,7 +517,7 @@ function FeeEditor(props: IProps) {
       } else {
         const recommendGasPrice = feeSelectorItems
           .filter((item) => item.type === EFeeType.Standard)
-          .map((item) => item.feeInfo.gas?.gasPrice ?? '0')
+          .map((item) => item?.feeInfo?.gas?.gasPrice ?? '0')
           .filter((item) => item !== '0');
 
         const recommendGasPriceMax = BigNumber.max(...recommendGasPrice);
@@ -584,7 +584,7 @@ function FeeEditor(props: IProps) {
 
       const recommendFeeRate = feeSelectorItems
         .filter((item) => item.type === EFeeType.Standard)
-        .map((item) => item.feeInfo.feeUTXO?.feeRate ?? '0')
+        .map((item) => item?.feeInfo.feeUTXO?.feeRate ?? '0')
         .filter((item) => item !== '0');
 
       const recommendFeeRateMax = BigNumber.max(...recommendFeeRate);
@@ -649,7 +649,7 @@ function FeeEditor(props: IProps) {
 
     let feeTitle = '';
 
-    if (customFee.feeUTXO) {
+    if (customFee?.feeUTXO) {
       feeTitle = `${intl.formatMessage({
         id: ETranslations.fee_fee_rate,
       })} (sat/vB)`;
@@ -711,7 +711,7 @@ function FeeEditor(props: IProps) {
     );
   }, [
     currentFeeIndex,
-    customFee.feeUTXO,
+    customFee?.feeUTXO,
     feeSelectorItems,
     feeSymbol,
     intl,
@@ -753,7 +753,7 @@ function FeeEditor(props: IProps) {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
 
-    if (customFee.gasEIP1559) {
+    if (customFee?.gasEIP1559) {
       return (
         <Form form={form}>
           <YStack gap="$5">
@@ -767,7 +767,7 @@ function FeeEditor(props: IProps) {
                   ? null
                   : `${intl.formatMessage({
                       id: ETranslations.form_max_base_fee_description,
-                    })}: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`
+                    })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
               }
               rules={{
                 required: true,
@@ -852,7 +852,7 @@ function FeeEditor(props: IProps) {
       );
     }
 
-    if (customFee.gas) {
+    if (customFee?.gas) {
       return (
         <Form form={form}>
           <YStack gap="$5">
@@ -914,7 +914,7 @@ function FeeEditor(props: IProps) {
       );
     }
 
-    if (customFee.feeUTXO) {
+    if (customFee?.feeUTXO) {
       return (
         <Form form={form}>
           <YStack>
@@ -943,7 +943,7 @@ function FeeEditor(props: IProps) {
       );
     }
 
-    if (customFee.feeSol) {
+    if (customFee?.feeSol) {
       return (
         <Form form={form}>
           <YStack>
@@ -999,9 +999,9 @@ function FeeEditor(props: IProps) {
     let feeInfoItems: IFeeInfoItem[] = [];
 
     const fee =
-      currentFeeType === EFeeType.Custom
+      (currentFeeType === EFeeType.Custom
         ? customFee
-        : feeSelectorItems[currentFeeIndex].feeInfo;
+        : feeSelectorItems[currentFeeIndex]?.feeInfo) ?? {};
 
     if (fee.gasEIP1559) {
       let limit = new BigNumber(0);
@@ -1247,8 +1247,8 @@ function FeeEditor(props: IProps) {
     const fee =
       currentFeeType === EFeeType.Custom
         ? customFee
-        : feeSelectorItems[currentFeeIndex].feeInfo;
-    if (fee.feeTron) {
+        : feeSelectorItems[currentFeeIndex]?.feeInfo;
+    if (fee?.feeTron) {
       if (fee.feeTron.requiredBandwidth) {
         feeInfoItems.push({
           label: intl.formatMessage({ id: ETranslations.bandwidth_consumed }),

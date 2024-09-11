@@ -7,6 +7,7 @@ import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
 
 import type {
+  IClearPackage,
   IDownloadPackage,
   IInstallPackage,
   IUpdateDownloadedEvent,
@@ -158,7 +159,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
       bytesPerSecond: number;
     }) => {
       defaultLogger.update.app.log('downloading', progress);
-      setPercent((prev) => Math.max(Number(Number(progress).toFixed()), prev));
+      setPercent(Number(Number(progress).toFixed()));
     },
     10,
   );
@@ -169,4 +170,8 @@ export const useDownloadProgress: IUseDownloadProgress = (
     updateErrorTasks.push(onFailed);
   }, [onFailed, onSuccess, updatePercent]);
   return percent;
+};
+
+export const clearPackage: IClearPackage = async () => {
+  window.desktopApi.clearUpdate();
 };

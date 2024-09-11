@@ -25,24 +25,23 @@ export interface IIconButtonProps
   hotKey?: boolean;
 }
 
-const getSizeStyles = (size: IButtonProps['size']) => {
-  const sizes = {
-    small: {
-      p: '$1',
-      negativeMargin: -5,
-    },
-    medium: {
-      p: '$1.5',
-      negativeMargin: -7,
-    },
-    large: {
-      p: '$3',
-      negativeMargin: -13,
-    },
-  };
-
-  return sizes[size || 'medium'];
+const sizes = {
+  small: {
+    p: '$1',
+    negativeMargin: -5,
+  },
+  medium: {
+    p: '$1.5',
+    negativeMargin: -7,
+  },
+  large: {
+    p: '$3',
+    negativeMargin: -13,
+  },
 };
+
+const getSizeStyles = (size: IButtonProps['size']) =>
+  sizes[size || 'medium'] || sizes.medium;
 
 export const IconButton = (props: IIconButtonProps) => {
   const {
@@ -76,8 +75,8 @@ export const IconButton = (props: IIconButtonProps) => {
     <ButtonFrame
       p={p}
       borderRadius="$full"
-      disabled={disabled || loading}
-      aria-disabled={disabled || loading}
+      disabled={!!disabled || !!loading}
+      aria-disabled={!!disabled || !!loading}
       // @ts-expect-error
       onKeyDown={hotKey ? undefined : onKeyDown}
       hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}

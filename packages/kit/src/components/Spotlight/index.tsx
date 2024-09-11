@@ -3,6 +3,7 @@ import type {
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
+  ReactNode,
   RefObject,
 } from 'react';
 import {
@@ -16,15 +17,17 @@ import {
 
 import { useIntl } from 'react-intl';
 
-import type { IElement } from '@onekeyhq/components';
+import type { IElement, IStackStyle } from '@onekeyhq/components';
 import {
   Button,
   EPortalContainerConstantName,
   Portal,
+  SizableText,
   Stack,
   View,
   XStack,
   YStack,
+  useBackHandler,
   useMedia,
 } from '@onekeyhq/components';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
@@ -38,7 +41,8 @@ import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View as NativeView } from 'react-native';
 
-export type ISpotlight = PropsWithChildren<{
+export type ISpotlightProps = PropsWithChildren<{
+  containerProps?: IStackStyle;
   content: ReactElement;
   childrenPadding?: number;
   floatingOffset?: number;
@@ -54,7 +58,7 @@ interface IFloatingPosition {
   height: number;
 }
 
-type ISpotlightContentEvent = ISpotlight & {
+type ISpotlightContentEvent = ISpotlightProps & {
   triggerRef: RefObject<NativeView>;
   floatingOffset: number;
   childrenPadding: number;
@@ -86,6 +90,14 @@ function SpotlightContent({
   const measureTriggerInWindow = useCallback(() => {
     if (initProps.triggerRef) {
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
+        if (
+          floatingPosition.x === x &&
+          floatingPosition.y === y &&
+          floatingPosition.width === width &&
+          floatingPosition.height === height
+        ) {
+          return;
+        }
         setFloatingPosition({
           x,
           y,
@@ -94,7 +106,7 @@ function SpotlightContent({
         });
       });
     }
-  }, [initProps.triggerRef]);
+  }, [initProps.triggerRef, floatingPosition]);
 
   useLayoutEffect(() => {
     measureTriggerInWindow();
@@ -145,6 +157,9 @@ function SpotlightContent({
       gtMd,
     ],
   );
+
+  const handleBackPress = useCallback(() => true, []);
+  useBackHandler(handleBackPress);
 
   if (visible && isRendered && IsFocused)
     return (
@@ -203,7 +218,8 @@ function SpotlightContent({
   return null;
 }
 
-export function Spotlight({
+export function SpotlightView({
+  containerProps,
   children,
   replaceChildren,
   content,
@@ -211,7 +227,7 @@ export function Spotlight({
   floatingOffset = 12,
   visible = false,
   onConfirm,
-}: ISpotlight) {
+}: ISpotlightProps) {
   const defer = useDeferredPromise();
   const triggerRef = useRef<IElement | null>(null);
   const triggerPropsRef = useRef<{
@@ -244,17 +260,10 @@ export function Spotlight({
     visible,
     childrenPadding,
   ]);
-  // const handleLayout = useCallback(() => {
-  //   (triggerRef?.current as any as NativeView)?.measureInWindow(
-  //     (x, y, width, height) => {
-  //       console.log('onlayout---', x, y, width, height);x
-  //     },
-  //   );
-  // }, []);
 
   return (
     <>
-      <View ref={triggerRef} collapsable={false}>
+      <View ref={triggerRef} collapsable={false} {...containerProps}>
         {children}
       </View>
       {visible ? (
@@ -294,3 +303,43 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
     [times, tourVisited],
   );
 };
+
+export function Spotlight(props: {
+  containerProps?: ISpotlightProps['containerProps'];
+  isVisible?: boolean;
+  message: string;
+  tourName: ESpotlightTour;
+  delayMs?: number;
+  children: ReactNode;
+}) {
+  const {
+    isVisible = true,
+    tourName,
+    message,
+    children,
+    containerProps,
+    delayMs = 0,
+  } = props;
+  const { isFirstVisit, tourVisited } = useSpotlight(tourName);
+  const [isShow, setIsShow] = useState(false);
+  useEffect(() => {
+    setTimeout(
+      () => {
+        setIsShow(isVisible);
+      },
+      isVisible ? delayMs : 0,
+    );
+  }, [delayMs, isVisible]);
+  const visible = isFirstVisit && isShow;
+
+  return (
+    <SpotlightView
+      visible={visible}
+      content={<SizableText size="$bodyMd">{message}</SizableText>}
+      onConfirm={tourVisited}
+      containerProps={containerProps}
+    >
+      {children}
+    </SpotlightView>
+  );
+}

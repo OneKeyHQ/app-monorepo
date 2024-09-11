@@ -5,7 +5,6 @@ import { isEmpty } from 'lodash';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -15,6 +14,34 @@ import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
+
+// const reorderByPinnedNetworkIds = async (items: IAllNetworkAccountInfo[]) => {
+//   const priorityNetworkIds =
+//     await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+
+//   const priorityNetworkIdsMap = priorityNetworkIds.reduce(
+//     (acc, item, index) => {
+//       acc[item] = index;
+//       return acc;
+//     },
+//     {} as Record<string, number>,
+//   );
+
+//   const priorityItems: IAllNetworkAccountInfo[] = [];
+//   const normalItems: IAllNetworkAccountInfo[] = [];
+//   for (let i = 0; i < items.length; i += 1) {
+//     if (priorityNetworkIdsMap[items[i].networkId] !== undefined) {
+//       priorityItems.push(items[i]);
+//     } else {
+//       normalItems.push(items[i]);
+//     }
+//   }
+//   priorityItems.sort(
+//     (a, b) =>
+//       priorityNetworkIdsMap[a.networkId] - priorityNetworkIdsMap[b.networkId],
+//   );
+//   return [...priorityItems, ...normalItems];
+// };
 
 function useAllNetworkRequests<T>(params: {
   account: INetworkAccount | undefined;
@@ -35,7 +62,15 @@ function useAllNetworkRequests<T>(params: {
   disabled?: boolean;
   interval?: number;
   shouldAlwaysFetch?: boolean;
-  onStarted?: () => void;
+  onStarted?: ({
+    accountId,
+    networkId,
+    allNetworkDataInit,
+  }: {
+    accountId?: string;
+    networkId?: string;
+    allNetworkDataInit?: boolean;
+  }) => void;
   onFinished?: ({
     accountId,
     networkId,
@@ -95,11 +130,10 @@ function useAllNetworkRequests<T>(params: {
         return;
       }
 
-      const concurrentNetworks = accountsInfoBackendIndexed;
-      const sequentialNetworks = accountsInfoBackendNotIndexed;
-      let resp: Array<T> = [];
+      let resp: Array<T> | null = null;
 
-      if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
+      // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
+      if (accountsInfo.length === 0) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
@@ -107,7 +141,11 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
-      onStarted?.();
+      onStarted?.({
+        accountId: account.id,
+        networkId: network.id,
+        allNetworkDataInit: allNetworkDataInit.current,
+      });
 
       currentRequestsUUID.current = requestsUUID;
       console.log(
@@ -131,63 +169,86 @@ function useAllNetworkRequests<T>(params: {
           resp = (await Promise.all(requests)).filter(Boolean);
         } catch (e) {
           console.error(e);
-          // pass
+          resp = null;
+          abortAllNetworkRequests?.();
         }
       } else {
-        // 处理并发请求的网络
-        const concurrentRequests = Array.from(concurrentNetworks).map(
-          (networkDataString) => {
-            const { accountId, networkId, apiAddress } = networkDataString;
-            console.log(
-              'concurrentRequests: =====>>>>>: ',
-              accountId,
-              networkId,
-              apiAddress,
-            );
-            return allNetworkRequests({
-              accountId,
-              networkId,
-              allNetworkDataInit: allNetworkDataInit.current,
-            });
-          },
-        );
         try {
-          await Promise.all(concurrentRequests);
+          await Promise.all(
+            Array.from(accountsInfoBackendIndexed).map((networkDataString) => {
+              const { accountId, networkId, apiAddress } = networkDataString;
+              console.log(
+                'accountsBackedIndexedRequests: =====>>>>>: ',
+                accountId,
+                networkId,
+                apiAddress,
+              );
+              return allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+              });
+            }),
+          );
         } catch (e) {
           console.error(e);
           // pass
         }
 
-        // 处理顺序请求的网络
-        await (async (uuid: string) => {
-          for (const networkDataString of sequentialNetworks) {
-            console.log(
-              'currentRequestsUUID for: =====>>>>>: ',
-              currentRequestsUUID.current,
-              uuid,
-              networkDataString.networkId,
-              networkDataString.apiAddress,
-            );
-            if (
-              currentRequestsUUID.current &&
-              currentRequestsUUID.current !== uuid
-            ) {
-              break;
-            }
-            const { accountId, networkId } = networkDataString;
-            try {
-              await allNetworkRequests({
-                accountId,
-                networkId,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-            } catch (e) {
-              console.error(e);
-              // pass
-            }
-            await waitAsync(interval);
-          }
-        })(requestsUUID);
+        try {
+          await Promise.all(
+            Array.from(accountsInfoBackendNotIndexed).map(
+              (networkDataString) => {
+                const { accountId, networkId, apiAddress } = networkDataString;
+                console.log(
+                  'accountsBackedNotIndexedRequests: =====>>>>>: ',
+                  accountId,
+                  networkId,
+                  apiAddress,
+                );
+                return allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+              },
+            ),
+          );
+        } catch (e) {
+          console.error(e);
+          // pass
+        }
+
+        // // 处理顺序请求的网络
+        // await (async (uuid: string) => {
+        // for (const networkDataString of sequentialNetworks) {
+        //   console.log(
+        //     'currentRequestsUUID for: =====>>>>>: ',
+        //     currentRequestsUUID.current,
+        //     uuid,
+        //     networkDataString.networkId,
+        //     networkDataString.apiAddress,
+        //   );
+        //   if (
+        //     currentRequestsUUID.current &&
+        //     currentRequestsUUID.current !== uuid
+        //   ) {
+        //     break;
+        //   }
+        //   const { accountId, networkId } = networkDataString;
+        //   try {
+        //     await allNetworkRequests({
+        //       accountId,
+        //       networkId,
+        //       allNetworkDataInit: allNetworkDataInit.current,
+        //     });
+        //   } catch (e) {
+        //     console.error(e);
+        //     // pass
+        //   }
+        //   await waitAsync(interval);
+        // }
+        // })(requestsUUID);
       }
 
       allNetworkDataInit.current = true;
@@ -210,7 +271,7 @@ function useAllNetworkRequests<T>(params: {
       onFinished,
       clearAllNetworkData,
       allNetworkRequests,
-      interval,
+      // interval,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

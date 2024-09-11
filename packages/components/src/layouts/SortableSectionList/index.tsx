@@ -55,6 +55,7 @@ export type ISortableSectionListProps<T> = Omit<
     section: any;
     index: number;
     drag: () => void;
+    dragProps: Record<string, any> | undefined;
     isActive: boolean;
   }) => ReactNode | null;
   renderSectionHeader?: ISectionRenderInfo;
@@ -69,6 +70,7 @@ export type ISortableSectionListProps<T> = Omit<
     to?: { sectionIndex: number; itemIndex: number };
   }) => void;
   initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
+  allowCrossSection?: boolean;
 };
 
 type IScrollToLocationParams = {
@@ -110,6 +112,7 @@ function BaseSortableSectionList<T>(
     keyExtractor,
     onDragEnd,
     initialScrollIndex,
+    allowCrossSection = false,
     ...restProps
   }: ISortableSectionListProps<T>,
   parentRef: ForwardedRef<ISortableListViewRef<T>>,
@@ -195,10 +198,12 @@ function BaseSortableSectionList<T>(
     ({
       item,
       drag,
+      dragProps,
       isActive,
     }: {
       item: T;
       drag: () => void;
+      dragProps?: Record<string, any>;
       isActive: boolean;
     }) => {
       const { type, value, section, index } = item as ISectionLayoutItem;
@@ -218,6 +223,7 @@ function BaseSortableSectionList<T>(
             section,
             index,
             drag,
+            dragProps,
             isActive,
           });
         }
@@ -244,7 +250,7 @@ function BaseSortableSectionList<T>(
       const layoutItem = item as ISectionLayoutItem;
       if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
         return `${layoutItem.type}_${layoutItem.sectionIndex}_${keyExtractor(
-          layoutItem.value,
+          layoutItem.value as T,
           index,
         )}`;
       }
@@ -261,33 +267,68 @@ function BaseSortableSectionList<T>(
       });
       let fromIndex: { sectionIndex: number; itemIndex: number } | undefined;
       let toIndex: { sectionIndex: number; itemIndex: number } | undefined;
-      result.data.forEach((item) => {
+      let sectionIndex = -1;
+      const firstHeaderIndex = result.data.findIndex(
+        (item) =>
+          (item as ISectionLayoutItem).type === ESectionLayoutType.Header,
+      );
+      const firstHeader = result.data?.[firstHeaderIndex];
+      const reloadResultData = [...result.data];
+      reloadResultData.splice(firstHeaderIndex, 1);
+      reloadResultData.unshift(firstHeader);
+      reloadResultData.forEach((item) => {
         const layoutItem = item as ISectionLayoutItem;
         if (layoutItem.type === ESectionLayoutType.Item) {
-          dragSections?.[layoutItem.sectionIndex]?.data?.push?.(
-            layoutItem.value,
+          sectionIndex = Math.max(
+            0,
+            Math.min(dragSections.length - 1, sectionIndex),
           );
+          dragSections?.[
+            allowCrossSection ? sectionIndex : layoutItem.sectionIndex
+          ]?.data?.push?.(layoutItem.value);
+        } else if (layoutItem.type === ESectionLayoutType.Header) {
+          if (allowCrossSection) {
+            sectionIndex += 1;
+          }
         }
       });
+
       reloadSections.forEach((layoutItem, index) => {
-        if (layoutItem.type === ESectionLayoutType.Item) {
-          if (result.from === index) {
-            fromIndex = {
-              sectionIndex: layoutItem.sectionIndex,
-              itemIndex: layoutItem.index,
-            };
-          }
-          if (result.to === index) {
-            toIndex = {
-              sectionIndex: layoutItem.sectionIndex,
-              itemIndex: layoutItem.index,
-            };
-          }
+        let reloadSectionIndex = layoutItem.sectionIndex;
+        let itemIndex = 0;
+        if (layoutItem.type === ESectionLayoutType.Footer) {
+          itemIndex = Math.max(
+            0,
+            (sections?.[layoutItem?.index]?.data?.length ?? 0) - 1,
+          );
+        } else if (layoutItem.type === ESectionLayoutType.Item) {
+          itemIndex = layoutItem.index;
+        } else {
+          reloadSectionIndex = Math.max(0, layoutItem.index - 1);
+          itemIndex =
+            layoutItem.index === 0
+              ? 0
+              : Math.max(
+                  0,
+                  (sections?.[reloadSectionIndex]?.data?.length ?? 0) - 1,
+                );
+        }
+        if (result.from === index) {
+          fromIndex = {
+            sectionIndex: reloadSectionIndex,
+            itemIndex,
+          };
+        }
+        if (result.to === index) {
+          toIndex = {
+            sectionIndex: reloadSectionIndex,
+            itemIndex,
+          };
         }
       });
       onDragEnd?.({ sections: dragSections, from: fromIndex, to: toIndex });
     },
-    [onDragEnd, sections, reloadSections],
+    [onDragEnd, sections, reloadSections, allowCrossSection],
   );
 
   const reloadInitialScrollIndex = useMemo(() => {

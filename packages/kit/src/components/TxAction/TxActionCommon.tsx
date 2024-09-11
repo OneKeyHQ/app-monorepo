@@ -12,7 +12,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { IMPL_ALLNETWORKS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -32,15 +31,16 @@ import type {
 
 function TxActionCommonAvatar({
   avatar,
-  networkId,
-}: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout' | 'networkId'>) {
+  networkLogoURI,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'avatar' | 'tableLayout' | 'networkLogoURI'
+>) {
   const containerSize = '$10';
 
   const {
     activeAccount: { network: activeNetwork },
   } = useActiveAccount({ num: 0 });
-
-  const { network } = useAccountData({ networkId });
 
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
@@ -50,7 +50,7 @@ function TxActionCommonAvatar({
         fallbackIcon={avatar.fallbackIcon}
         tokenImageUri={avatar.src}
         networkImageUri={
-          activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+          activeNetwork?.isAllNetworks ? networkLogoURI : undefined
         }
       />
     );
@@ -70,7 +70,7 @@ function TxActionCommonAvatar({
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[0]}
           networkImageUri={
-            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+            activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
         />
       </Stack>
@@ -86,7 +86,7 @@ function TxActionCommonAvatar({
           fallbackIcon={avatar.fallbackIcon}
           tokenImageUri={avatar.src[1]}
           networkImageUri={
-            activeNetwork?.isAllNetworks ? network?.logoURI : undefined
+            activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
         />
       </Stack>
@@ -250,6 +250,7 @@ function TxActionCommonListView(
     hideFeeInfo,
     replaceType,
     networkId,
+    networkLogoURI,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -279,7 +280,7 @@ function TxActionCommonListView(
             <TxActionCommonAvatar
               avatar={avatar}
               tableLayout={tableLayout}
-              networkId={networkId}
+              networkLogoURI={networkLogoURI}
             />
           ) : null}
           <Stack flex={1}>
@@ -290,7 +291,8 @@ function TxActionCommonListView(
               replaceType={replaceType}
             />
             <XStack alignSelf="stretch">
-              {timestamp ? (
+              {timestamp &&
+              (tableLayout || !(description && description.children)) ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
@@ -363,14 +365,18 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText
-              minWidth={0}
-              maxWidth="$96"
-              size="$bodyLgMedium"
-              flex={1}
-            >
-              {overview.content}
-            </SizableText>
+            {typeof overview.content === 'string' ? (
+              <SizableText
+                minWidth={0}
+                maxWidth="$96"
+                size="$bodyLgMedium"
+                flex={1}
+              >
+                {overview.content}
+              </SizableText>
+            ) : (
+              overview.content
+            )}
           </XStack>
         }
       />

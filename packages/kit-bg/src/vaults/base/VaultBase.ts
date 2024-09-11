@@ -56,6 +56,8 @@ import type {
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
+import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -337,6 +339,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     amount: string;
     tokenBalance: string;
     to: string;
+    isNative?: boolean;
   }) {
     return Promise.resolve(true);
   }
@@ -419,7 +422,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = accountUtils.buildLocalHistoryId({
-      networkId: this.networkId,
+      networkId,
       txid,
       accountAddress,
       xpub,
@@ -452,6 +455,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let accountId = originAccountId;
     let networkId = originNetworkId;
     let accountAddress = originAccountAddress;
+
     if (originNetworkId === getNetworkIdsMap().onekeyall) {
       const allNetworkAccount = allNetworkHistoryExtraItems?.find(
         (i) => i.networkId === onChainHistoryTx.networkId,
@@ -671,6 +675,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         icon,
         name,
         symbol,
+        decimals,
         label: tx.label,
         tokenIdOnNetwork: tokenApprove.token,
         amount: new BigNumber(tokenApprove.amount)
@@ -964,5 +969,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     type?: string;
   }> {
     return Promise.resolve({});
+  }
+
+  // Staking
+  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+    return Promise.resolve(params as IEncodedTx);
   }
 }

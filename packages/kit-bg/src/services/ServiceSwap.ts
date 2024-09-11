@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
 import {
@@ -6,13 +7,25 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  maxRecentTokenPairs,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
+  swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
@@ -48,6 +61,10 @@ export default class ServiceSwap extends ServiceBase {
 
   private _tokenListAbortController?: AbortController;
 
+  private _quoteEventSource?: EventSource;
+
+  private _quoteEventSourcePolyfill?: EventSourcePolyfill;
+
   private _tokenDetailAbortControllerMap: Record<
     ESwapDirectionType,
     AbortController | undefined
@@ -76,6 +93,24 @@ export default class ServiceSwap extends ServiceBase {
     if (this._tokenListAbortController) {
       this._tokenListAbortController.abort();
       this._tokenListAbortController = undefined;
+    }
+  }
+
+  async removeQuoteEventSourceListeners() {
+    if (this._quoteEventSource) {
+      this._quoteEventSource.removeAllEventListeners();
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchQuoteEvents() {
+    if (this._quoteEventSource) {
+      this._quoteEventSource.close();
+      this._quoteEventSource = undefined;
+    }
+    if (this._quoteEventSourcePolyfill) {
+      this._quoteEventSourcePolyfill.close();
+      this._quoteEventSourcePolyfill = undefined;
     }
   }
 
@@ -116,7 +151,6 @@ export default class ServiceSwap extends ServiceBase {
             logoURI: clientNetwork.logoURI,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
-            explorers: clientNetwork.explorers,
           };
         }
         return null;
@@ -133,17 +167,29 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress,
     accountNetworkId,
     accountId,
+    onlyAccountTokens,
+    isAllNetworkFetchAccountTokens,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
-    await this.cancelFetchTokenList();
+    if (!isAllNetworkFetchAccountTokens) {
+      await this.cancelFetchTokenList();
+    }
     const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId,
+      networkId: networkId ?? getNetworkIdsMap().onekeyall,
       keywords,
       limit,
-      accountAddress,
+      accountAddress: !networkUtils.isAllNetwork({
+        networkId: networkId ?? getNetworkIdsMap().onekeyall,
+      })
+        ? accountAddress
+        : undefined,
       accountNetworkId,
+      skipReservationValue: true,
+      onlyAccountTokens,
     };
-    this._tokenListAbortController = new AbortController();
+    if (!isAllNetworkFetchAccountTokens) {
+      this._tokenListAbortController = new AbortController();
+    }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     if (accountId && accountAddress && networkId) {
       const accountAddressForAccountId =
@@ -176,7 +222,9 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/tokens',
         {
           params,
-          signal: this._tokenListAbortController.signal,
+          signal: !isAllNetworkFetchAccountTokens
+            ? this._tokenListAbortController?.signal
+            : undefined,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -343,6 +391,167 @@ export default class ServiceSwap extends ServiceBase {
         toTokenInfo: toToken,
       },
     ]; //  no support providers
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async fetchQuotesEvents({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    slippagePercentage,
+    autoSlippage,
+    blockNumber,
+    accountId,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    userAddress?: string;
+    slippagePercentage: number;
+    autoSlippage?: boolean;
+    blockNumber?: number;
+    accountId?: string;
+  }) {
+    await this.removeQuoteEventSourceListeners();
+    const params: IFetchQuotesParams = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      protocol: EProtocolOfExchange.SWAP,
+      userAddress,
+      slippagePercentage,
+      autoSlippage,
+      blockNumber,
+    };
+    const swapEventUrl = (
+      await this.getClient(EServiceEndpointEnum.Swap)
+    ).getUri({
+      url: '/swap/v1/quote/events',
+      params,
+    });
+    let headers = await getRequestHeaders();
+    headers = {
+      ...headers,
+      ...(accountId
+        ? await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          })
+        : {}),
+    };
+    if (platformEnv.isExtension) {
+      this._quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
+        headers: headers as Record<string, string>,
+      });
+      this._quoteEventSourcePolyfill.onmessage = (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'message',
+          event: {
+            type: 'message',
+            data: event.data,
+            lastEventId: null,
+            url: swapEventUrl,
+          },
+          params,
+          tokenPairs: { fromToken, toToken },
+          accountId,
+        });
+      };
+      this._quoteEventSourcePolyfill.onerror = async (event) => {
+        const errorEvent = event as {
+          error?: string;
+          type: string;
+          target: any;
+        };
+        if (!errorEvent?.error) {
+          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+            type: 'done',
+            event: { type: 'done' },
+            params,
+            accountId,
+            tokenPairs: { fromToken, toToken },
+          });
+        } else {
+          appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+            type: 'error',
+            event: {
+              type: 'error',
+              message: errorEvent.error,
+              xhrState: this._quoteEventSourcePolyfill?.readyState ?? 0,
+              xhrStatus: this._quoteEventSourcePolyfill?.readyState ?? 0,
+            },
+            params,
+            accountId,
+            tokenPairs: { fromToken, toToken },
+          });
+        }
+        await this.cancelFetchQuoteEvents();
+      };
+      this._quoteEventSourcePolyfill.onopen = () => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'open',
+          event: { type: 'open' },
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      };
+    } else {
+      this._quoteEventSource = new EventSource(swapEventUrl, {
+        headers,
+        pollingInterval: 0,
+        timeoutBeforeConnection: 0,
+        timeout: swapQuoteEventTimeout,
+      });
+      this._quoteEventSource.addEventListener('open', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'open',
+          event,
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+      this._quoteEventSource.addEventListener('message', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'message',
+          event,
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+      this._quoteEventSource.addEventListener('done', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'done',
+          event,
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+      this._quoteEventSource.addEventListener('close', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'close',
+          event,
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+      this._quoteEventSource.addEventListener('error', (event) => {
+        appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
+          type: 'error',
+          event,
+          params,
+          accountId,
+          tokenPairs: { fromToken, toToken },
+        });
+      });
+    }
   }
 
   @backgroundMethod()
@@ -645,6 +854,29 @@ export default class ServiceSwap extends ServiceBase {
           )
         : [],
     }));
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'success',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.settings_clear_successful,
+      }),
+    });
+  }
+
+  @backgroundMethod()
+  async cleanOneSwapHistory(txId: string) {
+    await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(txId);
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: pre.swapHistoryPendingList.filter(
+        (item) => item.txInfo.txId !== txId,
+      ),
+    }));
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'success',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.settings_clear_successful,
+      }),
+    });
   }
 
   @backgroundMethod()
@@ -736,6 +968,99 @@ export default class ServiceSwap extends ServiceBase {
       statusPendingList.map(async (swapTxHistory) => {
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
+    );
+  }
+
+  @backgroundMethod()
+  async swapRecentTokenPairsUpdate({
+    fromToken,
+    toToken,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+  }) {
+    let { swapRecentTokenPairs: recentTokenPairs } =
+      await inAppNotificationAtom.get();
+    const isExit = recentTokenPairs.some(
+      (pair) =>
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.fromToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.toToken,
+          })) ||
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.toToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.fromToken,
+          })),
+    );
+    if (isExit) {
+      recentTokenPairs = recentTokenPairs.filter(
+        (pair) =>
+          !(
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.fromToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.toToken,
+              })) ||
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.toToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.fromToken,
+              }))
+          ),
+      );
+    }
+    const fromTokenBaseInfo: ISwapToken = {
+      networkId: fromToken.networkId,
+      contractAddress: fromToken.contractAddress,
+      symbol: fromToken.symbol,
+      decimals: fromToken.decimals,
+      name: fromToken.name,
+      logoURI: fromToken.logoURI,
+      networkLogoURI: fromToken.networkLogoURI,
+      isNative: fromToken.isNative,
+    };
+    const toTokenBaseInfo: ISwapToken = {
+      networkId: toToken.networkId,
+      contractAddress: toToken.contractAddress,
+      symbol: toToken.symbol,
+      decimals: toToken.decimals,
+      name: toToken.name,
+      logoURI: toToken.logoURI,
+      networkLogoURI: toToken.networkLogoURI,
+      isNative: toToken.isNative,
+    };
+    let newRecentTokenPairs = [
+      {
+        fromToken: fromTokenBaseInfo,
+        toToken: toTokenBaseInfo,
+      },
+      ...recentTokenPairs,
+    ];
+    if (newRecentTokenPairs.length > maxRecentTokenPairs) {
+      newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: newRecentTokenPairs,
+    }));
+    await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
+      fromToken,
+      toToken,
+      isExit,
     );
   }
 }

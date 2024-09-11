@@ -132,15 +132,25 @@ export const EditableChainSelectorContent = ({
             },
           ];
     }
-    const data = mainnetItems.reduce((result, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!result[char]) {
-        result[char] = [];
-      }
-      result[char].push(item);
 
-      return result;
-    }, {} as Record<string, IServerNetwork[]>);
+    const tempFrequentlyUsedItemsSet = new Set(
+      tempFrequentlyUsedItems.map((o) => o.id),
+    );
+    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
+      inputs.filter((o) => !tempFrequentlyUsedItemsSet.has(o.id));
+
+    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
+      (result, item) => {
+        const char = item.name[0].toUpperCase();
+        if (!result[char]) {
+          result[char] = [];
+        }
+        result[char].push(item);
+
+        return result;
+      },
+      {} as Record<string, IServerNetwork[]>,
+    );
 
     const mainnetSections = Object.entries(data)
       .map(([key, value]) => ({ title: key, data: value }))
@@ -156,7 +166,7 @@ export const EditableChainSelectorContent = ({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: testnetItems,
+        data: filterFrequentlyUsedNetworks(testnetItems),
       });
     }
     if (unavailableItems.length > 0) {
@@ -178,6 +188,14 @@ export const EditableChainSelectorContent = ({
     intl,
     networkFuseSearch,
   ]);
+
+  const dragItemOverflowHitSlop = useMemo(() => {
+    const dragCount = tempFrequentlyUsedItems.length;
+    if (dragCount <= 0) {
+      return undefined;
+    }
+    return { bottom: (dragCount + 1) * CELL_HEIGHT + 8 };
+  }, [tempFrequentlyUsedItems]);
 
   const layoutList = useMemo(() => {
     let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
@@ -203,7 +221,7 @@ export const EditableChainSelectorContent = ({
   }, [sections, showAllNetworkHeader]);
 
   const initialScrollIndex = useMemo(() => {
-    if (searchText.trim()) {
+    if (searchText.trim() || tempFrequentlyUsedItems !== frequentlyUsedItems) {
       return undefined;
     }
     let _initialScrollIndex:
@@ -249,6 +267,7 @@ export const EditableChainSelectorContent = ({
       return { sectionIndex: 0, itemIndex: undefined };
     }
     return _initialScrollIndex;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, searchText]);
 
   const context = useMemo<IEditableChainSelectorContext>(
@@ -279,10 +298,12 @@ export const EditableChainSelectorContent = ({
       item,
       section,
       drag,
+      dragProps,
     }: {
       item: IServerNetwork;
       section: IEditableChainSelectorSection;
       drag?: () => void;
+      dragProps?: Record<string, any>;
     }) => (
       <EditableListItem
         item={item}
@@ -290,6 +311,7 @@ export const EditableChainSelectorContent = ({
         isDisabled={section.unavailable}
         isEditable={section.editable}
         drag={drag}
+        dragProps={dragProps}
       />
     ),
     [],
@@ -310,6 +332,7 @@ export const EditableChainSelectorContent = ({
       <Stack flex={1}>
         <Stack px="$5">
           <SearchBar
+            testID="chain-selector"
             placeholder={intl.formatMessage({
               id: ETranslations.global_search,
             })}
@@ -321,6 +344,13 @@ export const EditableChainSelectorContent = ({
                 y: 0,
                 animated: false,
               });
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              if (listRef?.current?._listRef?._hasDoneInitialScroll) {
+                // @ts-ignore
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                listRef.current._listRef._hasDoneInitialScroll = false;
+              }
               setSearchText(text.trim());
             }}
           />
@@ -340,9 +370,14 @@ export const EditableChainSelectorContent = ({
                 setTempFrequentlyUsedItems(itemList);
               }}
               initialScrollIndex={initialScrollIndex}
-              getItemLayout={(item, index) => {
+              dragItemOverflowHitSlop={dragItemOverflowHitSlop}
+              getItemLayout={(_, index) => {
                 if (index === -1) {
-                  return { index, offset: 0, length: 0 };
+                  return {
+                    index,
+                    offset: showAllNetworkHeader ? 56 : 0,
+                    length: 0,
+                  };
                 }
                 return layoutList[index];
               }}

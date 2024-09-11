@@ -25,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -58,6 +59,20 @@ function OthersWalletItem({
   );
 }
 
+export function AccountSelectorWalletListSideBarPerfTest({
+  num,
+}: IWalletListProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const actions = useAccountSelectorActions(); // make render twice first time
+  const { selectedAccount } = useSelectedAccount({ num }); // make render twice first time
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount: {} as any,
+    walletsCount: 0,
+  });
+  return null;
+}
+
 export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
@@ -72,18 +87,25 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     setResult,
     run: reloadWallets,
   } = usePromiseResult(
-    () =>
-      // serviceAccount.getHDAndHWWallets({
-      serviceAccount.getWallets({
+    async () => {
+      defaultLogger.accountSelector.perf.buildWalletListSideBarData();
+      const r = await serviceAccount.getWallets({
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
-      }),
+      });
+      return r;
+    },
     [serviceAccount],
     {
       checkIsFocused: false,
     },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  defaultLogger.accountSelector.perf.renderWalletListSideBar({
+    selectedAccount,
+    walletsCount: wallets?.length ?? 0,
+  });
 
   useEffect(() => {
     const walletCount = wallets.length;
@@ -122,18 +144,14 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     [actions, num],
   );
 
-  const CELL_HEIGHT = useMedia().gtMd ? 68 : 48;
+  const CELL_HEIGHT = 68;
 
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
-    wallets?.forEach?.((wallet, index) => {
-      if (index !== 0) {
-        offset += 12;
-      }
+    wallets?.forEach?.((wallet) => {
       const hiddenWalletsLength = wallet?.hiddenWallets?.length ?? 0;
-      const height =
-        (1 + hiddenWalletsLength) * CELL_HEIGHT + hiddenWalletsLength * 12;
+      const height = (1 + hiddenWalletsLength) * (CELL_HEIGHT + 12);
       layouts.push({ offset, length: height, index: layouts.length });
       offset += height;
       if (hiddenWalletsLength > 0) {
@@ -143,10 +161,13 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
     return layouts;
   }, [wallets, CELL_HEIGHT]);
 
+  const { md } = useMedia();
+
+  const isShowCloseButton = md && !platformEnv.isNativeIOS;
   return (
     <Stack
       testID="account-selector-wallet-list"
-      w="$16"
+      w="$24"
       $gtMd={{
         w: '$32',
       }}
@@ -155,8 +176,13 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {platformEnv.isExtension || platformEnv.isNativeAndroid ? (
-        <XStack py="$4" justifyContent="center">
+      {isShowCloseButton ? (
+        <XStack
+          py="$4"
+          justifyContent="center"
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderBottomColor="$neutral3"
+        >
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>
@@ -199,14 +225,14 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
           });
         }}
         extraData={selectedAccount.focusedWallet}
-        renderItem={({ item, drag }) => {
+        renderItem={({ item, drag, dragProps }) => {
           let badge: number | string | undefined;
           if (accountUtils.isQrWallet({ walletId: item.id })) {
             badge = 'QR';
           }
 
           return (
-            <Stack mb="$3">
+            <Stack pb="$3" dataSet={dragProps}>
               <WalletListItem
                 key={item.id}
                 wallet={item}

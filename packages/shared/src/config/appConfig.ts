@@ -5,10 +5,15 @@ import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
   process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so';
 
-export const HARDWARE_SDK_VERSION = '1.0.8'; // 0.3.43     1.0.0-alpha.2
+export const HARDWARE_SDK_VERSION: string =
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  require('@onekeyfe/hd-core/package.json').version as string;
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
+
+export const HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING =
+  'https://help.onekey.so/hc/articles/360004279036';
 
 export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
 export const FIRMWARE_CONTACT_US_URL = 'https://help.onekey.so/hc/requests/new';
@@ -56,11 +61,13 @@ export const BIP39_DOT_MAP_URL = 'https://github.com/OneKeyHQ/bip39-dotmap';
 export const buildServiceEndpoint = ({
   serviceName,
   env,
+  isWebSocket,
 }: {
   serviceName: EServiceEndpointEnum;
   env: IEndpointEnv;
+  isWebSocket?: boolean;
 }) =>
-  `https://${serviceName}.${
+  `${isWebSocket ? 'wss' : 'https'}://${serviceName}.${
     env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
   }`;
 

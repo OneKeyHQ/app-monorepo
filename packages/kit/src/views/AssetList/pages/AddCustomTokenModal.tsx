@@ -243,7 +243,12 @@ function AddCustomTokenModal() {
           testID="network-selector-input"
         >
           <NetworkAvatar networkId={networkId} size="$6" />
-          <SizableText px={14} flex={1} size="$bodyLg">
+          <SizableText
+            testID="network-selector-input-text"
+            px={14}
+            flex={1}
+            size="$bodyLg"
+          >
             {availableNetworks?.network.name ?? ''}
           </SizableText>
         </Stack>
@@ -338,7 +343,6 @@ function AddCustomTokenModal() {
               $gtMd={{
                 ml: 'auto',
               }}
-              flex={1}
               justifyContent="space-between"
             >
               <XStack alignItems="center" gap="$2">

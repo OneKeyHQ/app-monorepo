@@ -24,6 +24,10 @@ import {
   ONEKEY_TEST_API_HOST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  requestPermissionsAsync,
+  setBadgeCountAsync,
+} from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -37,6 +41,7 @@ import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
+import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -108,6 +113,9 @@ export const DevSettingsSection = () => {
       title: '关闭开发者模式',
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        if (platformEnv.isDesktop) {
+          window?.desktopApi.changeDevTools(false);
+        }
       },
     });
   }, []);
@@ -116,7 +124,7 @@ export const DevSettingsSection = () => {
     showDevOnlyPasswordDialog({
       title: 'Danger Zone: Open Chrome DevTools',
       onConfirm: async () => {
-        window?.desktopApi.openDevTools();
+        window?.desktopApi.changeDevTools(true);
       },
     });
   }, []);
@@ -138,7 +146,7 @@ export const DevSettingsSection = () => {
         <>
           <SectionPressItem
             title="Open Chrome DevTools in Desktop"
-            subtitle="重启后会使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
             onPress={handleOpenDevTools}
           />
           <SectionPressItem
@@ -176,6 +184,13 @@ export const DevSettingsSection = () => {
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }
+        onBeforeValueChange={async () => {
+          try {
+            await backgroundApiProxy.serviceNotification.unregisterClient();
+          } catch (error) {
+            console.error(error);
+          }
+        }}
         onValueChange={(enabled: boolean) => {
           if (platformEnv.isDesktop) {
             window.desktopApi?.setAutoUpdateSettings?.({
@@ -253,6 +268,32 @@ export const DevSettingsSection = () => {
           // });
         }}
       />
+
+      <SectionPressItem
+        title="NotificationDevSettings"
+        onPress={() => {
+          const dialog = Dialog.cancel({
+            title: 'NotificationDevSettings',
+            renderContent: <NotificationDevSettings />,
+          });
+        }}
+      />
+
+      {platformEnv.isNative ? (
+        <SectionPressItem
+          title="AppNotificationBadge"
+          testID="app-notification-badge-menu"
+          onPress={async () => {
+            const permissionsStatus = await requestPermissionsAsync({
+              ios: { allowBadge: true },
+            });
+            if (permissionsStatus.granted) {
+              const result = await setBadgeCountAsync(10);
+              console.log('result', result);
+            }
+          }}
+        />
+      ) : null}
       <SectionPressItem
         title="V4MigrationDevSettings"
         testID="v4-migration-dev-settings-menu"
@@ -318,6 +359,9 @@ export const DevSettingsSection = () => {
                         await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
                           params,
                         );
+                        if (platformEnv.isExtension) {
+                          backgroundApiProxy.serviceApp.restartApp();
+                        }
                         Toast.success({
                           title: 'Success',
                         });
@@ -395,18 +439,6 @@ export const DevSettingsSection = () => {
           setTimeout(() => {
             void backgroundApiProxy.serviceSpotlight.reset();
           }, 5000);
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.reset();
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态为失败状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
         }}
       />
       {platformEnv.isNativeAndroid ? (

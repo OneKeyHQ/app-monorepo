@@ -3,6 +3,8 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
@@ -20,6 +22,7 @@ import type {
   ISelectTriggerProps,
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
@@ -59,6 +62,13 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
+  const renderTriggerOnPress = useCallback(
+    (event: GestureResponderEvent) => {
+      handleTriggerPressed();
+      event.stopPropagation();
+    },
+    [handleTriggerPressed],
+  );
   const renderValue = labelInValue
     ? (value as ISelectItem)?.value
     : (value as string);
@@ -66,6 +76,7 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({
+        onPress: renderTriggerOnPress,
         value: renderValue,
         label,
         placeholder,
@@ -303,7 +314,7 @@ function SelectContent() {
         ...sheetProps,
       }}
       floatingPanelProps={{
-        maxHeight: '60vh',
+        maxHeight: platformEnv.isNative ? undefined : '60vh',
         width: '$56',
         ...floatingPanelProps,
       }}

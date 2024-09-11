@@ -45,15 +45,19 @@ const EditableAccountChainSelector = ({
   onPressItem,
 }: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, account, wallet },
   } = useActiveAccount({ num });
   const { result: chainSelectorNetworks, run: refreshLocalData } =
     usePromiseResult(
       async () =>
         backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId: account?.id, networkIds },
+          {
+            accountId: account?.id,
+            walletId: wallet?.id,
+            networkIds,
+          },
         ),
-      [account?.id, networkIds],
+      [account?.id, networkIds, wallet?.id],
       { initResult: defaultChainSelectorNetworks },
     );
 
@@ -67,11 +71,82 @@ const EditableAccountChainSelector = ({
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={onPressItem}
       onFrequentlyUsedItemsChange={async (items) => {
-        await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworks(
-          {
-            networks: items,
-          },
-        );
+        const pinnedNetworkIds =
+          await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
+        const frequentlyUsedNetworkIds =
+          chainSelectorNetworks.frequentlyUsedItems.map((o) => o.id);
+        // If all pinned networks are involved in editing, just set
+        if (pinnedNetworkIds.length === frequentlyUsedNetworkIds.length) {
+          await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworkIds(
+            {
+              networkIds: items.map((o) => o.id),
+            },
+          );
+        } else {
+          /*
+          If only some of the pinned networks participate in editing (filtered by unavailableItems). 
+          Elements that do not participate in editing maintain their position. 
+          Only elements that participate in editing are added, deleted, or modified.
+          */
+          const inputs = items.map((o) => o.id);
+
+          const itemsToAdd: string[] = [];
+
+          const itemsToRemove: string[] = frequentlyUsedNetworkIds.filter(
+            (o) => !inputs.includes(o),
+          );
+
+          let newPinnedNetworkIds = [...pinnedNetworkIds];
+
+          // networkId to index at pinnedNetworkIds
+          const networkIdsIndexes = pinnedNetworkIds.reduce(
+            (acc, item, index) => {
+              acc[item] = index;
+              return acc;
+            },
+            {} as Record<string, number>,
+          );
+
+          const frequentlyUsedIndexes: number[] = frequentlyUsedNetworkIds.map(
+            (o) => networkIdsIndexes[o],
+          );
+
+          const len = Math.max(frequentlyUsedIndexes.length, inputs.length);
+
+          for (let i = 0; i < len; i += 1) {
+            const input = inputs[i];
+            const inputIndex = frequentlyUsedIndexes[i];
+
+            if (input && inputIndex !== undefined) {
+              // inputIndex is the position in pinned networks, do replace
+              newPinnedNetworkIds[inputIndex] = input;
+            } else if (input && inputIndex === undefined) {
+              // do added
+              itemsToAdd.push(input);
+            }
+          }
+
+          if (itemsToAdd.length) {
+            const indexToAdd =
+              frequentlyUsedIndexes[frequentlyUsedIndexes.length - 1];
+            if (indexToAdd !== undefined) {
+              newPinnedNetworkIds.splice(indexToAdd + 1, 0, ...itemsToAdd);
+            } else {
+              newPinnedNetworkIds.push(...itemsToAdd);
+            }
+          }
+          if (itemsToRemove.length) {
+            newPinnedNetworkIds = newPinnedNetworkIds.filter(
+              (o) => !itemsToRemove.includes(o),
+            );
+          }
+          await backgroundApiProxy.serviceNetwork.setNetworkSelectorPinnedNetworkIds(
+            {
+              networkIds: newPinnedNetworkIds,
+            },
+          );
+        }
+
         await refreshLocalData();
       }}
     />

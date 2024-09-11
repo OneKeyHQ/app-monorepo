@@ -1,14 +1,18 @@
 /* eslint-disable no-var,vars-on-top */
-
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type BackgroundApi from '@onekeyhq/kit-bg/src/apis/BackgroundApi';
+import type BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
-import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
+import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
@@ -20,7 +24,9 @@ import type Realm from 'realm';
 declare const self: ServiceWorkerGlobalScope;
 
 type IWindowOneKeyHub = {
-  $private: ProviderPrivate;
+  $private: ProviderPrivate & {
+    webembedReceiveHandler: (payload: IJsBridgeMessagePayload) => Promise<any>;
+  };
 };
 declare global {
   // eslint-disable-next-line
@@ -30,9 +36,10 @@ declare global {
   var $$scanNavigation: IAppNavigation | undefined;
   var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
-  var $backgroundApiProxy: IBackgroundApi;
-  var $backgroundApi: IBackgroundApi; // not available for ext ui
+  var $backgroundApiProxy: BackgroundApiProxy;
+  var $$backgroundApi: BackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
+  var $analytics: Analytics;
 
   var $$Toast: any;
   var $$navigationShortcuts: any;
@@ -50,8 +57,8 @@ declare global {
   var $$appSelector: any;
   var $$appStorage: any;
   var $$allAtoms: any; // jotai global atoms
+  var $$defaultLogger: DefaultLogger;
   var $$platformEnv: any;
-  var $$debugLogger: any;
   var $$localforage: any;
   var $$navigationActions: any;
   var $$wcTransports: any;

@@ -1,15 +1,17 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import _ from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Divider,
   Icon,
-  ScrollView,
   SizableText,
+  SortableSectionList,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -22,11 +24,13 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
+import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -40,11 +44,6 @@ import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-import type {
-  LayoutChangeEvent,
-  ScrollView as RNScrollView,
-} from 'react-native';
-
 const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
   const intl = useIntl();
@@ -57,12 +56,17 @@ function DesktopCustomTabBar() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTabs } =
-    useBrowserTabActions().current;
+  const {
+    setCurrentWebTab,
+    closeWebTab,
+    setPinnedTab,
+    closeAllWebTabs,
+    setTabs,
+  } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
-  const { result, run } = usePromiseResult(async () => {
+  const { result, setResult, run } = usePromiseResult(async () => {
     const tabsWithConnectedAccount = await Promise.all(
       (tabs ?? []).map(async (tab) => {
         const origin = tab?.url ? new URL(tab.url).origin : null;
@@ -90,35 +94,17 @@ function DesktopCustomTabBar() {
     };
   }, [tabs]);
 
-  const data = useMemo(
-    () => result?.unpinnedTabs ?? [],
-    [result?.unpinnedTabs],
-  );
-  const pinnedData = useMemo(
-    () => result?.pinnedTabs ?? [],
-    [result?.pinnedTabs],
-  );
-
-  // scroll to bottom when new tab pinned
-  const pinnedTabsScrollViewRef = useRef<RNScrollView>(null);
-  const previousPinnedTabsLength = usePrevious(pinnedData?.length);
-  useEffect(() => {
-    if (
-      previousPinnedTabsLength &&
-      pinnedData?.length > previousPinnedTabsLength
-    ) {
-      pinnedTabsScrollViewRef.current?.scrollToEnd({ animated: false });
-    }
-  }, [pinnedData?.length, previousPinnedTabsLength, tabs.length]);
-
-  // scroll to top when new tab is added
-  const scrollViewRef = useRef<RNScrollView>(null);
+  const scrollViewRef = useRef<ISortableSectionListRef<any>>(null);
   const previousTabsLength = usePrevious(tabs?.length);
   useEffect(() => {
     if (previousTabsLength && tabs?.length > previousTabsLength) {
-      scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+      scrollViewRef.current?.scrollToLocation({
+        sectionIndex: 0,
+        itemIndex: result?.pinnedTabs?.length ?? 0,
+        animated: true,
+      });
     }
-  }, [previousTabsLength, tabs?.length]);
+  }, [previousTabsLength, tabs?.length, result?.pinnedTabs]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -203,26 +189,126 @@ function DesktopCustomTabBar() {
     [setCurrentWebTab, navigation],
   );
 
-  const [pinContainerHeight, setPinContainerHeight] = useState<number>(0);
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    const { height } = e.nativeEvent.layout;
-    setPinContainerHeight(height / 2);
-  }, []);
+  const sections = useMemo(
+    () => [{ data: result?.pinnedTabs }, { data: result?.unpinnedTabs }],
+    [result?.pinnedTabs, result?.unpinnedTabs],
+  );
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    layouts.push({ offset, length: 0, index: layouts.length });
+    sections?.[0]?.data?.forEach(() => {
+      layouts.push({ offset, length: ITEM_HEIGHT, index: layouts.length });
+      offset += ITEM_HEIGHT;
+    });
+    layouts.push({ offset, length: 0, index: layouts.length });
+    layouts.push({ offset, length: 0, index: layouts.length });
+    layouts.push({ offset, length: 17 + ITEM_HEIGHT, index: layouts.length });
+    offset += 17 + ITEM_HEIGHT;
+    sections?.[1]?.data?.forEach(() => {
+      layouts.push({ offset, length: ITEM_HEIGHT, index: layouts.length });
+      offset += ITEM_HEIGHT;
+    });
+    layouts.push({ offset, length: 0, index: layouts.length });
+    offset += 0;
+    return layouts;
+  }, [sections]);
+  const onDragEnd = useCallback(
+    (dragResult: {
+      sections: {
+        data?: any[];
+      }[];
+      from?: {
+        sectionIndex: number;
+        itemIndex: number;
+      };
+      to?: {
+        sectionIndex: number;
+        itemIndex: number;
+      };
+    }) => {
+      const reloadTimeStamp = () => {
+        if (!dragResult?.from || !dragResult?.to || !result) {
+          return;
+        }
+        const fromItem =
+          sections?.[dragResult?.from?.sectionIndex]?.data?.[
+            dragResult?.from?.itemIndex
+          ];
+        const toItemId =
+          sections?.[dragResult?.to?.sectionIndex]?.data?.[
+            dragResult?.to?.itemIndex
+          ]?.id;
+        if (!fromItem || !toItemId) {
+          return;
+        }
+        const reloadTabs = [...result.pinnedTabs, ...result.unpinnedTabs];
+        const toItemIndex = reloadTabs.findIndex(
+          (item) => item.id === toItemId,
+        );
+        if (toItemIndex === -1) {
+          return;
+        }
+        const isDown =
+          dragResult.to.sectionIndex > dragResult.from.sectionIndex ||
+          (dragResult.to.sectionIndex === dragResult.from.sectionIndex &&
+            dragResult.to.itemIndex > dragResult.from.itemIndex);
+        const toItem = reloadTabs?.[toItemIndex];
+        if (!toItem) {
+          return;
+        }
+        const toItemTimestamp = toItem?.timestamp;
+        if (!toItemTimestamp) {
+          return;
+        }
+        const toItemBeforeIndex = isDown
+          ? reloadTabs.findIndex(
+              (item, index) =>
+                item.isPinned === toItem.isPinned && index > toItemIndex,
+            )
+          : _.findLastIndex(
+              reloadTabs,
+              (item, index) =>
+                item.isPinned === toItem.isPinned && index < toItemIndex,
+            );
+        const toItemBeforeTimestamp =
+          reloadTabs?.[toItemBeforeIndex]?.timestamp ??
+          toItemTimestamp + (isDown ? 2 : -2) * (toItem.isPinned ? 1 : -1);
+        fromItem.timestamp = Math.round(
+          (toItemBeforeTimestamp + toItemTimestamp) / 2,
+        );
+      };
+      reloadTimeStamp();
 
-  const pinnedBarHeight = useMemo(() => {
-    const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
-    return pinContainerHeight < pinDataTabsHeight
-      ? pinContainerHeight - (pinContainerHeight % ITEM_HEIGHT)
-      : pinDataTabsHeight;
-  }, [pinContainerHeight, pinnedData.length]);
+      const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as (IWebTab & {
+        hasConnectedAccount: boolean;
+      })[];
+      const unpinnedTabs = (dragResult?.sections?.[1]?.data ??
+        []) as (IWebTab & {
+        hasConnectedAccount: boolean;
+      })[];
+      pinnedTabs?.forEach?.((item) => (item.isPinned = true));
+      unpinnedTabs?.forEach?.((item) => (item.isPinned = false));
+      setResult({ pinnedTabs, unpinnedTabs });
+      setTabs([...pinnedTabs, ...unpinnedTabs]);
+    },
+    [setTabs, setResult, sections, result],
+  );
 
   return (
-    <Stack testID="sideabr-browser-section" flex={1} onLayout={handleLayout}>
+    <Stack testID="sideabr-browser-section" flex={1}>
       <HandleRebuildBrowserData />
-      {/* Pin Tabs */}
-      <Stack height={pinnedBarHeight}>
-        <ScrollView flex={1} ref={pinnedTabsScrollViewRef}>
-          {pinnedData.map((t) => (
+      <SortableSectionList
+        ref={scrollViewRef}
+        sections={sections}
+        renderItem={({
+          item: t,
+          dragProps,
+        }: {
+          item: IWebTab & { hasConnectedAccount: boolean };
+          dragProps?: Record<string, any>;
+        }) => (
+          <Stack dataSet={dragProps}>
             <DesktopCustomTabBarItem
               id={t.id}
               key={t.id}
@@ -235,80 +321,76 @@ function DesktopCustomTabBar() {
               onDisconnect={handleDisconnect}
               testID={`tab-list-stack-pinned-${t.id}`}
             />
-          ))}
-        </ScrollView>
-      </Stack>
-      <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
-        <Divider testID="pin-tab-divider" />
-        {tabs.filter((x) => !x.isPinned).length > 0 ? (
-          <XStack
-            position="absolute"
-            px="1"
-            group="sidebarClearButton"
-            alignItems="center"
-            userSelect="none"
-            right="$0"
-            top="50%"
-            bg="$bgSidebar"
-            opacity={0}
-            $group-sidebarBrowserDivider-hover={{
-              opacity: 1,
-            }}
-            style={{
-              containerType: 'normal',
-              transform: 'translateY(-50%)',
-            }}
-            onPress={closeAllWebTabs}
-          >
-            <Icon
-              flexShrink={0}
-              color="$iconSubdued"
-              name="ArrowBottomOutline"
-              size="$3"
-            />
-            <SizableText
-              pl="$1"
-              color="$textSubdued"
-              size="$bodySmMedium"
-              $group-sidebarClearButton-hover={{
-                color: '$text',
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_clear })}
-            </SizableText>
-          </XStack>
-        ) : null}
-      </XStack>
-      {/* New Tab */}
-      <DesktopTabItem
-        key="AddTabButton"
-        label={intl.formatMessage({ id: ETranslations.explore_new_tab })}
-        icon="PlusSmallOutline"
-        testID="browser-bar-add"
-        onPress={(e) => {
-          e.stopPropagation();
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.SearchModal,
-          });
-        }}
+          </Stack>
+        )}
+        keyExtractor={(item) => `${(item as { id: number }).id}`}
+        getItemLayout={(__, index) => layoutList[index]}
+        stickySectionHeadersEnabled={false}
+        SectionSeparatorComponent={null}
+        onDragEnd={onDragEnd}
+        allowCrossSection
+        renderSectionHeader={({ index }) =>
+          index === 1 ? (
+            <>
+              <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
+                <Divider testID="pin-tab-divider" />
+                {tabs.filter((x) => !x.isPinned).length > 0 ? (
+                  <XStack
+                    position="absolute"
+                    px="1"
+                    group="sidebarClearButton"
+                    alignItems="center"
+                    userSelect="none"
+                    right="$0"
+                    top="50%"
+                    bg="$bgSidebar"
+                    opacity={0}
+                    $group-sidebarBrowserDivider-hover={{
+                      opacity: 1,
+                    }}
+                    style={{
+                      containerType: 'normal',
+                      transform: platformEnv.isNative ? '' : 'translateY(-50%)',
+                    }}
+                    onPress={closeAllWebTabs}
+                  >
+                    <Icon
+                      flexShrink={0}
+                      color="$iconSubdued"
+                      name="ArrowBottomOutline"
+                      size="$3"
+                    />
+                    <SizableText
+                      pl="$1"
+                      color="$textSubdued"
+                      size="$bodySmMedium"
+                      $group-sidebarClearButton-hover={{
+                        color: '$text',
+                      }}
+                    >
+                      {intl.formatMessage({ id: ETranslations.global_clear })}
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </XStack>
+              <DesktopTabItem
+                key="AddTabButton"
+                label={intl.formatMessage({
+                  id: ETranslations.explore_new_tab,
+                })}
+                icon="PlusSmallOutline"
+                testID="browser-bar-add"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                    screen: EDiscoveryModalRoutes.SearchModal,
+                  });
+                }}
+              />
+            </>
+          ) : null
+        }
       />
-      <ScrollView mx="$-5" px="$5" ref={scrollViewRef}>
-        {/* Tabs */}
-        {data.map((t) => (
-          <DesktopCustomTabBarItem
-            key={t.id}
-            id={t.id}
-            activeTabId={activeTabId}
-            onPress={onTabPress}
-            onBookmarkPress={handleBookmarkPress}
-            onPinnedPress={handlePinnedPress}
-            onClose={handleCloseTab}
-            displayDisconnectOption={t.hasConnectedAccount}
-            onDisconnect={handleDisconnect}
-            testID={`tab-modal-list-item-${t.id}`}
-          />
-        ))}
-      </ScrollView>
     </Stack>
   );
 }

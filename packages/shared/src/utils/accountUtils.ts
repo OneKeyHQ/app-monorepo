@@ -25,15 +25,12 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
-import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -89,6 +86,10 @@ function isQrWallet({ walletId }: { walletId: string | undefined }) {
 
 function isHwWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
+}
+
+function isHwOrQrWallet({ walletId }: { walletId: string | undefined }) {
+  return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
 function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
@@ -476,7 +477,10 @@ function isOthersWallet({ walletId }: { walletId: string }) {
   );
 }
 
-function isOthersAccount({ accountId }: { accountId: string }) {
+function isOthersAccount({ accountId }: { accountId: string | undefined }) {
+  if (!accountId) {
+    return false;
+  }
   const walletId = getWalletIdFromAccountId({ accountId });
   return isOthersWallet({ walletId });
 }
@@ -654,25 +658,9 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+// buildDeviceName() move to deviceUtils.buildDeviceName()
 function buildDeviceDbId() {
   return generateUUID();
-}
-
-async function buildDeviceName({
-  device,
-  features,
-}: {
-  device?: SearchDevice;
-  features: IOneKeyDeviceFeatures;
-}) {
-  const { getDeviceUUID } = await CoreSDKLoader();
-  // const deviceType =
-  //   device?.deviceType ||
-  //   (await deviceUtils.getDeviceTypeFromFeatures({ features }));
-  const deviceUUID = device?.uuid || getDeviceUUID(features);
-  return (
-    features.label ?? features.ble_name ?? `OneKey ${deviceUUID.slice(-4)}`
-  );
 }
 
 function buildUtxoAddressRelPath({
@@ -721,6 +709,7 @@ export default {
   isHdWallet,
   isQrWallet,
   isHwWallet,
+  isHwOrQrWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,
@@ -745,7 +734,6 @@ export default {
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildDeviceName,
   buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,

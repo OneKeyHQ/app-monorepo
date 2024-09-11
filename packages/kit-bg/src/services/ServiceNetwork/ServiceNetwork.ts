@@ -32,11 +32,13 @@ import type {
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
-  getNetworkIdsMap().eth,
   getNetworkIdsMap().lightning,
-  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().trx,
+  getNetworkIdsMap().sol,
+  getNetworkIdsMap().bsc,
   getNetworkIdsMap().polygon,
-  getNetworkIdsMap().cosmoshub,
+  getNetworkIdsMap().ton,
 ];
 
 @backgroundClass()
@@ -234,6 +236,7 @@ class ServiceNetwork extends ServiceBase {
     return settings.accountDeriveInfo;
   }
 
+  @backgroundMethod()
   async getDeriveTypeByTemplate({
     networkId,
     template,
@@ -370,24 +373,30 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setNetworkSelectorPinnedNetworks({
-    networks,
+  async setNetworkSelectorPinnedNetworkIds({
+    networkIds,
   }: {
-    networks: IServerNetwork[];
+    networkIds: string[];
   }) {
-    const networkIds = networks
-      .map((o) => o.id)
-      .filter((id) => id !== getNetworkIdsMap().onekeyall);
+    const inputs = networkIds.filter(
+      (networkId) => !networkUtils.isAllNetwork({ networkId }),
+    );
     return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
-      networkIds,
+      networkIds: inputs,
     });
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
+  async getNetworkSelectorPinnedNetworkIds() {
     const pinnedNetworkIds =
       await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    let networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    return networkIds;
+  }
+
+  @backgroundMethod()
+  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
+    let networkIds = await this.getNetworkSelectorPinnedNetworkIds();
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
@@ -435,6 +444,7 @@ class ServiceNetwork extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getDeriveTypeByAddressEncoding({
     networkId,
     encoding,
@@ -447,6 +457,21 @@ class ServiceNetwork extends ServiceBase {
       (item) => item.item.addressEncoding === encoding,
     );
     return deriveInfo?.value as IAccountDeriveTypes | undefined;
+  }
+
+  async getDeriveInfoByAddressEncoding({
+    networkId,
+    encoding,
+  }: {
+    networkId: string;
+    encoding: EAddressEncodings;
+  }) {
+    const items = await this.getDeriveInfoItemsOfNetwork({ networkId });
+    const deriveInfo = items.find(
+      (item) => item.item.addressEncoding === encoding,
+    );
+
+    return deriveInfo;
   }
 
   async getAccountImportingDeriveTypes({
@@ -665,14 +690,119 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNetworkIdsCompatibleWithWalletId({
+    walletId,
+    networkIds,
+  }: {
+    walletId?: string;
+    networkIds?: string[];
+  }) {
+    let networkVaultSettings = await this._getNetworkVaultSettings();
+    if (networkIds) {
+      const networkIdsSet = new Set<string>(networkIds);
+      networkVaultSettings = networkVaultSettings.filter((o) =>
+        networkIdsSet.has(o.network.id),
+      );
+    }
+
+    networkVaultSettings = networkVaultSettings.filter(
+      (o) => !networkUtils.isAllNetwork({ networkId: o.network.id }),
+    );
+
+    let networkIdsIncompatible: string[] = [];
+    if (walletId) {
+      const isHwWallet = accountUtils.isHwWallet({ walletId });
+      const isHdWallet = accountUtils.isHdWallet({ walletId });
+      const isWatchingWallet = accountUtils.isWatchingWallet({ walletId });
+      const isExternalWallet = accountUtils.isExternalWallet({
+        walletId,
+      });
+      const isImportedWallet = accountUtils.isImportedWallet({
+        walletId,
+      });
+
+      if (isHwWallet) {
+        const walletDevice =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        if (walletDevice) {
+          const networksDeviceTypeDisabled = networkVaultSettings
+            .filter((o) => {
+              const deviceTypes = o.vaultSetting.supportedDeviceTypes;
+              if (deviceTypes && deviceTypes.length > 0) {
+                return !deviceTypes.includes(walletDevice.deviceType);
+              }
+              return false;
+            })
+            .map((o) => o.network.id);
+          networkIdsIncompatible = networkIdsIncompatible.concat(
+            networksDeviceTypeDisabled,
+          );
+        }
+      } else if (isHdWallet) {
+        // is software wallet
+        const networksSoftwareAccountDisabled = networkVaultSettings
+          .filter((o) => o.vaultSetting.softwareAccountDisabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksSoftwareAccountDisabled,
+        );
+      } else if (isWatchingWallet) {
+        const networksWatchingWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.watchingAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksWatchingWalletDisabled,
+        );
+      } else if (isExternalWallet) {
+        const networksExternalWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.externalAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksExternalWalletDisabled,
+        );
+      } else if (isImportedWallet) {
+        const networksImportedWalletDisabled = networkVaultSettings
+          .filter((o) => !o.vaultSetting.importedAccountEnabled)
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksImportedWalletDisabled,
+        );
+      }
+
+      const isQrWallet = accountUtils.isQrWallet({ walletId });
+      if (isQrWallet) {
+        const networksQrAccountDisabled = networkVaultSettings
+          .filter((o) => {
+            const isQrAccountSupported = o.vaultSetting.qrAccountEnabled;
+            return !isQrAccountSupported;
+          })
+          .map((o) => o.network.id);
+        networkIdsIncompatible = networkIdsIncompatible.concat(
+          networksQrAccountDisabled,
+        );
+        // Qr account only support btc/evm network
+      }
+    }
+
+    return {
+      networkIdsIncompatible,
+      networkIdsCompatible: networkVaultSettings
+        .map((o) => o.network.id)
+        .filter((networkId) => !networkIdsIncompatible.includes(networkId)),
+    };
+  }
+
+  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
-    compatibleWithDeviceType,
+    walletId: _walletId,
   }: {
     accountId?: string;
+    walletId?: string;
     networkIds?: string[];
-    compatibleWithDeviceType?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -694,58 +824,24 @@ class ServiceNetwork extends ServiceBase {
 
     let dbAccount: IDBAccount | undefined;
     let networkIdsDisabled: string[] = [];
+    let walletId: string | undefined = _walletId;
 
     if (accountId) {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
         accountId,
       });
-      if (compatibleWithDeviceType) {
-        const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-        const isHwWallet = accountUtils.isHwAccount({ accountId });
-
-        if (!isHwWallet) {
-          // is software wallet
-          const networksSoftwareAccountDisabled = networkVaultSettings
-            .filter((o) => o.vaultSetting.softwareAccountDisabled)
-            .map((o) => o.network.id);
-          networkIdsDisabled = networkIdsDisabled.concat(
-            networksSoftwareAccountDisabled,
-          );
-        } else {
-          const walletDevice =
-            await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
-              walletId,
-            });
-          if (walletDevice) {
-            const networksDeviceTypeDisabled = networkVaultSettings
-              .filter((o) => {
-                const deviceTypes = o.vaultSetting.supportedDeviceTypes;
-                if (deviceTypes && deviceTypes.length > 0) {
-                  return !deviceTypes.includes(walletDevice.deviceType);
-                }
-                return false;
-              })
-              .map((o) => o.network.id);
-            networkIdsDisabled = networkIdsDisabled.concat(
-              networksDeviceTypeDisabled,
-            );
-          }
-        }
-      }
-      const isQrAccount = accountUtils.isQrAccount({ accountId });
-      if (isQrAccount) {
-        const networksQrAccountDisabled = networkVaultSettings
-          .filter((o) => {
-            const isQrAccountSupported = o.vaultSetting.qrAccountEnabled;
-            return !isQrAccountSupported;
-          })
-          .map((o) => o.network.id);
-        networkIdsDisabled = networkIdsDisabled.concat(
-          networksQrAccountDisabled,
-        );
-        // Qr account only support btc/evm network
+      if (!walletId) {
+        walletId = accountUtils.getWalletIdFromAccountId({ accountId });
       }
     }
+    if (walletId) {
+      const compatibleResp = await this.getNetworkIdsCompatibleWithWalletId({
+        networkIds,
+        walletId,
+      });
+      networkIdsDisabled = compatibleResp.networkIdsIncompatible;
+    }
+
     const networkIdsDisabledSet = new Set(networkIdsDisabled);
 
     const isAccountCompatibleWithNetwork = (params: {

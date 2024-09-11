@@ -1,13 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
-import { verify } from 'openpgp';
 
 import type {
   IDesktopAppState,
+  IDesktopMainProcessDevOnlyApiParams,
   IMediaType,
   IPrefType,
 } from '@onekeyhq/shared/types/desktop';
+import type {
+  INotificationPermissionDetail,
+  INotificationSetBadgeParams,
+  INotificationShowParams,
+} from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
 
@@ -44,8 +49,9 @@ export type IDesktopAPI = {
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   getEnvPath: () => { [key: string]: string };
-  openDevTools: () => void;
+  changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
+  changeLanguage: (theme: string) => void;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
@@ -65,6 +71,7 @@ export type IDesktopAPI = {
   downloadUpdate: () => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
+  clearUpdate: () => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
@@ -98,6 +105,10 @@ export type IDesktopAPI = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   setAllowedPhishingUrls: (urls: string[]) => void;
   clearWebViewCache: () => void;
+  showNotification: (params: INotificationShowParams) => void;
+  setBadge: (params: INotificationSetBadgeParams) => void;
+  getNotificationPermission: () => INotificationPermissionDetail;
+  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -139,6 +150,9 @@ const validChannels = [
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
+  ipcMessageKeys.CHECK_FOR_UPDATES,
+  ipcMessageKeys.APP_OPEN_SETTINGS,
+  ipcMessageKeys.APP_LOCK_NOW,
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
 ];
@@ -191,12 +205,17 @@ const desktopApi = {
   },
   getMediaAccessStatus: (prefType: IMediaType) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS, prefType),
-  openPreferences: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES),
+  openPreferences: (prefType: IPrefType) =>
+    ipcRenderer.send(ipcMessageKeys.APP_OPEN_PREFERENCES, prefType),
   toggleMaximizeWindow: () =>
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
-  openDevTools: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_DEV_TOOLS),
+  changeDevTools: (isOpen: boolean) =>
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) =>
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  changeLanguage: (lang: string) => {
+    ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
+  },
   canPromptTouchID: () =>
     ipcRenderer.sendSync(ipcMessageKeys.TOUCH_ID_CAN_PROMPT) as boolean,
   getEnvPath: () =>
@@ -236,6 +255,7 @@ const desktopApi = {
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
   installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
+  clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>
@@ -252,7 +272,6 @@ const desktopApi = {
   restore: () => {
     ipcRenderer.send(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW);
   },
-
   startServer: (port: number, cb: (data: string, success: boolean) => void) => {
     ipcRenderer.on(ipcMessageKeys.SERVER_START_RES, (_, arg) => {
       const { data, success } = arg;
@@ -307,6 +326,16 @@ const desktopApi = {
   clearWebViewCache: () => {
     ipcRenderer.send(ipcMessageKeys.CLEAR_WEBVIEW_CACHE);
   },
+  showNotification: (params: INotificationShowParams) => {
+    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SHOW, params);
+  },
+  setBadge: (params: INotificationSetBadgeParams) => {
+    ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
+  },
+  getNotificationPermission: () =>
+    ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
+  callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
 };
 
 window.desktopApi = desktopApi;

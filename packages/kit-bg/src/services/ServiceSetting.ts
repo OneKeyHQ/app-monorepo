@@ -24,6 +24,7 @@ import {
   getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
+import { clearPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -216,6 +217,9 @@ class ServiceSetting extends ServiceBase {
     if (values.browserCache) {
       await this.backgroundApi.serviceDiscovery.clearCache();
     }
+    if (values.appUpdateCache) {
+      await this.backgroundApi.serviceAppUpdate.clearCache();
+    }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
@@ -231,6 +235,12 @@ class ServiceSetting extends ServiceBase {
     if (values.signatureRecord) {
       // clear signature record
       await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
+    if (values.customToken) {
+      await this.backgroundApi.simpleDb.customTokens.clearRawData();
+    }
+    if (values.customRpc) {
+      await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
   }
 
@@ -309,7 +319,7 @@ class ServiceSetting extends ServiceBase {
 
     if (platformEnv.isDev && tbtc) {
       config.push({
-        num: 10000,
+        num: 10_000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
         defaultNetworkId: getNetworkIdsMap().tbtc,

@@ -150,14 +150,15 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
 }) {
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
   return (
     <SectionList
       sections={dataSource}
+      estimatedItemSize={60}
       renderSectionHeader={({ section: { title, data } }) => (
         <>
           <SizableText mt={10} px="$5" size="$bodyMd" color="$textSubdued">
@@ -194,6 +195,13 @@ function TokenManagerList({
           </YStack>
           <ListItem.IconButton
             disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
+            title={
+              checkTokenExistInTokenList(item) && item.isNative
+                ? intl.formatMessage({
+                    id: ETranslations.manage_token_native_token_cannot_removed,
+                  })
+                : undefined
+            }
             icon={
               checkTokenExistInTokenList(item)
                 ? 'MinusCircleOutline'

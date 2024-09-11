@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 
-import { getFontSize } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives';
+import { getFontSize } from '../../utils';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { FontSizeTokens } from 'tamagui';
@@ -20,6 +20,7 @@ export function NumberSizeableText({
   formatter,
   formatterOptions,
   subTextStyle,
+  hideValue,
   ...props
 }: INumberSizeableTextProps) {
   const result = useMemo(
@@ -41,6 +42,18 @@ export function NumberSizeableText({
         : props.fontSize,
     [props.fontSize, props.size],
   );
+
+  if (hideValue) {
+    if (formatter === 'balance') {
+      return (
+        <SizableText {...props}>
+          **** {formatterOptions?.tokenSymbol}
+        </SizableText>
+      );
+    }
+    return <SizableText {...props}>****</SizableText>;
+  }
+
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (

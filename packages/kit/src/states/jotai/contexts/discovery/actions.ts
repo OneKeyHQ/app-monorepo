@@ -134,12 +134,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  refreshTabs = contextAtomMethod((get, set) => {
-    const { tabs } = get(webTabsAtom());
-    const newTabs = [...tabs];
-    loggerForEmptyData(newTabs, 'refreshTabs');
+  setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
+    const newTabs = tabs ?? get(webTabsAtom())?.tabs;
+    loggerForEmptyData(newTabs, 'setTabs');
     this.buildWebTabs.call(set, {
-      data: newTabs,
+      data: [...newTabs],
       options: { forceUpdate: true },
     });
   });
@@ -273,7 +272,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isPinned: payload.pinned,
         timestamp: Date.now(),
       });
-      this.refreshTabs.call(set);
+      this.setTabs.call(set);
     },
   );
 
@@ -568,10 +567,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
+        switchToMultiTabBrowser = false,
         shouldPopNavigation = true,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
+        switchToMultiTabBrowser?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
@@ -599,7 +600,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isNewWindow,
         tabId,
       });
-      if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktop || switchToMultiTabBrowser) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);
@@ -788,7 +789,7 @@ export function useBrowserTabActions() {
   const addWebTab = actions.addWebTab.use();
   const addBlankWebTab = actions.addBlankWebTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
-  const refreshTabs = actions.refreshTabs.use();
+  const setTabs = actions.setTabs.use();
   const setWebTabData = actions.setWebTabData.use();
   const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
@@ -802,7 +803,7 @@ export function useBrowserTabActions() {
     addWebTab,
     addBlankWebTab,
     buildWebTabs,
-    refreshTabs,
+    setTabs,
     setWebTabData,
     getWebTabById,
     closeWebTab,

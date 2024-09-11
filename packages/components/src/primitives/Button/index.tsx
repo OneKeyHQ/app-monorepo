@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   ThemeableStack,
   getTokenValue,
@@ -114,30 +116,30 @@ export const getSharedButtonStyles = ({
   };
 };
 
-const getSizeStyles = (size: IButtonProps['size']) => {
-  const sizes = {
-    small: {
-      py: '$1',
-      px: '$2.5',
-      borderRadius: getTokenValue('$size.2'),
-      textVariant: '$bodyMdMedium',
-    },
-    medium: {
-      py: '$1.5',
-      px: '$3.5',
-      borderRadius: getTokenValue('$size.2'),
-      textVariant: '$bodyLgMedium',
-    },
-    large: {
-      py: '$3',
-      px: '$5',
-      borderRadius: getTokenValue('$size.3'),
-      textVariant: '$bodyLgMedium',
-    },
-  };
-
-  return sizes[size || 'medium'];
-};
+const useSizeStyles = (size: IButtonProps['size']) =>
+  useMemo(() => {
+    const sizes = {
+      small: {
+        py: '$1',
+        px: '$2.5',
+        borderRadius: getTokenValue('$size.2'),
+        textVariant: '$bodyMdMedium',
+      },
+      medium: {
+        py: '$1.5',
+        px: '$3.5',
+        borderRadius: getTokenValue('$size.2'),
+        textVariant: '$bodyLgMedium',
+      },
+      large: {
+        py: '$3',
+        px: '$5',
+        borderRadius: getTokenValue('$size.3'),
+        textVariant: '$bodyLgMedium',
+      },
+    };
+    return sizes[size || 'medium'] || sizes.medium;
+  }, [size]);
 
 export const ButtonFrame = styled(ThemeableStack, {
   tag: 'button',
@@ -187,7 +189,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     ...rest
   } = useProps(props, {});
 
-  const { py, px, borderRadius, textVariant } = getSizeStyles(size);
+  const { py, px, borderRadius, textVariant } = useSizeStyles(size);
 
   const { sharedFrameStyles, iconColor, color } = getSharedButtonStyles({
     variant,
@@ -210,8 +212,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       px={variant === 'tertiary' ? '$2' : px}
       borderRadius={borderRadius}
       borderCurve="continuous"
-      disabled={disabled || loading}
-      aria-disabled={disabled || loading}
+      disabled={!!disabled || !!loading}
+      aria-disabled={!!disabled || !!loading}
       {...sharedFrameStyles}
       hoverStyle={{
         ...sharedFrameStyles.hoverStyle,

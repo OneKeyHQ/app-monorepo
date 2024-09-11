@@ -3,7 +3,10 @@ import { Appearance } from 'react-native';
 
 import { defaultColorScheme } from '@onekeyhq/kit/src/hooks/useSystemColorScheme';
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsPersistAtom,
+  settingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -50,8 +53,15 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
+// Be consistent with backend platform definition
+// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
+export const headerPlatform = [platformEnv.appPlatform, platformEnv.appChannel]
+  .filter(Boolean)
+  .join('-');
+
 export async function getRequestHeaders() {
   const settings = await settingsPersistAtom.get();
+  const valueSettings = await settingsValuePersistAtom.get();
 
   let { locale, theme } = settings;
 
@@ -63,12 +73,6 @@ export async function getRequestHeaders() {
     theme = Appearance.getColorScheme() ?? defaultColorScheme;
   }
 
-  // Be consistent with backend platform definition
-  // https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
-  const platform = platformEnv.appPlatform;
-  const channel = platformEnv.appChannel;
-  const headerPlatform = [platform, channel].filter(Boolean).join('-');
-
   const requestId = generateUUID();
   return {
     [HEADER_REQUEST_ID_KEY]: requestId,
@@ -79,6 +83,9 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Version')]: platformEnv.version,
+    [normalizeHeaderKey('X-Onekey-Hide-Asset-Details')]: (
+      valueSettings?.hideValue ?? false
+    )?.toString(),
     [normalizeHeaderKey('X-Onekey-Request-Build-Number')]:
       platformEnv.buildNumber,
   };

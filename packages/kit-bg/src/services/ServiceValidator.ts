@@ -130,12 +130,14 @@ class ServiceValidator extends ServiceBase {
     amount,
     tokenBalance,
     to,
+    isNative,
   }: {
     accountId: string;
     networkId: string;
     amount: string;
     tokenBalance: string;
     to: string;
+    isNative?: boolean;
   }): Promise<boolean> {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -145,6 +147,7 @@ class ServiceValidator extends ServiceBase {
       amount,
       tokenBalance,
       to,
+      isNative,
     });
     return validation;
   }

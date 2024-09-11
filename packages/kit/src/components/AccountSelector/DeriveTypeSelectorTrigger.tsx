@@ -4,13 +4,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
-import { Form, Select, Stack, useMedia } from '@onekeyhq/components';
+import {
+  Form,
+  Icon,
+  IconButton,
+  Select,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -23,6 +33,8 @@ import {
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
+
+import type { GestureResponderEvent } from 'react-native';
 
 type IDeriveTypeSelectorTriggerPropsBase = {
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
@@ -64,6 +76,7 @@ function DeriveTypeVisibleController({
 
   return (
     <Stack
+      position={!usedVisible ? 'absolute' : 'relative'}
       height={!usedVisible ? 0 : undefined}
       width={!usedVisible ? 0 : undefined}
       opacity={!usedVisible ? 0 : undefined}
@@ -183,6 +196,89 @@ export function DeriveTypeSelectorTrigger({
       }}
       renderTrigger={renderTrigger}
       placement={placement}
+    />
+  );
+}
+
+function DeriveTypeSelectorTriggerIconRenderer({
+  label,
+  autoShowLabel,
+  onPress,
+}: {
+  label?: string | undefined;
+  autoShowLabel?: boolean;
+  onPress?: (event: GestureResponderEvent) => void;
+}) {
+  const media = useMedia();
+  const hitSlop = platformEnv.isNative
+    ? {
+        right: 16,
+        top: 16,
+        bottom: 16,
+      }
+    : undefined;
+  return (
+    <XStack
+      testID="wallet-derivation-path-selector-trigger"
+      role="button"
+      borderRadius="$2"
+      userSelect="none"
+      alignItems="center"
+      p="$1"
+      my="$-1"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineOffset: 0,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      hitSlop={hitSlop}
+      onPress={onPress}
+      focusable
+    >
+      <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />
+      {media.gtSm && autoShowLabel ? (
+        <SizableText pl="$2" pr="$1" size="$bodyMd" color="$textSubdued">
+          {label}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
+
+export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
+  return (
+    <DeriveTypeSelectorTrigger
+      renderTrigger={({ label, onPress }) => (
+        <DeriveTypeSelectorTriggerIconRenderer
+          label={label}
+          autoShowLabel
+          onPress={onPress}
+        />
+      )}
+      num={num}
+    />
+  );
+}
+
+export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
+  return (
+    <DeriveTypeSelectorTrigger
+      placement="bottom-end"
+      renderTrigger={({ label, onPress }) => (
+        <IconButton
+          onPress={onPress}
+          icon="BranchesOutline"
+          variant="tertiary"
+        />
+      )}
+      num={num}
     />
   );
 }

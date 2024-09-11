@@ -1,4 +1,5 @@
 import type {
+  IClearPackage,
   IDownloadPackage,
   IInstallPackage,
   IUpdateDownloadedEvent,
@@ -16,3 +17,5 @@ export const installPackage: IInstallPackage = async () => {};
 export type * from './type';
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;
+
+export const clearPackage: IClearPackage = () => Promise.resolve();

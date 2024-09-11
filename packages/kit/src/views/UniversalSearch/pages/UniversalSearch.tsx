@@ -6,7 +6,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
-  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -18,10 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import {
-  EJotaiContextStoreNames,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -42,6 +38,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../Market/components/MarketTokenIcon';
+import { MarketTokenPrice } from '../../Market/components/MarketTokenPrice';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 
 import { RecentSearched } from './components/RecentSearched';
@@ -104,8 +101,6 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   const universalSearchActions = useUniversalSearchActions();
@@ -240,7 +235,8 @@ export function UniversalSearch({
           );
         }
         case EUniversalSearchType.MarketToken: {
-          const { image, coingeckoId, price, symbol, name } = item.payload;
+          const { image, coingeckoId, price, symbol, name, lastUpdated } =
+            item.payload;
           return (
             <ListItem
               jc="space-between"
@@ -268,13 +264,13 @@ export function UniversalSearch({
               }}
             >
               <XStack>
-                <NumberSizeableText
+                <MarketTokenPrice
+                  price={String(price)}
                   size="$bodyLgMedium"
-                  formatter="price"
-                  formatterOptions={{ currency }}
-                >
-                  {price}
-                </NumberSizeableText>
+                  lastUpdated={lastUpdated}
+                  tokenName={name}
+                  tokenSymbol={symbol}
+                />
                 <MarketStar coingeckoId={coingeckoId} ml="$3" />
               </XStack>
             </ListItem>
@@ -285,7 +281,7 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, activeAccount?.network?.id, currency, universalSearchActions],
+    [navigation, activeAccount?.network?.id, universalSearchActions],
   );
 
   const renderResult = useCallback(() => {
@@ -304,7 +300,7 @@ export function UniversalSearch({
 
       case ESearchStatus.loading:
         return (
-          <YStack px="$5">
+          <YStack px="$5" pt="$5">
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
@@ -314,6 +310,7 @@ export function UniversalSearch({
       case ESearchStatus.done:
         return (
           <SectionList
+            mt="$5"
             sections={sections}
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
@@ -350,7 +347,7 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View p="$5" pt={0}>
+        <View px="$5">
           <SearchBar
             autoFocus
             placeholder={searchPlaceholderText}

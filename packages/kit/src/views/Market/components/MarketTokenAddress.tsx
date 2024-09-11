@@ -11,13 +11,15 @@ import {
   Stack,
   XStack,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 
 export function MarketTokenAddress({
   tokenName,
@@ -49,13 +51,13 @@ export function MarketTokenAddress({
       overrideIsFocused: () => false,
     },
   );
+  const dialog = useDialogInstance();
   const handleOpenUrl = useCallback(async () => {
-    if (network?.explorers[0].address) {
-      openUrlExternal(
-        network.explorers[0].address.replace('{address}', address),
-      );
+    if (platformEnv.isNative) {
+      await dialog.close();
     }
-  }, [address, network?.explorers]);
+    void openExplorerAddressUrl({ networkId, address });
+  }, [dialog, networkId, address]);
   const renderIcon = useCallback(() => {
     if (uri) {
       return (

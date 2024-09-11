@@ -37,7 +37,6 @@ export function WalletListItem({
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
-  let shouldOnPress = true;
   let onPress = () => wallet?.id && onWalletPress(wallet?.id);
   let onLongPress = () => wallet?.id && onWalletLongPress?.(wallet?.id);
   if (isOthers) {
@@ -97,38 +96,23 @@ export function WalletListItem({
         }}
         {...(!platformEnv.isNative
           ? {
-              onPress: () => {
-                if (shouldOnPress) {
-                  onPress();
-                }
-              },
-              // @ts-ignore
-              onMouseMove: (e: { nativeEvent: { which: number } }) => {
-                if (e?.nativeEvent?.which !== 1) {
-                  return;
-                }
-                shouldOnPress = false;
-              },
-              onPressIn: () => {
-                shouldOnPress = true;
-                onLongPress();
-              },
+              onPress,
             }
           : undefined)}
         {...rest}
       >
         {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-        {media.gtMd ? (
-          <SizableText
-            flex={1}
-            numberOfLines={1}
-            mt="$1"
-            size="$bodySm"
-            color={selected ? '$text' : '$textSubdued'}
-          >
-            {i18nWalletName}
-          </SizableText>
-        ) : null}
+        <SizableText
+          flex={1}
+          width="100%"
+          numberOfLines={1}
+          mt="$1"
+          size="$bodySm"
+          color={selected ? '$text' : '$textSubdued'}
+          textAlign="center"
+        >
+          {i18nWalletName}
+        </SizableText>
       </Stack>
     </Pressable>
   );

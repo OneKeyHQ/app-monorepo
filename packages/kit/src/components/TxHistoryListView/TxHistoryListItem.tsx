@@ -19,10 +19,11 @@ type IProps = {
   onPress?: (historyTx: IAccountHistoryTx) => void;
   showIcon?: boolean;
   tableLayout?: boolean;
+  hideValue?: boolean;
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout, onPress, showIcon } = props;
+  const { historyTx, tableLayout, onPress, showIcon, hideValue } = props;
   const intl = useIntl();
 
   const { canReplaceTx, canCancelTx, handleReplaceTx } = useReplaceTx({
@@ -87,6 +88,8 @@ function TxHistoryListItem(props: IProps) {
   return (
     <TxHistoryListItemErrorBoundary>
       <TxActionsListView
+        hideValue={hideValue}
+        key={historyTx.id}
         replaceType={historyTx.replacedType}
         decodedTx={historyTx.decodedTx}
         tableLayout={tableLayout}

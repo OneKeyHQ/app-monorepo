@@ -1,16 +1,19 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Accordion,
   Anchor,
   Button,
   Dialog,
   Divider,
+  Empty,
   Heading,
   Icon,
   LottieView,
@@ -18,6 +21,7 @@ import {
   ScrollView,
   SegmentControl,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
@@ -29,17 +33,21 @@ import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.jso
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
+import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_BRIDGE_DOWNLOAD_URL,
+  HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -54,7 +62,7 @@ import {
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -64,11 +72,13 @@ import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermission
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
   type IOneKeyDeviceFeatures,
@@ -79,6 +89,7 @@ import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmw
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { RouteProp } from '@react-navigation/core';
 import type { ImageSourcePropType } from 'react-native';
 
 type IConnectYourDeviceItem = {
@@ -126,25 +137,33 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
 function ConnectByQrCode() {
   const { createQrWallet } = useCreateQrWallet();
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const tutorials: ITutorialsListItem[] = [
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_unlock_device_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_show_qr_code_desc,
+      }),
+    },
+    {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
+      }),
+    },
+  ];
 
   return (
-    <Stack flex={1} alignItems="center" justifyContent="center">
-      <DeviceAvatar deviceType="pro" size={40} />
-      <SizableText textAlign="center" size="$bodyLgMedium" pt="$5" pb="$2">
+    <Stack flex={1} px="$5" alignItems="center" justifyContent="center">
+      <SizableText textAlign="center" size="$headingMd" pb="$5">
         {intl.formatMessage({
           id: ETranslations.onboarding_create_qr_wallet_title,
         })}
       </SizableText>
-      <SizableText
-        textAlign="center"
-        color="$textSubdued"
-        maxWidth="$80"
-        pb="$5"
-      >
-        {intl.formatMessage({
-          id: ETranslations.onboarding_create_qr_wallet_desc,
-        })}
-      </SizableText>
+      <TutorialsList tutorials={tutorials} mb="$5" w="100%" maxWidth="$96" />
       <Button
         variant="primary"
         $md={
@@ -154,11 +173,17 @@ function ConnectByQrCode() {
         }
         onPress={async () => {
           try {
-            await createQrWallet({ isOnboarding: true });
+            // qrHiddenCreateGuideDialog.showDialog();
+            // return;
+            await createQrWallet({
+              isOnboarding: true,
+              onFinalizeWalletSetupError: () => {
+                // only pop when finalizeWalletSetup pushed
+                navigation.pop();
+              },
+            });
           } catch (error) {
-            errorUtils.toastIfError(error);
-            // TODO pop only qrcode scan modal but not device connect modal
-            // navigation.pop();
+            errorToastUtils.toastIfError(error);
             throw error;
           }
         }}
@@ -171,7 +196,7 @@ function ConnectByQrCode() {
 
 function ConnectByQrCodeComingSoon() {
   const intl = useIntl();
-  const [showConnectQr, setShowConnectQr] = useState(false);
+  const [showConnectQr, setShowConnectQr] = useState(true);
   if (showConnectQr) {
     return <ConnectByQrCode />;
   }
@@ -183,16 +208,15 @@ function ConnectByQrCodeComingSoon() {
           setShowConnectQr(true);
         }}
       >
-        <SizableText
-          textAlign="center"
-          color="$textSubdued"
-          maxWidth="$80"
-          pb="$5"
-        >
-          {intl.formatMessage({
+        <Empty
+          icon="CalendarOutline"
+          title={intl.formatMessage({
             id: ETranslations.coming_soon,
           })}
-        </SizableText>
+          description={intl.formatMessage({
+            id: ETranslations.coming_soon_desc,
+          })}
+        />
       </MultipleClickStack>
     </Stack>
   );
@@ -207,7 +231,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
       <Dialog.RichDescription
         linkList={{
           url: {
-            url: 'https://help.onekey.so/hc/articles/360004279036',
+            url: HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
           },
         }}
       >
@@ -272,12 +296,14 @@ function ConnectByUSBOrBLE({
           }),
         ]);
       } catch (error) {
-        errorUtils.toastIfError(error);
+        errorToastUtils.toastIfError(error);
         navigation.pop();
         throw error;
       } finally {
+        const connectId = device.connectId || '';
         await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: device.connectId || '',
+          connectId,
+          hardClose: true,
         });
       }
     },
@@ -540,6 +566,8 @@ function ConnectByUSBOrBLE({
   const [isSearching, setIsSearching] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+  const [showHelper, setShowHelper] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
@@ -565,74 +593,68 @@ function ConnectByUSBOrBLE({
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
-      ...(process.env.NODE_ENV !== 'production'
-        ? [
-            {
-              title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
-              src: HwWalletAvatarImages.classic1s,
-              onPress: () =>
-                handleNotActivatedDevicePress({ deviceType: 'classic' }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Classic 1S(Activate Your Device)',
-              src: HwWalletAvatarImages.classic1s,
-              onPress: () =>
-                handleSetupNewWalletPress({ deviceType: 'classic' }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Pro(Activate Your Device -- ActionSheet)',
-              src: HwWalletAvatarImages.pro,
-              onPress: () =>
-                handleNotActivatedDevicePress({ deviceType: 'pro' }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Touch(Activate Your Device -- ActionSheet)',
-              src: HwWalletAvatarImages.touch,
-              onPress: () =>
-                handleNotActivatedDevicePress({ deviceType: 'touch' }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Mini(Activate Your Device -- ActionSheet)',
-              src: HwWalletAvatarImages.mini,
-              onPress: () =>
-                handleNotActivatedDevicePress({ deviceType: 'mini' }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Plus(Test Unknown Device)',
-              src: HwWalletAvatarImages.unknown,
-              onPress: () =>
-                handleHwWalletCreateFlow({
-                  device: {
-                    connectId: '123',
-                    uuid: '123',
-                    deviceId: '123',
-                    deviceType: 'unknown',
-                    name: 'OneKey Plus',
-                  },
-                }),
-              device: undefined,
-            },
-            {
-              title: 'OneKey Touch2(buy)',
-              src: HwWalletAvatarImages.touch,
-              onPress: toOneKeyHardwareWalletPage,
-              device: undefined,
-            },
-          ]
-        : []),
+      // ...(process.env.NODE_ENV !== 'production'
+      //   ? [
+      //       {
+      //         title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
+      //         src: HwWalletAvatarImages.classic1s,
+      //         onPress: () =>
+      //           handleNotActivatedDevicePress({ deviceType: 'classic' }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Classic 1S(Activate Your Device)',
+      //         src: HwWalletAvatarImages.classic1s,
+      //         onPress: () =>
+      //           handleSetupNewWalletPress({ deviceType: 'classic' }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Pro(Activate Your Device -- ActionSheet)',
+      //         src: HwWalletAvatarImages.pro,
+      //         onPress: () =>
+      //           handleNotActivatedDevicePress({ deviceType: 'pro' }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Touch(Activate Your Device -- ActionSheet)',
+      //         src: HwWalletAvatarImages.touch,
+      //         onPress: () =>
+      //           handleNotActivatedDevicePress({ deviceType: 'touch' }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Mini(Activate Your Device -- ActionSheet)',
+      //         src: HwWalletAvatarImages.mini,
+      //         onPress: () =>
+      //           handleNotActivatedDevicePress({ deviceType: 'mini' }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Plus(Test Unknown Device)',
+      //         src: HwWalletAvatarImages.unknown,
+      //         onPress: () =>
+      //           handleHwWalletCreateFlow({
+      //             device: {
+      //               connectId: '123',
+      //               uuid: '123',
+      //               deviceId: '123',
+      //               deviceType: 'unknown',
+      //               name: 'OneKey Plus',
+      //             },
+      //           }),
+      //         device: undefined,
+      //       },
+      //       {
+      //         title: 'OneKey Touch2(buy)',
+      //         src: HwWalletAvatarImages.touch,
+      //         onPress: toOneKeyHardwareWalletPage,
+      //         device: undefined,
+      //       },
+      //     ]
+      //   : []),
     ],
-    [
-      handleHwWalletCreateFlow,
-      handleNotActivatedDevicePress,
-      handleSetupNewWalletPress,
-      searchedDevices,
-      toOneKeyHardwareWalletPage,
-    ],
+    [handleHwWalletCreateFlow, searchedDevices],
   );
 
   const scanDevice = useCallback(() => {
@@ -810,16 +832,250 @@ function ConnectByUSBOrBLE({
     [],
   );
 
+  useEffect(() => {
+    if (connectStatus === EConnectionStatus.listing) {
+      const timer = setTimeout(() => {
+        setShowHelper(true);
+      }, 10_000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [connectStatus]);
+
+  const handleHelperPress = useCallback(() => {
+    setShowTroubleshooting(true);
+    setShowHelper(false);
+  }, []);
+
+  const usbTroubleshootingSolutions = [
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_replug_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage({ id: ETranslations.troubleshooting_change_usb_port }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_remove_usb_dongles,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_use_original_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_try_different_usb_cable,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+    [
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_check_bridge },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href="https://help.onekey.so/hc/articles/360004279036"
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_close_other_onekey_app,
+      }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_connect_and_unlock,
+      }),
+    ],
+  ];
+
+  const bluetoothTroubleshootingSolutions = [
+    [
+      intl.formatMessage({ id: ETranslations.troubleshooting_check_bluetooth }),
+      intl.formatMessage({ id: ETranslations.troubleshooting_unlock_device }),
+    ],
+    [
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_remove_device_from_bluetooth_list,
+      }),
+      intl.formatMessage({ id: ETranslations.troubleshooting_restart_app }),
+      intl.formatMessage({
+        id: ETranslations.troubleshooting_reconnect_and_pair,
+      }),
+    ],
+  ];
+
+  const troubleshootingSolutions = [
+    ...(platformEnv.isNative
+      ? bluetoothTroubleshootingSolutions
+      : usbTroubleshootingSolutions),
+    [
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_help_center },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href="https://help.onekey.so/hc/search?utf8=%E2%9C%93&query=connect"
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+      intl.formatMessage(
+        { id: ETranslations.troubleshooting_request },
+        {
+          tag: (chunks: ReactNode[]) => (
+            <Anchor
+              href="https://help.onekey.so/hc/requests/new"
+              target="_blank"
+              size="$bodyMd"
+              color="$textInfo"
+            >
+              {chunks}
+            </Anchor>
+          ),
+        },
+      ),
+    ],
+  ];
+
   return (
     <>
-      <Stack alignItems="center" bg="$bgSubdued">
-        <LottieView
-          width="100%"
-          height="$56"
-          source={
-            platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-          }
-        />
+      <Stack bg="$bgSubdued">
+        {!showTroubleshooting ? (
+          <LottieView
+            width="100%"
+            height="$56"
+            source={
+              platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+            }
+          />
+        ) : (
+          <Accordion type="single" defaultValue="0" collapsible>
+            {troubleshootingSolutions.map((list, index) => (
+              <Accordion.Item value={index.toString()} key={index.toString()}>
+                <Accordion.Trigger
+                  unstyled
+                  flexDirection="row"
+                  alignItems="center"
+                  borderWidth={0}
+                  px="$5"
+                  py="$2"
+                  bg="$transparent"
+                  hoverStyle={{ bg: '$bgHover' }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                  focusVisibleStyle={{
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineColor: '$focusRing',
+                    outlineOffset: 0,
+                  }}
+                >
+                  {({ open }: { open: boolean }) => (
+                    <>
+                      <Heading
+                        flex={1}
+                        size={open ? '$headingSm' : '$bodyMd'}
+                        textAlign="left"
+                        color={open ? '$text' : '$textSubdued'}
+                      >
+                        {index === troubleshootingSolutions.length - 1
+                          ? intl.formatMessage({
+                              id: ETranslations.troubleshooting_fallback_solution_label,
+                            })
+                          : intl.formatMessage(
+                              { id: ETranslations.troubleshooting_solution_x },
+                              {
+                                number: index + 1,
+                              },
+                            )}
+                      </Heading>
+                      <Stack
+                        animation="quick"
+                        rotate={open ? '180deg' : '0deg'}
+                      >
+                        <Icon
+                          name="ChevronDownSmallOutline"
+                          color={open ? '$iconActive' : '$iconSubdued'}
+                          size="$5"
+                        />
+                      </Stack>
+                    </>
+                  )}
+                </Accordion.Trigger>
+                <Accordion.HeightAnimator
+                  animation="quick"
+                  borderBottomWidth={StyleSheet.hairlineWidth}
+                  borderBottomColor="$borderSubdued"
+                >
+                  <Accordion.Content
+                    unstyled
+                    animation="quick"
+                    enterStyle={{ opacity: 0 }}
+                    exitStyle={{ opacity: 0 }}
+                  >
+                    <Stack role="list" px="$5" pt="$1" pb="$3">
+                      {list.map((item, subIndex) => (
+                        <XStack role="listitem" key={subIndex} gap="$2">
+                          <SizableText
+                            w="$4"
+                            size="$bodyMd"
+                            color="$textSubdued"
+                          >
+                            {subIndex + 1}.
+                          </SizableText>
+                          <SizableText
+                            $md={{
+                              maxWidth: '$78',
+                            }}
+                            size="$bodyMd"
+                          >
+                            {item}
+                          </SizableText>
+                        </XStack>
+                      ))}
+                    </Stack>
+                  </Accordion.Content>
+                </Accordion.HeightAnimator>
+              </Accordion.Item>
+            ))}
+          </Accordion>
+        )}
+        {showHelper ? (
+          <Stack
+            position="absolute"
+            left="$0"
+            right="$0"
+            bottom="$0"
+            p="$2"
+            bg="$gray3"
+            alignItems="center"
+          >
+            <Button size="small" variant="tertiary" onPress={handleHelperPress}>
+              {intl.formatMessage({
+                id: ETranslations.troubleshooting_show_helper_cta_label,
+              })}
+            </Button>
+          </Stack>
+        ) : null}
       </Stack>
 
       {connectStatus === EConnectionStatus.init ? (
@@ -855,27 +1111,27 @@ function ConnectByUSBOrBLE({
 
       {connectStatus === EConnectionStatus.listing ? (
         <ScrollView flex={1}>
-          <SizableText
-            textAlign="center"
-            color="$textSubdued"
-            pt="$2.5"
-            pb="$5"
+          <XStack
+            gap="$2"
+            alignItems="center"
+            justifyContent="center"
+            py="$2.5"
+            px="$5"
           >
-            {platformEnv.isNative
-              ? `${intl.formatMessage({
-                  id: ETranslations.onboarding_bluetooth_connect_help_text,
-                })}...`
-              : intl.formatMessage({
-                  id: ETranslations.onboarding_usb_connect_help_text,
-                })}
-          </SizableText>
+            <Spinner size="small" />
+            <SizableText color="$textSubdued">
+              {`${intl.formatMessage({
+                id: ETranslations.onboarding_bluetooth_connect_help_text,
+              })}...`}
+            </SizableText>
+          </XStack>
           {devicesData.map((item) => (
             <DeviceListItem
               item={item}
               key={item.device?.connectId ?? item.title}
             />
           ))}
-          {platformEnv.isDev ? (
+          {/* {platformEnv.isDev ? (
             <Button
               onPress={() => {
                 void fwUpdateActions.showForceUpdate({
@@ -885,22 +1141,24 @@ function ConnectByUSBOrBLE({
             >
               ForceUpdate
             </Button>
-          ) : null}
+          ) : null} */}
         </ScrollView>
       ) : null}
     </>
   );
 }
-enum EConnectDeviceTab {
-  usbOrBle = 'usbOrBle',
-  qr = 'qr',
-}
+
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamList, EOnboardingPages.ConnectYourDevice>
+    >();
+  const { channel } = route?.params ?? {};
 
-  const [tabValue, setTabValue] = useState<EConnectDeviceTab>(
-    EConnectDeviceTab.usbOrBle,
+  const [tabValue, setTabValue] = useState<EConnectDeviceChannel>(
+    channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
   const toOneKeyHardwareWalletPage = useCallback(() => {
@@ -926,24 +1184,24 @@ export function ConnectYourDevicePage() {
                 label: platformEnv.isNative
                   ? intl.formatMessage({ id: ETranslations.global_bluetooth })
                   : 'USB',
-                value: EConnectDeviceTab.usbOrBle,
+                value: EConnectDeviceChannel.usbOrBle,
               },
               {
                 label: intl.formatMessage({ id: ETranslations.global_qr_code }),
-                value: EConnectDeviceTab.qr,
+                value: EConnectDeviceChannel.qr,
               },
             ]}
           />
         </Stack>
         <Divider />
 
-        {tabValue === EConnectDeviceTab.usbOrBle ? (
+        {tabValue === EConnectDeviceChannel.usbOrBle ? (
           <ConnectByUSBOrBLE
             toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
           />
         ) : null}
 
-        {tabValue === EConnectDeviceTab.qr ? (
+        {tabValue === EConnectDeviceChannel.qr ? (
           <ConnectByQrCodeComingSoon />
         ) : null}
 

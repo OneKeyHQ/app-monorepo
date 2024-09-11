@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -21,6 +22,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { settingsAtom } from '../states/jotai/atoms';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -40,8 +42,8 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '../vaults/types';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -155,6 +157,12 @@ class ServiceAccountSelector extends ServiceBase {
       walletId,
     } = selectedAccount;
 
+    defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
+      {
+        selectedAccount,
+      },
+    );
+
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network
     // in this case, we should use dbAccount
@@ -162,6 +170,7 @@ class ServiceAccountSelector extends ServiceBase {
     let wallet: IDBWallet | undefined;
     let device: IDBDevice | undefined;
     let network: IServerNetwork | undefined;
+    let vaultSettings: IVaultSettings | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
     let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
@@ -217,6 +226,15 @@ class ServiceAccountSelector extends ServiceBase {
         network = await serviceNetwork.getNetwork({
           networkId,
         });
+        try {
+          if (network?.id && !networkUtils.isAllNetwork({ networkId })) {
+            vaultSettings = await getVaultSettings({
+              networkId: network?.id,
+            });
+          }
+        } catch (error) {
+          //
+        }
       } catch (e) {
         console.error(e);
       }
@@ -259,6 +277,18 @@ class ServiceAccountSelector extends ServiceBase {
       accountUtils.isOthersWallet({
         walletId: wallet?.id || '',
       }) || Boolean(account && !indexedAccountId);
+    const isQrWallet = Boolean(
+      wallet?.id &&
+        accountUtils.isQrWallet({
+          walletId: wallet?.id || '',
+        }),
+    );
+    const isHwWallet = Boolean(
+      wallet?.id &&
+        accountUtils.isHwWallet({
+          walletId: wallet?.id || '',
+        }),
+    );
     const universalAccountName = (() => {
       // hd account or others account
       if (account) {
@@ -276,15 +306,7 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
-    if (
-      (accountUtils.isHwWallet({
-        walletId: wallet?.id,
-      }) ||
-        accountUtils.isQrWallet({
-          walletId: wallet?.id,
-        })) &&
-      wallet?.associatedDevice
-    ) {
+    if ((isHwWallet || isQrWallet) && wallet?.associatedDevice) {
       try {
         device = await serviceAccount.getDevice({
           dbDeviceId: wallet?.associatedDevice,
@@ -335,9 +357,24 @@ class ServiceAccountSelector extends ServiceBase {
     } else {
       // single network
       canCreateAddress = !isOthersWallet && !account?.address;
+      if (isQrWallet && vaultSettings) {
+        canCreateAddress = !!vaultSettings.qrAccountEnabled;
+      }
     }
 
-    const isNetworkNotMatched = isOthersWallet && !account && !indexedAccount;
+    const isNetworkNotMatched = (() => {
+      if (!account && !indexedAccount) {
+        if (isOthersWallet) {
+          return true;
+        }
+      }
+      if (!account && indexedAccount) {
+        if (isQrWallet && !canCreateAddress) {
+          return true;
+        }
+      }
+      return false;
+    })();
     let deriveInfoItems: IAccountDeriveInfoItems[] = [];
     try {
       deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -355,6 +392,7 @@ class ServiceAccountSelector extends ServiceBase {
       wallet,
       device,
       network,
+      vaultSettings,
       deriveType,
       deriveInfo,
       deriveInfoItems,
@@ -548,6 +586,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_watched,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_watched_account_message,
@@ -562,6 +601,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_private_key,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_private_key_account_message,
@@ -576,6 +616,7 @@ class ServiceAccountSelector extends ServiceBase {
               id: ETranslations.global_connected_account,
             }),
           data: accounts,
+          firstAccount: accounts[0],
           walletId,
           emptyText: appLocale.intl.formatMessage({
             id: ETranslations.no_external_wallet_message,
@@ -586,8 +627,11 @@ class ServiceAccountSelector extends ServiceBase {
       return {
         title: title ?? '',
         data: accounts,
+        firstAccount: accounts[0],
         walletId,
-        emptyText: 'No account',
+        emptyText: appLocale.intl.formatMessage({
+          id: ETranslations.no_account,
+        }),
       };
     };
     if (focusedWallet === '$$others') {
@@ -623,6 +667,8 @@ class ServiceAccountSelector extends ServiceBase {
       ];
     }
     const walletId = focusedWallet;
+
+    // make sure wallet exists
     try {
       await serviceAccount.getWallet({ walletId });
     } catch (error) {
@@ -639,12 +685,16 @@ class ServiceAccountSelector extends ServiceBase {
       });
       if (linkedNetworkId) {
         accounts = accounts
-          .filter((account) =>
-            accountUtils.isAccountCompatibleWithNetwork({
-              account,
-              networkId: linkedNetworkId,
-            }),
-          )
+          .filter((account) => {
+            try {
+              return accountUtils.isAccountCompatibleWithNetwork({
+                account,
+                networkId: linkedNetworkId,
+              });
+            } catch (error) {
+              return false;
+            }
+          })
           .filter(Boolean);
       }
       return [
@@ -681,10 +731,127 @@ class ServiceAccountSelector extends ServiceBase {
     return [
       buildAccountsData({
         accounts,
+        // accounts: [],
         walletId,
         title: '',
       }),
     ];
+  }
+
+  @backgroundMethod()
+  async getFocusedWalletInfo({
+    focusedWallet,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+  }) {
+    if (!focusedWallet) {
+      return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const isHd = accountUtils.isHdWallet({
+      walletId: focusedWallet,
+    });
+    const isHw = accountUtils.isHwWallet({
+      walletId: focusedWallet,
+    });
+    try {
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId: focusedWallet,
+      });
+
+      let device: IDBDevice | undefined;
+      if (isHw) {
+        device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+          walletId: focusedWallet,
+        });
+      }
+
+      return {
+        wallet,
+        device,
+      };
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async buildAccountSelectorAccountsListData({
+    focusedWallet,
+    othersNetworkId,
+    linkedNetworkId,
+    deriveType,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    othersNetworkId?: string;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    defaultLogger.accountSelector.perf.buildAccountSelectorAccountsListData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    const sectionData = await this.getAccountSelectorAccountsListSectionData({
+      focusedWallet,
+      othersNetworkId,
+      linkedNetworkId,
+      deriveType,
+    });
+
+    let focusedWalletInfo:
+      | {
+          wallet: IDBWallet;
+          device: IDBDevice | undefined;
+        }
+      | undefined;
+    try {
+      focusedWalletInfo = await this.getFocusedWalletInfo({
+        focusedWallet,
+      });
+    } catch (error) {
+      //
+    }
+
+    let accountsCount = 0;
+    let accountsValue: {
+      accountId: string;
+      value: string | undefined;
+      currency: string | undefined;
+    }[] = [];
+
+    try {
+      const accountsForValuesQuery: {
+        accountId: string;
+      }[] = [];
+
+      sectionData?.forEach?.((s) => {
+        s?.data?.forEach?.((account) => {
+          accountsCount += 1;
+          accountsForValuesQuery.push({
+            accountId: account.id,
+          });
+        });
+      });
+
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+          accounts: accountsForValuesQuery,
+        });
+    } catch (error) {
+      //
+    }
+
+    return {
+      sectionData,
+      focusedWalletInfo,
+      accountsCount,
+      accountsValue,
+    };
   }
 }
 

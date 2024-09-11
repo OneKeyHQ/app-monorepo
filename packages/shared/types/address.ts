@@ -56,6 +56,7 @@ export type IFetchAccountDetailsResp = {
   accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
+  allUtxoList?: IUtxoInfo[];
   utxoList?: IUtxoInfo[];
   frozenUtxoList?: IUtxoInfo[];
   validateInfo?: {
@@ -110,6 +111,12 @@ export enum EServerInteractedStatus {
   UNKNOWN = '2',
 }
 
+export type IServerAccountBadgeResp = {
+  interacted: EServerInteractedStatus;
+  isContract?: boolean;
+  badges?: { label: string }[];
+};
+
 export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
@@ -129,6 +136,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
   enableAddressInteractionStatus?: boolean;
+  enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   skipValidateAddress?: boolean;
 };

@@ -5,7 +5,12 @@ import { useIntl } from 'react-intl';
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
@@ -18,6 +23,7 @@ import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -29,8 +35,13 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapQuote() {
   const intl = useIntl();
-  const { quoteAction, cleanQuoteInterval, recoverQuoteInterval } =
-    useSwapActions().current;
+  const {
+    quoteAction,
+    cleanQuoteInterval,
+    recoverQuoteInterval,
+    quoteEventHandler,
+  } = useSwapActions().current;
+  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -41,6 +52,10 @@ export function useSwapQuote() {
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
+  const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
+  if (swapQuoteActionLockRef.current !== swapQuoteActionLock) {
+    swapQuoteActionLockRef.current = swapQuoteActionLock;
+  }
   if (swapShouldRefreshRef.current !== swapShouldRefresh) {
     swapShouldRefreshRef.current = swapShouldRefresh;
   }
@@ -59,7 +74,9 @@ export function useSwapQuote() {
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
   }
-  const fromAmountDebounce = useDebounce(fromTokenAmount, 500);
+  const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
+    leading: true,
+  });
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce,
@@ -71,6 +88,7 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (!fromTokenAmount) {
       void quoteAction(
         activeAccountRef.current?.address,
@@ -122,10 +140,43 @@ export function useSwapQuote() {
   }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
+    if (!isFocusRef.current) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
-      (fromToken?.networkId === toToken?.networkId &&
-        fromToken?.contractAddress === toToken?.contractAddress)
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      })
+    ) {
+      return;
+    }
+    // fromToken & address change will trigger effect twice. so this use skip
+    if (
+      swapQuoteActionLockRef.current?.actionLock &&
+      swapQuoteActionLockRef.current?.fromTokenAmount === fromAmountDebounce &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.fromToken,
+        token2: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.toToken,
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      }) &&
+      swapQuoteActionLockRef.current.accountId ===
+        activeAccountRef.current?.accountInfo?.account?.id &&
+      swapQuoteActionLockRef.current?.address === swapAddressInfo.address
     ) {
       return;
     }
@@ -142,20 +193,92 @@ export function useSwapQuote() {
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
-    fromToken,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
     alignmentDecimal,
+    fromAmountDebounce,
   ]);
+
+  // Due to the changes in derived types causing address changes, this is not in the swap tab.
+  useEffect(() => {
+    if (isFocusRef.current) return;
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      })
+    ) {
+      return;
+    }
+    alignmentDecimal();
+    void quoteAction(
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+    );
+    return () => {
+      cleanQuoteInterval();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapAddressInfo.accountInfo?.deriveType]);
 
   const pageType = usePageType();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
+        if (isFocus) {
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        } else if (isHiddenModel) {
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        } else {
+          appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+          appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        }
+      }
+      setTimeout(() => {
+        // ext env txId data is undefined when useListenTabFocusState is called
+        if (pageType !== EPageType.modal) {
+          if (
+            isFocus &&
+            !isHiddenModel &&
+            !swapApprovingTxRef.current?.txId &&
+            !swapShouldRefreshRef.current
+          ) {
+            void recoverQuoteInterval(
+              activeAccountRef.current?.address,
+              activeAccountRef.current?.accountInfo?.account?.id,
+            );
+          } else {
+            cleanQuoteInterval();
+          }
+        }
+      }, 100);
+    },
+  );
+  useEffect(() => {
+    if (pageType === EPageType.modal) {
+      if (isFocused) {
+        appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+        appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      }
+    }
+  }, [isFocused, pageType, quoteEventHandler]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (pageType === EPageType.modal) {
         if (
-          isFocus &&
-          !isHiddenModel &&
+          isFocused &&
           !swapApprovingTxRef.current?.txId &&
           !swapShouldRefreshRef.current
         ) {
@@ -167,23 +290,6 @@ export function useSwapQuote() {
           cleanQuoteInterval();
         }
       }
-    },
-  );
-
-  useEffect(() => {
-    if (pageType === EPageType.modal) {
-      if (
-        isFocused &&
-        !swapApprovingTxRef.current?.txId &&
-        !swapShouldRefreshRef.current
-      ) {
-        void recoverQuoteInterval(
-          activeAccountRef.current?.address,
-          activeAccountRef.current?.accountInfo?.account?.id,
-        );
-      } else {
-        cleanQuoteInterval();
-      }
-    }
+    }, 100);
   }, [cleanQuoteInterval, isFocused, pageType, recoverQuoteInterval]);
 }

@@ -17,6 +17,7 @@ export type ITokenListItemProps = {
   valueProps?: { value: string; currency?: string };
   disabled?: boolean;
   titleMatchStr?: IFuseResultMatch;
+  moreComponent?: React.ReactNode;
 } & IListItemProps;
 
 export function TokenListItem({
@@ -30,14 +31,12 @@ export function TokenListItem({
   valueProps,
   disabled,
   titleMatchStr,
+  moreComponent,
   ...rest
 }: ITokenListItemProps) {
   return (
     <ListItem
       userSelect="none"
-      {...(disabled && {
-        opacity: 0.5,
-      })}
       {...(isSearch && {
         $md: {
           alignItems: 'flex-start',
@@ -45,8 +44,17 @@ export function TokenListItem({
       })}
       {...rest}
     >
-      <Token tokenImageUri={tokenImageSrc} networkImageUri={networkImageSrc} />
+      <Token
+        {...(disabled && {
+          opacity: 0.5,
+        })}
+        tokenImageUri={tokenImageSrc}
+        networkImageUri={networkImageSrc}
+      />
       <ListItem.Text
+        {...(disabled && {
+          opacity: 0.5,
+        })}
         flex={1}
         primary={tokenSymbol}
         primaryMatch={titleMatchStr}
@@ -77,6 +85,9 @@ export function TokenListItem({
         }
       />
       <ListItem.Text
+        {...(disabled && {
+          opacity: 0.5,
+        })}
         align="right"
         primary={
           <NumberSizeableText
@@ -102,6 +113,7 @@ export function TokenListItem({
           ) : null
         }
       />
+      {moreComponent}
     </ListItem>
   );
 }

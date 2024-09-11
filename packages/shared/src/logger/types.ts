@@ -12,6 +12,7 @@ export type ILogger = ILoggerMethods & {
 export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export enum EScopeName {
+  notification = 'notification',
   app = 'app',
   account = 'account',
   demo = 'demo',
@@ -23,6 +24,8 @@ export enum EScopeName {
   swap = 'swap',
   transaction = 'transaction',
   hardware = 'hardware',
+  fiatCrypto = 'fiatCrypto',
+  accountSelector = 'accountSelector',
 }
 export interface IScope {
   getName: () => EScopeName;

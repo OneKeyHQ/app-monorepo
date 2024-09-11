@@ -93,6 +93,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 
   return (
     <XStack
+      testID="account-network-trigger-button"
       role="button"
       flexShrink={1}
       alignItems="center"
@@ -116,7 +117,13 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       onPress={showChainSelector}
     >
       <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
+      <SizableText
+        testID="account-network-trigger-button-text"
+        pl="$2"
+        size="$bodyMd"
+        flexShrink={1}
+        numberOfLines={1}
+      >
         {network?.isAllNetworks
           ? intl.formatMessage({ id: ETranslations.global_all_networks })
           : network?.name}
@@ -135,10 +142,12 @@ export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 export function ControlledNetworkSelectorTrigger({
   forceDisabled,
   disabled,
+  networkIds,
   ...rest
 }: IChainSelectorInputProps & {
   forceDisabled?: boolean;
   disabled?: boolean; // TODO not working in form
+  networkIds?: string[];
 }) {
   const intl = useIntl();
   return (
@@ -158,6 +167,7 @@ export function ControlledNetworkSelectorTrigger({
       }}
       {...rest}
       disabled={forceDisabled || disabled}
+      networkIds={networkIds}
     />
   );
 }

@@ -24,6 +24,7 @@ import type {
 
 import { MarketAbout } from './MarketAbout';
 import { MarketDetailOverviewContract } from './MarketDetailOverviewContract';
+import { useTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
 function OverviewPriceChange({
@@ -38,7 +39,11 @@ function OverviewPriceChange({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <PriceChangePercentage size="$bodyMdMedium">
+      <PriceChangePercentage
+        size="$bodyMdMedium"
+        width="100%"
+        textAlign="center"
+      >
         {children}
       </PriceChangePercentage>
     </YStack>
@@ -46,33 +51,50 @@ function OverviewPriceChange({
 }
 
 export function Overview24PriceChange({
+  name,
+  symbol,
   currentPrice,
   low,
   high,
+  lastUpdated,
 }: {
+  name: string;
+  symbol: string;
   currentPrice: string;
   low: number;
   high: number;
+  lastUpdated: string;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+  const price = useTokenPrice({
+    name,
+    symbol,
+    price: currentPrice,
+    lastUpdated: new Date(lastUpdated).getTime(),
+  });
+  const lowPrice = Math.min(Number(low), Number(price));
+  const highPrice = Math.max(Number(high), Number(price));
   const priceChange = useMemo(() => {
-    const lowBN = new BigNumber(low);
-    const highBN = new BigNumber(high);
-    const priceBN = new BigNumber(currentPrice);
-    return priceBN
-      .minus(lowBN)
-      .div(highBN.minus(lowBN))
-      .shiftedBy(2)
-      .toNumber();
-  }, [currentPrice, high, low]);
+    const priceBN = new BigNumber(price);
+    if (priceBN.isNaN()) {
+      return undefined;
+    }
+    const lowBN = new BigNumber(lowPrice);
+    const highBN = new BigNumber(highPrice);
+    return Number(
+      priceBN.minus(lowBN).div(highBN.minus(lowBN)).shiftedBy(2).toFixed(2),
+    );
+  }, [price, lowPrice, highPrice]);
   return (
     <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      <Progress value={priceChange} height="$1" />
+      {priceChange !== undefined ? (
+        <Progress value={priceChange} height="$1" />
+      ) : null}
       <XStack jc="space-between">
         <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
@@ -83,7 +105,7 @@ export function Overview24PriceChange({
             formatter="price"
             formatterOptions={{ currency }}
           >
-            {low}
+            {lowPrice}
           </NumberSizeableText>
         </XStack>
         <XStack gap="$1">
@@ -95,7 +117,7 @@ export function Overview24PriceChange({
             formatter="price"
             formatterOptions={{ currency }}
           >
-            {high}
+            {highPrice}
           </NumberSizeableText>
         </XStack>
       </XStack>
@@ -227,28 +249,17 @@ function OverviewMarketVOL({
   );
 }
 
-// function GoPlus() {
-//   return (
-//     <XStack jc="space-between" ai="center">
-//       <YStack gap="$1">
-//         <SizableText size="$headingMd">GoPlus</SizableText>
-//         <SizableText size="$bodyMd" color="$textSubdued">
-//           No risk detected
-//         </SizableText>
-//       </YStack>
-//       <Button h={38}>View</Button>
-//     </XStack>
-//   );
-// }
-
 export function MarketDetailOverview({
   token: {
+    name,
+    symbol,
     detailPlatforms,
     stats: {
       maxSupply,
       totalSupply,
       circulatingSupply,
       currentPrice,
+      lastUpdated,
       performance,
       volume24h,
       marketCap,
@@ -265,7 +276,7 @@ export function MarketDetailOverview({
   const intl = useIntl();
   return (
     <NestedScrollView>
-      <YStack pb="$10" px="$5">
+      <YStack pb="$10" $md={{ px: '$5' }}>
         <XStack
           borderWidth="$px"
           borderRadius="$2"
@@ -295,9 +306,12 @@ export function MarketDetailOverview({
           </OverviewPriceChange>
         </XStack>
         <Overview24PriceChange
+          name={name}
+          symbol={symbol}
           currentPrice={currentPrice}
           low={low24h}
           high={high24h}
+          lastUpdated={lastUpdated}
         />
         <OverviewMarketVOL
           volume24h={volume24h}

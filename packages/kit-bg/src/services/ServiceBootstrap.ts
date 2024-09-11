@@ -17,6 +17,8 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
       this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
       this.backgroundApi.serviceSetting.fetchReviewControl(),
+      this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
+      this.backgroundApi.serviceNotification.init(),
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();

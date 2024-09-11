@@ -3,6 +3,7 @@
 
 import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
+import { InteractionManager } from 'react-native';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
@@ -32,12 +33,17 @@ import {
 import { COINTYPE_DNX } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
+  OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
   PasswordNotSet,
   RenameDuplicateNameError,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -48,6 +54,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
@@ -73,6 +80,7 @@ import type {
   IDBCredentialBase,
   IDBDevice,
   IDBDeviceSettings,
+  IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -109,19 +117,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         avatar: {
           img: 'othersImported',
         },
-        walletNo: 100_000_1,
+        walletNo: 1_000_001,
       },
       [WALLET_TYPE_WATCHING]: {
         avatar: {
           img: 'othersWatching',
         },
-        walletNo: 100_000_2,
+        walletNo: 1_000_002,
       },
       [WALLET_TYPE_EXTERNAL]: {
         avatar: {
           img: 'othersExternal',
         },
-        walletNo: 100_000_3,
+        walletNo: 1_000_003,
       },
     };
     const record: IDBWallet = {
@@ -599,7 +607,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (parentWallet) {
         wallet.walletOrder =
           (parentWallet.walletOrderSaved ?? parentWallet.walletNo) +
-          (wallet.walletOrderSaved ?? wallet.walletNo) / 1000000;
+          (wallet.walletOrderSaved ?? wallet.walletNo) / 1_000_000;
       }
     }
 
@@ -610,6 +618,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
     }
 
+    // others wallet name i18n
     if (
       accountUtils.isOthersWallet({
         walletId: wallet.id,
@@ -629,6 +638,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         wallet.name = appLocale.intl.formatMessage({
           id: ETranslations.global_private_key,
         });
+      }
+    }
+
+    // hw wallet use device label as name
+    if (
+      accountUtils.isHwWallet({ walletId: wallet.id }) &&
+      !accountUtils.isHwHiddenWallet({ wallet }) &&
+      !accountUtils.isQrWallet({ walletId: wallet.id })
+    ) {
+      if (wallet.associatedDevice) {
+        const device = await this.getDeviceSafe(wallet.associatedDevice);
+        const label = device?.featuresInfo?.label;
+        if (device && label && label !== wallet.name) {
+          appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
+            walletId: wallet.id,
+            dbDeviceId: device.id,
+            label,
+            walletName: wallet.name,
+          });
+          wallet.name = label;
+        }
       }
     }
 
@@ -772,10 +802,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async addIndexedAccount({
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     const db = await this.readyDb;
@@ -785,6 +819,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId,
         skipIfExists,
         indexes,
+        names,
       }),
     );
   }
@@ -793,11 +828,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx,
     walletId,
     indexes,
+    names,
     skipIfExists,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
     skipIfExists: boolean;
   }) {
     if (
@@ -849,9 +888,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         idHash,
         walletId,
         index,
-        name: accountUtils.buildIndexedAccountName({
-          pathIndex: index,
-        }),
+        name:
+          names?.[index] ||
+          accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          }),
       };
     });
     console.log('txAddIndexedAccount txAddRecords', records);
@@ -1145,6 +1186,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceFeaturesLabel({
+    dbDeviceId,
+    label,
+  }: {
+    dbDeviceId: string;
+    label: string;
+  }) {
+    const db = await this.readyDb;
+    const device = await this.getDevice(dbDeviceId);
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            label,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
@@ -1224,7 +1290,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       parentWalletId = hiddenWalletNameInfo.parentWalletId;
       walletName = hiddenWalletNameInfo.hiddenWalletName || deviceName;
       if (!parentWalletId) {
-        throw new Error('Your should create non-hidden wallet first');
+        // make sure UI loading visible
+        await timerUtils.wait(1000);
+        throw new OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet();
       }
     }
 
@@ -1488,7 +1556,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
-    const deviceType = device.deviceType || getDeviceType(features);
+    const deviceType =
+      device.deviceType || deviceUtils.getDeviceTypeFromFeatures({ features });
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
@@ -1497,7 +1566,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.buildHwWalletId(params);
 
     let parentWalletId: string | undefined;
-    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    const deviceName = await deviceUtils.buildDeviceName({ device, features });
     let walletName = name || deviceName;
     if (passphraseState) {
       const hiddenWalletNameInfo = await this.fixHiddenWalletName({
@@ -1659,7 +1728,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getNormalHwWalletInSameDevice({
+  async getNormalHwQrWalletInSameDevice({
     associatedDevice,
   }: {
     associatedDevice: string | undefined;
@@ -1669,7 +1738,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (wallet) =>
         wallet.associatedDevice &&
         wallet.associatedDevice === associatedDevice &&
-        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id })) &&
         !accountUtils.isHwHiddenWallet({ wallet }),
     );
   }
@@ -1681,7 +1751,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const wallet = await this.getWallet({
       walletId,
     });
-    const walletsInSameDevice = await this.getNormalHwWalletInSameDevice({
+    const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
 
@@ -1767,6 +1837,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     delete this.tempWallets[walletId];
+
+    appEventBus.emit(EAppEventBusNames.WalletRemove, {
+      walletId,
+    });
   }
 
   isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
@@ -2262,6 +2336,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         }
       }
     }
+
+    appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId,
+      accounts,
+    });
   }
 
   // ---------------------------------------------- account
@@ -2270,9 +2349,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
   }: {
     walletId: IDBWalletIdSingleton;
-  }) {
+  }): Promise<{
+    accounts: IDBAccount[];
+  }> {
     const db = await this.readyDb;
-    const wallet = await this.getWallet({ walletId });
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet) {
+      return { accounts: [] };
+    }
     const { records: accounts } = await db.getAllRecords({
       name: ELocalDBStoreNames.Account,
       ids: wallet.accounts, // filter by ids for better performance
@@ -2384,9 +2468,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getAllAccounts() {
+  async getAllAccounts({ ids }: { ids?: string[] } = {}) {
     const { records: accounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.Account,
+      ids,
     });
     return { accounts };
   }
@@ -2491,6 +2576,62 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async ensureAccountNameNotDuplicate(
+    params: IDBEnsureAccountNameNotDuplicateParams,
+  ): Promise<void> {
+    const db = await this.readyDb;
+    const { walletId, name, selfAccountOrIndexedAccountId } = params;
+    let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
+    const isOthersWallet = accountUtils.isOthersWallet({ walletId });
+    if (!isOthersWallet) {
+      try {
+        ({ accounts: currentAccounts } = await this.getIndexedAccounts({
+          walletId,
+        }));
+      } catch (error) {
+        //
+      }
+    }
+    if (isOthersWallet) {
+      try {
+        ({ accounts: currentAccounts } =
+          await this.getSingletonAccountsOfWallet({
+            walletId: walletId as IDBWalletIdSingleton,
+          }));
+      } catch (error) {
+        //
+      }
+    }
+    const duplicatedNameAccount = currentAccounts.find(
+      (item) => item.name === name && item.id !== selfAccountOrIndexedAccountId,
+    );
+    if (duplicatedNameAccount) {
+      throw new RenameDuplicateNameError();
+    }
+  }
+
+  async emitRenameDBAccountsEvent(params: IDBSetAccountNameParams) {
+    await InteractionManager.runAfterInteractions(async () => {
+      let accounts: IDBAccount[] = [];
+
+      if (params.indexedAccountId) {
+        // TODO low performance
+        accounts = await this.getAccountsInSameIndexedAccountId({
+          indexedAccountId: params.indexedAccountId,
+        });
+      }
+      if (params.accountId) {
+        const account = await this.getAccountSafe({
+          accountId: params.accountId,
+        });
+        accounts = [...accounts, account].filter(Boolean);
+      }
+      appEventBus.emit(EAppEventBusNames.RenameDBAccounts, {
+        accounts,
+      });
+    });
+  }
+
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
     const db = await this.readyDb;
 
@@ -2498,42 +2639,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {
         throw new Error(
-          'setAccountName ERROR: indexedAccountId and accountId should not be set at the same time',
+          'ensureAccountNameNotDuplicate ERROR: indexedAccountId and accountId should not be set at the same time',
         );
       }
       if (id) {
         const walletId = accountUtils.getWalletIdFromAccountId({
           accountId: id,
         });
-        if (walletId) {
-          let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
-
-          if (params.indexedAccountId) {
-            try {
-              ({ accounts: currentAccounts } = await this.getIndexedAccounts({
-                walletId,
-              }));
-            } catch (error) {
-              //
-            }
-          }
-          if (params.accountId) {
-            try {
-              ({ accounts: currentAccounts } =
-                await this.getSingletonAccountsOfWallet({
-                  walletId: walletId as IDBWalletIdSingleton,
-                }));
-            } catch (error) {
-              //
-            }
-          }
-          const duplicatedNameAccount = currentAccounts.find(
-            (item) => item.name === params.name && item.id !== id,
-          );
-          if (duplicatedNameAccount) {
-            throw new RenameDuplicateNameError();
-          }
-        }
+        await this.ensureAccountNameNotDuplicate({
+          walletId,
+          name: params.name,
+          selfAccountOrIndexedAccountId: id,
+        });
       }
     }
 
@@ -2565,6 +2682,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
     });
+
+    void this.emitRenameDBAccountsEvent(params);
   }
 
   // ---------------------------------------------- device
@@ -2676,6 +2795,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       id: dbDeviceId,
     });
     return this.refillDeviceInfo({ device });
+  }
+
+  async getDeviceSafe(dbDeviceId: string): Promise<IDBDevice | undefined> {
+    try {
+      return await this.getDevice(dbDeviceId);
+    } catch (error) {
+      return undefined;
+    }
   }
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {

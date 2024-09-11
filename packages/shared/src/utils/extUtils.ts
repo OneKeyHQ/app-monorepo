@@ -1,6 +1,9 @@
 import { isNil } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
@@ -10,6 +13,10 @@ export type IOpenUrlRouteInfo = {
   routes?: string | string[];
   path?: string;
   params?: any;
+  modalParams?: {
+    screen: any;
+    params: any;
+  };
 };
 
 function buildExtRouteUrl(
@@ -87,7 +94,12 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
     // Position window in top right corner of lastFocused window.
-    if (lastFocused && lastFocused.top && lastFocused.left && lastFocused.width) {
+    if (
+      lastFocused &&
+      lastFocused.top &&
+      lastFocused.left &&
+      lastFocused.width
+    ) {
       top = lastFocused.top;
       left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
     }
@@ -153,42 +165,62 @@ async function openExpandTab(
   return tab;
 }
 
-function openSidePanel(
+async function resetSidePanelPath() {
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, {});
+    await chrome.sidePanel.setOptions({
+      path: url,
+      enabled: true,
+    });
+  }
+}
+
+async function openSidePanel(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
-  return new Promise((resolve) => {
-    if (
-      chrome.sidePanel &&
-      chrome.sidePanel.open &&
-      chrome.sidePanel.setOptions
-    ) {
-      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs[0];
-        if (tab && tab.id) {
-          chrome.sidePanel.open({ tabId: tab.id }, () => {
-            void chrome.sidePanel.setOptions({
-              tabId: tab.id,
-              path: url,
-              enabled: true,
-            });
-          });
-          resolve(tab);
-        }
-      });
-    } else {
-      return openExpandTab(routeInfo);
+  if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+    if (platformEnv.isExtensionBackground) {
+      if (sidePanelState.isOpen) {
+        appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
+          type: 'pushModal',
+          payload: {
+            modalParams: routeInfo?.modalParams,
+          },
+        });
+      } else {
+        throw new Error('The sidePanel cannot be opened in the bg thread.');
+      }
+      return;
     }
-  });
+    const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
+    const window = await chrome.windows.getCurrent({ populate: true });
+    const windowId = window.id;
+    if (windowId) {
+      await chrome.sidePanel.open({ windowId });
+      await chrome.sidePanel.setOptions({
+        path: url,
+        enabled: true,
+      });
+      return;
+    }
+  }
+  return openExpandTab(routeInfo);
 }
 
-async function openPanelOnActionClick(isOpenPanelOnActionClick: boolean) {
+async function openExpandTabOrSidePanel(routeInfo: IOpenUrlRouteInfo) {
+  if (sidePanelState.isOpen) {
+    return openSidePanel(routeInfo);
+  }
+  return openExpandTab(routeInfo);
+}
+
+async function openPanelOnActionClick(enableSidePanel: boolean) {
   await chrome.sidePanel.setPanelBehavior({
-    openPanelOnActionClick: isOpenPanelOnActionClick,
+    openPanelOnActionClick: enableSidePanel,
   });
 }
 
-function openExistWindow({
+function focusExistWindow({
   windowId,
 }: {
   windowId: number | undefined | null;
@@ -198,12 +230,27 @@ function openExistWindow({
   }
 }
 
+async function openPermissionSettings() {
+  // eslint-disable-next-line spellcheck/spell-checker
+  // chrome://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
+  // eslint-disable-next-line spellcheck/spell-checker
+  // edge://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
+
+  const extensionId: string = chrome.runtime.id;
+  await chrome.tabs.create({
+    url: `chrome://settings/content/siteDetails?site=chrome-extension%3A%2F%2F${extensionId}%2F`,
+  });
+}
+
 export default {
   openUrl,
   openUrlInTab,
+  openExpandTabOrSidePanel,
   openStandaloneWindow,
   openExpandTab,
   openSidePanel,
-  openExistWindow,
+  resetSidePanelPath,
+  focusExistWindow,
   openPanelOnActionClick,
+  openPermissionSettings,
 };

@@ -17,10 +17,15 @@ export enum ENetworkStatus {
   LISTED = 'LISTED',
 }
 
+export const EXT_UI_TO_BG_PORT_NAME = 'onekey@EXT_PORT_UI_TO_BG';
+
 export interface INetworkFeeInfo {
   code: string;
   symbol: string;
   decimals: number;
+  isEIP1559FeeEnabled?: boolean;
+  isWithL1BaseFee?: boolean;
+  maxSendFeeUpRatio?: number;
 }
 
 export interface INetworkRpcURL {
@@ -57,15 +62,9 @@ export type IServerNetwork = {
   defaultEnabled: boolean;
   backendIndex?: boolean;
   support?: string[];
-  balance2FeeDecimals: number;
   status: ENetworkStatus;
-  clientApi?: Record<string, string>;
   isTestnet: boolean;
-  priceConfigs: INetworkPriceConfig[];
-  explorers: INetworkExplorerConfig[];
   extensions?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
   isAllNetworks?: boolean;
 };
 

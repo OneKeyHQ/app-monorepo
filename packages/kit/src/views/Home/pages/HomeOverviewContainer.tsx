@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
-  Icon,
+  Button,
   IconButton,
-  NumberSizeableText,
   Skeleton,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsValuePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -36,11 +45,14 @@ function HomeOverviewContainer() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num });
+  const intl = useIntl();
 
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
+
+  const listRefreshKey = useRef('');
 
   const [accountWorth] = useAccountWorthAtom();
   const [overviewState] = useAccountOverviewStateAtom();
@@ -65,7 +77,9 @@ function HomeOverviewContainer() {
       });
       if (network.isAllNetworks) {
         updateAccountWorth({
+          accountId: account.id,
           worth: '0',
+          initialized: false,
         });
       }
     }
@@ -82,10 +96,25 @@ function HomeOverviewContainer() {
     const fn = ({
       isRefreshing,
       type,
+      accountId,
+      networkId,
     }: {
       isRefreshing: boolean;
       type: EHomeTab;
+      accountId: string;
+      networkId: string;
     }) => {
+      const key = `${accountId}-${networkId}`;
+      if (
+        !isRefreshing &&
+        listRefreshKey.current &&
+        listRefreshKey.current !== key
+      ) {
+        return;
+      }
+
+      listRefreshKey.current = key;
+
       if (type === EHomeTab.TOKENS) {
         setIsRefreshingTokenList(isRefreshing);
       } else if (type === EHomeTab.NFT) {
@@ -101,6 +130,48 @@ function HomeOverviewContainer() {
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      account &&
+      network &&
+      accountWorth.initialized &&
+      account.id === accountWorth.accountId
+    ) {
+      if (accountUtils.isOthersAccount({ accountId: account.id })) {
+        if (!network.isAllNetworks && account.createAtNetwork !== network.id)
+          return;
+
+        const accountValueId = account.id;
+
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+          accountId: accountValueId,
+          value: accountWorth.createAtNetworkWorth,
+          currency: settings.currencyInfo.id,
+        });
+      } else if (
+        !accountUtils.isOthersAccount({ accountId: account.id }) &&
+        network.isAllNetworks
+      ) {
+        const accountValueId = account.indexedAccountId as string;
+
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+          accountId: accountValueId,
+          value: accountWorth.worth,
+          currency: settings.currencyInfo.id,
+        });
+      }
+    }
+  }, [
+    account,
+    accountWorth.accountId,
+    accountWorth.createAtNetworkWorth,
+    accountWorth.initialized,
+    accountWorth.worth,
+    network,
+    settings.currencyInfo.id,
+    wallet,
+  ]);
+
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
 
@@ -109,6 +180,50 @@ function HomeOverviewContainer() {
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, [isRefreshingWorth]);
+
+  const isLoading =
+    isRefreshingWorth ||
+    isRefreshingTokenList ||
+    isRefreshingNftList ||
+    isRefreshingHistoryList;
+
+  const refreshButton = useMemo(() => {
+    if (platformEnv.isNative) {
+      return isLoading ? (
+        <IconButton
+          icon="RefreshCcwOutline"
+          variant="tertiary"
+          loading={isLoading}
+        />
+      ) : undefined;
+    }
+    return platformEnv.isNative ? undefined : (
+      <IconButton
+        icon="RefreshCcwOutline"
+        variant="tertiary"
+        loading={isLoading}
+        onPress={handleRefreshWorth}
+      />
+    );
+  }, [handleRefreshWorth, isLoading]);
+
+  const handleBalanceOnPress = useCallback(async () => {
+    const settingsValue = await settingsValuePersistAtom.get();
+    await settingsValuePersistAtom.set({ hideValue: !settingsValue.hideValue });
+  }, []);
+
+  const handleBalanceDetailsOnPress = useCallback(() => {
+    if (balanceDialogInstance?.current) {
+      return;
+    }
+    balanceDialogInstance.current = showBalanceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        balanceDialogInstance.current = null;
+      },
+    });
+  }, [account, network]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -119,7 +234,7 @@ function HomeOverviewContainer() {
 
   const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 25, size: '$headingXl' },
+    { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
   ];
   const defaultBalanceSize = '$heading5xl';
@@ -128,28 +243,9 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
-  const basicTextElement = (
-    <NumberSizeableText
-      flexShrink={1}
-      minWidth={0}
-      {...numberFormatter}
-      size={
-        md
-          ? balanceSizeList.find(
-              (item) =>
-                numberFormat(String(balanceString), numberFormatter, true)
-                  .length >= item.length,
-            )?.size ?? defaultBalanceSize
-          : defaultBalanceSize
-      }
-    >
-      {balanceString}
-    </NumberSizeableText>
-  );
-
   return (
-    <XStack alignItems="center" gap="$3">
-      {vaultSettings?.hasFrozenBalance ? (
+    <YStack gap="$2.5" alignItems="flex-start">
+      <XStack alignItems="center" gap="$3">
         <XStack
           flexShrink={1}
           borderRadius="$3"
@@ -171,42 +267,41 @@ function HomeOverviewContainer() {
             outlineOffset: 0,
             outlineStyle: 'solid',
           }}
-          onPress={() => {
-            if (balanceDialogInstance?.current) {
-              return;
-            }
-            balanceDialogInstance.current = showBalanceDetailsDialog({
-              accountId: account?.id ?? '',
-              networkId: network?.id ?? '',
-              onClose: () => {
-                balanceDialogInstance.current = null;
-              },
-            });
-          }}
+          onPress={handleBalanceOnPress}
         >
-          {basicTextElement}
-          <Icon
-            flexShrink={0}
-            name="InfoCircleOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
+          <NumberSizeableTextWrapper
+            hideValue
+            flexShrink={1}
+            minWidth={0}
+            {...numberFormatter}
+            size={
+              md
+                ? balanceSizeList.find(
+                    (item) =>
+                      numberFormat(String(balanceString), numberFormatter, true)
+                        .length >= item.length,
+                  )?.size ?? defaultBalanceSize
+                : defaultBalanceSize
+            }
+          >
+            {balanceString}
+          </NumberSizeableTextWrapper>
         </XStack>
-      ) : (
-        basicTextElement
-      )}
-      <IconButton
-        icon="RefreshCcwOutline"
-        variant="tertiary"
-        loading={
-          isRefreshingWorth ||
-          isRefreshingTokenList ||
-          isRefreshingNftList ||
-          isRefreshingHistoryList
-        }
-        onPress={handleRefreshWorth}
-      />
-    </XStack>
+        {refreshButton}
+      </XStack>
+      {vaultSettings?.hasFrozenBalance ? (
+        <Button
+          onPress={handleBalanceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+        >
+          {intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+    </YStack>
   );
 }
 

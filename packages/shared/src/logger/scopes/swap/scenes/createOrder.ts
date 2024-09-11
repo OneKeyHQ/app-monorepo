@@ -1,5 +1,5 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal, LogToServer } from '../../../decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class CreateOrderScene extends BaseScene {
   @LogToServer({ level: 'info' })
@@ -8,12 +8,8 @@ export class CreateOrderScene extends BaseScene {
     swapType,
     sourceChain,
     receivedChain,
-    fromAddress,
-    toAddress,
     sourceTokenSymbol,
     receivedTokenSymbol,
-    swapAmount,
-    swapValue,
     feeType,
     isFirstTime,
     router,
@@ -24,12 +20,8 @@ export class CreateOrderScene extends BaseScene {
     router?: string;
     sourceChain: string;
     receivedChain: string;
-    fromAddress: string;
-    toAddress: string;
     sourceTokenSymbol: string;
     receivedTokenSymbol: string;
-    swapAmount: string;
-    swapValue: string;
     feeType: string;
     isFirstTime: boolean;
   }) {
@@ -38,12 +30,8 @@ export class CreateOrderScene extends BaseScene {
       swapType,
       sourceChain,
       receivedChain,
-      fromAddress,
-      toAddress,
       sourceTokenSymbol,
       receivedTokenSymbol,
-      swapAmount,
-      swapValue,
       feeType,
       router,
       slippage,

@@ -38,7 +38,7 @@ const HeaderComponent = (
   {
     style,
     titleFromItem = (item: { title: string }) => item.title,
-    contentContainerStyle = {},
+    contentContainerStyle = { pr: '$5' },
     scrollContainerStyle = {},
     containerStyle = {},
     itemContainerStyle = { ml: '$5', pb: '$0.5', cursor: 'default' },
@@ -75,7 +75,7 @@ const HeaderComponent = (
     {
       ...(props.data.length > 0
         ? {
-            h: '$11',
+            h: 52,
             bg: '$bgApp',
             borderBottomColor: '$borderSubdued',
             borderBottomWidth: StyleSheet.hairlineWidth,

@@ -14,6 +14,10 @@ import type {
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase | undefined = undefined;
 
+  override verifySignedTxMatched(...args: any[]): Promise<void> {
+    throw new NotImplemented();
+  }
+
   override signTransaction(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: ISignTransactionParams,

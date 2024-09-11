@@ -12,7 +12,12 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  ManageTokenInsufficientBalanceError,
+  OneKeyError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -149,7 +154,7 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const { from, to, amount, tokenInfo } = transferInfo;
+    const { from, to, amount, tokenInfo, note } = transferInfo;
 
     if (!tokenInfo) {
       throw new Error(
@@ -158,6 +163,7 @@ export default class Vault extends VaultBase {
     }
 
     const suggestedParams = await this._getSuggestedParams();
+    const txNote = note ? new Uint8Array(Buffer.from(note)) : undefined;
     if (tokenInfo.isNative) {
       return sdkAlgo.makePaymentTxnWithSuggestedParamsFromObject({
         amount: BigInt(
@@ -166,6 +172,7 @@ export default class Vault extends VaultBase {
         from,
         to,
         suggestedParams,
+        note: txNote,
       });
     }
 
@@ -177,6 +184,7 @@ export default class Vault extends VaultBase {
       from,
       to,
       suggestedParams,
+      note: txNote,
     });
   }
 
@@ -227,7 +235,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: {
-        note: trim(notes.join(' ')),
+        note: notes.join(' '),
         groupId,
       },
       encodedTx,
@@ -472,6 +480,9 @@ export default class Vault extends VaultBase {
   override async activateToken(params: {
     token: IAccountToken;
   }): Promise<boolean> {
+    if (params.token.isNative) {
+      return Promise.resolve(true);
+    }
     const { token } = params;
     const dbAccount = await this.getAccount();
     const client = await this.getClient();
@@ -493,13 +504,27 @@ export default class Vault extends VaultBase {
         },
       ],
     });
-    const signedTx =
-      await this.backgroundApi.serviceSend.signAndSendTransaction({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        unsignedTx,
-        signOnly: false,
-      });
-    return !!signedTx.txid;
+
+    try {
+      const [signedTx] =
+        await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          unsignedTxs: [unsignedTx],
+          transferPayload: undefined,
+        });
+      return !!signedTx.signedTx.txid;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      if (e.message.includes(`overspend (account ${dbAccount.address}`)) {
+        throw new ManageTokenInsufficientBalanceError({
+          info: {
+            token: 'Algo',
+          },
+        });
+      }
+      throw e;
+    }
   }
 }

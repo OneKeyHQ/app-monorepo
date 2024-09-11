@@ -29,7 +29,9 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
       sceneUrl,
       networkIds,
       defaultNetworkId,
-      editable: sceneName === EAccountSelectorSceneName.home,
+      editable:
+        sceneName === EAccountSelectorSceneName.home ||
+        sceneName === EAccountSelectorSceneName.homeUrlAccount,
     });
   }, [
     actions,

@@ -4,11 +4,13 @@ import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 import { OneKeyInternalError } from '../errors';
+import { ETranslations } from '../locale';
 
 import { formatDate } from './dateUtils';
 
 import type {
   IAccountHistoryTx,
+  IHistoryListSectionGroup,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
@@ -135,13 +137,13 @@ export function getHistoryTxDetailInfo({
   historyTx,
 }: {
   txDetails: IOnChainHistoryTx | undefined;
-  historyTx: IAccountHistoryTx;
+  historyTx: IAccountHistoryTx | undefined;
 }) {
-  const { decodedTx } = historyTx;
+  const decodedTx = historyTx?.decodedTx;
   let swapInfo;
   let nonce = txDetails?.nonce;
 
-  if (isNil(nonce) && !isNil(decodedTx.nonce)) {
+  if (isNil(nonce) && !isNil(decodedTx?.nonce)) {
     nonce = decodedTx.nonce;
   }
 
@@ -149,22 +151,19 @@ export function getHistoryTxDetailInfo({
 
   if (txDetails?.timestamp) {
     date = formatDate(new Date(txDetails.timestamp * 1000));
-  } else if (decodedTx.updatedAt || decodedTx.createdAt) {
+  } else if (decodedTx?.updatedAt || decodedTx?.createdAt) {
     date = formatDate(
-      new Date(decodedTx.updatedAt || decodedTx.createdAt || 0),
+      new Date(decodedTx?.updatedAt || decodedTx?.createdAt || 0),
     );
   }
 
-  const txid = decodedTx.txid;
-
-  const gasFee = txDetails?.gasFee ?? decodedTx.totalFeeInNative;
+  const gasFee = txDetails?.gasFee ?? decodedTx?.totalFeeInNative;
   const gasFeeFiatValue =
-    txDetails?.gasFeeFiatValue ?? decodedTx.totalFeeFiatValue;
+    txDetails?.gasFeeFiatValue ?? decodedTx?.totalFeeFiatValue;
   const confirmations = txDetails?.confirmations;
   const blockHeight = txDetails?.block;
 
   return {
-    txid,
     date,
     nonce,
     confirmations,
@@ -198,4 +197,46 @@ export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
       (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
       (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
   );
+}
+
+export function convertToSectionGroups(params: {
+  formatDate: (date: number) => string;
+  items: IAccountHistoryTx[];
+}): IHistoryListSectionGroup[] {
+  const { items, formatDate: formatDateFn } = params;
+  let pendingGroup: IHistoryListSectionGroup | undefined = {
+    titleKey: ETranslations.global_pending,
+    data: [],
+  };
+  const dateGroups: IHistoryListSectionGroup[] = [];
+  let currentDateGroup: IHistoryListSectionGroup | undefined;
+  items.forEach((item) => {
+    if (item.decodedTx.status === EDecodedTxStatus.Pending) {
+      pendingGroup?.data.push(item);
+    } else {
+      const dateKey = formatDateFn(
+        item.decodedTx.updatedAt || item.decodedTx.createdAt || 0,
+      );
+      if (!currentDateGroup || currentDateGroup.title !== dateKey) {
+        if (currentDateGroup) {
+          dateGroups.push(currentDateGroup);
+        }
+        currentDateGroup = {
+          title: dateKey,
+          data: [],
+        };
+      }
+      currentDateGroup.data.push(item);
+    }
+  });
+  if (currentDateGroup) {
+    dateGroups.push(currentDateGroup);
+  }
+  if (!pendingGroup.data.length) {
+    pendingGroup = undefined;
+  }
+  if (pendingGroup) {
+    return [pendingGroup, ...dateGroups].filter(Boolean);
+  }
+  return [...dateGroups].filter(Boolean);
 }

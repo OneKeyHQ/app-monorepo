@@ -116,7 +116,10 @@ export function GetStarted({
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const { showCloseButton } = route.params || {};
+  let { showCloseButton } = route.params || {};
+  if (process.env.NODE_ENV !== 'production') {
+    showCloseButton = true;
+  }
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();

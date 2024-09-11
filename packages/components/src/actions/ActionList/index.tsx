@@ -1,10 +1,12 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
@@ -122,6 +124,13 @@ export interface IActionListProps
     handleActionListClose: () => void;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
+  // estimatedContentHeight required if use renderItemsAsync
+  estimatedContentHeight?: number;
+  renderItemsAsync?: (params: {
+    // TODO use cloneElement to override onClose props
+    handleActionListClose: () => void;
+    handleActionListOpen: () => void;
+  }) => Promise<React.ReactNode>;
 }
 
 const useDefaultOpen = (defaultOpen: boolean) => {
@@ -153,9 +162,14 @@ function BasicActionList({
   disabled,
   defaultOpen = false,
   renderItems,
+  renderItemsAsync,
+  estimatedContentHeight,
+  title,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+  const [asyncItems, setAsyncItems] = useState<ReactNode>(null);
+
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
       setOpenStatus(openStatus);
@@ -170,6 +184,32 @@ function BasicActionList({
     handleOpenStatusChange(false);
   }, [handleOpenStatusChange]);
 
+  const { md } = useMedia();
+  const intl = useIntl();
+  useEffect(() => {
+    if (renderItemsAsync && isOpen) {
+      if (platformEnv.isDev && md && !estimatedContentHeight) {
+        throw new Error(
+          'estimatedContentHeight is required on Async rendering items',
+        );
+      }
+      void (async () => {
+        const asyncItemsToRender = await renderItemsAsync({
+          handleActionListClose,
+          handleActionListOpen,
+        });
+        setAsyncItems(asyncItemsToRender);
+      })();
+    }
+  }, [
+    estimatedContentHeight,
+    handleActionListClose,
+    handleActionListOpen,
+    isOpen,
+    md,
+    renderItemsAsync,
+  ]);
+
   const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
       onPress={item.onPress}
@@ -181,10 +221,16 @@ function BasicActionList({
   );
   return (
     <Popover
+      title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
+        <YStack
+          p="$1"
+          $md={{ p: '$3', pt: '$0' }}
+          height={estimatedContentHeight}
+          onLayout={(e) => console.log(e.nativeEvent.layout.height)}
+        >
           {items?.map(renderActionListItem)}
 
           {sections?.map((section, sectionIdx) => (
@@ -205,9 +251,14 @@ function BasicActionList({
             </YStack>
           ))}
 
-          {renderItems
-            ? renderItems({ handleActionListClose, handleActionListOpen })
-            : null}
+          {/* custom render items */}
+          {renderItems?.({
+            handleActionListClose,
+            handleActionListOpen,
+          })}
+
+          {/* custom async render items (estimatedContentHeight required) */}
+          {asyncItems}
         </YStack>
       }
       floatingPanelProps={{
@@ -224,7 +275,9 @@ function BasicActionList({
 }
 
 const showActionList = (
-  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>,
+  props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'> & {
+    onClose?: () => void;
+  },
 ) => {
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
@@ -235,6 +288,9 @@ const showActionList = (
       onOpenChange={(isOpen) => {
         props.onOpenChange?.(isOpen);
         if (!isOpen) {
+          setTimeout(() => {
+            props.onClose?.();
+          });
           // delay the destruction of the reference to allow for the completion of the animation transition.
           setTimeout(() => {
             ref.destroy();
@@ -245,11 +301,25 @@ const showActionList = (
   );
 };
 
-function ActionListFrame(props: IActionListProps) {
+function ActionListFrame({
+  estimatedContentHeight,
+  ...props
+}: Omit<IActionListProps, 'estimatedContentHeight'> & {
+  estimatedContentHeight?: () => Promise<number>;
+}) {
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
   const handleActionListOpen = useDebouncedCallback(() => {
-    showActionList(popoverProps);
+    if (estimatedContentHeight) {
+      void estimatedContentHeight().then((height) => {
+        showActionList({
+          ...popoverProps,
+          estimatedContentHeight: height,
+        });
+      });
+    } else {
+      showActionList(popoverProps);
+    }
   }, 250);
 
   if (gtMd) {

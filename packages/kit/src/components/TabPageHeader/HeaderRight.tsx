@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, useMedia } from '@onekeyhq/components';
+import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -12,16 +12,19 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import { showNotificationPermissionsDialog } from '../PermissionsDialog';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
 
@@ -33,6 +36,8 @@ export function HeaderRight({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
+  const [{ firstTimeGuideOpened, badge }, setNotificationsData] =
+    useNotificationsAtom();
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -58,60 +63,21 @@ export function HeaderRight({
     [scanQrCode, account, allTokens, map],
   );
 
-  const openLayoutTab = useCallback(async () => {
-    const routeInfo = {
-      routes: '',
-    };
-    ActionList.show({
-      title: intl.formatMessage({
-        id: ETranslations.global_layout,
-      }),
-      items: [
-        platformEnv.isExtensionUiPopup
-          ? {
-              label: intl.formatMessage({
-                id: ETranslations.open_as_sidebar,
-              }),
-              icon: 'LayoutRightOutline',
-              onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  true,
-                );
-                await backgroundApiProxy.serviceApp.openExtensionSidePanel(
-                  routeInfo,
-                );
-                window.close();
-              },
-            }
-          : {
-              label: intl.formatMessage({
-                id: ETranslations.open_as_popup,
-              }),
-              icon: 'LayoutTopOutline',
-              onPress: async () => {
-                await backgroundApiProxy.serviceApp.openExtensionSidePanelOnActionClick(
-                  false,
-                );
-                window.close();
-              },
-            },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.global_expand_view,
-          }),
-          icon: 'ExpandOutline',
-          onPress: async () => {
-            window.close();
-            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-              routeInfo,
-            );
-          },
-        },
-      ],
-    });
-  }, [intl]);
-
   const media = useMedia();
+  const openNotificationsModal = useCallback(async () => {
+    if (!firstTimeGuideOpened) {
+      showNotificationPermissionsDialog();
+      setNotificationsData((v) => ({
+        ...v,
+        firstTimeGuideOpened: true,
+      }));
+      return;
+    }
+    navigation.pushModal(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+    });
+  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
+
   const items = useMemo(() => {
     const settingsButton = (
       <HeaderIconButton
@@ -123,12 +89,57 @@ export function HeaderRight({
       />
     );
 
+    const routeInfo = {
+      routes: '',
+    };
     const layoutExtView = (
-      <HeaderIconButton
-        key="layoutRightView"
-        title={intl.formatMessage({ id: ETranslations.global_layout })}
-        icon="LayoutRightOutline"
-        onPress={openLayoutTab}
+      <ActionList
+        title={intl.formatMessage({
+          id: ETranslations.global_layout,
+        })}
+        items={[
+          platformEnv.isExtensionUiPopup
+            ? {
+                label: intl.formatMessage({
+                  id: ETranslations.open_as_sidebar,
+                }),
+                icon: 'LayoutRightOutline',
+                onPress: async () => {
+                  await extUtils.openPanelOnActionClick(true);
+                  await extUtils.openSidePanel(routeInfo);
+                  window.close();
+                },
+              }
+            : {
+                label: intl.formatMessage({
+                  id: ETranslations.open_as_popup,
+                }),
+                icon: 'LayoutTopOutline',
+                onPress: async () => {
+                  await extUtils.openPanelOnActionClick(false);
+                  window.close();
+                },
+              },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.global_expand_view,
+            }),
+            icon: 'ExpandOutline',
+            onPress: async () => {
+              window.close();
+              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+                routeInfo,
+              );
+            },
+          },
+        ]}
+        renderTrigger={
+          <HeaderIconButton
+            key="layoutRightView"
+            title={intl.formatMessage({ id: ETranslations.global_layout })}
+            icon="LayoutRightOutline"
+          />
+        }
       />
     );
     const scanButton = (
@@ -138,6 +149,55 @@ export function HeaderRight({
         icon="ScanOutline"
         onPress={onScanButtonPressed}
       />
+    );
+    const notificationsButton = (
+      <Stack>
+        <HeaderIconButton
+          key="notifications"
+          title={intl.formatMessage({
+            id: ETranslations.global_notifications,
+          })}
+          icon="BellOutline"
+          onPress={openNotificationsModal}
+          // TODO onLongPress also trigger onPress
+          // onLongPress={showNotificationPermissionsDialog}
+        />
+        {!firstTimeGuideOpened || badge ? (
+          <Stack
+            borderRadius="$full"
+            bg="$bgApp"
+            position="absolute"
+            right="$-2.5"
+            top="$-2"
+            borderWidth={2}
+            borderColor="$transparent"
+            pointerEvents="none"
+          >
+            <Stack
+              px="$1"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              minWidth="$4"
+              minHeight="$4"
+              alignItems="center"
+              justifyContent="center"
+            >
+              {!firstTimeGuideOpened ? (
+                <Stack
+                  width="$1"
+                  height="$1"
+                  backgroundColor="white"
+                  borderRadius="$full"
+                />
+              ) : (
+                <SizableText color="$textOnColor" size="$bodySm">
+                  {badge}
+                </SizableText>
+              )}
+            </Stack>
+          </Stack>
+        ) : null}
+      </Stack>
     );
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
@@ -153,16 +213,18 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [layoutExtView, settingsButton];
+      return [layoutExtView, notificationsButton, settingsButton];
     }
 
-    return [scanButton, settingsButton, searchInput];
+    return [scanButton, notificationsButton, settingsButton, searchInput];
   }, [
     intl,
-    media.gtMd,
-    onScanButtonPressed,
-    openLayoutTab,
     openSettingPage,
+    onScanButtonPressed,
+    openNotificationsModal,
+    badge,
+    firstTimeGuideOpened,
+    media.gtMd,
     sceneName,
   ]);
   return (

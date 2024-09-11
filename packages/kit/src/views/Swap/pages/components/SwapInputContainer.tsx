@@ -65,7 +65,7 @@ const SwapInputContainer = ({
 
   const fromInputHasError = useMemo(
     () =>
-      alerts?.some((item) => item.inputShowError) &&
+      alerts?.states.some((item) => item.inputShowError) &&
       direction === ESwapDirectionType.FROM,
     [direction, alerts],
   );
@@ -73,6 +73,9 @@ const SwapInputContainer = ({
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && direction === ESwapDirectionType.TO) {
       let color = '$textSubdued';
+      if (inputLoading) {
+        color = '$textPlaceholder';
+      }
       if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
         color = '$textCritical';
       }
@@ -86,7 +89,7 @@ const SwapInputContainer = ({
       );
     }
     return null;
-  }, [direction, rateDifference]);
+  }, [direction, inputLoading, rateDifference]);
 
   return (
     <YStack>
@@ -104,14 +107,20 @@ const SwapInputContainer = ({
         }}
         valueProps={{
           value: amountPrice,
-          loading: inputLoading,
+          color:
+            inputLoading && direction === ESwapDirectionType.TO
+              ? '$textPlaceholder'
+              : undefined,
           currency: settingsPersistAtom.currencyInfo.symbol,
           moreComponent: valueMoreComponent,
         }}
         inputProps={{
-          loading: inputLoading,
           placeholder: '0.0',
           readOnly: direction === ESwapDirectionType.TO,
+          color:
+            direction === ESwapDirectionType.TO && inputLoading
+              ? '$textPlaceholder'
+              : undefined,
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,

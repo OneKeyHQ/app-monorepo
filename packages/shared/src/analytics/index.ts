@@ -1,12 +1,13 @@
 import Axios from 'axios';
 
 import platformEnv from '../platformEnv';
+import { headerPlatform } from '../request/Interceptor';
 
 import { getDeviceInfo } from './deviceInfo';
 
 import type { AxiosInstance } from 'axios';
 
-class Analytics {
+export class Analytics {
   private instanceId = '';
 
   private baseURL = '';
@@ -54,6 +55,7 @@ class Analytics {
   private async lazyDeviceInfo() {
     if (!this.deviceInfo) {
       this.deviceInfo = await getDeviceInfo();
+      this.deviceInfo.platform = headerPlatform;
       this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
       this.deviceInfo.appVersion = platformEnv.version;
     }
@@ -65,7 +67,7 @@ class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isDev) {
+    if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
     const event = {
@@ -88,7 +90,7 @@ class Analytics {
   }
 
   private async requestUserProfile(attributes: Record<string, any>) {
-    if (platformEnv.isDev) {
+    if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
     const axios = this.lazyAxios();
@@ -111,3 +113,4 @@ class Analytics {
 }
 
 export const analytics = new Analytics();
+global.$analytics = analytics;

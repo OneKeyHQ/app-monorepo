@@ -6,7 +6,11 @@ import { isEmpty, isNil } from 'lodash';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAccount,
+  ManageTokenInsufficientBalanceError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
@@ -176,80 +180,90 @@ export default class VaultAptos extends VaultBase {
     const network = await this.getNetwork();
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+    const { swapInfo } = unsignedTx;
     const { type, function: fun } = encodedTx;
     const account = await this.getAccount();
     if (!encodedTx?.sender) {
       encodedTx.sender = account.address;
     }
     let action: IDecodedTxAction | null = null;
-    const actionType = getTransactionTypeByPayload({
-      type: type ?? 'entry_function_payload',
-      function_name: fun,
-    });
 
-    if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
-      const { sender } = encodedTx;
-      const [coinType] = encodedTx.type_arguments || [];
-      const [to, amountValue] = encodedTx.arguments || [];
-      const tokenInfo = await this.backgroundApi.serviceToken.getToken({
-        networkId: network.id,
-        accountId: this.accountId,
-        tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+    if (swapInfo) {
+      const [toAddress] = encodedTx.arguments || [];
+      action = await this.buildInternalSwapAction({
+        swapInfo,
+        swapToAddress: toAddress,
       });
-      if (tokenInfo) {
-        const amount = new BigNumber(amountValue)
-          .shiftedBy(-tokenInfo.decimals)
-          .toFixed();
+    } else {
+      const actionType = getTransactionTypeByPayload({
+        type: type ?? 'entry_function_payload',
+        function_name: fun,
+      });
 
-        action = await this.buildTxTransferAssetAction({
-          from: sender,
-          to,
-          transfers: [
-            {
-              from: sender,
-              to,
-              amount,
-              icon: tokenInfo.logoURI ?? '',
-              name: tokenInfo.symbol,
-              symbol: tokenInfo.symbol,
-              tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
-              isNative: !coinType || coinType === APTOS_NATIVE_COIN,
-            },
-          ],
+      if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+        const { sender } = encodedTx;
+        const [coinType] = encodedTx.type_arguments || [];
+        const [to, amountValue] = encodedTx.arguments || [];
+        const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+          networkId: network.id,
+          accountId: this.accountId,
+          tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
         });
-      }
-    } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
-      action = {
-        type: EDecodedTxActionType.FUNCTION_CALL,
-        direction: EDecodedTxDirection.OTHER,
-        functionCall: {
-          from: encodedTx.sender,
-          to: '',
-          functionName: fun ?? '',
-          args:
-            encodedTx.arguments?.map((a) => {
-              if (
-                typeof a === 'string' ||
-                typeof a === 'number' ||
-                typeof a === 'boolean' ||
-                typeof a === 'bigint'
-              ) {
-                return a.toString();
-              }
-              if (a instanceof Array) {
-                try {
-                  return bufferUtils.bytesToHex(a as unknown as Uint8Array);
-                } catch (e) {
-                  return JSON.stringify(a);
+        if (tokenInfo) {
+          const amount = new BigNumber(amountValue)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed();
+
+          action = await this.buildTxTransferAssetAction({
+            from: sender,
+            to,
+            transfers: [
+              {
+                from: sender,
+                to,
+                amount,
+                icon: tokenInfo.logoURI ?? '',
+                name: tokenInfo.symbol,
+                symbol: tokenInfo.symbol,
+                tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+                isNative: !coinType || coinType === APTOS_NATIVE_COIN,
+              },
+            ],
+          });
+        }
+      } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
+        action = {
+          type: EDecodedTxActionType.FUNCTION_CALL,
+          direction: EDecodedTxDirection.OTHER,
+          functionCall: {
+            from: encodedTx.sender,
+            to: '',
+            functionName: fun ?? '',
+            args:
+              encodedTx.arguments?.map((a) => {
+                if (
+                  typeof a === 'string' ||
+                  typeof a === 'number' ||
+                  typeof a === 'boolean' ||
+                  typeof a === 'bigint'
+                ) {
+                  return a.toString();
                 }
-              }
-              if (!a) {
-                return '';
-              }
-              return JSON.stringify(a);
-            }) ?? [],
-        },
-      };
+                if (a instanceof Array) {
+                  try {
+                    return bufferUtils.bytesToHex(a as unknown as Uint8Array);
+                  } catch (e) {
+                    return JSON.stringify(a);
+                  }
+                }
+                if (!a) {
+                  return '';
+                }
+                return JSON.stringify(a);
+              }) ?? [],
+          },
+        };
+      }
     }
 
     if (!action) {
@@ -398,7 +412,7 @@ export default class VaultAptos extends VaultBase {
       const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
       const amount = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
         .shiftedBy(decimals)
-        .toFixed(0);
+        .toFixed(0, BigNumber.ROUND_FLOOR);
 
       const [to] = encodedTx.arguments || [];
       encodedTx.arguments = [to, amount];
@@ -510,25 +524,39 @@ export default class VaultAptos extends VaultBase {
     token: IAccountToken;
   }): Promise<boolean> {
     const { token } = params;
+    if (token.address === APTOS_NATIVE_COIN) {
+      return true;
+    }
     const account = await this.getAccount();
-    const coin = await getAccountCoinResource(
-      this.client,
-      account.address,
-      token.address,
-    );
+    let coin;
+    try {
+      coin = await getAccountCoinResource(
+        this.client,
+        account.address,
+        token.address,
+      );
+    } catch (e) {
+      if (e instanceof InvalidAccount) {
+        throw new ManageTokenInsufficientBalanceError({
+          info: {
+            token: 'APT',
+          },
+        });
+      }
+    }
     if (coin) {
       return true;
     }
     const unsignedTx = await this.buildUnsignedTx({
       encodedTx: generateRegisterToken(token.address),
     });
-    const signedTx =
-      await this.backgroundApi.serviceSend.signAndSendTransaction({
+    const [signedTx] =
+      await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
         accountId: this.accountId,
         networkId: this.networkId,
-        unsignedTx,
-        signOnly: false,
+        unsignedTxs: [unsignedTx],
+        transferPayload: undefined,
       });
-    return !!signedTx.txid;
+    return !!signedTx.signedTx.txid;
   }
 }

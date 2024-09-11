@@ -21,6 +21,7 @@ import type {
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
@@ -187,9 +188,12 @@ export type IVaultSettings = {
   memoMaxLength?: number;
   numericOnlyMemo?: boolean;
 
+  // dnx
   withPaymentId?: boolean;
 
-  enabledOnClassicOnly?: boolean;
+  // algo
+  withNote?: boolean;
+  noteMaxLength?: number;
 
   hideFeeInfoInHistoryList?: boolean;
 
@@ -220,6 +224,11 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
   mergeDeriveAssetsEnabled?: boolean;
+  sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  stakingConfig?: IStakingConfig;
+  editApproveAmountEnabled?: boolean;
+  useRemoteTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -366,6 +375,8 @@ export type ITransferInfo = {
   lightningAddress?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  note?: string; // Algo chain note
 };
 
 export type IApproveInfo = {
@@ -380,6 +391,7 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  originalRecipient: string;
 };
 
 export enum EWrappedType {
@@ -444,11 +456,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
+
+export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
-  tokenApproveInfo?: { allowance: string };
+  tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {

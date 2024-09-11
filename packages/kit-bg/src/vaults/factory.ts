@@ -9,6 +9,7 @@ import {
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
+  IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -28,13 +29,19 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  VaultKeyringNotDefinedError,
+} from '@onekeyhq/shared/src/errors';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -50,27 +57,47 @@ export async function createKeyringInstance(vault: VaultBase) {
   let keyring: KeyringBase | null = null;
   const keyringMap = vault.keyringMap as Record<string, typeof KeyringBaseMock>;
 
+  const checkKeyringClassExists = (
+    keyringClass: typeof KeyringBaseMock,
+    throwError?: () => IOneKeyError,
+  ) => {
+    if (!keyringClass) {
+      if (throwError) {
+        throwError();
+      }
+      throw new VaultKeyringNotDefinedError(
+        `Keyring Class not defined: walletId=${walletId}`,
+      );
+    }
+  };
+
   if (walletId.startsWith('hd-')) {
+    checkKeyringClassExists(keyringMap.hd);
     keyring = new keyringMap.hd(vault);
   }
   if (walletId.startsWith('qr-')) {
+    checkKeyringClassExists(keyringMap.qr);
     keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
+    checkKeyringClassExists(keyringMap.hw);
     keyring = new keyringMap.hw(vault);
   }
   if (walletId === WALLET_TYPE_WATCHING) {
+    checkKeyringClassExists(keyringMap.watching);
     keyring = new keyringMap.watching(vault);
   }
   if (walletId === WALLET_TYPE_EXTERNAL) {
+    checkKeyringClassExists(keyringMap.external);
     keyring = new keyringMap.external(vault);
   }
   if (walletId === WALLET_TYPE_IMPORTED) {
+    checkKeyringClassExists(keyringMap.imported);
     keyring = new keyringMap.imported(vault);
   }
 
   if (!keyring) {
-    throw new OneKeyInternalError(
+    throw new VaultKeyringNotDefinedError(
       `Keyring Class not found for: walletId=${walletId}`,
     );
   }
@@ -116,12 +143,15 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
+    [IMPL_TON]: () => import('./impls/ton/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
     [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
     [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
     [IMPL_ALLNETWORKS]: () => import('./impls/all/Vault') as any,
+    [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
+    [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

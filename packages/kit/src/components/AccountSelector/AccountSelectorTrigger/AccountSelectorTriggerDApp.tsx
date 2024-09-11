@@ -4,11 +4,13 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  View,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
@@ -96,9 +98,21 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         );
       }
       return (
-        <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {`${walletName} / ${accountName}`}
-        </SizableText>
+        <XStack>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {walletName}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            /
+          </SizableText>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {accountName}
+            </SizableText>
+          </XStack>
+        </XStack>
       );
     }, [isLoading, accountName, walletName]);
     const renderAddressText = useCallback(() => {
@@ -177,7 +191,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { account, indexedAccount, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
@@ -216,12 +230,67 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       />
       {media.gtMd ? (
         <>
-          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-            {account?.name ?? ''}
-          </SizableText>
+          <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {wallet?.name}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {account?.name}
+            </SizableText>
+          </View>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </>
       ) : null}
+    </XStack>
+  );
+}
+
+export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+  const {
+    activeAccount: { account, network },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+  const handlePress = useCallback(async () => {
+    showAccountSelector();
+  }, [showAccountSelector]);
+
+  const addressText = accountUtils.shortenAddress({
+    address: account?.address || '',
+  });
+
+  if (!addressText) {
+    return <Skeleton width={153} height="$5" />;
+  }
+
+  return (
+    <XStack
+      alignItems="center"
+      px="$1.5"
+      mx="$-1.5"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      onPress={(event) => {
+        event.stopPropagation();
+        void handlePress();
+      }}
+    >
+      <Token size="xs" tokenImageUri={network?.logoURI} />
+      <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+        {addressText}
+      </SizableText>
+      <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
     </XStack>
   );
 }

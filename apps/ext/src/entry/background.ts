@@ -17,8 +17,10 @@ import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscree
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
+import { setupExtUIEvent } from '../background/extUI';
 import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
+import { setupSidePanelPortInBg } from '../background/sidePanel';
 
 function initBackground() {
   // TODO use backgroundApiInit
@@ -41,6 +43,8 @@ function initBackground() {
 if (platformEnv.isExtensionBackgroundServiceWorker) {
   // axios.defaults.adapter = axiosAdapter;
   setupKeepAlive();
+  setupSidePanelPortInBg();
+  setupExtUIEvent();
   serviceWorker.disableCacheInBackground();
 }
 console.log(

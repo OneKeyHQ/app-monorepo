@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalReceiveRoutes,
@@ -28,7 +29,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight, useSpotlight } from '../Spotlight';
+import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
@@ -37,31 +38,26 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { activeAccount } = useActiveAccount({ num });
   const [isFocus, setIsFocus] = useState(false);
   const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
-  const { isFirstVisit, tourVisited } = useSpotlight(
-    ESpotlightTour.createAllNetworks,
-  );
+  // const { isFirstVisit, tourVisited } = useSpotlight(
+  //   ESpotlightTour.createAllNetworks,
+  // );
   useListenTabFocusState(
     ETabRoutes.Home,
     async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(focus && !hideByModal);
+      setIsFocus(!hideByModal);
     },
   );
   if (!isEnable) {
     return null;
   }
 
-  const visible = isFirstVisit && isFocus;
   return (
     <Spotlight
-      visible={visible}
-      content={
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.spotlight_enable_network_message,
-          })}
-        </SizableText>
-      }
-      onConfirm={tourVisited}
+      isVisible={isFocus ? !platformEnv.isE2E : undefined}
+      message={intl.formatMessage({
+        id: ETranslations.spotlight_enable_network_message,
+      })}
+      tourName={ESpotlightTour.createAllNetworks}
     >
       <IconButton
         title={intl.formatMessage({ id: ETranslations.global_copy_address })}
@@ -72,13 +68,37 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       />
     </Spotlight>
   );
+
+  // const visible = isFirstVisit && isFocus;
+  // console.log('AllNetworkAccountSelector____visible', visible);
+  // return (
+  //   <SpotlightView
+  //     visible={visible}
+  //     content={
+  //       <SizableText size="$bodyMd">
+  //         {intl.formatMessage({
+  //           id: ETranslations.spotlight_enable_network_message,
+  //         })}
+  //       </SizableText>
+  //     }
+  //     onConfirm={tourVisited}
+  //   >
+  //     <IconButton
+  //       title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+  //       variant="tertiary"
+  //       icon="Copy3Outline"
+  //       size="small"
+  //       onPress={handleWalletAddress}
+  //     />
+  //   </SpotlightView>
+  // );
 };
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
   const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
@@ -112,8 +132,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
           networkId: network.id,
           accountId: account.id,
           walletId: wallet.id,
-          deriveInfo,
-          deriveType,
         },
       });
     } else {
@@ -124,7 +142,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     account,
     copyText,
     deriveInfo,
-    deriveType,
     logActiveAccount,
     navigation,
     network,
@@ -166,10 +183,24 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             }}
             hitSlop={NATIVE_HIT_SLOP}
             userSelect="none"
+            testID="account-selector-address"
           >
-            <SizableText size="$bodyMd">
-              {accountUtils.shortenAddress({ address: account?.address })}
-            </SizableText>
+            {platformEnv.isE2E ? (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+                width={200}
+              >
+                {account?.address}
+              </SizableText>
+            ) : (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+              >
+                {accountUtils.shortenAddress({ address: account?.address })}
+              </SizableText>
+            )}
           </XStack>
         }
       />
@@ -185,9 +216,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     // show create button if account not exists
     return (
       <AccountSelectorCreateAddressButton
-        autoCreateAddress
+        // autoCreateAddress // use EmptyAccount autoCreateAddress instead
         num={num}
         account={selectedAccount}
+        onPressLog={logActiveAccount}
       />
     );
   }
@@ -209,7 +241,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   return (
     <XStack onPress={() => logActiveAccount()}>
       <SizableText size="$bodyMd" color="$textCaution">
-        ERROR address
+        {intl.formatMessage({ id: ETranslations.wallet_no_address })}
       </SizableText>
     </XStack>
   );

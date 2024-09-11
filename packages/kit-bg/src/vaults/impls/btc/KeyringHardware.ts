@@ -6,6 +6,7 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
+  isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   IBtcInput,
@@ -15,11 +16,16 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
+  ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { AddressNotSupportSignMethodError } from '@onekeyhq/shared/src/errors';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -27,9 +33,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type VaultBtc from './Vault';
-import type { IDBAccount } from '../../../dbs/local/types';
+import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IPrepareHardwareAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type { RefTransaction } from '@onekeyfe/hd-core';
@@ -40,6 +47,13 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
+
+    const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
+
+    if (psbtHex && inputsToSign) {
+      return this.signPsbt(params);
+    }
+
     const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
@@ -62,7 +76,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
       Boolean,
     );
-    const prevTxs = await vault.collectTxs(prevTxids);
+    const prevTxs = await vault.collectTxsByApi(prevTxids);
     const sdk = await this.getHardwareSDKInstance();
 
     const { connectId, deviceId } = dbDevice;
@@ -114,7 +128,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   private buildHardwareOutput = async (
     output: IBtcOutput,
   ): Promise<Messages.TxOutputType> => {
-    const { isCharge, bip44Path, opReturn } = output.payload || {};
+    const { isChange, bip44Path, opReturn } = output.payload || {};
 
     if (opReturn && typeof opReturn === 'string' && opReturn.length > 0) {
       return {
@@ -123,7 +137,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         op_return_data: bufferUtils.bytesToHex(Buffer.from(opReturn)),
       };
     }
-    if (isCharge && bip44Path) {
+    if (isChange && bip44Path) {
       const { getHDPath, getOutputScriptType } = await CoreSDKLoader();
       const addressN = getHDPath(bip44Path);
       const scriptType = getOutputScriptType(addressN);
@@ -161,8 +175,145 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   };
 
-  async signMessage(): Promise<string[]> {
-    throw new NotImplemented();
+  async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
+    const { unsignedTx, signOnly } = params;
+    const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
+    if (!psbtHex || !inputsToSign) {
+      throw new Error('invalid psbt');
+    }
+
+    const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
+    if (!isTaprootPath(dbAccount.path)) {
+      throw new AddressNotSupportSignMethodError();
+    }
+
+    const network = await this.getNetwork();
+    const coinName = await this.coreApi.getCoinName({ network });
+    const sdk = await this.getHardwareSDKInstance();
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
+    const { connectId, deviceId } = dbDevice;
+    // get fingerprint from device
+    const pubkeyResult = await convertDeviceResponse(() =>
+      sdk.btcGetPublicKey(connectId, deviceId, {
+        ...deviceCommonParams,
+        path: dbAccount.path,
+        showOnOneKey: false,
+      }),
+    );
+
+    const fingerprint = Number(pubkeyResult.root_fingerprint || 0)
+      .toString(16)
+      .padStart(8, '0');
+
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const btcNetwork = getBtcForkNetwork(networkInfo.networkChainCode);
+    const psbt = BitcoinJS.Psbt.fromHex(psbtHex, {
+      network: btcNetwork,
+      maximumFeeRate: btcNetwork.maximumFeeRate,
+    });
+    for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
+      const input = inputsToSign[i];
+      psbt.updateInput(input.index, {
+        tapBip32Derivation: [
+          {
+            masterFingerprint: Buffer.from(fingerprint, 'hex'),
+            pubkey: Buffer.from(input.publicKey, 'hex').subarray(1, 33),
+            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+            leafHashes: [],
+          },
+        ],
+      });
+    }
+
+    for (let i = 0, len = psbt.txOutputs.length; i < len; i += 1) {
+      const output = psbt.txOutputs[i];
+      try {
+        // If the address is the change address
+        if (output.address === dbAccount.address && len > 1) {
+          psbt.updateOutput(i, {
+            tapInternalKey: Buffer.from(
+              checkIsDefined(dbAccount.pub),
+              'hex',
+            ).subarray(1, 33),
+            tapBip32Derivation: [
+              {
+                masterFingerprint: Buffer.from(fingerprint, 'hex'),
+                pubkey: Buffer.from(
+                  checkIsDefined(dbAccount.pub),
+                  'hex',
+                ).subarray(1, 33),
+                path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+                leafHashes: [],
+              },
+            ],
+          });
+        }
+      } catch (err) {
+        //
+      }
+    }
+
+    const response = await convertDeviceResponse(() =>
+      sdk.btcSignPsbt(connectId, deviceId, {
+        ...deviceCommonParams,
+        psbt: psbt.toHex(),
+        coin: coinName?.toLowerCase(),
+      }),
+    );
+
+    const signedPsbt = response.psbt;
+
+    let rawTx = '';
+    const finalizedPsbt = BitcoinJS.Psbt.fromHex(psbt.toHex(), {
+      network: btcNetwork,
+    });
+    inputsToSign.forEach((v) => {
+      finalizedPsbt.finalizeInput(v.index);
+    });
+    if (!signOnly) {
+      rawTx = finalizedPsbt.extractTransaction().toHex();
+    }
+
+    return {
+      encodedTx: unsignedTx.encodedTx,
+      txid: '',
+      rawTx,
+      psbtHex: signedPsbt,
+      finalizedPsbtHex: finalizedPsbt.toHex(),
+    };
+  }
+
+  async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    const network = await this.getNetwork();
+    const coinName = await this.coreApi.getCoinName({ network });
+    const dbAccount = await this.vault.getAccount();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const sdk = await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      params.messages.map(async ({ message, type }) => {
+        const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
+
+        if (dAppSignType && !isTaprootPath(dbAccount.path)) {
+          throw new AddressNotSupportSignMethodError();
+        }
+
+        const response = await sdk.btcSignMessage(connectId, deviceId, {
+          ...params.deviceParams?.deviceCommonParams,
+          path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+          coin: coinName,
+          messageHex: Buffer.from(message).toString('hex'),
+          dAppSignType,
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return { message, signature: response.payload.signature };
+      }),
+    );
+    return result.map((ret) => ret.signature);
   }
 
   override async prepareAccounts(
@@ -186,6 +337,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
+            defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKey();
             const response = await sdk.btcGetPublicKey(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
@@ -193,6 +345,11 @@ export class KeyringHardware extends KeyringHardwareBase {
                 coin: coinName?.toLowerCase(),
                 showOnOneKey: showOnOnekeyFn(arrIndex),
               })),
+            });
+            defaultLogger.account.accountCreatePerf.sdkBtcGetPublicKeyDone({
+              deriveTypeLabel: params.deriveInfo?.label ?? '',
+              indexes: usedIndexes,
+              coinName,
             });
             return response;
           },

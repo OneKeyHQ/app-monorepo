@@ -2,16 +2,16 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
-import { useIntl } from 'react-intl';
 import { InteractionManager, Keyboard } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
-import { Toast, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useClipboard, useKeyboardEvent } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const isValidWord = (word: string) => wordLists.includes(word);
 
+export const PHRASE_LENGTHS = [12, 15, 18, 21, 24];
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const ref = useRef(new Map<string, string[]>());
@@ -52,8 +52,12 @@ export const useSearchWords = () => {
 export const useSuggestion = (
   form: ReturnType<typeof useForm>,
   phraseLength = 12,
+  {
+    setPhraseLength,
+  }: {
+    setPhraseLength: (length: string) => void;
+  },
 ) => {
-  const intl = useIntl();
   const { fetchSuggestions, suggestions, updateSuggestions, suggestionsRef } =
     useSearchWords();
 
@@ -236,32 +240,53 @@ export const useSuggestion = (
   const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
-    (value: string) => {
-      const arrays = value.split(' ');
-      if (arrays.length === phraseLength) {
-        setTimeout(() => {
+    (value: string, inputIndex: number) => {
+      const arrays = value.trim().split(' ');
+      if (arrays.length > 1) {
+        const formWords = Object.values(form.getValues()) as string[];
+        const prevWord = formWords[inputIndex];
+        if (prevWord?.length > 0) {
+          arrays[0] = arrays[0].slice(prevWord.length);
+        }
+        let currentPhraseLength = phraseLength;
+        setTimeout(async () => {
           clearText();
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_pasted_and_cleared,
-            }),
-          });
+          if (
+            PHRASE_LENGTHS.includes(arrays.length) &&
+            arrays.length > currentPhraseLength
+          ) {
+            currentPhraseLength = arrays.length;
+            setPhraseLength(currentPhraseLength.toString());
+            await timerUtils.wait(25);
+          }
+          const formValues = Object.values(form.getValues());
+          const values: string[] = formValues.slice(0, inputIndex);
+          const words = [...values, ...arrays].slice(0, currentPhraseLength);
+          if (words.length < currentPhraseLength) {
+            words.push(...formValues.slice(words.length, currentPhraseLength));
+          }
           form.reset(
-            arrays.reduce((prev, next, index) => {
+            words.reduce((prev, next, index) => {
               prev[`phrase${index + 1}`] = next;
               return prev;
             }, {} as Record<`phrase${number}`, string>),
           );
           resetSuggestions();
-          setTimeout(() => {
-            checkAllWords();
-          }, 10);
-        }, 10);
+          await timerUtils.wait(10);
+          checkAllWords();
+        }, 25);
         return true;
       }
       return false;
     },
-    [checkAllWords, clearText, form, intl, phraseLength, resetSuggestions],
+    [
+      checkAllWords,
+      clearText,
+      form,
+      phraseLength,
+      resetSuggestions,
+      setPhraseLength,
+    ],
   );
 
   const closePopover = useCallback(() => {

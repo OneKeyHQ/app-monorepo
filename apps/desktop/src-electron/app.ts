@@ -25,9 +25,18 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IMediaType, IPrefType } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopAppState,
+  IDesktopSubModuleInitParams,
+  IMediaType,
+  IPrefType,
+} from '@onekeyhq/shared/types/desktop';
 
+import appDevOnlyApi from './appDevOnlyApi';
+import appNotification from './appNotification';
+import appPermission from './appPermission';
 import { ipcMessageKeys } from './config';
+import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
@@ -66,83 +75,193 @@ export type IDesktopOpenUrlEventData = {
   platform?: string;
 };
 
-function showMainWindow() {
-  if (!mainWindow) {
-    return;
+const getSafelyMainWindow = () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
   }
-  mainWindow.show();
-  mainWindow.focus();
+  return undefined;
+};
+
+function showMainWindow() {
+  const safelyMainWindow = getSafelyMainWindow();
+  safelyMainWindow?.show();
+  safelyMainWindow?.focus();
 }
 
-const template = [
-  // { role: 'appMenu' },
-  ...(isMac
-    ? [
+const initMenu = () => {
+  const template = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              {
+                role: 'about',
+                label: i18nText(ETranslations.menu_about_onekey_wallet),
+              },
+              { type: 'separator' },
+              !process.mas && {
+                label: i18nText(ETranslations.menu_check_for_updates),
+                click: () => {
+                  showMainWindow();
+                  const safelyMainWindow = getSafelyMainWindow();
+                  safelyMainWindow?.webContents.send(
+                    ipcMessageKeys.CHECK_FOR_UPDATES,
+                  );
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_preferences),
+                accelerator: 'CmdOrCtrl+,',
+                click: () => {
+                  const safelyMainWindow = getSafelyMainWindow();
+                  const visible = !!safelyMainWindow?.isVisible();
+                  logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
+                  showMainWindow();
+                  safelyMainWindow?.webContents.send(
+                    ipcMessageKeys.APP_OPEN_SETTINGS,
+                    visible,
+                  );
+                },
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_lock_now),
+                click: () => {
+                  showMainWindow();
+                  const safelyMainWindow = getSafelyMainWindow();
+                  if (safelyMainWindow) {
+                    safelyMainWindow.webContents.send(
+                      ipcMessageKeys.APP_LOCK_NOW,
+                    );
+                  }
+                },
+              },
+              { type: 'separator' },
+              {
+                role: 'hide',
+                accelerator: 'Alt+CmdOrCtrl+H',
+                label: i18nText(ETranslations.menu_hide_onekey_wallet),
+              },
+              { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+              { type: 'separator' },
+              {
+                role: 'quit',
+                label: i18nText(ETranslations.menu_quit_onekey_wallet),
+              },
+            ].filter(Boolean),
+          },
+        ]
+      : []),
+    {
+      label: i18nText(ETranslations.global_edit),
+      submenu: [
+        { role: 'undo', label: i18nText(ETranslations.menu_undo) },
+        { role: 'redo', label: i18nText(ETranslations.menu_redo) },
+        { type: 'separator' },
+        { role: 'cut', label: i18nText(ETranslations.menu_cut) },
+        { role: 'copy', label: i18nText(ETranslations.global_copy) },
+        { role: 'paste', label: i18nText(ETranslations.menu_paste) },
+        { type: 'separator' },
         {
-          label: app.name,
-          submenu: [
-            { role: 'about' },
-            { type: 'separator' },
-            { role: 'services' },
-            { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit' },
-          ],
+          role: 'delete',
+          label: i18nText(ETranslations.global_delete),
         },
-      ]
-    : []),
-  { role: 'editMenu' },
-  // remove `Reload`, 'Force reload' and 'Toggle Developer Tools' from `View` menu
-  isDev || store.getDevTools()
-    ? { role: 'viewMenu' }
-    : {
-        label: 'View',
-        submenu: [
-          { role: 'resetZoom' },
-          { role: 'zoomIn' },
-          { role: 'zoomOut' },
-          { type: 'separator' },
-          { role: 'togglefullscreen' },
-        ],
-      },
-  {
-    label: 'Window',
-    submenu: [
-      { role: 'minimize' },
-      { role: 'zoom' },
-      ...(isMac
-        ? [
-            { type: 'separator' },
-            { role: 'front' },
-            { type: 'separator' },
-            { role: 'window' },
-            {
-              label: 'OneKey',
-              click: showMainWindow,
-              accelerator: 'CmdOrCtrl+O',
-            },
-          ]
-        : [{ role: 'close' }]),
-    ],
-  },
-  {
-    role: 'help',
-    submenu: [
-      {
-        label: 'Learn More',
-        click: async () => {
-          await shell.openExternal('https://onekey.so');
+        {
+          role: 'selectAll',
+          label: i18nText(ETranslations.menu_select_all),
         },
-      },
-    ],
-  },
-];
+      ],
+    },
+    {
+      label: i18nText(ETranslations.menu_view),
+      submenu: [
+        ...(isDev || store.getDevTools()
+          ? [
+              { role: 'reload' },
+              { role: 'forceReload' },
+              { role: 'toggleDevTools' },
+              { type: 'separator' },
+            ]
+          : []),
+        { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
+        { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in) },
+        { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out) },
+        { type: 'separator' },
+        {
+          role: 'togglefullscreen',
+          label: i18nText(ETranslations.menu_toggle_full_screen),
+        },
+      ],
+    },
+    {
+      label: i18nText(ETranslations.menu_window),
+      submenu: [
+        { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
+        { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        ...(isMac
+          ? [
+              { type: 'separator' },
+              {
+                role: 'front',
+                label: i18nText(ETranslations.menu_bring_all_to_front),
+              },
+              { type: 'separator' },
+              {
+                label: i18nText(ETranslations.menu_window),
+                click: () => {
+                  showMainWindow();
+                },
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      role: 'help',
+      label: i18nText(ETranslations.menu_help),
+      submenu: [
+        {
+          label: i18nText(ETranslations.menu_visit_help_center),
+          click: async () => {
+            await shell.openExternal('https://help.onekey.so');
+          },
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_official_website),
+          click: async () => {
+            await shell.openExternal('https://onekey.so');
+          },
+        },
+        {
+          label: 'Github',
+          click: async () => {
+            await shell.openExternal(
+              'https://github.com/OneKeyHQ/app-monorepo',
+            );
+          },
+        },
+        {
+          label: 'X',
+          click: async () => {
+            await shell.openExternal('https://x.com/onekeyhq');
+          },
+        },
+      ],
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template as any);
+  Menu.setApplicationMenu(menu);
+};
 
-const menu = Menu.buildFromTemplate(template as any);
-Menu.setApplicationMenu(menu);
+const refreshMenu = () => {
+  setTimeout(async () => {
+    await initLocale();
+    initMenu();
+  }, 50);
+};
 
 const emitter = new EventEmitter();
 let isAppReady = false;
@@ -163,15 +282,17 @@ function handleDeepLinkUrl(
 
   const sendEventData = () => {
     isAppReady = true;
-    if (mainWindow) {
+
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow) {
       showMainWindow();
       if (process.env.NODE_ENV !== 'production') {
-        mainWindow.webContents.send(
+        safelyMainWindow?.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
-      mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
+      mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
     }
   };
   if (isAppReady && mainWindow) {
@@ -255,13 +376,18 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
+  const getSafelyBrowserWindow = () => {
+    if (browserWindow && !browserWindow.isDestroyed()) {
+      return browserWindow;
+    }
+    return undefined;
+  };
+
   if (isMac) {
     browserWindow.once('ready-to-show', () => {
       showMainWindow();
     });
   }
-
-  // browserWindow.setAspectRatio(ratio);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
@@ -290,12 +416,16 @@ function createMainWindow() {
     if (!isMac) {
       showMainWindow();
     }
-    browserWindow.webContents.send(ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS, {
-      resourcesPath: (global as any).resourcesPath,
-      staticPath: `file://${staticPath}`,
-      preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
-      sdkConnectSrc,
-    });
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(
+      ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
+      {
+        resourcesPath: (global as any).resourcesPath,
+        staticPath: `file://${staticPath}`,
+        preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
+        sdkConnectSrc,
+      },
+    );
   });
 
   browserWindow.on('resize', () => {
@@ -348,7 +478,8 @@ function createMainWindow() {
     quitOrMinimizeApp();
   });
   ipcMain.on(ipcMessageKeys.APP_RELOAD, () => {
-    browserWindow.reload();
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.reload();
   });
 
   ipcMain.on(
@@ -359,33 +490,22 @@ function createMainWindow() {
     },
   );
 
-  ipcMain.on(
-    ipcMessageKeys.APP_OPEN_PREFERENCES,
-    (_event, prefType: IPrefType) => {
-      const platform = os.type();
-      if (platform === 'Darwin') {
-        void shell.openPath(
-          '/System/Library/PreferencePanes/Security.prefPane',
-        );
-      } else if (platform === 'Windows_NT') {
-        // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
-        if (prefType === 'camera') {
-          void shell.openExternal('ms-settings:privacy-webcam');
-        }
-        // BlueTooth is not supported on desktop currently
-      } else {
-        // Linux ??
-      }
-    },
-  );
+  const subModuleInitParams: IDesktopSubModuleInitParams = {
+    APP_NAME,
+    getSafelyMainWindow,
+  };
+  appNotification.init(subModuleInitParams);
+  appPermission.init(subModuleInitParams);
+  appDevOnlyApi.init(subModuleInitParams);
 
   ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
-    if (browserWindow.isMaximized()) {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    if (safelyBrowserWindow?.isMaximized()) {
       // Restore the original window size
-      browserWindow.unmaximize();
+      safelyBrowserWindow?.unmaximize();
     } else {
       // Maximized window
-      browserWindow.maximize();
+      safelyBrowserWindow?.maximize();
     }
   });
 
@@ -417,17 +537,15 @@ function createMainWindow() {
     };
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_DEV_TOOLS, () => {
-    store.setDevTools(true);
-    setTimeout(() => {
-      void app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) });
-      app.exit(0);
-    }, 10);
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
+    store.setDevTools(isOpen);
+    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
     store.setTheme(themeKey);
-    browserWindow.setBackgroundColor(getBackgroundColor(themeKey));
+    safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
@@ -478,6 +596,11 @@ function createMainWindow() {
     event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
   });
 
+  ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
+    store.setLanguage(lang);
+    refreshMenu();
+  });
+
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
@@ -500,31 +623,41 @@ function createMainWindow() {
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
     registerShortcuts((event) => {
-      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      const w = getSafelyBrowserWindow();
+      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
     });
   });
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('leave-full-screen', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
   });
 
   browserWindow.on('focus', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'active');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    const state: IDesktopAppState = 'active';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     registerShortcuts((event) => {
-      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+      const w = getSafelyBrowserWindow();
+      w?.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
     });
   });
 
   browserWindow.on('blur', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'blur');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    const state: IDesktopAppState = 'blur';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
     unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
-    browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    const state: IDesktopAppState = 'background';
+    safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
   app.on('login', (event, webContents, request, authInfo, callback) => {
@@ -536,7 +669,8 @@ function createMainWindow() {
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
-        mainWindow?.webContents.send(
+        const safelyMainWindow = getSafelyMainWindow();
+        safelyMainWindow?.webContents.send(
           ipcMessageKeys.WEBVIEW_NEW_WINDOW,
           handleDetails,
         );
@@ -624,12 +758,14 @@ function createMainWindow() {
         callback(url);
       },
     );
-    browserWindow.webContents.on(
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    safelyBrowserWindow?.webContents.on(
       'did-fail-load',
       (_, __, ___, validatedURL) => {
         const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
         if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          void browserWindow.loadURL(src);
+          const w = getSafelyBrowserWindow();
+          void w?.loadURL(src);
         }
       },
     );
@@ -640,9 +776,10 @@ function createMainWindow() {
     // hide() instead of close() on MAC
     if (isMac) {
       event.preventDefault();
-      if (!browserWindow.isDestroyed()) {
-        browserWindow.blur();
-        browserWindow.hide(); // hide window only
+      const safelyBrowserWindow = getSafelyBrowserWindow();
+      if (safelyBrowserWindow) {
+        safelyBrowserWindow.blur();
+        safelyBrowserWindow.hide(); // hide window only
         // browserWindow.minimize(); // hide window and minimize to Docker
       }
     }
@@ -664,9 +801,8 @@ function quitOrMinimizeApp(event?: Event) {
   if (isMac) {
     // **** renderer app will reload after minimize, and keytar not working.
     event?.preventDefault();
-    if (!mainWindow?.isDestroyed()) {
-      mainWindow?.hide();
-    }
+    const safelyMainWindow = getSafelyMainWindow();
+    safelyMainWindow?.hide();
     // ****
     // app.quit();
   } else {
@@ -678,8 +814,11 @@ if (!singleInstance && !process.mas) {
   quitOrMinimizeApp();
 } else {
   app.on('second-instance', (e, argv) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow) {
+      if (safelyMainWindow.isMinimized()) {
+        safelyMainWindow.restore();
+      }
       showMainWindow();
 
       // Protocol handler for win32
@@ -694,8 +833,11 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', async () => {
+    const locale = await initLocale();
+    logger.info('locale >>>> ', locale);
     if (!mainWindow) {
       mainWindow = createMainWindow();
+      initMenu();
     }
     void initChildProcess();
   });

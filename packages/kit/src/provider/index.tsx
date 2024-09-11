@@ -9,9 +9,9 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
-import { Bootstrap } from './Bootstrap';
-import { Container } from './Container';
+import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
+import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -33,13 +33,18 @@ const LastActivityTracker = LazyLoad(
 
 const flexStyle = { flex: 1 };
 
-export function KitProvider() {
+export function KitProvider(props: any = {}) {
+  const {
+    UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+  } = props;
+
+  ColdStartByNotification.launchNotification = launchNotification;
+
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
-    <GestureHandlerRootView style={flexStyle}>
-      <ThemeProvider>
-        <GlobalJotaiReady>
-          <Bootstrap />
+    <GlobalJotaiReady>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeProvider>
           <SplashProvider>
             <Container />
           </SplashProvider>
@@ -47,9 +52,10 @@ export function KitProvider() {
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
           <SystemLocaleTracker />
+          <StateActiveContainer />
           <InAppNotification />
-        </GlobalJotaiReady>
-      </ThemeProvider>
-    </GestureHandlerRootView>
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </GlobalJotaiReady>
   );
 }

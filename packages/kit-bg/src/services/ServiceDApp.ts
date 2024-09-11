@@ -12,11 +12,16 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
@@ -28,6 +33,8 @@ import {
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -47,34 +54,11 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
-import type { ITransferInfo } from '../vaults/types';
+import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-
-function buildModalRouteParams({
-  screens = [],
-  routeParams,
-}: {
-  screens: string[];
-  routeParams: Record<string, any>;
-}) {
-  const modalParams: { screen: any; params: any } = {
-    screen: null,
-    params: {},
-  };
-  let paramsCurrent = modalParams;
-  let paramsLast = modalParams;
-  screens.forEach((screen) => {
-    paramsCurrent.screen = screen;
-    paramsCurrent.params = {};
-    paramsLast = paramsCurrent;
-    paramsCurrent = paramsCurrent.params;
-  });
-  paramsLast.params = routeParams;
-  return modalParams;
-}
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -120,6 +104,11 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
+    defaultLogger.discovery.dapp.dappOpenModal({
+      request,
+      screens,
+      params,
+    });
     // Try to open an existing window anyway in the extension
     this.tryOpenExistingExtensionWindow();
 
@@ -193,12 +182,20 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      const extensionWindow = await extUtils.openStandaloneWindow({
-        routes: routeNames,
-        params: routeParams,
-      });
-      this.existingWindowId = extensionWindow.id;
+      if (sidePanelState.isOpen || platformEnv.isExtensionUiSidePanel) {
+        await extUtils.openSidePanel({
+          routes: routeNames,
+          params: routeParams,
+          modalParams,
+        });
+      } else {
+        // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
+        const extensionWindow = await extUtils.openStandaloneWindow({
+          routes: routeNames,
+          params: routeParams,
+        });
+        this.existingWindowId = extensionWindow.id;
+      }
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -222,7 +219,7 @@ class ServiceDApp extends ServiceBase {
 
   private tryOpenExistingExtensionWindow() {
     if (platformEnv.isExtension && this.existingWindowId) {
-      extUtils.openExistWindow({ windowId: this.existingWindowId });
+      extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }
 
@@ -897,6 +894,160 @@ class ServiceDApp extends ServiceBase {
         getNetworkName: params.getNetworkName,
       },
     );
+  }
+
+  // Follow home account changed to switch dApp connection account
+  @backgroundMethod()
+  async isSupportSwitchDAppConnectionAccount(params: {
+    origin: string;
+    accountId?: string;
+    networkId?: string;
+    indexedAccountId?: string;
+    isOthersWallet?: boolean;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const {
+      origin,
+      accountId,
+      indexedAccountId,
+      networkId,
+      isOthersWallet,
+      deriveType,
+    } = params;
+    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
+      origin,
+    );
+    if (
+      !connectedAccountsInfo ||
+      !connectedAccountsInfo.length ||
+      connectedAccountsInfo.length > 1
+    ) {
+      return { supportSwitchConnectionAccount: false, accountExist: false };
+    }
+
+    const connectedAccountInfo = connectedAccountsInfo[0];
+    if (accountId && connectedAccountInfo.accountId === accountId) {
+      return { supportSwitchConnectionAccount: false, accountExist: true };
+    }
+    const connectedAccount = await this.backgroundApi.serviceAccount.getAccount(
+      {
+        accountId: connectedAccountInfo.accountId,
+        networkId: connectedAccountInfo.networkId ?? '',
+      },
+    );
+    if (isOthersWallet && accountId && networkId) {
+      const otherAccount = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      // If networkId is same or both are evm, support switch
+      if (
+        (connectedAccount.impl === IMPL_EVM &&
+          otherAccount.impl === IMPL_EVM) ||
+        connectedAccountInfo.networkId === networkId
+      ) {
+        return { supportSwitchConnectionAccount: true, accountExist: true };
+      }
+
+      return { supportSwitchConnectionAccount: false, accountExist: true };
+    }
+    if (!indexedAccountId) {
+      return { supportSwitchConnectionAccount: false, accountExist: false };
+    }
+
+    try {
+      const usedDeriveType = networkUtils.isBTCNetwork(
+        connectedAccountInfo.networkId,
+      )
+        ? connectedAccountInfo.deriveType
+        : deriveType;
+      const networkAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId: connectedAccountInfo.networkId ?? '',
+          deriveType: usedDeriveType,
+        });
+
+      if (connectedAccount.id === networkAccount?.id) {
+        return {
+          supportSwitchConnectionAccount: false,
+          accountExist: !!networkAccount?.id,
+        };
+      }
+      return {
+        supportSwitchConnectionAccount: true,
+        accountExist: !!networkAccount?.id,
+      };
+    } catch {
+      return { supportSwitchConnectionAccount: true, accountExist: false };
+    }
+  }
+
+  @backgroundMethod()
+  async getDappConnectNetworkAccount(params: {
+    origin: string;
+    accountId?: string;
+    networkId?: string;
+    indexedAccountId?: string;
+    isOthersWallet?: boolean;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const {
+      origin,
+      accountId,
+      indexedAccountId,
+      networkId,
+      isOthersWallet,
+      deriveType,
+    } = params;
+    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
+      origin,
+    );
+    if (
+      !connectedAccountsInfo ||
+      !connectedAccountsInfo.length ||
+      connectedAccountsInfo.length > 1
+    ) {
+      return null;
+    }
+
+    const connectedAccountInfo = connectedAccountsInfo[0];
+    if (isOthersWallet && accountId && networkId) {
+      try {
+        const otherAccount = await this.backgroundApi.serviceAccount.getAccount(
+          {
+            accountId,
+            networkId,
+          },
+        );
+        return otherAccount;
+      } catch {
+        return null;
+      }
+    }
+
+    if (!indexedAccountId) {
+      return null;
+    }
+
+    try {
+      const usedDeriveType = networkUtils.isBTCNetwork(
+        connectedAccountInfo.networkId,
+      )
+        ? connectedAccountInfo.deriveType
+        : deriveType;
+      const networkAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId: connectedAccountInfo.networkId ?? '',
+          deriveType: usedDeriveType,
+        });
+      return networkAccount;
+    } catch {
+      return null;
+    }
   }
 
   @backgroundMethod()
