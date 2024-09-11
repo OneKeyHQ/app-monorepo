@@ -9,6 +9,7 @@ import {
   Badge,
   HeightTransition,
   Icon,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -51,7 +52,7 @@ const SwapProviderListItem = ({
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
-        <XStack space="$1" alignItems="center">
+        <XStack gap="$1" alignItems="center">
           <Tooltip
             renderTrigger={
               <Icon name="GasOutline" size="$4" color="$iconSubdued" />
@@ -97,7 +98,7 @@ const SwapProviderListItem = ({
         displayTime = `${timeInMinutes}min`;
       }
       return (
-        <XStack space="$1" alignItems="center">
+        <XStack gap="$1" alignItems="center">
           <Tooltip
             renderTrigger={
               <Icon
@@ -126,7 +127,7 @@ const SwapProviderListItem = ({
 
   const protocolFeeComponent = useMemo(
     () => (
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         <Tooltip
           renderTrigger={
             <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
@@ -287,7 +288,7 @@ const SwapProviderListItem = ({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       userSelect="none"
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
@@ -321,7 +322,8 @@ const SwapProviderListItem = ({
         </Stack>
         {providerResult.isBest ||
         providerResult.receivedBest ||
-        providerResult.minGasCost ? (
+        providerResult.minGasCost ||
+        providerResult.isAntiMEV ? (
           <XStack flexWrap="wrap" justifyContent="flex-end" m={-3} flex={1}>
             {providerResult.isBest ? (
               <Stack p={3}>
@@ -350,12 +352,21 @@ const SwapProviderListItem = ({
                 </Badge>
               </Stack>
             ) : null}
+            {providerResult.isAntiMEV ? (
+              <Stack p={3}>
+                <Badge badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_anti_mev,
+                  })}
+                </Badge>
+              </Stack>
+            ) : null}
           </XStack>
         ) : null}
       </XStack>
       {providerResult.toAmount ? (
         <Stack py="$2" px="$3.5">
-          <XStack space="$3.5" alignItems="center">
+          <XStack gap="$3.5" alignItems="center">
             {networkFeeComponent}
             {estimatedTimeComponent}
             {protocolFeeComponent}
@@ -372,16 +383,14 @@ const SwapProviderListItem = ({
               my="$-0.5"
               py="$0.5"
               mr="$-1"
-              $platform-native={{
-                hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-              }}
+              hitSlop={NATIVE_HIT_SLOP}
               hoverStyle={{
                 bg: '$bgHover',
               }}
               pressStyle={{
                 bg: '$bgActive',
               }}
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineWidth: 2,
                 outlineColor: '$focusRing',
                 outlineStyle: 'solid',

@@ -1,10 +1,13 @@
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINNAME_TBTC,
   COINTYPE_TBTC,
   IMPL_TBTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import settingsBtc from '../btc/settings';
 
@@ -64,6 +67,27 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_TBTC,
   estimatedFeePollingInterval: 60,
   dappInteractionEnabled: false,
+  customRpcEnabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().sbtc]: {
+      providers: {
+        [EEarnProviderEnum.Babylon]: {
+          supportedSymbols: ['SBTC'],
+          configs: {
+            'SBTC': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: false,
+              withdrawWithTx: true,
+              claimWithTx: true,
+              usePublicKey: true,
+              withdrawSignOnly: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

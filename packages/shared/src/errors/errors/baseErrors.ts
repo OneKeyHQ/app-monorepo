@@ -3,7 +3,10 @@
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 import { isObject, isString } from 'lodash';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
@@ -29,7 +32,8 @@ export class OneKeyError<
   className?: EOneKeyErrorClassNames;
 
   // i18n key
-  readonly key?: ETranslations = 'onekey_error' as ETranslations;
+  readonly key?: ETranslations | ETranslationsMock =
+    'onekey_error' as ETranslations;
 
   // i18n params
   readonly info?: I18nInfoT;
@@ -66,11 +70,11 @@ export class OneKeyError<
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
-      code = -99999;
+      code = -99_999;
       infoData = info;
     }
     super(
-      code ?? -99999,
+      code ?? -99_999,
       // * empty string not allowed in Web3RpcError, give a fakeMessage by default
       // * can not access this.key before constructor
       msg ||

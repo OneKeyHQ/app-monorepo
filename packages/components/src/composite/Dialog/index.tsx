@@ -22,8 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useBackHandler } from '../../hooks';
-import { Stack } from '../../primitives';
+import { useBackHandler, useSheetZIndex } from '../../hooks';
+import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -51,6 +51,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { IColorTokens } from '../../types';
 
 export * from './hooks';
 export type {
@@ -130,6 +131,8 @@ function DialogFrame({
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
+
+  const sheetZIndex = useSheetZIndex();
   const renderDialogContent = (
     <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
@@ -177,6 +180,7 @@ function DialogFrame({
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
         animation="quick"
+        zIndex={sheetZIndex}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -185,7 +189,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          zIndex={sheetProps?.zIndex}
+          zIndex={sheetProps?.zIndex || sheetZIndex}
         />
         <Sheet.Frame
           unstyled
@@ -214,7 +218,9 @@ function DialogFrame({
       <AnimatePresence>
         {open ? (
           <Stack
-            position={'fixed' as unknown as any}
+            position={
+              platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
+            }
             top={0}
             left={0}
             right={0}
@@ -463,6 +469,40 @@ const dialogCancel = (props: IDialogCancelProps) =>
     showCancelButton: true,
   });
 
+export function DialogLoadingView({
+  children,
+  bg,
+}: {
+  children?: any;
+  bg?: IColorTokens;
+}) {
+  return (
+    <Stack
+      borderRadius="$3"
+      p="$5"
+      bg={bg ?? '$bgSubdued'}
+      borderCurve="continuous"
+    >
+      <Spinner size="large" />
+      {children}
+    </Stack>
+  );
+}
+
+function dialogLoading(props: { title: string }) {
+  return dialogShow({
+    ...props,
+    dismissOnOverlayPress: false,
+    // disableSwipeGesture: true,
+    disableDrag: true,
+    showExitButton: false,
+    showFooter: false,
+    showConfirmButton: false,
+    showCancelButton: false,
+    renderContent: <DialogLoadingView />,
+  });
+}
+
 export const Dialog = {
   Header: SetDialogHeader,
   Title: DialogTitle,
@@ -472,7 +512,9 @@ export const Dialog = {
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
+  Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,
   cancel: dialogCancel,
+  loading: dialogLoading,
 };

@@ -4,13 +4,12 @@ import type {
   ISignedMessageItemPro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import type {
-  AirGapUR,
-  IAirGapGenerateSignRequestParams,
-  IAirGapSignature,
-} from '@onekeyhq/qr-wallet-sdk';
+import type { AirGapUR } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyErrorAirGapInvalidQrCode,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -39,6 +38,8 @@ import type {
 export abstract class KeyringQrBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.qr;
 
+  abstract verifySignedTxMatched(...args: any[]): Promise<void>;
+
   getChildPathTemplates(
     params: IQrWalletGetChildPathTemplatesParams,
   ): IQrWalletGetChildPathTemplatesResult {
@@ -65,6 +66,7 @@ export abstract class KeyringQrBase extends KeyringBase {
       signedResultBuilder: (params: {
         // signature: IAirGapSignature;
         signatureUr: AirGapUR | undefined;
+        requestId: string;
       }) => Promise<T>;
     },
   ): Promise<T> {
@@ -101,7 +103,10 @@ export abstract class KeyringQrBase extends KeyringBase {
         requestUr: signRequestUr,
       });
 
-    const signedTx = await options.signedResultBuilder({ signatureUr });
+    const signedTx = await options.signedResultBuilder({
+      signatureUr,
+      requestId,
+    });
     return signedTx;
 
     // let sig: IAirGapSignature | undefined;
@@ -267,6 +272,10 @@ export abstract class KeyringQrBase extends KeyringBase {
         requestUr,
         allowPlainTextResponse: true,
       });
+    // expect qr on device is address, but not UR
+    if (raw && raw?.toLowerCase()?.startsWith('ur:')) {
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
     ret.push({
       address: raw || '',
       publicKey: '',

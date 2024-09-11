@@ -1,3 +1,6 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
@@ -5,6 +8,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -46,6 +50,11 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
   dappInteractionEnabled: true,
 
   defaultFeePresetIndex: 0,
@@ -70,6 +79,27 @@ const settings: IVaultSettings = {
   hasFrozenBalance: true,
 
   preCheckDappTxFeeInfoRequired: true,
+  customRpcEnabled: true,
+
+  sendZeroWithZeroTokenBalanceDisabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().sol]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

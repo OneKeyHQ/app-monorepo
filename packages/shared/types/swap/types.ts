@@ -1,6 +1,13 @@
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
-
-import type { INetworkExplorerConfig } from '..';
+import type {
+  IEventSourceCloseEvent,
+  IEventSourceDoneEvent,
+  IEventSourceErrorEvent,
+  IEventSourceExceptionEvent,
+  IEventSourceMessageEvent,
+  IEventSourceOpenEvent,
+  IEventSourceTimeoutEvent,
+} from '@onekeyhq/shared/src/eventSource';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap',
@@ -51,7 +58,6 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
-  explorers?: INetworkExplorerConfig[];
 }
 
 export interface ISwapTokenBase {
@@ -74,6 +80,8 @@ export interface ISwapToken extends ISwapTokenBase {
 
   riskLevel?: ETokenRiskLevel;
   reservationValue?: string;
+
+  isPopular?: boolean;
 }
 
 export interface ISwapTokenCatch {
@@ -97,6 +105,8 @@ export interface IFetchTokensParams {
   accountAddress?: string;
   accountNetworkId?: string;
   accountId?: string;
+  onlyAccountTokens?: boolean;
+  isAllNetworkFetchAccountTokens?: boolean;
 }
 
 export interface IFetchTokenListParams {
@@ -108,6 +118,8 @@ export interface IFetchTokenListParams {
   withCheckInscription?: boolean;
   limit?: number;
   keywords?: string;
+  skipReservationValue?: boolean;
+  onlyAccountTokens?: boolean;
 }
 
 export interface IFetchTokenDetailParams {
@@ -120,7 +132,22 @@ export interface IFetchTokenDetailParams {
   withCheckInscription?: boolean;
 }
 
+export interface ISwapAutoSlippageSuggestedValue {
+  value: number;
+  from: string;
+  to: string;
+}
+
 // quote
+
+export type ISwapQuoteEvent =
+  | IEventSourceErrorEvent
+  | IEventSourceTimeoutEvent
+  | IEventSourceExceptionEvent
+  | IEventSourceDoneEvent
+  | IEventSourceMessageEvent
+  | IEventSourceCloseEvent
+  | IEventSourceOpenEvent;
 
 export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
@@ -182,6 +209,7 @@ export interface IQuoteRoutePath {
   subRoutes?: IQuoteRouteDataInfo[][];
 }
 export interface IFetchQuoteResult {
+  quoteId?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
   fromAmount?: string;
@@ -204,6 +232,8 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   protocolNoRouterInfo?: string;
+  supportUrl?: string;
+  isAntiMEV?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -267,6 +297,27 @@ export interface ISwapAlertState {
   cbLabel?: string;
 }
 
+export interface ISwapQuoteEventAutoSlippage {
+  autoSuggestedSlippage: number;
+  fromNetworkId: string;
+  toNetworkId: string;
+  fromTokenAddress: string;
+  toTokenAddress: string;
+}
+
+export interface ISwapQuoteEventQuoteResult {
+  data: IFetchQuoteResult[];
+}
+
+export interface ISwapQuoteEventInfo {
+  totalQuoteCount: number;
+}
+
+export type ISwapQuoteEventData =
+  | ISwapQuoteEventAutoSlippage
+  | ISwapQuoteEventQuoteResult
+  | ISwapQuoteEventInfo;
+
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   userAddress: string;
@@ -328,11 +379,13 @@ export interface IFetchBuildTxOrderResponse {
   depositCoinAmt: string;
   depositCoinCode: string;
   orderId: string;
+  memo?: string;
 }
 export interface IFetchBuildTxChangellyOrderResponse {
   payinAddress: string;
   amountExpectedFrom: string;
   orderId: string;
+  payinExtraId?: string;
 }
 
 export interface IFetchResponse<T> {
@@ -388,6 +441,7 @@ export interface ISwapTxHistory {
     protocolFee?: number;
     oneKeyFee?: number;
     orderId?: string;
+    supportUrl?: string;
   };
   date: {
     created: number;

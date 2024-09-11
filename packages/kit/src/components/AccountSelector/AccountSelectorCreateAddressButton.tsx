@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWalletId,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   useAccountIsAutoCreatingAtom,
   useAccountManualCreatingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -26,6 +32,8 @@ export function AccountSelectorCreateAddressButton({
   autoCreateAddress,
   account,
   buttonRender,
+  onCreateDone,
+  onPressLog,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -38,6 +46,16 @@ export function AccountSelectorCreateAddressButton({
     deriveType: IAccountDeriveTypes;
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
+  onCreateDone?: (
+    params:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined,
+  ) => void;
+  onPressLog?: () => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -97,6 +115,7 @@ export function AccountSelectorCreateAddressButton({
     ));
 
   const doCreate = useCallback(async () => {
+    defaultLogger.account.accountCreatePerf.createAddressRunStart();
     if (isLoadingRef.current) {
       return;
     }
@@ -107,6 +126,13 @@ export function AccountSelectorCreateAddressButton({
       isLoading: true,
     }));
     setAccountIsAutoCreating(accountRef.current);
+    let resp:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined;
     try {
       if (process.env.NODE_ENV !== 'production' && account?.walletId) {
         const wallet = await serviceAccount.getWallet({
@@ -114,7 +140,8 @@ export function AccountSelectorCreateAddressButton({
         });
         console.log({ wallet });
       }
-      await createAddress({ num, selectAfterCreate, account });
+      resp = await createAddress({ num, selectAfterCreate, account });
+      defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
     } finally {
       setAccountManualCreatingAtom((prev) => ({
@@ -123,6 +150,7 @@ export function AccountSelectorCreateAddressButton({
         isLoading: false,
       }));
       setAccountIsAutoCreating(undefined);
+      onCreateDone?.(resp);
     }
   }, [
     account,
@@ -133,23 +161,30 @@ export function AccountSelectorCreateAddressButton({
     serviceAccount,
     setAccountIsAutoCreating,
     setAccountManualCreatingAtom,
+    onCreateDone,
   ]);
 
-  useEffect(() => {
-    void (async () => {
+  const doAutoCreate = useDebouncedCallback(
+    async (params: {
+      isFocused: boolean;
+      walletId: string | undefined;
+      networkId: string | undefined;
+      deriveType: IAccountDeriveTypes;
+      autoCreateAddress: boolean | undefined;
+    }) => {
       if (
-        isFocused &&
-        walletId &&
-        networkId &&
-        deriveType &&
-        autoCreateAddress
+        params.isFocused &&
+        params.walletId &&
+        params.networkId &&
+        params.deriveType &&
+        params.autoCreateAddress
       ) {
         const canAutoCreate =
           await backgroundApiProxy.serviceAccount.canAutoCreateAddressInSilentMode(
             {
-              walletId,
-              networkId,
-              deriveType,
+              walletId: params.walletId,
+              networkId: params.networkId,
+              deriveType: params.deriveType,
             },
           );
         if (canAutoCreate) {
@@ -157,19 +192,42 @@ export function AccountSelectorCreateAddressButton({
             await doCreate();
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error); // mute auto print log error
-            errorUtils.toastIfErrorDisable(error); // mute auto toast when auto create
+            errorToastUtils.toastIfErrorDisable(error); // mute auto toast when auto create
             throw error;
           } finally {
             //
           }
         }
       }
-    })();
-  }, [isFocused, autoCreateAddress, deriveType, doCreate, networkId, walletId]);
+    },
+    300,
+  );
+
+  useEffect(() => {
+    void doAutoCreate({
+      isFocused,
+      walletId,
+      networkId,
+      deriveType,
+      autoCreateAddress,
+    });
+  }, [
+    isFocused,
+    walletId,
+    networkId,
+    deriveType,
+    autoCreateAddress,
+    doAutoCreate,
+  ]);
+
+  const onPress = useCallback(async () => {
+    onPressLog?.();
+    await doCreate();
+  }, [doCreate, onPressLog]);
 
   return buttonRender({
     loading: isLoading,
-    onPress: doCreate,
+    onPress,
     children:
       children ??
       intl.formatMessage({ id: ETranslations.global_create_address }),

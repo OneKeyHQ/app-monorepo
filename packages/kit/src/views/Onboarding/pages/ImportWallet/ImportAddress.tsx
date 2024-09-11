@@ -21,13 +21,14 @@ import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -40,6 +41,7 @@ import type {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -50,6 +52,7 @@ type IFormValues = {
   deriveType?: IAccountDeriveTypes;
   publicKeyValue: string;
   addressValue: IAddressInputValue;
+  accountName?: string;
 };
 
 enum EImportMethod {
@@ -75,11 +78,12 @@ const FormDeriveTypeInput = ({
         })}
         name={fieldName}
       >
-        <DeriveTypeSelectorTriggerStaticInput
+        <DeriveTypeSelectorFormInput
           networkId={networkId}
-          items={deriveInfoItems}
-          renderTrigger={({ label }) => (
+          enabledItems={deriveInfoItems}
+          renderTrigger={({ label, onPress }) => (
             <Stack
+              testID={'derive-type-input'}
               userSelect="none"
               flexDirection="row"
               px="$3.5"
@@ -99,6 +103,7 @@ const FormDeriveTypeInput = ({
               pressStyle={{
                 bg: '$bgActive',
               }}
+              onPress={onPress}
             >
               <SizableText flex={1}>{label}</SizableText>
               <Icon
@@ -155,10 +160,14 @@ function ImportAddress() {
   const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
-      networkId: network?.id ?? getNetworkIdsMap().btc,
+      networkId:
+        network?.id && network.id !== getNetworkIdsMap().onekeyall
+          ? network?.id
+          : getNetworkIdsMap().btc,
       deriveType: undefined,
       publicKeyValue: '',
       addressValue: { raw: '', resolved: undefined },
+      accountName: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -172,9 +181,28 @@ function ImportAddress() {
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'publicKeyValue' });
   const addressValue = useFormWatch({ control, name: 'addressValue' });
+  const accountName = useFormWatch({ control, name: 'accountName' });
 
   const inputTextDebounced = useDebounce(inputText.trim(), 600);
+  const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
+
   const validateFn = useCallback(async () => {
+    if (accountNameDebounced) {
+      try {
+        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
+          name: accountNameDebounced,
+          walletId: WALLET_TYPE_WATCHING,
+        });
+        form.clearErrors('accountName');
+      } catch (error) {
+        form.setError('accountName', {
+          message: (error as Error)?.message,
+        });
+      }
+    } else {
+      form.clearErrors('accountName');
+    }
+
     setValue('deriveType', undefined);
     if (inputTextDebounced && networkIdText) {
       const input =
@@ -195,7 +223,6 @@ function ImportAddress() {
           );
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
-        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -205,10 +232,11 @@ function ImportAddress() {
       setValidateResult(undefined);
     }
   }, [
-    clearText,
+    accountNameDebounced,
+    setValue,
     inputTextDebounced,
     networkIdText,
-    setValue,
+    form,
     networksResp.publicKeyExportEnabled,
   ]);
 
@@ -225,7 +253,12 @@ function ImportAddress() {
 
   const { start } = useScanQrCode();
 
+  const deriveTypeValue = form.watch('deriveType');
+
   const isEnable = useMemo(() => {
+    if (Object.values(form.formState.errors).length) {
+      return false;
+    }
     if (method === EImportMethod.Address) {
       return !addressValue.pending && form.formState.isValid;
     }
@@ -244,7 +277,7 @@ function ImportAddress() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_import_address })}
       />
@@ -258,6 +291,7 @@ function ImportAddress() {
               networkIds={networksResp.networkIds}
             />
           </Form.Field>
+
           {isKeyExportEnabled ? (
             <SegmentControl
               fullWidth
@@ -271,12 +305,14 @@ function ImportAddress() {
                     id: ETranslations.global_address,
                   }),
                   value: EImportMethod.Address,
+                  testID: 'import-address-address',
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_public_key,
                   }),
                   value: EImportMethod.PublicKey,
+                  testID: 'import-address-publicKey',
                 },
               ]}
             />
@@ -294,8 +330,9 @@ function ImportAddress() {
                   placeholder={intl.formatMessage({
                     id: ETranslations.form_public_key_placeholder,
                   })}
-                  testID='import-address-input'
+                  testID="import-address-input"
                   size={media.gtMd ? 'medium' : 'large'}
+                  onPaste={clearText}
                   addOns={[
                     {
                       iconName: 'ScanOutline',
@@ -321,7 +358,7 @@ function ImportAddress() {
                 {validateResult &&
                 !validateResult?.isValid &&
                 inputTextDebounced ? (
-                  <SizableText color="$textCritical">
+                  <SizableText size="$bodyMd" color="$textCritical">
                     {intl.formatMessage({
                       id: ETranslations.form_public_key_error_invalid,
                     })}
@@ -348,11 +385,25 @@ function ImportAddress() {
                     id: ETranslations.form_address_placeholder,
                   })}
                   networkId={networkIdText ?? ''}
-                  testID='import-address-input'
+                  testID="import-address-input"
                 />
               </Form.Field>
             </>
           ) : null}
+
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.form_enter_account_name,
+            })}
+            name="accountName"
+          >
+            <Input
+              maxLength={MAX_LENGTH_ACCOUNT_NAME}
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_enter_account_name_placeholder,
+              })}
+            />
+          </Form.Field>
         </Form>
         <Tutorials
           list={[
@@ -366,6 +417,11 @@ function ImportAddress() {
             },
           ]}
         />
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <SizableText>DEV-ONLY deriveType: {deriveTypeValue}</SizableText>
+          </>
+        ) : null}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
@@ -373,15 +429,25 @@ function ImportAddress() {
         }}
         onConfirm={async () => {
           await form.handleSubmit(async (values) => {
-            const data = isPublicKeyImport
+            const data: {
+              name?: string;
+              input: string;
+              networkId: string;
+              deriveType?: IAccountDeriveTypes;
+              shouldCheckDuplicateName?: boolean;
+            } = isPublicKeyImport
               ? {
+                  name: values.accountName,
                   input: values.publicKeyValue ?? '',
                   networkId: values.networkId ?? '',
                   deriveType: values.deriveType,
+                  shouldCheckDuplicateName: true,
                 }
               : {
+                  name: values.accountName,
                   input: values.addressValue.resolved ?? '',
                   networkId: values.networkId ?? '',
+                  shouldCheckDuplicateName: true,
                 };
             const r =
               await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
@@ -400,6 +466,10 @@ function ImportAddress() {
               othersWalletAccountId: accountId,
             });
             navigation.popStack();
+
+            defaultLogger.account.wallet.importWallet({
+              importMethod: 'address',
+            });
           })();
         }}
       />

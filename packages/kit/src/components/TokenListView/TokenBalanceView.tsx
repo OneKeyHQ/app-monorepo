@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type IProps = {
   $key: string;
   symbol: string;
+  hideValue?: boolean;
 } & ISizableTextProps;
 
 function TokenBalanceView(props: IProps) {
@@ -17,16 +18,21 @@ function TokenBalanceView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
         formatter="balance"
         formatterOptions={{ tokenSymbol: symbol }}
         {...rest}
       >
         {token?.balanceParsed ?? '0'}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     ),
     [rest, symbol, token?.balanceParsed],
   );
+
+  if (!token) {
+    return null;
+  }
+
   return content;
 }
 

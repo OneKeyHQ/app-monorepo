@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_TRON,
   IMPL_TRON,
@@ -28,6 +29,11 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
   dappInteractionEnabled: true,
 
   defaultFeePresetIndex: 0,
@@ -42,6 +48,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   allowZeroFee: true,
   estimatedFeePollingInterval: 6,
+  editApproveAmountEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

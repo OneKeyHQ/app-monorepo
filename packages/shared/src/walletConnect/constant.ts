@@ -1,6 +1,8 @@
+/* eslint-disable spellcheck/spell-checker */
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
+import { ONEKEY_LOGO_ICON_URL } from '../consts';
 import {
   ONEKEY_APP_DEEP_LINK,
   WalletConnectUniversalLinkFull,
@@ -64,7 +66,7 @@ export const WALLET_CONNECT_CLIENT_META = {
   url: platformEnv.isWeb
     ? `https://1key.so`
     : `https://${platformName}.1key.so`,
-  icons: ['https://uni.onekey-asset.com/static/logo/onekey.png'],
+  icons: [ONEKEY_LOGO_ICON_URL],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative
     ? {
@@ -127,6 +129,12 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   algorand: [
     {
       caipsChainId: 'wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+      networkId: 'algo--4160',
+      impl: IMPL_ALGO,
+      namespace: 'algorand',
+    },
+    {
+      caipsChainId: 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe',
       networkId: 'algo--4160',
       impl: IMPL_ALGO,
       namespace: 'algorand',

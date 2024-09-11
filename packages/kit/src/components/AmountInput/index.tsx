@@ -32,6 +32,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
     enableMaxAmount?: boolean;
     valueProps?: {
       value?: string;
+      color?: string;
       onPress?: () => void;
       loading?: boolean;
       currency?: string;
@@ -87,12 +88,12 @@ export function AmountInput({
 
     return (
       <Input
-        keyboardType={platformEnv.isNativeIOS ? 'numeric' : 'number-pad'}
+        keyboardType="decimal-pad"
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
         size="large"
-        focusStyle={undefined}
+        focusVisibleStyle={undefined}
         containerProps={{
           flex: 1,
           borderWidth: 0,
@@ -104,6 +105,11 @@ export function AmountInput({
           selection,
           onSelectionChange: ({ nativeEvent }) =>
             setSelection(nativeEvent.selection),
+          onFocus: () =>
+            setSelection({
+              start: value?.length ?? 0,
+              end: value?.length ?? 0,
+            }),
           onBlur: () => setSelection({ start: 0, end: 0 }),
         })}
         {...inputProps}
@@ -129,7 +135,7 @@ export function AmountInput({
           formatter="value"
           formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
-          color="$textSubdued"
+          color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
         >
           {valueProps.value || '0.00'}

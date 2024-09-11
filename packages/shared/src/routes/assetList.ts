@@ -6,6 +6,8 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export enum EModalAssetListRoutes {
   TokenList = 'TokenList',
+  TokenManagerModal = 'TokenManagerModal',
+  AddCustomTokenModal = 'AddCustomTokenModal',
 }
 
 export type IModalAssetListParamList = {
@@ -19,10 +21,30 @@ export type IModalAssetListParamList = {
       map: Record<string, ITokenFiat>;
     };
     title?: string;
-    helpText?: string;
+    helpText?: string | string[];
     isBlocked?: boolean;
     onPressToken?: (token: IAccountToken) => void;
     deriveInfo?: IAccountDeriveInfo;
     deriveType?: IAccountDeriveTypes;
+    isAllNetworks?: boolean;
+  };
+  [EModalAssetListRoutes.TokenManagerModal]: {
+    walletId: string;
+    isOthersWallet?: boolean;
+    indexedAccountId?: string;
+    accountId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+    isAllNetworks?: boolean;
+  };
+  [EModalAssetListRoutes.AddCustomTokenModal]: {
+    token?: IAccountToken;
+    walletId: string;
+    isOthersWallet?: boolean;
+    indexedAccountId?: string;
+    accountId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+    onSuccess?: () => void;
   };
 };

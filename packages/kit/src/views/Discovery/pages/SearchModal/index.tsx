@@ -15,6 +15,7 @@ import {
   Skeleton,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -22,6 +23,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -54,6 +57,7 @@ function SearchModal() {
   const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
 
   const [searchValue, setSearchValue] = useState(url);
+  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const { serviceDiscovery } = backgroundApiProxy;
@@ -104,7 +108,6 @@ function SearchModal() {
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,
-          // TODO: i18n
           name: `${intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${searchValue}"`,
@@ -159,6 +162,7 @@ function SearchModal() {
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -167,19 +171,30 @@ function SearchModal() {
                   title: searchValue,
                 },
               });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: searchValue,
+                dappName: searchValue,
+                enterMethod: EEnterMethod.search,
+              });
             } else {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
                 dApp: item,
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: item.name,
+                dappName: item.url,
+                enterMethod: EEnterMethod.search,
               });
             }
           }}
           testID={`dapp-search${index}`}
         />
       )),
-    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+    [gtMd, handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
   );
 
   return (
@@ -197,8 +212,12 @@ function SearchModal() {
             selectTextOnFocus
             value={searchValue}
             onSearchTextChange={setSearchValue}
+            placeholder={intl.formatMessage({
+              id: ETranslations.browser_search_dapp_or_enter_url,
+            })}
             onSubmitEditing={() => {
               handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -206,6 +225,12 @@ function SearchModal() {
                   url: searchValue,
                   title: searchValue,
                 },
+              });
+
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: searchValue,
+                dappName: searchValue,
+                enterMethod: EEnterMethod.addressBar,
               });
             }}
           />
@@ -244,6 +269,7 @@ function SearchModal() {
                     }}
                     onPress={() => {
                       handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
                         navigation,
                         useCurrentWindow,
                         tabId,
@@ -251,6 +277,12 @@ function SearchModal() {
                           url: item.url,
                           title: item.title,
                         },
+                      });
+
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: item.url,
+                        dappName: item.title,
+                        enterMethod: EEnterMethod.bookmarkInSearch,
                       });
                     }}
                   >
@@ -317,6 +349,7 @@ function SearchModal() {
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
                     handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
                       navigation,
                       useCurrentWindow,
                       tabId,
@@ -324,6 +357,12 @@ function SearchModal() {
                         url: item.url,
                         title: item.title,
                       },
+                    });
+
+                    defaultLogger.discovery.dapp.enterDapp({
+                      dappDomain: item.url,
+                      dappName: item.title,
+                      enterMethod: EEnterMethod.historyInSearch,
                     });
                   }}
                 />

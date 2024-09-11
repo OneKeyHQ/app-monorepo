@@ -23,10 +23,16 @@ export enum EOneKeyErrorClassNames {
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
+  PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
+  VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
   OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
+  OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
+  SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  FirmwareUpdateExit = 'FirmwareUpdateExit',
+  FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

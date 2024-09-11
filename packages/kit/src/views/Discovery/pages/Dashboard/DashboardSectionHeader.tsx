@@ -17,7 +17,7 @@ function SectionHeading({
   return (
     <Heading
       size="$headingLg"
-      selectable={false}
+      userSelect="none"
       py="$2.5"
       {...(!selected && {
         opacity: 0.5,
@@ -41,7 +41,7 @@ export function DashboardSectionHeader({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       alignItems="center"
-      space="$5"
+      gap="$5"
       userSelect="none"
       $gtMd={{
         pt: '$1',

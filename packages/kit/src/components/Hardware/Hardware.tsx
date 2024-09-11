@@ -4,10 +4,11 @@ import { useForm } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
+import type { IColorTokens } from '@onekeyhq/components';
 import {
   Alert,
   Button,
+  Dialog,
   Form,
   IconButton,
   Input,
@@ -90,7 +91,7 @@ export function ConfirmOnDeviceToastContent({
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
         <LottieView width={72} height={72} source={animationData ?? ''} />
       </Stack>
-      <XStack flex={1} alignItems="center" px="$3" space="$5">
+      <XStack flex={1} alignItems="center" px="$3" gap="$5">
         <SizableText flex={1} size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
@@ -206,6 +207,18 @@ export function EnterPin({
   );
   return (
     <Stack>
+      <Dialog.Header>
+        <Dialog.Title>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_title,
+          })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_desc,
+          })}
+        </Dialog.Description>
+      </Dialog.Header>
       <Stack
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
@@ -222,7 +235,7 @@ export function EnterPin({
           bg="$bgSubdued"
         >
           <SizableText
-            selectable={false}
+            userSelect="none"
             pl="$6"
             textAlign="center"
             flex={1}
@@ -262,7 +275,7 @@ export function EnterPin({
                 bg: '$bgActive',
               }}
               focusable
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineColor: '$focusRing',
                 outlineOffset: -2,
                 outlineWidth: 2,
@@ -290,7 +303,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={() => {
@@ -305,7 +318,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={() => {
@@ -409,14 +422,14 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={form.handleSubmit(async () => {
           const values = form.getValues();
           if (
             !isSingleInput &&
-            values.passphrase !== values.confirmPassphrase
+            (values.passphrase || '') !== (values.confirmPassphrase || '')
           ) {
             Toast.error({
               title: intl.formatMessage({
@@ -456,7 +469,7 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}
@@ -551,7 +564,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={onConfirm}
@@ -564,7 +577,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}

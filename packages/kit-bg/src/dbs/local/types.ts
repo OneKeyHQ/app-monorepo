@@ -141,7 +141,8 @@ export type IDBWallet = IDBBaseObjectWithName & {
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
-  walletOrder?: number;
+  walletOrderSaved?: number; // db field
+  walletOrder?: number; // readonly field
   hash?: string; // hd wallet only
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;
@@ -185,6 +186,12 @@ export type IDBSetAccountNameParams = {
   indexedAccountId?: string;
   name: string;
   shouldCheckDuplicate?: boolean;
+  skipEventEmit?: boolean;
+};
+export type IDBEnsureAccountNameNotDuplicateParams = {
+  selfAccountOrIndexedAccountId?: string;
+  walletId: string;
+  name: string;
 };
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
@@ -210,6 +217,9 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
+
+  accountOrder?: number; // readonly field
+  accountOrderSaved?: number; // db field
 };
 
 export type IDBSimpleAccount = IDBBaseAccount & {
@@ -258,6 +268,8 @@ export type IDBIndexedAccount = IDBBaseObjectWithName & {
   index: number;
   idHash: string;
   associateAccount?: INetworkAccount; // readonly
+  orderSaved?: number; // db field
+  order?: number; // readonly
 };
 // TODO remove, use accountsMap instead, wallet->network->derivation(template)
 export type IDBAccountDerivation = IDBBaseObject & {

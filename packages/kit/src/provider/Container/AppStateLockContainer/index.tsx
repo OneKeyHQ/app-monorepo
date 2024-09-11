@@ -5,6 +5,7 @@ import { AnimatePresence } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
@@ -87,9 +88,11 @@ export function AppStateLockContainer({
             passwordVerifyContainer={
               <Suspense>
                 <PasswordVerifyContainer
+                  name="lock"
                   onLayout={handleLayout}
                   onVerifyRes={async (data) => {
-                    if (data) {
+                    // isExt support lock without password
+                    if (data || platformEnv.isExtension) {
                       await handleUnlock();
                     }
                   }}

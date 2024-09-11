@@ -6,7 +6,7 @@ import { EQRCodeHandlerType } from '../type';
 
 import type { IAnimationValue, IQRCodeHandler } from '../type';
 
-let decoder: URDecoder = new URDecoder();
+let decoder = new URDecoder();
 let parts: string[] = [];
 
 // ur://bytes/1-3/1ABC
@@ -21,8 +21,10 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   //   parts = [];
   //   decoder = new URDecoder();
   // }
-  decoder.receivePart(value);
-  parts.push(value);
+  if (parts.findIndex((part) => part === value) === -1) {
+    decoder.receivePart(value);
+    parts.push(value);
+  }
 
   const partSize = decoder.expectedPartCount();
   const partIndexes = decoder.lastPartIndexes();

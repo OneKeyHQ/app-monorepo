@@ -56,7 +56,7 @@ const SortableListViewGallery = () => {
         data={data}
         enabled={isEditing}
         keyExtractor={(item) => `${item.index}`}
-        renderItem={({ item, getIndex, drag }) => (
+        renderItem={({ item, getIndex, drag, dragProps }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
             rightItemList={[
@@ -84,11 +84,11 @@ const SortableListViewGallery = () => {
             >
               {isEditing ? (
                 <ListItem.IconButton
-                  {...ListItem.EnterAnimationStyle}
                   key="darg"
                   cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}
+                  dataSet={dragProps}
                 />
               ) : null}
             </ListItem>

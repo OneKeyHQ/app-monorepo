@@ -18,6 +18,7 @@ export interface IBtcForkNetwork extends Network {
   //   - segwit address version bytes
   segwitVersionBytes?: Partial<Record<EAddressEncodings, Network['bip32']>>;
   forkId?: number; // bch
+  maximumFeeRate?: number;
 }
 export type IBtcForkSigner = Signer;
 
@@ -52,7 +53,7 @@ export type IBtcInput = {
 export type IBtcOutput = {
   address: string;
   value: string;
-  payload?: { isCharge?: boolean; bip44Path?: string; opReturn?: string };
+  payload?: { isChange?: boolean; bip44Path?: string; opReturn?: string };
 };
 
 export type ICoinSelectUTXO = {

@@ -13,12 +13,12 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
-import { PasswordRegex, getPasswordKeyboardType } from '../utils';
+import { getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
@@ -72,7 +72,7 @@ const PasswordVerify = ({
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
-  const [{ manualLocking }] = usePasswordPersistAtom();
+  const [{ manualLocking }] = usePasswordAtom();
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -187,7 +187,7 @@ const PasswordVerify = ({
           textContentType="oneTimeCode"
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
-          testID="enter-password"
+          testID="password-input"
         />
       </Form.Field>
     </Form>

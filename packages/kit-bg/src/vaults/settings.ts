@@ -1,6 +1,8 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALLNETWORKS,
+  IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -20,12 +22,15 @@ import {
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
+  IMPL_SCDO,
   IMPL_SOL,
   IMPL_SUI,
   IMPL_TBTC,
+  IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type {
@@ -87,11 +92,15 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_DOT]: () => import('./impls/dot/settings'),
+    [IMPL_TON]: () => import('./impls/ton/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
     [IMPL_SUI]: () => import('./impls/sui/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
     [IMPL_APTOS]: () => import('./impls/aptos/settings'),
     [IMPL_DNX]: () => import('./impls/dnx/settings'),
+    [IMPL_ALLNETWORKS]: () => import('./impls/all/settings'),
+    [IMPL_SCDO]: () => import('./impls/scdo/settings'),
+    [IMPL_ALPH]: () => import('./impls/alph/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {
@@ -131,6 +140,10 @@ export async function getVaultSettingsAccountDeriveInfo({
     throw new Error(
       `no accountDeriveInfo found in vault settings: ${networkId} ${deriveType}`,
     );
+  }
+  if (info.labelKey) {
+    info.label =
+      appLocale.intl.formatMessage({ id: info.labelKey }) || info.label;
   }
   return info;
 }

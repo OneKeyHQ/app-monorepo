@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -42,9 +42,11 @@ const BaseSlippageInput = ({
   props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const isOriginalNumberDot = useRef(false);
   const handleTextChange = useCallback(
     (text: string) => {
       if (validateAmountInput(text, swapSlippageDecimal)) {
+        isOriginalNumberDot.current = /^\d+\.$/.test(text);
         setInputValue(text);
         onChangeText(text);
       }
@@ -61,7 +63,9 @@ const BaseSlippageInput = ({
   );
 
   useEffect(() => {
-    setInputValue(displaySlippage);
+    if (!isOriginalNumberDot.current) {
+      setInputValue(displaySlippage);
+    }
   }, [displaySlippage]);
 
   return (
@@ -155,7 +159,7 @@ const SwapsSlippageContentContainer = ({
   );
 
   return (
-    <YStack space="$4">
+    <YStack gap="$4">
       <SegmentControl
         fullWidth
         value={swapSlippageStatus.key}
@@ -186,7 +190,7 @@ const SwapsSlippageContentContainer = ({
         />
       ) : null}
       {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
-        <XStack space="$2.5">
+        <XStack gap="$2.5">
           <SlippageInput
             swapSlippage={swapSlippageStatus}
             onChangeText={handleSlippageChange}

@@ -77,7 +77,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {
@@ -88,7 +88,8 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       }
       borderCurve="continuous"
       disabled={triggerDisabled}
-      space="$2"
+      gap="$2"
+      userSelect="none"
       {...rest}
     >
       {renderNetworkIcon()}
@@ -140,7 +141,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {

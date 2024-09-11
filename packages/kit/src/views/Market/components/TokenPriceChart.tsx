@@ -1,5 +1,4 @@
-import type { MutableRefObject } from 'react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -52,20 +51,29 @@ function BasicTokenPriceChart({
   );
   const [days, setDays] = useState<string>(options[0].value);
 
-  useEffect(() => {
+  const init = useCallback(async () => {
     setIsLoading(true);
-    void backgroundApiProxy.serviceMarket
-      .fetchTokenChart(coinGeckoId, days)
-      .then((response) => {
-        void defer.promise.then(() => {
-          setPoints(response);
-          setIsLoading(false);
-        });
-      });
-  }, [coinGeckoId, days, defer.promise]);
+    const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
+      coinGeckoId,
+      days,
+    );
+    if (platformEnv.isNativeAndroid) {
+      setTimeout(() => {
+        defer.resolve(null);
+      }, 100);
+    } else {
+      await defer.promise;
+    }
+    setPoints(response);
+    setIsLoading(false);
+  }, [coinGeckoId, days, defer]);
+
+  useEffect(() => {
+    void init();
+  }, [init]);
   const { gtLg } = useMedia();
   return (
-    <YStack px="$5" $gtMd={{ pr: 0 }}>
+    <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
       <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 294 }}>
         <PriceChart isFetching={isLoading} data={points}>
           {gtLg ? (

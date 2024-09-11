@@ -6,6 +6,19 @@ import type {
 
 import type { IInvoiceDecodedResponse, ILNURLDetails } from './lightning';
 
+export enum EInputAddressChangeType {
+  Manual = 'manual',
+  Paste = 'paste',
+  Scan = 'scan',
+  AddressBook = 'AddressBook',
+  AccountSelector = 'AccountSelector',
+}
+
+export enum EDeriveAddressActionType {
+  Copy = 'copy',
+  Select = 'select',
+}
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;
@@ -22,7 +35,7 @@ export type IAddressValidation = {
 export type IFetchAccountDetailsParams = {
   accountId: string;
   networkId: string;
-  cardanoPubKey?: string;
+  cardanoPubKey?: string; // only available for cardano utxo query
   withUTXOList?: boolean;
   withNetWorth?: boolean;
   withBalance?: boolean;
@@ -43,6 +56,7 @@ export type IFetchAccountDetailsResp = {
   accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
+  allUtxoList?: IUtxoInfo[];
   utxoList?: IUtxoInfo[];
   frozenUtxoList?: IUtxoInfo[];
   validateInfo?: {
@@ -97,6 +111,12 @@ export enum EServerInteractedStatus {
   UNKNOWN = '2',
 }
 
+export type IServerAccountBadgeResp = {
+  interacted: EServerInteractedStatus;
+  isContract?: boolean;
+  badges?: { label: string }[];
+};
+
 export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
@@ -116,6 +136,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
   enableAddressInteractionStatus?: boolean;
+  enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   skipValidateAddress?: boolean;
 };

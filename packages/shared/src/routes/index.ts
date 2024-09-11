@@ -33,3 +33,5 @@ export * from './fiatCrypto';
 export * from './keyTag';
 export * from './tabMarket';
 export * from './staking';
+export * from './walletAddress';
+export * from './tabEarn';

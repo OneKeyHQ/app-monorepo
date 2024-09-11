@@ -8,6 +8,7 @@ import {
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   EAppEventBusNames,
@@ -66,7 +67,7 @@ export class BackgroundApiProxyBase
         await this.emitEvent(type as any, payload);
       },
     );
-    globalErrorHandler.addListener(errorUtils.showToastOfError);
+    globalErrorHandler.addListener(errorToastUtils.showToastOfError);
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
@@ -183,7 +184,9 @@ export class BackgroundApiProxyBase
       try {
         await this.callBackgroundMethod(true, method, ...params);
       } catch (error) {
-        errorUtils.showToastOfError(error as any);
+        setTimeout(() => {
+          errorToastUtils.showToastOfError(error as any);
+        }, 50);
         throw error;
       }
     })();
@@ -193,7 +196,9 @@ export class BackgroundApiProxyBase
     try {
       return await this.callBackgroundMethod(false, method, ...params);
     } catch (error) {
-      errorUtils.showToastOfError(error as any);
+      setTimeout(() => {
+        errorToastUtils.showToastOfError(error as any);
+      }, 50);
       throw error;
     }
   }

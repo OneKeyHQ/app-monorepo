@@ -46,72 +46,107 @@ export function V4MigrationGetStarted({
       });
       throw new Error('V4Migration Not supported in web dapp mode');
     }
-    try {
-      setIsLoading(true);
-      const res = await backgroundApiProxy.serviceV4Migration.prepareMigration({
-        isAutoStartOnMount,
-      });
-      console.log('prepareMigration result', res);
-      const goNext = () => {
-        if (res.shouldBackup) {
-          navigation.push(EOnboardingPages.V4MigrationPreview);
-        } else {
-          // navigate to process page directly
-          navigation.push(EOnboardingPages.V4MigrationProcess);
-        }
-        setIsLoading(false);
-      };
+    const startMigration = async () => {
+      try {
+        setIsLoading(true);
+        const res =
+          await backgroundApiProxy.serviceV4Migration.prepareMigration({
+            isAutoStartOnMount,
+          });
+        console.log('prepareMigration result', res);
+        const goNext = () => {
+          if (res.shouldBackup) {
+            navigation.push(EOnboardingPages.V4MigrationPreview);
+          } else {
+            // navigate to process page directly
+            navigation.push(EOnboardingPages.V4MigrationProcess);
+          }
+          setIsLoading(false);
+        };
 
-      if (!res.isV4PasswordEqualToV5) {
-        setTimeout(() => {
-          setIsLoading(true);
-        }, 600);
-        let v4password = '';
-        Dialog.show({
-          showCancelButton: true,
-          onClose: () => {
-            setIsLoading(false);
-          },
-          onConfirm: async () => {
-            if (
-              await backgroundApiProxy.serviceV4Migration.setV4Password({
-                v4password:
-                  await backgroundApiProxy.servicePassword.encodeSensitiveText({
-                    text: v4password,
-                  }),
-              })
-            ) {
-              goNext();
-            } else {
+        if (!res.isV4PasswordEqualToV5) {
+          setTimeout(() => {
+            setIsLoading(true);
+          }, 600);
+          let v4password = '';
+          Dialog.show({
+            showCancelButton: true,
+            onClose: () => {
               setIsLoading(false);
-            }
-          },
-          title: intl.formatMessage({
-            id: ETranslationsMock.v4_migration_input_v4_password,
-          }),
-          renderContent: (
-            <Stack>
-              <SizableText>
-                {intl.formatMessage({
-                  id: ETranslationsMock.v4_migration_input_v4_password_desc,
-                })}
-              </SizableText>
-              <Stack mt="$4">
-                <Input
-                  secureTextEntry
-                  onChangeText={(v) => {
-                    v4password = v;
-                  }}
-                />
+            },
+            onConfirm: async () => {
+              if (
+                await backgroundApiProxy.serviceV4Migration.setV4Password({
+                  v4password:
+                    await backgroundApiProxy.servicePassword.encodeSensitiveText(
+                      {
+                        text: v4password,
+                      },
+                    ),
+                })
+              ) {
+                goNext();
+              } else {
+                setIsLoading(false);
+              }
+            },
+            title: intl.formatMessage({
+              id: ETranslationsMock.v4_migration_input_v4_password,
+            }),
+            renderContent: (
+              <Stack>
+                <SizableText>
+                  {intl.formatMessage({
+                    id: ETranslationsMock.v4_migration_input_v4_password_desc,
+                  })}
+                </SizableText>
+                <Stack mt="$4">
+                  <Input
+                    secureTextEntry
+                    onChangeText={(v) => {
+                      v4password = v;
+                    }}
+                  />
+                </Stack>
               </Stack>
-            </Stack>
-          ),
-        });
-        return;
+            ),
+          });
+          return;
+        }
+        goNext();
+      } finally {
+        setIsLoading(false);
       }
-      goNext();
-    } finally {
-      setIsLoading(false);
+    };
+
+    const { isV4PasswordSet, isV4AddressBookAvailable } =
+      await backgroundApiProxy.serviceV4Migration.shouldMigratePassword();
+
+    if (!isV4PasswordSet && isV4AddressBookAvailable) {
+      Dialog.show({
+        dismissOnOverlayPress: false,
+        title: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_title,
+        }),
+        icon: 'ShieldKeyholeOutline',
+        description: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_description,
+        }),
+        tone: 'default',
+        showConfirmButton: true,
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.address_book_button_next,
+        }),
+        onConfirm: () => {
+          void startMigration();
+        },
+        confirmButtonProps: {
+          testID: 'encrypted-storage-confirm',
+        },
+      });
+    } else {
+      await startMigration();
     }
   };
 
@@ -190,7 +225,7 @@ export function V4MigrationGetStarted({
             $gtMd={
               {
                 size: 'medium',
-              } as IButtonProps
+              } as any
             }
             variant="primary"
             loading={isLoading}

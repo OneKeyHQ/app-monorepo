@@ -3,15 +3,21 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -23,8 +29,10 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -36,20 +44,41 @@ export function useSwapBuildTx() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
+  const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
+
+  const syncRecentTokenPairs = useCallback(
+    async ({
+      swapFromToken,
+      swapToToken,
+    }: {
+      swapFromToken: ISwapToken;
+      swapToToken: ISwapToken;
+    }) => {
+      await backgroundApiProxy.serviceSwap.swapRecentTokenPairsUpdate({
+        fromToken: swapFromToken,
+        toToken: swapToToken,
+      });
+    },
+    [],
+  );
+
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       if (data?.[0]) {
         setSwapFromTokenAmount(''); // send success, clear from token amount
+        setSwapQuoteResultList([]);
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
@@ -66,7 +95,12 @@ export function useSwapBuildTx() {
       }
       setSwapBuildTxFetching(false);
     },
-    [generateSwapHistoryItem, setSwapBuildTxFetching, setSwapFromTokenAmount],
+    [
+      generateSwapHistoryItem,
+      setSwapBuildTxFetching,
+      setSwapFromTokenAmount,
+      setSwapQuoteResultList,
+    ],
   );
 
   const handleApproveTxSuccess = useCallback(
@@ -94,6 +128,11 @@ export function useSwapBuildTx() {
   const handleTxFail = useCallback(() => {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
+
+  const cancelBuildTx = useCallback(() => {
+    handleTxFail();
+    setSwapShouldRefreshQuote(true);
+  }, [handleTxFail, setSwapShouldRefreshQuote]);
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
@@ -151,8 +190,11 @@ export function useSwapBuildTx() {
         wrappedInfo,
         swapInfo,
         onSuccess: handleBuildTxSuccess,
-        onFail: handleTxFail,
         onCancel: handleTxFail,
+      });
+      void syncRecentTokenPairs({
+        swapFromToken: fromToken,
+        swapToToken: toToken,
       });
     }
   }, [
@@ -166,6 +208,7 @@ export function useSwapBuildTx() {
     navigationToSendConfirm,
     handleBuildTxSuccess,
     handleTxFail,
+    syncRecentTokenPairs,
   ]);
 
   const approveTx = useCallback(
@@ -210,7 +253,6 @@ export function useSwapBuildTx() {
           await navigationToSendConfirm({
             approveInfo,
             onSuccess: handleApproveTxSuccess,
-            onFail: cancelApproveTx,
             onCancel: cancelApproveTx,
           });
         } catch (e) {
@@ -277,6 +319,7 @@ export function useSwapBuildTx() {
               },
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
+              memo: res.swftOrder.memo,
             };
           } else if (res?.changellyOrder) {
             encodedTx = undefined;
@@ -293,6 +336,7 @@ export function useSwapBuildTx() {
               },
               to: res.changellyOrder.payinAddress,
               amount: res.changellyOrder.amountExpectedFrom,
+              memo: res.changellyOrder.payinExtraId,
             };
           } else if (res?.thorSwapCallData) {
             encodedTx = undefined;
@@ -346,14 +390,34 @@ export function useSwapBuildTx() {
             encodedTx,
             swapInfo,
             onSuccess: handleBuildTxSuccess,
-            onFail: handleTxFail,
-            onCancel: handleTxFail,
+            onCancel: cancelBuildTx,
           });
+          void syncRecentTokenPairs({
+            swapFromToken: fromToken,
+            swapToToken: toToken,
+          });
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapType: EProtocolOfExchange.SWAP,
+            slippage: slippageItem.value.toString(),
+            sourceChain: fromToken.networkId,
+            receivedChain: toToken.networkId,
+            sourceTokenSymbol: fromToken.symbol,
+            receivedTokenSymbol: toToken.symbol,
+            feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(selectQuote?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+          });
+          setSettings((prev) => ({
+            ...prev,
+            isFirstTimeSwap: false,
+          }));
         } else {
           setSwapBuildTxFetching(false);
+          setSwapShouldRefreshQuote(true);
         }
       } catch (e) {
         setSwapBuildTxFetching(false);
+        setSwapShouldRefreshQuote(true);
       }
     }
   }, [
@@ -363,6 +427,8 @@ export function useSwapBuildTx() {
     selectQuote?.toAmount,
     selectQuote?.info.provider,
     selectQuote?.quoteResultCtx,
+    selectQuote?.fee?.percentageFee,
+    selectQuote?.routesData,
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
@@ -371,7 +437,11 @@ export function useSwapBuildTx() {
     setSwapBuildTxFetching,
     navigationToSendConfirm,
     handleBuildTxSuccess,
-    handleTxFail,
+    cancelBuildTx,
+    syncRecentTokenPairs,
+    isFirstTimeSwap,
+    setSettings,
+    setSwapShouldRefreshQuote,
   ]);
 
   return { buildTx, wrappedTx, approveTx };

@@ -10,6 +10,7 @@ import {
   Page,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -118,11 +119,8 @@ const SwapActionsState = ({
     () =>
       swapActionState.isApprove && !quoteLoading ? (
         <XStack
-          pb="$5"
-          space="$1"
-          {...(pageType === EPageType.modal && !md
-            ? { justifyContent: 'flex-end' }
-            : {})}
+          gap="$1"
+          {...(pageType === EPageType.modal && !md ? {} : { pb: '$5' })}
         >
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_approve })}
@@ -183,7 +181,19 @@ const SwapActionsState = ({
 
   const actionComponent = useMemo(
     () => (
-      <YStack {...(pageType === EPageType.modal && !md ? {} : { flex: 1 })}>
+      <Stack
+        flex={1}
+        {...(pageType === EPageType.modal && !md
+          ? {
+              flexDirection: 'row',
+              justifyContent:
+                swapActionState.isApprove && !quoteLoading
+                  ? 'space-between'
+                  : 'flex-end',
+              alignItems: 'center',
+            }
+          : {})}
+      >
         {approveStepComponent}
         <Button
           onPress={onActionHandler}
@@ -194,14 +204,16 @@ const SwapActionsState = ({
         >
           {swapActionState.label}
         </Button>
-      </YStack>
+      </Stack>
     ),
     [
       approveStepComponent,
       md,
       onActionHandler,
       pageType,
+      quoteLoading,
       swapActionState.disabled,
+      swapActionState.isApprove,
       swapActionState.isLoading,
       swapActionState.label,
     ],
@@ -212,7 +224,12 @@ const SwapActionsState = ({
       {pageType !== EPageType.modal && !md ? (
         actionComponent
       ) : (
-        <Page.Footer confirmButton={actionComponent} />
+        <Page.Footer
+          {...(pageType === EPageType.modal && !md
+            ? { buttonContainerProps: { flex: 1 } }
+            : {})}
+          confirmButton={actionComponent}
+        />
       )}
     </YStack>
   );

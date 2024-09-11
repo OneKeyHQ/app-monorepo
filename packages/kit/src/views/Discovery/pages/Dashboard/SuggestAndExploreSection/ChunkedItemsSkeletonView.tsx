@@ -50,7 +50,7 @@ export function ChunkedItemsSkeletonView({
             <XStack
               key={item.dappId}
               p="$3"
-              space="$3"
+              gap="$3"
               alignItems="center"
               $md={
                 isExploreView
@@ -67,7 +67,7 @@ export function ChunkedItemsSkeletonView({
               }}
             >
               <Skeleton w="$14" h="$14" borderRadius="$3" />
-              <Stack flex={1} space="$1">
+              <Stack flex={1} gap="$1">
                 <XStack alignItems="center">
                   <Skeleton w="$20" h="$4" />
                 </XStack>

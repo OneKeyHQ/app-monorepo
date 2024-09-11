@@ -41,6 +41,7 @@ import type {
   INativeAmountInfo,
   IPreCheckFeeInfoParams,
   ISignTransactionParamsBase,
+  ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -127,18 +128,50 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress, signature } = params;
+    const { accountId, networkId, signedTx, accountAddress, signature } =
+      params;
+
+    // check if the network has custom rpc
+    const customRpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        params.networkId,
+      );
+    let disableBroadcast: boolean | undefined;
+    let txid = '';
+    if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+      disableBroadcast = true;
+      const vault = await vaultFactory.getVault({ accountId, networkId });
+      const result = await vault.broadcastTransactionFromCustomRpc({
+        ...params,
+        customRpcInfo,
+      });
+      txid = result.txid;
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
-    }>('/wallet/v1/account/send-transaction', {
-      networkId,
-      accountAddress,
-      tx: signedTx.rawTx,
-      signature,
-    });
+    }>(
+      '/wallet/v1/account/send-transaction',
+      {
+        networkId,
+        accountAddress,
+        tx: signedTx.rawTx,
+        signature,
+        disableBroadcast,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    if (!disableBroadcast) {
+      txid = resp.data.data.result;
+    }
 
-    return resp.data.data.result;
+    return txid;
   }
 
   @backgroundMethod()
@@ -264,8 +297,10 @@ class ServiceSend extends ServiceBase {
     feeInfo: sendSelectedFeeInfo,
     nativeAmountInfo,
     unsignedTxs,
+    tokenApproveInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
+    tokenApproveInfo?: ITokenApproveInfo;
     feeInfo?: ISendSelectedFeeInfo;
     nativeAmountInfo?: INativeAmountInfo;
   }) {
@@ -278,6 +313,7 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo?.feeInfo,
         nativeAmountInfo,
+        tokenApproveInfo,
       });
 
       newUnsignedTxs.push(newUnsignedTx);

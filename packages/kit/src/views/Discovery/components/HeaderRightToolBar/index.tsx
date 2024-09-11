@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -64,7 +65,7 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack space="$3" alignItems="center">
+    <XStack gap="$3" alignItems="center">
       <Stack>
         <NetworkSelectorTriggerBrowserSingle num={num} />
       </Stack>
@@ -166,7 +167,7 @@ function AccountSelectorPopoverContent({
         return acc;
       }, {} as Record<number, { networkIds: string[] }>)}
     >
-      <YStack p="$5" space="$2">
+      <YStack p="$5" gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}
@@ -250,7 +251,7 @@ function HeaderRightToolBar() {
       return (
         <Stack
           $gtMd={{
-            width: '100%',
+            width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
           }}
         >

@@ -2,6 +2,7 @@ import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISignatureItemQueryParams } from '@onekeyhq/shared/types/signatureRecord';
 
 import { SignatureContext } from './Context';
@@ -43,7 +44,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
         offset: query.offset,
         limit: query.limit,
       });
-      const isSearch = networkId || address;
+      const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
         ref.current.splice(query.offset, query.limit, ...resp);
       }

@@ -110,12 +110,16 @@ function ScanQrCodeModalFooter({
         id: ETranslations.scan_move_closer_if_scan_fails,
       }),
     },
-    {
-      icon: 'ShieldCheckDoneOutline',
-      title: intl.formatMessage({
-        id: ETranslations.scan_screen_blurred_for_security,
-      }),
-    },
+    ...(platformEnv.isNativeAndroid
+      ? []
+      : ([
+          {
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.scan_screen_blurred_for_security,
+            }),
+          },
+        ] as { title: string; icon: IKeyOfIcons }[])),
   ];
 
   const data = qrWalletScene
@@ -129,6 +133,7 @@ function ScanQrCodeModalFooter({
     <Stack
       w="100%"
       mx="auto"
+      flex={1}
       $gtMd={{
         maxWidth: '$80',
       }}
@@ -154,6 +159,7 @@ function ScanQrCodeModalFooter({
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
+            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}
@@ -180,7 +186,6 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    isPickedImage.current = true;
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
@@ -218,15 +223,16 @@ export default function ScanQrCodeModal() {
   );
 
   const headerRightCall = useCallback(
-    () => (
-      <HeaderIconButton
-        onPress={pickImage}
-        icon="ImageSquareMountainOutline"
-        testID="scan-open-photo"
-        title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
-      />
-    ),
-    [intl, pickImage],
+    () =>
+      qrWalletScene ? null : (
+        <HeaderIconButton
+          onPress={pickImage}
+          icon="ImageSquareMountainOutline"
+          testID="scan-open-photo"
+          title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
+        />
+      ),
+    [intl, pickImage, qrWalletScene],
   );
 
   return (

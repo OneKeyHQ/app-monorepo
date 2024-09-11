@@ -17,8 +17,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorFormInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { MAX_LENGTH_ACCOUNT_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
@@ -26,6 +27,7 @@ import type {
   IValidateGeneralInputParams,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
@@ -35,6 +37,7 @@ type IFormValues = {
   networkId?: string;
   input?: string;
   deriveType?: IAccountDeriveTypes;
+  accountName?: string;
 };
 
 export const fixInputImportSingleChain = (text: string) => trim(text);
@@ -72,10 +75,16 @@ export function ImportSingleChainBase({
   const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
-      networkId: network?.id ?? getNetworkIdsMap().btc,
+      networkId:
+        network?.id && network.id !== getNetworkIdsMap().onekeyall
+          ? network?.id
+          : getNetworkIdsMap().btc,
       input: '',
       deriveType: undefined,
+      accountName: '',
     },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
   });
 
   const { setValue, control } = form;
@@ -86,7 +95,27 @@ export function ImportSingleChainBase({
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
+
+  const accountName = useFormWatch({ control, name: 'accountName' });
+  const accountNameDebounced = useDebounce(accountName?.trim() || '', 600);
+
   const validateFn = useCallback(async () => {
+    if (accountNameDebounced) {
+      try {
+        await backgroundApiProxy.serviceAccount.ensureAccountNameNotDuplicate({
+          name: accountNameDebounced,
+          walletId: WALLET_TYPE_IMPORTED,
+        });
+        form.clearErrors('accountName');
+      } catch (error) {
+        form.setError('accountName', {
+          message: (error as Error)?.message,
+        });
+      }
+    } else {
+      form.clearErrors('accountName');
+    }
+
     setValue('deriveType', undefined);
     if (inputTextDebounced && networkIdText) {
       const input =
@@ -105,7 +134,6 @@ export function ImportSingleChainBase({
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
         // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
-        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -115,7 +143,8 @@ export function ImportSingleChainBase({
       setValidateResult(undefined);
     }
   }, [
-    clearText,
+    accountNameDebounced,
+    form,
     inputTextDebounced,
     networkIdText,
     setValue,
@@ -142,7 +171,7 @@ export function ImportSingleChainBase({
   const { start } = useScanQrCode();
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body px="$5">
         <Form form={form}>
@@ -158,6 +187,7 @@ export function ImportSingleChainBase({
               placeholder={inputPlaceholder}
               size={media.gtMd ? 'medium' : 'large'}
               testID={inputTestID}
+              onPaste={clearText}
               addOns={[
                 {
                   iconName: 'ScanOutline',
@@ -172,16 +202,24 @@ export function ImportSingleChainBase({
               ]}
             />
           </Form.Field>
+
+          {validateResult && !validateResult?.isValid && inputTextDebounced ? (
+            <SizableText size="$bodyMd" color="$textCritical">
+              {invalidMessage}
+            </SizableText>
+          ) : null}
+
           {validateResult?.deriveInfoItems ? (
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.derivation_path })}
               name="deriveType"
             >
-              <DeriveTypeSelectorTriggerStaticInput
+              <DeriveTypeSelectorFormInput
                 networkId={form.getValues().networkId || ''}
-                items={validateResult?.deriveInfoItems || []}
-                renderTrigger={({ label }) => (
+                enabledItems={validateResult?.deriveInfoItems || []}
+                renderTrigger={({ label, onPress }) => (
                   <Stack
+                    testID="wallet-derivation-path-selector-trigger"
                     userSelect="none"
                     flexDirection="row"
                     px="$3.5"
@@ -201,6 +239,7 @@ export function ImportSingleChainBase({
                     pressStyle={{
                       bg: '$bgActive',
                     }}
+                    onPress={onPress}
                   >
                     <SizableText flex={1}>{label}</SizableText>
                     <Icon
@@ -213,17 +252,29 @@ export function ImportSingleChainBase({
               />
             </Form.Field>
           ) : null}
-        </Form>
 
-        {validateResult && !validateResult?.isValid && inputTextDebounced ? (
-          <SizableText color="$textCritical">{invalidMessage}</SizableText>
-        ) : null}
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.form_enter_account_name,
+            })}
+            name="accountName"
+          >
+            <Input
+              maxLength={MAX_LENGTH_ACCOUNT_NAME}
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_enter_account_name_placeholder,
+              })}
+            />
+          </Form.Field>
+        </Form>
 
         {children}
       </Page.Body>
       <Page.Footer
         confirmButtonProps={{
-          disabled: !validateResult?.isValid,
+          disabled:
+            !validateResult?.isValid ||
+            !!Object.values(form.formState.errors).length,
         }}
         onConfirm={async () => onConfirm(form)}
       />

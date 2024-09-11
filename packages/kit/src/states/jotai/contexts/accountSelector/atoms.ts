@@ -11,9 +11,9 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EAccountSelectorSceneName,
   IServerNetwork,
@@ -160,11 +160,13 @@ export interface IAccountSelectorActiveAccountInfo {
   wallet: IDBWallet | undefined;
   device: IDBDevice | undefined;
   network: IServerNetwork | undefined;
+  vaultSettings: IVaultSettings | undefined;
   deriveType: IAccountDeriveTypes;
   deriveInfo?: IAccountDeriveInfo | undefined;
   deriveInfoItems: IAccountDeriveInfoItems[];
   canCreateAddress?: boolean;
   isNetworkNotMatched?: boolean;
+  allNetworkDbAccounts?: IDBAccount[] | undefined;
 }
 export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({
@@ -175,6 +177,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     wallet: undefined,
     device: undefined,
     network: undefined,
+    vaultSettings: undefined,
     deriveType: 'default',
     deriveInfoItems: [],
     ready: false,

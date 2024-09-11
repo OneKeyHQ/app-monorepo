@@ -36,11 +36,6 @@ function PageProvider({
   onCancel,
   onConfirm,
 }: IPageProps) {
-  const pageRef = useRef<IScrollViewRef>(null);
-  const pageOffsetRef = useRef<NativeScrollPoint>({
-    x: 0,
-    y: 0,
-  });
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
   const value = useMemo(
@@ -48,8 +43,6 @@ function PageProvider({
       scrollEnabled,
       scrollProps,
       safeAreaEnabled,
-      pageRef,
-      pageOffsetRef,
       footerRef,
       closeExtraRef,
     }),

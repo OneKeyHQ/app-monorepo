@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -53,7 +54,9 @@ class ServiceSignature extends ServiceBase {
   public async getSignedMessages(
     params?: ISignatureItemQueryParams,
   ): Promise<ISignedMessage[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -105,7 +108,9 @@ class ServiceSignature extends ServiceBase {
   public async getSignedTransactions(
     params?: ISignatureItemQueryParams,
   ): Promise<ISignedTransaction[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -189,7 +194,9 @@ class ServiceSignature extends ServiceBase {
   public async getConnectedSites(
     params?: ISignatureItemQueryParams,
   ): Promise<IConnectedSite[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({

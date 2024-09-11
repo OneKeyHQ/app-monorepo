@@ -69,6 +69,8 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       hideFeeInfo={hideFeeInfo}
       replaceType={replaceType}
       status={decodedTx.status}
+      networkId={decodedTx.networkId}
+      networkLogoURI={decodedTx.networkLogoURI}
       {...componentProps}
     />
   );

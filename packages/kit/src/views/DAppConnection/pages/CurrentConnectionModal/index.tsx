@@ -105,7 +105,7 @@ function CurrentConnectionModal() {
         title={intl.formatMessage({ id: ETranslations.global_connect })}
       />
       <Page.Body>
-        <XStack p="$5" space="$3">
+        <XStack p="$5" gap="$3">
           <Image size="$10" borderRadius="$2">
             <Image.Source src={faviconUrl} />
             <Image.Fallback>
@@ -168,7 +168,7 @@ function CurrentConnectionModal() {
       </Page.Body>
       <Page.Footer>
         <Divider />
-        <YStack bg="$bgSubdued" py="$3" space="$2">
+        <YStack bg="$bgSubdued" py="$3" gap="$2">
           <ListItem key="manage-connection" onPress={onPressManageConnection}>
             <SizableText size="$bodyMd">
               {intl.formatMessage({

@@ -86,7 +86,7 @@ const SwapTxHistoryListCell = ({
     });
 
     return (
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
@@ -97,12 +97,12 @@ const SwapTxHistoryListCell = ({
 
   const title = useMemo(
     () => (
-      <XStack alignItems="center" space="$1">
-        <SizableText size="$bodyLgMedium">
+      <XStack alignItems="center" gap="$1" flex={1} flexWrap="wrap">
+        <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
           {item.baseInfo.fromToken.symbol.toUpperCase()}
         </SizableText>
         <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
           {item.baseInfo.toToken.symbol.toUpperCase()}
         </SizableText>
       </XStack>
@@ -123,6 +123,7 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text flex={1} primary={title} secondary={subContent} />
       <ListItem.Text
         align="right"
+        flexShrink={0}
         primary={
           <SizableText color="$textSuccess">
             +

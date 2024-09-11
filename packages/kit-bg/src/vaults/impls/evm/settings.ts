@@ -1,10 +1,22 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EMPTY_NATIVE_TOKEN_ADDRESS,
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
   IMPL_EVM,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  IStakingConfig,
+  IStakingFlowConfig,
+  ISupportedSymbol,
+} from '@onekeyhq/shared/types/earn';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -22,6 +34,81 @@ export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
 
 const networkIdMap = getNetworkIdsMap();
+
+const commonStakeConfigs = {
+  ETH: {
+    tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+    displayProfit: true,
+    stakingWithApprove: false,
+  },
+  MATIC: {
+    tokenAddress: EthereumMatic,
+    displayProfit: true,
+    stakingWithApprove: true,
+  },
+};
+
+const lidoConfig: { ETH: IStakingFlowConfig; MATIC: IStakingFlowConfig } = {
+  ETH: {
+    ...commonStakeConfigs.ETH,
+    unstakeWithSignMessage: true,
+    claimWithAmount: true,
+    // claimWithTx: true,
+  },
+  MATIC: {
+    ...commonStakeConfigs.MATIC,
+    claimWithTx: true,
+  },
+};
+
+const stakingConfig: IStakingConfig = {
+  [getNetworkIdsMap().eth]: {
+    providers: {
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: lidoConfig,
+      },
+      [EEarnProviderEnum.Everstake]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: {
+            ...commonStakeConfigs.ETH,
+            claimWithAmount: true,
+          },
+          MATIC: commonStakeConfigs.MATIC,
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().sepolia]: {
+    providers: {
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ...lidoConfig,
+          MATIC: { ...lidoConfig.MATIC, tokenAddress: SepoliaMatic },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().holesky]: {
+    providers: {
+      [EEarnProviderEnum.Everstake]: {
+        supportedSymbols: ['ETH', 'MATIC'],
+        configs: {
+          ETH: commonStakeConfigs.ETH,
+          MATIC: commonStakeConfigs.MATIC,
+        },
+      },
+      [EEarnProviderEnum.Lido]: {
+        supportedSymbols: ['ETH'],
+        configs: {
+          ETH: lidoConfig.ETH,
+        },
+      },
+    },
+  },
+};
 
 const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
   default: {
@@ -67,6 +154,12 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 
@@ -83,6 +176,7 @@ const settings: IVaultSettings = {
   transferZeroNativeTokenEnabled: true,
   gasLimitValidationEnabled: true,
   estimatedFeePollingInterval: 6,
+  editApproveAmountEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {
@@ -94,10 +188,15 @@ const settings: IVaultSettings = {
 
   maxSendFeeUpRatio: {
     [networkIdMap.fevm]: 1.1,
+    [networkIdMap.flare]: 1.1,
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
   },
+
+  customRpcEnabled: true,
+
+  stakingConfig,
 };
 
 export default Object.freeze(settings);

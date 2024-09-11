@@ -41,6 +41,7 @@ import {
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
 import {
+  OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
@@ -182,6 +183,14 @@ function HardwareSingletonDialogCmp(
     return <OpenBleSettingsDialog ref={ref} {...props} />;
   }
 
+  // Need Open Bluetooth Notify Change Error Dialog Container
+  if (
+    action ===
+    EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+  ) {
+    return <OpenBleNotifyChangeErrorDialog ref={ref} {...props} />;
+  }
+
   // Bluetooth Permission Dialog Container
   if (
     action === EHardwareUiStateAction.LOCATION_PERMISSION ||
@@ -221,6 +230,9 @@ const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const { serviceHardwareUI } = backgroundApiProxy;
 
   const toastQueueManagerRef = useRef(new ActionsQueueManager('toast'));
@@ -329,6 +341,7 @@ function HardwareUiStateContainerCmp() {
         currentState &&
         [
           EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
           EHardwareUiStateAction.LOCATION_PERMISSION,
           EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
         ].includes(currentState.action)
@@ -501,6 +514,19 @@ function HardwareUiStateContainerCmp() {
     },
     [],
   );
+
+  useEffect(() => {
+    const fn = async () => {
+      if (!stateRef.current) {
+        await toastQueueManagerRef.current?.closeAll();
+        await dialogQueueManagerRef.current?.closeAll();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.HardCloseHardwareUiStateDialog, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HardCloseHardwareUiStateDialog, fn);
+    };
+  }, []);
 
   useEffect(() => {
     const handleStateChange = async () => {

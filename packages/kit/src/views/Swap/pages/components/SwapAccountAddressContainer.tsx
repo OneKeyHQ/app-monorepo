@@ -21,12 +21,20 @@ import {
   useAccountManualCreatingAtom,
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
+const hitSlop = platformEnv.isNative
+  ? {
+      top: 8,
+      right: 8,
+    }
+  : undefined;
 function AddressButton({
   address,
   empty,
@@ -43,7 +51,7 @@ function AddressButton({
   return (
     <XStack
       alignItems="center"
-      space="$1"
+      gap="$1"
       py="$0.5"
       px="$1.5"
       my="$-0.5"
@@ -52,22 +60,17 @@ function AddressButton({
       opacity={loading ? 0.5 : 1}
       disabled={!!loading}
       onPress={onPress}
+      hitSlop={hitSlop}
       {...(onPress && {
         role: 'button',
         userSelect: 'none',
         focusable: true,
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
-        focusStyle: {
+        focusVisibleStyle: {
           outlineWidth: 2,
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
-        },
-        '$platform-native': {
-          hitSlop: {
-            top: 8,
-            right: 8,
-          },
         },
       })}
     >
@@ -77,7 +80,7 @@ function AddressButton({
           color={empty ? '$textCaution' : '$textSubdued'}
         >
           {empty
-            ? intl.formatMessage({ id: ETranslations.wallet_no_address })
+            ? intl.formatMessage({ id: ETranslations.swap_page_no_address })
             : address}
         </SizableText>
         {edited ? (
@@ -227,9 +230,18 @@ const SwapAccountAddressContainer = ({
     ) {
       return null;
     }
+    // all net need hidden
+    if (
+      swapAddressInfo.accountInfo?.network?.id ===
+        getNetworkIdsMap().onekeyall ||
+      swapAnotherAddressInfo.accountInfo?.network?.id ===
+        getNetworkIdsMap().onekeyall
+    ) {
+      return null;
+    }
     if (
       fromToken &&
-      !toToken &&
+      (!toToken || (toToken && !swapAnotherAddressInfo.address)) &&
       type === ESwapDirectionType.FROM &&
       swapAddressInfo.address
     ) {
@@ -291,15 +303,19 @@ const SwapAccountAddressContainer = ({
   }, [
     fromToken,
     type,
-    accountManualCreatingAtom.isLoading,
     toToken,
-    swapAddressInfo,
+    swapAddressInfo.accountInfo?.wallet,
+    swapAddressInfo.accountInfo?.indexedAccount,
+    swapAddressInfo.accountInfo?.network?.id,
+    swapAddressInfo.address,
     swapAnotherAddressInfo.address,
+    swapAnotherAddressInfo.accountInfo?.network?.id,
     swapSupportReceiveAddress,
     quoteResult,
     onToAnotherAddressModal,
     swapToAnotherAccountSwitchOn,
     intl,
+    accountManualCreatingAtom.isLoading,
     handleOnCreateAddress,
   ]);
 

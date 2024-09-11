@@ -31,6 +31,7 @@ import {
   EModalRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -48,7 +49,7 @@ const CustomFooter = ({
   console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
-    <XStack space="$4" justifyContent="center">
+    <XStack gap="$4" justifyContent="center">
       <Button
         onPress={() => {
           console.log(form?.getValues());
@@ -98,7 +99,7 @@ function ScrollContent() {
 const DialogNavigatorDemo = () => {
   const navigation = useAppNavigation<any>();
   return (
-    <YStack space="$3">
+    <YStack gap="$3">
       <Button
         mt="$4"
         onPress={() => {
@@ -198,7 +199,26 @@ const DialogGallery = () => (
       {
         title: 'Variants',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
+            <Button
+              onPress={async () => {
+                const d = Dialog.show({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+                // not working
+                // await d.close();
+
+                // working, should wait Dialog open animation done
+                await timerUtils.wait(350);
+                await d.close();
+              }}
+            >
+              ShowAndCloseDialog
+            </Button>
             <Button
               onPress={() =>
                 Dialog.show({
@@ -269,7 +289,7 @@ const DialogGallery = () => (
       {
         title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.show({
@@ -316,7 +336,7 @@ const DialogGallery = () => (
       {
         title: 'Disabled Confirm Button',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -474,7 +494,7 @@ const DialogGallery = () => (
       {
         title: 'Dialog Form',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -567,7 +587,7 @@ const DialogGallery = () => (
       {
         title: 'Execute a function call once the dialog is closed',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -695,7 +715,7 @@ const DialogGallery = () => (
                       }, 100);
                       setTimeout(() => {
                         resolve();
-                      }, 99999999);
+                      }, 99_999_999);
                     }),
                 });
               }}
@@ -829,6 +849,63 @@ const DialogGallery = () => (
               }}
             >
               showExitButton
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialogs',
+        element: (
+          <YStack gap="$4">
+            <Button
+              onPress={() => {
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: <Stack h={200} />,
+                });
+                setTimeout(() => {
+                  Dialog.show({
+                    title: 'B',
+                    description: 'BBB',
+                    sheetProps: {
+                      zIndex: 1e5 + 2,
+                    },
+                  });
+                }, 10);
+              }}
+            >
+              Dialogs
+            </Button>
+            <Button
+              onPress={() => {
+                const SelectListItem = () => {
+                  const [val, setVal] = useState('Apple');
+                  return (
+                    <Select
+                      items={new Array(5).fill(undefined).map((_, index) => ({
+                        label: String(index),
+                        value: String(index),
+                      }))}
+                      value={val}
+                      onChange={setVal}
+                      title="Demo Title"
+                      onOpenChange={console.log}
+                    />
+                  );
+                };
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: (
+                    <Stack h={200}>
+                      <SelectListItem />
+                    </Stack>
+                  ),
+                });
+              }}
+            >
+              Select In Dialog
             </Button>
           </YStack>
         ),

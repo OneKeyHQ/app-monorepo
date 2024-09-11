@@ -11,6 +11,8 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import {
   BridgeTimeoutError,
   FirmwareUpdateBatteryTooLow,
+  FirmwareUpdateExit,
+  FirmwareUpdateTasksClear,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -29,7 +31,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -387,7 +388,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-    let deviceName = await accountUtils.buildDeviceName({ features });
+    let deviceName = await deviceUtils.buildDeviceName({ features });
     const dbDeviceName = (
       await localDb.getDeviceByQuery({
         connectId: originalConnectId,
@@ -1092,7 +1093,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       Object.keys(this.updateTasks).map(async (id) => {
         await this.updateTasksReject({
           id,
-          error: new Error(`updateTasksClear: ${reason}`),
+          error: new FirmwareUpdateTasksClear({
+            message: `updateTasksClear: ${reason}`,
+          }),
         });
       }),
     ]);
@@ -1108,7 +1111,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async cancelUpdateWorkflowIfExit() {
     const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
     if (!isRunning) {
-      throw new Error('FirmwareUpdateWorkflow Exit');
+      throw new FirmwareUpdateExit();
     }
   }
 

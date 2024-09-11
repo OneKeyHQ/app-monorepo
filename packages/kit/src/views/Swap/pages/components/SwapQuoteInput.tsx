@@ -18,7 +18,10 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapApproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import {
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
@@ -36,6 +39,7 @@ const SwapQuoteInput = ({
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
@@ -62,7 +66,7 @@ const SwapQuoteInput = ({
         onBalanceMaxPress={() => {
           let maxAmount = fromTokenBalance;
           if (fromToken?.reservationValue) {
-            const fromTokenBalanceBN = new BigNumber(fromTokenBalance);
+            const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
             const fromTokenReservationValueBN = new BigNumber(
               fromToken.reservationValue,
             );
@@ -93,7 +97,7 @@ const SwapQuoteInput = ({
         />
         <SwapInputContainer
           token={toToken}
-          inputLoading={swapQuoteLoading}
+          inputLoading={swapQuoteLoading || quoteEventFetching}
           selectTokenLoading={selectLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}

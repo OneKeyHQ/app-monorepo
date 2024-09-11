@@ -48,6 +48,7 @@ function UTXODetails() {
         accountId,
         networkId,
         txid: txId,
+        withUTXOs: true,
       });
 
       if (r) {
@@ -78,7 +79,7 @@ function UTXODetails() {
     (utxos: { address: string; balance: string }[]) => (
       <Stack>
         {utxos.map((utxo, index) => (
-          // <XStack key={index} space="$2">
+          // <XStack key={index} gap="$2">
           //   <SizableText size="$bodyMdMedium" color="$textSubdued">
           //     {`#${padStart(String(index), 2, '0')}`}
           //   </SizableText>

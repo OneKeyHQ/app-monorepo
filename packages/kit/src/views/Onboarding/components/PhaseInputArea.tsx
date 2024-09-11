@@ -42,7 +42,6 @@ import {
   useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
-  usePage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -220,7 +219,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string) => boolean;
+    onPasteMnemonic: (text: string, index: number) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -234,7 +233,6 @@ function BasicPhaseInput(
 ) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const media = useMedia();
-  const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
 
@@ -251,30 +249,7 @@ function BasicPhaseInput(
 
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
-    if (platformEnv.isNative && pageRef) {
-      inputRef.current?.measure(
-        (
-          x: number,
-          y: number,
-          width: number,
-          height: number,
-          pageX: number,
-          pageY: number,
-        ) => {
-          const contentOffset = getContentOffset();
-          if (pageY > visibleHeight) {
-            setTimeout(() => {
-              pageRef.scrollTo({
-                x: 0,
-                y: contentOffset.y + pageY - visibleHeight,
-                animated: true,
-              });
-            });
-          }
-        },
-      );
-    }
-  }, [getContentOffset, index, onInputFocus, pageRef]);
+  }, [index, onInputFocus]);
 
   const handleInputBlur = useCallback(() => {
     onInputBlur(index);
@@ -282,7 +257,7 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (onPasteMnemonic(v)) {
+      if (onPasteMnemonic(v, index)) {
         onInputChange('');
         onChange?.('');
         return;
@@ -291,7 +266,7 @@ function BasicPhaseInput(
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange, onPasteMnemonic],
+    [index, onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -488,8 +463,6 @@ export function PhaseInputArea({
     onConfirm(mnemonicEncoded);
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
-  // useScrollToInputArea(alertRef);
-
   const {
     suggestions,
     updateInputValue,
@@ -601,7 +574,6 @@ export function PhaseInputArea({
                   }}
                   flexBasis="33.33%"
                   p="$1"
-                  testID={`phrase-input-index${index}`}
                 >
                   <Form.Field name={`phrase${index + 1}`}>
                     <PhaseInput

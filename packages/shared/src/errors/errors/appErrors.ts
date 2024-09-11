@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -43,6 +43,20 @@ export class NotImplemented extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorNotImplemented;
 }
 
+export class OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet;
+}
+
 export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -60,6 +74,7 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
@@ -72,6 +87,7 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapInvalidQrCode',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
@@ -101,6 +117,31 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
+export class VaultKeyringNotDefinedError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'VaultKeyringNotDefinedError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.VaultKeyringNotDefinedError;
+}
+
+export class PasswordPromptDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordPromptDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -116,8 +157,8 @@ export class RenameDuplicateNameError extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'RenameNameDuplicate',
-        defaultKey: ETranslationsMock.rename_duplicate_name,
+        defaultMessage: 'RenameDuplicateNameError',
+        defaultKey: ETranslations.form_rename_error_exist,
       }),
     );
   }
@@ -133,6 +174,21 @@ export class WrongPassword extends OneKeyError {
       }),
     );
   }
+}
+
+export class SecureQRCodeDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SecureQRCodeDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
 export class PasswordNotSet extends OneKeyError {
@@ -230,6 +286,30 @@ export class InvalidAddress extends OneKeyError {
       }),
     );
   }
+}
+
+export class FirmwareUpdateExit extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateExit',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateExit;
+}
+
+export class FirmwareUpdateTasksClear extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTasksClear',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateTasksClear;
 }
 
 export class InvalidAccount extends OneKeyError {
@@ -752,6 +832,57 @@ export class Expect24WordsMnemonicError extends OneKeyError {
         defaultMessage: 'Expect24WordsMnemonicError',
         defaultKey:
           ETranslations.feedback_polkadot_supported_recover_phrases_type,
+      }),
+    );
+  }
+}
+
+export type IRemainingMinBalanceErrorInfo = {
+  miniAmount: string;
+};
+
+export class RemainingMinBalanceError extends OneKeyError<IRemainingMinBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IRemainingMinBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RemainingMinBalanceError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_less,
+      }),
+    );
+  }
+}
+
+export class ConvertTxError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConvertTxError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_convert,
+      }),
+    );
+  }
+}
+
+export class CanNotSendZeroAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CanNotSendZeroAmountError',
+        defaultKey: ETranslations.send_cannot_send_amount_zero,
+      }),
+    );
+  }
+}
+
+export type IManageTokenInsufficientBalanceErrorInfo = {
+  token: string;
+};
+export class ManageTokenInsufficientBalanceError extends OneKeyError<IManageTokenInsufficientBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IManageTokenInsufficientBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ManageTokenInsufficientBalanceError',
+        defaultKey: ETranslations.manage_token_account_no_found,
       }),
     );
   }

@@ -36,7 +36,7 @@ function SearchTextItem({
       ai="center"
       jc="center"
       borderRadius="$2"
-      space="$3"
+      gap="$3"
       bg="$bgStrong"
       mt="$3"
       cursor="pointer"
@@ -67,8 +67,7 @@ export function RecentSearched({
           navigation.pop();
           setTimeout(() => {
             navigation.push(ETabMarketRoutes.MarketDetail, {
-              coinGeckoId: item.id,
-              symbol: item.text,
+              token: item.id,
             });
           }, 80);
           break;
@@ -85,7 +84,7 @@ export function RecentSearched({
   return recentSearch.length &&
     searchType === EUniversalSearchType.MarketToken ? (
     <YStack px="$5" pb="$5">
-      <XStack jc="space-between">
+      <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_recent_searched })}
         </SizableText>
@@ -97,11 +96,13 @@ export function RecentSearched({
           onPress={handleDeleteAll}
         />
       </XStack>
-      <XStack flexWrap="wrap" space="$3">
+      <XStack flexWrap="wrap" gap="$3">
         {recentSearch.map((i) => (
           <SearchTextItem onPress={handlePress} item={i} key={i.text} />
         ))}
       </XStack>
     </YStack>
-  ) : null;
+  ) : (
+    <XStack pt="$5" />
+  );
 }

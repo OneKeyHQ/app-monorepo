@@ -1,4 +1,9 @@
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
@@ -6,6 +11,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -84,8 +90,14 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+  qrAccountEnabled: true,
 
   publicKeyExportEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.xprvt,
+    ECoreApiExportedSecretKeyType.xpub,
+  ],
 
   isUtxo: true,
   isSingleToken: true,
@@ -110,6 +122,30 @@ const settings: IVaultSettings = {
   showAddressType: true,
 
   dappInteractionEnabled: true,
+  customRpcEnabled: true,
+  mergeDeriveAssetsEnabled: true,
+
+  preCheckDappTxFeeInfoRequired: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().btc]: {
+      providers: {
+        [EEarnProviderEnum.Babylon]: {
+          supportedSymbols: ['BTC'],
+          configs: {
+            'BTC': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: false,
+              withdrawWithTx: true,
+              claimWithTx: true,
+              usePublicKey: true,
+              withdrawSignOnly: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

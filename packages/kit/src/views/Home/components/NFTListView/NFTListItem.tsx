@@ -3,7 +3,16 @@ import { memo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  Video,
+  XStack,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -12,11 +21,13 @@ type IProps = {
   nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
   flexBasis: IStackProps['flexBasis'];
+  isAllNetworks?: boolean;
 };
 
 function BasicNFTListItem(props: IProps) {
-  const { nft, onPress, flexBasis } = props;
+  const { nft, onPress, flexBasis, isAllNetworks } = props;
   const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const { network } = useAccountData({ networkId: nft.networkId });
 
   return (
     <Stack
@@ -24,14 +35,13 @@ function BasicNFTListItem(props: IProps) {
       group="nftItem"
       flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineColor: '$focusRing',
         outlineWidth: 2,
         outlineStyle: 'solid',
         outlineOffset: -2,
       }}
-      py="$2.5"
-      px="$5"
+      p="$2.5"
       borderRadius="$4"
       onPress={() => {
         onPress?.(nft);
@@ -92,11 +102,27 @@ function BasicNFTListItem(props: IProps) {
         </Stack>
       </Stack>
       <Stack mt="$2">
+        <XStack alignItems="center" justifyContent="space-between">
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            minWidth={0}
+            flex={1}
+            numberOfLines={1}
+            pr="$2"
+          >
+            {nft.collectionName || '-'}
+          </SizableText>
+          {isAllNetworks ? (
+            <Token
+              width="$3.5"
+              height="$3.5"
+              tokenImageUri={network?.logoURI}
+            />
+          ) : null}
+        </XStack>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata?.name ?? '-'}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {nft.collectionName}
+          {nft.metadata?.name || '-'}
         </SizableText>
       </Stack>
     </Stack>

@@ -7,10 +7,10 @@ import {
   Dialog,
   Input,
   Page,
-  Skeleton,
   SortableListView,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -21,6 +21,8 @@ import {
   useBrowserBookmarkAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -161,7 +163,7 @@ function BookmarkListModal() {
     ),
     [isEditing, intl],
   );
-
+  const { gtMd } = useMedia();
   return (
     <Page>
       <Page.Header
@@ -181,24 +183,30 @@ function BookmarkListModal() {
             index,
           })}
           onDragEnd={(ret) => onSortBookmarks(ret.data)}
-          renderItem={({ item, getIndex, drag }) => (
+          renderItem={({ item, getIndex, drag, dragProps }) => (
             <ListItem
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () =>
+                onPress: () => {
                   handleOpenWebSite({
                     navigation,
+                    switchToMultiTabBrowser: gtMd,
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
-                  }),
+                  });
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: item.url,
+                    dappName: item.title,
+                    enterMethod: EEnterMethod.bookmark,
+                  });
+                },
               })}
             >
               {isEditing ? (
                 <ListItem.IconButton
-                  {...ListItem.EnterAnimationStyle}
                   title={intl.formatMessage({
                     id: ETranslations.global_remove,
                   })}
@@ -209,13 +217,11 @@ function BookmarkListModal() {
                   }}
                   onPress={() => {
                     void deleteCell(getIndex);
-                    void removeBrowserBookmark(item.url);
                     Toast.success({
                       title: intl.formatMessage({
                         id: ETranslations.explore_removed_success,
                       }),
                     });
-                    void run();
                   }}
                   testID="action-list-item-rename"
                 />
@@ -235,9 +241,8 @@ function BookmarkListModal() {
                 flex={1}
               />
               {isEditing ? (
-                <XStack space="$6">
+                <XStack gap="$6">
                   <ListItem.IconButton
-                    {...ListItem.EnterAnimationStyle}
                     title={intl.formatMessage({
                       id: ETranslations.explore_rename,
                     })}
@@ -247,11 +252,11 @@ function BookmarkListModal() {
                     testID="action-list-item-rename"
                   />
                   <ListItem.IconButton
-                    {...ListItem.EnterAnimationStyle}
                     key="darg"
                     cursor="move"
                     icon="DragOutline"
                     onPressIn={drag}
+                    dataSet={dragProps}
                   />
                 </XStack>
               ) : null}

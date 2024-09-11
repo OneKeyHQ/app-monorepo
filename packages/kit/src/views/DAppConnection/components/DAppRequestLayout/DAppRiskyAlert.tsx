@@ -58,7 +58,7 @@ function DAppRiskyAlert({
 
   const DialogContent = useMemo(
     () => (
-      <YStack space="$1">
+      <YStack gap="$1">
         <SizableText size="$bodyLgMedium" color={riskStyle.titleTextColor}>
           {urlSecurityInfo?.detail?.title ?? ''}
         </SizableText>
@@ -88,16 +88,20 @@ function DAppRiskyAlert({
       type={riskStyle.type as IAlertType}
       title={urlSecurityInfo?.alert ?? ''}
       icon={riskStyle.alertIcon as IKeyOfIcons}
-      action={{
-        primary: intl.formatMessage({ id: ETranslations.global_details }),
-        onPrimaryPress: () => {
-          Dialog.show({
-            title: origin,
-            renderContent: DialogContent,
-            showFooter: false,
-          });
-        },
-      }}
+      action={
+        urlSecurityInfo?.detail
+          ? {
+              primary: intl.formatMessage({ id: ETranslations.global_details }),
+              onPrimaryPress: () => {
+                Dialog.show({
+                  title: origin,
+                  renderContent: DialogContent,
+                  showFooter: false,
+                });
+              },
+            }
+          : undefined
+      }
       borderTopWidth={0}
     />
   );

@@ -2,19 +2,20 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  useSettingsAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
+  usePasswordAtom,
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
@@ -25,6 +26,7 @@ import type { LayoutChangeEvent } from 'react-native';
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
   onLayout?: (e: LayoutChangeEvent) => void;
+  name?: 'lock';
 }
 
 interface IPasswordVerifyForm {
@@ -34,14 +36,19 @@ interface IPasswordVerifyForm {
 const PasswordVerifyContainer = ({
   onVerifyRes,
   onLayout,
+  name,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
-  const { verifiedPasswordWebAuth } = useWebAuthActions();
+  const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(false);
+
+  const isExtLockAndNoCachePassword = Boolean(
+    platformEnv.isExtension && name === 'lock' && !hasCachedPassword,
+  );
 
   useEffect(() => {
     if (webAuthCredentialId && isBiologyAuthSwitchOn) {
@@ -68,28 +75,100 @@ const PasswordVerifyContainer = ({
 
   const isBiologyAuthEnable = useMemo(
     // both webAuth or biologyAuth are enabled
-    () =>
-      isBiologyAuthSwitchOn &&
-      ((isEnable && hasSecurePassword) ||
-        (!!webAuthCredentialId && !!hasCachedPassword)),
+    () => {
+      if (isExtLockAndNoCachePassword) {
+        return isBiologyAuthSwitchOn && !!webAuthCredentialId;
+      }
+      return (
+        isBiologyAuthSwitchOn &&
+        ((isEnable && hasSecurePassword) ||
+          (!!webAuthCredentialId && !!hasCachedPassword))
+      );
+    },
     [
       hasCachedPassword,
       hasSecurePassword,
       isEnable,
       webAuthCredentialId,
       isBiologyAuthSwitchOn,
+      isExtLockAndNoCachePassword,
     ],
   );
-  const [status, setStatues] = useState<{
-    value: EPasswordVerifyStatus;
-    message?: string;
-  }>({ value: EPasswordVerifyStatus.DEFAULT });
+  const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+  const resetPasswordStatus = useCallback(() => {
+    void backgroundApiProxy.servicePassword.resetPasswordStatus();
+  }, []);
+  useEffect(() => {
+    setPasswordAtom((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+    }));
+    return () => {
+      resetPasswordStatus();
+    };
+  }, [setPasswordAtom, resetPasswordStatus]);
+
+  const onBiologyAuthenticateExtLockAndNoCachePassword =
+    useCallback(async () => {
+      if (
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+      ) {
+        return;
+      }
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+      }));
+      try {
+        const result = await checkWebAuth();
+        if (result) {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+          }));
+          onVerifyRes('');
+        } else {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: {
+              value: EPasswordVerifyStatus.ERROR,
+              message: intl.formatMessage({
+                id: ETranslations.auth_error_password_incorrect,
+              }),
+            },
+          }));
+        }
+      } catch {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
+        }));
+      }
+    }, [
+      checkWebAuth,
+      passwordVerifyStatus,
+      onVerifyRes,
+      intl,
+      setPasswordAtom,
+    ]);
 
   const onBiologyAuthenticate = useCallback(async () => {
-    if (status.value === EPasswordVerifyStatus.VERIFYING) {
+    if (
+      passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
+      passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+    ) {
       return;
     }
-    setStatues({ value: EPasswordVerifyStatus.VERIFYING });
+    setPasswordAtom((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+    }));
     try {
       let biologyAuthRes;
       if (!isEnable && isBiologyAuthEnable) {
@@ -103,31 +182,56 @@ const PasswordVerifyContainer = ({
           });
       }
       if (biologyAuthRes) {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+        }));
         onVerifyRes(biologyAuthRes);
-        setStatues({ value: EPasswordVerifyStatus.VERIFIED });
       } else {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
+        }));
         throw new Error('biology auth verify error');
       }
     } catch (e) {
-      setStatues({
-        value: EPasswordVerifyStatus.ERROR,
-        message: intl.formatMessage({
-          id: ETranslations.auth_error_password_incorrect,
-        }),
-      });
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: {
+          value: EPasswordVerifyStatus.ERROR,
+          message: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
+        },
+      }));
     }
   }, [
     intl,
     isBiologyAuthEnable,
     isEnable,
     onVerifyRes,
-    status.value,
+    passwordVerifyStatus.value,
+    setPasswordAtom,
     verifiedPasswordWebAuth,
   ]);
 
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
-      setStatues({ value: EPasswordVerifyStatus.VERIFYING });
+      if (
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
+        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+      ) {
+        return;
+      }
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+      }));
       try {
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -137,28 +241,45 @@ const PasswordVerifyContainer = ({
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
           });
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+        }));
+        if (platformEnv.isNativeAndroid) {
+          Keyboard.dismiss();
+          await timerUtils.wait(0);
+        }
         onVerifyRes(verifiedPassword);
-        setStatues({ value: EPasswordVerifyStatus.VERIFIED });
       } catch (e) {
-        setStatues({
-          value: EPasswordVerifyStatus.ERROR,
-          message: intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
-          }),
-        });
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
+        }));
       }
     },
-    [intl, onVerifyRes],
+    [intl, onVerifyRes, passwordVerifyStatus.value, setPasswordAtom],
   );
 
   return (
     <Stack onLayout={onLayout}>
       <PasswordVerify
         onPasswordChange={() => {
-          setStatues({ value: EPasswordVerifyStatus.DEFAULT });
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
+          }));
         }}
-        status={status}
-        onBiologyAuth={onBiologyAuthenticate}
+        status={passwordVerifyStatus}
+        onBiologyAuth={
+          isExtLockAndNoCachePassword
+            ? onBiologyAuthenticateExtLockAndNoCachePassword
+            : onBiologyAuthenticate
+        }
         onInputPasswordAuth={onInputPasswordAuthenticate}
         isEnable={isBiologyAuthEnable}
         authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}

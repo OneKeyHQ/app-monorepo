@@ -1,8 +1,11 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_COSMOS,
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -34,6 +37,11 @@ const settings: IVaultSettings = {
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
 
   dappInteractionEnabled: true,
 
@@ -104,6 +112,24 @@ const settings: IVaultSettings = {
       addressPrefix: 'celestia',
       curve: 'secp256k1',
       nativeTokenAddress: 'utia',
+    },
+  },
+
+  stakingConfig: {
+    [getNetworkIdsMap().cosmoshub]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['ATOM'],
+          configs: {
+            'ATOM': {
+              tokenAddress: 'uatom',
+              displayProfit: true,
+              usePublicKey: true,
+              claimWithAmount: true,
+            },
+          },
+        },
+      },
     },
   },
 };

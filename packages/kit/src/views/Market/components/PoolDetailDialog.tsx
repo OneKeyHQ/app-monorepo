@@ -57,7 +57,7 @@ function PoolDetailsItem({
       pb="$3"
       flexBasis={0}
       flexGrow={1}
-      space="$0.5"
+      gap="$0.5"
       borderColor="$borderSubdued"
       borderBottomWidth="$px"
     >
@@ -92,8 +92,8 @@ export function PoolDetailDialog({
   const intl = useIntl();
   const [baseTokenName, quoteTokenName] = attributes.name.split('/');
   return (
-    <YStack space="$3">
-      <XStack space="$4">
+    <YStack gap="$3">
+      <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({ id: ETranslations.global_pair })}
         >
@@ -102,13 +102,13 @@ export function PoolDetailDialog({
         <PoolDetailsItem
           title={intl.formatMessage({ id: ETranslations.global_dex })}
         >
-          <XStack space="$1.5">
+          <XStack gap="$1.5">
             <MarketPoolIcon uri={dexLogoUrl} />
             <SizableText size="$bodyMdMedium">{dexName}</SizableText>
           </XStack>
         </PoolDetailsItem>
       </XStack>
-      <XStack space="$4">
+      <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({ id: ETranslations.global_price })}
           currency
@@ -127,7 +127,7 @@ export function PoolDetailDialog({
           )}
         </PoolDetailsItem>
       </XStack>
-      <XStack space="$4">
+      <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({
             id: ETranslations.market_twenty_four_hour_volume,
@@ -145,7 +145,7 @@ export function PoolDetailDialog({
           {attributes.reserveInUsd}
         </PoolDetailsItem>
       </XStack>
-      <XStack space="$4">
+      <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({
             id: ETranslations.global_fdv,
@@ -156,7 +156,7 @@ export function PoolDetailDialog({
         </PoolDetailsItem>
         <PoolDetailsItem
           title={intl.formatMessage({
-            id: ETranslations.global_age,
+            id: ETranslations.market_days_since_launch,
           })}
         >
           {intl.formatMessage(
@@ -172,7 +172,7 @@ export function PoolDetailDialog({
           )}
         </PoolDetailsItem>
       </XStack>
-      <YStack space="$6" pt="$6" pb="$10">
+      <YStack gap="$6" pt="$6" pb="$10">
         <MarketTokenAddress
           networkId={onekeyNetworkId}
           tokenName={baseTokenName.trim()}

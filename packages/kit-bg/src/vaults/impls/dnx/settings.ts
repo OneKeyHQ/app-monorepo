@@ -29,6 +29,14 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   softwareAccountDisabled: true,
 
+  supportExportedSecretKeys: [
+    // DNX HD wallet not support
+    // ECoreApiExportedSecretKeyType.xprvt,
+    // ECoreApiExportedSecretKeyType.xpub,
+  ],
+
+  supportedDeviceTypes: ['classic'],
+
   defaultFeePresetIndex: 0,
 
   isUtxo: true,
@@ -41,8 +49,6 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 600,
 
   withPaymentId: true,
-
-  enabledOnClassicOnly: true,
 
   minTransferAmount: '0.000000001',
 

@@ -204,7 +204,7 @@ export default class VaultDot extends VaultBase {
       if (keepAlive) {
         unsigned = methods.assets.transferKeepAlive(
           {
-            id: parseInt(tokenInfo.address),
+            id: parseInt(tokenInfo.address, 10),
             target: to,
             amount: amountValue,
           },
@@ -214,7 +214,7 @@ export default class VaultDot extends VaultBase {
       } else {
         unsigned = methods.assets.transfer(
           {
-            id: parseInt(tokenInfo.address),
+            id: parseInt(tokenInfo.address, 10),
             target: to,
             amount: amountValue,
           },
@@ -598,7 +598,7 @@ export default class VaultDot extends VaultBase {
         });
       return new BigNumber(account.balance ?? 0);
     },
-    { promise: true, maxAge: 10000 },
+    { promise: true, maxAge: 10_000 },
   );
 
   override async validateSendAmount({

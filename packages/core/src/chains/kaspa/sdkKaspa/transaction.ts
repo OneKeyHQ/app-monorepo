@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Transaction, crypto } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 import * as necc from '@noble/secp256k1';
+import { Transaction, crypto } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -19,7 +19,7 @@ import type {
   IKaspaTransactionOutput,
 } from './types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
-import type { Script } from '@kaspa/core-lib';
+import type { Script } from '@onekeyfe/kaspa-core-lib';
 
 export enum SignatureType {
   SIGHASH_ALL = 0x01,
@@ -54,7 +54,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
 
   const txn = new Transaction()
     .from(inputs.map((input) => new UnspentOutput(input)))
-    .to(to, sendAmount.toNumber())
+    .to(to, sendAmount.toFixed())
     .setVersion(0)
     .fee(mass)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
@@ -291,7 +291,7 @@ export function submitTransactionFromString(
 
   const outputs: IKaspaTransactionOutput[] = tx.outputs.map(
     (output: Transaction.Output) => ({
-      amount: output.satoshis,
+      amount: new BigNumber(output.satoshis).toFixed(),
       scriptPublicKey: {
         scriptPublicKey: output.script.toBuffer().toString('hex'),
         version: 0,

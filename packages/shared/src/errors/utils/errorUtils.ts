@@ -5,15 +5,14 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 
-import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
-import {
-  EOneKeyErrorClassNames,
-  type IOneKeyError,
-  type IOneKeyHardwareErrorPayload,
-} from '../types/errorTypes';
 
+import type {
+  EOneKeyErrorClassNames,
+  IOneKeyError,
+  IOneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
 import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
@@ -168,63 +167,18 @@ function autoPrintErrorIgnore(error: unknown | undefined) {
   }
 }
 
-function toastIfError(error: unknown) {
-  // Some third-party libraries or external wallets return not an Error object, but a normal JSON object. Here we need to use isPlainObject to do a compatible processing.
-
-  if (error instanceof Error || isPlainObject(error)) {
-    const e = error as IOneKeyError | undefined;
-    if (e) {
-      // handle autoToast error by BackgroundApiProxyBase
-      e.autoToast = true;
-    }
-  }
-}
-
-function toastIfErrorDisable(error: unknown) {
-  // Some third-party libraries or external wallets return not an Error object, but a normal JSON object. Here we need to use isPlainObject to do a compatible processing.
-
-  if (error instanceof Error || isPlainObject(error)) {
-    const e = error as IOneKeyError | undefined;
-    if (e) {
-      e.autoToast = false;
-    }
-  }
-}
-
-let lastToastErrorInstance: IOneKeyError | undefined;
-function showToastOfError(error: IOneKeyError | unknown | undefined) {
-  const err = error as IOneKeyError | undefined;
-  if (
-    err?.className &&
-    [EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel].includes(
-      err?.className,
-    )
-  ) {
-    return;
-  }
-  const isTriggered = err?.$$autoToastErrorTriggered;
-  const isSameError = lastToastErrorInstance === err;
-  // TODO log error to file if developer mode on
-  if (err && err?.autoToast && !isTriggered && !isSameError) {
-    err.$$autoToastErrorTriggered = true;
-    lastToastErrorInstance = err;
-    appEventBus.emit(EAppEventBusNames.ShowToast, {
-      errorCode: err?.code,
-      method: 'error',
-      title: err?.message ?? 'Error',
-      message: err?.requestId,
-    });
-  }
-}
-
-async function withErrorAutoToast<T>(fn: () => Promise<T>) {
-  try {
-    const result = await fn();
-    return result;
-  } catch (error: unknown) {
-    showToastOfError(error);
-    throw error;
-  }
+function isErrorByClassName({
+  error,
+  className,
+}: {
+  error: unknown;
+  className: EOneKeyErrorClassNames | EOneKeyErrorClassNames[];
+}): boolean {
+  const classNames: EOneKeyErrorClassNames[] = (
+    [] as EOneKeyErrorClassNames[]
+  ).concat(className);
+  const errorClassName = (error as IOneKeyError)?.className;
+  return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
 export default {
@@ -235,8 +189,5 @@ export default {
   interceptConsoleErrorWithExtraInfo,
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
-  toastIfError,
-  toastIfErrorDisable,
-  showToastOfError,
-  withErrorAutoToast,
+  isErrorByClassName,
 };

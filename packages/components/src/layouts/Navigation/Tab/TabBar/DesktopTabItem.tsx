@@ -102,7 +102,7 @@ export function DesktopTabItem(
         ) : null}
         {actionList ? (
           <ActionList
-            title="Action List"
+            title=""
             placement="right-start"
             renderTrigger={
               selected ? (
@@ -110,7 +110,7 @@ export function DesktopTabItem(
                   size="small"
                   icon="DotHorOutline"
                   variant="tertiary"
-                  focusStyle={undefined}
+                  focusVisibleStyle={undefined}
                   p="$0.5"
                   m={-3}
                   testID="browser-bar-options"

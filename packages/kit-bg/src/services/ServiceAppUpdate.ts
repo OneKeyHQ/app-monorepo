@@ -8,7 +8,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  type IUpdateDownloadedEvent,
+  clearPackage,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -45,8 +48,9 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAppLatestInfo() {
+  async getAppLatestInfo(forceUpdate = false) {
     if (
+      !forceUpdate &&
       Date.now() - this.updateAt <
         timerUtils.getTimeDurationMs({
           minute: 5,
@@ -65,7 +69,6 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         isForceUpdate: false,
-        sha256: '',
         errorText: undefined,
         downloadedEvent: undefined,
         status: EAppUpdateStatus.done,
@@ -109,7 +112,7 @@ class ServiceAppUpdate extends ServiceBase {
       await this.notifyFailed({
         message: 'Download timed out, please check your internet connection.',
       });
-    }, timerUtils.getTimeDurationMs({ minute: 5 }));
+    }, timerUtils.getTimeDurationMs({ minute: 30 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloading,
@@ -137,6 +140,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
+    clearTimeout(extensionSyncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
@@ -144,6 +148,13 @@ class ServiceAppUpdate extends ServiceBase {
       updateAt: 0,
       status: EAppUpdateStatus.done,
     });
+  }
+
+  @backgroundMethod()
+  public async clearCache() {
+    clearTimeout(downloadTimeoutId);
+    await clearPackage();
+    await this.reset();
   }
 
   @backgroundMethod()
@@ -180,19 +191,19 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchAppUpdateInfo() {
+  public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     if (!(await this.isNeedSyncAppUpdateInfo())) {
       return;
     }
 
-    const releaseInfo = await this.getAppLatestInfo();
+    const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     if (releaseInfo?.version) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
-        latestVersion: releaseInfo?.version || prev.latestVersion,
+        latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
           releaseInfo?.version && releaseInfo.version !== prev.latestVersion

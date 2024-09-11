@@ -3,40 +3,48 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 
-const EthLidoOverview = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoOverview'),
+const InvestmentDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
 
-const EthLidoStake = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoStake'),
+const ProtocolDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
-const EthLidoWithdraw = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoWithdraw'),
+const Withdraw = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
 
-const EthLidoHistory = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoHistory'),
+const Stake = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Stake'),
 );
 
-const MaticLidoOverview = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoOverview'),
+const Claim = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/Claim'),
 );
 
-const MaticLidoStake = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoStake'),
+const AssetProtocolList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/AssetProtocolList'),
 );
 
-const MaticLidoWithdraw = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoWithdraw'),
+const ApproveBaseStake = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ApproveBaseStake'),
 );
 
-const MaticLidoHistory = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoHistory'),
+const ClaimOptions = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ClaimOptions'),
 );
 
-const MaticLidoClaim = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoClaim'),
+const WithdrawOptions = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/WithdrawOptions'),
+);
+
+const PortfolioDetails = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/PortfolioDetails'),
+);
+
+const HistoryList = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/HistoryList'),
 );
 
 export const StakingModalRouter: IModalFlowNavigatorConfig<
@@ -44,39 +52,47 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   IModalStakingParamList
 >[] = [
   {
-    name: EModalStakingRoutes.EthLidoOverview,
-    component: EthLidoOverview,
+    name: EModalStakingRoutes.ProtocolDetails,
+    component: ProtocolDetails,
   },
   {
-    name: EModalStakingRoutes.EthLidoStake,
-    component: EthLidoStake,
+    name: EModalStakingRoutes.Stake,
+    component: Stake,
   },
   {
-    name: EModalStakingRoutes.EthLidoWithdraw,
-    component: EthLidoWithdraw,
+    name: EModalStakingRoutes.Withdraw,
+    component: Withdraw,
   },
   {
-    name: EModalStakingRoutes.EthLidoHistory,
-    component: EthLidoHistory,
+    name: EModalStakingRoutes.AssetProtocolList,
+    component: AssetProtocolList,
   },
   {
-    name: EModalStakingRoutes.MaticLidoOverview,
-    component: MaticLidoOverview,
+    name: EModalStakingRoutes.ApproveBaseStake,
+    component: ApproveBaseStake,
   },
   {
-    name: EModalStakingRoutes.MaticLidoStake,
-    component: MaticLidoStake,
+    name: EModalStakingRoutes.Claim,
+    component: Claim,
   },
   {
-    name: EModalStakingRoutes.MaticLidoWithdraw,
-    component: MaticLidoWithdraw,
+    name: EModalStakingRoutes.ClaimOptions,
+    component: ClaimOptions,
   },
   {
-    name: EModalStakingRoutes.MaticLidoHistory,
-    component: MaticLidoHistory,
+    name: EModalStakingRoutes.WithdrawOptions,
+    component: WithdrawOptions,
   },
   {
-    name: EModalStakingRoutes.MaticLidoClaim,
-    component: MaticLidoClaim,
+    name: EModalStakingRoutes.InvestmentDetails,
+    component: InvestmentDetails,
+  },
+  {
+    name: EModalStakingRoutes.PortfolioDetails,
+    component: PortfolioDetails,
+  },
+  {
+    name: EModalStakingRoutes.HistoryList,
+    component: HistoryList,
   },
 ];

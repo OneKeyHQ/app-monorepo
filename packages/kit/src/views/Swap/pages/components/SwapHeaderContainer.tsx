@@ -2,36 +2,14 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Dialog,
-  EPageType,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Badge, Dialog, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
-interface ISwapHeaderContainerProps {
-  pageType?: EPageType.modal;
-}
-
-const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
+const SwapHeaderContainer = () => {
   const intl = useIntl();
-  const headerRight = useCallback(
-    () => (
-      <SwapHeaderRightActionContainer
-        storeName={
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap
-        }
-      />
-    ),
-    [pageType],
-  );
+  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
 
   const onSwapLimit = useCallback(() => {
     Dialog.confirm({
@@ -50,12 +28,12 @@ const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
   }, [intl]);
   return (
     <XStack justifyContent="space-between">
-      <XStack space="$5">
+      <XStack gap="$5">
         <SizableText size="$headingLg" userSelect="none">
           {intl.formatMessage({ id: ETranslations.swap_page_swap })}
         </SizableText>
 
-        <XStack opacity={0.5} space="$1" onPress={onSwapLimit}>
+        <XStack opacity={0.5} gap="$1" onPress={onSwapLimit}>
           <SizableText size="$headingLg" userSelect="none">
             {intl.formatMessage({ id: ETranslations.swap_page_limit })}
           </SizableText>

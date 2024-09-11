@@ -18,6 +18,7 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TokenInstruction,
   createAssociatedTokenAccountInstruction,
@@ -39,7 +40,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNative, isNil } from 'lodash';
 
 import type {
   IEncodedTxSol,
@@ -50,8 +51,11 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  CanNotSendZeroAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -62,6 +66,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxActionType,
@@ -80,6 +88,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
@@ -99,6 +108,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -249,22 +259,27 @@ export default class Vault extends VaultBase {
         const tokenAddress = tokenInfo?.address ?? nftInfo?.nftAddress ?? '';
         const tokenSendAddress = tokenInfo?.sendAddress;
         const mint = new PublicKey(tokenAddress);
-        const isNFT = !!nftInfo;
+        // const isNFT = !!nftInfo;
         let destinationAta = destination;
+
+        const tokenProgramId = await this._getTokenProgramId({
+          owner: source,
+          mint,
+        });
 
         const sourceAta = tokenSendAddress
           ? new PublicKey(tokenSendAddress)
           : await this._getAssociatedTokenAddress({
               mint,
               owner: source,
-              isNFT,
+              programId: tokenProgramId,
             });
 
         // system account, get token receiver address
         destinationAta = await this._getAssociatedTokenAddress({
           mint,
           owner: destination,
-          isNFT,
+          programId: tokenProgramId,
         });
 
         const destinationAtaInfo = await client.getAccountInfo({
@@ -284,6 +299,7 @@ export default class Vault extends VaultBase {
                 destinationAta,
                 amount,
                 metadata: metadata as Metadata,
+                programId: tokenProgramId,
               })),
             );
           } else {
@@ -298,6 +314,7 @@ export default class Vault extends VaultBase {
                   destinationAta,
                   destinationAtaInfo,
                   mintState: ocpMintState,
+                  programId: tokenProgramId,
                 }),
               );
             } else {
@@ -311,6 +328,7 @@ export default class Vault extends VaultBase {
                   destinationAtaInfo,
                   tokenDecimals: 0,
                   amount,
+                  programId: tokenProgramId,
                 }),
               );
             }
@@ -326,6 +344,7 @@ export default class Vault extends VaultBase {
               destinationAtaInfo,
               tokenDecimals: tokenInfo.decimals,
               amount,
+              programId: tokenProgramId,
             }),
           );
         }
@@ -368,31 +387,51 @@ export default class Vault extends VaultBase {
     );
   }
 
-  async _getAssociatedTokenAddress({
+  async _getTokenProgramId({
     mint,
     owner,
-    isNFT,
   }: {
     mint: PublicKey;
     owner: PublicKey;
     isNFT?: boolean;
   }) {
-    if (isNFT) {
-      const client = await this.getClient();
-      const tokenAccounts = await client.getTokenAccountsByOwner({
+    const client = await this.getClient();
+    const [tokenAccounts, tokenAccounts2022] = await Promise.all([
+      client.getTokenAccountsByOwner({
         address: owner.toString(),
-      });
+      }),
+      client.getTokenAccountsByOwner({
+        address: owner.toString(),
+        programId: TOKEN_2022_PROGRAM_ID,
+      }),
+    ]);
 
-      const account = tokenAccounts?.find(
-        (item) => item.account.data.parsed.info.mint === mint.toString(),
-      );
+    const result = [
+      ...(tokenAccounts ?? []),
+      ...(tokenAccounts2022 ?? []),
+    ]?.find((item) => item.account.data.parsed.info.mint === mint.toString());
 
-      if (account) {
-        return new PublicKey(account.pubkey);
-      }
+    if (result) {
+      return result.account.data.program === 'spl-token'
+        ? TOKEN_PROGRAM_ID
+        : TOKEN_2022_PROGRAM_ID;
     }
 
-    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner, true));
+    return TOKEN_PROGRAM_ID;
+  }
+
+  async _getAssociatedTokenAddress({
+    mint,
+    owner,
+    programId,
+  }: {
+    mint: PublicKey;
+    owner: PublicKey;
+    programId?: PublicKey;
+  }) {
+    return Promise.resolve(
+      getAssociatedTokenAddressSync(mint, owner, true, programId),
+    );
   }
 
   async _checkIsProgrammableNFT(mint: PublicKey) {
@@ -435,6 +474,7 @@ export default class Vault extends VaultBase {
     destinationAta,
     amount,
     metadata,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -443,6 +483,7 @@ export default class Vault extends VaultBase {
     destinationAta: PublicKey;
     amount: string;
     metadata: Metadata;
+    programId?: PublicKey;
   }) {
     const client = await this.getClient();
     const instructions: TransactionInstruction[] = [];
@@ -498,7 +539,11 @@ export default class Vault extends VaultBase {
       };
 
       instructions.push(
-        createTokenMetadataTransferInstruction(transferAccounts, transferArgs),
+        createTokenMetadataTransferInstruction(
+          transferAccounts,
+          transferArgs,
+          programId,
+        ),
       );
     }
 
@@ -528,6 +573,7 @@ export default class Vault extends VaultBase {
     destinationAta,
     destinationAtaInfo,
     mintState,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -536,6 +582,7 @@ export default class Vault extends VaultBase {
     destinationAta: PublicKey;
     destinationAtaInfo: AccountInfo<[string, string]> | null;
     mintState: MintState;
+    programId?: PublicKey;
   }) {
     const inscriptions: TransactionInstruction[] = [];
 
@@ -555,6 +602,7 @@ export default class Vault extends VaultBase {
           instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
           payer: source,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: programId,
         }),
       );
     }
@@ -572,6 +620,7 @@ export default class Vault extends VaultBase {
         instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
         to: destination,
         toAccount: destinationAta,
+        tokenProgram: programId,
       }),
     );
 
@@ -587,6 +636,7 @@ export default class Vault extends VaultBase {
     destinationAtaInfo,
     tokenDecimals,
     amount,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -596,6 +646,7 @@ export default class Vault extends VaultBase {
     destinationAtaInfo: AccountInfo<[string, string]> | null;
     tokenDecimals: number;
     amount: string;
+    programId?: PublicKey;
   }): TransactionInstruction[] {
     const instructions: TransactionInstruction[] = [];
     if (destinationAtaInfo === null) {
@@ -605,6 +656,7 @@ export default class Vault extends VaultBase {
           destinationAta,
           destination,
           mint,
+          programId,
         ),
       );
     }
@@ -617,6 +669,8 @@ export default class Vault extends VaultBase {
         source,
         BigInt(new BigNumber(amount).shiftedBy(tokenDecimals).toFixed()),
         tokenDecimals,
+        [],
+        programId,
       ),
     );
 
@@ -755,7 +809,10 @@ export default class Vault extends VaultBase {
           ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
         instruction.keys[4].pubkey.toString() ===
           SystemProgram.programId.toString() &&
-        instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
+        (instruction.keys[5].pubkey.toString() ===
+          TOKEN_PROGRAM_ID.toString() ||
+          instruction.keys[5].pubkey.toString() ===
+            TOKEN_2022_PROGRAM_ID.toString())
       ) {
         // Associated token account is newly created.
         const [, associatedToken, owner, mint] = instruction.keys;
@@ -766,12 +823,19 @@ export default class Vault extends VaultBase {
           };
         }
       } else if (
-        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString() ||
+        instruction.programId.toString() === TOKEN_2022_PROGRAM_ID.toString()
       ) {
         try {
+          const programId =
+            instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+              ? TOKEN_PROGRAM_ID
+              : TOKEN_2022_PROGRAM_ID;
+
           const {
             data: { instruction: instructionType },
-          } = decodeInstruction(instruction);
+          } = decodeInstruction(instruction, programId);
+
           let tokenAmount;
           let fromAddress;
           let tokenAddress;
@@ -781,7 +845,7 @@ export default class Vault extends VaultBase {
             const {
               data: { amount },
               keys: { owner, mint, destination },
-            } = decodeTransferCheckedInstruction(instruction);
+            } = decodeTransferCheckedInstruction(instruction, programId);
 
             tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
@@ -791,7 +855,7 @@ export default class Vault extends VaultBase {
             const {
               data: { amount },
               keys: { owner, destination },
-            } = decodeTransferInstruction(instruction);
+            } = decodeTransferInstruction(instruction, programId);
 
             tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
@@ -947,6 +1011,7 @@ export default class Vault extends VaultBase {
       const { computeUnitPrice } = feeInfo.feeSol;
       const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
       const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+      const isTransaction = nativeTx instanceof Transaction;
       const prioritizationFeeInstruction =
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: Number(computeUnitPrice),
@@ -992,18 +1057,18 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (!isComputeUnitPriceExist) {
-        if (isVersionedTransaction && versionedTransactionMessage) {
+      if (isVersionedTransaction && versionedTransactionMessage) {
+        if (!isComputeUnitPriceExist) {
           versionedTransactionMessage.instructions.unshift(
             prioritizationFeeInstruction,
           );
-          nativeTx.message = versionedTransactionMessage.compileToV0Message(
-            addressLookupTableAccounts,
-          );
-        } else {
-          (nativeTx as Transaction).instructions.unshift(
-            prioritizationFeeInstruction,
-          );
+        }
+        nativeTx.message = versionedTransactionMessage.compileToV0Message(
+          addressLookupTableAccounts,
+        );
+      } else if (isTransaction) {
+        if (!isComputeUnitPriceExist) {
+          nativeTx.instructions.unshift(prioritizationFeeInstruction);
         }
       }
 
@@ -1182,5 +1247,54 @@ export default class Vault extends VaultBase {
         },
       },
     });
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientCustomRpcSol(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientCustomRpcSol(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
+
+  override async validateSendAmount({
+    isNative: isNativeToken,
+    amount,
+    tokenBalance,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
+  }): Promise<boolean> {
+    if (
+      !isNativeToken &&
+      new BigNumber(amount).isZero() &&
+      new BigNumber(tokenBalance).isZero()
+    ) {
+      throw new CanNotSendZeroAmountError();
+    }
+
+    return true;
   }
 }

@@ -4,8 +4,17 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePasswordWebAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import {
+  usePasswordPersistAtom,
+  usePasswordWebAuthInfoAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WebAuthSwitch from '../components/WebAuthSwitch';
@@ -20,11 +29,29 @@ const WebAuthSwitchContainer = ({
 }: IWebAuthSwitchContainerProps) => {
   const intl = useIntl();
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
+  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
+        if (
+          (platformEnv.isExtensionUiPopup ||
+            platformEnv.isExtensionUiSidePanel) &&
+          !skipRegistration &&
+          !credId &&
+          checked
+        ) {
+          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            routes: [
+              ERootRoutes.Modal,
+              EModalRoutes.SettingModal,
+              EModalSettingRoutes.SettingListModal,
+            ],
+            params: { flag: 'webAuthRegistration' },
+          });
+          return;
+        }
         if (!skipRegistration) {
           if (checked) {
             const res = await setWebAuthEnable(checked);
@@ -46,7 +73,7 @@ const WebAuthSwitchContainer = ({
         });
       }
     },
-    [setWebAuthEnable, skipRegistration, intl],
+    [skipRegistration, credId, setWebAuthEnable, intl],
   );
   return (
     <WebAuthSwitch

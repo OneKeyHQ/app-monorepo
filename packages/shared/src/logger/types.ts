@@ -12,13 +12,20 @@ export type ILogger = ILoggerMethods & {
 export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export enum EScopeName {
+  notification = 'notification',
   app = 'app',
+  account = 'account',
   demo = 'demo',
   setting = 'setting',
   addressInput = 'addressInput',
   signatureRecord = 'signatureRecord',
   discovery = 'discovery',
   token = 'token',
+  swap = 'swap',
+  transaction = 'transaction',
+  hardware = 'hardware',
+  fiatCrypto = 'fiatCrypto',
+  accountSelector = 'accountSelector',
 }
 export interface IScope {
   getName: () => EScopeName;
@@ -32,9 +39,12 @@ export type IMethodDecoratorMetadata = {
 export class Metadata {
   args: any;
 
-  metadata: IMethodDecoratorMetadata;
+  metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[];
 
-  constructor(args: any, metadata: IMethodDecoratorMetadata) {
+  constructor(
+    args: any,
+    metadata: IMethodDecoratorMetadata | IMethodDecoratorMetadata[],
+  ) {
     this.args = args;
     this.metadata = metadata;
   }

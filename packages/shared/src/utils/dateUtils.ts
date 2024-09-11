@@ -3,8 +3,10 @@ import {
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDuration as fnsFormatDuration,
+  intervalToDuration,
   isToday,
   isYesterday,
+  millisecondsToSeconds,
   parseISO,
 } from 'date-fns';
 
@@ -34,6 +36,7 @@ export type IFormatDateOptions = {
   hideMonth?: boolean;
   hideTimeForever?: boolean;
   hideSeconds?: boolean;
+  formatTemplate?: string;
 };
 
 export type IFormatMonthOptions = {
@@ -181,11 +184,24 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  let formatTemplate = 'HH:mm:ss';
+  let formatTemplate = options?.formatTemplate || 'HH:mm:ss';
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
   }
 
   return formatDateFns(parsedDate, formatTemplate) ?? '';
+}
+
+export function formatMillisecondsToDays(milliseconds: number): number {
+  const duration = intervalToDuration({ start: 0, end: milliseconds });
+  return duration.days ?? 0;
+}
+
+export function formatMillisecondsToBlocks(
+  milliseconds: number,
+  blockIntervalSeconds = 600,
+): number {
+  const seconds = millisecondsToSeconds(milliseconds);
+  return Math.ceil(seconds / blockIntervalSeconds);
 }

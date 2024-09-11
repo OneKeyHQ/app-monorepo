@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
@@ -28,6 +29,8 @@ import {
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -52,29 +55,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-
-function buildModalRouteParams({
-  screens = [],
-  routeParams,
-}: {
-  screens: string[];
-  routeParams: Record<string, any>;
-}) {
-  const modalParams: { screen: any; params: any } = {
-    screen: null,
-    params: {},
-  };
-  let paramsCurrent = modalParams;
-  let paramsLast = modalParams;
-  screens.forEach((screen) => {
-    paramsCurrent.screen = screen;
-    paramsCurrent.params = {};
-    paramsLast = paramsCurrent;
-    paramsCurrent = paramsCurrent.params;
-  });
-  paramsLast.params = routeParams;
-  return modalParams;
-}
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -120,6 +100,11 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
+    defaultLogger.discovery.dapp.dappOpenModal({
+      request,
+      screens,
+      params,
+    });
     // Try to open an existing window anyway in the extension
     this.tryOpenExistingExtensionWindow();
 
@@ -193,12 +178,20 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      const extensionWindow = await extUtils.openStandaloneWindow({
-        routes: routeNames,
-        params: routeParams,
-      });
-      this.existingWindowId = extensionWindow.id;
+      if (sidePanelState.isOpen || platformEnv.isExtensionUiSidePanel) {
+        await extUtils.openSidePanel({
+          routes: routeNames,
+          params: routeParams,
+          modalParams,
+        });
+      } else {
+        // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
+        const extensionWindow = await extUtils.openStandaloneWindow({
+          routes: routeNames,
+          params: routeParams,
+        });
+        this.existingWindowId = extensionWindow.id;
+      }
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -222,7 +215,7 @@ class ServiceDApp extends ServiceBase {
 
   private tryOpenExistingExtensionWindow() {
     if (platformEnv.isExtension && this.existingWindowId) {
-      extUtils.openExistWindow({ windowId: this.existingWindowId });
+      extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="%LANG_ISO_CODE%"
    <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
-      style="min-height: 600px; min-width: 375px; margin: 0; overflow: auto;"
+      style="min-height: 600px; min-width: 400px; margin: 0; overflow: auto;"
    <% } %>
 >
   <head>
@@ -19,7 +19,7 @@
       <% if ( isDev ) { %>
         <script
         <% if ( platform === 'ext'  ) { %>
-          src="http://localhost:3100/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+          src="http://localhost:3180/react-render-tracker@0.7.3/dist/react-render-tracker.js"
         <% } else { %>
           src="/react-render-tracker@0.7.3/dist/react-render-tracker.js"
         <% } %>
@@ -54,7 +54,7 @@
         data-browser="<%= browser %>"
         data-filename="<%= filename %>-not-correct-in-ext"
     <% if ( platform === 'ext' && browser === 'firefox' && filename === 'ui-popup.html' ) { %>
-        style="min-height: 600px; min-width: 375px; margin: 0;"
+        style="min-height: 600px; min-width: 400px; margin: 0;"
     <% } %>
   >
 

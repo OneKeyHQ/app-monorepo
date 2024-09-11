@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
+  Button,
   Dialog,
   Empty,
   Heading,
@@ -15,7 +16,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -33,9 +33,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { SwapProviderMirror } from '../SwapProviderMirror';
-
-import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
@@ -43,11 +40,7 @@ interface ISectionData {
   data: ISwapTxHistory[];
 }
 
-interface ISwapHistoryListModalProps {
-  storeName?: string;
-}
-
-const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
+const SwapHistoryListModal = () => {
   const intl = useIntl();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
@@ -120,22 +113,78 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const onDeleteHistory = useCallback(() => {
     // dialog
     if (!swapTxHistoryList?.length) return;
-    Dialog.confirm({
+    Dialog.show({
+      description: intl.formatMessage({
+        id: ETranslations.swap_history_all_history_content,
+      }),
       title: intl.formatMessage({
-        id: ETranslations.swap_history_detail_delete_title,
+        id: ETranslations.swap_history_all_history_title,
       }),
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
       },
       onConfirmText: intl.formatMessage({
-        id: ETranslations.swap_history_detail_delete_confirm,
+        id: ETranslations.global_clear,
       }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
   }, [intl, swapTxHistoryList?.length]);
 
+  const onDeletePendingHistory = useCallback(() => {
+    // dialog
+    if (
+      !swapTxHistoryList?.some(
+        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      )
+    )
+      return;
+    Dialog.show({
+      description: intl.formatMessage({
+        id: ETranslations.swap_history_pending_history_content,
+      }),
+      title: intl.formatMessage({
+        id: ETranslations.swap_history_pending_history_title,
+      }),
+      onConfirm: () => {
+        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([
+          ESwapTxHistoryStatus.PENDING,
+        ]);
+      },
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_clear,
+      }),
+      onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+    });
+  }, [intl, swapTxHistoryList]);
+
   const deleteButton = useCallback(
-    () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
-    [onDeleteHistory],
+    () => (
+      <ActionList
+        title={intl.formatMessage({
+          id: ETranslations.global_clear,
+        })}
+        items={[
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_pending_history,
+            }),
+            onPress: onDeletePendingHistory,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_all_history,
+            }),
+            onPress: onDeleteHistory,
+          },
+        ]}
+        renderTrigger={
+          <Button variant="tertiary">
+            {intl.formatMessage({ id: ETranslations.global_clear })}
+          </Button>
+        }
+      />
+    ),
+    [intl, onDeleteHistory, onDeletePendingHistory],
   );
 
   const renderItem = useCallback(
@@ -145,12 +194,11 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistory: item,
-            storeName,
           });
         }}
       />
     ),
-    [navigation, storeName],
+    [navigation],
   );
   return (
     <Page>
@@ -175,7 +223,7 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
           sections={sectionData}
           py="$1"
           renderSectionHeader={({ section: { title, status } }) => (
-            <XStack px="$5" py="$2" space="$3" alignItems="center">
+            <XStack px="$5" py="$2" gap="$3" alignItems="center">
               {status === ESwapTxHistoryStatus.PENDING ? (
                 <Stack
                   w="$2"
@@ -211,17 +259,4 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   );
 };
 
-const SwapHistoryListModalWithProvider = () => {
-  const route =
-    useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
-    >();
-  const { storeName } = route.params;
-  return (
-    <SwapProviderMirror storeName={storeName}>
-      <SwapHistoryListModal storeName={storeName} />
-    </SwapProviderMirror>
-  );
-};
-
-export default SwapHistoryListModalWithProvider;
+export default SwapHistoryListModal;

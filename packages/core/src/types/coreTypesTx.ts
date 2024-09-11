@@ -7,6 +7,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
+import type { IEncodedTxAlph } from '../chains/alph/types';
 import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
@@ -20,7 +21,9 @@ import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNear } from '../chains/near/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
+import type { IEncodedTxScdo } from '../chains/scdo/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
+import type { IEncodedTxTon } from '../chains/ton/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
 import type { IEncodedTxXmr } from '../chains/xmr/types';
 import type { IEncodedTxXrp } from '../chains/xrp/types';
@@ -37,11 +40,14 @@ export type IEncodedTx =
   | IEncodedTxKaspa
   | IEncodedTxSui
   | IEncodedTxAptos
+  | IEncodedTxTon
+  | IEncodedTxScdo
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa
   | IEncodedTxLightning
+  | IEncodedTxAlph
   | IEncodedTxNostr
   | IEncodedTxDot
   | IEncodedTxDnx
@@ -106,6 +112,7 @@ export type ISignedTx = {
   txid: string;
   rawTx: string;
   psbtHex?: string;
+  finalizedPsbtHex?: string; // used for btc dApp
 };
 export type ISignedTxResult = ISignedTx & {
   signatureScheme?: ICurveName;

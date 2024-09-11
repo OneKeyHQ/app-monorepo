@@ -16,6 +16,9 @@ const showPromoteDialog = async () =>
       description:
         'Are you sure you want to enable developer-related features?',
       dismissOnOverlayPress: false,
+      confirmButtonProps: {
+        testID: 'confirm-button',
+      },
       onConfirm: resolve,
       onCancel: (close) => {
         void close();
@@ -47,6 +50,9 @@ export const handleOpenDevMode = async (callback: () => void) => {
       await showPromoteDialog();
       await backgroundApiProxy.servicePassword.promptPasswordVerify({
         dialogProps: {
+          confirmButtonProps: {
+            testID: 'confirm-button',
+          },
           description:
             'Danger Zone: Are you sure you want to enable developer-related features?',
           dismissOnOverlayPress: false,

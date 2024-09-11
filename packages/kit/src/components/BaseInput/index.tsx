@@ -73,7 +73,7 @@ function BaseInput(props: IBaseInputProps) {
     <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
       <Group.Item>
         <TextArea
-          ref={textAreaRef}
+          ref={textAreaRef as any}
           value={value}
           onLayout={onLayout}
           borderBottomWidth={0}
@@ -84,7 +84,7 @@ function BaseInput(props: IBaseInputProps) {
           disabled={disabled}
           size={size}
           spellCheck={false}
-          // focusStyle={undefined}
+          // focusVisibleStyle={undefined}
           minHeight={minHeight}
           {...rest}
         />

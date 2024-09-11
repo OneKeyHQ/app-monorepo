@@ -10,11 +10,15 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
+import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
+import type ServiceCustomRpc from '../services/ServiceCustomRpc';
+import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -37,6 +41,7 @@ import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceNostr from '../services/ServiceNostr';
+import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
@@ -46,6 +51,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
@@ -140,6 +146,10 @@ class BackgroundApiProxy
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
 
+  serviceNotification = this._createProxyService(
+    'serviceNotification',
+  ) as ServiceNotification;
+
   serviceQrWallet = this._createProxyService(
     'serviceQrWallet',
   ) as ServiceQrWallet;
@@ -147,6 +157,14 @@ class BackgroundApiProxy
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
   ) as ServiceAccountProfile;
+
+  serviceBatchCreateAccount = this._createProxyService(
+    'serviceBatchCreateAccount',
+  ) as ServiceBatchCreateAccount;
+
+  serviceAllNetwork = this._createProxyService(
+    'serviceAllNetwork',
+  ) as ServiceAllNetwork;
 
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',
@@ -177,6 +195,10 @@ class BackgroundApiProxy
   serviceAppUpdate = this._createProxyService(
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
+
+  serviceSpotlight = this._createProxyService(
+    'serviceSpotlight',
+  ) as ServiceSpotlight;
 
   serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
 
@@ -211,6 +233,14 @@ class BackgroundApiProxy
   serviceExplorer = this._createProxyService(
     'serviceExplorer',
   ) as ServiceExplorer;
+
+  serviceCustomToken = this._createProxyService(
+    'serviceCustomToken',
+  ) as ServiceCustomToken;
+
+  serviceCustomRpc = this._createProxyService(
+    'serviceCustomRpc',
+  ) as ServiceCustomRpc;
 }
 
 export default BackgroundApiProxy;

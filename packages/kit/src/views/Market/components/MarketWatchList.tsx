@@ -61,7 +61,7 @@ function RecommendItem({
       ai="center"
       {...sharedFrameStyles}
     >
-      <XStack space="$3" ai="center" flexShrink={1}>
+      <XStack gap="$3" ai="center" flexShrink={1}>
         <MarketTokenIcon uri={icon} size="$8" />
         <YStack flexShrink={1}>
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
@@ -184,13 +184,13 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
             </SizableText>
             <YStack
               pt={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
-              space="$2.5"
+              gap="$2.5"
               flexWrap="wrap"
               width="100%"
               $gtMd={{ maxWidth: 480 }}
             >
               {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-                <XStack space="$2.5" key={i}>
+                <XStack gap="$2.5" key={i}>
                   {new Array(2).fill(0).map((__, j) => {
                     const item = category.recommendedTokens?.[i * 2 + j];
                     return item ? (
@@ -207,7 +207,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                   })}
                 </XStack>
               ))}
-              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+              {gtMd ? <YStack pt="$8">{confirmButton}</YStack> : null}
             </YStack>
           </ScrollView>
           {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}

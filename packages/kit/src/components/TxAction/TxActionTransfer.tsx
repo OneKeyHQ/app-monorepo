@@ -33,6 +33,7 @@ import {
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { AddressInfo } from '../AddressInfo';
 import { ListItem } from '../ListItem';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
@@ -189,7 +190,7 @@ function buildTransferChangeInfo({
         ? ''
         : amountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
     }
-    changeSymbol = transfers[0].symbol;
+    changeSymbol = transfers[0].isNFT ? transfers[0].name : transfers[0].symbol;
   } else {
     const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {
@@ -221,7 +222,7 @@ function buildTransferChangeInfo({
         );
       } else if (transfersWithNFT.length === 1) {
         change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
-        changeSymbol = transfersWithNFT[0].symbol;
+        changeSymbol = transfersWithNFT[0].name;
       } else {
         const totalNFTs = transfersWithNFT
           .reduce(
@@ -234,7 +235,7 @@ function buildTransferChangeInfo({
         changeDescription = intl.formatMessage(
           { id: ETranslations.symbol_and_more },
           {
-            symbol: transfersWithNFT[0].symbol,
+            symbol: transfersWithNFT[0].name,
           },
         );
       }
@@ -249,9 +250,16 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
-    props;
-  const { networkId, payload, nativeAmount, actions } = decodedTx;
+  const {
+    tableLayout,
+    decodedTx,
+    componentProps,
+    showIcon,
+    replaceType,
+    hideValue,
+  } = props;
+  const { networkId, payload, nativeAmount, actions, networkLogoURI } =
+    decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -369,7 +377,8 @@ function TxActionTransferListView(props: ITxActionProps) {
   }
 
   change = change ? (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
       formatter="balance"
       formatterOptions={{
         tokenSymbol: changeSymbol,
@@ -385,12 +394,19 @@ function TxActionTransferListView(props: ITxActionProps) {
       })}
     >
       {change as string}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   ) : (
-    <SizableText size="$bodyLgMedium">-</SizableText>
+    <NumberSizeableTextWrapper
+      size="$bodyLgMedium"
+      formatter="value"
+      hideValue={hideValue}
+    >
+      -
+    </NumberSizeableTextWrapper>
   );
   changeDescription = changeDescription ? (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
       formatter={changeDescriptionSymbol ? 'balance' : 'value'}
       formatterOptions={{
         tokenSymbol: changeDescriptionSymbol,
@@ -403,11 +419,16 @@ function TxActionTransferListView(props: ITxActionProps) {
       maxWidth="$40"
     >
       {changeDescription as string}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   ) : (
-    <SizableText size="$bodyMd" color="$textSubdued">
+    <NumberSizeableTextWrapper
+      hideValue={hideValue}
+      size="$bodyMd"
+      color="$textSubdued"
+      formatter="value"
+    >
       -
-    </SizableText>
+    </NumberSizeableTextWrapper>
   );
 
   if (!isPending && label) {
@@ -434,6 +455,8 @@ function TxActionTransferListView(props: ITxActionProps) {
       showIcon={showIcon}
       replaceType={replaceType}
       status={decodedTx.status}
+      networkId={networkId}
+      networkLogoURI={networkLogoURI}
       {...componentProps}
     />
   );
@@ -656,7 +679,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             compact
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <XStack alignItems="center">
                   <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
                   <Stack
@@ -686,7 +709,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             compact
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {network?.name}
@@ -707,7 +730,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               id: ETranslations.transaction_application,
             })}
             renderContent={
-              <XStack alignItems="center" space="$2">
+              <XStack alignItems="center" gap="$2">
                 <Image
                   borderRadius="$1"
                   w="$5"

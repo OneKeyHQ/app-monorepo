@@ -1,6 +1,7 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,7 +13,15 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
+import {
+  useAppUpdatePersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   DISCORD_URL,
   GITHUB_URL,
@@ -63,6 +72,7 @@ const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
 const SocialButtonGroup = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
@@ -81,7 +91,7 @@ const SocialButtonGroup = () => {
   return (
     <YStack>
       <XStack justifyContent="center">
-        <XStack space="$3" paddingVertical="$3" my="$3">
+        <XStack gap="$3" paddingVertical="$3" my="$3">
           <SocialButton
             icon="OnekeyBrand"
             url={ONEKEY_URL}
@@ -106,39 +116,60 @@ const SocialButtonGroup = () => {
           />
         </XStack>
       </XStack>
-      <XStack justifyContent="center" py="$4">
-        <SizableText
-          selectable={false}
-          color="$textSubdued"
-          onPress={handlePress}
-          testID="setting-version"
-        >
+      <YStack
+        jc="center"
+        py="$4"
+        ai="center"
+        userSelect="none"
+        testID="setting-version"
+      >
+        <SizableText color="$textSubdued" onPress={handlePress}>
           {versionString}
         </SizableText>
-      </XStack>
+        {appUpdateInfo.status === EAppUpdateStatus.done ? (
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
+          </SizableText>
+        ) : null}
+      </YStack>
     </YStack>
   );
 };
 
 export default function SettingListModal() {
+  const route = useRoute();
+  const flag = (route.params as { flag?: string })?.flag ?? '';
+  const { setWebAuthEnable } = useWebAuthActions();
+  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
+  useEffect(() => {
+    if (flag === 'webAuthRegistration' && !credId) {
+      void (async () => {
+        const res = await setWebAuthEnable(true);
+        if (res) {
+          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(true);
+        }
+      })();
+    }
+  }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
+
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_settings,
         })}
       />
       <Page.Body>
-        <Stack pb="$2">
-          <DefaultSection />
-          <PreferenceSection />
-          <SecuritySection />
-          <AdvancedSection />
-          <ResourceSection />
-          <DevSettingsSection />
-          <SocialButtonGroup />
-        </Stack>
+        <DefaultSection />
+        <PreferenceSection />
+        <SecuritySection />
+        <AdvancedSection />
+        <ResourceSection />
+        <DevSettingsSection />
+        <SocialButtonGroup />
+        {bottom > 0 ? <Stack height={bottom || '$2'} /> : null}
       </Page.Body>
     </Page>
   );

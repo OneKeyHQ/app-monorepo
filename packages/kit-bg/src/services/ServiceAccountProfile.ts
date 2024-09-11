@@ -9,12 +9,15 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
   IAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
+  IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
 import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -26,14 +29,59 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import simpleDb from '../dbs/simple/simpleDb';
+import { activeAccountValueAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+
+import type { IDBUtxoAccount } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  _fetchAccountDetailsControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortFetchAccountDetails() {
+    this._fetchAccountDetailsControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAccountDetailsControllers = [];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountNativeBalance({
+    account,
+    networkId,
+  }: {
+    account: INetworkAccount;
+    networkId: string;
+  }) {
+    let xpub: string | undefined = (account as IDBUtxoAccount)?.xpub;
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    xpub = await vault.getXpubFromAccount(account);
+
+    // let cardanoPubKey: string | undefined;
+    // if (networkId && networkUtils.getNetworkImpl({ networkId }) === IMPL_ADA) {
+    //   cardanoPubKey = xpub;
+    //   xpub = undefined;
+    // }
+
+    return this.fetchAccountInfo({
+      accountId: account?.id || '',
+      networkId,
+      accountAddress:
+        account?.addressDetail?.displayAddress || account?.address,
+      xpub,
+      // cardanoPubKey, // only for UTXO query, not for balance query
+      withNetWorth: true,
+    });
   }
 
   @backgroundMethod()
@@ -44,10 +92,12 @@ class ServiceAccountProfile extends ServiceBase {
     },
   ): Promise<IFetchAccountDetailsResp> {
     const queryParams = {
-      ...omit(params, ['accountId']),
+      ...omit(params, ['accountId', 'signal']),
     };
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._fetchAccountDetailsControllers.push(controller);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
     }>(
@@ -58,6 +108,7 @@ class ServiceAccountProfile extends ServiceBase {
         headers: await this._getWalletTypeHeader({
           accountId: params.accountId,
         }),
+        signal: controller.signal,
       },
     );
 
@@ -90,31 +141,27 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressInteractionStatus({
-    accountId,
+  private async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
   }: {
-    accountId: string;
+    fromAddress?: string;
     networkId: string;
-    fromAddress: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus> {
+  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
-        data: {
-          status: EServerInteractedStatus;
-        };
-      }>('/wallet/v1/account/interacted', {
+        data: IServerAccountBadgeResp;
+      }>('/wallet/v1/account/badges', {
         params: {
           networkId,
-          accountAddress: fromAddress,
-          toAccountAddress: toAddress,
+          fromAddress,
+          toAddress,
         },
-        headers: await this._getWalletTypeHeader({ accountId }),
       });
+      const { isContract, interacted } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
         IAddressInteractionStatus
@@ -123,32 +170,49 @@ class ServiceAccountProfile extends ServiceBase {
         [EServerInteractedStatus.TRUE]: 'interacted',
         [EServerInteractedStatus.UNKNOWN]: 'unknown',
       };
-      return statusMap[resp.data.data.status] ?? 'unknown';
+      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
     } catch {
-      return 'unknown';
+      return { interacted: 'unknown' };
     }
   }
 
-  private async checkAccountInteractionStatus({
+  private async checkAccountBadges({
     networkId,
     accountId,
     toAddress,
+    checkInteractionStatus,
+    checkAddressContract,
+    result,
   }: {
+    accountId?: string;
+    checkInteractionStatus?: boolean;
+    checkAddressContract?: boolean;
     networkId: string;
-    accountId: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus | undefined> {
-    const acc = await this.backgroundApi.serviceAccount.getAccount({
-      networkId,
-      accountId,
-    });
-    if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
-      return this.getAddressInteractionStatus({
-        accountId,
+    result: IAddressQueryResult;
+  }): Promise<void> {
+    let fromAddress: string | undefined;
+    if (accountId) {
+      const acc = await this.backgroundApi.serviceAccount.getAccount({
         networkId,
-        fromAddress: acc.address,
-        toAddress,
+        accountId,
       });
+      fromAddress = acc.address;
+    }
+    const { isContract, interacted } = await this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+    });
+    if (
+      checkInteractionStatus &&
+      toAddress.toLowerCase() !== fromAddress &&
+      fromAddress
+    ) {
+      result.addressInteractionStatus = interacted;
+    }
+    if (checkAddressContract) {
+      result.isContract = isContract;
     }
   }
 
@@ -185,6 +249,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    enableAddressContract,
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
@@ -212,7 +277,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (!skipValidateAddress && result.validStatus !== 'valid') {
       return result;
     }
-    const resolveAddress = result.resolveAddress ?? result.input;
+    const resolveAddress = result.resolveAddress ?? address;
     if (enableVerifySendFundToSelf && accountId && resolveAddress) {
       const disableFundToSelf = await this.verifyCannotSendToSelf({
         networkId,
@@ -224,12 +289,13 @@ class ServiceAccountProfile extends ServiceBase {
         return result;
       }
     }
-
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =
         await this.backgroundApi.serviceAddressBook.findItem({
-          networkId,
+          networkId: !networkUtils.isEvmNetwork({ networkId })
+            ? networkId
+            : undefined,
           address: resolveAddress,
         });
       result.addressBookName = addressBookItem?.name;
@@ -268,13 +334,20 @@ class ServiceAccountProfile extends ServiceBase {
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
       }
     }
-    if (enableAddressInteractionStatus && resolveAddress && accountId) {
-      result.addressInteractionStatus =
-        await this.checkAccountInteractionStatus({
-          networkId,
-          accountId,
-          toAddress: resolveAddress,
-        });
+    if (
+      resolveAddress &&
+      (enableAddressContract || (enableAddressInteractionStatus && accountId))
+    ) {
+      await this.checkAccountBadges({
+        networkId,
+        accountId,
+        toAddress: resolveAddress,
+        checkAddressContract: enableAddressContract,
+        checkInteractionStatus: Boolean(
+          enableAddressInteractionStatus && accountId,
+        ),
+        result,
+      });
     }
     return result;
   }
@@ -356,6 +429,23 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  @backgroundMethod()
+  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
+    return accountsValue;
+  }
+
+  @backgroundMethod()
+  async updateAccountValue(params: {
+    accountId: string;
+    value: string;
+    currency: string;
+  }) {
+    await activeAccountValueAtom.set(params);
+
+    await simpleDb.accountValue.updateAccountValue(params);
   }
 
   // Get wallet type

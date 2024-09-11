@@ -24,3 +24,15 @@ export enum EMessageTypesBtc {
   ECDSA = 'ecdsa',
   BIP322_SIMPLE = 'bip322-simple',
 }
+
+export enum EMessageTypesTon {
+  SIGN_DATA = 'tonSignData',
+  SIGN_PROOF = 'tonSignProof',
+}
+
+export enum EMessageTypesAlph {
+  ALEPHIUM = 'alephium',
+  SHA256 = 'sha256',
+  BLAKE2B = 'blake2b',
+  IDENTITY = 'identity',
+}

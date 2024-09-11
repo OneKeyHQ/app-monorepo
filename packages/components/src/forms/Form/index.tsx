@@ -1,9 +1,4 @@
-import type {
-  PropsWithChildren,
-  ReactChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
@@ -14,7 +9,14 @@ import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HeightTransition } from '../../content';
-import { Label, SizableText, View, XStack, YStack } from '../../primitives';
+import {
+  Label,
+  SizableText,
+  Stack,
+  View,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -32,7 +34,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack space="$5">{children}</YStack>
+        <YStack gap="$5">{children}</YStack>
       </TMForm>
     </FormProvider>
   );
@@ -92,8 +94,10 @@ export function FieldDescription(props: ISizableTextProps) {
 
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
+    testID?: string;
     label?: string;
     description?: string | ReactNode;
+    horizontal?: boolean;
     optional?: boolean;
     labelAddon?: string | ReactElement;
   }>;
@@ -105,6 +109,7 @@ function Field({
   description,
   rules,
   children,
+  horizontal = false,
   testID = '',
   labelAddon,
 }: IFieldProps) {
@@ -124,6 +129,9 @@ function Field({
     return null;
   }, [labelAddon]);
   const error = errors[name] as unknown as Error;
+  // if (error) {
+  //   debugger;
+  // }
   return (
     <Controller
       name={name}
@@ -131,26 +139,36 @@ function Field({
       rules={rules}
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
-          {label ? (
-            <XStack mb="$1.5" justifyContent="space-between">
-              <View>
-                <Label htmlFor={name}>{label}</Label>
-                {optional ? (
-                  <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                    {`(${intl.formatMessage({
-                      id: ETranslations.form_optional_indicator,
-                    })})`}
-                  </SizableText>
-                ) : null}
-              </View>
-              {renderLabelAddon()}
-            </XStack>
-          ) : null}
-          {Children.map(children as ReactChildren, (child) =>
-            isValidElement(child)
-              ? cloneElement(child, getChildProps(child, field, error))
-              : child,
-          )}
+          <Stack
+            flexDirection={horizontal ? 'row' : 'column'}
+            jc={horizontal ? 'space-between' : undefined}
+            alignItems={horizontal ? 'center' : undefined}
+            mb={horizontal ? '$1.5' : undefined}
+          >
+            {label ? (
+              <XStack
+                mb={horizontal ? undefined : '$1.5'}
+                justifyContent="space-between"
+              >
+                <XStack>
+                  <Label htmlFor={name}>{label}</Label>
+                  {optional ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                      {`(${intl.formatMessage({
+                        id: ETranslations.form_optional_indicator,
+                      })})`}
+                    </SizableText>
+                  ) : null}
+                </XStack>
+                {renderLabelAddon()}
+              </XStack>
+            ) : null}
+            {Children.map(children as ReactNode[], (child) =>
+              isValidElement(child)
+                ? cloneElement(child, getChildProps(child, field, error))
+                : child,
+            )}
+          </Stack>
           <HeightTransition>
             {error?.message ? (
               <SizableText

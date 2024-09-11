@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
@@ -70,6 +71,23 @@ function SendConfirmFromDApp() {
     }
   }, [dappApprove]);
 
+  const sendConfirmCallback = useCallback(
+    async (result: any, error: Error | undefined) => {
+      if (!$sourceInfo) {
+        return;
+      }
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: $sourceInfo.hostname,
+        dappDomain: $sourceInfo.origin,
+        action: 'SendTxn',
+        network: networkId,
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        failReason: error ? `${error?.message ?? error}` : undefined,
+      });
+    },
+    [$sourceInfo, networkId],
+  );
+
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
     const appStateListener = AppState.addEventListener('change', (state) => {
@@ -122,6 +140,8 @@ function SendConfirmFromDApp() {
           signOnly,
           useFeeInTx,
           feeInfoEditable,
+          onSuccess: (result) => sendConfirmCallback(result, undefined),
+          onFail: (error) => sendConfirmCallback(null, error),
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -155,6 +175,7 @@ function SendConfirmFromDApp() {
     transfersInfo,
     useFeeInTx,
     dispatchAction,
+    sendConfirmCallback,
   ]);
 
   return (

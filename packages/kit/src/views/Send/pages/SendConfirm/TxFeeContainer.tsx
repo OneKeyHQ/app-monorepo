@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -267,6 +268,7 @@ function TxFeeContainer(props: IProps) {
             maxFeePerGas,
             maxPriorityFeePerGas,
           } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
+
           const limit = gasLimit || gas;
           let originalFeeChanged = false;
           if (
@@ -325,6 +327,48 @@ function TxFeeContainer(props: IProps) {
               feeType: EFeeType.Custom,
               presetIndex: 0,
             });
+            updateCustomFee(customFeeInfo);
+          }
+
+          feeInTxUpdated.current = true;
+        }
+
+        items.push({
+          label: intl.formatMessage({
+            id: getFeeLabel({ feeType: EFeeType.Custom }),
+          }),
+          icon: getFeeIcon({ feeType: EFeeType.Custom }),
+          value: items.length,
+          feeInfo: customFeeInfo,
+          type: EFeeType.Custom,
+        });
+      }
+
+      if (vaultSettings?.editFeeEnabled && useFeeInTx && !feeInfoEditable) {
+        const customFeeInfo: IFeeInfoUnit = {
+          common: txFee.common,
+        };
+
+        if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
+          customFeeInfo.feeUTXO = {
+            ...txFee.feeUTXO[sendSelectedFee.presetIndex],
+            ...(customFee?.feeUTXO ?? {}),
+          };
+        }
+
+        if (!feeInTxUpdated.current) {
+          const { fee } = unsignedTxs[0].encodedTx as IEncodedTxBtc;
+
+          if (txFee.feeUTXO && fee) {
+            customFeeInfo.feeUTXO = {
+              feeValue: fee,
+            };
+
+            updateSendSelectedFee({
+              feeType: EFeeType.Custom,
+              presetIndex: 0,
+            });
+
             updateCustomFee(customFeeInfo);
           }
 
@@ -475,7 +519,8 @@ function TxFeeContainer(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
+    if (!txFeeInit.current || nativeTokenInfo.isLoading || !nativeTokenInfo)
+      return;
 
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
@@ -485,6 +530,7 @@ function TxFeeContainer(props: IProps) {
             .gt(nativeTokenInfo.balance ?? 0),
     });
   }, [
+    nativeTokenInfo,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,
@@ -595,7 +641,7 @@ function TxFeeContainer(props: IProps) {
         mb: '$0',
       }}
     >
-      <XStack space="$2" alignItems="center" pb="$1">
+      <XStack gap="$2" alignItems="center" pb="$1">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
@@ -610,7 +656,7 @@ function TxFeeContainer(props: IProps) {
         ) : null}
         {renderFeeEditor()}
       </XStack>
-      <XStack space="$1" alignItems="center">
+      <XStack gap="$1" alignItems="center">
         {txFeeInit.current ? (
           <NumberSizeableText
             formatter="balance"
@@ -658,8 +704,8 @@ function TxFeeContainer(props: IProps) {
     //     })}
     //     renderContent={
     //       <>
-    //         <XStack space="$1">
-    //           <XStack space="$1">
+    //         <XStack gap="$1">
+    //           <XStack gap="$1">
     //             {txFeeInit.current ? (
     //               <NumberSizeableText
     //                 formatter="balance"

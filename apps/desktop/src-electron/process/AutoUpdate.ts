@@ -50,7 +50,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   let isManualCheck = false;
   let latestVersion: ILatestVersion = {} as ILatestVersion;
-  let updateCancellationToken: CancellationToken;
+  let updateCancellationToken: CancellationToken | undefined;
   const updateSettings = store.getUpdateSettings();
 
   autoUpdater.autoDownload = false;
@@ -256,6 +256,24 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
+  const clearUpdateCache = async () => {
+    try {
+      // @ts-ignore
+      const baseCachePath = autoUpdater?.app?.baseCachePath;
+      if (baseCachePath) {
+        const cachePath = path.join(baseCachePath, '@onekeyhqdesktop-updater');
+        logger.info('auto-updater', `cachePath: ${cachePath}`);
+        const isExist = fs.existsSync(cachePath);
+        if (isExist) {
+          fs.rmSync(cachePath, { recursive: true, force: true });
+        }
+        logger.info('auto-updater', `removed: ${cachePath}`);
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
+    }
+  };
+
   ipcMain.on(ipcMessageKeys.UPDATE_CHECK, async (_, isManual?: boolean) => {
     if (isManual) {
       isManualCheck = true;
@@ -311,24 +329,41 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, () => {
-    logger.info('auto-updater', 'Download requested');
+  let isDownloading = false;
+  ipcMain.on(ipcMessageKeys.UPDATE_DOWNLOAD, async () => {
+    logger.info('auto-updater', 'Download requested', isDownloading);
+    if (isDownloading) {
+      return;
+    }
+    isDownloading = true;
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
       bytesPerSecond: 0,
       total: 0,
       transferred: 0,
     });
+    if (updateCancellationToken) {
+      updateCancellationToken.cancel();
+    }
+    await clearUpdateCache();
     updateCancellationToken = new CancellationToken();
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch(() => {
-        logger.info('auto-updater', 'Update cancelled');
+      .catch((e: { code: string; message: string }) => {
+        logger.info('auto-updater', 'Update cancelled', e);
+        // CancellationError
+        // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
+        if (e.message === 'cancelled') {
+          return;
+        }
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
           err: {},
           isNetworkError: false,
         });
+      })
+      .finally(() => {
+        isDownloading = false;
       });
   });
 
@@ -376,6 +411,14 @@ const init = ({ mainWindow, store }: IDependencies) => {
         });
     },
   );
+
+  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR, async () => {
+    if (updateCancellationToken) {
+      updateCancellationToken.cancel();
+    }
+    isDownloading = false;
+    await clearUpdateCache();
+  });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));

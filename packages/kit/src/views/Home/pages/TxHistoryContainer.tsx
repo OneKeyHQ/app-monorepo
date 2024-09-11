@@ -15,10 +15,14 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+// import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
+// import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -28,7 +32,6 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 
 function TxHistoryListContainer(props: ITabPageProps) {
-  const { onContentSizeChange } = props;
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -40,6 +43,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
     initialized: false,
     isRefreshing: false,
   });
+
+  const refreshAllNetworksHistory = useRef(false);
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -57,8 +62,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
       ) {
         const localTx =
           await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
-            accountId: account.id,
-            networkId: network.id,
+            accountId: history.decodedTx.accountId,
+            networkId: history.decodedTx.networkId,
             historyId: history.id,
           });
 
@@ -71,37 +76,47 @@ function TxHistoryListContainer(props: ITabPageProps) {
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
-          networkId: network.id,
-          accountId: account.id,
-          accountAddress:
-            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-              accountId: account.id,
-              networkId: network.id,
-            }),
+          networkId: history.decodedTx.networkId,
+          accountId: history.decodedTx.accountId,
           historyTx: history,
-          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId: account.id,
-            networkId: network.id,
-          }),
+          isAllNetworks: network.isAllNetworks,
         },
       });
     },
     [account, navigation, network],
   );
 
+  const isManualRefresh = useRef(false);
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: true,
+        type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
+      });
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
+        isManualRefresh: isManualRefresh.current,
       });
       setHistoryState({
         initialized: true,
         isRefreshing: false,
       });
       setIsHeaderRefreshing(false);
-      setHistoryData(r);
+      setHistoryData(r.txs);
+      appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+        isRefreshing: false,
+        type: EHomeTab.HISTORY,
+        accountId: account.id,
+        networkId: network.id,
+      });
+      if (r.pendingTxsUpdated) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
+      isManualRefresh.current = false;
     },
     [account, network, setIsHeaderRefreshing],
     {
@@ -118,6 +133,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         isRefreshing: true,
       });
       updateSearchKey('');
+      refreshAllNetworksHistory.current = false;
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
@@ -128,6 +144,12 @@ function TxHistoryListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
+    const refresh = () => {
+      if (isFocused) {
+        isManualRefresh.current = true;
+        void run();
+      }
+    };
     const clearCallback = () =>
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
@@ -136,32 +158,44 @@ function TxHistoryListContainer(props: ITabPageProps) {
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       clearCallback,
     );
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+
     return () => {
       appEventBus.off(
         EAppEventBusNames.ClearLocalHistoryPendingTxs,
         clearCallback,
       );
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
     };
-  }, [run]);
+  }, [isFocused, run]);
 
   useEffect(() => {
     const reloadCallback = () => run({ alwaysSetState: true });
+
+    const fn = () => {
+      if (isFocused) {
+        void run();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
+
     appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     return () => {
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
     };
-  }, [run]);
+  }, [isFocused, run]);
 
   return (
     <TxHistoryListView
       showIcon
       inTabList
+      hideValue
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,
       })}

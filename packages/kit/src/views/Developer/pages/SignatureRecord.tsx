@@ -115,7 +115,7 @@ const CustomSignMessage = ({ num }: { num: number }) => {
     }
   }, [message, account, network]);
   return (
-    <YStack space="$4">
+    <YStack gap="$4">
       <Input value={message} onChangeText={setMessage} placeholder="message" />
       <Button onPress={onPress} loading={loading} disabled={!message.trim()}>
         Sign Message
@@ -125,10 +125,10 @@ const CustomSignMessage = ({ num }: { num: number }) => {
 };
 
 const DevHomeStack2 = () => {
-  const num = 1;
+  const num = 0;
   return (
     <Page>
-      <YStack px="$4" space="$4">
+      <YStack px="$4" gap="$4">
         <SignMessageButton />
         <SignTransactionButton />
         <ConnectSiteButton />

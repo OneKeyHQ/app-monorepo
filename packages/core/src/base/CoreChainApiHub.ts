@@ -1,5 +1,7 @@
 import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
+import CoreAllNetwork from '../chains/all';
+import CoreChainAlph from '../chains/alph';
 import CoreChainAptos from '../chains/aptos';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
@@ -21,11 +23,14 @@ import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 import CoreChainSui from '../chains/sui';
+import CoreChainTon from '../chains/ton';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
+  onekeyall = new CoreAllNetwork();
+
   evm = new CoreChainEvm();
 
   btc = new CoreChainBtc();
@@ -45,6 +50,8 @@ export class CoreChainApiHub {
   algo = new CoreChainAlgo();
 
   aptos = new CoreChainAptos();
+
+  ton = new CoreChainTon();
 
   cfx = new CoreChainCfx();
 
@@ -77,4 +84,6 @@ export class CoreChainApiHub {
   dynex = new CoreChainDnx();
 
   ckb = new CoreChainCkb();
+
+  alph = new CoreChainAlph();
 }

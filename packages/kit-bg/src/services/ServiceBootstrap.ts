@@ -1,4 +1,5 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 
@@ -16,9 +17,14 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
       this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
       this.backgroundApi.serviceSetting.fetchReviewControl(),
+      this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
+      this.backgroundApi.serviceNotification.init(),
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();
+    if (platformEnv.isExtension) {
+      await this.backgroundApi.serviceDevSetting.initAnalytics();
+    }
   }
 }
 

@@ -105,6 +105,7 @@ export type IDecodedTx = {
 
   networkId: string;
   accountId: string;
+  networkLogoURI?: string;
   xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
@@ -180,6 +181,7 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
   name: string;
+  decimals: number;
   spender: string;
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;

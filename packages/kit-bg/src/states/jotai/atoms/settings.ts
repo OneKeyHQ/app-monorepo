@@ -26,6 +26,7 @@ export type ISettingsPersistAtom = {
   tokenRiskReminder: boolean;
   spendDustUTXO: boolean;
   inscriptionProtection: boolean;
+  isFirstTimeSwap: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
   currencyInfo: {
@@ -47,6 +48,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   tokenRiskReminder: true,
   spendDustUTXO: false,
   inscriptionProtection: true,
+  isFirstTimeSwap: true,
   hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   currencyInfo: {
     id: 'usd',
@@ -85,5 +87,20 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapToAnotherAccountSwitchOn: false,
     },
   });
+
+type ISettingsValuePersistAtom = {
+  hideValue: boolean;
+};
+
+export const {
+  target: settingsValuePersistAtom,
+  use: useSettingsValuePersistAtom,
+} = globalAtom<ISettingsValuePersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsValuePersistAtom,
+  initialValue: {
+    hideValue: false,
+  },
+});
 
 // extract high frequency refresh data to another atom

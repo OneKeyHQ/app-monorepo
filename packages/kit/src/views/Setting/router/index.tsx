@@ -29,6 +29,9 @@ const SettingProtectionModal = LazyLoadPage(
 const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
+const SettingCustomRPCModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/CustomRPC'),
+);
 
 const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
@@ -41,6 +44,18 @@ const FirmwareUpdateDevSettings = LazyLoadPage(
 
 const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
+);
+
+const ExportCustomNetworkConfig = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
+);
+
+const NotificationsSettings = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'
+    ),
 );
 
 export const ModalSettingStack: IModalFlowNavigatorConfig<
@@ -64,6 +79,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     component: SettingAccountDerivationModal,
   },
   {
+    name: EModalSettingRoutes.SettingCustomRPC,
+    component: SettingCustomRPCModal,
+  },
+  {
     name: EModalSettingRoutes.SettingAppAutoLockModal,
     component: SettingAppAutoLockModal,
   },
@@ -82,6 +101,14 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevV4MigrationModal,
     component: V4MigrationDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
+    component: ExportCustomNetworkConfig,
+  },
+  {
+    name: EModalSettingRoutes.SettingNotifications,
+    component: NotificationsSettings,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

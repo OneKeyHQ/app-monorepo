@@ -51,7 +51,7 @@ function FocusDisplayInput({
       }}
     >
       <SizableText
-        selectable={false}
+        userSelect="none"
         minWidth="$7"
         color="$textSubdued"
         $md={{ minWidth: '$8' }}
@@ -100,7 +100,12 @@ export function RecoveryPhrase() {
     if (route.params?.isBackup) {
       return [];
     }
-    const shufflePhrases = shuffle(phrases).slice(0, 3);
+    const shufflePhrasesIndex = shuffle(
+      Array(phrases.length)
+        .fill(0)
+        .map((_, index) => index),
+    ).slice(0, 3);
+    const shufflePhrases = shufflePhrasesIndex.map((i) => phrases[i]);
     const length = wordLists.length;
     const confuseWords: string[] = [];
     const getConfuseWord: () => string = () => {
@@ -117,7 +122,7 @@ export function RecoveryPhrase() {
     }
     return shufflePhrases
       .map((word, index) => [
-        phrases.indexOf(word),
+        shufflePhrasesIndex[index],
         shuffle([
           shufflePhrases[index],
           ...confuseWords.slice(index * 2, index * 2 + 2),

@@ -1,7 +1,14 @@
+import { useEffect } from 'react';
+
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { Bootstrap } from '../Bootstrap';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
@@ -16,11 +23,57 @@ import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { QrcodeDialogContainer } from './QrcodeDialogContainer';
 
+const PageTrackerContainer = LazyLoad(
+  () => import('./PageTrackerContainer'),
+  100,
+);
+
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
   global.$rootAppNavigation = navigation;
   return null;
 }
+
+export function CodeStartByNotification() {
+  useEffect(() => {
+    const options: IJPushRemotePushMessageInfo | null =
+      CodeStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
+    if (options) {
+      options.msgId = options.msgId || options._j_msgid?.toString() || '';
+      console.log(
+        'codeStart CodeStartByNotification launchNotification',
+        options,
+      );
+      const title = options.aps?.alert?.title || '';
+      const content = options.aps?.alert?.body || '';
+      const icon = options?.image;
+      const badge = options.aps?.badge?.toString() || '';
+
+      void backgroundApiProxy.serviceNotification.handleColdStartByNotification(
+        {
+          notificationId: options.msgId,
+          params: {
+            notificationId: options.msgId,
+            title,
+            description: content,
+            icon,
+            remotePushMessageInfo: {
+              pushSource: 'jpush',
+              title,
+              content,
+              badge,
+              extras: {
+                ...options,
+              },
+            },
+          },
+        },
+      );
+    }
+  }, []);
+  return null;
+}
+CodeStartByNotification.launchNotification = null;
 
 export function Container() {
   return (
@@ -30,11 +83,13 @@ export function Container() {
         <NavigationContainer>
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
+          <Bootstrap />
           <QrcodeDialogContainer />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
+          <PageTrackerContainer />
           <ErrorToastContainer />
           <ForceFirmwareUpdateContainer />
           {process.env.NODE_ENV !== 'production' ? (
@@ -42,6 +97,7 @@ export function Container() {
               <FlipperPluginsContainer />
             </>
           ) : null}
+          <CodeStartByNotification />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

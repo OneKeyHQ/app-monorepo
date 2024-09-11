@@ -43,6 +43,46 @@ const stickySectionListData = [
   },
   { title: 'NFT', data: NFTDATA },
   { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
 ];
 
 const SectionListDemo = () => {
@@ -75,7 +115,7 @@ const SectionListDemo = () => {
         <XStack bg="$borderLight">
           <SizableText>{item}</SizableText>
           <Divider />
-          <XStack space="$8">
+          <XStack gap="$8">
             <Button
               onPress={() => {
                 const sectionList = ref?.current;
@@ -113,6 +153,7 @@ const StickySectionListDemo = () => {
       )}
       estimatedItemSize="$10"
       stickySectionHeadersEnabled
+      initialScrollIndex={40}
       renderItem={({
         item,
       }: {

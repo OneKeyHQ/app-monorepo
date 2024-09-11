@@ -11,11 +11,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { openOnBoardingFromExt, useToOnBoardingPage } from '../pages';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
@@ -75,7 +75,7 @@ function DowngradeWarningDialogContent({
 }
 
 function OnboardingOnMountCmp() {
-  const intl = useIntl();
+  const toOnBoardingPage = useToOnBoardingPage();
   const navigation = useAppNavigation();
   const v4migrationActions = useV4MigrationActions();
   const [v4migrationPersistData, setV4MigrationPersistAtom] =
@@ -133,21 +133,22 @@ function OnboardingOnMountCmp() {
         //
       }
 
+      if (openOnBoardingFromExt()) {
+        return;
+      }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      if (!isOnboardingDone) {
-        navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.GetStarted,
-          params: {
-            showCloseButton: true,
-          },
+      // dapp mode auto onboarding is conflict with url account landing page
+      if (!isOnboardingDone && !platformEnv.isWebDappMode) {
+        void toOnBoardingPage({
+          isFullModal: true,
         });
       }
     },
     [
       migrateBaseSettings,
-      navigation,
       setV4MigrationPersistAtom,
+      toOnBoardingPage,
       v4migrationActions,
     ],
   );

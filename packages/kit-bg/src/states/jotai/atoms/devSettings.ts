@@ -27,7 +27,11 @@ export const {
   persist: true,
   name: EAtomNames.devSettingsPersistAtom,
   initialValue: {
-    enabled: !!platformEnv.isDev,
+    enabled: !!platformEnv.isDev || !!platformEnv.isE2E,
+    settings: {
+      enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
+      showDevOverlayWindow: !!platformEnv.isE2E ? true : false,
+    },
   },
 });
 
@@ -42,6 +46,7 @@ export type IFirmwareUpdateDevSettings = {
   forceUpdateFirmware: boolean;
   forceUpdateBle: boolean;
   forceUpdateBootloader: boolean;
+  showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
@@ -62,6 +67,7 @@ export const {
     forceUpdateFirmware: false,
     forceUpdateBle: false,
     forceUpdateBootloader: false,
+    showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
   },
 });

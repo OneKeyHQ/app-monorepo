@@ -1,20 +1,27 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IListViewProps } from '@onekeyhq/components';
 import {
-  ListView,
   SectionList,
   SizableText,
   Stack,
   XStack,
+  renderNestedScrollView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  convertToSectionGroups,
+  getFilteredHistoryBySearchKey,
+} from '@onekeyhq/shared/src/utils/historyUtils';
+import type {
+  IAccountHistoryTx,
+  IHistoryListSectionGroup,
+} from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
@@ -29,7 +36,6 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 type IProps = {
   data: IAccountHistoryTx[];
   isLoading?: boolean;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement;
   showHeader?: boolean;
@@ -37,12 +43,37 @@ type IProps = {
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
   inTabList?: boolean;
+  contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
+  hideValue?: boolean;
 };
 
 const ListFooterComponent = () => <Stack h="$5" />;
 
-function TxHistoryListView(props: IProps) {
+function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
+  const { title, titleKey, data } = props;
   const intl = useIntl();
+  const titleText = title || intl.formatMessage({ id: titleKey }) || '';
+
+  if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
+    return (
+      <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+        <Stack
+          w="$2"
+          height="$2"
+          backgroundColor="$textCaution"
+          borderRadius="$full"
+        />
+        <SizableText numberOfLines={1} size="$headingSm" color="$textCaution">
+          {intl.formatMessage({ id: ETranslations.global_pending })}
+        </SizableText>
+      </XStack>
+    );
+  }
+
+  return <SectionList.SectionHeader title={titleText} />;
+}
+
+function TxHistoryListView(props: IProps) {
   const {
     data,
     isLoading,
@@ -51,12 +82,12 @@ function TxHistoryListView(props: IProps) {
     showIcon,
     onPressHistory,
     tableLayout,
-    onContentSizeChange,
     initialized,
+    contentContainerStyle,
     inTabList = false,
+    hideValue,
   } = props;
 
-  const currentDate = useRef('');
   const [searchKey] = useSearchKeyAtom();
 
   const filteredHistory = getFilteredHistoryBySearchKey({
@@ -64,145 +95,84 @@ function TxHistoryListView(props: IProps) {
     searchKey,
   });
 
-  const renderListItem = useCallback(
-    (tx: IAccountHistoryTx, index: number) => {
-      const nextTx = data[index + 1];
-      if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
-        if (index === 0) {
-          currentDate.current = '';
-        }
-        return (
-          <>
-            {index === 0 ? (
-              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
-                <Stack
-                  w="$2"
-                  height="$2"
-                  backgroundColor="$textCaution"
-                  borderRadius="$full"
-                />
-                <SizableText
-                  numberOfLines={1}
-                  size="$headingSm"
-                  color="$textCaution"
-                >
-                  {intl.formatMessage({ id: ETranslations.global_pending })}
-                </SizableText>
-              </XStack>
-            ) : null}
-            <TxHistoryListItem
-              key={index}
-              index={index}
-              historyTx={tx}
-              showIcon={showIcon}
-              onPress={onPressHistory}
-              tableLayout={tableLayout}
-            />
-            {nextTx?.decodedTx.status !== EDecodedTxStatus.Pending ? (
-              <Stack mb="$5" />
-            ) : null}
-          </>
-        );
-      }
-
-      let nextDate = '';
-      const date = formatDate(
-        new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
-        {
-          hideTimeForever: true,
-        },
-      );
-      if (nextTx) {
-        nextDate = formatDate(
-          new Date(
-            nextTx.decodedTx.updatedAt ?? nextTx.decodedTx.createdAt ?? 0,
-          ),
-          {
+  const sections = useMemo(
+    () =>
+      convertToSectionGroups({
+        items: filteredHistory,
+        formatDate: (date: number) =>
+          formatDate(new Date(date), {
             hideTimeForever: true,
-          },
-        );
-      }
+          }),
+      }),
+    [filteredHistory],
+  );
 
-      if (index === 0 || !currentDate.current || date !== currentDate.current) {
-        currentDate.current = date;
-        return (
-          <>
-            <SectionList.SectionHeader title={date} />
-            <TxHistoryListItem
-              key={index}
-              index={index}
-              historyTx={tx}
-              showIcon={showIcon}
-              onPress={onPressHistory}
-              tableLayout={tableLayout}
-            />
-            {nextDate !== date ? <Stack mb="$5" /> : null}
-          </>
-        );
-      }
-      return (
-        <>
-          <TxHistoryListItem
-            key={index}
-            index={index}
-            historyTx={tx}
-            showIcon={showIcon}
-            onPress={onPressHistory}
-            tableLayout={tableLayout}
-          />
-          {nextDate !== date ? <Stack mb="$5" /> : null}
-        </>
-      );
-    },
-    [data, intl, onPressHistory, showIcon, tableLayout],
+  const renderItem = useCallback(
+    (info: { item: IAccountHistoryTx; index: number }) => (
+      <TxHistoryListItem
+        hideValue={hideValue}
+        index={info.index}
+        historyTx={info.item}
+        showIcon={showIcon}
+        onPress={onPressHistory}
+        tableLayout={tableLayout}
+      />
+    ),
+    [hideValue, onPressHistory, showIcon, tableLayout],
+  );
+  const renderSectionHeader = useCallback(
+    ({
+      section: { title, titleKey, data: tx },
+    }: {
+      section: IHistoryListSectionGroup;
+    }) => (
+      <TxHistoryListViewSectionHeader
+        title={title}
+        titleKey={titleKey}
+        data={tx}
+      />
+    ),
+    [],
   );
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountHistoryTx>({
-      onContentSizeChange,
       inTabList,
     });
 
   if (!initialized && isLoading) {
     return (
-      <Stack py="$3">
+      <Stack py="$3" {...contentContainerStyle}>
         {ListHeaderComponent}
-        <HistoryLoadingView
-          tableLayout={tableLayout}
-          onContentSizeChange={onContentSizeChange}
-        />
+        <HistoryLoadingView tableLayout={tableLayout} />
       </Stack>
     );
   }
 
   return (
-    <ListView
-      {...listViewProps}
+    <SectionList
+      {...(listViewProps as any)}
+      renderScrollComponent={renderNestedScrollView}
       ref={listViewRef}
-      py="$3"
+      contentContainerStyle={{
+        ...contentContainerStyle,
+      }}
       h="100%"
       onLayout={onLayout}
-      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
-      disableScrollViewPanResponder={!!onContentSizeChange}
-      data={filteredHistory}
+      sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
-      estimatedItemSize={60}
-      renderItem={({
-        item,
-        index,
-      }: {
-        item: IAccountHistoryTx;
-        index: number;
-      }) => renderListItem(item, index)}
+      estimatedItemSize={platformEnv.isNative ? 60 : 56}
+      renderItem={renderItem}
+      renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={ListHeaderComponent}
+      keyExtractor={(tx, index) =>
+        (tx as IAccountHistoryTx).id || index.toString(10)
+      }
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (
-            <TxHistoryListHeader
-              filteredHistory={filteredHistory}
-              history={data}
-            />
+            <TxHistoryListHeader filteredHistory={filteredHistory} />
           ),
         })}
     />

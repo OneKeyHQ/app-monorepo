@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-
 import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { SecureQRCodeDialogCancel } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -61,9 +60,7 @@ export function QrcodeDialogContainer() {
           if (event.promiseId && params?.flag !== 'skipReject') {
             await backgroundApiProxy.servicePromise.rejectCallback({
               id: event.promiseId,
-              error: toPlainErrorObject(
-                web3Errors.provider.userRejectedRequest(),
-              ),
+              error: toPlainErrorObject(new SecureQRCodeDialogCancel()),
             });
           }
         },

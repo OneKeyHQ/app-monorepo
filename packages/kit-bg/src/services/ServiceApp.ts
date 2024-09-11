@@ -57,12 +57,52 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
-    // clean app storage
-    await appStorage.clear();
-    await v4appStorage.clear();
+    // const v4migrationPersistData = await v4migrationPersistAtom.get();
+    // const v4migrationAutoStartDisabled =
+    //   v4migrationPersistData?.v4migrationAutoStartDisabled;
+    // ----------------------------------------------
 
-    // clean local db
-    await localDb.reset();
+    // clean app storage
+    try {
+      await appStorage.clear();
+    } catch {
+      console.error('appStorage.clear() error');
+    }
+
+    await timerUtils.wait(100);
+
+    try {
+      await v4appStorage.clear();
+    } catch {
+      console.error('v4appStorage.clear() error');
+    }
+
+    await timerUtils.wait(100);
+
+    try {
+      // clean local db
+      await localDb.reset();
+    } catch {
+      console.error('localDb.reset() error');
+    }
+
+    // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
+    //   {
+    //     v4migrationAutoStartDisabled,
+    //   },
+    // );
+
+    try {
+      const isV4DbExist: boolean =
+        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
+      if (isV4DbExist) {
+        await v4dbHubs.v4localDb.reset();
+        await timerUtils.wait(600);
+      }
+    } catch (error) {
+      //
+    }
+
     await timerUtils.wait(1500);
 
     if (platformEnv.isRuntimeBrowser) {
@@ -71,6 +111,12 @@ class ServiceApp extends ServiceBase {
       } catch {
         console.error('window.localStorage.clear() error');
       }
+    }
+
+    try {
+      await this.backgroundApi.serviceNotification.unregisterClient();
+    } catch (error) {
+      //
     }
 
     if (platformEnv.isWeb || platformEnv.isDesktop) {
@@ -89,17 +135,17 @@ class ServiceApp extends ServiceBase {
 
     // logout from Google Drive
     if (platformEnv.isNativeAndroid && (await isAvailable())) {
-      await logoutFromGoogleDrive(true);
+      try {
+        await logoutFromGoogleDrive(true);
+      } catch {
+        console.error('logoutFromGoogleDrive error');
+      }
       await timerUtils.wait(1000);
     }
   }
 
   @backgroundMethod()
   async resetApp() {
-    // const v4migrationPersistData = await v4migrationPersistAtom.get();
-    // const v4migrationAutoStartDisabled =
-    //   v4migrationPersistData?.v4migrationAutoStartDisabled;
-
     resetUtils.startResetting();
     try {
       await this.resetData();
@@ -110,23 +156,6 @@ class ServiceApp extends ServiceBase {
     }
 
     await timerUtils.wait(600);
-
-    // await this.backgroundApi.serviceV4Migration.saveAppStorageV4migrationAutoStartDisabled(
-    //   {
-    //     v4migrationAutoStartDisabled,
-    //   },
-    // );
-
-    try {
-      const isV4DbExist: boolean =
-        await this.backgroundApi.serviceV4Migration.checkIfV4DbExist();
-      if (isV4DbExist) {
-        await v4dbHubs.v4localDb.reset();
-        await timerUtils.wait(600);
-      }
-    } catch (error) {
-      //
-    }
 
     this.restartApp();
   }

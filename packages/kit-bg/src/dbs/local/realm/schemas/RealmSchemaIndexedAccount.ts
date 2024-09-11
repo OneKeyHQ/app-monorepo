@@ -15,6 +15,8 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
 
   public index!: number;
 
+  public orderSaved?: number;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.IndexedAccount,
     primaryKey: 'id',
@@ -24,6 +26,7 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
       walletId: 'string',
       name: 'string',
       index: 'int',
+      orderSaved: 'float?',
     },
   };
 
@@ -34,6 +37,7 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
       walletId: this.walletId,
       name: this.name,
       index: this.index,
+      orderSaved: this.orderSaved,
     };
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
@@ -46,7 +47,7 @@ export const APTOS_NATIVE_COIN = '0x1::aptos_coin::AptosCoin';
 export const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '2000';
 export const DEFAULT_GAS_LIMIT_TRANSFER = '20000';
 
-const MAX_U64_BIG_INT = BigInt(9007199254740991);
+const MAX_U64_BIG_INT = BigInt(9_007_199_254_740_991);
 
 const POLL_INTERVAL = 2000;
 type IPollFn<T> = (time?: number, index?: number) => T;
@@ -288,7 +289,13 @@ export async function getAccountResource(
     );
     return await Promise.resolve(resources);
   } catch (error: any) {
-    const { errorCode } = error || {};
+    let err;
+    try {
+      err = JSON.parse(error?.message);
+    } catch (e) {
+      throw error;
+    }
+    const { error_code: errorCode } = err || {};
     if (errorCode === 'account_not_found') {
       throw new InvalidAccount(errorCode);
     }
@@ -633,4 +640,8 @@ export function generateTransferCreateNft(
       property_types,
     ],
   };
+}
+
+export function getExpirationTimestampSecs(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
 }

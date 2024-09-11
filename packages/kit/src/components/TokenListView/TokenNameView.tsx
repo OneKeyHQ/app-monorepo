@@ -2,26 +2,53 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
-import { Icon, SizableText, Tooltip, XStack } from '@onekeyhq/components';
+import type { ISizableTextProps, IXStackProps } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  SizableText,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useAccountData } from '../../hooks/useAccountData';
 
 type IProps = {
   name: string;
   isNative?: boolean;
-} & ISizableTextProps;
+  isAllNetworks?: boolean;
+  withNetwork?: boolean;
+  networkId: string | undefined;
+  textProps?: ISizableTextProps;
+} & IXStackProps;
 
 function TokenNameView(props: IProps) {
-  const { name, isNative, ...rest } = props;
+  const {
+    name,
+    isNative,
+    isAllNetworks,
+    withNetwork,
+    networkId,
+    textProps,
+    ...rest
+  } = props;
   const intl = useIntl();
+
+  const { network } = useAccountData({ networkId });
 
   const content = useMemo(
     () => (
-      <XStack alignItems="center" space="$1" flex={1}>
-        <SizableText numberOfLines={1} {...rest}>
+      <XStack alignItems="center" gap="$1" {...rest}>
+        <SizableText minWidth={0} numberOfLines={1} {...textProps}>
           {name}
         </SizableText>
-        {isNative ? (
+        {withNetwork && network ? (
+          <Badge flexShrink={1}>
+            <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          </Badge>
+        ) : null}
+        {isNative && !isAllNetworks ? (
           <Tooltip
             renderContent={intl.formatMessage({
               id: ETranslations.native_token_tooltip,
@@ -38,7 +65,16 @@ function TokenNameView(props: IProps) {
         ) : null}
       </XStack>
     ),
-    [rest, name, isNative, intl],
+    [
+      rest,
+      textProps,
+      name,
+      withNetwork,
+      network,
+      isNative,
+      isAllNetworks,
+      intl,
+    ],
   );
   return content;
 }

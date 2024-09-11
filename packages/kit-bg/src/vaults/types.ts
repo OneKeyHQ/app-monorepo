@@ -19,13 +19,16 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
@@ -48,11 +51,8 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -131,11 +131,17 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  qrAccountEnabled?: boolean;
   publicKeyExportEnabled?: boolean;
+
+  supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];
 
   dappInteractionEnabled?: boolean;
 
   softwareAccountDisabled?: boolean;
+
+  supportedDeviceTypes?: IDeviceType[];
+
   addressBookDisabled?: boolean;
   copyAddressDisabled?: boolean;
 
@@ -182,9 +188,12 @@ export type IVaultSettings = {
   memoMaxLength?: number;
   numericOnlyMemo?: boolean;
 
+  // dnx
   withPaymentId?: boolean;
 
-  enabledOnClassicOnly?: boolean;
+  // algo
+  withNote?: boolean;
+  noteMaxLength?: number;
 
   hideFeeInfoInHistoryList?: boolean;
 
@@ -211,6 +220,15 @@ export type IVaultSettings = {
   };
 
   preCheckDappTxFeeInfoRequired?: boolean;
+
+  activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
+  sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  stakingConfig?: IStakingConfig;
+  editApproveAmountEnabled?: boolean;
+  useRemoteTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -357,6 +375,8 @@ export type ITransferInfo = {
   lightningAddress?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  note?: string; // Algo chain note
 };
 
 export type IApproveInfo = {
@@ -371,6 +391,7 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  originalRecipient: string;
 };
 
 export enum EWrappedType {
@@ -435,11 +456,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
+
+export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
-  tokenApproveInfo?: { allowance: string };
+  tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
@@ -448,6 +471,11 @@ export interface IBroadcastTransactionParams {
   accountAddress: string;
   signedTx: ISignedTxPro;
   signature?: string;
+}
+
+export interface IBroadcastTransactionByCustomRpcParams
+  extends IBroadcastTransactionParams {
+  customRpcInfo: IDBCustomRpc;
 }
 
 export interface IPreCheckFeeInfoParams {
@@ -496,6 +524,7 @@ export interface IBuildHistoryTxParams {
   nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
+  allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
 }
 
 export type IGetPrivateKeyFromImportedParams = {
