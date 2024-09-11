@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated from 'react-native-reanimated';
+import { useMedia } from 'tamagui';
 
 import { OptimizationView } from '../../optimization';
 
@@ -16,10 +17,22 @@ const Placeholder = () => {
   return bottom > 0 ? <OptimizationView style={{ height: bottom }} /> : null;
 };
 
-const PageFooterContainer = ({ children }: PropsWithChildren) => {
+const PageFooterContainer = ({
+  children,
+  disableKeyboardAnimation,
+}: PropsWithChildren & { disableKeyboardAnimation: boolean }) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const { gtMd } = useMedia();
   return (
-    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
+    <Animated.View
+      style={
+        gtMd || disableKeyboardAnimation
+          ? undefined
+          : safeKeyboardAnimationStyle
+      }
+    >
+      {children}
+    </Animated.View>
   );
 };
 
@@ -59,7 +72,9 @@ export function BasicPageFooter() {
   }, [footerRef]);
 
   return footerProps ? (
-    <PageFooterContainer>
+    <PageFooterContainer
+      disableKeyboardAnimation={footerProps?.disableKeyboardAnimation ?? false}
+    >
       {footerProps.children ? (
         footerProps.children
       ) : (

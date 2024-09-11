@@ -64,8 +64,14 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_LTC,
   coinTypeDefault: COINTYPE_LTC,
-  minTransferAmount: '0.00000546',
+  minTransferAmount: '0.001',
   hasFrozenBalance: false,
+  showAddressType: true,
+  estimatedFeePollingInterval: 60,
+
+  dappInteractionEnabled: false,
+  mergeDeriveAssetsEnabled: false,
+  qrAccountEnabled: false,
 };
 
 export default Object.freeze(settings);

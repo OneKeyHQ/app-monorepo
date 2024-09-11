@@ -18,6 +18,7 @@ import {
 } from '@metaplex-foundation/mpl-token-metadata';
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   TokenInstruction,
   createAssociatedTokenAccountInstruction,
@@ -39,7 +40,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNative, isNil } from 'lodash';
 
 import type {
   IEncodedTxSol,
@@ -50,8 +51,11 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  CanNotSendZeroAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -63,10 +67,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
-  IEstimateFeeParams,
-  IFeeInfoUnit,
-} from '@onekeyhq/shared/types/fee';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -84,14 +88,17 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
+  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
+  parseComputeUnitPrice,
   parseNativeTxDetail,
   parseToNativeTx,
   tokenRecordAddress,
@@ -101,6 +108,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -251,25 +259,28 @@ export default class Vault extends VaultBase {
         const tokenAddress = tokenInfo?.address ?? nftInfo?.nftAddress ?? '';
         const tokenSendAddress = tokenInfo?.sendAddress;
         const mint = new PublicKey(tokenAddress);
-        const isNFT = !!nftInfo;
+        // const isNFT = !!nftInfo;
         let destinationAta = destination;
+
+        const tokenProgramId = await this._getTokenProgramId({
+          owner: source,
+          mint,
+        });
 
         const sourceAta = tokenSendAddress
           ? new PublicKey(tokenSendAddress)
           : await this._getAssociatedTokenAddress({
               mint,
               owner: source,
-              isNFT,
+              programId: tokenProgramId,
             });
 
-        if (PublicKey.isOnCurve(destination.toString())) {
-          // system account, get token receiver address
-          destinationAta = await this._getAssociatedTokenAddress({
-            mint,
-            owner: destination,
-            isNFT,
-          });
-        }
+        // system account, get token receiver address
+        destinationAta = await this._getAssociatedTokenAddress({
+          mint,
+          owner: destination,
+          programId: tokenProgramId,
+        });
 
         const destinationAtaInfo = await client.getAccountInfo({
           address: destinationAta.toString(),
@@ -288,6 +299,7 @@ export default class Vault extends VaultBase {
                 destinationAta,
                 amount,
                 metadata: metadata as Metadata,
+                programId: tokenProgramId,
               })),
             );
           } else {
@@ -302,6 +314,7 @@ export default class Vault extends VaultBase {
                   destinationAta,
                   destinationAtaInfo,
                   mintState: ocpMintState,
+                  programId: tokenProgramId,
                 }),
               );
             } else {
@@ -315,6 +328,7 @@ export default class Vault extends VaultBase {
                   destinationAtaInfo,
                   tokenDecimals: 0,
                   amount,
+                  programId: tokenProgramId,
                 }),
               );
             }
@@ -330,6 +344,7 @@ export default class Vault extends VaultBase {
               destinationAtaInfo,
               tokenDecimals: tokenInfo.decimals,
               amount,
+              programId: tokenProgramId,
             }),
           );
         }
@@ -372,31 +387,51 @@ export default class Vault extends VaultBase {
     );
   }
 
-  async _getAssociatedTokenAddress({
+  async _getTokenProgramId({
     mint,
     owner,
-    isNFT,
   }: {
     mint: PublicKey;
     owner: PublicKey;
     isNFT?: boolean;
   }) {
-    if (isNFT) {
-      const client = await this.getClient();
-      const tokenAccounts = await client.getTokenAccountsByOwner({
+    const client = await this.getClient();
+    const [tokenAccounts, tokenAccounts2022] = await Promise.all([
+      client.getTokenAccountsByOwner({
         address: owner.toString(),
-      });
+      }),
+      client.getTokenAccountsByOwner({
+        address: owner.toString(),
+        programId: TOKEN_2022_PROGRAM_ID,
+      }),
+    ]);
 
-      const account = tokenAccounts?.find(
-        (item) => item.account.data.parsed.info.mint === mint.toString(),
-      );
+    const result = [
+      ...(tokenAccounts ?? []),
+      ...(tokenAccounts2022 ?? []),
+    ]?.find((item) => item.account.data.parsed.info.mint === mint.toString());
 
-      if (account) {
-        return new PublicKey(account.pubkey);
-      }
+    if (result) {
+      return result.account.data.program === 'spl-token'
+        ? TOKEN_PROGRAM_ID
+        : TOKEN_2022_PROGRAM_ID;
     }
 
-    return Promise.resolve(getAssociatedTokenAddressSync(mint, owner));
+    return TOKEN_PROGRAM_ID;
+  }
+
+  async _getAssociatedTokenAddress({
+    mint,
+    owner,
+    programId,
+  }: {
+    mint: PublicKey;
+    owner: PublicKey;
+    programId?: PublicKey;
+  }) {
+    return Promise.resolve(
+      getAssociatedTokenAddressSync(mint, owner, true, programId),
+    );
   }
 
   async _checkIsProgrammableNFT(mint: PublicKey) {
@@ -439,6 +474,7 @@ export default class Vault extends VaultBase {
     destinationAta,
     amount,
     metadata,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -447,6 +483,7 @@ export default class Vault extends VaultBase {
     destinationAta: PublicKey;
     amount: string;
     metadata: Metadata;
+    programId?: PublicKey;
   }) {
     const client = await this.getClient();
     const instructions: TransactionInstruction[] = [];
@@ -502,7 +539,11 @@ export default class Vault extends VaultBase {
       };
 
       instructions.push(
-        createTokenMetadataTransferInstruction(transferAccounts, transferArgs),
+        createTokenMetadataTransferInstruction(
+          transferAccounts,
+          transferArgs,
+          programId,
+        ),
       );
     }
 
@@ -532,6 +573,7 @@ export default class Vault extends VaultBase {
     destinationAta,
     destinationAtaInfo,
     mintState,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -540,6 +582,7 @@ export default class Vault extends VaultBase {
     destinationAta: PublicKey;
     destinationAtaInfo: AccountInfo<[string, string]> | null;
     mintState: MintState;
+    programId?: PublicKey;
   }) {
     const inscriptions: TransactionInstruction[] = [];
 
@@ -559,6 +602,7 @@ export default class Vault extends VaultBase {
           instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
           payer: source,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          tokenProgram: programId,
         }),
       );
     }
@@ -576,6 +620,7 @@ export default class Vault extends VaultBase {
         instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
         to: destination,
         toAccount: destinationAta,
+        tokenProgram: programId,
       }),
     );
 
@@ -591,6 +636,7 @@ export default class Vault extends VaultBase {
     destinationAtaInfo,
     tokenDecimals,
     amount,
+    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -600,6 +646,7 @@ export default class Vault extends VaultBase {
     destinationAtaInfo: AccountInfo<[string, string]> | null;
     tokenDecimals: number;
     amount: string;
+    programId?: PublicKey;
   }): TransactionInstruction[] {
     const instructions: TransactionInstruction[] = [];
     if (destinationAtaInfo === null) {
@@ -609,6 +656,7 @@ export default class Vault extends VaultBase {
           destinationAta,
           destination,
           mint,
+          programId,
         ),
       );
     }
@@ -621,6 +669,8 @@ export default class Vault extends VaultBase {
         source,
         BigInt(new BigNumber(amount).shiftedBy(tokenDecimals).toFixed()),
         tokenDecimals,
+        [],
+        programId,
       ),
     );
 
@@ -630,7 +680,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
 
@@ -638,12 +688,15 @@ export default class Vault extends VaultBase {
 
     if (unsignedTx.swapInfo) {
       actions = [
-        await this._buildTxActionFromSwap({
+        await this.buildInternalSwapAction({
           swapInfo: unsignedTx.swapInfo,
         }),
       ];
     } else {
-      actions = await this._decodeNativeTxActions(nativeTx);
+      actions = await this._decodeNativeTxActions({
+        nativeTx,
+        isNFT: transferPayload?.isNFT,
+      });
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -690,19 +743,22 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
+  async _decodeNativeTxActions({
+    nativeTx,
+    isNFT,
+  }: {
+    nativeTx: INativeTxSol;
+    isNFT: boolean | undefined;
+  }) {
     const actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
-
-    // @ts-ignore
-    if (!nativeTx.instructions) {
-      return [{ type: EDecodedTxActionType.UNKNOWN }];
-    }
-
-    const accountAddress = await this.getAccountAddress();
-
-    for (const instruction of (nativeTx as Transaction).instructions) {
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+    for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -713,35 +769,37 @@ export default class Vault extends VaultBase {
           if (instructionType === 'Transfer') {
             const nativeToken =
               await this.backgroundApi.serviceToken.getNativeToken({
+                accountId: this.accountId,
                 networkId: this.networkId,
-                accountAddress,
               });
-            const { fromPubkey, toPubkey, lamports } =
-              SystemInstruction.decodeTransfer(instruction);
-            const nativeAmount = new BigNumber(lamports.toString());
-            const from = fromPubkey.toString();
-            const to = toPubkey.toString();
-            const transfer: IDecodedTxTransferInfo = {
-              from,
-              to,
-              tokenIdOnNetwork: nativeToken.address,
-              icon: nativeToken.logoURI ?? '',
-              name: nativeToken.name,
-              symbol: nativeToken.symbol,
-              amount: new BigNumber(nativeAmount)
-                .shiftedBy(-nativeToken.decimals)
-                .toFixed(),
-              isNFT: false,
-              isNative: true,
-            };
-
-            actions.push(
-              await this.buildTxTransferAssetAction({
+            if (nativeToken) {
+              const { fromPubkey, toPubkey, lamports } =
+                SystemInstruction.decodeTransfer(instruction);
+              const nativeAmount = new BigNumber(lamports.toString());
+              const from = fromPubkey.toString();
+              const to = toPubkey.toString();
+              const transfer: IDecodedTxTransferInfo = {
                 from,
                 to,
-                transfers: [transfer],
-              }),
-            );
+                tokenIdOnNetwork: nativeToken.address,
+                icon: nativeToken.logoURI ?? '',
+                name: nativeToken.name,
+                symbol: nativeToken.symbol,
+                amount: new BigNumber(nativeAmount)
+                  .shiftedBy(-nativeToken.decimals)
+                  .toFixed(),
+                isNFT: false,
+                isNative: true,
+              };
+
+              actions.push(
+                await this.buildTxTransferAssetAction({
+                  from,
+                  to,
+                  transfers: [transfer],
+                }),
+              );
+            }
           }
         } catch {
           // pass
@@ -749,10 +807,12 @@ export default class Vault extends VaultBase {
       } else if (
         instruction.programId.toString() ===
           ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
-        instruction.data.length === 0 &&
         instruction.keys[4].pubkey.toString() ===
           SystemProgram.programId.toString() &&
-        instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
+        (instruction.keys[5].pubkey.toString() ===
+          TOKEN_PROGRAM_ID.toString() ||
+          instruction.keys[5].pubkey.toString() ===
+            TOKEN_2022_PROGRAM_ID.toString())
       ) {
         // Associated token account is newly created.
         const [, associatedToken, owner, mint] = instruction.keys;
@@ -763,12 +823,19 @@ export default class Vault extends VaultBase {
           };
         }
       } else if (
-        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString() ||
+        instruction.programId.toString() === TOKEN_2022_PROGRAM_ID.toString()
       ) {
         try {
+          const programId =
+            instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+              ? TOKEN_PROGRAM_ID
+              : TOKEN_2022_PROGRAM_ID;
+
           const {
             data: { instruction: instructionType },
-          } = decodeInstruction(instruction);
+          } = decodeInstruction(instruction, programId);
+
           let tokenAmount;
           let fromAddress;
           let tokenAddress;
@@ -778,7 +845,7 @@ export default class Vault extends VaultBase {
             const {
               data: { amount },
               keys: { owner, mint, destination },
-            } = decodeTransferCheckedInstruction(instruction);
+            } = decodeTransferCheckedInstruction(instruction, programId);
 
             tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
@@ -788,7 +855,7 @@ export default class Vault extends VaultBase {
             const {
               data: { amount },
               keys: { owner, destination },
-            } = decodeTransferInstruction(instruction);
+            } = decodeTransferInstruction(instruction, programId);
 
             tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
@@ -803,9 +870,9 @@ export default class Vault extends VaultBase {
 
             tokenAddress = tokenAddress || mint;
             const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+              accountId: this.accountId,
               networkId: this.networkId,
               tokenIdOnNetwork: tokenAddress,
-              accountAddress,
             });
             if (tokenInfo) {
               const transfer: IDecodedTxTransferInfo = {
@@ -816,13 +883,13 @@ export default class Vault extends VaultBase {
                 name: tokenInfo.name,
                 symbol: tokenInfo.symbol,
                 amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
-                isNFT: false,
+                isNFT,
               };
 
               actions.push(
                 await this.buildTxTransferAssetAction({
                   from: fromAddress,
-                  to: tokenAddress,
+                  to: toAddress ?? ataAddress,
                   transfers: [transfer],
                 }),
               );
@@ -838,29 +905,6 @@ export default class Vault extends VaultBase {
     }
 
     return actions;
-  }
-
-  async _buildTxActionFromSwap(params: { swapInfo: ISwapTxInfo }) {
-    const { swapInfo } = params;
-    const swapSendToken = swapInfo.sender.token;
-    const action = await this.buildTxTransferAssetAction({
-      from: swapInfo.accountAddress,
-      to: swapInfo.receivingAddress,
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: swapInfo.receivingAddress,
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-      ],
-    });
-    return action;
   }
 
   override async buildUnsignedTx(
@@ -967,6 +1011,7 @@ export default class Vault extends VaultBase {
       const { computeUnitPrice } = feeInfo.feeSol;
       const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
       const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+      const isTransaction = nativeTx instanceof Transaction;
       const prioritizationFeeInstruction =
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: Number(computeUnitPrice),
@@ -1012,18 +1057,18 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (!isComputeUnitPriceExist) {
-        if (isVersionedTransaction && versionedTransactionMessage) {
+      if (isVersionedTransaction && versionedTransactionMessage) {
+        if (!isComputeUnitPriceExist) {
           versionedTransactionMessage.instructions.unshift(
             prioritizationFeeInstruction,
           );
-          nativeTx.message = versionedTransactionMessage.compileToV0Message(
-            addressLookupTableAccounts,
-          );
-        } else {
-          (nativeTx as Transaction).instructions.unshift(
-            prioritizationFeeInstruction,
-          );
+        }
+        nativeTx.message = versionedTransactionMessage.compileToV0Message(
+          addressLookupTableAccounts,
+        );
+      } else if (isTransaction) {
+        if (!isComputeUnitPriceExist) {
+          nativeTx.instructions.unshift(prioritizationFeeInstruction);
         }
       }
 
@@ -1146,5 +1191,110 @@ export default class Vault extends VaultBase {
         },
       },
     };
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTxSol;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxSol> {
+    const { encodedTx, feeInfo } = params;
+    const client = await this.getClient();
+    const accountAddress = await this.getAccountAddress();
+    let computeUnitPrice = '0';
+
+    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client: await this.getClient(),
+    });
+
+    const computeUnitPriceFromInstructions =
+      parseComputeUnitPrice(instructions);
+
+    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
+      // If the DApp tx  includes prioritization fee,
+      // try replacing it with another one to see if that works.
+
+      const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfo: {
+          ...feeInfo,
+          feeSol: {
+            computeUnitPrice: '1',
+          },
+        },
+      });
+
+      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
+    }
+
+    if (isNil(feeInfo.feeSol?.computeUnitPrice)) {
+      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+        accountAddress,
+      ]);
+      computeUnitPrice = String(prioritizationFee);
+    } else {
+      computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
+    }
+
+    return this._attachFeeInfoToEncodedTx({
+      encodedTx,
+      feeInfo: {
+        ...feeInfo,
+        feeSol: {
+          computeUnitPrice,
+        },
+      },
+    });
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientCustomRpcSol(params.rpcUrl);
+    const start = performance.now();
+    const result = await client.getInfo();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientCustomRpcSol(rpcUrl);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
+
+  override async validateSendAmount({
+    isNative: isNativeToken,
+    amount,
+    tokenBalance,
+  }: {
+    amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
+  }): Promise<boolean> {
+    if (
+      !isNativeToken &&
+      new BigNumber(amount).isZero() &&
+      new BigNumber(tokenBalance).isZero()
+    ) {
+      throw new CanNotSendZeroAmountError();
+    }
+
+    return true;
   }
 }

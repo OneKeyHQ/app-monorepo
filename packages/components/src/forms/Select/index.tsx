@@ -3,6 +3,8 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
@@ -20,6 +22,7 @@ import type {
   ISelectTriggerProps,
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string) => {
   const { sections, items } = useContext(SelectContext);
@@ -59,6 +62,13 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
+  const renderTriggerOnPress = useCallback(
+    (event: GestureResponderEvent) => {
+      handleTriggerPressed();
+      event.stopPropagation();
+    },
+    [handleTriggerPressed],
+  );
   const renderValue = labelInValue
     ? (value as ISelectItem)?.value
     : (value as string);
@@ -66,12 +76,38 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({
+        onPress: renderTriggerOnPress,
         value: renderValue,
         label,
         placeholder,
         disabled,
       })}
     </Trigger>
+  );
+}
+
+function SelectItemView({
+  label,
+  description,
+}: {
+  label: string;
+  description?: string;
+}) {
+  return (
+    <>
+      <SizableText
+        $gtMd={{
+          size: '$bodyMd',
+        }}
+      >
+        {label}
+      </SizableText>
+      {description ? (
+        <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+          {description}
+        </SizableText>
+      ) : null}
+    </>
   );
 }
 
@@ -107,25 +143,15 @@ function SelectItem({
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
         testID={testID}
+        alignItems="center"
       >
         {leading ? (
-          <Stack alignContent="center" justifyContent="center" pr="$4">
+          <Stack alignContent="center" justifyContent="center" pr="$3">
             {leading}
           </Stack>
         ) : null}
         <Stack flex={1} userSelect="none">
-          <SizableText
-            $gtMd={{
-              size: '$bodyMd',
-            }}
-          >
-            {label}
-          </SizableText>
-          {description ? (
-            <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
-              {description}
-            </SizableText>
-          ) : null}
+          <SelectItemView label={label} description={description} />
         </Stack>
         {selectedValue === value ? (
           <Icon
@@ -172,7 +198,7 @@ const useRenderPopoverTrigger = () => {
 };
 
 const requestIdleCallback = (callback: () => void) => {
-  setTimeout(callback, 50);
+  setTimeout(callback, 150);
 };
 
 function SelectContent() {
@@ -188,6 +214,7 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    offset,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
@@ -287,13 +314,14 @@ function SelectContent() {
         ...sheetProps,
       }}
       floatingPanelProps={{
-        maxHeight: '60vh',
+        maxHeight: platformEnv.isNative ? undefined : '60vh',
         width: '$56',
         ...floatingPanelProps,
       }}
       placement={placement}
       renderTrigger={popoverTrigger}
       renderContent={renderContent}
+      offset={offset}
     />
   );
 }
@@ -309,6 +337,7 @@ function SelectFrame<T extends string | ISelectItem>({
   disabled,
   sections,
   sheetProps,
+  offset,
   labelInValue = false,
   floatingPanelProps,
   placement = 'bottom-start',
@@ -339,6 +368,7 @@ function SelectFrame<T extends string | ISelectItem>({
       sheetProps,
       floatingPanelProps,
       placement,
+      offset,
     }),
     [
       isOpen,
@@ -354,6 +384,7 @@ function SelectFrame<T extends string | ISelectItem>({
       sheetProps,
       floatingPanelProps,
       placement,
+      offset,
     ],
   );
   return (
@@ -366,8 +397,10 @@ function SelectFrame<T extends string | ISelectItem>({
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
   testID = '',
+  defaultTriggerInputProps,
   ...props
 }: ISelectProps<T>) {
+  const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
@@ -378,16 +411,24 @@ function BasicSelect<T extends string | ISelectItem>({
           readonly
           flex={1}
           testID={`${testID}-input`}
+          {...defaultTriggerInputProps}
         />
-        <Icon
+        {/* <Icon
           name="ChevronBottomSolid"
           position="absolute"
           right="$3"
           top="$2"
+        /> */}
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          position="absolute"
+          right="$3"
+          top={media.gtMd ? '$2' : '$3'}
         />
       </>
     ),
-    [testID],
+    [defaultTriggerInputProps, media.gtMd, testID],
   );
   return (
     <SelectFrame {...props}>
@@ -401,6 +442,7 @@ export const Select = withStaticProperties(BasicSelect, {
   Frame: SelectFrame,
   Trigger: SelectTrigger,
   Content: SelectContent,
+  Item: SelectItemView,
 });
 
 export * from './type';

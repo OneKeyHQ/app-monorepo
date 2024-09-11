@@ -3,7 +3,11 @@
   A component for render token (and NFT) images. It has a fallback icon when the image is not available. Typically used in list, card, or any other components that display small token images.
 */
 
-import type { IImageProps, SizeTokens } from '@onekeyhq/components';
+import type {
+  IImageProps,
+  IKeyOfIcons,
+  SizeTokens,
+} from '@onekeyhq/components';
 import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
 import type { ImageURISource } from 'react-native';
@@ -11,6 +15,7 @@ import type { ImageURISource } from 'react-native';
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 export type ITokenProps = {
   isNFT?: boolean;
+  fallbackIcon?: IKeyOfIcons;
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];
   networkImageUri?: ImageURISource['uri'];
@@ -36,11 +41,20 @@ export function Token({
   size,
   tokenImageUri,
   networkImageUri,
+  fallbackIcon,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
     ? sizeMap[size]
     : sizeMap.lg;
+
+  let fallbackIconName: IKeyOfIcons = isNFT
+    ? 'ImageWavesOutline'
+    : 'CryptoCoinOutline';
+
+  if (fallbackIcon) {
+    fallbackIconName = fallbackIcon;
+  }
 
   const tokenImage = (
     <Image
@@ -62,7 +76,7 @@ export function Token({
       >
         <Icon
           size={fallbackIconSize}
-          name={isNFT ? 'ImageWavesOutline' : 'CryptoCoinOutline'}
+          name={fallbackIconName}
           color="$iconSubdued"
         />
       </Image.Fallback>

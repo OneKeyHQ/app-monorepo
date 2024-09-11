@@ -12,6 +12,7 @@ import {
   SizableText,
   Stack,
   TextArea,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -109,12 +110,16 @@ function ScanQrCodeModalFooter({
         id: ETranslations.scan_move_closer_if_scan_fails,
       }),
     },
-    {
-      icon: 'ShieldCheckDoneOutline',
-      title: intl.formatMessage({
-        id: ETranslations.scan_screen_blurred_for_security,
-      }),
-    },
+    ...(platformEnv.isNativeAndroid
+      ? []
+      : ([
+          {
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.scan_screen_blurred_for_security,
+            }),
+          },
+        ] as { title: string; icon: IKeyOfIcons }[])),
   ];
 
   const data = qrWalletScene
@@ -128,6 +133,7 @@ function ScanQrCodeModalFooter({
     <Stack
       w="100%"
       mx="auto"
+      flex={1}
       $gtMd={{
         maxWidth: '$80',
       }}
@@ -153,6 +159,7 @@ function ScanQrCodeModalFooter({
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
+            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}
@@ -179,20 +186,31 @@ export default function ScanQrCodeModal() {
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
-    isPickedImage.current = true;
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
     });
 
     if (!result.canceled) {
-      const data = await scanFromURLAsync(result.assets[0].uri);
-      if (data) {
+      const uri = result.assets[0].uri;
+      let data: string | null = null;
+      try {
+        data = await scanFromURLAsync(uri);
+      } catch {
+        data = null;
+      }
+      if (data && data.length > 0) {
         isPickedImage.current = true;
         await callback(data);
+      } else {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.scan_no_recognizable_qr_code_found,
+          }),
+        });
       }
     }
-  }, [callback]);
+  }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
@@ -205,15 +223,16 @@ export default function ScanQrCodeModal() {
   );
 
   const headerRightCall = useCallback(
-    () => (
-      <HeaderIconButton
-        onPress={pickImage}
-        icon="ImageSquareMountainOutline"
-        testID="scan-open-photo"
-        title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
-      />
-    ),
-    [intl, pickImage],
+    () =>
+      qrWalletScene ? null : (
+        <HeaderIconButton
+          onPress={pickImage}
+          icon="ImageSquareMountainOutline"
+          testID="scan-open-photo"
+          title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
+        />
+      ),
+    [intl, pickImage, qrWalletScene],
   );
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -58,7 +59,7 @@ function Items({
           key={index}
           flexBasis="25%"
           alignItems="center"
-          space="$2"
+          gap="$2"
           py="$2"
           $gtSm={{
             flexBasis: '20%',
@@ -67,7 +68,7 @@ function Items({
             p: '$3',
             flexBasis: '33.3333%',
             flexDirection: 'row',
-            space: '$5',
+            gap: '$5',
           }}
           $gtXl={{
             flexBasis: '25%',
@@ -89,6 +90,9 @@ function Items({
               w: '$12',
               h: '$12',
             }}
+            borderCurve="continuous"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
           >
             <Image.Source
               source={{

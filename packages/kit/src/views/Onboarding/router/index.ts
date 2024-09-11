@@ -136,6 +136,7 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportWalletOptions,
     component: ImportWalletOptions,
+    shouldPopOnClickBackdrop: true,
   },
   {
     name: EOnboardingPages.ImportRecoveryPhrase,
@@ -172,5 +173,6 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
+    allowDisableClose: true,
   },
 ];

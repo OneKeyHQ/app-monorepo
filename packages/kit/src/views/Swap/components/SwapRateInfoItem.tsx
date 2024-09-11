@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { IconButton, Image, SizableText, XStack } from '@onekeyhq/components';
+import { IconButton, SizableText, XStack } from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -10,13 +10,11 @@ interface ISwapRateInfoItemProps {
   rate: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
-  providerUrl?: string;
 }
 const SwapRateInfoItem = ({
   rate,
   fromToken,
   toToken,
-  providerUrl,
 }: ISwapRateInfoItemProps) => {
   const [rateSwitch, setRateSwitch] = useState(false);
   const handleExchangeRate = useCallback(() => {
@@ -43,18 +41,13 @@ const SwapRateInfoItem = ({
   }, [fromToken, rate, rateSwitch, toToken]);
 
   return (
-    <XStack alignItems="center" space="$2">
-      <Image
-        source={{ uri: providerUrl }}
-        width={20}
-        height={20}
-        borderRadius="$full"
-      />
+    <XStack alignItems="center" gap="$2">
       <SizableText color="$textSubdued" size={14}>
         {rateContent}
       </SizableText>
       <IconButton
         size="small"
+        variant="tertiary"
         onPress={handleExchangeRate}
         icon="SwitchHorOutline"
       />

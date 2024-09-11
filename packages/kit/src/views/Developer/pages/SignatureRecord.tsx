@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 
@@ -47,7 +48,7 @@ const SignTransactionButton = () => {
           hash: '0x866c4749db18695e4359f4e3f121a835d7715638315427e5521bcd078724d0d1',
           address: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
           data: {
-            type: 'send',
+            type: ETransactionType.SEND,
             amount: '100000',
             token: {
               name: 'USD Coin',
@@ -114,7 +115,7 @@ const CustomSignMessage = ({ num }: { num: number }) => {
     }
   }, [message, account, network]);
   return (
-    <YStack space="$4">
+    <YStack gap="$4">
       <Input value={message} onChangeText={setMessage} placeholder="message" />
       <Button onPress={onPress} loading={loading} disabled={!message.trim()}>
         Sign Message
@@ -124,10 +125,10 @@ const CustomSignMessage = ({ num }: { num: number }) => {
 };
 
 const DevHomeStack2 = () => {
-  const num = 1;
+  const num = 0;
   return (
     <Page>
-      <YStack px="$4" space="$4">
+      <YStack px="$4" gap="$4">
         <SignMessageButton />
         <SignTransactionButton />
         <ConnectSiteButton />

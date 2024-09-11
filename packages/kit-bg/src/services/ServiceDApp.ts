@@ -12,10 +12,12 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
@@ -26,12 +28,13 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
-import {
-  EAccountSelectorSceneName,
-  type IDappSourceInfo,
-} from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -52,29 +55,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-
-function buildModalRouteParams({
-  screens = [],
-  routeParams,
-}: {
-  screens: string[];
-  routeParams: Record<string, any>;
-}) {
-  const modalParams: { screen: any; params: any } = {
-    screen: null,
-    params: {},
-  };
-  let paramsCurrent = modalParams;
-  let paramsLast = modalParams;
-  screens.forEach((screen) => {
-    paramsCurrent.screen = screen;
-    paramsCurrent.params = {};
-    paramsLast = paramsCurrent;
-    paramsCurrent = paramsCurrent.params;
-  });
-  paramsLast.params = routeParams;
-  return modalParams;
-}
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -120,6 +100,11 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
+    defaultLogger.discovery.dapp.dappOpenModal({
+      request,
+      screens,
+      params,
+    });
     // Try to open an existing window anyway in the extension
     this.tryOpenExistingExtensionWindow();
 
@@ -193,12 +178,20 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      const extensionWindow = await extUtils.openStandaloneWindow({
-        routes: routeNames,
-        params: routeParams,
-      });
-      this.existingWindowId = extensionWindow.id;
+      if (sidePanelState.isOpen || platformEnv.isExtensionUiSidePanel) {
+        await extUtils.openSidePanel({
+          routes: routeNames,
+          params: routeParams,
+          modalParams,
+        });
+      } else {
+        // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
+        const extensionWindow = await extUtils.openStandaloneWindow({
+          routes: routeNames,
+          params: routeParams,
+        });
+        this.existingWindowId = extensionWindow.id;
+      }
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -222,7 +215,7 @@ class ServiceDApp extends ServiceBase {
 
   private tryOpenExistingExtensionWindow() {
     if (platformEnv.isExtension && this.existingWindowId) {
-      extUtils.openExistWindow({ windowId: this.existingWindowId });
+      extUtils.focusExistWindow({ windowId: this.existingWindowId });
     }
   }
 
@@ -270,7 +263,7 @@ class ServiceDApp extends ServiceBase {
         networkId,
         sceneName,
       },
-      fullScreen: true,
+      fullScreen: !platformEnv.isNativeIOS,
     });
   }
 
@@ -453,7 +446,14 @@ class ServiceDApp extends ServiceBase {
       const walletConnectTopic =
         rawData?.data?.walletConnect?.[origin].walletConnectTopic;
       if (walletConnectTopic) {
-        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+        try {
+          await serviceWalletConnect.walletConnectDisconnect(
+            walletConnectTopic,
+          );
+        } catch (e) {
+          // ignore error
+          console.error('wallet connect disconnect error: ', e);
+        }
       }
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
@@ -564,9 +564,12 @@ class ServiceDApp extends ServiceBase {
     }
     return Promise.all(
       result.map(async (accountInfo) => {
+        const impls = networkUtils.isBTCNetwork(accountInfo.networkId)
+          ? [IMPL_BTC, IMPL_TBTC]
+          : [accountInfo.networkImpl];
         const { networkIds } =
           await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
-            impls: [accountInfo.networkImpl],
+            impls,
           });
         return { ...accountInfo, availableNetworkIds: networkIds };
       }),
@@ -635,7 +638,12 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    return allConnectedList;
+    const sortedList = allConnectedList.sort((a, b) => {
+      const aTime = a.updatedAt ?? 0;
+      const bTime = b.updatedAt ?? 0;
+      return bTime - aTime;
+    });
+    return sortedList;
   }
 
   async disconnectInactiveSessions(
@@ -853,22 +861,46 @@ class ServiceDApp extends ServiceBase {
   async notifyDAppChainChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
-        provider.notifyDappChainChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
+        try {
+          provider.notifyDappChainChanged({
+            send: this.backgroundApi.sendForProvider(provider.providerName),
+            targetOrigin,
+          });
+        } catch {
+          // ignore error
+        }
       },
     );
     return Promise.resolve();
   }
 
   @backgroundMethod()
+  async notifyChainSwitchUIToDappSite(params: {
+    targetOrigin: string;
+    getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+  }) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    void privateProvider.notifyDappSiteOfNetworkChange(
+      {
+        send: this.backgroundApi.sendForProvider('$private'),
+        targetOrigin: params.targetOrigin,
+      },
+      {
+        getNetworkName: params.getNetworkName,
+      },
+    );
+  }
+
+  @backgroundMethod()
   async proxyRPCCall<T>({
     networkId,
     request,
+    skipParseResponse,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
+    skipParseResponse?: boolean;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -891,7 +923,9 @@ class ServiceDApp extends ServiceBase {
 
     const data = results.data.data.data;
 
-    return data.map((item) => parseRPCResponse(item));
+    return data.map((item) =>
+      skipParseResponse ? item : parseRPCResponse(item),
+    );
   }
 
   @backgroundMethod()

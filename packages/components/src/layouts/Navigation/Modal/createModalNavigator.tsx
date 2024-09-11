@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import {
   StackRouter,
@@ -9,6 +15,7 @@ import { StackView } from '@react-navigation/stack';
 import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
+import { useThrottledCallback } from 'use-debounce';
 
 import { useBackHandler } from '../../../hooks';
 import { Stack, YStack } from '../../../primitives/Stack';
@@ -25,6 +32,7 @@ import type {
   StackNavigationState,
   StackRouterOptions,
 } from '@react-navigation/native';
+import type { GestureResponderEvent } from 'react-native';
 import type { TamaguiElement } from 'tamagui';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
@@ -77,9 +85,9 @@ function ModalNavigator({
     return true;
   }, [descriptor, navigation, goBackCall]);
 
-  useBackHandler(handleBackPress);
+  useBackHandler(handleBackPress, true, false);
 
-  const handleBackdropClick = useCallback(() => {
+  const handleBackdropClick = useThrottledCallback(() => {
     if (!descriptor.options.disableClose) {
       if (descriptor.options.dismissOnOverlayPress === false) {
         return;
@@ -90,7 +98,7 @@ function ModalNavigator({
         navigation?.getParent?.()?.goBack();
       }
     }
-  }, [navigation, descriptor]);
+  }, 350);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = useMemo(
@@ -152,6 +160,16 @@ function ModalNavigator({
   }, [rootNavigation, media, screenHeight]);
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
+
+  useLayoutEffect(() => {
+    const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
+    if (element) {
+      (
+        element as HTMLElement
+      ).style.transform = `translateY(${screenHeight}px)`;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -168,6 +186,12 @@ function ModalNavigator({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return listener;
   }, [navigation]);
+
+  const stopPropagation = useCallback((e: GestureResponderEvent) => {
+    // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
+    e?.stopPropagation();
+  }, []);
+
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -199,12 +223,12 @@ function ModalNavigator({
   return (
     <NavigationContent>
       <Stack
-        onPress={handleBackdropClick}
         flex={1}
         $gtMd={{
           justifyContent: 'center',
           alignItems: 'center',
         }}
+        onPress={handleBackdropClick}
       >
         {currentRouteIndex <= 1 ? (
           <YStack
@@ -220,9 +244,9 @@ function ModalNavigator({
         ) : null}
 
         <Stack
-          // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
-          onPress={(e) => e?.stopPropagation()}
+          onPress={stopPropagation}
           testID="APP-Modal-Screen"
+          className="app-region-no-drag"
           bg="$bgApp"
           overflow="hidden"
           width="100%"
@@ -245,7 +269,6 @@ function ModalNavigator({
             }
           }}
           style={{
-            transform: [{ translateY: screenHeight }],
             transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
             willChange: 'transform',
           }}

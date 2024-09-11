@@ -1,6 +1,8 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
+import type { IInputProps } from '../Input';
+import type { GestureResponderEvent } from 'react-native';
 import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
@@ -8,6 +10,7 @@ export interface ISelectRenderTriggerProps {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  onPress?: (event: GestureResponderEvent) => void;
 }
 
 export interface ISelectTriggerProps {
@@ -42,9 +45,11 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   onChange?: (value: T) => void;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
+  defaultTriggerInputProps?: IInputProps;
   disabled?: boolean;
   sheetProps?: SheetProps;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   testID?: string;
+  offset?: IPopoverProps['offset'];
 }>;

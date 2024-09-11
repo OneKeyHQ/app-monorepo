@@ -5,17 +5,17 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
-const { createResolveExtensions } = require('./utils');
 const { exit } = require('process');
+const { createResolveExtensions } = require('./utils');
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 
-const IS_EAS_BUILD = !!process.env.EAS_BUILD
+const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
     compiler.hooks.done.tap('BuildDoneNotifyPlugin', (compilation) => {
       if (IS_EAS_BUILD) {
-        exit(0)
+        exit(0);
       } else {
         const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
           (compilation.endTime - compilation.startTime) / 1000

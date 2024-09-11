@@ -80,19 +80,22 @@ export default function useFormatDate() {
 
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth();
-      let formatTemplate = 'LLL dd yyyy, HH:mm';
-
+      let formatTemplate = 'yyyy/LL/dd, HH:mm';
+      if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
+        formatTemplate = 'LL/dd/yyyy, HH:mm';
+      }
       if (
         (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
         options?.hideYear
       ) {
-        formatTemplate = formatTemplate.replace(' yyyy', '');
+        formatTemplate = formatTemplate.replace('yyyy/', '');
+        formatTemplate = formatTemplate.replace('/yyyy', '');
       }
       if (
         (currentMonth === parsedDate.getMonth() && options?.hideTheMonth) ||
         options?.hideMonth
       ) {
-        formatTemplate = formatTemplate.replace('LLL ', '');
+        formatTemplate = formatTemplate.replace('LL/', '');
       }
       if (options?.hideTimeForever) {
         formatTemplate = formatTemplate.replace(', HH:mm', '');
@@ -103,7 +106,7 @@ export default function useFormatDate() {
 
       return format(parsedDate, formatTemplate) ?? '';
     },
-    [format],
+    [format, locale],
   );
 
   const formatMonth = useCallback(

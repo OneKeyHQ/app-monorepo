@@ -9,6 +9,7 @@ import {
   defaultAminoMsgOpts,
   getFee,
   getMsgs,
+  getSendAmount,
   getSequence,
   pubkeyToAddressDetail,
   serializeSignedTx,
@@ -197,20 +198,20 @@ export default class VaultCosmos extends VaultBase {
     const accountInfo =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: network.id,
-        accountAddress: transfersInfo[0].from,
+        accountId: this.accountId,
+        withNonce: true,
       });
     if (!accountInfo) {
       throw new Error('Invalid account');
     }
     const txBuilder = new TxAminoBuilder();
     const account = await this.getAccount();
-    if (!account.pub) {
-      throw new Error('Invalid account');
-    }
-    const pubkey = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(account.pub));
+    const pubkey = bufferUtils.hexToBytes(
+      hexUtils.stripHexPrefix(account.pub ?? ''),
+    );
 
     const gasLimit = '0';
-    const feeAmount = '1';
+    const feeAmount = '1'; // cannot be 0, because estimated tx gas will too low
 
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: transfersInfo[0].memo || '',
@@ -281,31 +282,35 @@ export default class VaultCosmos extends VaultBase {
         const amounts = amount as Array<{ denom: string; amount: string }>;
         const token = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
+          accountId: this.accountId,
           tokenIdOnNetwork: amounts[0].denom,
-          accountAddress: account.address,
         });
-        const amountNumber = new BigNumber(amounts[0].amount)
-          .shiftedBy(-token.decimals)
-          .toFixed();
-        const amountDenom = token.symbol;
+        if (token) {
+          const amountNumber = new BigNumber(amounts[0].amount)
+            .shiftedBy(-token.decimals)
+            .toFixed();
+          const amountDenom = token.symbol;
 
-        action = await this.buildTxTransferAssetAction({
-          from: fromAddress,
-          to: toAddress,
-          transfers: [
-            {
-              from: fromAddress,
-              to: toAddress,
-              amount: amountNumber,
-              icon: token.logoURI ?? '',
-              symbol: amountDenom,
-              name: token.name,
-              tokenIdOnNetwork: token.address,
-              isNative: amountDenom === network.symbol,
-            },
-          ],
-        });
-      } else {
+          action = await this.buildTxTransferAssetAction({
+            from: fromAddress,
+            to: toAddress,
+            transfers: [
+              {
+                from: fromAddress,
+                to: toAddress,
+                amount: amountNumber,
+                icon: token.logoURI ?? '',
+                symbol: amountDenom,
+                name: token.name,
+                tokenIdOnNetwork: token.address,
+                isNative: amountDenom === network.symbol,
+              },
+            ],
+          });
+        }
+      }
+
+      if (!action) {
         action = {
           type: EDecodedTxActionType.UNKNOWN,
           direction: EDecodedTxDirection.OTHER,
@@ -315,6 +320,7 @@ export default class VaultCosmos extends VaultBase {
           },
         };
       }
+
       if (action) actions.push(action);
     }
 
@@ -386,7 +392,8 @@ export default class VaultCosmos extends VaultBase {
     const amount = gasLimitNum
       .multipliedBy(gasPriceNum)
       .shiftedBy(common.feeDecimals)
-      .toFixed(0);
+      .integerValue(BigNumber.ROUND_CEIL)
+      .toString();
     const newAmount = [
       {
         denom: common.feeSymbol,
@@ -438,7 +445,7 @@ export default class VaultCosmos extends VaultBase {
       const tokenInfo = unsignedTx.transfersInfo?.[0].tokenInfo;
       const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
         .shiftedBy(tokenInfo?.decimals ?? 0)
-        .toFixed(0);
+        .toFixed(0, BigNumber.ROUND_FLOOR);
       unsignedTx.encodedTx = setSendAmount(txWrapper, amount).toObject();
     }
 
@@ -478,8 +485,43 @@ export default class VaultCosmos extends VaultBase {
     }
 
     const account = await this.getAccount();
+    const txWrapper = new TransactionWrapper(
+      encodedTx?.signDoc,
+      encodedTx?.msg,
+    );
+
+    const networkInfo = await this.getNetworkInfo();
+    const sendNative = getSendAmount(
+      txWrapper,
+      networkInfo.nativeTokenAddress ?? '',
+    );
+    if (sendNative) {
+      const fee = getFee(txWrapper);
+      const feeAmount = fee.amount.find(
+        (e) => e.denom === networkInfo.nativeTokenAddress,
+      );
+      if (feeAmount) {
+        const tokenDetail =
+          await this.backgroundApi.serviceToken.fetchTokensDetails({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            contractList: [networkInfo.nativeTokenAddress ?? ''],
+            withFrozenBalance: false,
+            withCheckInscription: false,
+          });
+        const balance = new BigNumber(tokenDetail[0].balance);
+        const feeNum = new BigNumber(feeAmount.amount);
+        if (balance < feeNum.plus(sendNative)) {
+          const amount = balance
+            .minus(feeNum)
+            .toFixed(0, BigNumber.ROUND_FLOOR);
+          setSendAmount(txWrapper, amount);
+        }
+      }
+    }
+
     const rawTx = serializeSignedTx({
-      txWrapper: new TransactionWrapper(encodedTx?.signDoc, encodedTx?.msg),
+      txWrapper,
       signature: {
         signatures: [Buffer.alloc(64, 0)],
       },

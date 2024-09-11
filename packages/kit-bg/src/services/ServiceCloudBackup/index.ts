@@ -1,4 +1,5 @@
 import { deviceName, osName } from 'expo-device';
+import { debounce } from 'lodash';
 
 import {
   decryptImportedCredential,
@@ -19,6 +20,8 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -36,7 +39,11 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import ServiceBase from '../ServiceBase';
 
 import { ERestoreResult } from './types';
-import { filterWillRemoveBackupList } from './utils/BackupTimeStrategyUtils';
+import {
+  accountCountWithBackup,
+  filterWillRemoveBackupList,
+  isAvailableBackupWithBackup,
+} from './utils/BackupUtils';
 
 import type {
   IBackupData,
@@ -216,6 +223,14 @@ class ServiceCloudBackup extends ServiceBase {
       deviceInfo: this.deviceInfo,
       ...(await this.getDataForBackup(password)),
     };
+    const accountCount = accountCountWithBackup(cloudData.publicData);
+    if (!isAvailableBackupWithBackup(cloudData.publicData)) {
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.backup_no_content_available_for_backup,
+        }),
+      );
+    }
     const filename = generateUUID();
     try {
       if (!RNFS) return;
@@ -240,13 +255,7 @@ class ServiceCloudBackup extends ServiceBase {
         backupTime: cloudData.backupTime,
         appVersion: cloudData.appVersion,
         walletCount: Object.keys(cloudData.publicData.HDWallets).length,
-        accountCount:
-          Object.values(cloudData.publicData.HDWallets).reduce(
-            (count, wallet) => count + wallet.indexedAccountUUIDs.length,
-            0,
-          ) +
-          Object.keys(cloudData.publicData.importedAccounts).length +
-          Object.keys(cloudData.publicData.watchingAccounts).length,
+        accountCount,
       });
       const newMetaData = JSON.stringify(existMetaData);
       JSON.parse(newMetaData);
@@ -282,7 +291,7 @@ class ServiceCloudBackup extends ServiceBase {
         isEnabled: false,
         isInProgress: false,
       });
-      await this.logoutFromGoogleDrive(false);
+      await this.logoutFromGoogleDrive(true);
       return false;
     }
     return true;
@@ -593,14 +602,10 @@ class ServiceCloudBackup extends ServiceBase {
         });
       }
 
-      for (const contactUUID of Object.keys(notOnDevice.contacts)) {
-        const { name, address, networkId } = privateData.contacts[contactUUID];
-        await serviceAddressBook.addItem({
-          name,
-          address,
-          networkId,
-        });
-      }
+      await serviceAddressBook.bulkSetItemsWithUniq(
+        Object.values(privateData.contacts),
+        localPassword,
+      );
 
       if (notOnDevice.discoverBookmarks) {
         const existBookmarks =
@@ -619,39 +624,54 @@ class ServiceCloudBackup extends ServiceBase {
 
   private timer?: NodeJS.Timeout;
 
-  @backgroundMethod()
-  async requestAutoBackup() {
-    try {
-      const metaData = await this.getMetaDataFromCloud();
-      const autoBackupList = metaData.filter(
-        (current) => !current.isManualBackup,
-      );
-      if (autoBackupList.length <= 0) {
-        await this.backupNow(false);
+  requestAutoBackupDebounce = debounce(
+    async () => {
+      if (await this.backgroundApi.serviceV4Migration.isAtMigrationPage()) {
         return;
       }
-      const latestBackup = autoBackupList.reduce(
-        (reduceBackup, currentBackup) =>
-          currentBackup.backupTime > reduceBackup.backupTime
-            ? currentBackup
-            : reduceBackup,
-      );
-      const autoBackupDuration = timerUtils.getTimeDurationMs({ hour: 1 });
-      const delay = Math.max(
-        0,
-        Math.min(
-          autoBackupDuration - (new Date().getTime() - latestBackup.backupTime),
-          autoBackupDuration,
-        ),
-      );
-      clearTimeout(this.timer);
-      this.timer = setTimeout(async () => {
+      try {
+        const metaData = await this.getMetaDataFromCloud();
+        const autoBackupList = metaData.filter(
+          (current) => !current.isManualBackup,
+        );
+        if (autoBackupList.length <= 0) {
+          await this.backupNow(false);
+          return;
+        }
+        const latestBackup = autoBackupList.reduce(
+          (reduceBackup, currentBackup) =>
+            currentBackup.backupTime > reduceBackup.backupTime
+              ? currentBackup
+              : reduceBackup,
+        );
+        const autoBackupDuration = timerUtils.getTimeDurationMs({ hour: 1 });
+        const delay = Math.max(
+          0,
+          Math.min(
+            autoBackupDuration -
+              (new Date().getTime() - latestBackup.backupTime),
+            autoBackupDuration,
+          ),
+        );
         clearTimeout(this.timer);
-        void this.autoCreateAndRemoveBackup();
-      }, delay);
-    } catch (e) {
-      console.error('backup auto task', e);
-    }
+        this.timer = setTimeout(async () => {
+          clearTimeout(this.timer);
+          void this.autoCreateAndRemoveBackup();
+        }, delay);
+      } catch (e) {
+        console.error('backup auto task', e);
+      }
+    },
+    1000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  async requestAutoBackup() {
+    void this.requestAutoBackupDebounce();
   }
 
   async autoCreateAndRemoveBackup() {

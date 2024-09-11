@@ -2,7 +2,6 @@ import { debounce } from 'lodash';
 
 import { Stack } from '@onekeyhq/components';
 import {
-  ENABLE_SEARCH_HISTORY_MIN_LENGTH,
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -15,31 +14,26 @@ import {
 import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
-  history: IAccountHistoryTx[];
   filteredHistory: IAccountHistoryTx[];
 };
 
-function TxHistoryListHeader({ history, filteredHistory }: IProps) {
+function TxHistoryListHeader({ filteredHistory }: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const { updateSearchKey } = useHistoryListActions().current;
 
   return (
     <Stack>
       <ListToolToolBar
-        searchProps={
-          history.length >= ENABLE_SEARCH_HISTORY_MIN_LENGTH
-            ? {
-                onChangeText: debounce(
-                  (text) => updateSearchKey(text),
-                  SEARCH_DEBOUNCE_INTERVAL,
-                ),
-                searchResultCount:
-                  searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
-                    ? filteredHistory.length
-                    : 0,
-              }
-            : undefined
-        }
+        searchProps={{
+          onChangeText: debounce(
+            (text) => updateSearchKey(text),
+            SEARCH_DEBOUNCE_INTERVAL,
+          ),
+          searchResultCount:
+            searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
+              ? filteredHistory.length
+              : 0,
+        }}
         // headerRight={
         //   <Popover
         //     title="Settings"

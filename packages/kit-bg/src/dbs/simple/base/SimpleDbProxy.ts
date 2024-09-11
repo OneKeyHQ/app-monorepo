@@ -3,14 +3,19 @@ import { BackgroundServiceProxyBase } from '../../../apis/BackgroundServiceProxy
 import type { SimpleDb } from './SimpleDb';
 import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBase';
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
+import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
@@ -21,6 +26,7 @@ import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConf
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
+import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -111,4 +117,24 @@ export class SimpleDbProxy
   universalSearch = this._createProxyService(
     'universalSearch',
   ) as SimpleDbEntityUniversalSearch;
+
+  customTokens = this._createProxyService(
+    'customTokens',
+  ) as SimpleDbEntityCustomTokens;
+
+  customRpc = this._createProxyService('customRpc') as SimpleDbEntityCustomRpc;
+
+  v4MigrationResult = this._createProxyService(
+    'v4MigrationResult',
+  ) as SimpleDbEntityV4MigrationResult;
+
+  accountValue = this._createProxyService(
+    'accountValue',
+  ) as SimpleDbEntityAccountValue;
+
+  legacyWalletNames = this._createProxyService(
+    'legacyWalletNames',
+  ) as SimpleDbEntityLegacyWalletNames;
+
+  earn = this._createProxyService('earn') as SimpleDbEntityEarn;
 }

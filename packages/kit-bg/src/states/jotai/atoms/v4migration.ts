@@ -22,6 +22,7 @@ export const { target: v4migrationAtom, use: useV4migrationAtom } =
 export type IV4MigrationPersistAtom = {
   v4migrationAutoStartDisabled: boolean;
   v4migrationAutoStartCount: number;
+  downgradeWarningConfirmed: boolean;
 };
 export const {
   target: v4migrationPersistAtom,
@@ -32,5 +33,6 @@ export const {
   initialValue: {
     v4migrationAutoStartDisabled: false,
     v4migrationAutoStartCount: 0,
+    downgradeWarningConfirmed: false,
   },
 });

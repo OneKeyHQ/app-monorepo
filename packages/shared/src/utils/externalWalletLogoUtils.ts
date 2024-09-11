@@ -92,9 +92,9 @@ function getLogoInfoFromWalletConnect({
   let logo: string | undefined = icons?.[0];
   if (!logo) {
     if (
-      url?.startsWith('https://metamask.io') ||
+      url?.startsWith('https://metamask.io/') ||
       redirect?.native?.startsWith('metamask://') ||
-      redirect?.universal?.startsWith('https://metamask.app.link')
+      redirect?.universal?.startsWith('https://metamask.app.link/')
     ) {
       const info = getLogoInfo('metamask');
       return {

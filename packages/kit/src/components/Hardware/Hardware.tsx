@@ -4,10 +4,11 @@ import { useForm } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
+import type { IColorTokens } from '@onekeyhq/components';
 import {
   Alert,
   Button,
+  Dialog,
   Form,
   IconButton,
   Input,
@@ -21,16 +22,21 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
+import { isPassphraseValid } from '../../utils/passphraseUtils';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export interface IConfirmOnDeviceToastContentProps {
   deviceType: IDeviceType;
 }
+
 export function ConfirmOnDeviceToastContent({
   deviceType,
 }: IConfirmOnDeviceToastContentProps) {
   const intl = useIntl();
   const [animationData, setAnimationData] = useState<any>(null);
+  const [showErrorButton, setShowErrorButton] = useState(false);
 
   const requireResource = useCallback(() => {
     switch (deviceType) {
@@ -70,18 +76,32 @@ export function ConfirmOnDeviceToastContent({
       });
   }, [requireResource]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShowErrorButton(true);
+    }, SHOW_CLOSE_ACTION_MIN_DURATION);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, []);
+
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
         <LottieView width={72} height={72} source={animationData ?? ''} />
       </Stack>
-      <XStack flex={1} alignItems="center" px="$3" space="$5">
+      <XStack flex={1} alignItems="center" px="$3" gap="$5">
         <SizableText flex={1} size="$bodyLgMedium">
           {intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
-        <Toast.Close>
-          <IconButton size="small" icon="CrossedSmallOutline" />
-        </Toast.Close>
+        <Stack minWidth="$8">
+          {showErrorButton ? (
+            <Toast.Close>
+              <IconButton size="small" icon="CrossedSmallOutline" />
+            </Toast.Close>
+          ) : null}
+        </Stack>
       </XStack>
     </XStack>
   );
@@ -187,6 +207,18 @@ export function EnterPin({
   );
   return (
     <Stack>
+      <Dialog.Header>
+        <Dialog.Title>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_title,
+          })}
+        </Dialog.Title>
+        <Dialog.Description>
+          {intl.formatMessage({
+            id: ETranslations.enter_pin_desc,
+          })}
+        </Dialog.Description>
+      </Dialog.Header>
       <Stack
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
@@ -203,7 +235,7 @@ export function EnterPin({
           bg="$bgSubdued"
         >
           <SizableText
-            selectable={false}
+            userSelect="none"
             pl="$6"
             textAlign="center"
             flex={1}
@@ -243,13 +275,22 @@ export function EnterPin({
                 bg: '$bgActive',
               }}
               focusable
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineColor: '$focusRing',
                 outlineOffset: -2,
                 outlineWidth: 2,
                 outlineStyle: 'solid',
               }}
-              onPress={() => setVal((v) => v + num)}
+              onPress={() =>
+                setVal((v) => {
+                  // classic only supports 9 digits
+                  // pro only on device input pin
+                  if (v.length >= 9) {
+                    return v;
+                  }
+                  return v + num;
+                })
+              }
             >
               <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />
             </Stack>
@@ -262,7 +303,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={() => {
@@ -277,7 +318,7 @@ export function EnterPin({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={() => {
@@ -332,6 +373,15 @@ export function EnterPhase({
                 },
               ),
             },
+            validate: (text) => {
+              const valid = isPassphraseValid(text);
+              if (valid) {
+                return undefined;
+              }
+              return intl.formatMessage({
+                id: ETranslations.hardware_unsupported_passphrase_characters,
+              });
+            },
             onChange: () => {
               form.clearErrors();
             },
@@ -372,14 +422,14 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={form.handleSubmit(async () => {
           const values = form.getValues();
           if (
             !isSingleInput &&
-            values.passphrase !== values.confirmPassphrase
+            (values.passphrase || '') !== (values.confirmPassphrase || '')
           ) {
             Toast.error({
               title: intl.formatMessage({
@@ -419,7 +469,7 @@ export function EnterPhase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}
@@ -514,7 +564,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="primary"
         onPress={onConfirm}
@@ -527,7 +577,7 @@ export function ConfirmPassphrase({
         $md={
           {
             size: 'large',
-          } as IButtonProps
+          } as any
         }
         variant="tertiary"
         onPress={switchOnDevice}

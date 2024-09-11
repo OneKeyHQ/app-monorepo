@@ -6,6 +6,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getDefaultLocale,
+  getLocaleMessages,
+} from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
@@ -174,8 +179,10 @@ class ServiceContextMenu extends ServiceBase {
     origin: string | null,
     isDefaultWallet?: boolean,
   ) {
+    const locale = getDefaultLocale();
+    const messages = await getLocaleMessages(locale);
     if (!origin) {
-      return 'Cancel the default on this dApp';
+      return messages[ETranslations.explore_cancel_default];
     }
     let defaultWallet: boolean;
     if (typeof isDefaultWallet === 'boolean') {
@@ -184,8 +191,8 @@ class ServiceContextMenu extends ServiceBase {
       defaultWallet = await this.getIsDefaultWalletByOrigin(origin);
     }
     return defaultWallet
-      ? 'Cancel the default on this dApp.'
-      : 'Set OneKey as Default Wallet';
+      ? messages[ETranslations.explore_cancel_default]
+      : messages[ETranslations.explore_set_default];
   }
 
   @backgroundMethod()

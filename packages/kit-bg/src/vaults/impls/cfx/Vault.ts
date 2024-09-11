@@ -27,14 +27,14 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-} from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -56,7 +56,7 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
+  IApproveInfo,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -64,6 +64,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -126,7 +127,7 @@ export default class Vault extends VaultBase {
     const networkInfo = await this.getNetworkInfo();
     const chainId = await this.getNetworkChainId();
 
-    let cfxAddress = account.addresses[networkId];
+    let cfxAddress = account.address || account.addresses?.[networkId] || '';
 
     if (account.pub) {
       const compressedPublicKey = bufferUtils.toBuffer(account.pub);
@@ -152,7 +153,7 @@ export default class Vault extends VaultBase {
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    const { transfersInfo } = params;
+    const { transfersInfo, approveInfo } = params;
 
     if (transfersInfo && !isEmpty(transfersInfo)) {
       if (transfersInfo.length === 1) {
@@ -161,6 +162,10 @@ export default class Vault extends VaultBase {
         });
       }
       throw new OneKeyInternalError('Batch transfers not supported');
+    }
+
+    if (approveInfo) {
+      return this._buildEncodeTxFromApprove(params);
     }
 
     throw new OneKeyInternalError();
@@ -212,6 +217,42 @@ export default class Vault extends VaultBase {
       value: '0x0',
       data,
     });
+  }
+
+  async _buildEncodeTxFromApprove(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxCfx> {
+    const { approveInfo } = params;
+
+    const { owner, spender, amount, tokenInfo, isMax } =
+      approveInfo as IApproveInfo;
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(
+      amountBN.isNaN() || isMax
+        ? new BigNumber(2).pow(256).minus(1)
+        : amountBN.shiftedBy(tokenInfo.decimals),
+    );
+
+    const spenderAddress = `0x${confluxAddress
+      .decodeCfxAddress(spender)
+      .hexAddress.toString('hex')}`;
+
+    const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+      .encode(['address', 'uint256'], [spenderAddress, amountHex])
+      .slice(2)}`;
+    return {
+      from: owner,
+      to: tokenInfo.address,
+      value: '0x0',
+      data,
+    };
   }
 
   override async buildDecodedTx(
@@ -300,7 +341,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
       tokenIdOnNetwork: '',
     });
 
@@ -332,7 +373,6 @@ export default class Vault extends VaultBase {
   async _buildTxActionFromContract(params: { encodedTx: IEncodedTxCfx }) {
     const { encodedTx } = params;
     const client = await this.getConfluxClient();
-    const accountAddress = await this.getAccountAddress();
     let action: IDecodedTxAction | undefined;
     try {
       const crc20: ISdkCfxContract = await client.CRC20(
@@ -340,8 +380,8 @@ export default class Vault extends VaultBase {
       );
       const abiDecodeResult = crc20.abi.decodeData(encodedTx.data);
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
-        accountAddress,
         tokenIdOnNetwork: encodedTx.contract ?? encodedTx.to,
       });
       if (abiDecodeResult && tokenInfo) {
@@ -349,14 +389,11 @@ export default class Vault extends VaultBase {
           abiDecodeResult.name === 'transfer' ||
           abiDecodeResult.name === 'transferFrom'
         ) {
-          const { sender, recipient } = abiDecodeResult.object;
-          if (sender === encodedTx.from && recipient === encodedTx.from) {
-            action = await this._buildTxTransferTokenAction({
-              encodedTx,
-              abiDecodeResult,
-              tokenInfo,
-            });
-          }
+          action = await this._buildTxTransferTokenAction({
+            encodedTx,
+            abiDecodeResult,
+            tokenInfo,
+          });
         } else if (abiDecodeResult.name === 'approve') {
           action = await this._buildTxApproveTokenAction({
             encodedTx,
@@ -397,7 +434,7 @@ export default class Vault extends VaultBase {
 
     const action = await this.buildTxTransferAssetAction({
       from: encodedTx.from,
-      to: encodedTx.to,
+      to: to ?? recipient,
       transfers: [transfer],
     });
 
@@ -417,7 +454,8 @@ export default class Vault extends VaultBase {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: encodedTx.from ?? accountAddress,
-        to: spender,
+        to: encodedTx.to,
+        spender,
         amount: chainValueUtils.convertTokenChainValueToAmount({
           value: amount,
           token: tokenInfo,
@@ -425,6 +463,7 @@ export default class Vault extends VaultBase {
         icon: tokenInfo.logoURI ?? '',
         name: tokenInfo.name,
         symbol: tokenInfo.symbol,
+        decimals: tokenInfo.decimals,
         tokenIdOnNetwork: tokenInfo.address,
         isInfiniteAmount:
           toBigIntHex(new BigNumber(amount)) === INFINITE_AMOUNT_HEX,
@@ -489,8 +528,21 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo, nonceInfo, nativeAmountInfo } = params;
+    const {
+      unsignedTx,
+      feeInfo,
+      nonceInfo,
+      nativeAmountInfo,
+      tokenApproveInfo,
+    } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxCfx;
+
+    if (tokenApproveInfo && tokenApproveInfo.allowance !== '') {
+      encodedTxNew = await this._updateTokenApproveInfo({
+        encodedTx: encodedTxNew,
+        tokenApproveInfo,
+      });
+    }
 
     if (feeInfo) {
       encodedTxNew = await this._attachFeeInfoToEncodedTx({
@@ -576,6 +628,42 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
+  async _updateTokenApproveInfo(params: {
+    encodedTx: IEncodedTxCfx;
+    tokenApproveInfo: ITokenApproveInfo;
+  }) {
+    const { encodedTx, tokenApproveInfo } = params;
+    const action = await this._buildTxActionFromContract({ encodedTx });
+    if (
+      action &&
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
+      const { allowance, isUnlimited } = tokenApproveInfo;
+      const { spender, decimals } = action.tokenApprove;
+
+      const amountHex = toBigIntHex(
+        isUnlimited
+          ? new BigNumber(2).pow(256).minus(1)
+          : new BigNumber(allowance).shiftedBy(decimals),
+      );
+
+      const spenderAddress = `0x${confluxAddress
+        .decodeCfxAddress(spender)
+        .hexAddress.toString('hex')}`;
+
+      const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+        .encode(['address', 'uint256'], [spenderAddress, amountHex])
+        .slice(2)}`;
+
+      return {
+        ...encodedTx,
+        data,
+      };
+    }
+    return encodedTx;
+  }
+
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const isValid = confluxAddress.isValidCfxAddress(address);
     if (isValid) {
@@ -595,7 +683,10 @@ export default class Vault extends VaultBase {
 
   override async addressFromBase(account: IDBAccount) {
     const chainId = await this.getNetworkChainId();
-    return confluxAddress.encodeCfxAddress(account.address, parseInt(chainId));
+    return confluxAddress.encodeCfxAddress(
+      account.address,
+      parseInt(chainId, 10),
+    );
   }
 
   override async addressToBase(address: string) {

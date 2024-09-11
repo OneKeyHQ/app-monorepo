@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components';
@@ -7,7 +9,7 @@ import { getTokens } from '@onekeyhq/components/src/hooks';
 export default function useHomePageWidth() {
   const media = useMedia();
   const screenWidth = useWindowDimensions().width;
-  const sideBarWidth = getTokens().size.sideBarWidth.val;
+  const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
   const { leftSidebarCollapsed } = useProviderSideBarValue();
   return {
     screenWidth,

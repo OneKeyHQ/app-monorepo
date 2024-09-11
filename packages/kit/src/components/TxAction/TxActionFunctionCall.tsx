@@ -36,7 +36,8 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 }
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon, replaceType } =
+    props;
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
     useFeeInfoInDecodedTx({
       decodedTx,
@@ -48,7 +49,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
   const title = functionName;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: functionIcon,
-    fallbackIcon: 'ImageMountainSolid',
+    fallbackIcon: 'Document2Outline',
   };
   const description = {
     children: accountUtils.shortenAddress({ address: functionTo }),
@@ -66,6 +67,10 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
       hideFeeInfo={hideFeeInfo}
+      replaceType={replaceType}
+      status={decodedTx.status}
+      networkId={decodedTx.networkId}
+      networkLogoURI={decodedTx.networkLogoURI}
       {...componentProps}
     />
   );
@@ -79,6 +84,7 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
 
   return (
     <TxActionCommonDetailView
+      networkId={decodedTx.networkId}
       overview={{
         title: intl.formatMessage({
           id: ETranslations.transaction__contract_interaction,
@@ -86,11 +92,12 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
         content: functionName,
         avatar: {
           src: functionIcon,
+          fallbackIcon: 'Document2Outline',
         },
       }}
       target={{
         title: intl.formatMessage({
-          id: ETranslations.transaction_to_contract,
+          id: ETranslations.interact_with_contract,
         }),
         content: functionTo,
       }}

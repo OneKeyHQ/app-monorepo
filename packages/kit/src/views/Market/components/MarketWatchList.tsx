@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  Image,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  getSharedButtonStyles,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -38,35 +38,36 @@ function RecommendItem({
   coingeckoId: string;
   onChange: (checked: boolean, coingeckoId: string) => void;
 }) {
+  const { sharedFrameStyles } = useMemo(
+    () =>
+      getSharedButtonStyles({
+        disabled: false,
+        loading: false,
+      }),
+    [],
+  );
   return (
     <XStack
-      cursor="pointer"
+      userSelect="none"
       flexGrow={1}
       flexBasis={0}
       justifyContent="space-between"
       px={platformEnv.isExtensionUiPopup ? '$3' : '$4'}
       py={platformEnv.isExtensionUiPopup ? '$1.5' : '$3.5'}
-      bg="$bgSubdued"
-      borderColor="$borderSubdued"
-      borderWidth="$px"
       borderRadius="$3"
       onPress={() => {
         onChange(!checked, coingeckoId);
       }}
       ai="center"
+      {...sharedFrameStyles}
     >
-      <XStack space="$3" ai="center" flexShrink={1}>
+      <XStack gap="$3" ai="center" flexShrink={1}>
         <MarketTokenIcon uri={icon} size="$8" />
         <YStack flexShrink={1}>
-          <SizableText
-            selectable={false}
-            size="$bodyLgMedium"
-            numberOfLines={1}
-          >
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {symbol.toUpperCase()}
           </SizableText>
           <SizableText
-            selectable={false}
             size="$bodyMd"
             color="$textSubdued"
             flexShrink={1}
@@ -88,7 +89,7 @@ function RecommendItem({
 const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const intl = useIntl();
-  const [{ data: watchListCoingeckoIds, loading }] = useMarketWatchListAtom();
+  const [{ data: watchListCoingeckoIds, isMounted }] = useMarketWatchListAtom();
 
   const actions = useWatchListAction();
 
@@ -183,13 +184,13 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
             </SizableText>
             <YStack
               pt={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
-              space="$2.5"
+              gap="$2.5"
               flexWrap="wrap"
               width="100%"
               $gtMd={{ maxWidth: 480 }}
             >
               {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-                <XStack space="$2.5" key={i}>
+                <XStack gap="$2.5" key={i}>
                   {new Array(2).fill(0).map((__, j) => {
                     const item = category.recommendedTokens?.[i * 2 + j];
                     return item ? (
@@ -206,7 +207,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                   })}
                 </XStack>
               ))}
-              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+              {gtMd ? <YStack pt="$8">{confirmButton}</YStack> : null}
             </YStack>
           </ScrollView>
           {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}
@@ -222,7 +223,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     handleRecommendItemChange,
     intl,
   ]);
-  if (loading) {
+  if (!isMounted) {
     return null;
   }
   return watchListCoingeckoIds?.length === 0 ? (

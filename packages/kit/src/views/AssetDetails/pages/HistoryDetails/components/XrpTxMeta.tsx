@@ -19,7 +19,7 @@ function XrpTxAttributes({ decodedTx }: { decodedTx: IDecodedTx }) {
           label={intl.formatMessage({
             id: ETranslations.wallet_ledger_index,
           })}
-          renderContent={xrpExtraInfo.ledgerIndex}
+          renderContent={`${xrpExtraInfo.ledgerIndex}`}
         />
       ) : null}
       {xrpExtraInfo?.lastLedgerSequence ? (
@@ -27,7 +27,7 @@ function XrpTxAttributes({ decodedTx }: { decodedTx: IDecodedTx }) {
           label={intl.formatMessage({
             id: ETranslations.wallet_last_ledger_sequence,
           })}
-          renderContent={xrpExtraInfo.lastLedgerSequence}
+          renderContent={`${xrpExtraInfo.lastLedgerSequence}`}
         />
       ) : null}
       {xrpExtraInfo?.destinationTag ? (
@@ -35,7 +35,7 @@ function XrpTxAttributes({ decodedTx }: { decodedTx: IDecodedTx }) {
           label={intl.formatMessage({
             id: ETranslations.wallet_destination_tag,
           })}
-          renderContent={xrpExtraInfo.destinationTag}
+          renderContent={`${xrpExtraInfo.destinationTag}`}
         />
       ) : null}
     </>

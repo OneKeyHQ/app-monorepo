@@ -7,6 +7,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -52,7 +53,7 @@ class ProviderApiWebln extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // noop
   }
 
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
@@ -74,6 +75,7 @@ class ProviderApiWebln extends ProviderApiBase {
   // WEBLN API
   @providerApiMethod()
   public async enable(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     try {
       const accountsInfo = await this._getAccountsInfo(request);
       if (accountsInfo.length > 0) {
@@ -110,6 +112,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async makeInvoice(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -139,6 +142,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async sendPayment(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -170,6 +174,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async signMessage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -200,6 +205,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async verifyMessage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -228,6 +234,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   @providerApiMethod()
   public async lnurl(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
@@ -307,16 +314,12 @@ class ProviderApiWebln extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId: accountId ?? '',
-        networkId: networkId ?? '',
-      });
-    if (accountAddress) {
+
+    if (accountId && networkId) {
       const accountInfo =
         await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId: networkId ?? '',
-          accountAddress,
+          accountId,
+          networkId,
         });
       return {
         balance: new BigNumber(accountInfo.balance ?? 0).toNumber(),

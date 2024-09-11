@@ -7,6 +7,7 @@ import type {
 
 import type { EvmConnectorManager } from './EvmConnectorManager';
 
+export const EVM_INJECTED_GLOBAL_VAR = 'ethereum';
 export class ExternalConnectorEvmInjected {
   constructor() {
     throw new Error(

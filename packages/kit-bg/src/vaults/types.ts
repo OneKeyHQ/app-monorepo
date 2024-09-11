@@ -14,15 +14,21 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
@@ -32,6 +38,7 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -44,11 +51,8 @@ import type {
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWalletId,
-  IDBWalletType,
-} from '../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -63,12 +67,12 @@ export enum EVaultKeyringTypes {
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {
-  value: string;
+  value: string; // IAccountDeriveTypes
   label: string;
   item: IAccountDeriveInfo;
   description: string | undefined;
   descI18n?: {
-    id: ETranslations;
+    id: ETranslations | ETranslationsMock | undefined;
     data: Record<string | number, string>;
   };
 };
@@ -94,8 +98,6 @@ export interface IAccountDeriveInfo {
   };
   desc?: string;
   subDesc?: string;
-
-  disableWalletTypes?: IDBWalletType[];
 
   // recommended?: boolean;
   // notRecommended?: boolean;
@@ -129,7 +131,19 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  qrAccountEnabled?: boolean;
+  publicKeyExportEnabled?: boolean;
+
+  supportExportedSecretKeys?: ECoreApiExportedSecretKeyType[];
+
+  dappInteractionEnabled?: boolean;
+
   softwareAccountDisabled?: boolean;
+
+  supportedDeviceTypes?: IDeviceType[];
+
+  addressBookDisabled?: boolean;
+  copyAddressDisabled?: boolean;
 
   disabledSwapAction?: boolean;
   disabledSendAction?: boolean;
@@ -143,6 +157,8 @@ export type IVaultSettings = {
   defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
+  // Get the interval time for polling the fee API, in seconds
+  estimatedFeePollingInterval: number;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
@@ -172,9 +188,12 @@ export type IVaultSettings = {
   memoMaxLength?: number;
   numericOnlyMemo?: boolean;
 
+  // dnx
   withPaymentId?: boolean;
 
-  enabledOnClassicOnly?: boolean;
+  // algo
+  withNote?: boolean;
+  noteMaxLength?: number;
 
   hideFeeInfoInHistoryList?: boolean;
 
@@ -187,6 +206,29 @@ export type IVaultSettings = {
   ignoreUpdateNativeAmount?: boolean;
 
   withoutBroadcastTxId?: boolean;
+
+  transferZeroNativeTokenEnabled?: boolean;
+
+  gasLimitValidationEnabled?: boolean;
+
+  showAddressType?: boolean;
+
+  hideTxUtxoListWhenPending?: boolean;
+
+  maxSendFeeUpRatio?: {
+    [networkId: string]: number;
+  };
+
+  preCheckDappTxFeeInfoRequired?: boolean;
+
+  activateTokenRequired?: boolean;
+  customRpcEnabled?: boolean;
+  mergeDeriveAssetsEnabled?: boolean;
+  sendZeroWithZeroTokenBalanceDisabled?: boolean;
+
+  stakingConfig?: IStakingConfig;
+  editApproveAmountEnabled?: boolean;
+  useRemoteTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -219,7 +261,7 @@ export type IPrepareExternalAccountsParams = {
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
-  networks?: string[]; // watching account only available networkId
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   pub?: string;
   xpub?: string;
@@ -232,6 +274,7 @@ export type IPrepareWatchingAccountsParams = {
 export type IPrepareImportedAccountsParams = {
   password: string;
   importedCredential: ICoreImportedCredentialEncryptHex;
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   createAtNetwork: string;
   name: string;
   template?: string; // TODO use deriveInfo
@@ -332,6 +375,8 @@ export type ITransferInfo = {
   lightningAddress?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  note?: string; // Algo chain note
 };
 
 export type IApproveInfo = {
@@ -344,6 +389,9 @@ export type IApproveInfo = {
 
 export type ITransferPayload = {
   amountToSend: string;
+  isMaxSend: boolean;
+  isNFT: boolean;
+  originalRecipient: string;
 };
 
 export enum EWrappedType {
@@ -396,6 +444,7 @@ export interface IBuildEncodedTxParams {
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
+  transferPayload?: ITransferPayload;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -407,18 +456,34 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
+
+export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
-  tokenApproveInfo?: { allowance: string };
+  tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
+  accountId: string;
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
   signature?: string;
+}
+
+export interface IBroadcastTransactionByCustomRpcParams
+  extends IBroadcastTransactionParams {
+  customRpcInfo: IDBCustomRpc;
+}
+
+export interface IPreCheckFeeInfoParams {
+  encodedTx: IEncodedTx;
+  feeTokenSymbol: string;
+  feeAmount: string;
+  networkId: string;
+  accountAddress: string;
 }
 
 export interface ISignTransactionParamsBase {
@@ -439,6 +504,8 @@ export interface IBatchSignTransactionParamsBase {
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
+  replaceTxInfo?: IReplaceTxInfo;
+  transferPayload: ITransferPayload | undefined;
 }
 
 export interface ISignMessageParams {
@@ -457,6 +524,7 @@ export interface IBuildHistoryTxParams {
   nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
+  allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
 }
 
 export type IGetPrivateKeyFromImportedParams = {

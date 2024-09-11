@@ -14,7 +14,7 @@ function BasicMarketTokenIcon({
     return <Skeleton width={size} height={size} />;
   }
   return (
-    <Image size={size} borderRadius="$full">
+    <Image size={size} circular>
       <Image.Source source={{ uri: decodeURIComponent(uri) }} />
       <Image.Fallback>
         <Stack

@@ -8,11 +8,8 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -46,7 +43,7 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new NotImplemented();
+    // ignore
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -88,6 +85,7 @@ class ProviderApiCardano extends ProviderApiBase {
   @providerApiMethod()
   async connect(request: IJsBridgeMessagePayload) {
     return this.semaphore.runExclusive(async () => {
+      defaultLogger.discovery.dapp.dappRequest({ request });
       const connectedAddress = await this.cardano_accounts(request);
       if (connectedAddress) {
         return connectedAddress;
@@ -177,6 +175,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async signTx(request: IJsBridgeMessagePayload, params: { tx: string }) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
@@ -204,6 +203,7 @@ class ProviderApiCardano extends ProviderApiBase {
       payload: string;
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     if (typeof params.payload !== 'string') {
       throw web3Errors.rpc.invalidInput();
     }
@@ -215,9 +215,8 @@ class ProviderApiCardano extends ProviderApiBase {
       {
         request,
         unsignedMessage: {
-          // Use ETH_SIGN to sign plain message
-          type: EMessageTypesEth.ETH_SIGN,
-          message: Buffer.from(params.payload, 'hex').toString('utf8'),
+          type: EMessageTypesCommon.HEX_MESSAGE,
+          message: params.payload,
           payload: params,
         },
         networkId: networkId ?? '',
@@ -231,10 +230,12 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async submitTx(request: IJsBridgeMessagePayload, params: string) {
-    const { accountInfo: { networkId, address } = {} } = (
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
     return this.backgroundApi.serviceSend.broadcastTransaction({
+      accountId: accountId ?? '',
       networkId: networkId ?? '',
       signedTx: {
         txid: '',

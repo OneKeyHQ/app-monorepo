@@ -25,6 +25,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -134,7 +135,7 @@ function WalletItemView({
         }}
         onPress={onPress}
         focusable
-        focusStyle={{
+        focusVisibleStyle={{
           outlineColor: '$focusRing',
           outlineStyle: 'solid',
           outlineWidth: 2,
@@ -208,7 +209,7 @@ function ConnectToWalletDialogContent({
           $gtMd={
             {
               size: 'medium',
-            } as IButtonProps
+            } as any
           }
           onPress={onRetryPress}
         >
@@ -291,14 +292,16 @@ function WalletItem({
         });
       if (!loadingRef.current) {
         Toast.error({
-          title: 'User canceled connect wallet',
+          title: intl.formatMessage({
+            id: ETranslations.feedback_connection_request_denied,
+          }),
         });
         return;
       }
       const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
         connectResult,
       });
-      const account = r.accounts[0];
+      const account = r?.accounts?.[0];
       const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
         account,
         networkId: account.createAtNetwork || selectedAccount.networkId,
@@ -311,6 +314,12 @@ function WalletItem({
       });
       navigation.popStack();
       await dialogRef.current?.close();
+
+      // Currently, there are only walletconnect and evm.
+      defaultLogger.account.wallet.connect3rdPartyWallet({
+        '3rdpartyConnectNetwork': 'evm',
+        '3rdpartyConnectType': 'walletconnect',
+      });
     } finally {
       hideLoading();
     }
@@ -318,6 +327,7 @@ function WalletItem({
     actions,
     connectionInfo,
     hideLoading,
+    intl,
     navigation,
     selectedAccount.networkId,
     showLoading,

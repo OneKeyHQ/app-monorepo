@@ -135,7 +135,7 @@ const font = createFont({
 const animations = createAnimations({
   '50ms': {
     type: 'timing',
-    duration: 100,
+    duration: 50,
   },
   '100ms': {
     type: 'timing',
@@ -144,7 +144,7 @@ const animations = createAnimations({
   repeat: {
     type: 'timing',
     duration: 300,
-    repeat: 4,
+    repeat: 2,
   },
   quick: {
     type: 'spring',
@@ -429,6 +429,7 @@ const mergedTokens = createTokens({
     96: 384,
     100: 400,
     160: 640,
+    180: 720,
     sideBarWidth: 208,
   },
   radius: {

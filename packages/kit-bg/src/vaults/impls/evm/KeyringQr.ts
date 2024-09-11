@@ -1,5 +1,4 @@
 import { TransactionTypes } from '@ethersproject/transactions';
-import { verifyMessage } from '@ethersproject/wallet';
 import HDKey from 'hdkey';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
@@ -7,6 +6,7 @@ import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { verifyEvmSignedTxMatched } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -24,9 +24,12 @@ import {
 } from '@onekeyhq/qr-wallet-sdk';
 import type {
   IAirGapGenerateSignRequestParamsEvm,
-  IAirGapSignature,
+  IAirGapSignatureEvm,
 } from '@onekeyhq/qr-wallet-sdk/src/types';
-import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -50,6 +53,37 @@ import type {
 
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase = coreChainApi.evm.hd;
+
+  override async verifySignedTxMatched({
+    from,
+    rawTx,
+    txid,
+    requestId,
+    requestIdOfSig,
+    signature,
+  }: {
+    from: string;
+    rawTx: string;
+    txid: string;
+    requestId: string | undefined;
+    requestIdOfSig: string | undefined;
+    signature: {
+      v: string | number;
+      r: string;
+      s: string;
+    };
+  }): Promise<void> {
+    if (requestId && requestId !== requestIdOfSig) {
+      console.error('EVM tx requestId not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
+    return verifyEvmSignedTxMatched({
+      signerAddress: from,
+      rawTx,
+      txid,
+      signature,
+    });
+  }
 
   override getChildPathTemplates(
     params: IGetChildPathTemplatesParams,
@@ -86,10 +120,17 @@ export class KeyringQr extends KeyringQrBase {
     return Promise.resolve(signRequestUr);
   }
 
-  parseSignature(ur: AirGapUR): Promise<IAirGapSignature> {
+  parseSignature(ur: AirGapUR): Promise<IAirGapSignatureEvm> {
     const sdk = getAirGapSdk();
-    const sig = sdk.eth.parseSignature(ur);
-    return Promise.resolve(sig);
+    try {
+      const sig = sdk.eth.parseSignature(ur);
+      return Promise.resolve(sig);
+    } catch (error) {
+      // eslint-disable-next-line spellcheck/spell-checker
+      // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/ethereum.js
+      //        throw new Error('type not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
@@ -159,7 +200,7 @@ export class KeyringQr extends KeyringQrBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxEvm;
-    const { tx, serializedTxWithout0x } = packUnsignedTxForSignEvm({
+    const { tx, serializedTxWithout0x, digest } = packUnsignedTxForSignEvm({
       encodedTx,
     });
     let dataType = EAirGapDataTypeEvm.transaction;
@@ -186,11 +227,12 @@ export class KeyringQr extends KeyringQrBase {
         });
         return signRequestUr;
       },
-      signedResultBuilder: async ({ signatureUr }) => {
+      signedResultBuilder: async ({ signatureUr, requestId }) => {
         const signature = await this.parseSignature(
           checkIsDefined(signatureUr),
         );
         const signatureHex = signature.signature;
+        const origin = signature.origin || '';
 
         // const verifyMessageFn = verifyMessage;
         // // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -201,7 +243,12 @@ export class KeyringQr extends KeyringQrBase {
 
         const r = hexUtils.addHexPrefix(signatureHex.slice(0, 32 * 2));
         const s = hexUtils.addHexPrefix(signatureHex.slice(32 * 2, 64 * 2));
-        const v = signatureHex.slice(64 * 2); // do not add prefix 0x for v
+
+        // do not add prefix 0x for v if EIP1559 typedTransaction
+        let v = signatureHex.slice(64 * 2);
+        if (dataType === EAirGapDataTypeEvm.transaction) {
+          v = `0x${v}`; // add 0x if legacy transaction
+        }
 
         const { rawTx, txid } = buildSignedTxFromSignatureEvm({
           tx,
@@ -211,6 +258,16 @@ export class KeyringQr extends KeyringQrBase {
             v,
           },
         });
+
+        await this.verifySignedTxMatched({
+          requestId,
+          requestIdOfSig: signature.requestId,
+          rawTx,
+          txid,
+          signature: { r, s, v },
+          from: encodedTx.from,
+        });
+
         return Promise.resolve({
           txid,
           rawTx,

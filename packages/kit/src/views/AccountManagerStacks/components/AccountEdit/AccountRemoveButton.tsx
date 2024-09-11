@@ -39,11 +39,12 @@ export function AccountRemoveDialog({
             indexedAccount,
             account,
           });
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_change_saved,
-            }),
-          });
+          // Toast.success({
+          //   title: intl.formatMessage({
+          //     // TODO remove success not changed success
+          //     id: ETranslations.feedback_change_saved,
+          //   }),
+          // });
         } finally {
           setLoading(false);
           await close();
@@ -98,7 +99,9 @@ export function AccountRemoveButton({
 
   const desc = useMemo(() => {
     if (indexedAccount) {
-      return 'You can restore this account later in this wallet by using "Add Account" or "Bulk Add Accounts".';
+      return intl.formatMessage({
+        id: ETranslations.global_remove_account_desc,
+      });
     }
     if (account) {
       const walletId = accountUtils.getWalletIdFromAccountId({

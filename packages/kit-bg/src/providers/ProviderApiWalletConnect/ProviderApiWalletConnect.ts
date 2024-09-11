@@ -2,7 +2,11 @@ import { getSdkError } from '@walletconnect/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
@@ -114,11 +118,15 @@ class ProviderApiWalletConnect {
   onSessionProposal = async (proposal: Web3WalletTypes.SessionProposal) => {
     const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
     console.log('onSessionProposal: ', JSON.stringify(proposal));
+    const optionalNamespaces = proposal?.params?.optionalNamespaces;
+    const optionalNamespacesString = Object.keys(optionalNamespaces).join(', ');
     // check if all required networks are supported
     const notSupportedChains = await serviceWalletConnect.getNotSupportedChains(
       // proposal,
       proposal?.params?.requiredNamespaces,
     );
+    const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
+    const metadata = proposal.params.proposer.metadata;
     if (notSupportedChains.length > 0) {
       console.error(
         'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
@@ -133,11 +141,43 @@ class ProviderApiWalletConnect {
         title: `ChainId: ${notSupportedChains[0]}`,
         message: 'Unsupported yet',
       });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: optionalNamespacesString,
+        failReason: `Unsupported ChainId: ${notSupportedChains[0]}`,
+      });
       return;
     }
+    let modalResult: IWalletConnectSessionProposalResult | undefined;
 
     try {
-      const { origin } = new URL(proposal.params.proposer.metadata.url);
+      if (!origin) {
+        const message = appLocale.intl.formatMessage({
+          id: ETranslations.browser_invalid_url,
+        });
+        await this.web3Wallet?.rejectSession({
+          id: proposal.id,
+          reason: {
+            message,
+            code: 40_001,
+          },
+        });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: message,
+        });
+        defaultLogger.discovery.dapp.dappUse({
+          dappName: metadata.name,
+          dappDomain: metadata.url,
+          action: 'ConnectWallet',
+          network: optionalNamespacesString,
+          failReason: message,
+        });
+        return;
+      }
+
       const result = (await serviceDApp.openModal({
         request: {
           scope: '$walletConnect',
@@ -152,6 +192,7 @@ class ProviderApiWalletConnect {
           proposal,
         },
       })) as IWalletConnectSessionProposalResult;
+      modalResult = result;
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,
@@ -166,11 +207,26 @@ class ProviderApiWalletConnect {
         topic: newSession?.topic ?? '',
         accountsInfo: result.accountsInfo,
       });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: optionalNamespacesString,
+      });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
         reason: getSdkError('USER_REJECTED'),
+      });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: optionalNamespacesString,
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        failReason: `${e?.message ?? e}`,
       });
     }
   };

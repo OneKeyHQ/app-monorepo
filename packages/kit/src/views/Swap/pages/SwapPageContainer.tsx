@@ -10,8 +10,11 @@ const SwapPageContainer = () => {
   useDebugComponentRemountLog({ name: 'SwapPageContainer' });
 
   return (
-    <Page scrollEnabled fullPage>
-      <TabPageHeader sceneName={EAccountSelectorSceneName.swap} />
+    <Page fullPage>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.swap}
+        showHeaderRight={false}
+      />
       <Page.Body>
         <SwapMainLandWithPageType />
       </Page.Body>

@@ -36,7 +36,6 @@ import ServiceBase from '../ServiceBase';
 
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
-import type { IDBExternalAccount } from '../../dbs/local/types';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
@@ -98,20 +97,34 @@ class ServiceWalletConnect extends ServiceBase {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map<IWalletConnectChainInfo>((n) => {
-          let caipsInfo: ICaipsInfo | undefined;
+        const infos = networks.flatMap<IWalletConnectChainInfo>((n) => {
           const caipsItem = caipsToNetworkMap[namespace];
+          let matchingCaipsInfos: ICaipsInfo[] = [];
           if (caipsItem) {
-            caipsInfo = caipsItem.find((caips) => caips.networkId === n.id);
+            matchingCaipsInfos = caipsItem.filter(
+              (caips) => caips.networkId === n.id,
+            );
           }
-          const chainId = caipsInfo?.caipsChainId || n.chainId;
-          return {
-            chainId,
-            networkId: caipsInfo?.networkId || n.id,
+
+          if (matchingCaipsInfos.length === 0) {
+            return [
+              {
+                chainId: n.chainId,
+                networkId: n.id,
+                wcNamespace: namespace,
+                networkName: n.name,
+                wcChain: `${namespace}:${n.chainId}`,
+              },
+            ];
+          }
+
+          return matchingCaipsInfos.map((caipsInfo) => ({
+            chainId: caipsInfo.caipsChainId || n.chainId,
+            networkId: caipsInfo.networkId || n.id,
             wcNamespace: namespace,
             networkName: n.name,
-            wcChain: `${namespace}:${chainId}`,
-          };
+            wcChain: `${namespace}:${caipsInfo.caipsChainId || n.chainId}`,
+          }));
         });
         chainInfos = chainInfos.concat(infos);
       }
@@ -334,7 +347,9 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   async getActiveSessions() {
-    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+    const activeSessions =
+      this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+    return activeSessions;
   }
 
   @backgroundMethod()
@@ -568,10 +583,12 @@ class ServiceWalletConnect extends ServiceBase {
             });
             if (address) {
               const updateAddressMap = (key: string) => {
-                const currentAddress = addressMap[key];
-                addressMap[key] = `${currentAddress || ''}${
-                  currentAddress ? ',' : ''
-                }${address}`;
+                const currentAddress = addressMap?.[key] || '';
+                if (currentAddress && currentAddress === address) {
+                  return;
+                }
+                const splitter = currentAddress ? ',' : '';
+                addressMap[key] = `${currentAddress}${splitter}${address}`;
               };
               // always save networkId map for send tx address matched checking
               updateAddressMap(chainInfo.networkId);

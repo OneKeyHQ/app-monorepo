@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 import { Alert, BackHandler } from 'react-native';
@@ -13,8 +12,9 @@ import {
   usePreventRemove,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useV4MigrationActions } from './useV4MigrationActions';
@@ -49,6 +49,8 @@ function ModalExitPreventDialogContent({
   preventRemoveData: INavigationPreventRemoveData;
   isAutoStartOnMount?: boolean;
 }) {
+  const intl = useIntl();
+
   const navigation = useAppNavigation();
   const [v4MigrationPersistData, setV4MigrationPersistData] =
     useV4migrationPersistAtom();
@@ -63,7 +65,9 @@ function ModalExitPreventDialogContent({
           <Checkbox
             value={dontShowAgain}
             onChange={() => setDontShowAgain(!dontShowAgain)}
-            label="Never show this migration on App start"
+            label={intl.formatMessage({
+              id: ETranslations.v4_migration_exit_migration_checkbox_label,
+            })}
           />
         </Stack>
       ) : null}
@@ -126,12 +130,11 @@ export function useModalExitPrevent({
   );
   const shouldPreventRemove =
     exitPreventMode !== EModalExitPreventMode.disabled && isFocused;
-  usePreventRemove(
-    shouldPreventRemove,
+  const preventRemoveCallback =
     exitPreventMode === EModalExitPreventMode.confirm
       ? navPreventRemoveCallback
-      : () => null,
-  );
+      : () => null;
+  usePreventRemove(shouldPreventRemove, preventRemoveCallback);
 }
 
 export function useAppExitPrevent({
@@ -206,6 +209,17 @@ export function useExtensionV4MigrationFromExpandTab() {
   }, [actions]);
 }
 
+export function useIsV4MigrationAutoStartFirstTime() {
+  const [v4migrationPersistData] = useV4migrationPersistAtom();
+
+  const isAutoStartInFirstTime =
+    !v4migrationPersistData.v4migrationAutoStartDisabled &&
+    (!v4migrationPersistData?.v4migrationAutoStartCount ||
+      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
+
+  return isAutoStartInFirstTime;
+}
+
 export function useV4MigrationExitPrevent({
   exitPreventMode,
   isAutoStartOnMount,
@@ -213,27 +227,27 @@ export function useV4MigrationExitPrevent({
   exitPreventMode: EModalExitPreventMode;
   isAutoStartOnMount?: boolean;
 }) {
-  const title = 'Confirm Exit';
-  const message = 'Confirm Exit Migration from V4?';
-  const onConfirmText = 'Exit';
-  const onCancelText = 'Cancel';
-  const [v4migrationPersistData] = useV4migrationPersistAtom();
+  const intl = useIntl();
+  const title = intl.formatMessage({
+    id: ETranslations.confirm_exit_dialog_title,
+  });
+  const message = intl.formatMessage({
+    id: ETranslations.confirm_exit_dialog_desc,
+  });
+  const onConfirmText = intl.formatMessage({ id: ETranslations.global_exit });
+  const onCancelText = intl.formatMessage({ id: ETranslations.global_cancel });
+  const isAutoStartInFirstTime = useIsV4MigrationAutoStartFirstTime();
 
   // Prevents screen locking
   useKeepAwake();
 
-  const isAutoStartInFirstTime =
-    !v4migrationPersistData.v4migrationAutoStartDisabled &&
-    (!v4migrationPersistData?.v4migrationAutoStartCount ||
-      v4migrationPersistData?.v4migrationAutoStartCount <= 1);
-
   // Prevent Modal exit/back
+  const shouldAlwaysPreventExit =
+    isAutoStartInFirstTime && exitPreventMode === EModalExitPreventMode.confirm;
   useModalExitPrevent({
-    exitPreventMode:
-      isAutoStartInFirstTime &&
-      exitPreventMode === EModalExitPreventMode.confirm
-        ? EModalExitPreventMode.always
-        : exitPreventMode,
+    exitPreventMode: shouldAlwaysPreventExit
+      ? EModalExitPreventMode.always
+      : exitPreventMode,
     isAutoStartOnMount,
     title,
     message,

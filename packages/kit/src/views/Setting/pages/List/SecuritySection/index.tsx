@@ -17,6 +17,7 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -61,6 +62,7 @@ const SetPasswordItem = () => {
   const intl = useIntl();
   return (
     <ListItem
+      testID="setting-set-password"
       onPress={() => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}
@@ -123,7 +125,12 @@ const FaceIdItem = () => {
       authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
       authType.includes(AuthenticationType.IRIS)
     ) {
-      title = intl.formatMessage({ id: ETranslations.global_face_id });
+      title = intl.formatMessage({
+        id:
+          authType.length > 1
+            ? ETranslations.global_biometric
+            : ETranslations.global_face_id,
+      });
       icon = 'FaceIdSolid';
     }
   }
@@ -200,7 +207,7 @@ export const SecuritySection = () => {
       </Suspense>
       <AppAutoLockItem />
       <PasswordItem />
-      <ConnectedSitesItem />
+      {!platformEnv.isWebDappMode ? <ConnectedSitesItem /> : null}
       <SignatureRecordItem />
       <ProtectionItem />
       <CleanDataItem />

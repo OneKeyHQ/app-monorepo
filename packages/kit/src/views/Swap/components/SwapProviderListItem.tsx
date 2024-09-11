@@ -9,9 +9,11 @@ import {
   Badge,
   HeightTransition,
   Icon,
+  NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,8 +52,20 @@ const SwapProviderListItem = ({
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
-        <XStack space="$1" alignItems="center">
-          <Icon name="GasOutline" size="$4" color="$iconSubdued" />
+        <XStack gap="$1" alignItems="center">
+          <Tooltip
+            renderTrigger={
+              <Icon name="GasOutline" size="$4" color="$iconSubdued" />
+            }
+            renderContent={
+              <SizableText size="$bodySm" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+              </SizableText>
+            }
+            placement="bottom-start"
+          />
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
@@ -66,7 +80,7 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [currencySymbol, providerResult.fee?.estimatedFeeFiatValue]);
+  }, [currencySymbol, intl, providerResult.fee?.estimatedFeeFiatValue]);
 
   const estimatedTimeComponent = useMemo(() => {
     if (providerResult.estimatedTime) {
@@ -84,8 +98,24 @@ const SwapProviderListItem = ({
         displayTime = `${timeInMinutes}min`;
       }
       return (
-        <XStack space="$1" alignItems="center">
-          <Icon name="ClockTimeHistoryOutline" size="$4" color="$iconSubdued" />
+        <XStack gap="$1" alignItems="center">
+          <Tooltip
+            renderTrigger={
+              <Icon
+                name="ClockTimeHistoryOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            }
+            renderContent={
+              <SizableText size="$bodySm" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+              </SizableText>
+            }
+            placement="bottom-start"
+          />
           <SizableText size="$bodyMd" color="$textSubdued">
             {displayTime}
           </SizableText>
@@ -93,12 +123,25 @@ const SwapProviderListItem = ({
       );
     }
     return null;
-  }, [providerResult.estimatedTime]);
+  }, [intl, providerResult.estimatedTime]);
 
   const protocolFeeComponent = useMemo(
     () => (
-      <XStack space="$1" alignItems="center">
-        <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
+      <XStack gap="$1" alignItems="center">
+        <Tooltip
+          renderTrigger={
+            <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
+          }
+          renderContent={
+            <SizableText size="$bodySm" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.provider_protocol_fee,
+              })}
+            </SizableText>
+          }
+          placement="bottom-start"
+        />
+
         <NumberSizeableText
           size="$bodyMd"
           color="$textSubdued"
@@ -111,21 +154,11 @@ const SwapProviderListItem = ({
         </NumberSizeableText>
       </XStack>
     ),
-    [currencySymbol, providerResult.fee?.protocolFees],
+    [currencySymbol, intl, providerResult.fee?.protocolFees],
   );
 
   const leftMainLabel = useMemo(() => {
     if (disabled) {
-      if (providerResult?.errorMessage === 'Token not supported') {
-        return intl.formatMessage({
-          id: ETranslations.provider_token_not_supported,
-        });
-      }
-      if (providerResult?.errorMessage === 'Insufficient input amount') {
-        return intl.formatMessage({
-          id: ETranslations.provider_amount_required,
-        });
-      }
       return (
         providerResult?.errorMessage ||
         intl.formatMessage({
@@ -219,16 +252,16 @@ const SwapProviderListItem = ({
 
   const routeComponents = useMemo(() => {
     const routesData = providerResult.routesData;
-    if (providerResult.info.provider === 'swap_swft') {
+    if (providerResult.protocolNoRouterInfo) {
       return (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.provider_route_swft })}
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
+          {providerResult.protocolNoRouterInfo}
         </SizableText>
       );
     }
     if (!routesData?.[0]?.subRoutes?.[0]?.length) {
       return (
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3.5">
           {intl.formatMessage({
             id: ETranslations.provider_route_no_information,
           })}
@@ -238,7 +271,7 @@ const SwapProviderListItem = ({
     return <SwapRoutePaths routeContent={routeContent} />;
   }, [
     intl,
-    providerResult.info.provider,
+    providerResult.protocolNoRouterInfo,
     providerResult.routesData,
     routeContent,
   ]);
@@ -255,7 +288,7 @@ const SwapProviderListItem = ({
       borderWidth={StyleSheet.hairlineWidth}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       userSelect="none"
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
@@ -289,7 +322,8 @@ const SwapProviderListItem = ({
         </Stack>
         {providerResult.isBest ||
         providerResult.receivedBest ||
-        providerResult.minGasCost ? (
+        providerResult.minGasCost ||
+        providerResult.isAntiMEV ? (
           <XStack flexWrap="wrap" justifyContent="flex-end" m={-3} flex={1}>
             {providerResult.isBest ? (
               <Stack p={3}>
@@ -318,12 +352,21 @@ const SwapProviderListItem = ({
                 </Badge>
               </Stack>
             ) : null}
+            {providerResult.isAntiMEV ? (
+              <Stack p={3}>
+                <Badge badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_anti_mev,
+                  })}
+                </Badge>
+              </Stack>
+            ) : null}
           </XStack>
         ) : null}
       </XStack>
       {providerResult.toAmount ? (
         <Stack py="$2" px="$3.5">
-          <XStack space="$3.5" alignItems="center">
+          <XStack gap="$3.5" alignItems="center">
             {networkFeeComponent}
             {estimatedTimeComponent}
             {protocolFeeComponent}
@@ -340,16 +383,14 @@ const SwapProviderListItem = ({
               my="$-0.5"
               py="$0.5"
               mr="$-1"
-              $platform-native={{
-                hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
-              }}
+              hitSlop={NATIVE_HIT_SLOP}
               hoverStyle={{
                 bg: '$bgHover',
               }}
               pressStyle={{
                 bg: '$bgActive',
               }}
-              focusStyle={{
+              focusVisibleStyle={{
                 outlineWidth: 2,
                 outlineColor: '$focusRing',
                 outlineStyle: 'solid',

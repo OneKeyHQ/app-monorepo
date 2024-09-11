@@ -19,7 +19,7 @@ import {
   encodeSensitiveText,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -34,9 +34,13 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import {
+  EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -87,7 +91,7 @@ export default class Vault extends VaultBase {
     const networkInfo = await this.getNetworkInfo();
     const network = await this.getNetwork();
 
-    let address = account.addresses[networkId];
+    let address = account.address || account.addresses?.[networkId] || '';
 
     if (account.pub) {
       const pubUncompressed = uncompressPublicKey(
@@ -182,28 +186,38 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
 
-    const transfer: IDecodedTxTransferInfo = {
-      from: encodedTx.From,
-      to: encodedTx.To,
-      tokenIdOnNetwork: nativeToken.address,
-      icon: nativeToken.logoURI ?? '',
-      name: nativeToken.name,
-      symbol: nativeToken.symbol,
-      amount: new BigNumber(encodedTx.Value)
-        .shiftedBy(-nativeToken.decimals)
-        .toFixed(),
-      isNFT: false,
-      isNative: true,
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.From,
+        to: encodedTx.To,
+      },
     };
 
-    const action = await this.buildTxTransferAssetAction({
-      from: encodedTx.From,
-      to: encodedTx.To,
-      transfers: [transfer],
-    });
+    if (nativeToken) {
+      const transfer: IDecodedTxTransferInfo = {
+        from: encodedTx.From,
+        to: encodedTx.To,
+        tokenIdOnNetwork: nativeToken.address,
+        icon: nativeToken.logoURI ?? '',
+        name: nativeToken.name,
+        symbol: nativeToken.symbol,
+        amount: new BigNumber(encodedTx.Value)
+          .shiftedBy(-nativeToken.decimals)
+          .toFixed(),
+        isNFT: false,
+        isNative: true,
+      };
+
+      action = await this.buildTxTransferAssetAction({
+        from: encodedTx.From,
+        to: encodedTx.To,
+        transfers: [transfer],
+      });
+    }
 
     const decodedTx: IDecodedTx = {
       txid:

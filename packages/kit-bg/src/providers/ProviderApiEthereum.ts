@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import stringify from 'fast-json-stable-stringify';
-import { isNil } from 'lodash';
+import { get, isNil } from 'lodash';
 
 import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -14,11 +14,11 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -31,7 +31,7 @@ import type {
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;
-  networkId?: string;
+  // networkId?: string; // not use?
 };
 
 function prefixTxValueToHex(value: string) {
@@ -96,6 +96,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     };
 
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -124,6 +125,7 @@ class ProviderApiEthereum extends ProviderApiBase {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      void this._getConnectedNetworkName(request);
       return this.eth_accounts(request);
     });
   }
@@ -153,6 +155,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     permissions: Record<string, unknown>,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
     const accounts = await this.eth_accounts(request);
     const result = Object.keys(permissions).map((permissionName) => {
@@ -180,6 +183,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       };
     });
 
+    void this._getConnectedNetworkName(request);
     return result;
   }
 
@@ -203,7 +207,9 @@ class ProviderApiEthereum extends ProviderApiBase {
       request,
     );
     if (!isNil(networks?.[0]?.chainId)) {
-      return hexUtils.hexlify(Number(networks?.[0]?.chainId));
+      return hexUtils.hexlify(Number(networks?.[0]?.chainId), {
+        removeZeros: true,
+      });
     }
 
     return this._getNetworkMockInfo().chainId;
@@ -247,6 +253,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: IEncodedTxEvm,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -298,6 +305,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -316,6 +324,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const {
       accountInfo: { accountId, networkId, address: accountAddress } = {},
     } = (await this.getAccountsInfo(request))[0];
@@ -346,6 +355,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: string[]
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const [message, signature] = messages;
     if (
       typeof message === 'string' &&
@@ -385,6 +395,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -437,6 +448,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('eth_signTypedData_v1', messages, request);
     return this.eth_signTypedData(request, ...messages);
   }
@@ -446,6 +458,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -467,6 +480,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     ...messages: any[]
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -488,6 +502,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     if (this._switchEthereumChainMemo._has(request, params)) {
@@ -503,8 +518,34 @@ class ProviderApiEthereum extends ProviderApiBase {
     // **** should await return
     await this._switchEthereumChainMemo(request, params);
 
+    this.notifyNetworkChangedToDappSite(request.origin ?? '');
+    setTimeout(() => {
+      void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
+        request.origin ?? '',
+      );
+    }, 500);
     // Metamask return null
     return null;
+  }
+
+  /**
+   * https://github.com/MetaMask/metamask-improvement-proposals/blob/main/MIPs/mip-2.md
+   */
+  @providerApiMethod()
+  async wallet_revokePermissions(
+    request: IJsBridgeMessagePayload,
+    params: Record<string, unknown>,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    if (get(params, 'eth_accounts', null) && request.origin) {
+      await this.backgroundApi.serviceDApp.disconnectWebsite({
+        origin: request.origin,
+        storageType: 'injectedProvider',
+      });
+      return null;
+    }
+
+    throw web3Errors.rpc.invalidRequest('Unsupported permission type');
   }
 
   _switchEthereumChainMemo = memoizee(
@@ -552,11 +593,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     address: string;
   }) => {
     try {
-      const status =
-        await this.backgroundApi.serviceAccountProfile.validateAddress({
-          networkId,
-          address,
-        });
+      const status = await this.backgroundApi.serviceValidator.validateAddress({
+        networkId,
+        address,
+      });
       return status === 'valid';
     } catch {
       return false;

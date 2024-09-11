@@ -1,55 +1,63 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IActionListSection } from '@onekeyhq/components';
+import type { IActionListSection, IListViewProps } from '@onekeyhq/components';
 import {
   ActionList,
-  Alert,
-  Divider,
-  Heading,
-  NumberSizeableText,
   Page,
-  Skeleton,
+  Spinner,
   Stack,
-  XStack,
-  YStack,
+  Tab,
+  getFontToken,
   useClipboard,
+  useThemeValue,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
-import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
-  EModalSendRoutes,
-  EModalSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
-import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import type {
+  EModalAssetDetailRoutes,
+  IModalAssetDetailsParamList,
+} from '@onekeyhq/shared/src/routes/assetDetails';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-import ActionBuy from './ActionBuy';
-import ActionSell from './ActionSell';
+import TokenDetailsViews from './TokenDetailsView';
 
 import type { RouteProp } from '@react-navigation/core';
 
-export function TokenDetails() {
+const num = 0;
+
+export type IProps = {
+  accountId: string;
+  networkId: string;
+  walletId: string;
+  deriveInfo: IAccountDeriveInfo;
+  deriveType: IAccountDeriveTypes;
+  tokenInfo: IToken;
+  isBlocked?: boolean;
+  riskyTokens?: string[];
+  isAllNetworks?: boolean;
+  listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
+  indexedAccountId?: string;
+};
+
+function TokenDetails() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
 
   const route =
     useRoute<
@@ -61,8 +69,6 @@ export function TokenDetails() {
 
   const { copyText } = useClipboard();
 
-  const [settings] = useSettingsPersistAtom();
-
   const {
     accountId,
     networkId,
@@ -70,178 +76,20 @@ export function TokenDetails() {
     deriveInfo,
     deriveType,
     tokenInfo,
-    isBlocked: tokenIsBlocked,
+    isAllNetworks,
   } = route.params;
 
-  const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
-  const [initialized, setInitialized] = useState(false);
-
-  const {
-    result: [tokenHistory, tokenDetails, account, network] = [],
-    isLoading,
-  } = usePromiseResult(
-    async () => {
-      const a = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-      const b = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-        networkId,
-      });
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
-
-      if (!a) return;
-      const [xpub, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        }),
-      ]);
-      const [history, details] = await Promise.all([
-        backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId: a.id,
-          accountAddress,
-          xpub,
-          networkId,
-          tokenIdOnNetwork: tokenInfo.address,
-          onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-          saveConfirmedTxsEnabled: vaultSettings.saveConfirmedTxsEnabled,
-        }),
-        backgroundApiProxy.serviceToken.fetchTokensDetails({
-          networkId,
-          xpub,
-          accountAddress,
-          contractList: [tokenInfo.address],
-        }),
-      ]);
-
-      setInitialized(true);
-
-      return [history, details[0], a, b];
-    },
-    [accountId, networkId, tokenInfo.address],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const handleOnSwap = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: networkId,
-        importFromToken: {
-          contractAddress: tokenInfo.address,
-          symbol: tokenInfo.symbol,
-          networkId,
-          isNative: tokenInfo.isNative,
-          decimals: tokenInfo.decimals,
-          name: tokenInfo.name,
-          logoURI: tokenInfo.logoURI,
-          networkLogoURI: network?.logoURI,
-        },
-      },
-    });
-  }, [
-    navigation,
-    network?.logoURI,
+  const { account, network, vaultSettings } = useAccountData({
+    accountId,
     networkId,
-    tokenInfo.address,
-    tokenInfo.decimals,
-    tokenInfo.isNative,
-    tokenInfo.logoURI,
-    tokenInfo.name,
-    tokenInfo.symbol,
-  ]);
-
-  const handleReceivePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId,
-        accountId,
-        walletId,
-        deriveInfo,
-        deriveType,
-      },
-    });
-  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
-
-  const handleHistoryItemPress = useCallback(
-    async (tx: IAccountHistoryTx) => {
-      if (!account || !network) return;
-
-      navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
-        accountId,
-        networkId,
-        accountAddress:
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId: account.id,
-            networkId: network.id,
-          }),
-        xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId: account.id,
-          networkId: network.id,
-        }),
-        historyTx: tx,
-      });
-    },
-    [account, accountId, navigation, network, networkId],
-  );
-
-  const handleSendPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendDataInput,
-      params: {
-        networkId,
-        accountId,
-        isNFT: false,
-        token: tokenDetails?.info ?? tokenInfo,
-      },
-    });
-  }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
-
-  const handleToggleBlockedToken = useCallback(async () => {
-    setIsBlocked(!isBlocked);
-    if (isBlocked) {
-      await backgroundApiProxy.serviceToken.unblockToken({
-        networkId,
-        tokenId: tokenInfo.address,
-      });
-    } else {
-      await backgroundApiProxy.serviceToken.blockToken({
-        networkId,
-        tokenId: tokenInfo.address,
-      });
-    }
-  }, [isBlocked, networkId, tokenInfo.address]);
+    walletId,
+  });
 
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
     if (!tokenInfo.isNative) {
       sections.push({
-        items: [
-          {
-            label: isBlocked
-              ? intl.formatMessage({ id: ETranslations.global_unhide })
-              : intl.formatMessage({ id: ETranslations.global_hide }),
-            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-            onPress: handleToggleBlockedToken,
-          },
-        ],
-      });
-    }
-
-    if (tokenInfo.address !== '') {
-      sections.unshift({
         items: [
           {
             label: intl.formatMessage({
@@ -253,21 +101,21 @@ export function TokenDetails() {
         ],
       });
 
-      const tokenDetailsUrl = buildExplorerAddressUrl({
-        network,
-        address: tokenInfo.address,
-      });
-
-      if (tokenDetailsUrl !== '') {
+      if (network?.id && tokenInfo.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
           }),
           icon: 'ShareOutline',
-          onPress: () => openUrl(tokenDetailsUrl),
+          onPress: () =>
+            openTokenDetailsUrl({
+              networkId: network.id,
+              tokenAddress: tokenInfo.address,
+            }),
         });
       }
     }
+
     return isEmpty(sections) ? null : (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
@@ -275,212 +123,149 @@ export function TokenDetails() {
         sections={sections}
       />
     );
-  }, [
-    copyText,
-    handleToggleBlockedToken,
-    intl,
-    isBlocked,
-    network,
-    tokenInfo.address,
-    tokenInfo.isNative,
-  ]);
+  }, [copyText, intl, network, tokenInfo.address, tokenInfo.isNative]);
 
-  // const renderTokenAddress = useCallback(() => {
-  //   if (!tokenInfo.address) return null;
-  //   return (
-  //     <XGroup
-  //       bg="$bgStrong"
-  //       borderRadius="$2"
-  //       separator={<Divider vertical borderColor="$bgApp" />}
-  //     >
-  //       <XStack
-  //         alignItems="center"
-  //         py="$0.5"
-  //         px="$1.5"
-  //         userSelect="none"
-  //         style={{
-  //           borderCurve: 'continuous',
-  //         }}
-  //         hoverStyle={{
-  //           bg: '$bgHover',
-  //         }}
-  //         pressStyle={{
-  //           bg: '$bgActive',
-  //         }}
-  //         $platform-native={{
-  //           hitSlop: {
-  //             top: 8,
-  //             bottom: 8,
-  //           },
-  //         }}
-  //         onPress={() =>
-  //           Toast.success({
-  //             title: 'Copied',
-  //           })
-  //         }
-  //       >
-  //         <Image
-  //           width="$4"
-  //           height="$4"
-  //           source={{
-  //             uri: network?.logoURI,
-  //           }}
-  //         />
-  //         <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
-  //           {accountUtils.shortenAddress({ address: tokenInfo.address })}
-  //         </SizableText>
-  //       </XStack>
-  //       {media.gtMd && (
-  //         <Stack
-  //           alignItems="center"
-  //           justifyContent="center"
-  //           py="$0.5"
-  //           px="$1.5"
-  //           hoverStyle={{
-  //             bg: '$bgHover',
-  //           }}
-  //           pressStyle={{
-  //             bg: '$bgActive',
-  //           }}
-  //           style={{
-  //             borderCurve: 'continuous',
-  //           }}
-  //           $platform-native={
-  //             {
-  //               hitSlop: {
-  //                 top: 8,
-  //                 bottom: 8,
-  //                 right: 8,
-  //               },
-  //             } as IStackProps
-  //           }
-  //         >
-  //           <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
-  //         </Stack>
-  //       )}
-  //     </XGroup>
-  //   );
-  // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
-
-  const customHeaderTitle = useCallback(
-    () => (
-      <Heading size="$headingLg" numberOfLines={1}>
-        {tokenInfo.name ?? tokenDetails?.info.name}
-      </Heading>
-    ),
-    [tokenDetails?.info.name, tokenInfo.name],
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const r =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId,
+            indexedAccountId: account?.indexedAccountId ?? '',
+          },
+        );
+      await waitAsync(600);
+      return r;
+    },
+    [networkId, account?.indexedAccountId],
+    {
+      watchLoading: true,
+    },
   );
 
-  return (
-    <Page>
-      <Page.Header headerTitle={customHeaderTitle} headerRight={headerRight} />
-      <Page.Body>
-        <ProviderJotaiContextHistoryList>
-          <TxHistoryListView
-            initialized={initialized}
-            isLoading={isLoading}
-            data={tokenHistory ?? []}
-            onPressHistory={handleHistoryItemPress}
-            ListHeaderComponent={
-              <>
-                {isBlocked ? (
-                  <Alert
-                    icon="EyeOffOutline"
-                    fullBleed
-                    type="warning"
-                    title={intl.formatMessage({
-                      id: ETranslations.token_hidden_message,
-                    })}
-                    action={{
-                      primary: intl.formatMessage({
-                        id: ETranslations.global_unhide,
-                      }),
-                      onPrimaryPress: handleToggleBlockedToken,
-                    }}
-                    mb="$5"
-                  />
-                ) : null}
+  const fontColor = useThemeValue('text');
 
-                {/* Overview */}
-                <Stack px="$5" pb="$5">
-                  {/* Balance */}
-                  <XStack alignItems="center" mb="$5">
-                    <Token
-                      tokenImageUri={
-                        tokenInfo.logoURI ?? tokenDetails?.info.logoURI
-                      }
-                      size="xl"
-                    />
-                    <Stack ml="$3" flex={1}>
-                      {isLoading ? (
-                        <YStack>
-                          <Stack py="$1.5">
-                            <Skeleton h="$6" w="$40" />
-                          </Stack>
-                          <Stack py="$1">
-                            <Skeleton h="$4" w="$28" />
-                          </Stack>
-                        </YStack>
-                      ) : (
-                        <>
-                          <NumberSizeableText
-                            size="$heading3xl"
-                            formatter="balance"
-                            formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-                          >
-                            {tokenDetails?.balanceParsed ?? '0'}
-                          </NumberSizeableText>
-                          <NumberSizeableText
-                            formatter="value"
-                            formatterOptions={{
-                              currency: settings.currencyInfo.symbol,
-                            }}
-                            color="$textSubdued"
-                            size="$bodyLgMedium"
-                          >
-                            {tokenDetails?.fiatValue ?? '0'}
-                          </NumberSizeableText>
-                        </>
-                      )}
-                    </Stack>
-                  </XStack>
-                  {/* Actions */}
-                  <RawActions>
-                    <ReviewControl>
-                      <ActionBuy
-                        networkId={networkId}
-                        accountId={accountId}
-                        tokenAddress={tokenInfo.address}
-                      />
-                    </ReviewControl>
+  const headerTitleStyle = useMemo(
+    () => ({
+      ...(getFontToken('$headingLg') as {
+        fontSize: number;
+        lineHeight: number;
+        letterSpacing: number;
+      }),
+      color: fontColor,
+    }),
+    [fontColor],
+  );
 
-                    <RawActions.Swap onPress={handleOnSwap} />
-
-                    <RawActions.Send onPress={handleSendPress} />
-                    <RawActions.Receive onPress={handleReceivePress} />
-                    <ReviewControl>
-                      <ActionSell
-                        networkId={networkId}
-                        accountId={accountId}
-                        tokenAddress={tokenInfo.address}
-                      />
-                    </ReviewControl>
-                  </RawActions>
-                </Stack>
-
-                <StakingApr
-                  networkId={networkId}
-                  accountId={accountId}
-                  tokenAddress={tokenInfo.address}
-                />
-
-                {/* History */}
-                <Divider />
-              </>
-            }
+  const tabs = useMemo(() => {
+    if (accountId && networkId && walletId) {
+      return result?.networkAccounts.map((item) => ({
+        title: item.deriveInfo.labelKey
+          ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+          : item.deriveInfo.label ?? '',
+        page: () => (
+          <TokenDetailsViews
+            accountId={item.account?.id ?? ''}
+            networkId={networkId}
+            walletId={walletId}
+            deriveInfo={item.deriveInfo}
+            deriveType={item.deriveType}
+            tokenInfo={tokenInfo}
+            isAllNetworks={isAllNetworks}
+            listViewContentContainerStyle={{ pt: '$5' }}
+            indexedAccountId={account?.indexedAccountId}
           />
-        </ProviderJotaiContextHistoryList>
-      </Page.Body>
+        ),
+      }));
+    }
+
+    return [];
+  }, [
+    accountId,
+    networkId,
+    walletId,
+    result?.networkAccounts,
+    intl,
+    tokenInfo,
+    isAllNetworks,
+    account?.indexedAccountId,
+  ]);
+
+  const renderTokenDetailsView = useCallback(() => {
+    if (
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      isAllNetworks &&
+      !accountUtils.isOthersWallet({ walletId })
+    ) {
+      if (isLoading)
+        return (
+          <Stack
+            flex={1}
+            height="100%"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Spinner size="large" />
+          </Stack>
+        );
+      if (tabs && !isEmpty(tabs)) {
+        return (
+          <Tab.Page
+            data={tabs}
+            initialScrollIndex={0}
+            showsVerticalScrollIndicator={false}
+          />
+        );
+      }
+      return null;
+    }
+
+    return (
+      <TokenDetailsViews
+        accountId={accountId}
+        networkId={networkId}
+        walletId={walletId}
+        deriveInfo={deriveInfo}
+        deriveType={deriveType}
+        tokenInfo={tokenInfo}
+        isAllNetworks={isAllNetworks}
+        listViewContentContainerStyle={{ pt: '$5' }}
+      />
+    );
+  }, [
+    accountId,
+    deriveInfo,
+    deriveType,
+    isAllNetworks,
+    isLoading,
+    networkId,
+    tabs,
+    tokenInfo,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    walletId,
+  ]);
+
+  return (
+    <Page safeAreaEnabled={false}>
+      <Page.Header
+        headerTitle={tokenInfo.name}
+        headerTitleStyle={headerTitleStyle}
+        headerRight={headerRight}
+      />
+      <Page.Body>{renderTokenDetailsView()}</Page.Body>
     </Page>
+  );
+}
+
+export default function TokenDetailsModal() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[num]}
+    >
+      <TokenDetails />
+    </AccountSelectorProviderMirror>
   );
 }

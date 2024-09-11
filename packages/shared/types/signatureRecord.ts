@@ -1,4 +1,7 @@
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
+
 import type { IServerNetwork } from '.';
+import type { EEarnLabels } from './staking';
 
 export type IBaseToken = {
   name: string;
@@ -23,32 +26,51 @@ export type IBaseSignedMessage = {
 
 export type ICreateSignedMessageParams = IBaseSignedMessage;
 
-export type ITransactionType = 'send' | 'approve' | 'swap' | 'stake';
+export enum ETransactionType {
+  SEND = 'send',
+  APPROVE = 'approve',
+  SWAP = 'swap',
+  EARN = 'earn',
+  CONTRACT_INTERACTION = 'contractInteraction',
+}
+
 interface IBaseTransactionData {
-  type: ITransactionType;
+  type: ETransactionType;
 }
 
 export interface ISendTransactionData extends IBaseTransactionData {
-  type: 'send';
+  type: ETransactionType.SEND;
   amount: string;
   token: IBaseToken;
 }
 
 export interface IApproveTransactionData extends IBaseTransactionData {
-  type: 'approve';
+  type: ETransactionType.APPROVE;
   amount: string;
   token: IBaseToken;
   isUnlimited?: boolean;
 }
 
 export interface ISwapTransactionData extends IBaseTransactionData {
-  type: 'swap';
+  type: ETransactionType.SWAP;
   fromNetworkId: string;
   fromAmount: string;
   fromToken: IBaseToken;
   toAmount: string;
   toNetworkId: string;
   toToken: IBaseToken;
+}
+
+export interface IEarnTransactionData extends IBaseTransactionData {
+  type: ETransactionType.EARN;
+  label: EEarnLabels;
+  send?: { amount: string; token: IBaseToken };
+  receive?: { amount: string; token: IBaseToken };
+}
+
+export interface IContractInteractionTransactionData
+  extends IBaseTransactionData {
+  type: ETransactionType.CONTRACT_INTERACTION;
 }
 
 export type IBaseSignedTransaction = {
@@ -59,7 +81,12 @@ export type IBaseSignedTransaction = {
 };
 
 export type IBaseSignedTransactionData = {
-  data: ISendTransactionData | IApproveTransactionData | ISwapTransactionData;
+  data:
+    | ISendTransactionData
+    | IApproveTransactionData
+    | ISwapTransactionData
+    | IEarnTransactionData
+    | IContractInteractionTransactionData;
 };
 
 export type IBaseSignedTransactionDataStringify = {
@@ -86,6 +113,7 @@ export type ISignedTransaction = IBaseSignedTransaction &
   IBaseSignedTransactionData &
   IBaseCreatedAt & {
     network: IServerNetwork;
+    vaultSettings: IVaultSettings;
   };
 
 export type IConnectedSite = IBaseConnectedSite &

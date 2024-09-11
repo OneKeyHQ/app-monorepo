@@ -108,6 +108,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           networkImplMap: {},
           addressMap: {},
           walletConnectTopic,
+          updatedAt: Date.now(),
         };
       } else {
         // If one already exists, create a new copy to maintain immutability.
@@ -119,6 +120,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           addressMap: { ...connectionItem.addressMap },
           walletConnectTopic:
             walletConnectTopic || connectionItem.walletConnectTopic,
+          updatedAt: Date.now(),
         };
       }
 
@@ -221,6 +223,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         connectionMap: updatedConnectionMap,
         networkImplMap,
         addressMap,
+        updatedAt: Date.now(),
       };
 
       const updatedStorage = {
@@ -413,6 +416,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       const updatedConnectionItem = {
         ...connectionItem,
         connectionMap: updatedConnectionMap,
+        updatedAt: Date.now(),
       };
 
       // Return the updated rawData with the updated connection item
@@ -473,7 +477,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     value: string; // hd--0
   }) {
     Object.keys(connectionItem.connectionMap).forEach((i) => {
-      const index = parseInt(i);
+      const index = parseInt(i, 10);
       const item = connectionItem.connectionMap[index];
       if (item[key] === value) {
         this.removeFromNetworkImplMap(connectionItem, item.networkImpl, index);

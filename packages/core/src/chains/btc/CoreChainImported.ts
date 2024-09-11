@@ -1,5 +1,5 @@
-import CoreChainSoftware from './CoreChainSoftware';
+import CoreChainSoftwareBtc from './CoreChainSoftware';
 
-export default class CoreChainImported extends CoreChainSoftware {
+export default class CoreChainImported extends CoreChainSoftwareBtc {
   //
 }

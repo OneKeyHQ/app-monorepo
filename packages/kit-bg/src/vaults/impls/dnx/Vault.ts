@@ -16,8 +16,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAddressValidation,
+  IFetchAccountDetailsResp,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -25,9 +27,15 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxExtraInfo,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -54,7 +62,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
-const DEFAULT_TX_FEE = 1000000;
+const DEFAULT_TX_FEE = 1_000_000;
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.dynex.hd;
@@ -124,6 +132,7 @@ export default class Vault extends VaultBase {
         .shiftedBy(network.decimals)
         .toFixed(),
       fee: new BigNumber(DEFAULT_TX_FEE).toFixed(),
+      network,
     });
 
     return {
@@ -144,7 +153,7 @@ export default class Vault extends VaultBase {
         const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: await this.getAccountAddress(),
+            accountId: this.accountId,
             withUTXOList: true,
             withFrozenBalance: true,
           });
@@ -173,10 +182,12 @@ export default class Vault extends VaultBase {
     unspentOutputs,
     amount,
     fee,
+    network,
   }: {
     amount: string;
     fee: string;
     unspentOutputs: IUnspentOutput[];
+    network: IServerNetwork;
   }) {
     let finalAmount = new BigNumber(amount);
     const totalUnspentOutputsAmount = unspentOutputs.reduce(
@@ -185,7 +196,11 @@ export default class Vault extends VaultBase {
     );
 
     if (totalUnspentOutputsAmount.lte(fee)) {
-      throw new InsufficientBalance();
+      throw new InsufficientBalance({
+        info: {
+          symbol: network.symbol,
+        },
+      });
     }
 
     if (totalUnspentOutputsAmount.lt(new BigNumber(finalAmount).plus(fee))) {
@@ -236,28 +251,39 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDnx;
     const account = await this.getAccount();
-    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
-      networkId: this.networkId,
-      accountAddress: account.address,
-    });
 
-    const transfer: IDecodedTxTransferInfo = {
-      from: encodedTx.from,
-      to: encodedTx.to,
-      tokenIdOnNetwork: nativeToken.address,
-      icon: nativeToken.logoURI ?? '',
-      name: nativeToken.name,
-      symbol: nativeToken.symbol,
-      amount: encodedTx.amount,
-      isNFT: false,
-      isNative: true,
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.from,
+        to: encodedTx.to,
+      },
     };
 
-    const action = await this.buildTxTransferAssetAction({
-      from: transfer.from,
-      to: transfer.to,
-      transfers: [transfer],
+    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
+      networkId: this.networkId,
+      accountId: this.accountId,
     });
+
+    if (nativeToken) {
+      const transfer: IDecodedTxTransferInfo = {
+        from: encodedTx.from,
+        to: encodedTx.to,
+        tokenIdOnNetwork: nativeToken.address,
+        icon: nativeToken.logoURI ?? '',
+        name: nativeToken.name,
+        symbol: nativeToken.symbol,
+        amount: encodedTx.amount,
+        isNFT: false,
+        isNative: true,
+      };
+
+      action = await this.buildTxTransferAssetAction({
+        from: transfer.from,
+        to: transfer.to,
+        transfers: [transfer],
+      });
+    }
 
     const decodedTx: IDecodedTx = {
       txid: '',
@@ -317,12 +343,12 @@ export default class Vault extends VaultBase {
     async (address: string) => {
       try {
         const res =
-          await this.backgroundApi.serviceAccountProfile.validateAddress({
+          await this.backgroundApi.serviceValidator.serverValidateAddress({
             networkId: this.networkId,
             address,
           });
 
-        if (res === 'valid') {
+        if (res.data.data.isValid) {
           return {
             normalizedAddress: address,
             displayAddress: address,
@@ -370,5 +396,109 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new NotImplemented();
+  }
+
+  override async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }): Promise<IFetchTokenDetailItem[]> {
+    const filledTokensDetails: IFetchTokenDetailItem[] = [];
+    for (const token of tokensDetails) {
+      if (token.info.isNative) {
+        if (await this._checkHasLocalTxOutInPending()) {
+          filledTokensDetails.push({
+            ...token,
+            balance: '0',
+            balanceParsed: '0',
+            frozenBalance: token.balance,
+            frozenBalanceParsed: token.balanceParsed,
+            totalBalance: token.balance,
+            totalBalanceParsed: token.balanceParsed,
+          });
+        } else {
+          filledTokensDetails.push({
+            ...token,
+            frozenBalance: '0',
+            frozenBalanceParsed: '0',
+            totalBalance: token.balance,
+            totalBalanceParsed: token.balanceParsed,
+          });
+        }
+      } else {
+        filledTokensDetails.push(token);
+      }
+    }
+
+    return filledTokensDetails;
+  }
+
+  override async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }): Promise<IFetchAccountDetailsResp> {
+    if (await this._checkHasLocalTxOutInPending()) {
+      return {
+        ...accountDetails,
+        balance: '0',
+        balanceParsed: '0',
+        frozenBalance: accountDetails.balance,
+        frozenBalanceParsed: accountDetails.balanceParsed,
+        totalBalance: accountDetails.balance,
+        totalBalanceParsed: accountDetails.balanceParsed,
+      };
+    }
+
+    return {
+      ...accountDetails,
+      frozenBalance: '0',
+      frozenBalanceParsed: '0',
+      totalBalance: accountDetails.balance,
+      totalBalanceParsed: accountDetails.balanceParsed,
+    };
+  }
+
+  async _checkHasLocalTxOutInPending() {
+    let hasLocalTxOutInPending = false;
+    const accountAddress = await this.getAccountAddress();
+    const xpub = await this.getAccountXpub();
+
+    let pendingTxs =
+      await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
+        networkId: this.networkId,
+        accountAddress,
+        xpub,
+      });
+
+    if (pendingTxs.length > 0) {
+      await this.backgroundApi.serviceHistory.fetchAccountHistory({
+        networkId: this.networkId,
+        accountId: this.accountId,
+      });
+
+      pendingTxs =
+        await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs(
+          {
+            networkId: this.networkId,
+            accountAddress,
+            xpub,
+          },
+        );
+    }
+
+    for (let i = 0, len = pendingTxs.length; i < len; i = +1) {
+      const item = pendingTxs[i];
+      const action = item.decodedTx.actions[0];
+      if (
+        action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+        action.assetTransfer?.sends[0].isNative
+      ) {
+        hasLocalTxOutInPending = true;
+        break;
+      }
+    }
+
+    return hasLocalTxOutInPending;
   }
 }

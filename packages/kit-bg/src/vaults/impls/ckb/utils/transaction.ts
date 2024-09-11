@@ -7,6 +7,7 @@ import {
 } from '@ckb-lumos/helpers';
 import { ResultFormatter } from '@ckb-lumos/rpc';
 
+import { ConvertTxError } from '@onekeyhq/shared/src/errors';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import type ClientCkb from '../sdkCkb/ClientCkb';
@@ -16,7 +17,7 @@ import type {
   TransactionSkeletonType,
 } from '@ckb-lumos/helpers';
 
-export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100000000;
+export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100_000_000;
 
 export async function convertTxToTxSkeleton({
   client,
@@ -32,7 +33,7 @@ export async function convertTxToTxSkeleton({
 
     const rpcCell = content.cell;
     if (!rpcCell) {
-      throw new Error('Cell not found');
+      throw new ConvertTxError();
     }
 
     return {

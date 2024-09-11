@@ -20,7 +20,7 @@ const IconGallery = () => (
       {
         title: 'colorful icon',
         element: (
-          <XStack space={10}>
+          <XStack gap={10}>
             <Icon name="AirpodsSolid" color="$icon" />
             <Icon name="AirpodsSolid" color="$iconHover" />
             <Icon name="AirpodsSolid" color="$iconInverse" />
@@ -31,7 +31,7 @@ const IconGallery = () => (
       {
         title: 'sized icon',
         element: (
-          <XStack space={10}>
+          <XStack gap={10}>
             <Icon name="AirpodsSolid" color="$icon" size="$4" />
             <Icon name="AirpodsSolid" color="$iconInverse" size="$8" />
             <Icon name="AirpodsSolid" color="$icon" size="$12" />

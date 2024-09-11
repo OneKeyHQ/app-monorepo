@@ -3,7 +3,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
-import type { IDecodedTx, IReplacedTxType } from './tx';
+import type { EReplaceTxType, IDecodedTx } from './tx';
 
 export enum EHistoryTxDetailsBlock {
   Flow = 'Flow',
@@ -18,6 +18,7 @@ export enum EOnChainHistoryTransferType {
 export enum EOnChainHistoryTxStatus {
   Failed = '0',
   Success = '1',
+  Pending = '2',
 }
 
 export enum EOnChainHistoryTxType {
@@ -30,6 +31,7 @@ export type IOnChainHistoryTxApprove = {
   amount: string;
   spender: string;
   token: string;
+  key: string;
   isInfiniteAmount: boolean;
 };
 
@@ -38,6 +40,7 @@ export type IOnChainHistoryTxTransfer = {
   from: string;
   to: string;
   token: string;
+  key: string;
   amount: string;
   label: string;
   isNative?: boolean;
@@ -68,6 +71,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  networkId: string;
   tx: string;
   riskLevel: number;
   type: EOnChainHistoryTxType;
@@ -104,6 +108,9 @@ export type IOnChainHistoryTx = {
 
   // Dynex
   paymentId?: string;
+
+  // TON
+  eventId?: string;
 };
 
 export type IAccountHistoryTx = {
@@ -113,7 +120,7 @@ export type IAccountHistoryTx = {
 
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;
-  replacedType?: IReplacedTxType; // cancel speedUp
+  replacedType?: EReplaceTxType; // cancel speedUp
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;
@@ -128,11 +135,9 @@ export type IHistoryListSectionGroup = {
 export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   tokenIdOnNetwork?: string;
-  onChainHistoryDisabled?: boolean;
-  saveConfirmedTxsEnabled?: boolean;
+  isAllNetworks?: boolean;
+  isManualRefresh?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {
@@ -152,8 +157,7 @@ export type IFetchHistoryTxDetailsParams = {
   accountId: string;
   networkId: string;
   txid: string;
-  accountAddress?: string;
-  xpub?: string;
+  withUTXOs?: boolean;
 };
 
 export type IFetchTxDetailsParams = {
@@ -180,4 +184,11 @@ export type IHistoryTxMetaComponents = {
   [EHistoryTxDetailsBlock.Attributes]?: (
     props: IHistoryTxMetaProps,
   ) => JSX.Element | null;
+};
+
+export type IAllNetworkHistoryExtraItem = {
+  networkId: string;
+  accountId: string;
+  accountAddress: string;
+  accountXpub?: string;
 };

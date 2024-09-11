@@ -1,13 +1,33 @@
-import { ListView, Stack } from '@onekeyhq/components';
+import { useEffect, useMemo, useState } from 'react';
+
+import {
+  ListView,
+  NestedScrollView,
+  SizableText,
+  Stack,
+  renderNestedScrollView,
+} from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
   useSearchKeyAtom,
+  useSearchTokenListAtom,
+  useSearchTokenStateAtom,
+  useSmallBalanceTokenListAtom,
   useTokenListAtom,
   useTokenListStateAtom,
+  useTokenSelectorSearchKeyAtom,
+  useTokenSelectorSearchTokenListAtom,
+  useTokenSelectorSearchTokenStateAtom,
 } from '../../states/jotai/contexts/tokenList';
+import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
@@ -20,63 +40,140 @@ type IProps = {
   tableLayout?: boolean;
   onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
   withBuyAndReceive?: boolean;
   withPresetVerticalPadding?: boolean;
+  withNetwork?: boolean;
+  withSmallBalanceTokens?: boolean;
+  inTabList?: boolean;
   onReceiveToken?: () => void;
   onBuyToken?: () => void;
   isBuyTokenSupported?: boolean;
+  onManageToken?: () => void;
+  manageTokenEnabled?: boolean;
+  isAllNetworks?: boolean;
+  searchAll?: boolean;
+  isTokenSelector?: boolean;
+  footerTipText?: string;
+  hideValue?: boolean;
 };
 
 function TokenListView(props: IProps) {
   const {
-    onContentSizeChange,
     onPressToken,
     tableLayout,
     withHeader,
     withFooter,
     withPrice,
+    inTabList = false,
     withBuyAndReceive,
+    withNetwork,
     onReceiveToken,
     onBuyToken,
     isBuyTokenSupported,
+    onManageToken,
+    manageTokenEnabled,
     withPresetVerticalPadding = true,
+    isAllNetworks,
+    searchAll,
+    isTokenSelector,
+    footerTipText,
+    hideValue,
   } = props;
 
   const [tokenList] = useTokenListAtom();
+  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
-  const { tokens } = tokenList;
+  const [tokenSelectorSearchKey] = useTokenSelectorSearchKeyAtom();
 
-  const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
+  const tokens = isTokenSelector
+    ? tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens)
+    : tokenList.tokens;
+  const [searchTokenState] = useSearchTokenStateAtom();
 
-  if (!tokenListState.initialized && tokenListState.isRefreshing) {
-    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+  const [tokenSelectorSearchTokenState] =
+    useTokenSelectorSearchTokenStateAtom();
+
+  const [searchTokenList] = useSearchTokenListAtom();
+
+  const [tokenSelectorSearchTokenList] = useTokenSelectorSearchTokenListAtom();
+
+  const filteredTokens = getFilteredTokenBySearchKey({
+    tokens,
+    searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
+    searchAll,
+    searchTokenList: isTokenSelector
+      ? tokenSelectorSearchTokenList.tokens
+      : searchTokenList.tokens,
+  });
+
+  const { listViewProps, listViewRef, onLayout } =
+    useTabListScroll<IAccountToken>({
+      inTabList,
+    });
+
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+
+  const [isInRequest, setIsInRequest] = useState(false);
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    const fn = ({ isRefreshing }: { isRefreshing: boolean }) => {
+      setIsInRequest(isRefreshing);
+    };
+    appEventBus.on(EAppEventBusNames.TabListStateUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
+    };
+  }, []);
+  if (
+    (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
+    (!isTokenSelector && searchTokenState.isSearching) ||
+    (!tokenListState.initialized && tokenListState.isRefreshing) ||
+    (platformEnv.isNativeAndroid && isInRequest)
+  ) {
+    return (
+      <NestedScrollView style={{ flex: 1 }}>
+        <ListLoading isTokenSelectorView={!tableLayout} />
+      </NestedScrollView>
+    );
   }
 
   return (
     <ListView
-      py={withPresetVerticalPadding ? '$3' : '$0'}
+      {...listViewProps}
+      renderScrollComponent={renderNestedScrollView}
+      // py={withPresetVerticalPadding ? '$3' : '$0'}
       estimatedItemSize={tableLayout ? 48 : 60}
-      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
-      disableScrollViewPanResponder={!!onContentSizeChange}
+      ref={listViewRef}
+      onLayout={onLayout}
       data={filteredTokens}
       ListHeaderComponent={
-        withHeader && tokens.length > 0 ? (
+        withHeader ? (
           <TokenListHeader
             filteredTokens={filteredTokens}
-            tokens={tokens}
-            tableLayout={tableLayout}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
           />
         ) : null
       }
-      onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={
         searchKey ? (
-          EmptySearch
+          <EmptySearch
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+          />
         ) : (
           <EmptyToken
             withBuyAndReceive={withBuyAndReceive}
@@ -86,19 +183,30 @@ function TokenListView(props: IProps) {
           />
         )
       }
-      renderItem={({ item, index }) => (
+      renderItem={({ item }) => (
         <TokenListItem
+          hideValue={hideValue}
           token={item}
           key={item.$key}
-          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withPrice={withPrice}
+          isAllNetworks={isAllNetworks}
+          withNetwork={withNetwork}
+          isTokenSelector={isTokenSelector}
         />
       )}
       ListFooterComponent={
         <Stack pb="$5">
           {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+          {footerTipText ? (
+            <Stack jc="center" ai="center" pt="$3">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {footerTipText}
+              </SizableText>
+            </Stack>
+          ) : null}
+          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
     />

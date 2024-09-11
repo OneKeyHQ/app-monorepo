@@ -14,8 +14,6 @@ export enum EDecodedTxDirection {
   OTHER = 'OTHER',
 }
 
-export type IReplacedTxType = 'speedUp' | 'cancel';
-
 export enum EDecodedTxActionType {
   ASSET_TRANSFER = 'ASSET_TRANSFER',
 
@@ -46,6 +44,11 @@ export enum EDecodedTxStatus {
   Removed = 'Removed',
   // for btc list order psbt
   Offline = 'Offline',
+}
+
+export enum EReplaceTxType {
+  SpeedUp = 'SpeedUp',
+  Cancel = 'Cancel',
 }
 
 export type ISendTxBaseParams = {
@@ -102,6 +105,7 @@ export type IDecodedTx = {
 
   networkId: string;
   accountId: string;
+  networkLogoURI?: string;
   xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
@@ -132,7 +136,9 @@ export type IDecodedTxActionBase = {
   icon?: string;
 };
 
-export type IDecodedTxActionUnknown = IDecodedTxActionBase;
+export type IDecodedTxActionUnknown = IDecodedTxActionBase & {
+  label?: string;
+};
 
 export type IDecodedTxTransferInfo = {
   from: string;
@@ -162,12 +168,21 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   utxoFrom?: IUtxoAddressInfo[];
   utxoTo?: IUtxoAddressInfo[];
   label?: string;
+  application?: {
+    name: string;
+    icon: string;
+  };
+  isInternalSwap?: boolean;
+  swapReceivedAddress?: string;
+  swapReceivedNetworkId?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
   name: string;
+  decimals: number;
+  spender: string;
   isInfiniteAmount: boolean;
   tokenIdOnNetwork: string;
   label?: string;
@@ -184,7 +199,7 @@ export type IDecodedTxAction = {
   type: EDecodedTxActionType;
   direction?: EDecodedTxDirection;
   hidden?: boolean;
-
+  data?: string;
   assetTransfer?: IDecodedTxActionAssetTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   tokenActivate?: IDecodedTxActionTokenActivate;
@@ -197,4 +212,9 @@ export type IDecodedTxAction = {
 export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;
+};
+
+export type IReplaceTxInfo = {
+  replaceType: EReplaceTxType;
+  replaceHistoryId: string;
 };

@@ -15,6 +15,7 @@ import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   DAppAccountListStandAloneItem,
@@ -80,7 +81,7 @@ function LnurlWithdrawModal() {
   });
 
   const onConfirm = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
       setIsLoading(true);
@@ -108,13 +109,16 @@ function LnurlWithdrawModal() {
         Toast.success({
           title: 'Withdrawer success',
         });
-        close?.();
+        close?.({ flag: EDAppModalPageStatus.Confirmed });
       } catch (e: any) {
         const message = (e as Error)?.message;
         if (!isSendFlow) {
           // show error message for 1.5s
           setTimeout(() => {
             void dappApprove.resolve({
+              close: () => {
+                close?.({ flag: EDAppModalPageStatus.Confirmed });
+              },
               result: {
                 status: 'ERROR',
                 reason: message,

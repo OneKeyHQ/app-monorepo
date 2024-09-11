@@ -6,6 +6,19 @@ import type {
 
 import type { IInvoiceDecodedResponse, ILNURLDetails } from './lightning';
 
+export enum EInputAddressChangeType {
+  Manual = 'manual',
+  Paste = 'paste',
+  Scan = 'scan',
+  AddressBook = 'AddressBook',
+  AccountSelector = 'AccountSelector',
+}
+
+export enum EDeriveAddressActionType {
+  Copy = 'copy',
+  Select = 'select',
+}
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;
@@ -20,10 +33,9 @@ export type IAddressValidation = {
 };
 
 export type IFetchAccountDetailsParams = {
+  accountId: string;
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
-  cardanoPubKey?: string;
+  cardanoPubKey?: string; // only available for cardano utxo query
   withUTXOList?: boolean;
   withNetWorth?: boolean;
   withBalance?: boolean;
@@ -44,6 +56,7 @@ export type IFetchAccountDetailsResp = {
   accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
+  allUtxoList?: IUtxoInfo[];
   utxoList?: IUtxoInfo[];
   frozenUtxoList?: IUtxoInfo[];
   validateInfo?: {
@@ -92,15 +105,27 @@ export type INetworkAccountAddressDetail = {
   allowEmptyAddress: boolean; // allow empty address, like lightning network
 };
 
+export enum EServerInteractedStatus {
+  FALSE = '0',
+  TRUE = '1',
+  UNKNOWN = '2',
+}
+
+export type IServerAccountBadgeResp = {
+  interacted: EServerInteractedStatus;
+  isContract?: boolean;
+  badges?: { label: string }[];
+};
+
 export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
   | 'unknown';
 
+export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
+
 export type IAddressValidateStatus =
-  | 'valid'
-  | 'invalid'
-  | 'unknown'
+  | IAddressValidateBaseStatus
   | 'prohibit-send-to-self';
 
 export type IQueryCheckAddressArgs = {
@@ -111,6 +136,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
   enableAddressInteractionStatus?: boolean;
+  enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   skipValidateAddress?: boolean;
 };

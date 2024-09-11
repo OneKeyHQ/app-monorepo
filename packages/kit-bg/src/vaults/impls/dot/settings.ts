@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_DOT,
   IMPL_DOT,
@@ -26,6 +27,13 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  dappInteractionEnabled: true,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
@@ -33,6 +41,8 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 120,
 
   defaultFeePresetIndex: 0,
 

@@ -1,11 +1,11 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef, useCallback, useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
-import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web/types/types';
 import type {
   FlatListProps,
   ListRenderItem,
@@ -24,11 +24,11 @@ export type IListViewProps<T> = Omit<
   | 'data'
   | 'renderItem'
 > &
-  StackStyleProps & {
-    contentContainerStyle?: StackStyleProps;
-    columnWrapperStyle?: StackStyleProps;
-    ListHeaderComponentStyle?: StackStyleProps;
-    ListFooterComponentStyle?: StackStyleProps;
+  StackStyle & {
+    contentContainerStyle?: StackStyle;
+    columnWrapperStyle?: StackStyle;
+    ListHeaderComponentStyle?: StackStyle;
+    ListFooterComponentStyle?: StackStyle;
   } & {
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
@@ -41,6 +41,13 @@ export type IListViewProps<T> = Omit<
       See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
     */
     estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    overrideItemLayout?: (
+      layout: { span?: number; size?: number },
+      item: T,
+      index: number,
+      maxColumns: number,
+      extraData?: any,
+    ) => void;
     getItemType?: (item: T) => string | undefined;
     onBlankArea?: (blankAreaEvent: {
       offsetStart: number;
@@ -92,21 +99,26 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize = useMemo(
-    () =>
-      typeof estimatedItemSize === 'number'
-        ? estimatedItemSize
-        : (getTokenValue(estimatedItemSize) as number),
-    [estimatedItemSize],
-  );
-  const getItemLayout = useCallback(
-    (_: ArrayLike<T> | null | undefined, index: number) => ({
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize, 'size') as number);
+  }, [estimatedItemSize]);
+
+  const getItemLayout = useMemo(() => {
+    if (!itemSize) {
+      return;
+    }
+    return (_: ArrayLike<T> | null | undefined, index: number) => ({
       length: itemSize,
       offset: itemSize * index,
       index,
-    }),
-    [itemSize],
-  );
+    });
+  }, [itemSize]);
+
   return (
     <FlatList<T>
       ref={ref}

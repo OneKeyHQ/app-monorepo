@@ -1,9 +1,14 @@
+import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { generateConnectSrc } from '@onekeyhq/shared/src/hardware/instance';
+import {
+  CoreSDKLoader,
+  generateConnectSrc,
+} from '@onekeyhq/shared/src/hardware/instance';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
@@ -11,8 +16,10 @@ import localDb from '../../dbs/local/localDb';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type { IDBDeviceSettings as IDBDeviceDbSettings } from '../../dbs/local/types';
-import type { DeviceSettingsParams } from '@onekeyfe/hd-core';
-import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  DeviceSettingsParams,
+  DeviceUploadResourceParams,
+} from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
   walletId: string;
@@ -25,6 +32,26 @@ export type ISetPassphraseEnabledParams = {
 };
 
 export type IGetDeviceAdvanceSettingsParams = { walletId: string };
+export type IGetDeviceLabelParams = { walletId: string };
+export type ISetDeviceLabelParams = { walletId: string; label: string };
+export type ISetDeviceHomeScreenParams = {
+  // TODO use IHardwareHomeScreenData
+  dbDeviceId: string;
+  imgName: string;
+  imgHex: string;
+  thumbnailHex: string;
+  isUserUpload?: boolean;
+};
+export type IDeviceHomeScreenSizeInfo = {
+  width: number;
+  height: number;
+  radius?: number;
+};
+export type IDeviceHomeScreenConfig = {
+  names: string[];
+  size?: IDeviceHomeScreenSizeInfo;
+  thumbnailSize?: IDeviceHomeScreenSizeInfo;
+};
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -92,6 +119,85 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           dbDevice,
         },
         hideCheckingDeviceLoading: true,
+        debugMethodName: 'deviceSettings.getDeviceSupportFeatures',
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async getDeviceLabel({ walletId }: IGetDeviceLabelParams) {
+    const device = await localDb.getWalletDevice({ walletId });
+    const features =
+      await this.backgroundApi.serviceHardware.getFeaturesWithoutCache({
+        connectId: device.connectId,
+      });
+    const label = await deviceUtils.buildDeviceLabel({
+      features,
+    });
+    return label || 'Unknown';
+  }
+
+  @backgroundMethod()
+  async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
+    const device = await localDb.getWalletDevice({ walletId });
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.applySettingsToDevice(device.connectId, {
+          label,
+        }),
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async setDeviceHomeScreen({
+    dbDeviceId,
+    imgHex,
+    thumbnailHex,
+    isUserUpload,
+    imgName,
+  }: ISetDeviceHomeScreenParams) {
+    const device = await localDb.getDevice(dbDeviceId);
+
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        if (isUserUpload) {
+          const hardwareSDK = await this.getSDKInstance();
+          const uploadResParams: DeviceUploadResourceParams = {
+            resType: ResourceType.WallPaper,
+            suffix: 'jpeg',
+            dataHex: imgHex,
+            thumbnailDataHex: thumbnailHex,
+            nftMetaData: '',
+          };
+          // upload wallpaper resource will automatically set the home screen
+          await convertDeviceResponse(() =>
+            hardwareSDK.deviceUploadResource(device.connectId, uploadResParams),
+          );
+        } else {
+          const { getHomeScreenHex } = await CoreSDKLoader();
+          const deviceType = device.deviceType;
+          // eslint-disable-next-line no-param-reassign
+          imgHex = imgHex || getHomeScreenHex(deviceType, imgName);
+          if (!imgHex) {
+            // empty string will clear the home screen(classic,mini)
+            // throw new Error('Invalid home screen hex');
+          }
+          await this.applySettingsToDevice(device.connectId, {
+            homescreen: imgHex,
+          });
+        }
+      },
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
       },
     );
   }
@@ -111,6 +217,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
+        debugMethodName: 'deviceSettings.applySettingsToDevice',
       },
     );
   }

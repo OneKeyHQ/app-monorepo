@@ -3,13 +3,13 @@ import { useCallback } from 'react';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
-  EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
@@ -27,13 +27,13 @@ const TabMe = () => {
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
-
+  const toOnBoardingPage = useToOnBoardingPage();
   const { navigateToV4MigrationPage } = useV4MigrationActions();
 
   return (
     <Page>
       <Page.Body>
-        <YStack px="$2" space="$2">
+        <YStack px="$2" gap="$2">
           <Button
             onPress={() => {
               navigation.switchTab(ETabRoutes.Home);
@@ -43,9 +43,7 @@ const TabMe = () => {
           </Button>
           <Button
             onPress={() => {
-              navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.GetStarted,
-              });
+              void toOnBoardingPage({ isFullModal: true });
             }}
           >
             Onboarding
@@ -62,13 +60,6 @@ const TabMe = () => {
             }}
           >
             清空缓存密码
-          </Button>
-          <Button
-            onPress={() => {
-              void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
-            }}
-          >
-            重置密码设置
           </Button>
 
           <Button
@@ -87,6 +78,13 @@ const TabMe = () => {
             }}
           >
             V4 迁移
+          </Button>
+          <Button
+            onPress={() => {
+              void navigateToV4MigrationPage({ isAutoStartOnMount: true });
+            }}
+          >
+            V4 迁移（断点恢复模式）
           </Button>
         </YStack>
       </Page.Body>

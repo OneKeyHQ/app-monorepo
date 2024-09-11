@@ -13,12 +13,12 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
-import { PasswordRegex, getPasswordKeyboardType } from '../utils';
+import { getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
@@ -50,12 +50,29 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
-
+  const timeOutRef = useRef<NodeJS.Timeout | null>(null);
+  const isEnableRef = useRef(isEnable);
+  if (isEnableRef.current !== isEnable) {
+    isEnableRef.current = isEnable;
+  }
+  useEffect(() => {
+    // enable first false should wait some logic to get final value
+    timeOutRef.current = setTimeout(() => {
+      if (!isEnableRef.current) {
+        form.setFocus('password');
+      }
+    }, 500);
+    return () => {
+      if (timeOutRef.current) {
+        clearTimeout(timeOutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
-  const [{ manualLocking }] = usePasswordPersistAtom();
-
+  const [{ manualLocking }] = usePasswordAtom();
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -75,7 +92,7 @@ const PasswordVerify = ({
       });
     } else {
       actions.push({
-        iconName: secureEntry ? 'EyeOffOutline' : 'EyeOutline',
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
@@ -154,7 +171,6 @@ const PasswordVerify = ({
         }}
       >
         <Input
-          autoFocus
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
@@ -162,7 +178,8 @@ const PasswordVerify = ({
             id: ETranslations.auth_enter_your_password,
           })}
           flex={1}
-          onChangeText={(text) => text.replace(PasswordRegex, '')}
+          // onChangeText={(text) => text.replace(PasswordRegex, '')}
+          onChangeText={(text) => text}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
           // fix Keyboard Flickering on TextInput with secureTextEntry #39411
@@ -170,7 +187,7 @@ const PasswordVerify = ({
           textContentType="oneTimeCode"
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
-          testID="enter-password"
+          testID="password-input"
         />
       </Form.Field>
     </Form>

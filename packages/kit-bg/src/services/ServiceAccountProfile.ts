@@ -1,25 +1,25 @@
 import qs from 'querystring';
 
-import { isNil, omitBy } from 'lodash';
+import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
   IAddressInteractionStatus,
-  IAddressValidateStatus,
-  IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
+  IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
+import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -29,14 +29,13 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import simpleDb from '../dbs/simple/simpleDb';
+import { activeAccountValueAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-type IAddressNetworkIdParams = {
-  networkId: string;
-  address: string;
-};
+import type { IDBUtxoAccount } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -44,110 +43,176 @@ class ServiceAccountProfile extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchAccountDetailsControllers: AbortController[] = [];
+
   @backgroundMethod()
-  public async fetchAccountDetails(
-    params: IFetchAccountDetailsParams,
+  public async abortFetchAccountDetails() {
+    this._fetchAccountDetailsControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAccountDetailsControllers = [];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountNativeBalance({
+    account,
+    networkId,
+  }: {
+    account: INetworkAccount;
+    networkId: string;
+  }) {
+    let xpub: string | undefined = (account as IDBUtxoAccount)?.xpub;
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    xpub = await vault.getXpubFromAccount(account);
+
+    // let cardanoPubKey: string | undefined;
+    // if (networkId && networkUtils.getNetworkImpl({ networkId }) === IMPL_ADA) {
+    //   cardanoPubKey = xpub;
+    //   xpub = undefined;
+    // }
+
+    return this.fetchAccountInfo({
+      accountId: account?.id || '',
+      networkId,
+      accountAddress:
+        account?.addressDetail?.displayAddress || account?.address,
+      xpub,
+      // cardanoPubKey, // only for UTXO query, not for balance query
+      withNetWorth: true,
+    });
+  }
+
+  @backgroundMethod()
+  public async fetchAccountInfo(
+    params: IFetchAccountDetailsParams & {
+      accountAddress: string;
+      xpub?: string;
+    },
   ): Promise<IFetchAccountDetailsResp> {
+    const queryParams = {
+      ...omit(params, ['accountId', 'signal']),
+    };
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._fetchAccountDetailsControllers.push(controller);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
-    }>(`/wallet/v1/account/get-account?${qs.stringify(omitBy(params, isNil))}`);
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+      {
+        headers: await this._getWalletTypeHeader({
+          accountId: params.accountId,
+        }),
+        signal: controller.signal,
+      },
+    );
 
     return resp.data.data;
   }
 
   @backgroundMethod()
-  public async validateAddress(
-    params: IAddressNetworkIdParams,
-  ): Promise<IAddressValidateStatus> {
-    const { networkId, address } = params;
-    try {
-      const resp = await this.fetchValidateAddressResult(params);
-      return resp.data.data.isValid ? 'valid' : 'invalid';
-    } catch (serverError) {
-      try {
-        const localValidation =
-          await this.backgroundApi.serviceValidator.validateAddress({
-            networkId,
-            address,
-          });
-        return localValidation.isValid ? 'valid' : 'invalid';
-      } catch (localError) {
-        console.error('failed to validateAddress', serverError, localError);
-        defaultLogger.addressInput.validation.failWithUnknownError({
-          networkId,
-          address,
-          serverError: (serverError as Error).message,
-          localError: (localError as Error).message,
-        });
-        return 'unknown';
-      }
-    }
+  public async fetchAccountDetails(
+    params: IFetchAccountDetailsParams,
+  ): Promise<IFetchAccountDetailsResp> {
+    const { accountId, networkId } = params;
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    const accountDetails = await this.fetchAccountInfo({
+      ...params,
+      accountAddress,
+      xpub,
+    });
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.fillAccountDetails({ accountDetails });
   }
 
-  fetchValidateAddressResult = memoizee(
-    async (params: IAddressNetworkIdParams) => {
-      const { networkId, address } = params;
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{
-        data: IAddressValidation;
-      }>('/wallet/v1/account/validate-address', {
-        params: { networkId, accountAddress: address },
-      });
-      return resp;
-    },
-    {
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
-    },
-  );
-
-  private async getAddressInteractionStatus({
+  private async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
   }: {
+    fromAddress?: string;
     networkId: string;
-    fromAddress: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus> {
+  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
-        data: {
-          interacted: boolean;
-        };
-      }>('/wallet/v1/account/interacted', {
+        data: IServerAccountBadgeResp;
+      }>('/wallet/v1/account/badges', {
         params: {
           networkId,
-          accountAddress: fromAddress,
-          toAccountAddress: toAddress,
+          fromAddress,
+          toAddress,
         },
       });
-      return resp.data.data.interacted ? 'interacted' : 'not-interacted';
+      const { isContract, interacted } = resp.data.data;
+      const statusMap: Record<
+        EServerInteractedStatus,
+        IAddressInteractionStatus
+      > = {
+        [EServerInteractedStatus.FALSE]: 'not-interacted',
+        [EServerInteractedStatus.TRUE]: 'interacted',
+        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+      };
+      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
     } catch {
-      return 'unknown';
+      return { interacted: 'unknown' };
     }
   }
 
-  private async checkAccountInteractionStatus({
+  private async checkAccountBadges({
     networkId,
     accountId,
     toAddress,
+    checkInteractionStatus,
+    checkAddressContract,
+    result,
   }: {
+    accountId?: string;
+    checkInteractionStatus?: boolean;
+    checkAddressContract?: boolean;
     networkId: string;
-    accountId: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus | undefined> {
-    const acc = await this.backgroundApi.serviceAccount.getAccount({
-      networkId,
-      accountId,
-    });
-    if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
-      return this.getAddressInteractionStatus({
+    result: IAddressQueryResult;
+  }): Promise<void> {
+    let fromAddress: string | undefined;
+    if (accountId) {
+      const acc = await this.backgroundApi.serviceAccount.getAccount({
         networkId,
-        fromAddress: acc.address,
-        toAddress,
+        accountId,
       });
+      fromAddress = acc.address;
+    }
+    const { isContract, interacted } = await this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+    });
+    if (
+      checkInteractionStatus &&
+      toAddress.toLowerCase() !== fromAddress &&
+      fromAddress
+    ) {
+      result.addressInteractionStatus = interacted;
+    }
+    if (checkAddressContract) {
+      result.isContract = isContract;
     }
   }
 
@@ -178,22 +243,25 @@ class ServiceAccountProfile extends ServiceBase {
   @backgroundMethod()
   public async queryAddress({
     networkId,
-    address,
+    address: rawAddress,
     accountId,
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    enableAddressContract,
     enableVerifySendFundToSelf,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const result: IAddressQueryResult = { input: address };
+    const { serviceValidator } = this.backgroundApi;
+    const address = rawAddress.trim();
+    const result: IAddressQueryResult = { input: rawAddress };
     if (!networkId) {
       return result;
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await this.validateAddress({
+      result.validStatus = await serviceValidator.validateAddress({
         networkId,
         address,
       });
@@ -209,7 +277,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (!skipValidateAddress && result.validStatus !== 'valid') {
       return result;
     }
-    const resolveAddress = result.resolveAddress ?? result.input;
+    const resolveAddress = result.resolveAddress ?? address;
     if (enableVerifySendFundToSelf && accountId && resolveAddress) {
       const disableFundToSelf = await this.verifyCannotSendToSelf({
         networkId,
@@ -221,12 +289,13 @@ class ServiceAccountProfile extends ServiceBase {
         return result;
       }
     }
-
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =
         await this.backgroundApi.serviceAddressBook.findItem({
-          networkId,
+          networkId: !networkUtils.isEvmNetwork({ networkId })
+            ? networkId
+            : undefined,
           address: resolveAddress,
         });
       result.addressBookName = addressBookItem?.name;
@@ -241,32 +310,44 @@ class ServiceAccountProfile extends ServiceBase {
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
-        if (accountId) {
-          const account = await this.backgroundApi.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          });
-          const accountItem = walletAccountItems.find(
-            (a) =>
-              account.indexedAccountId === a.accountId ||
-              account.id === a.accountId,
-          );
+        try {
+          if (accountId) {
+            const account = await this.backgroundApi.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            });
+            const accountItem = walletAccountItems.find(
+              (a) =>
+                account.indexedAccountId === a.accountId ||
+                account.id === a.accountId,
+            );
 
-          if (accountItem) {
-            item = accountItem;
+            if (accountItem) {
+              item = accountItem;
+            }
           }
+        } catch (e) {
+          console.error(e);
+          // pass
         }
 
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
       }
     }
-    if (enableAddressInteractionStatus && resolveAddress && accountId) {
-      result.addressInteractionStatus =
-        await this.checkAccountInteractionStatus({
-          networkId,
-          accountId,
-          toAddress: resolveAddress,
-        });
+    if (
+      resolveAddress &&
+      (enableAddressContract || (enableAddressInteractionStatus && accountId))
+    ) {
+      await this.checkAccountBadges({
+        networkId,
+        accountId,
+        toAddress: resolveAddress,
+        checkAddressContract: enableAddressContract,
+        checkInteractionStatus: Boolean(
+          enableAddressInteractionStatus && accountId,
+        ),
+        result,
+      });
     }
     return result;
   }
@@ -276,6 +357,7 @@ class ServiceAccountProfile extends ServiceBase {
     address: string,
     result: IAddressQueryResult,
   ) {
+    const { serviceValidator } = this.backgroundApi;
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     let resolveNames: IResolveNameResp | null | undefined =
       await vault.resolveDomainName({
@@ -293,7 +375,7 @@ class ServiceAccountProfile extends ServiceBase {
       result.resolveAddress = resolveNames.names?.[0].value;
       result.resolveOptions = resolveNames.names?.map((o) => o.value);
       if (result.validStatus !== 'valid') {
-        result.validStatus = await this.validateAddress({
+        result.validStatus = await serviceValidator.validateAddress({
           networkId,
           address: result.resolveAddress,
         });
@@ -319,12 +401,13 @@ class ServiceAccountProfile extends ServiceBase {
       request,
     );
     const data = resp.data.data.data;
-    if (data.some((item) => !item.success)) {
+    const failedRequest = data.find((item) => !item.success);
+    if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error('Failed to send proxy request');
+      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
     }
     return data.map((item) => item.data);
   }
@@ -346,6 +429,101 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  @backgroundMethod()
+  async getAccountsValue(params: { accounts: { accountId: string }[] }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
+    return accountsValue;
+  }
+
+  @backgroundMethod()
+  async updateAccountValue(params: {
+    accountId: string;
+    value: string;
+    currency: string;
+  }) {
+    await activeAccountValueAtom.set(params);
+
+    await simpleDb.accountValue.updateAccountValue(params);
+  }
+
+  // Get wallet type
+  // hd
+  // private-key
+  // watched-only
+  // hw-classic
+  // hw-classic1s
+  // hw-mini
+  // hw-touch
+  // hw-pro
+  // url
+  // third-party
+  async _getWalletTypeHeader(params: {
+    walletId?: string;
+    otherWalletId?: string;
+    accountId?: string;
+  }) {
+    return {
+      'X-OneKey-Wallet-Type': await this._getRequestWalletType(params),
+    };
+  }
+
+  async _getRequestWalletType({
+    walletId,
+    accountId,
+  }: {
+    walletId?: string;
+    otherWalletId?: string;
+    accountId?: string;
+  }) {
+    if (walletId) {
+      if (accountUtils.isHdWallet({ walletId })) {
+        return ERequestWalletTypeEnum.HD;
+      }
+      if (accountUtils.isImportedWallet({ walletId })) {
+        return ERequestWalletTypeEnum.PRIVATE_KEY;
+      }
+      if (accountUtils.isWatchingWallet({ walletId })) {
+        return ERequestWalletTypeEnum.WATCHED_ONLY;
+      }
+      if (accountUtils.isExternalWallet({ walletId })) {
+        return ERequestWalletTypeEnum.THIRD_PARTY;
+      }
+      if (accountUtils.isHwWallet({ walletId })) {
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
+      }
+      if (accountUtils.isQrWallet({ walletId })) {
+        return ERequestWalletTypeEnum.HW_QRCODE;
+      }
+    }
+    if (accountId) {
+      if (accountUtils.isHdAccount({ accountId })) {
+        return ERequestWalletTypeEnum.HD;
+      }
+      // urlAccount must be checked before watchAccount
+      if (accountUtils.isUrlAccountFn({ accountId })) {
+        return ERequestWalletTypeEnum.URL;
+      }
+      if (accountUtils.isImportedAccount({ accountId })) {
+        return ERequestWalletTypeEnum.PRIVATE_KEY;
+      }
+      if (accountUtils.isWatchingAccount({ accountId })) {
+        return ERequestWalletTypeEnum.WATCHED_ONLY;
+      }
+      if (accountUtils.isExternalAccount({ accountId })) {
+        return ERequestWalletTypeEnum.THIRD_PARTY;
+      }
+      if (accountUtils.isHwAccount({ accountId })) {
+        // TODO: fetch device type
+        return ERequestWalletTypeEnum.HW;
+      }
+      if (accountUtils.isQrAccount({ accountId })) {
+        return ERequestWalletTypeEnum.HW_QRCODE;
+      }
+    }
+    return ERequestWalletTypeEnum.UNKNOWN;
   }
 }
 

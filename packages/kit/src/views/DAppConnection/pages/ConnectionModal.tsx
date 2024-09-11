@@ -6,7 +6,11 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EDAppModalPageStatus,
+  type IConnectionAccountInfo,
+} from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -90,13 +94,29 @@ function ConnectionModal() {
   }, [selectedAccount, continueOperate]);
 
   const onApproval = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (!$sourceInfo?.scope) {
         Toast.error({ title: 'no injected scope' });
+        if ($sourceInfo) {
+          defaultLogger.discovery.dapp.dappUse({
+            dappName: $sourceInfo?.hostname,
+            dappDomain: $sourceInfo?.origin,
+            action: 'ConnectWallet',
+            network: selectedAccount?.network?.name,
+            failReason: 'no injected scope',
+          });
+        }
         return;
       }
       if (!selectedAccount || !selectedAccount.account) {
         Toast.error({ title: 'no account' });
+        defaultLogger.discovery.dapp.dappUse({
+          dappName: $sourceInfo?.hostname,
+          dappDomain: $sourceInfo?.origin,
+          action: 'ConnectWallet',
+          network: selectedAccount?.network?.name,
+          failReason: 'no account',
+        });
         return;
       }
       const {
@@ -121,6 +141,13 @@ function ConnectionModal() {
       if (connectedAccountInfo?.existConnectedAccount) {
         if (!isNumber(connectedAccountInfo?.num)) {
           dappApprove.reject();
+          defaultLogger.discovery.dapp.dappUse({
+            dappName: $sourceInfo.hostname,
+            dappDomain: $sourceInfo?.origin,
+            action: 'ConnectWallet',
+            network: network?.name,
+            failReason: 'no accountSelectorNum',
+          });
           throw new Error('no accountSelectorNum');
         }
         await serviceDApp.updateConnectionSession({
@@ -137,18 +164,25 @@ function ConnectionModal() {
         });
       }
       await dappApprove.resolve({
-        close,
+        close: () => {
+          close?.({ flag: EDAppModalPageStatus.Confirmed });
+        },
         result: accountInfo,
       });
       Toast.success({
         title: intl.formatMessage({ id: ETranslations.global_connected }),
       });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: $sourceInfo.hostname,
+        dappDomain: $sourceInfo?.origin,
+        action: 'ConnectWallet',
+        network: network?.name,
+      });
     },
     [
       intl,
       dappApprove,
-      $sourceInfo?.origin,
-      $sourceInfo?.scope,
+      $sourceInfo,
       serviceDApp,
       selectedAccount,
       rawSelectedAccount,

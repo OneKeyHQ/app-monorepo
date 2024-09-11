@@ -1,12 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { ICheckedState } from '@onekeyhq/components';
+// import type { ICheckedState } from '@onekeyhq/components';
 import {
   Alert,
-  Checkbox,
+  // Checkbox,
   Icon,
   Page,
   SizableText,
@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+// import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
@@ -31,10 +31,10 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 
 const TokenInfoCard = ({ token }: { token: ISwapToken }) => (
-  <XStack space="$3" alignItems="center">
+  <XStack gap="$3" alignItems="center">
     <Token tokenImageUri={token.logoURI} />
-    <YStack space="$1" flex={1}>
-      <XStack space="$1" alignItems="center">
+    <YStack gap="$1" flex={1}>
+      <XStack gap="$1" alignItems="center">
         <SizableText color="$text" size="$headingLg">
           {token.name}
         </SizableText>
@@ -58,29 +58,29 @@ const SwapRiskReminderModal = ({
   onConfirm: () => void;
 }) => {
   const intl = useIntl();
-  const [checkValue, setCheckValue] = useState(false);
-  const [, setSettings] = useSettingsPersistAtom();
+  // const [checkValue, setCheckValue] = useState(false);
+  // const [, setSettings] = useSettingsPersistAtom();
   const onHandleConfirm = useCallback(() => {
-    if (checkValue) {
-      setSettings((v) => ({
-        ...v,
-        tokenRiskReminder: false,
-      }));
-    }
+    // if (checkValue) {
+    //   setSettings((v) => ({
+    //     ...v,
+    //     tokenRiskReminder: false,
+    //   }));
+    // }
     void backgroundApiProxy.serviceSetting.addConfirmedRiskTokens([
       `${token.networkId}_${token.contractAddress}`,
     ]);
     onConfirm();
   }, [
-    checkValue,
+    // checkValue,
     onConfirm,
-    setSettings,
+    // setSettings,
     token.contractAddress,
     token.networkId,
   ]);
-  const onCheckboxChange = useCallback((value: ICheckedState) => {
-    setCheckValue(!!value);
-  }, []);
+  // const onCheckboxChange = useCallback((value: ICheckedState) => {
+  //   setCheckValue(!!value);
+  // }, []);
 
   return (
     <Page>
@@ -89,7 +89,7 @@ const SwapRiskReminderModal = ({
           id: ETranslations.token_selector_risk_reminder_title,
         })}
       />
-      <Page.Body px="$5" space="$4">
+      <Page.Body px="$5" gap="$4">
         {token.riskLevel === ETokenRiskLevel.SPAM ||
         token.riskLevel === ETokenRiskLevel.MALICIOUS ? (
           <Alert
@@ -121,14 +121,14 @@ const SwapRiskReminderModal = ({
         />
       </Page.Body>
       <Page.Footer>
-        <Checkbox
+        {/* <Checkbox
           ml="$5"
           onChange={onCheckboxChange}
           value={checkValue}
           label={intl.formatMessage({
             id: ETranslations.token_selector_risk_reminder_checkbox,
           })}
-        />
+        /> */}
         <Page.FooterActions
           onConfirmText={intl.formatMessage({
             id: ETranslations.token_selector_risk_reminder_button_ok,

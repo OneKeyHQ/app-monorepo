@@ -8,11 +8,11 @@ import {
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
-import type { IServerNetwork } from '../../types';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
+import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -49,7 +49,7 @@ function safeParseURL(url: string): URL | null {
 
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
-    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
+    dappUrl.toLowerCase().startsWith(`${protocol.toLowerCase()}`),
   );
 }
 
@@ -139,59 +139,6 @@ export const addressIsEnsFormat = (address: string) => {
   return parts.length > 1 && parts.every((o) => Boolean(o) && o === o.trim());
 };
 
-export function buildExplorerAddressUrl({
-  network,
-  address,
-}: {
-  network: IServerNetwork | undefined;
-  address: string | undefined;
-}) {
-  if (!network || !address) return '';
-
-  const addressUrl = network.explorers[0]?.address;
-
-  if (!addressUrl) return '';
-
-  return addressUrl.replace('{address}', address);
-}
-
-export function buildTokenDetailsUrl({
-  network,
-  address,
-}: {
-  network: IServerNetwork | undefined;
-  address: string | undefined;
-}) {
-  if (!network || !address) return '';
-
-  const tokenUrl = network.explorers[0]?.token;
-
-  if (tokenUrl) {
-    return tokenUrl.replace('{token}', address);
-  }
-
-  const addressUrl = network.explorers[0]?.address;
-
-  if (!addressUrl) return '';
-
-  return addressUrl.replace('{address}', address);
-}
-
-export function buildTransactionDetailsUrl({
-  network,
-  txid,
-}: {
-  network: IServerNetwork | undefined;
-  txid: string | undefined;
-}) {
-  if (!network || !txid) return '';
-
-  const transactionUrl = network.explorers[0]?.transaction;
-
-  if (!transactionUrl) return '';
-
-  return transactionUrl.replace('{transaction}', txid);
-}
 export function isValidDeepLink(url: string) {
   return VALID_DEEP_LINK.some((protocol) =>
     url.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
@@ -276,6 +223,29 @@ function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
   });
 }
 
+const NameToUrlMapForInvalidDapp: Record<string, string> = {
+  'Algorand Governance--Governance platform for Algorand':
+    'https://governance.algorand.foundation',
+};
+function safeGetWalletConnectOrigin(proposal: Web3WalletTypes.SessionProposal) {
+  try {
+    const { origin } = new URL(proposal.params.proposer.metadata.url);
+    return origin;
+  } catch (err) {
+    try {
+      const key = `${proposal.params.proposer.metadata.name}--${proposal.params.proposer.metadata.description}`;
+      const nameToUrl = NameToUrlMapForInvalidDapp[key];
+      if (nameToUrl) {
+        const { origin } = new URL(nameToUrl);
+        return origin;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -286,4 +256,6 @@ export default {
   containsPunycode,
   buildUrl,
   buildDeepLinkUrl,
+  safeGetWalletConnectOrigin,
+  parseUrl,
 };

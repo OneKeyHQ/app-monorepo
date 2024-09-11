@@ -51,6 +51,17 @@ export type IExternalSignMessagePayload = {
   params: ISignMessageParams;
   connector: IExternalConnector;
 };
+export type IExternalCheckNetworkOrAddressMatchedPayload = {
+  account: IDBExternalAccount;
+  networkId: string;
+  connector: IExternalConnector;
+};
+
+export type IExternalSyncAccountFromPeerWalletPayload = {
+  account: IDBExternalAccount;
+  networkId: string;
+  connector: IExternalConnector;
+};
 
 export abstract class ExternalControllerBase {
   constructor({
@@ -124,4 +135,12 @@ export abstract class ExternalControllerBase {
   abstract signMessage(
     payload: IExternalSignMessagePayload,
   ): Promise<ISignedMessagePro>;
+
+  abstract checkNetworkOrAddressMatched(
+    payload: IExternalCheckNetworkOrAddressMatchedPayload,
+  ): Promise<void>;
+
+  abstract syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ): Promise<void>;
 }

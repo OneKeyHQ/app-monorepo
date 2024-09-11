@@ -67,7 +67,7 @@ function ListDemo() {
     <Background>
       <BlurView w="100%" h="$20" intensity={70}>
         <ListView
-          p="$2"
+          contentContainerStyle={{ p: '$2' }}
           horizontal
           data={mockData}
           showsHorizontalScrollIndicator={false}
@@ -83,7 +83,7 @@ function ListDemo() {
   );
 }
 
-function DynimicDemo() {
+function DynamicDemo() {
   return (
     <Background>
       <LottieView
@@ -114,7 +114,7 @@ const BlurViewGallery = () => (
       },
       {
         title: 'Dynimic',
-        element: <DynimicDemo />,
+        element: <DynamicDemo />,
       },
     ]}
   />

@@ -1,16 +1,18 @@
-import { isEqual, isNil } from 'lodash';
+import { isEqual, isNil, isObject, isString } from 'lodash';
 import natsort from 'natsort';
 
 import {
   getBtcForkNetwork,
   getPublicKeyFromXpub,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import {
   decrypt,
   encodeSensitiveText,
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
+  sha256,
 } from '@onekeyhq/core/src/secret';
 import {
   ECoreApiExportedSecretKeyType,
@@ -18,23 +20,36 @@ import {
 } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  COINTYPE_ADA,
   COINTYPE_BTC,
+  COINTYPE_COSMOS,
+  COINTYPE_DNX,
+  COINTYPE_DOT,
+  COINTYPE_ETH,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_NEXA,
+  COINTYPE_SOL,
+  COINTYPE_STC,
+  COINTYPE_SUI,
   COINTYPE_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import v5localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
+import { vaultFactory } from '../../vaults/factory';
 
 import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
+import v4MigrationUtils from './v4MigrationUtils';
 import { EV4DBAccountType } from './v4types';
 
 import type {
@@ -48,20 +63,27 @@ import type {
   IV4DBAccount,
   IV4DBCredentialBase,
   IV4DBDevice,
+  IV4DBDevicePayloadJson,
   IV4DBHdCredentialRaw,
   IV4DBImportedCredentialRaw,
   IV4DBUtxoAccount,
 } from './v4local/v4localDBTypes';
 import type {
   IDBAccount,
+  IDBCreateHwWalletParams,
   IDBDevice,
+  IDBDeviceSettings,
   IDBUtxoAccount,
   IDBWallet,
 } from '../../dbs/local/types';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '../../vaults/types';
+import type { VaultBase } from '../../vaults/base/VaultBase';
+import type VaultNexa from '../../vaults/impls/nexa/Vault';
+
+function isLightningV4Account({ v4account }: { v4account: IV4DBAccount }) {
+  return [COINTYPE_LIGHTNING, COINTYPE_LIGHTNING_TESTNET].includes(
+    v4account.coinType,
+  );
+}
 
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
@@ -84,9 +106,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (!networkId) {
-        throw new Error(`Unsupported coinType: ${v4account.coinType}`);
+        throw new Error(
+          `Unsupported coinType for migration: ${v4account.coinType}`,
+        );
       }
-      const coreApi = this.getCoreApi({ networkId });
       const credentials: ICoreCredentialsInfo = {
         imported: encryptImportedCredential({
           credential: {
@@ -104,25 +127,39 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         });
       const addressEncoding = deriveInfo?.addressEncoding;
 
-      const chainId = networkUtils.getNetworkChainId({
-        networkId,
-        hex: false,
-      });
+      let exportedPrivateKey = '';
+      if (
+        v4MigrationUtils.isCoinTypeSupport({ coinType: v4account.coinType })
+      ) {
+        const chainId = networkUtils.getNetworkChainId({
+          networkId,
+          hex: false,
+        });
+        const coreApi = this.getCoreApi({ networkId });
+        exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
+          networkInfo: { chainId } as any, // only works for HD
 
-      const exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
-        networkInfo: { chainId } as any, // only works for HD
+          password: encodedPassword,
+          credentials,
 
-        password: encodedPassword,
-        credentials,
+          account: v4account,
 
-        account: v4account,
+          keyType:
+            v4account.type === EV4DBAccountType.UTXO
+              ? ECoreApiExportedSecretKeyType.xprvt
+              : ECoreApiExportedSecretKeyType.privateKey,
+          addressEncoding,
+        });
+      }
 
-        keyType:
-          v4account.type === EV4DBAccountType.UTXO
-            ? ECoreApiExportedSecretKeyType.xprvt
-            : ECoreApiExportedSecretKeyType.privateKey,
-        addressEncoding,
-      });
+      if (
+        !exportedPrivateKey &&
+        privateKey &&
+        v4account?.coinType === COINTYPE_STC
+      ) {
+        exportedPrivateKey = hexUtils.addHexPrefix(privateKey);
+      }
+
       return {
         exportedPrivateKey,
         privateKey,
@@ -256,6 +293,11 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4account,
     });
 
+    const v4accountUtxo = v4account as IV4DBUtxoAccount;
+    const networkId: string | undefined = v4account.coinType
+      ? v4CoinTypeToNetworkId[v4account.coinType]
+      : undefined;
+
     const logErrorFn = (error: Error | undefined) =>
       `${error?.message || 'error'}  ${JSON.stringify({
         id: v4account?.id,
@@ -293,6 +335,187 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       },
     );
 
+    await v4dbHubs.logger.runAsyncWithCatch(
+      async () => {
+        //
+      },
+      {
+        name: 'fixV4AccountMissingFields TODO',
+        errorResultFn: () => undefined,
+        logErrorFn,
+        logErrorOnly: true,
+      },
+    );
+
+    if (accountUtils.isHwAccount({ accountId: v4account.id })) {
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          //
+          if (isLightningV4Account({ v4account })) {
+            v4account.address =
+              v4accountUtxo?.addresses?.normalizedAddress || '';
+            v4accountUtxo.addresses = {
+              '0/0': v4account.address,
+            };
+            const addLastQuote = (str: string) => {
+              if (!str.endsWith(`'`)) {
+                return `${str}'`;
+              }
+              return str;
+            };
+            if (v4account.path) {
+              v4account.path = addLastQuote(v4account.path) || v4account.path;
+            }
+            if (v4account.id) {
+              v4account.id = addLastQuote(v4account.id) || v4account.id;
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw Lightning',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          //
+          if (v4account.coinType === COINTYPE_SOL) {
+            if (v4account?.pub && v4account?.pub === v4account?.address) {
+              v4account.pub = '';
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw SOL',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if ([COINTYPE_NEXA, COINTYPE_ADA].includes(v4account.coinType)) {
+            if (v4account.id && v4account.id.endsWith("'/0'/0/0")) {
+              if (v4account.id) {
+                v4account.id = v4account.id.replace(/\/0\/0$/, '');
+              }
+            }
+            if (v4account.path && v4account.path.endsWith("'/0'/0/0")) {
+              if (v4account.path) {
+                v4account.path = v4account.path.replace(/\/0\/0$/, '');
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw Nexa,ADA path',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_DNX) {
+            if (v4accountUtxo && !v4accountUtxo.xpub) {
+              (v4accountUtxo as { xpub?: string }).xpub = undefined;
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw DNX',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_SUI) {
+            // TODO
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw SUI',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (
+            v4account.coinType === COINTYPE_COSMOS ||
+            v4account.coinType === COINTYPE_DOT
+          ) {
+            if (networkId) {
+              const vault = (await vaultFactory?.getChainOnlyVault({
+                networkId,
+              })) as VaultBase;
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account: v4account as any,
+                networkId,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              if (addressDetail?.address) {
+                v4accountUtxo.addresses = v4accountUtxo.addresses || {};
+                v4accountUtxo.addresses[networkId] = addressDetail.address;
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw COSMOS/DOT',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          if (v4account.coinType === COINTYPE_NEXA) {
+            // address may be pub
+            if (
+              v4account.address &&
+              !verifyNexaAddressPrefix(v4account.address)
+            ) {
+              v4account.pub = v4account.address || '';
+            }
+            if (networkId) {
+              const vault = (await vaultFactory?.getChainOnlyVault({
+                networkId,
+              })) as VaultNexa;
+              const addressDetail = await vault?.buildAccountAddressDetail({
+                account: v4account as any,
+                networkId,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              if (addressDetail?.address) {
+                v4accountUtxo.addresses = v4accountUtxo.addresses || {};
+                v4accountUtxo.addresses[networkId] = addressDetail.address;
+                // The address of nexa must be pub, not the actual address, because the mainnet and testnet addresses of nexa are different
+                // v4account.address = addressDetail.address;
+              }
+            }
+          }
+        },
+        {
+          name: 'fixV4AccountMissingFields hw NEXA',
+          errorResultFn: () => undefined,
+          logErrorFn,
+          logErrorOnly: true,
+        },
+      );
+    }
+
     if (!isEqual(old, v4account)) {
       v4dbHubs.logger.saveAccountDetailsV4({
         v4accountId: v4account.id,
@@ -319,10 +542,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
   // }
 
   async fixV4AccountLightningType({ v4account }: { v4account: IV4DBAccount }) {
-    if (
-      v4account.coinType === COINTYPE_LIGHTNING ||
-      v4account.coinType === COINTYPE_LIGHTNING_TESTNET
-    ) {
+    if (isLightningV4Account({ v4account })) {
       if (accountUtils.isHwAccount({ accountId: v4account.id })) {
         v4account.type = EV4DBAccountType.SIMPLE;
       }
@@ -396,60 +616,96 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       this.backgroundApi;
 
     return v4dbHubs.logger.runAsyncWithCatch(
-      async () =>
-        new Promise<
-          | {
-              index: number;
-              networkId: string;
-              networkImpl: string;
-              deriveType: IAccountDeriveTypes;
-              coinType: string;
-              deriveInfo: IAccountDeriveInfo | undefined;
-              indexedAccountId: string;
-            }
-          | undefined
-          // eslint-disable-next-line no-async-promise-executor
-        >(async (resolve, reject) => {
-          const index = accountUtils.findIndexFromTemplate({
-            template: await this.fixV4AccountTemplate({ v4account }),
-            path: v4account.path,
+      async () => {
+        const index = accountUtils.findIndexFromTemplate({
+          template: await this.fixV4AccountTemplate({ v4account }),
+          path: v4account.path,
+        });
+        if (!isNil(index)) {
+          let shouldUseV4AccountName = false;
+          if (
+            v4account.coinType === COINTYPE_ETH &&
+            v4account.name !== `EVM #${index + 1}` &&
+            v4account.name !== `Ledger Live #${index + 1}`
+          ) {
+            shouldUseV4AccountName = true;
+          }
+
+          // console.log('v4migration addIndexedAccount', v4account, {
+          //   index,
+          //   shouldUseV4AccountName,
+          // });
+
+          const indexedAccountsAdded = await serviceAccount.addIndexedAccount({
+            walletId: v5wallet.id,
+            indexes: [index],
+            skipIfExists: true,
+            names: {
+              [index]: shouldUseV4AccountName ? v4account.name : '',
+            },
           });
-          if (!isNil(index)) {
-            await serviceAccount.addIndexedAccount({
-              walletId: v5wallet.id,
-              indexes: [index],
-              skipIfExists: true,
+
+          // console.log('v4migration indexedAccountsAdded', indexedAccountsAdded);
+
+          const indexedAccountIdAdded = indexedAccountsAdded[0]?.id;
+          if (indexedAccountIdAdded) {
+            const indexedAccount = await serviceAccount.getIndexedAccountSafe({
+              id: indexedAccountIdAdded,
             });
-            const coinType = v4account.coinType;
-            if (coinType) {
-              const networkId = v4CoinTypeToNetworkId[coinType];
-              if (networkId) {
-                const { deriveType, deriveInfo } =
-                  await serviceNetwork.getDeriveTypeByTemplate({
-                    networkId,
-                    template: await this.fixV4AccountTemplate({
-                      v4account,
-                    }),
-                  });
-                const networkImpl = networkUtils.getNetworkImpl({ networkId });
-                const indexedAccountId = accountUtils.buildIndexedAccountId({
-                  walletId: v5wallet.id,
-                  index,
-                });
-                return resolve({
-                  index,
-                  networkId,
-                  networkImpl,
-                  deriveType,
-                  deriveInfo,
-                  coinType,
-                  indexedAccountId,
-                });
-              }
+            if (
+              shouldUseV4AccountName &&
+              indexedAccount &&
+              accountUtils.buildIndexedAccountName({
+                pathIndex: index,
+              }) === indexedAccount.name
+            ) {
+              await serviceAccount.setAccountName({
+                indexedAccountId: indexedAccount.id,
+                name: v4account.name,
+                skipEventEmit: true,
+              });
             }
           }
-          return resolve(undefined);
-        }),
+
+          for (const indexedAccountAdded of indexedAccountsAdded || []) {
+            try {
+              await simpleDb.v4MigrationResult.saveMigratedIndexedAccountId({
+                v5indexedAccountId: indexedAccountAdded.id,
+              });
+            } catch (error) {
+              //
+            }
+          }
+          const coinType = v4account.coinType;
+          if (coinType) {
+            const networkId = v4CoinTypeToNetworkId[coinType];
+            if (networkId) {
+              const { deriveType, deriveInfo } =
+                await serviceNetwork.getDeriveTypeByTemplate({
+                  networkId,
+                  template: await this.fixV4AccountTemplate({
+                    v4account,
+                  }),
+                });
+              const networkImpl = networkUtils.getNetworkImpl({ networkId });
+              const indexedAccountId = accountUtils.buildIndexedAccountId({
+                walletId: v5wallet.id,
+                index,
+              });
+              return {
+                index,
+                networkId,
+                networkImpl,
+                deriveType,
+                deriveInfo,
+                coinType,
+                indexedAccountId,
+              };
+            }
+          }
+        }
+        return undefined;
+      },
       {
         name: 'prepareAddHdOrHwAccounts',
         errorResultFn: () => undefined,
@@ -475,7 +731,8 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       });
     return this.decryptV4HdCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword:
+        await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -496,7 +753,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       v4dbCredential,
       encodedPassword: password
         ? encodeSensitiveText({ text: password })
-        : await this.getMigrationPassword(),
+        : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
 
@@ -549,7 +806,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             });
             const v5account = result?.accounts?.[0];
             if (v5account) {
-              onAccountMigrated(v5account, v4account);
+              await onAccountMigrated(v5account, v4account);
             }
             return v5account;
           },
@@ -578,6 +835,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
   async migrateWatchingAccounts({
     v4wallet,
     onAccountMigrated,
+    isResumeMode,
   }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
@@ -606,108 +864,156 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         }),
       });
 
-      await v4dbHubs.logger.runAsyncWithCatch(
-        async () => {
-          await this.fixV4AccountMissingFields({ v4account });
-          if (networkId) {
-            const v4accountUtxo = v4account as IV4DBUtxoAccount;
+      let v5dbAccount: IDBAccount | undefined;
+      const v5accountMigrated = await this.getV5AccountInResumeMode({
+        isResumeMode,
+        v4accountId: v4account.id,
+      });
+      if (v5accountMigrated) {
+        v5dbAccount = v5accountMigrated;
+      }
 
-            const addWatchingAccountByInput = async (
-              input: string,
-              type: string,
-            ) => {
-              const result = await v4dbHubs.logger.runAsyncWithCatch(
-                async () => {
-                  const added = await this.addV5WatchingAccount({
-                    input,
-                    v4account,
-                    networkId,
-                    onAccountMigrated,
-                  });
-                  return added;
-                },
-                {
-                  name: `migrateWatchingAccounts by input: ${JSON.stringify([
-                    v4account.id,
-                    type,
-                    input,
-                  ])}`,
-                  errorResultFn: () => undefined,
-                },
-              );
-              return result?.filter(Boolean) || [];
-            };
+      if (v5dbAccount) {
+        await onAccountMigrated(v5dbAccount, v4account);
+      } else {
+        await v4dbHubs.logger.runAsyncWithCatch(
+          async () => {
+            await this.fixV4AccountMissingFields({ v4account });
+            if (networkId) {
+              const v4accountUtxo = v4account as IV4DBUtxoAccount;
 
-            let addedV5Accounts: IDBAccount[] = [];
+              // if (
+              //   v4accountUtxo.address ===
+              //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+              // ) {
+              //   debugger;
+              // }
 
-            if (v4account?.pub) {
-              addedV5Accounts = await addWatchingAccountByInput(
-                v4account.pub,
-                'pub',
-              );
-            }
-
-            if (v4accountUtxo?.xpub) {
-              addedV5Accounts = await addWatchingAccountByInput(
-                v4accountUtxo.xpub,
-                'xpub',
-              );
-            }
-
-            if (v4accountUtxo?.xpubSegwit) {
-              addedV5Accounts = await addWatchingAccountByInput(
-                v4accountUtxo.xpubSegwit,
-                'xpubSegwit',
-              );
-            }
-
-            if (
-              v4account?.address &&
-              !addedV5Accounts?.filter?.(Boolean)?.length
-            ) {
-              addedV5Accounts = await addWatchingAccountByInput(
-                v4account.address,
-                'address',
-              );
-            }
-
-            const networkToAddress = Object.entries(
-              v4accountUtxo?.addresses || {},
-            );
-            if (networkToAddress.length) {
-              for (const [mapNetworkId, mapAddress] of networkToAddress) {
-                await v4dbHubs.logger.runAsyncWithCatch(
+              const addWatchingAccountByInput = async (
+                input: string,
+                type: string,
+              ) => {
+                const result = await v4dbHubs.logger.runAsyncWithCatch(
                   async () => {
-                    v4account.address = mapAddress;
-                    await this.addV5WatchingAccount({
-                      input: mapAddress,
+                    const added = await this.addV5WatchingAccount({
+                      input,
                       v4account,
-                      networkId: mapNetworkId,
+                      networkId,
                       onAccountMigrated,
                     });
+                    return added;
                   },
                   {
-                    name: `migrateWatchingAccounts by account.addresses: ${JSON.stringify(
-                      [v4account.id, mapNetworkId, mapAddress],
-                    )}`,
+                    name: `migrateWatchingAccounts by input: ${JSON.stringify([
+                      v4account.id,
+                      type,
+                      input,
+                    ])}`,
                     errorResultFn: () => undefined,
                   },
                 );
+                return result?.filter(Boolean) || [];
+              };
+
+              let addedV5Accounts: IDBAccount[] = [];
+
+              if (v4account?.pub) {
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(v4account.pub, 'pub')),
+                ];
+              }
+
+              if (v4accountUtxo?.xpub) {
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpub,
+                    'xpub',
+                  )),
+                ];
+              }
+
+              if (v4accountUtxo?.xpubSegwit) {
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4accountUtxo.xpubSegwit,
+                    'xpubSegwit',
+                  )),
+                ];
+              }
+
+              if (
+                v4account?.address &&
+                !addedV5Accounts?.filter?.(Boolean)?.length
+              ) {
+                addedV5Accounts = [
+                  ...addedV5Accounts,
+                  ...(await addWatchingAccountByInput(
+                    v4account.address,
+                    'address',
+                  )),
+                ];
+              }
+
+              const networkToAddress = Object.entries(
+                v4accountUtxo?.addresses || {},
+              );
+              if (networkToAddress.length) {
+                for (const [mapNetworkId, mapAddress] of networkToAddress) {
+                  await v4dbHubs.logger.runAsyncWithCatch(
+                    async () => {
+                      // if (
+                      //   mapAddress ===
+                      //   '====bc1pmxftvl44gfdeu0w2qhksz0nj296lsd4keafh32097tc8kkaeeues6wklpg'
+                      // ) {
+                      //   debugger;
+                      // }
+
+                      // skip add address watching if xpub watching is added with same address
+                      if (
+                        addedV5Accounts?.find(
+                          (item) =>
+                            (item as IDBUtxoAccount)?.xpub &&
+                            item.address === mapAddress,
+                        )
+                      ) {
+                        return;
+                      }
+
+                      v4account.address = mapAddress;
+                      await this.addV5WatchingAccount({
+                        input: mapAddress,
+                        v4account,
+                        networkId: mapNetworkId,
+                        onAccountMigrated,
+                      });
+                    },
+                    {
+                      name: `migrateWatchingAccounts by account.addresses: ${JSON.stringify(
+                        [v4account.id, mapNetworkId, mapAddress],
+                      )}`,
+                      errorResultFn: () => undefined,
+                    },
+                  );
+                }
               }
             }
-          }
-        },
-        {
-          name: 'migrateWatchingAccounts each v4account',
-          errorResultFn: () => undefined,
-        },
-      );
+          },
+          {
+            name: 'migrateWatchingAccounts each v4account',
+            errorResultFn: () => undefined,
+          },
+        );
+      }
     }
   }
 
   async migrateImportedAccounts({
     v4wallet,
     onAccountMigrated,
+    isResumeMode,
   }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
@@ -737,95 +1043,186 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         }),
       });
 
-      await v4dbHubs.logger.runAsyncWithCatch(
-        async () => {
-          const { v4privateKey, exportedPrivateKey: input } =
-            await v4dbHubs.logger.runAsyncWithCatch(
-              async () => {
-                await this.fixV4AccountMissingFields({ v4account });
-                const credential = await this.revealV4ImportedPrivateKey({
-                  accountId: v4account.id,
-                });
-                const { privateKey: v4privateKeyText, exportedPrivateKey } =
-                  credential;
-                return { exportedPrivateKey, v4privateKey: v4privateKeyText };
-              },
-              {
-                name: 'migrateImportedAccounts revealV4ImportedPrivateKey',
-                errorResultFn: 'throwError',
-              },
-            );
+      let v5dbAccount: IDBAccount | undefined;
+      const v5accountMigrated = await this.getV5AccountInResumeMode({
+        isResumeMode,
+        v4accountId: v4account.id,
+      });
+      if (v5accountMigrated) {
+        v5dbAccount = v5accountMigrated;
+      }
 
-          if (networkId) {
-            const deriveTypes =
-              await serviceNetwork.getAccountImportingDeriveTypes({
-                networkId,
-                input: await servicePassword.encodeSensitiveText({
-                  text: input,
-                }),
-                validatePrivateKey: true,
-                validateXprvt: true,
-                template: await this.fixV4AccountTemplate({
-                  v4account,
-                }),
-              });
-            for (const deriveType of deriveTypes) {
-              v4dbHubs.logger.log({
-                name: 'loop each deriveType',
-                type: 'info',
-                payload: JSON.stringify({
-                  deriveType,
-                  networkId,
-                }),
-              });
+      if (v5dbAccount) {
+        await onAccountMigrated(v5dbAccount, v4account);
+      } else {
+        await v4dbHubs.logger.runAsyncWithCatch(
+          async () => {
+            const { v4privateKey, exportedPrivateKey: input } =
               await v4dbHubs.logger.runAsyncWithCatch(
                 async () => {
-                  const result =
-                    await serviceAccount.addImportedAccountWithCredential({
-                      credential: await servicePassword.encodeSensitiveText({
-                        text: v4privateKey,
-                      }),
-                      name: v4account.name,
-                      networkId,
-                      deriveType,
-                      skipAddIfNotEqualToAddress: v4account.address,
-                    });
-                  const v5account = result?.accounts?.[0];
-                  if (v5account) {
-                    onAccountMigrated(v5account, v4account);
-                  }
-                  return v5account;
+                  await this.fixV4AccountMissingFields({ v4account });
+                  const credential = await this.revealV4ImportedPrivateKey({
+                    accountId: v4account.id,
+                  });
+                  const { privateKey: v4privateKeyText, exportedPrivateKey } =
+                    credential;
+                  return { exportedPrivateKey, v4privateKey: v4privateKeyText };
                 },
                 {
-                  name: 'migrateImportedAccounts addImportedAccountWithCredential',
-                  logResultFn: (result) =>
-                    JSON.stringify({
-                      deriveType,
-                      id: result?.id,
-                      name: result?.name,
-                      type: result?.type,
-                      address: result?.address,
-                      coinType: result?.coinType,
-                    }),
-                  errorResultFn: () => undefined,
+                  name: 'migrateImportedAccounts revealV4ImportedPrivateKey',
+                  errorResultFn: 'throwError',
                 },
               );
+
+            if (networkId) {
+              // if (
+              //   v4account.address ===
+              // eslint-disable-next-line spellcheck/spell-checker
+              //   '====bc1qjclx3t2ykepvcqegx8tmn3nwd5ahsswenrvd90'
+              // ) {
+              //   debugger;
+              // }
+              const v4accountTemplate = await this.fixV4AccountTemplate({
+                v4account,
+              });
+              const deriveTypes =
+                await serviceNetwork.getAccountImportingDeriveTypes({
+                  networkId,
+                  input: await servicePassword.encodeSensitiveText({
+                    text: input,
+                  }),
+                  validatePrivateKey: true,
+                  validateXprvt: true,
+                  template: v4accountTemplate,
+                });
+              for (const deriveType of deriveTypes) {
+                v4dbHubs.logger.log({
+                  name: 'loop each deriveType',
+                  type: 'info',
+                  payload: JSON.stringify({
+                    deriveType,
+                    networkId,
+                  }),
+                });
+                await v4dbHubs.logger.runAsyncWithCatch(
+                  async () => {
+                    const result =
+                      await serviceAccount.addImportedAccountWithCredential({
+                        credential: await servicePassword.encodeSensitiveText({
+                          text: v4privateKey,
+                        }),
+                        name: v4account.name,
+                        networkId,
+                        deriveType,
+                        skipAddIfNotEqualToAddress: v4account.address,
+                      });
+                    const v5account = result?.accounts?.[0];
+                    if (v5account) {
+                      await onAccountMigrated(v5account, v4account);
+                    }
+                    return v5account;
+                  },
+                  {
+                    name: 'migrateImportedAccounts addImportedAccountWithCredential',
+                    logResultFn: (result) =>
+                      JSON.stringify({
+                        deriveType,
+                        id: result?.id,
+                        name: result?.name,
+                        type: result?.type,
+                        address: result?.address,
+                        coinType: result?.coinType,
+                      }),
+                    errorResultFn: () => undefined,
+                  },
+                );
+              }
+            }
+          },
+          {
+            name: 'migrateImportedAccounts each v4account',
+            errorResultFn: () => undefined,
+          },
+        );
+      }
+    }
+  }
+
+  async getV5AccountInResumeMode({
+    isResumeMode,
+    v4accountId,
+  }: {
+    isResumeMode: boolean;
+    v4accountId: string;
+  }): Promise<IDBAccount | undefined> {
+    if (isResumeMode && v4accountId) {
+      return v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          const v5AccountIdMigrated =
+            await simpleDb.v4MigrationResult.getV5AccountIdByV4AccountId({
+              v4accountId,
+            });
+          if (v5AccountIdMigrated) {
+            const v5AccountMigrated = await v5localDb.getAccountSafe({
+              accountId: v5AccountIdMigrated,
+            });
+            if (v5AccountMigrated) {
+              return v5AccountMigrated;
             }
           }
         },
         {
-          name: 'migrateImportedAccounts each v4account',
+          name: 'Resume account migration',
+          logResultFn: (result) =>
+            `result: ${v4accountId}===>${result?.id || ''}`,
           errorResultFn: () => undefined,
         },
       );
     }
+    return undefined;
+  }
+
+  async getV5WalletInResumeMode({
+    isResumeMode,
+    v4walletId,
+  }: {
+    isResumeMode: boolean;
+    v4walletId: string;
+  }): Promise<IDBWallet | undefined> {
+    if (isResumeMode && v4walletId) {
+      return v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          const v5WalletIdMigrated =
+            await simpleDb.v4MigrationResult.getV5WalletIdByV4WalletId({
+              v4walletId,
+            });
+          if (v5WalletIdMigrated) {
+            const v5WalletMigrated = await v5localDb.getWalletSafe({
+              walletId: v5WalletIdMigrated,
+            });
+            if (v5WalletMigrated) {
+              return v5WalletMigrated;
+            }
+          }
+        },
+        {
+          name: 'Resume wallet migration',
+          logResultFn: (result) =>
+            `result: ${v4walletId}===>${result?.id || ''}`,
+          errorResultFn: () => undefined,
+        },
+      );
+    }
+    return undefined;
   }
 
   async migrateHwWallet({
     v4wallet,
     onAccountMigrated,
     onWalletMigrated,
+    isResumeMode,
   }: IV4RunWalletMigrationParams) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     let v4device: IV4DBDevice | undefined;
@@ -860,11 +1257,45 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             v4walletId: v4wallet.id,
             v4device,
           });
+          let v4devicePayloadJson: IV4DBDevicePayloadJson | undefined;
+          if (v4device?.payloadJson) {
+            if (isString(v4device?.payloadJson)) {
+              try {
+                v4devicePayloadJson = JSON.parse(v4device.payloadJson || '{}');
+              } catch (error) {
+                //
+              }
+            }
+            if (!v4devicePayloadJson && isObject(v4device?.payloadJson)) {
+              v4devicePayloadJson = v4device.payloadJson as
+                | IV4DBDevicePayloadJson
+                | undefined;
+            }
+          }
+
+          let v5deviceSettings: IDBDeviceSettings | undefined;
+          if (v4devicePayloadJson) {
+            v5deviceSettings = {
+              inputPinOnSoftware: !v4devicePayloadJson.onDeviceInputPin,
+              inputPinOnSoftwareSupport: undefined,
+            };
+          }
+
           const v5device: IDBDevice = {
             ...v4device, // TODO deviceName is wrong in v4 if update hidden wallet name
             connectId: v4device?.mac || '',
-            settingsRaw: '', // TODO convert v4 payloadJson to v5 settingsRaw
+            settingsRaw: v5deviceSettings
+              ? JSON.stringify(v5deviceSettings)
+              : '',
           };
+
+          const v5deviceAsV4 = v5device as unknown as {
+            mac?: string;
+            payloadJson?: string;
+          };
+          delete v5deviceAsV4.mac;
+          delete v5deviceAsV4.payloadJson;
+
           await v5localDb.addDbDevice({
             device: v5device,
             skipIfExists: true,
@@ -892,61 +1323,109 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
       let v5wallet: IDBWallet | undefined;
       if (v5dbDevice) {
-        if (v4wallet?.passphraseState) {
-          v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
-            async () => {
-              const { wallet: v5walletSaved } =
-                await serviceAccount.createHWWalletBase({
+        const v5WalletMigrated = await this.getV5WalletInResumeMode({
+          isResumeMode,
+          v4walletId: v4wallet.id,
+        });
+        if (v5WalletMigrated) {
+          v5wallet = v5WalletMigrated;
+        }
+
+        if (!v5wallet) {
+          if (v4wallet?.passphraseState) {
+            v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
+              async () => {
+                const params: IDBCreateHwWalletParams = {
                   name: v4wallet.name,
                   device: deviceUtils.dbDeviceToSearchDevice(v5dbDevice),
                   features: v5dbDevice.featuresInfo || ({} as any),
                   passphraseState: v4wallet.passphraseState,
+                };
+
+                const { dbWalletId: v5dbWalletId } =
+                  await v5localDb.buildHwWalletId(params);
+
+                const v5walletCurrent = await v5localDb.getWalletSafe({
+                  walletId: v5dbWalletId,
                 });
-              onWalletMigrated(v5walletSaved);
-              return v5walletSaved;
-            },
-            {
-              name: 'migrateHwWallet createHWWalletV5 (hidden)',
-              logResultFn: (result) =>
-                JSON.stringify({
-                  id: result?.id,
-                  name: result?.name,
-                  type: result?.type,
-                  associatedDevice: result?.associatedDevice,
-                  isPassphraseState: Boolean(result?.passphraseState),
-                }),
-              errorResultFn: () => undefined,
-            },
-          );
-        } else {
-          v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
-            async () => {
-              const { wallet: v5walletSaved } =
-                await serviceAccount.createHWWalletBase({
-                  name: v4wallet.name,
-                  features: JSON.parse(v4device?.features || '{}') || {},
-                  device: v5dbDevice,
-                  isFirmwareVerified: false, // TODO v4 isFirmwareVerified
-                });
-              onWalletMigrated(v5walletSaved);
-              return v5walletSaved;
-            },
-            {
-              name: 'migrateHwWallet createHWWalletV5 (normal)',
-              logResultFn: (result) =>
-                JSON.stringify({
-                  id: result?.id,
-                  name: result?.name,
-                  type: result?.type,
-                  associatedDevice: result?.associatedDevice,
-                  isPassphraseState: Boolean(result?.passphraseState),
-                }),
-              errorResultFn: () => undefined,
-            },
-          );
+                const isV5WalletExistAndRemembered =
+                  v5walletCurrent && !v5walletCurrent.isTemp;
+                const { wallet: v5walletSaved } =
+                  await serviceAccount.createHWWalletBase(params);
+
+                void (async () => {
+                  // only update wallet isTemp status when first time migration
+                  if (isV5WalletExistAndRemembered) {
+                    return;
+                  }
+                  const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+                  const v4rememberPassphraseWallets =
+                    v4reduxData?.settings?.hardware
+                      ?.rememberPassphraseWallets || [];
+                  let isTemp = false;
+                  if (
+                    v4wallet?.id &&
+                    !v4rememberPassphraseWallets.includes(v4wallet?.id)
+                  ) {
+                    isTemp = true;
+                  }
+                  await serviceAccount.setWalletTempStatus({
+                    walletId: v5walletSaved.id,
+                    isTemp,
+                    hideImmediately: true,
+                  });
+                })();
+
+                return v5walletSaved;
+              },
+              {
+                name: 'migrateHwWallet createHWWalletV5 (hidden)',
+                logResultFn: (result) =>
+                  JSON.stringify({
+                    id: result?.id,
+                    name: result?.name,
+                    type: result?.type,
+                    associatedDevice: result?.associatedDevice,
+                    isPassphraseState: Boolean(result?.passphraseState),
+                  }),
+                errorResultFn: () => undefined,
+              },
+            );
+          } else {
+            v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
+              async () => {
+                const v4reduxData = await v4dbHubs?.v4reduxDb?.reduxData;
+                const v4verificationMap =
+                  v4reduxData?.settings?.hardware?.verification || {};
+                const isFirmwareVerified =
+                  v4verificationMap?.[v5dbDevice?.connectId];
+                const { wallet: v5walletSaved } =
+                  await serviceAccount.createHWWalletBase({
+                    name: v4wallet.name,
+                    features: JSON.parse(v4device?.features || '{}') || {},
+                    device: v5dbDevice,
+                    isFirmwareVerified,
+                  });
+                return v5walletSaved;
+              },
+              {
+                name: 'migrateHwWallet createHWWalletV5 (normal)',
+                logResultFn: (result) =>
+                  JSON.stringify({
+                    id: result?.id,
+                    name: result?.name,
+                    type: result?.type,
+                    associatedDevice: result?.associatedDevice,
+                    isPassphraseState: Boolean(result?.passphraseState),
+                  }),
+                errorResultFn: () => undefined,
+              },
+            );
+          }
         }
 
         if (v5wallet) {
+          await onWalletMigrated(v5wallet);
           v4dbHubs.logger.saveWalletDetailsV5({
             v4walletId: v4wallet.id,
             v5wallet,
@@ -990,56 +1469,84 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                       if (!v5wallet) {
                         return;
                       }
-                      const {
-                        networkId,
-                        networkImpl,
-                        indexedAccountId,
-                        index,
-                        deriveType,
-                        deriveInfo,
-                      } = prepareResult;
-                      const accountId = accountUtils.buildHDAccountId({
-                        walletId: v5wallet?.id,
-                        path: v4account.path,
-                        idSuffix: deriveInfo?.idSuffix,
-                      });
-                      const addressRelPath =
-                        accountUtils.buildUtxoAddressRelPath();
-                      const v5account: IDBAccount = {
-                        address: v4account.address,
-                        addresses: {},
-                        coinType: v4account.coinType,
-                        id: accountId,
-                        impl: networkImpl,
-                        indexedAccountId,
-                        name: v4account.name,
-                        path: v4account.path,
-                        pathIndex: index,
-                        pub: v4account.pub || '',
-                        relPath: addressRelPath,
-                        template: await this.fixV4AccountTemplate({
-                          v4account,
-                        }),
-                        type: v4account.type as any,
-                      };
-                      if (v5account.type === EDBAccountType.VARIANT) {
-                        v5account.address = '';
+
+                      let v5dbAccount: IDBAccount | undefined;
+                      const v5accountMigrated =
+                        await this.getV5AccountInResumeMode({
+                          isResumeMode,
+                          v4accountId: v4account.id,
+                        });
+                      if (v5accountMigrated) {
+                        v5dbAccount = v5accountMigrated;
                       }
-                      const v5accountUtxo = v5account as IDBUtxoAccount;
-                      const v4accountUtxo = v4account as IV4DBUtxoAccount;
-                      v5accountUtxo.xpub = v4accountUtxo.xpub;
-                      v5accountUtxo.xpubSegwit = v4accountUtxo.xpubSegwit;
-                      v4dbHubs.logger.saveAccountDetailsV5({
-                        v4accountId: v4account.id,
-                        v5account,
-                      });
-                      // TODO use service add hw account
-                      await v5localDb.addAccountsToWallet({
-                        walletId: v5wallet?.id,
-                        accounts: [v5account],
-                      });
-                      onAccountMigrated(v5account, v4account);
-                      return v5account;
+
+                      if (!v5dbAccount) {
+                        const {
+                          index,
+                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          networkId,
+                          networkImpl,
+                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          deriveType,
+                          deriveInfo,
+                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          coinType,
+                          indexedAccountId,
+                        } = prepareResult;
+                        const v4accountUtxo = v4account as IV4DBUtxoAccount;
+                        const accountId = accountUtils.buildHDAccountId({
+                          walletId: v5wallet?.id,
+                          path: v4account.path,
+                          idSuffix: deriveInfo?.idSuffix,
+                        });
+                        const isLightning = isLightningV4Account({ v4account });
+                        const addressRelPath =
+                          v4account.type === EV4DBAccountType.UTXO ||
+                          isLightning
+                            ? accountUtils.buildUtxoAddressRelPath()
+                            : undefined;
+                        const v5account: IDBAccount = {
+                          address: v4account.address,
+                          addresses: v4accountUtxo?.addresses,
+                          coinType: v4account.coinType,
+                          id: accountId,
+                          impl: networkImpl,
+                          indexedAccountId,
+                          name: v4account.name,
+                          path: v4account.path,
+                          pathIndex: index,
+                          pub: v4account.pub || '',
+                          relPath: addressRelPath,
+                          template: await this.fixV4AccountTemplate({
+                            v4account,
+                          }),
+                          type: v4account.type as any,
+                        };
+                        if (v5account.type === EDBAccountType.VARIANT) {
+                          v5account.address = '';
+                        }
+                        const v5accountUtxo = v5account as IDBUtxoAccount;
+                        v5accountUtxo.xpub = v4accountUtxo.xpub;
+                        v5accountUtxo.xpubSegwit = v4accountUtxo.xpubSegwit;
+                        v4dbHubs.logger.saveAccountDetailsV5({
+                          v4accountId: v4account.id,
+                          v5account,
+                        });
+                        // lightening account requires login token which is not migrated
+                        // so skip adding lightening account, let user add it manually
+                        if (!isLightning) {
+                          // TODO use service add hw account
+                          await v5localDb.addAccountsToWallet({
+                            allAccountsBelongToNetworkId: networkId,
+                            walletId: v5wallet?.id,
+                            accounts: [v5account],
+                          });
+                        }
+                        v5dbAccount = v5account;
+                      }
+
+                      await onAccountMigrated(v5dbAccount, v4account);
+                      return v5dbAccount;
                     },
                     {
                       name: 'migrateHwWallet saveAccountV5',
@@ -1076,6 +1583,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     v4wallet,
     onAccountMigrated,
     onWalletMigrated,
+    isResumeMode,
   }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
@@ -1092,28 +1600,50 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       },
     );
 
-    const v5wallet = await v4dbHubs.logger.runAsyncWithCatch(
-      async () => {
-        const { wallet: v5walletSaved } = await serviceAccount.createHDWallet({
-          name: v4wallet.name,
-          mnemonic: await servicePassword.encodeSensitiveText({
-            text: mnemonic,
-          }),
-        });
-        onWalletMigrated(v5walletSaved);
-        return v5walletSaved;
-      },
-      {
-        name: 'migrateHdWallet createHDWallet',
-        logResultFn: (result) =>
-          JSON.stringify({
-            id: result?.id,
-            name: result?.name,
-            type: result?.type,
-          }),
-        errorResultFn: () => undefined,
-      },
-    );
+    const v5wallet: IDBWallet | undefined =
+      await v4dbHubs.logger.runAsyncWithCatch(
+        async () => {
+          let v5dbWallet: IDBWallet | undefined;
+
+          const v5WalletMigrated = await this.getV5WalletInResumeMode({
+            isResumeMode,
+            v4walletId: v4wallet.id,
+          });
+          if (v5WalletMigrated) {
+            v5dbWallet = v5WalletMigrated;
+          }
+
+          if (!v5dbWallet) {
+            const { wallet: v5walletSaved } =
+              await serviceAccount.createHDWallet({
+                name: v4wallet.name,
+                mnemonic: await servicePassword.encodeSensitiveText({
+                  text: mnemonic,
+                }),
+                walletHashBuilder: () => {
+                  const text = `${mnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375--${v4wallet.id}`;
+                  const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+                  const walletHash = bufferUtils.bytesToHex(buff);
+                  return walletHash;
+                },
+              });
+            v5dbWallet = v5walletSaved;
+          }
+
+          await onWalletMigrated(v5dbWallet);
+          return v5dbWallet;
+        },
+        {
+          name: 'migrateHdWallet createHDWallet',
+          logResultFn: (result) =>
+            JSON.stringify({
+              id: result?.id,
+              name: result?.name,
+              type: result?.type,
+            }),
+          errorResultFn: () => undefined,
+        },
+      );
 
     const v4accounts: IV4DBAccount[] = await v4dbHubs.logger.runAsyncWithCatch(
       async () =>
@@ -1146,29 +1676,44 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
       await v4dbHubs.logger.runAsyncWithCatch(
         async () => {
-          await this.fixV4AccountMissingFields({ v4account });
-          if (v5wallet) {
-            const prepareResult = await this.prepareAddHdOrHwAccounts({
-              v4account,
-              v5wallet,
-            });
-            if (prepareResult) {
-              const { networkId, index, deriveType } = prepareResult;
-              // TODO add addressMap to DB
-              const result = await serviceAccount.addHDOrHWAccounts({
-                walletId: v5wallet.id,
-                networkId,
-                indexes: [index],
-                indexedAccountId: undefined,
-                deriveType,
-                skipDeviceCancel: true,
-                hideCheckingDeviceLoading: true,
+          let v5dbAccount: IDBAccount | undefined;
+          const v5accountMigrated = await this.getV5AccountInResumeMode({
+            isResumeMode,
+            v4accountId: v4account.id,
+          });
+          if (v5accountMigrated) {
+            v5dbAccount = v5accountMigrated;
+          }
+
+          if (!v5dbAccount) {
+            await this.fixV4AccountMissingFields({ v4account });
+            if (v5wallet) {
+              const prepareResult = await this.prepareAddHdOrHwAccounts({
+                v4account,
+                v5wallet,
               });
-              const v5account = result?.accounts?.[0];
-              if (v5account) {
-                onAccountMigrated(v5account, v4account);
+              if (prepareResult) {
+                const { networkId, index, deriveType } = prepareResult;
+                const result = await serviceAccount.addHDOrHWAccounts({
+                  names: [v4account.name],
+                  walletId: v5wallet.id,
+                  networkId,
+                  indexes: [index],
+                  indexedAccountId: undefined,
+                  deriveType,
+                  skipDeviceCancel: true,
+                  hideCheckingDeviceLoading: true,
+                });
+                const v5account = result?.accounts?.[0];
+                if (v5account) {
+                  v5dbAccount = v5account;
+                }
               }
             }
+          }
+
+          if (v5dbAccount) {
+            await onAccountMigrated(v5dbAccount, v4account);
           }
         },
         {

@@ -12,6 +12,7 @@ import type {
   ISignedTxPro,
   IUnsignedMessageCfx,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -166,16 +167,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const sdk = await this.getHardwareSDKInstance();
     const path = await this.vault.getAccountPath();
 
-    if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
-      throw web3Errors.provider.unsupportedMethod(
-        `Sign message method=${message.type} not supported for this device`,
-      );
-    }
-
     if (
       message.type === EMessageTypesEth.ETH_SIGN ||
-      message.type === EMessageTypesEth.PERSONAL_SIGN
+      message.type === EMessageTypesEth.TYPED_DATA_V1
     ) {
+      throw new NotImplemented();
+    }
+
+    if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))

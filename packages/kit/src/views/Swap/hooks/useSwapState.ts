@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapCheckWarningDef,
@@ -16,18 +15,22 @@ import {
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
-  useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
+  useSwapQuoteIntervalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
 } from '../../../states/jotai/contexts/swap';
 
@@ -35,7 +38,6 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const [networks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
@@ -69,7 +71,6 @@ function useSwapWarningCheck() {
     toToken,
     fromTokenBalance,
     quoteCurrentSelect,
-    networks,
     isFocused,
   ]);
 }
@@ -80,14 +81,22 @@ export function useSwapQuoteLoading() {
   return quoteFetching || silenceQuoteLoading;
 }
 
+export function useSwapQuoteEventFetching() {
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteResult] = useSwapQuoteListAtom();
+  return quoteEventTotalCount > 0 && quoteResult.length < quoteEventTotalCount;
+}
+
 export function useSwapActionState() {
   const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();
+  const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
   useSwapWarningCheck();
@@ -96,17 +105,46 @@ export function useSwapActionState() {
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { getQuoteIntervalCount } = useSwapActions().current;
-  const isRefreshQuote = getQuoteIntervalCount() >= swapQuoteIntervalMaxCount;
-  const hasError = alerts.some(
+  const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
+  const isRefreshQuote =
+    quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote;
+  const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
+  const quoteResultNoMatch = useMemo(
+    () =>
+      (quoteCurrentSelect &&
+        (quoteCurrentSelect.fromTokenInfo.networkId !== fromToken?.networkId ||
+          quoteCurrentSelect.toTokenInfo.networkId !== toToken?.networkId ||
+          quoteCurrentSelect.fromTokenInfo.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteCurrentSelect.toTokenInfo.contractAddress !==
+            toToken?.contractAddress)) ||
+      (quoteCurrentSelect?.allowanceResult &&
+        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount),
+    [
+      fromToken?.contractAddress,
+      fromToken?.networkId,
+      fromTokenAmount,
+      quoteCurrentSelect,
+      toToken?.contractAddress,
+      toToken?.networkId,
+    ],
+  );
+  const quoteResultNoMatchDebounce = useDebounce(quoteResultNoMatch, 10);
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
       label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
-    if (quoteLoading) {
+    if (
+      !swapFromAddressInfo.address ||
+      !swapToAddressInfo.address ||
+      quoteCurrentSelect?.fromAmount !== fromTokenAmount
+    ) {
+      infoRes.disable = true;
+    }
+    if (quoteLoading || quoteEventFetching) {
       infoRes.label = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,
       });
@@ -122,21 +160,9 @@ export function useSwapActionState() {
         });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-        infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `${intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })} ${fromToken?.symbol ?? ''} to ${
-              quoteCurrentSelect?.info.providerName ?? ''
-            }`
-          : `${intl.formatMessage({
-              id: ETranslations.swap_page_provider_approve,
-            })}  ${
-              numberFormat(fromTokenAmount, {
-                formatter: 'balance',
-              }) as string
-            } ${fromToken?.symbol ?? ''} to ${
-              quoteCurrentSelect?.info.providerName ?? ''
-            }`;
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_approve,
+        });
       }
       if (
         quoteCurrentSelect &&
@@ -185,7 +211,7 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (isRefreshQuote && !quoteLoading) {
+      if (isRefreshQuote || quoteResultNoMatchDebounce) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
@@ -201,10 +227,11 @@ export function useSwapActionState() {
     isCrossChain,
     isRefreshQuote,
     quoteCurrentSelect,
+    quoteEventFetching,
     quoteLoading,
+    quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
-    swapQuoteApproveAllowanceUnLimit,
     swapToAddressInfo.address,
     toToken,
   ]);
@@ -212,14 +239,17 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading,
+    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
     shoutResetApprove:
       !!quoteCurrentSelect?.allowanceResult?.shouldResetApprove,
     isWrapped: !!quoteCurrentSelect?.isWrapped,
-    isRefreshQuote: isRefreshQuote && !quoteLoading,
+    isRefreshQuote:
+      (isRefreshQuote || quoteResultNoMatchDebounce) &&
+      !quoteLoading &&
+      !quoteEventFetching,
   };
   return stepState;
 }

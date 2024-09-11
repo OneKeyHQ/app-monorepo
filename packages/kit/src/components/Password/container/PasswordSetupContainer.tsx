@@ -1,4 +1,11 @@
-import { Suspense, memo, useCallback, useMemo, useState } from 'react';
+import {
+  Suspense,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
@@ -11,6 +18,7 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
@@ -33,6 +41,7 @@ const BiologyAuthContainer = ({
 }: IBiologyAuthContainerProps) => {
   const [{ isSupport: biologyAuthIsSupport, authType }] =
     usePasswordBiologyAuthInfoAtom();
+  const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const intl = useIntl();
   const settingsTitle = useMemo(() => {
     if (
@@ -42,7 +51,12 @@ const BiologyAuthContainer = ({
     ) {
       return intl.formatMessage(
         { id: ETranslations.auth_with_biometric },
-        { biometric: 'FaceID' },
+        {
+          biometric:
+            authType.length > 1
+              ? intl.formatMessage({ id: ETranslations.global_biometric })
+              : 'FaceID',
+        },
       );
     }
     return intl.formatMessage(
@@ -50,8 +64,20 @@ const BiologyAuthContainer = ({
       { biometric: 'TouchID' },
     );
   }, [authType, biologyAuthIsSupport, intl]);
-  return biologyAuthIsSupport || webAuthIsSupport ? (
-    <XStack mt="$5" justifyContent="space-between" alignItems="center">
+
+  useEffect(() => {
+    if (
+      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
+      isBiologyAuthSwitchOn
+    ) {
+      void backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(false);
+    }
+  }, [isBiologyAuthSwitchOn]);
+
+  return (biologyAuthIsSupport || webAuthIsSupport) &&
+    !platformEnv.isExtensionUiPopup &&
+    !platformEnv.isExtensionUiSidePanel ? (
+    <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
         <UniversalContainerWithSuspense skipAuth={skipAuth} />
@@ -69,7 +95,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
       if (data.confirmPassword !== data.password) {
-        Toast.error({ title: 'password not match' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.auth_error_password_not_match,
+          }),
+        });
       } else {
         setLoading(true);
         try {
@@ -93,7 +123,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         } catch (e) {
           console.log('e.stack', (e as Error)?.stack);
           console.error(e);
-          Toast.error({ title: 'password set failed' });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_password_set_failed,
+            }),
+          });
         } finally {
           setLoading(false);
         }

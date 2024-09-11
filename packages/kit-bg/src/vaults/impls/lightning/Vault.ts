@@ -47,19 +47,17 @@ import type {
   IFetchAccountHistoryParams,
   IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
   IEncodedTxLightning,
   IInvoiceDecodedResponse,
-  ILNURLAuthServiceResponse,
   ILnurlAuthParams,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
 } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -202,14 +200,10 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
 
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
-
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
 
     let formattedTo = '';
     if (encodedTx.lightningAddress) {
@@ -221,36 +215,47 @@ export default class Vault extends VaultBase {
         trailingLength: 33,
       });
     }
-    const amount = new BigNumber(encodedTx.amount).toFixed();
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: account.name,
+        to: formattedTo,
+      },
+    };
+
+    if (nativeToken) {
+      const amount = new BigNumber(encodedTx.amount).toFixed();
+      action = {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.name,
+          to: formattedTo,
+          sends: [
+            {
+              from: account.name,
+              to: formattedTo,
+              isNative: true,
+              tokenIdOnNetwork: '',
+              name: nativeToken.name,
+              icon: nativeToken.logoURI ?? '',
+              amount,
+              symbol: network.symbol,
+            },
+          ],
+          receives: [],
+          nativeAmount: amount,
+          nativeAmountValue: amount,
+        },
+      };
+    }
+
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: account.name,
       signer: '',
       nonce: 0,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: account.name,
-            to: formattedTo,
-            sends: [
-              {
-                from: account.name,
-                to: formattedTo,
-                isNative: true,
-                tokenIdOnNetwork: '',
-                name: nativeToken.name,
-                icon: nativeToken.logoURI ?? '',
-                amount,
-                symbol: network.symbol,
-              },
-            ],
-            receives: [],
-            nativeAmount: amount,
-            nativeAmountValue: amount,
-          },
-        },
-      ],
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -371,14 +376,16 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
-    try {
-      const { isTestnet } = await this.getNetwork();
-      return validateBtcAddress({
-        network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
-        address,
-      });
-    } catch {
-      // ignore btc address validation error
+    if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
+      try {
+        const { isTestnet } = await this.getNetwork();
+        return validateBtcAddress({
+          network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
+          address,
+        });
+      } catch {
+        // ignore btc address validation error
+      }
     }
 
     // maybe it's a lnurl
@@ -532,7 +539,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildFetchHistoryListParams(
-    params: IFetchAccountHistoryParams,
+    params: IFetchAccountHistoryParams & { accountAddress: string },
   ) {
     const lightningSignature = await this._getAuthorization({
       accountId: params.accountId,
@@ -568,7 +575,7 @@ export default class Vault extends VaultBase {
     tokenBalance: string;
     to: string;
   }): Promise<boolean> {
-    const ZeroInvoiceMaxSendAmount = 1000000;
+    const ZeroInvoiceMaxSendAmount = 1_000_000;
     if (new BigNumber(params.amount).isGreaterThan(ZeroInvoiceMaxSendAmount)) {
       const satsText = appLocale.intl.formatMessage({
         id: ETranslations.global_sats,
@@ -619,7 +626,6 @@ export default class Vault extends VaultBase {
         paymentRequest,
       });
     } catch (e: any) {
-      console.log('===>E: ', e);
       throw new Error((e as Error)?.message ?? e);
     }
 

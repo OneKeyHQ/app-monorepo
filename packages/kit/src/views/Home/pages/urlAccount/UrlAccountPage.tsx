@@ -1,24 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
+  NavBackButton,
   Page,
   SizableText,
   Spinner,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -51,14 +58,39 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   const [urlAccountStatus, setUrlAccountStatus] = useState<
     'ok' | 'invalid' | undefined
   >();
+  const routeParamsRef = useRef(routeParams);
+  routeParamsRef.current = routeParams;
+  const routePathRef = useRef(route.path);
+  routePathRef.current = route.path;
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const isCurrentSelectedAccountNotUrlAccount = useMemo(() => {
+    if (
+      selectedAccount.indexedAccountId &&
+      !selectedAccount?.othersWalletAccountId
+    ) {
+      return true;
+    }
+    if (
+      selectedAccount?.othersWalletAccountId &&
+      !accountUtils.isUrlAccountFn({
+        accountId: selectedAccount?.othersWalletAccountId,
+      })
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount?.othersWalletAccountId,
+  ]);
 
   useEffect(() => {
     if (
       !platformEnv.isDev &&
       platformEnv.isDesktop &&
-      route.path === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
+      routePathRef.current === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
     ) {
-      const newRouteParams = cloneDeep(routeParams);
+      const newRouteParams = cloneDeep(routeParamsRef.current);
       // 'file:///?networkId=index.html'
       if (newRouteParams && newRouteParams?.networkId === 'index.html') {
         delete newRouteParams.networkId;
@@ -68,9 +100,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     }
 
     setTimeout(async () => {
-      let networkId = routeParams?.networkId;
-      let networkCode = routeParams?.networkId;
-      let routeAddress = routeParams?.address;
+      let networkId = routeParamsRef.current?.networkId;
+      let networkCode = routeParamsRef.current?.networkId;
+      let routeAddress = routeParamsRef.current?.address;
 
       const fixNetworkParams = (network: IServerNetwork | undefined) => {
         if (network) {
@@ -117,12 +149,16 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         hasError = true;
       }
       const prevAccount = getPrevUrlAccount();
+      const urlAccountInDb =
+        await backgroundApiProxy.serviceAccount.getUrlDBAccountSafe();
 
       if (
         networkId &&
         routeAddress &&
-        (routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
-          networkId !== prevAccount?.networkId)
+        (!urlAccountInDb ||
+          routeAddress?.toLowerCase() !== prevAccount?.address?.toLowerCase() ||
+          networkId !== prevAccount?.networkId ||
+          isCurrentSelectedAccountNotUrlAccount)
       ) {
         try {
           const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
@@ -132,17 +168,25 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
             isUrlAccount: true,
           });
 
-          void actions.current.updateSelectedAccountForSingletonAccount({
-            num: 0,
-            networkId,
-            walletId: WALLET_TYPE_WATCHING,
-            othersWalletAccountId: r.accounts[0].id,
-          });
+          const updateSelectedAccount = async () => {
+            console.log(
+              'URLAccountMount: updateSelectedAccountForSingletonAccount',
+            );
+            return actions.current.updateSelectedAccountForSingletonAccount({
+              num: 0,
+              networkId,
+              walletId: WALLET_TYPE_WATCHING,
+              othersWalletAccountId: r?.accounts?.[0]?.id,
+            });
+          };
+          await updateSelectedAccount();
+          // en: Especially on mobile devices, especially Android, when performance is insufficient, the order of UI refresh and data update may be problematic, delay the update again to ensure data update
+          setTimeout(() => {
+            void updateSelectedAccount();
+          }, 600);
         } catch (error) {
           console.error('UrlAccountAutoCreate error: ', error);
-          Toast.error({
-            title: `Unsupported address or network: ${routeAddress}`,
-          });
+          errorToastUtils.toastIfErrorDisable(error);
           hasError = true;
         }
       }
@@ -156,7 +200,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
           urlAccountNavigation.replaceHomePage(navigation);
           if (routeAddress) {
             await timerUtils.wait(1);
-            urlAccountNavigation.pushUrlAccountPage(navigation, {
+            await urlAccountNavigation.pushUrlAccountPage(navigation, {
               address: routeAddress,
               networkId: networkCode,
             });
@@ -165,33 +209,33 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       }
     }, 0);
   }, [
+    intl,
     actions,
     navigation,
     redirectMode,
-    route.params,
-    route.path,
-    routeParams,
-    routeParams?.address,
-    routeParams?.networkId,
+    isCurrentSelectedAccountNotUrlAccount,
   ]);
+
+  const backToHomePage = useCallback(() => {
+    urlAccountNavigation.replaceHomePage(navigation);
+  }, [navigation]);
+
+  const renderHeaderLeft = useCallback(
+    () => <NavBackButton onPress={backToHomePage} />,
+    [backToHomePage],
+  );
 
   if (urlAccountStatus === 'invalid') {
     return (
       <Page>
-        <Stack p="$6">
-          <SizableText my="$6">
+        <Page.Header headerLeft={renderHeaderLeft} />
+        <Stack flex={1} ai="center" jc="center">
+          <SizableText size="$headingXl">
             {intl.formatMessage({ id: ETranslations.global_404_message })}
           </SizableText>
           {process.env.NODE_ENV !== 'production' ? (
             <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
           ) : null}
-          <Button
-            onPress={() => {
-              urlAccountNavigation.replaceHomePage(navigation);
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.explore_back_to_home })}
-          </Button>
         </Stack>
       </Page>
     );
@@ -210,29 +254,39 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
 }
 
 export function UrlAccountPageContainer() {
+  useDebugComponentRemountLog({
+    name: 'URLAccountMount:  UrlAccountPageContainer',
+  });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }
 
 export function UrlAccountLanding() {
+  useDebugComponentRemountLog({
+    name: 'URLAccountMount:  UrlAccountLanding',
+  });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <UrlAccountAutoCreate redirectMode />
-    </AccountSelectorProviderMirror>
+    <ProviderJotaiContextAccountOverview>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <UrlAccountAutoCreate redirectMode />
+      </AccountSelectorProviderMirror>
+    </ProviderJotaiContextAccountOverview>
   );
 }

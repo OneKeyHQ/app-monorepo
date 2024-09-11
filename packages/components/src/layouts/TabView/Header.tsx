@@ -8,7 +8,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
-import type { StackStyleProps, TextStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle, TextStyle } from '@tamagui/web/types/types';
 import type { NativeScrollEvent, View } from 'react-native';
 import type { GetProps } from 'tamagui';
 
@@ -21,16 +21,16 @@ export type IHeaderProps = Omit<
   | 'itemTitleSelectedStyle'
   | 'cursorStyle'
 > &
-  StackStyleProps & {
-    style?: StackStyleProps;
-    contentContainerStyle?: StackStyleProps;
-    scrollContainerStyle?: StackStyleProps;
-    containerStyle?: StackStyleProps;
-    itemContainerStyle?: StackStyleProps;
-    itemTitleStyle?: TextStyleProps;
-    itemTitleNormalStyle?: TextStyleProps & { color: string };
-    itemTitleSelectedStyle?: TextStyleProps & { color: string };
-    cursorStyle?: StackStyleProps;
+  StackStyle & {
+    style?: StackStyle;
+    contentContainerStyle?: StackStyle;
+    scrollContainerStyle?: StackStyle;
+    containerStyle?: StackStyle;
+    itemContainerStyle?: StackStyle;
+    itemTitleStyle?: TextStyle;
+    itemTitleNormalStyle?: TextStyle & { color: string };
+    itemTitleSelectedStyle?: TextStyle & { color: string };
+    cursorStyle?: StackStyle;
     showHorizontalScrollButton?: boolean;
   };
 
@@ -38,7 +38,7 @@ const HeaderComponent = (
   {
     style,
     titleFromItem = (item: { title: string }) => item.title,
-    contentContainerStyle = {},
+    contentContainerStyle = { pr: '$5' },
     scrollContainerStyle = {},
     containerStyle = {},
     itemContainerStyle = { ml: '$5', pb: '$0.5', cursor: 'default' },
@@ -75,7 +75,7 @@ const HeaderComponent = (
     {
       ...(props.data.length > 0
         ? {
-            h: '$11',
+            h: 52,
             bg: '$bgApp',
             borderBottomColor: '$borderSubdued',
             borderBottomWidth: StyleSheet.hairlineWidth,

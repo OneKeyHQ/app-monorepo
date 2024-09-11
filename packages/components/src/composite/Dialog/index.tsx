@@ -7,13 +7,13 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,8 +22,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useBackHandler, useKeyboardHeight } from '../../hooks';
-import { Stack } from '../../primitives';
+import { useBackHandler, useSheetZIndex } from '../../hooks';
+import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogHeaderContext,
   DialogIcon,
+  DialogRichDescription,
   DialogTitle,
   SetDialogHeader,
 } from './Header';
@@ -50,6 +51,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { IColorTokens } from '../../types';
 
 export * from './hooks';
 export type {
@@ -120,8 +122,6 @@ function DialogFrame({
 
   useBackHandler(handleBackPress);
 
-  const { bottom } = useSafeAreaInsets();
-
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
     cancel?.(() => onClose());
@@ -131,13 +131,10 @@ function DialogFrame({
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const media = useMedia();
-  const keyboardHeight = useKeyboardHeight();
+
+  const sheetZIndex = useSheetZIndex();
   const renderDialogContent = (
-    <Stack
-      {...(bottom &&
-        // remove safe area padding when keyboard is shown
-        !keyboardHeight && { pb: bottom })}
-    >
+    <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
@@ -183,6 +180,7 @@ function DialogFrame({
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
         animation="quick"
+        zIndex={sheetZIndex}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -191,7 +189,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          zIndex={sheetProps?.zIndex}
+          zIndex={sheetProps?.zIndex || sheetZIndex}
         />
         <Sheet.Frame
           unstyled
@@ -199,7 +197,6 @@ function DialogFrame({
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           bg="$bg"
-          paddingBottom={keyboardHeight}
           borderCurve="continuous"
           disableHideBottomOverflow
         >
@@ -221,7 +218,9 @@ function DialogFrame({
       <AnimatePresence>
         {open ? (
           <Stack
-            position={'fixed' as unknown as any}
+            position={
+              platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
+            }
             top={0}
             left={0}
             right={0}
@@ -305,12 +304,10 @@ function BaseDialogContainer(
     [onClose],
   );
 
-  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
-
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: handleContainerClose,
+        close: handleClose,
         ref: formRef,
       },
       footerRef: {
@@ -318,7 +315,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleContainerClose],
+    [handleClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -346,6 +343,18 @@ function BaseDialogContainer(
     icon,
     showExitButton,
   });
+
+  // If the header properties change, update the headerContext content.
+  useLayoutEffect(() => {
+    setHeaderProps((prev) => ({
+      ...prev,
+      title,
+      tone,
+      description,
+      icon,
+      showExitButton,
+    }));
+  }, [description, icon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
     [headerProps],
@@ -358,7 +367,7 @@ function BaseDialogContainer(
           open={isOpen}
           onOpen={handleOpen}
           renderContent={renderContent}
-          onClose={handleContainerClose}
+          onClose={handleClose}
           {...props}
         />
       </DialogHeaderContext.Provider>
@@ -460,15 +469,52 @@ const dialogCancel = (props: IDialogCancelProps) =>
     showCancelButton: true,
   });
 
+export function DialogLoadingView({
+  children,
+  bg,
+}: {
+  children?: any;
+  bg?: IColorTokens;
+}) {
+  return (
+    <Stack
+      borderRadius="$3"
+      p="$5"
+      bg={bg ?? '$bgSubdued'}
+      borderCurve="continuous"
+    >
+      <Spinner size="large" />
+      {children}
+    </Stack>
+  );
+}
+
+function dialogLoading(props: { title: string }) {
+  return dialogShow({
+    ...props,
+    dismissOnOverlayPress: false,
+    // disableSwipeGesture: true,
+    disableDrag: true,
+    showExitButton: false,
+    showFooter: false,
+    showConfirmButton: false,
+    showCancelButton: false,
+    renderContent: <DialogLoadingView />,
+  });
+}
+
 export const Dialog = {
   Header: SetDialogHeader,
   Title: DialogTitle,
   Description: DialogDescription,
+  RichDescription: DialogRichDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
+  Loading: DialogLoadingView,
   show: dialogShow,
   confirm: dialogConfirm,
   cancel: dialogCancel,
+  loading: dialogLoading,
 };

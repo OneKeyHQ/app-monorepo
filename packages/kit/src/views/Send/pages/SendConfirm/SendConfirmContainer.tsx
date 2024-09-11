@@ -8,23 +8,29 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  usePreCheckTxStatusAtom,
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
-import TxFeeContainer from './TxFeeContainer';
-import TxSimulationContainer from './TxSimulationContainer';
+import { TxExtraInfoContainer } from './TxExtraInfoContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -33,11 +39,16 @@ function SendConfirmContainer() {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
-  const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
-    useSendConfirmActions().current;
+  const {
+    updateUnsignedTxs,
+    updateNativeTokenInfo,
+    updateSendFeeStatus,
+    updatePreCheckTxStatus,
+  } = useSendConfirmActions().current;
   const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendAlertStatus] = useSendTxStatusAtom();
+  const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const {
     accountId,
     networkId,
@@ -49,11 +60,17 @@ function SendConfirmContainer() {
     signOnly,
     useFeeInTx,
     transferPayload,
+    feeInfoEditable,
   } = route.params;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+  }, []);
+
   const { network } =
     usePromiseResult(async () => {
       updateUnsignedTxs(unsignedTxs);
@@ -62,16 +79,8 @@ function SendConfirmContainer() {
         balance: '0',
         logoURI: '',
       });
-      const [n, accountAddress, xpub, nativeTokenAddress] = await Promise.all([
+      const [n, nativeTokenAddress] = await Promise.all([
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          networkId,
-          accountId,
-        }),
-        backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
         backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
       ]);
       const checkInscriptionProtectionEnabled =
@@ -85,9 +94,8 @@ function SendConfirmContainer() {
         checkInscriptionProtectionEnabled && settings.inscriptionProtection;
       const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
         networkId,
-        accountAddress,
+        accountId,
         contractList: [nativeTokenAddress],
-        xpub,
         withFrozenBalance: true,
         withCheckInscription,
       });
@@ -107,6 +115,19 @@ function SendConfirmContainer() {
       settings.inscriptionProtection,
     ]).result ?? {};
 
+  usePromiseResult(async () => {
+    try {
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs,
+        precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
+      });
+    } catch (e: any) {
+      updatePreCheckTxStatus((e as Error).message);
+    }
+  }, [accountId, networkId, unsignedTxs, updatePreCheckTxStatus]);
+
   useEffect(
     () => () =>
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' }),
@@ -120,14 +141,29 @@ function SendConfirmContainer() {
           <Stack>
             {sendFeeStatus.errMessage ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
                 title={sendFeeStatus.errMessage}
+                action={{
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  isPrimaryLoading:
+                    sendFeeStatus.status === ESendFeeStatus.Loading,
+                  onPrimaryPress() {
+                    appEventBus.emit(
+                      EAppEventBusNames.EstimateTxFeeRetry,
+                      undefined,
+                    );
+                  },
+                }}
               />
             ) : null}
             {sendAlertStatus.isInsufficientNativeBalance ? (
               <Alert
+                mb="$2.5"
                 fullBleed
                 icon="ErrorOutline"
                 type="critical"
@@ -141,6 +177,15 @@ function SendConfirmContainer() {
                 )}
               />
             ) : null}
+            {preCheckTxStatus.errorMessage ? (
+              <Alert
+                mb="$2.5"
+                fullBleed
+                icon="ErrorOutline"
+                type="critical"
+                title={preCheckTxStatus.errorMessage}
+              />
+            ) : null}
           </Stack>
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer
@@ -148,13 +193,9 @@ function SendConfirmContainer() {
             networkId={networkId}
             transferPayload={transferPayload}
           />
-          <TxFeeContainer
-            accountId={accountId}
-            networkId={networkId}
-            useFeeInTx={useFeeInTx}
-          />
-          {/* TODO: Swap tx details */}
-          <TxSimulationContainer />
+          {/* <TxSwapInfoContainer /> */}
+          {/* <TxSimulationContainer /> */}
+          <TxExtraInfoContainer />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}
@@ -164,35 +205,40 @@ function SendConfirmContainer() {
           onSuccess={onSuccess}
           onFail={onFail}
           onCancel={onCancel}
+          transferPayload={transferPayload}
+          useFeeInTx={useFeeInTx}
+          feeInfoEditable={feeInfoEditable}
         />
       </>
     ),
     [
       sendFeeStatus.errMessage,
-      sendAlertStatus.isInsufficientNativeBalance,
+      sendFeeStatus.status,
       intl,
+      sendAlertStatus.isInsufficientNativeBalance,
       network?.symbol,
+      preCheckTxStatus.errorMessage,
       sourceInfo,
       accountId,
       networkId,
       transferPayload,
-      useFeeInTx,
       signOnly,
       onSuccess,
       onFail,
       onCancel,
+      useFeeInTx,
+      feeInfoEditable,
     ],
   );
 
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
+
   return (
-    <Page
-      scrollEnabled
-      onClose={(confirmed) => {
-        if (!confirmed) {
-          dappApprove.reject();
-        }
-      }}
-    >
+    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.transaction__transaction_confirm,

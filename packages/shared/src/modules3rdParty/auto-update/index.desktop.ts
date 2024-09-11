@@ -2,15 +2,22 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { ETranslations } from '../../locale';
+import { appLocale } from '../../locale/appLocale';
+import { defaultLogger } from '../../logger/logger';
+
 import type {
+  IClearPackage,
   IDownloadPackage,
   IInstallPackage,
+  IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyPackage,
 } from './type';
 
 const updateCheckingTasks: (() => void)[] = [];
 window.desktopApi?.on?.('update/checking', () => {
-  console.log('update/checking');
+  defaultLogger.update.app.log('checking');
   while (updateCheckingTasks.length) {
     updateCheckingTasks.pop()?.();
   }
@@ -18,7 +25,7 @@ window.desktopApi?.on?.('update/checking', () => {
 
 const updateAvailableTasks: (() => void)[] = [];
 window.desktopApi?.on?.('update/available', ({ version }) => {
-  console.log('update/available, version: ', version);
+  defaultLogger.update.app.log('available', version);
   while (updateAvailableTasks.length) {
     updateAvailableTasks.pop()?.();
   }
@@ -26,10 +33,19 @@ window.desktopApi?.on?.('update/available', ({ version }) => {
 
 window.desktopApi?.on?.('update/not-available', (params) => {
   console.log('update/not-available', params);
+  defaultLogger.update.app.log('not-available');
 });
 
 window.desktopApi?.on?.('update/download', ({ version }) => {
-  console.log('update/download, version: ', version);
+  defaultLogger.update.app.log('download', version);
+});
+
+const updateVerifyTasks: (() => void)[] = [];
+window.desktopApi.on('update/verified', () => {
+  defaultLogger.update.app.log('update/verified');
+  while (updateVerifyTasks.length) {
+    updateVerifyTasks.pop()?.();
+  }
 });
 
 let updateDownloadingTasks: ((params: {
@@ -49,14 +65,16 @@ window.desktopApi?.on?.(
     transferred: number;
   }) => {
     console.log('update/downloading', params);
+    defaultLogger.update.app.log('downloading', params.percent);
     updateDownloadingTasks.forEach((t) => t(params));
   },
 );
 
-const updateDownloadedTasks: (() => void)[] = [];
-window.desktopApi.on('update/downloaded', () => {
+const updateDownloadedTasks: ((event: IUpdateDownloadedEvent) => void)[] = [];
+window.desktopApi.on('update/downloaded', (event: IUpdateDownloadedEvent) => {
+  defaultLogger.update.app.log('download');
   while (updateDownloadedTasks.length) {
-    updateDownloadedTasks.pop()?.();
+    updateDownloadedTasks.pop()?.(event);
   }
   updateDownloadingTasks = [];
 });
@@ -75,6 +93,7 @@ window.desktopApi?.on?.(
     const message =
       err.message ||
       'Network exception, please check your internet connection.';
+    defaultLogger.update.app.log('error', message);
     while (updateErrorTasks.length) {
       updateErrorTasks.pop()?.({ message });
     }
@@ -82,18 +101,46 @@ window.desktopApi?.on?.(
 );
 
 export const downloadPackage: IDownloadPackage = () =>
-  new Promise((resolve, reject) => {
+  new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
     updateAvailableTasks.push(() => {
       window.desktopApi.downloadUpdate();
     });
-    updateDownloadedTasks.push(resolve);
+    updateDownloadedTasks.push((event: IUpdateDownloadedEvent) => {
+      resolve(event);
+    });
     updateErrorTasks.push(reject);
     window.desktopApi.checkForUpdates();
   });
 
-export const installPackage: IInstallPackage = async () => {
-  window.desktopApi.installUpdate();
-};
+export const verifyPackage: IVerifyPackage = async (params) =>
+  new Promise((resolve, reject) => {
+    updateVerifyTasks.push(resolve);
+    updateErrorTasks.push(reject);
+    window.desktopApi.verifyUpdate(params);
+  });
+
+export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
+  new Promise((_, reject) => {
+    defaultLogger.update.app.log('install');
+    updateErrorTasks.push(reject);
+    // verifyUpdate will be called by default in the electron module when calling to installUpdate
+    window.desktopApi.installUpdate({
+      ...downloadedEvent,
+      dialog: {
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.update_new_update_downloaded,
+        }),
+        buttons: [
+          appLocale.intl.formatMessage({
+            id: ETranslations.update_install_and_restart,
+          }),
+          appLocale.intl.formatMessage({
+            id: ETranslations.global_later,
+          }),
+        ],
+      },
+    });
+  });
 
 export const useDownloadProgress: IUseDownloadProgress = (
   onSuccess,
@@ -111,8 +158,8 @@ export const useDownloadProgress: IUseDownloadProgress = (
       percent: number;
       bytesPerSecond: number;
     }) => {
-      console.log('update/downloading', progress);
-      setPercent((prev) => Math.max(Number(Number(progress).toFixed()), prev));
+      defaultLogger.update.app.log('downloading', progress);
+      setPercent(Number(Number(progress).toFixed()));
     },
     10,
   );
@@ -123,4 +170,8 @@ export const useDownloadProgress: IUseDownloadProgress = (
     updateErrorTasks.push(onFailed);
   }, [onFailed, onSuccess, updatePercent]);
   return percent;
+};
+
+export const clearPackage: IClearPackage = async () => {
+  window.desktopApi.clearUpdate();
 };

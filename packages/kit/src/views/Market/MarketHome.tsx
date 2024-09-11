@@ -1,12 +1,15 @@
 import type { ForwardedRef } from 'react';
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from 'react';
+
+import { Animated, Easing } from 'react-native';
 
 import {
   Icon,
@@ -26,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
@@ -66,7 +70,24 @@ function BasicAnimatedIcon(
 
 const AnimatedIcon = forwardRef(BasicAnimatedIcon);
 
+let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
+
 function MarketHome() {
+  const { screenWidth, pageWidth } = useHomePageWidth();
+  if (CONTENT_ITEM_WIDTH == null) {
+    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
+  }
+  useEffect(() => {
+    if (!CONTENT_ITEM_WIDTH) {
+      return;
+    }
+    Animated.timing(CONTENT_ITEM_WIDTH, {
+      toValue: pageWidth,
+      duration: 400,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [pageWidth]);
   const [categories, setCategories] = useState<IMarketCategory[]>([]);
   useEffect(() => {
     void backgroundApiProxy.serviceMarket.fetchCategories().then((response) => {
@@ -92,47 +113,67 @@ function MarketHome() {
   );
 
   const ref = useRef<IAnimatedIconRef>(null);
+  const headerProps = useMemo(
+    () => ({
+      showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
+      renderItem: (item: any, index: any, titleStyle: any) =>
+        index === 0 && !gtMd ? (
+          <AnimatedIcon
+            ref={ref}
+            normalColor={
+              (titleStyle as { normalColor: IColorTokens })?.normalColor
+            }
+            selectedColor={
+              (titleStyle as { selectedColor: IColorTokens })?.selectedColor
+            }
+          />
+        ) : (
+          <Tab.SelectedLabel {...titleStyle} />
+        ),
+    }),
+    [gtMd],
+  );
+
+  const handleSelectedPageIndex = useCallback((index: number) => {
+    ref?.current?.setIsSelected?.(index === 0);
+    appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
+      tabIndex: index,
+    });
+    console.log('选中', index, index === 0 ? 1 : 0);
+  }, []);
+  const renderTabContainer = useCallback(() => {
+    if (!tabConfig.length) {
+      return (
+        <Stack flex={1} ai="center" jc="center">
+          <Spinner size="large" />
+        </Stack>
+      );
+    }
+    if (platformEnv.isNativeAndroid) {
+      return (
+        <Tab
+          disableRefresh
+          initialHeaderHeight={0}
+          data={tabConfig}
+          onSelectedPageIndex={handleSelectedPageIndex}
+        />
+      );
+    }
+    return (
+      <Tab.Page
+        data={tabConfig}
+        contentItemWidth={CONTENT_ITEM_WIDTH}
+        contentWidth={screenWidth}
+        headerProps={headerProps}
+        onSelectedPageIndex={handleSelectedPageIndex}
+        windowSize={3}
+      />
+    );
+  }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
   return (
     <Page>
       {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
-      <Page.Body>
-        {tabConfig.length ? (
-          <Tab.Page
-            data={tabConfig}
-            headerProps={{
-              contentContainerStyle: { paddingRight: '$5' },
-              showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
-              renderItem: (item, index, titleStyle) =>
-                index === 0 && !gtMd ? (
-                  <AnimatedIcon
-                    ref={ref}
-                    normalColor={
-                      (titleStyle as { normalColor: IColorTokens })?.normalColor
-                    }
-                    selectedColor={
-                      (titleStyle as { selectedColor: IColorTokens })
-                        ?.selectedColor
-                    }
-                  />
-                ) : (
-                  <Tab.SelectedLabel {...(titleStyle as any)} />
-                ),
-            }}
-            onSelectedPageIndex={(index: number) => {
-              ref?.current?.setIsSelected?.(index === 0);
-              appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
-                tabIndex: index,
-              });
-              console.log('选中', index, index === 0 ? 1 : 0);
-            }}
-            windowSize={15}
-          />
-        ) : (
-          <Stack flex={1} ai="center" jc="center">
-            <Spinner size="large" />
-          </Stack>
-        )}
-      </Page.Body>
+      <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }

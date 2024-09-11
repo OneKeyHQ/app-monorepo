@@ -1,13 +1,15 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
-import { type SignedTransaction, TronWeb } from 'tronweb';
+import { type SignedTransaction } from 'tronweb';
+import TronWeb from 'tronweb';
 
 import {
   backgroundClass,
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -107,8 +109,7 @@ class ProviderApiTron extends ProviderApiBase {
   @providerApiMethod()
   async tron_getNodeInfo(request: IJsBridgeMessagePayload) {
     const { fullHost } = await this.tron_nodes(request);
-
-    const tronWeb = new TronWeb({ fullNode: fullHost });
+    const tronWeb = new TronWeb({ fullHost });
     return tronWeb.trx.getNodeInfo();
   }
 
@@ -152,6 +153,8 @@ class ProviderApiTron extends ProviderApiBase {
       url = networks[0].isTestnet
         ? TRON_SCAN_REQUESTED_URL.shasta
         : TRON_SCAN_REQUESTED_URL.main;
+    } else {
+      url = TRON_SCAN_REQUESTED_URL.main;
     }
 
     return Promise.resolve({
@@ -164,6 +167,7 @@ class ProviderApiTron extends ProviderApiBase {
 
   @providerApiMethod()
   async tron_requestAccounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('ProviderTron.tron_requestAccounts', request);
     const accounts = await this.tron_accounts(request);
     if (accounts && accounts.length) {
@@ -179,6 +183,7 @@ class ProviderApiTron extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: any,
   ): Promise<SignedTransaction> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('tron_signTransaction', request, transaction);
 
     const { accountInfo: { networkId, accountId } = {} } = (
@@ -191,11 +196,12 @@ class ProviderApiTron extends ProviderApiBase {
         encodedTx: transaction,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
+        signOnly: true,
       });
 
     console.log('tron_signTransaction DONE', result, request, transaction);
 
-    return JSON.parse(result.txid) as SignedTransaction;
+    return JSON.parse(result.rawTx) as SignedTransaction;
   }
 
   @providerApiMethod()

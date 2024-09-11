@@ -1,4 +1,8 @@
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -13,6 +17,38 @@ export {
   contextAtomMethod,
   withTokenListProvider,
 };
+
+export const { atom: searchTokenStateAtom, use: useSearchTokenStateAtom } =
+  contextAtom<{
+    isSearching: boolean;
+  }>({
+    isSearching: false,
+  });
+
+export const {
+  atom: tokenSelectorSearchTokenStateAtom,
+  use: useTokenSelectorSearchTokenStateAtom,
+} = contextAtom<{
+  isSearching: boolean;
+}>({
+  isSearching: false,
+});
+
+export const {
+  atom: tokenSelectorSearchTokenListAtom,
+  use: useTokenSelectorSearchTokenListAtom,
+} = contextAtom<{
+  tokens: IAccountToken[];
+}>({
+  tokens: [],
+});
+
+export const { atom: searchTokenListAtom, use: useSearchTokenListAtom } =
+  contextAtom<{
+    tokens: IAccountToken[];
+  }>({
+    tokens: [],
+  });
 
 export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
   contextAtom<{
@@ -78,6 +114,11 @@ export const {
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
 
+export const {
+  atom: tokenSelectorSearchKeyAtom,
+  use: useTokenSelectorSearchKeyAtom,
+} = contextAtom<string>('');
+
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   contextAtom<{
     address: string;
@@ -87,4 +128,13 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     address: '',
     isRefreshing: true,
     initialized: false,
+  });
+
+export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
+  contextAtom<{
+    token: IAccountToken | null;
+    isCreating: boolean;
+  }>({
+    token: null,
+    isCreating: false,
   });

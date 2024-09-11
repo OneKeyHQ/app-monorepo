@@ -5,6 +5,8 @@ import {
   supportedAuthenticationTypesAsync,
 } from 'expo-local-authentication';
 
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
@@ -30,7 +32,11 @@ export const biologyAuthenticate = async () => {
     return { success: false, error: 'no supported' };
   }
 
-  return authenticateAsync();
+  return authenticateAsync({
+    promptMessage: appLocale.intl.formatMessage({
+      id: ETranslations.touch_id_unlock_desc,
+    }),
+  });
 };
 
 const biologyAuth: IBiologyAuth = {

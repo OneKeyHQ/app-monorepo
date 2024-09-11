@@ -9,6 +9,7 @@ import type { EAddressEncodings } from './coreEnums';
 import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
+import type { IBtcForkNetwork } from '../chains/btc/types';
 
 export * from './coreEnums';
 export * from './coreTypesBase';
@@ -37,6 +38,9 @@ export type ICoreApiGetAddressesQueryHdEvm = ICoreApiGetAddressesQueryHdBase;
 export type ICoreApiGetAddressesQueryHdBtc = ICoreApiGetAddressesQueryHdBase & {
   addressEncoding: EAddressEncodings;
 };
+export type ICoreApiGetAddressesQueryHdTon = ICoreApiGetAddressesQueryHdBase & {
+  addressEncoding: EAddressEncodings;
+};
 
 export type ICoreApiGetAddressesQueryHd =
   | ICoreApiGetAddressesQueryHdBase
@@ -49,6 +53,10 @@ export type ICoreApiGetAddressQueryImportedBase = {
   privateKeyInfo?: ISecretPrivateKeyInfo;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
+  ICoreApiGetAddressQueryImportedBase & {
+    addressEncoding: EAddressEncodings | undefined;
+  };
+export type ICoreApiGetAddressQueryImportedTon =
   ICoreApiGetAddressQueryImportedBase & {
     addressEncoding: EAddressEncodings | undefined;
   };
@@ -101,6 +109,14 @@ export type ICoreApiSignAccount = {
   xpub?: string;
   template?: string;
 };
+export type ICoreApiValidateXpubParams = {
+  xpub: string;
+  btcForkNetwork: IBtcForkNetwork;
+};
+export type ICoreApiValidateXprvtParams = {
+  xprvt: string;
+  btcForkNetwork: IBtcForkNetwork;
+};
 export type ICoreApiSignBasePayload = {
   networkInfo: ICoreApiNetworkInfo;
   btcExtraInfo?: ICoreApiSignBtcExtraInfo;
@@ -110,6 +126,7 @@ export type ICoreApiSignBasePayload = {
 
   account: ICoreApiSignAccount;
   relPaths?: string[]; // used for get privateKey of other utxo address
+  signOnly?: boolean;
 };
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;

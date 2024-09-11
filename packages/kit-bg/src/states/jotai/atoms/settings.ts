@@ -15,6 +15,10 @@ export type ISettingsPersistAtom = {
   buildNumber?: string;
   reviewControl?: boolean;
   instanceId: string;
+  instanceIdBackup?: {
+    v4MigratedInstanceId: string | undefined;
+    v5InitializedInstanceId: string | undefined;
+  };
   sensitiveEncodeKey: string;
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;
@@ -22,6 +26,7 @@ export type ISettingsPersistAtom = {
   tokenRiskReminder: boolean;
   spendDustUTXO: boolean;
   inscriptionProtection: boolean;
+  isFirstTimeSwap: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
   currencyInfo: {
@@ -29,30 +34,32 @@ export type ISettingsPersistAtom = {
     id: string;
   };
 };
+export const settingsAtomInitialValue: ISettingsPersistAtom = {
+  theme: 'system',
+  lastLocale: 'system',
+  locale: 'system',
+  version: process.env.VERSION ?? '1.0.0',
+  buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
+  instanceId: generateUUID(),
+  sensitiveEncodeKey: generateUUID(),
+  isBiologyAuthSwitchOn: true,
+  protectCreateTransaction: false,
+  protectCreateOrRemoveWallet: false,
+  tokenRiskReminder: true,
+  spendDustUTXO: false,
+  inscriptionProtection: true,
+  isFirstTimeSwap: true,
+  hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
+  currencyInfo: {
+    id: 'usd',
+    symbol: '$',
+  },
+};
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
     persist: true,
     name: EAtomNames.settingsPersistAtom,
-    initialValue: {
-      theme: 'system',
-      lastLocale: 'system',
-      locale: 'system',
-      version: process.env.VERSION ?? '1.0.0',
-      buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
-      instanceId: generateUUID(),
-      sensitiveEncodeKey: generateUUID(),
-      isBiologyAuthSwitchOn: true,
-      protectCreateTransaction: false,
-      protectCreateOrRemoveWallet: false,
-      tokenRiskReminder: true,
-      spendDustUTXO: false,
-      inscriptionProtection: true,
-      hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
-      currencyInfo: {
-        id: 'usd',
-        symbol: '$',
-      },
-    },
+    initialValue: settingsAtomInitialValue,
   });
 
 type ISettingsLastActivityPersistAtom = {
@@ -80,5 +87,20 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapToAnotherAccountSwitchOn: false,
     },
   });
+
+type ISettingsValuePersistAtom = {
+  hideValue: boolean;
+};
+
+export const {
+  target: settingsValuePersistAtom,
+  use: useSettingsValuePersistAtom,
+} = globalAtom<ISettingsValuePersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsValuePersistAtom,
+  initialValue: {
+    hideValue: false,
+  },
+});
 
 // extract high frequency refresh data to another atom

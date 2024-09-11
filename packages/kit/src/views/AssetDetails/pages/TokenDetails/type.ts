@@ -7,6 +7,7 @@ export type IActionProps = PropsWithChildren<{
   networkId: string;
   tokenAddress: string;
   accountId: string;
+  walletType: string | undefined;
 }>;
 
 export type IActionBaseProps = PropsWithChildren<{
@@ -16,4 +17,5 @@ export type IActionBaseProps = PropsWithChildren<{
   type: IFiatCryptoType;
   label: string;
   icon: IKeyOfIcons;
+  walletType: string | undefined;
 }>;

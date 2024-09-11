@@ -1,3 +1,7 @@
+import {
+  getBtcForkNetwork,
+  getPublicKeyFromXpub,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 import { KeyringWatchingBase } from '../../base/KeyringWatchingBase';
@@ -11,6 +15,19 @@ export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBAccount[]> {
-    return super.basePrepareUtxoWatchingAccounts(params);
+    const accounts = await super.basePrepareUtxoWatchingAccounts(params);
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const network = getBtcForkNetwork(networkInfo.networkChainCode);
+    for (const account of accounts) {
+      if (!account.pub && account.xpub) {
+        const pub = getPublicKeyFromXpub({
+          xpub: account.xpub,
+          network,
+          relPath: '0/0',
+        });
+        account.pub = pub;
+      }
+    }
+    return accounts;
   }
 }

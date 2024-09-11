@@ -26,6 +26,7 @@ export function Switch({
 
   return (
     <TMSwitch
+      tag="span"
       unstyled
       checked={value}
       onCheckedChange={onChange}
@@ -55,6 +56,7 @@ export function Switch({
         unstyled
         w={size === 'small' ? '$5' : '$7'}
         h={size === 'small' ? '$5' : '$7'}
+        borderRadius="$full"
         bg="$bg"
         animation="quick"
       />

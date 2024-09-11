@@ -19,14 +19,37 @@ class ServiceGas extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _estimateFeeController: AbortController | null = null;
+
+  @backgroundMethod()
+  public async abortEstimateFee() {
+    if (this._estimateFeeController) {
+      this._estimateFeeController.abort();
+      this._estimateFeeController = null;
+    }
+  }
+
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
+    const { accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    const controller = new AbortController();
+    this._estimateFeeController = controller;
 
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',
-      params,
+      rest,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
+
+    this._estimateFeeController = null;
+
     const feeInfo = resp.data.data;
     return {
       common: {
@@ -82,6 +105,30 @@ class ServiceGas extends ServiceBase {
       networkId,
       presetIndex,
     });
+  }
+
+  @backgroundMethod()
+  async preCheckDappTxFeeInfo(params: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    const { networkId, accountId, encodedTx } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const network = await vault.getNetwork();
+    const encodedTxWithFee = await vault.attachFeeInfoToDAppEncodedTx({
+      encodedTx,
+      feeInfo: {
+        common: {
+          feeDecimals: network.feeMeta.decimals,
+          feeSymbol: network.feeMeta.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+      },
+    });
+
+    return encodedTxWithFee;
   }
 }
 

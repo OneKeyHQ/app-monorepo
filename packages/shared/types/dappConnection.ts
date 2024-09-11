@@ -27,6 +27,7 @@ export interface IConnectionItem {
     [address in string]: number[];
   };
   walletConnectTopic?: string;
+  updatedAt?: number;
 }
 
 export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
@@ -73,3 +74,7 @@ export type IConnectedAccountInfo = {
   account: INetworkAccount;
   accountInfo?: Partial<IConnectionAccountInfo>;
 };
+
+export enum EDAppModalPageStatus {
+  Confirmed = 'Confirmed',
+}

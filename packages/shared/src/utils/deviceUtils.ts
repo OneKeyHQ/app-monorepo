@@ -8,12 +8,16 @@ import {
   EFirmwareUpdateTipMessages,
   EOneKeyDeviceMode,
 } from '../../types/device';
+import bleManagerInstance from '../hardware/bleManager';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 
-import type { IOneKeyDeviceFeatures } from '../../types/device';
+import type {
+  IOneKeyDeviceFeatures,
+  IOneKeyDeviceType,
+} from '../../types/device';
 import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 type IGetDeviceVersionParams = {
@@ -184,6 +188,50 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
+async function checkDeviceBonded(connectId: string) {
+  return bleManagerInstance.checkDeviceBonded(connectId);
+}
+
+async function buildDeviceLabel({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<string | ''> {
+  if (features.label) {
+    return features.label;
+  }
+  const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
+    'classic': 'OneKey Classic',
+    'classic1s': 'OneKey Classic 1S',
+    'mini': 'OneKey Mini',
+    'touch': 'OneKey Touch',
+    'pro': 'OneKey Pro',
+    'unknown': '',
+  };
+  const deviceType = await getDeviceTypeFromFeatures({
+    features,
+  });
+  return defaultLabelsByDeviceType[deviceType] || '';
+}
+
+async function buildDeviceName({
+  device,
+  features,
+}: {
+  device?: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+}): Promise<string> {
+  const label = await buildDeviceLabel({ features });
+  if (label) {
+    return label;
+  }
+  const { getDeviceUUID } = await CoreSDKLoader();
+  const deviceUUID = device?.uuid || getDeviceUUID(features);
+  return (
+    features.label || features.ble_name || `OneKey ${deviceUUID.slice(-4)}`
+  );
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -197,4 +245,7 @@ export default {
   getDeviceScanner,
   getUpdatingConnectId,
   isConfirmOnDeviceAction,
+  checkDeviceBonded,
+  buildDeviceLabel,
+  buildDeviceName,
 };

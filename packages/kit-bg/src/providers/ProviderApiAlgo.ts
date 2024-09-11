@@ -7,6 +7,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -53,9 +54,15 @@ class ProviderApiAlgo extends ProviderApiBase {
   public async getChainId(request: IJsBridgeMessagePayload) {
     console.log('algo getChainId');
 
-    const { accountInfo: { networkId } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+
+    if (!accountsInfo || !accountsInfo.length) {
+      return undefined;
+    }
+    const { accountInfo: { networkId } = {} } = accountsInfo[0];
 
     if (networkId) {
       return networkId.split(SEPERATOR)[1];
@@ -76,7 +83,7 @@ class ProviderApiAlgo extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload) {
-    console.log('algo connect', request);
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accounts = await this.accounts(request);
 
     if (accounts && accounts.length > 0) {
@@ -92,6 +99,7 @@ class ProviderApiAlgo extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     walletTransactions: Array<{ txn: string; signers: [] }>,
   ): Promise<(string | null)[]> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txsToSign: string[] = [];
     for (let i = 0; i < walletTransactions.length; i += 1) {
       // transaction with signers means that this transaction is not meant to be signed

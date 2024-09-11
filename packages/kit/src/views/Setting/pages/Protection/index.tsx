@@ -1,6 +1,8 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
+  ESwitchSize,
   Page,
   SectionList,
   SizableText,
@@ -33,6 +35,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={settings.tokenRiskReminder}
               onChange={async (value) => {
                 setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
@@ -44,8 +47,8 @@ const SettingProtectionModal = () => {
               id: ETranslations.settings_token_risk_reminder_desc,
             })}
           </SizableText>
+          <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
-            mt="$5"
             title={intl.formatMessage({
               id: ETranslations.settings_password_bypass,
             })}
@@ -56,6 +59,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={!settings.protectCreateTransaction}
               onChange={async (value) => {
                 await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
@@ -70,6 +74,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              size={ESwitchSize.small}
               value={!settings.protectCreateOrRemoveWallet}
               onChange={async (value) => {
                 await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
@@ -78,6 +83,11 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.settings_password_bypass_desc,
+            })}
+          </SizableText>
         </YStack>
       </Page.Body>
     </Page>

@@ -31,3 +31,36 @@ export type IV4FeeInfoUnit = {
   computeUnitPrice?: string;
   isSolChain?: boolean;
 };
+
+export type IV4FeeInfoPrice = string | IV4EIP1559Fee; // in GWEI
+
+export type IV4FeeInfo = {
+  limit?: string; // calculated gasLimit of encodedTx
+  limitForDisplay?: string;
+  prices: Array<IV4FeeInfoPrice>; // preset gasPrices: normal, fast, rapid
+  defaultPresetIndex: string; // '0' | '1' | '2';
+  waitingSeconds?: Array<number>; // waiting time for different prices
+  disableEditFee?: boolean; // disable fee edit
+
+  feeSymbol?: string; // feeSymbol: GWEI
+  feeDecimals?: number; // feeDecimals: 9
+  nativeSymbol?: string; // ETH
+  nativeDecimals?: number; // 18
+
+  // TODO rename to feeInTx
+  tx?: IV4FeeInfoUnit | null;
+  eip1559?: boolean;
+  customDisabled?: boolean;
+  baseFeeValue?: string; // A base fee: e.g. L1 fee for Layer 2 networks
+  extraInfo?: {
+    tokensChangedTo?: { [key: string]: string | undefined };
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+    originalPrices?: Array<IV4EIP1559Fee | string> | null;
+  } | null;
+  isBtcForkChain?: boolean;
+  feeList?: number[];
+  // for sol prioritization fees
+  isSolChain?: boolean;
+  computeUnitPrice?: string;
+};

@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_FIL,
   IMPL_FIL,
@@ -11,7 +12,7 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'EVM',
+    namePrefix: 'FIL',
     labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_FIL}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_FIL,
@@ -28,6 +29,11 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
   isUtxo: false,
   isSingleToken: true,
   NFTEnabled: false,
@@ -35,6 +41,8 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 30,
 
   defaultFeePresetIndex: 0,
 

@@ -17,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type {
   OneKeyError,
   OneKeyServerApiError,
@@ -27,6 +28,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -91,6 +93,7 @@ function useFirmwareVerifyBase({
         );
       } else {
         setResult('unofficial');
+        setErrorObj({ code: authResult.result?.code || -99_999 });
         setContentType(
           EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
         );
@@ -113,6 +116,7 @@ function useFirmwareVerifyBase({
       const { code, message } = error as OneKeyError;
       switch (code) {
         case HardwareErrorCode.ActionCancelled:
+        case HardwareErrorCode.NewFirmwareForceUpdate:
           void dialogInstance.close();
           break;
         case HardwareErrorCode.NetworkError:
@@ -192,7 +196,7 @@ export function EnumBasicDialogContentContainer({
             $md={
               {
                 size: 'large',
-              } as IButtonProps
+              } as any
             }
             onPress={() => setShowRiskyWarning(true)}
           >
@@ -203,7 +207,7 @@ export function EnumBasicDialogContentContainer({
         ) : (
           <YStack
             p="$5"
-            space="$5"
+            gap="$5"
             bg="$bgCautionSubdued"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderCautionSubdued"
@@ -219,7 +223,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               onPress={onContinuePress}
             >
@@ -300,7 +304,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -330,7 +334,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -361,15 +365,25 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
-              onPress={() =>
-                Linking.openURL('https://help.onekey.so/hc/requests/new')
-              }
+              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
+            {platformEnv.isDev ? (
+              <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as any
+                }
+                onPress={onContinuePress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
@@ -393,7 +407,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -425,7 +439,7 @@ export function EnumBasicDialogContentContainer({
               $md={
                 {
                   size: 'large',
-                } as IButtonProps
+                } as any
               }
               variant="primary"
               onPress={onActionPress}
@@ -442,6 +456,7 @@ export function EnumBasicDialogContentContainer({
     errorObj.message,
     intl,
     onActionPress,
+    onContinuePress,
     renderFooter,
   ]);
   return <YStack>{content}</YStack>;
@@ -451,12 +466,10 @@ export function FirmwareAuthenticationDialogContent({
   onContinue,
   device,
   skipDeviceCancel,
-  noContinue,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
-  noContinue?: boolean;
 }) {
   const { result, reset, verify, contentType, setContentType, errorObj } =
     useFirmwareVerifyBase({
@@ -467,10 +480,8 @@ export function FirmwareAuthenticationDialogContent({
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const handleContinuePress = useCallback(() => {
-    if (noContinue) {
-      onContinue({ checked: false });
-    }
-  }, [noContinue, onContinue]);
+    onContinue({ checked: false });
+  }, [onContinue]);
 
   const content = useMemo(() => {
     const propsMap: Record<
@@ -519,14 +530,10 @@ export function FirmwareAuthenticationDialogContent({
     verify,
   ]);
 
-  return <Stack space="$5">{content}</Stack>;
+  return <Stack gap="$5">{content}</Stack>;
 }
 
-export function useFirmwareVerifyDialog({
-  noContinue,
-}: {
-  noContinue?: boolean;
-} = {}) {
+export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -545,7 +552,6 @@ export function useFirmwareVerifyDialog({
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
-            noContinue={noContinue}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
@@ -567,7 +573,7 @@ export function useFirmwareVerifyDialog({
         },
       });
     },
-    [noContinue],
+    [],
   );
   return {
     showFirmwareVerifyDialog,

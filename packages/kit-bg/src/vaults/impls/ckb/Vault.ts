@@ -19,6 +19,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
+  RemainingMinBalanceError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -260,9 +261,11 @@ export default class Vault extends VaultBase {
         )
           .shiftedBy(-network.decimals)
           .toFixed();
-        throw new Error(
-          `The balance after the transaction must not be less than ${miniAmount}`,
-        );
+        throw new RemainingMinBalanceError({
+          info: {
+            miniAmount,
+          },
+        });
       }
     }
 
@@ -359,7 +362,7 @@ export default class Vault extends VaultBase {
 
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountId: this.accountId,
     });
 
     if (nativeToken) {
@@ -464,8 +467,8 @@ export default class Vault extends VaultBase {
 
     const token = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
+      accountId: this.accountId,
       tokenIdOnNetwork: tokenAddress,
-      accountAddress,
     });
 
     if (!token) return [];
@@ -605,7 +608,7 @@ export default class Vault extends VaultBase {
     if (
       allInputAmount
         .minus(allOutputAmount)
-        .isGreaterThan(new BigNumber(1.5 * 100000000))
+        .isGreaterThan(new BigNumber(1.5 * 100_000_000))
     ) {
       console.log('Fee is too high, transaction: ', txs);
 

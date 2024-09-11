@@ -5,6 +5,7 @@ import {
   Checkbox,
   Dialog,
   Stack,
+  Toast,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,9 +29,12 @@ const ClearCacheOnAppContent = () => {
           transactionHistory: true,
           swapHistory: true,
           browserCache: true,
+          appUpdateCache: true,
           browserHistory: false,
           connectSites: false,
           signatureRecord: false,
+          customToken: false,
+          customRpc: false,
         } as IClearCacheOnAppState,
       }}
     >
@@ -63,12 +67,33 @@ const ClearCacheOnAppContent = () => {
             })}
           />
         </Dialog.FormField>
+        <Dialog.FormField name="appUpdateCache">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.settings_app_update_cache,
+            })}
+          />
+        </Dialog.FormField>
         <Dialog.FormField name="browserHistory">
           <Checkbox
             label={intl.formatMessage({
               id: ETranslations.settings_browser_history_bookmarks_pins_risk_dapp_whitelist,
             })}
-            labelProps={{ flex: 1 }}
+            labelProps={{ flex: 1 } as any}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="customToken">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_title,
+            })}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="customRpc">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.custom_rpc_title,
+            })}
           />
         </Dialog.FormField>
         <Dialog.FormField name="connectSites">
@@ -96,6 +121,7 @@ export const CleanDataItem = () => {
   const resetApp = useResetApp();
   return (
     <ActionList
+      offset={{ mainAxis: -4, crossAxis: -10 }}
       title={intl.formatMessage({ id: ETranslations.settings_clear_data })}
       renderTrigger={
         <ListItem
@@ -136,27 +162,62 @@ export const CleanDataItem = () => {
                   await backgroundApiProxy.serviceSetting.clearCacheOnApp(
                     values,
                   );
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.global_success,
+                    }),
+                  });
                   if (
                     values?.browserCache &&
                     (platformEnv.isWeb || platformEnv.isExtension)
                   ) {
-                    Dialog.show({
-                      title: intl.formatMessage({
-                        id: ETranslations.settings_clear_browser_cache,
-                      }),
-                      description: intl.formatMessage({
-                        id: ETranslations.settings_clear_browser_cache_desc,
-                      }),
-                      onConfirm: () => {
-                        copyText('chrome://settings/clearBrowserData');
-                      },
-                      showCancelButton: false,
-                      confirmButtonProps: {
-                        variant: 'primary',
-                        size: 'large',
-                        icon: 'Copy1Outline',
-                      },
-                    });
+                    if (
+                      platformEnv.isRuntimeChrome ||
+                      platformEnv.isRuntimeEdge
+                    ) {
+                      let settingPath = 'chrome://settings/clearBrowserData';
+                      if (platformEnv.isRuntimeEdge) {
+                        settingPath = 'edge://settings/clearBrowserData';
+                      }
+                      Dialog.show({
+                        title: intl.formatMessage({
+                          id: ETranslations.settings_clear_browser_cache,
+                        }),
+                        description: intl.formatMessage(
+                          {
+                            id: ETranslations.settings_clear_browser_cache_desc,
+                          },
+                          { url: settingPath },
+                        ),
+                        onConfirm: () => {
+                          copyText(settingPath);
+                        },
+                        showCancelButton: false,
+                        confirmButtonProps: {
+                          variant: 'primary',
+                          size: 'large',
+                          icon: 'Copy1Outline',
+                        },
+                        onConfirmText: intl.formatMessage({
+                          id: ETranslations.global_copy,
+                        }),
+                      });
+                    } else {
+                      Dialog.show({
+                        title: intl.formatMessage({
+                          id: ETranslations.settings_clear_browser_cache,
+                        }),
+                        description: intl.formatMessage({
+                          id: ETranslations.settings_clear_browser_cache_desc2,
+                        }),
+                        showCancelButton: false,
+                        confirmButtonProps: {
+                          variant: 'primary',
+                          size: 'large',
+                          icon: 'Copy1Outline',
+                        },
+                      });
+                    }
                   }
                 }
               },
@@ -185,6 +246,11 @@ export const CleanDataItem = () => {
                   EAppEventBusNames.ClearLocalHistoryPendingTxs,
                   undefined,
                 );
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_success,
+                  }),
+                });
               },
             });
           },

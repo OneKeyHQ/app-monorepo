@@ -13,6 +13,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
@@ -108,6 +109,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -147,16 +149,23 @@ class ProviderApiAptos extends ProviderApiBase {
       }
     | undefined
   > {
-    const accounts = await this.getAccountsInfo(request);
-    if (!accounts || accounts.length === 0) {
+    try {
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+          request,
+        );
+      if (!accounts || accounts.length === 0) {
+        return undefined;
+      }
+      const { account } = accounts[0];
+
+      return {
+        publicKey: account.pub ?? '',
+        address: account.address,
+      };
+    } catch {
       return undefined;
     }
-    const { account } = accounts[0];
-
-    return {
-      publicKey: account.pub ?? '',
-      address: account.address,
-    };
   }
 
   @providerApiMethod()
@@ -170,6 +179,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAptos,
   ): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const encodeTx = params;
 
     const accounts = await this.getAccountsInfo(request);
@@ -181,7 +191,10 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          ...encodeTx,
+          ...encodeTx.payload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
@@ -250,6 +263,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
     const vault = await this.getAptosVault(request);
 
@@ -277,6 +291,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: string,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
     const vault = await this.getAptosVault(request);
 
@@ -307,6 +322,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IEncodedTxAptos,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -326,6 +342,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignMessagePayload,
   ): Promise<ISignMessageResponse> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     // @ts-expect-error
     const isPetra = request.data?.aptosProviderType === 'petra';
 
@@ -367,6 +384,7 @@ class ProviderApiAptos extends ProviderApiBase {
       type_args: any[];
     },
   ): Promise<string> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const encodeTx: IEncodedTxAptos = {
       type: 'entry_function_payload',
       function: params.func,
@@ -433,6 +451,7 @@ class ProviderApiAptos extends ProviderApiBase {
       property_types?: Array<string>;
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
     const encodeTx = generateTransferCreateNft(
       account.address,
@@ -441,7 +460,7 @@ class ProviderApiAptos extends ProviderApiBase {
       params.description,
       params.supply,
       params.uri,
-      BigInt(params.max ?? 9007199254740991),
+      BigInt(params.max ?? 9_007_199_254_740_991),
       params.royalty_payee_address,
       params.royalty_points_denominator,
       params.royalty_points_numerator,
@@ -501,6 +520,7 @@ class ProviderApiAptos extends ProviderApiBase {
       };
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const vault = await this.getAptosVault(request);
     const rawTx = await vault.client.generateTransaction(
       params.sender,
@@ -517,6 +537,7 @@ class ProviderApiAptos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: Uint8Array | string,
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
     const bcsTxn: Uint8Array = decodeBytesTransaction(params);
     const encodedTx = {
@@ -529,6 +550,7 @@ class ProviderApiAptos extends ProviderApiBase {
         rawTx: bufferUtils.bytesToHex(bcsTxn),
       },
       accountAddress: account.address,
+      accountId: accountInfo?.accountId ?? '',
       networkId: accountInfo?.networkId ?? '',
     });
     return res;

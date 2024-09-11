@@ -9,6 +9,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -75,7 +76,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const vault = this.vault as VaultBtc;
 
-    const { password, unsignedTx } = params;
+    const { password, unsignedTx, signOnly } = params;
 
     const credentials = await this.baseGetCredentialsInfo(params);
 
@@ -94,6 +95,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       password,
       credentials,
       btcExtraInfo, // TODO move btcExtraInfo to unsignedTx
+      signOnly,
     });
     return result;
   }
@@ -186,6 +188,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsImported(
     params: IPrepareImportedAccountsParams,
     options: {
+      onlyAvailableOnCertainNetworks?: boolean;
       accountType?: EDBAccountType;
       impl?: string;
       coinType?: string;
@@ -194,12 +197,14 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, importedCredential, password, createAtNetwork } = params;
+    const { name, importedCredential, password, networks, createAtNetwork } =
+      params;
     const { privateKey } = decryptImportedCredential({
       credential: importedCredential,
       password,
     });
     const settings = await this.getVaultSettings();
+    const { onlyAvailableOnCertainNetworks } = options;
 
     const accountType = options.accountType || settings.accountType;
     const impl = options.impl || settings.impl;
@@ -215,11 +220,24 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
+        addressEncoding: params.deriveInfo?.addressEncoding,
       });
+
+    let addressUsed = '';
+    if (onlyAvailableOnCertainNetworks) {
+      addressUsed = addresses?.[createAtNetwork] || '';
+      if (!addressUsed) {
+        throw new Error(
+          `imported account address is empty of network: ${createAtNetwork}`,
+        );
+      }
+    }
 
     const accountId = accountUtils.buildImportedAccountId({
       coinType,
       pub: publicKey,
+      address: addressUsed,
+      addressEncoding: params.deriveInfo?.addressEncoding,
     });
     return Promise.resolve([
       {
@@ -229,6 +247,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         path: '',
         coinType,
         impl,
+        networks: onlyAvailableOnCertainNetworks ? networks : undefined,
         createAtNetwork,
         pub: publicKey,
         address,
@@ -300,7 +319,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
-    const { template } = params.deriveInfo;
+    const { template, addressEncoding } = params.deriveInfo;
     const { password } = params;
     const networkInfo = await this.getCoreApiNetworkInfo();
 
@@ -317,6 +336,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
             hdCredential: checkIsDefined(credentials.hd),
             password,
             indexes: usedIndexes,
+            addressEncoding,
           });
         return addressInfos;
       },
@@ -339,10 +359,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       buildAddressesInfo: async ({ usedIndexes }) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;
+
+        defaultLogger.account.accountCreatePerf.getCredentialsInfo();
+
         const credentials = await this.baseGetCredentialsInfo({ password });
         if (!this.coreApi) {
           throw new Error('coreApi is undefined');
         }
+
+        defaultLogger.account.accountCreatePerf.getAddressesFromHd();
+
         const { addresses: addressesInfo } =
           await this.coreApi.getAddressesFromHd({
             networkInfo: await this.getCoreApiNetworkInfo(),
@@ -356,6 +382,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         if (addressesInfo.length !== usedIndexes.length) {
           throw new OneKeyInternalError('Unable to get address');
         }
+
+        defaultLogger.account.accountCreatePerf.getAddressesFromHdDone();
+
         return addressesInfo;
       },
     });

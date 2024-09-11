@@ -74,6 +74,9 @@ export type IV4DBContext = {
   pendingWallets?: string[];
 };
 
+export type IV4DBDevicePayloadJson = {
+  onDeviceInputPin?: boolean;
+};
 export type IV4DBDevice = IV4DBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
   //   featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
@@ -165,4 +168,21 @@ export type IV4DBToken = IV4DBBaseObjectWithName & {
   moonpayId?: string;
 
   riskLevel?: EV4TokenRiskLevel;
+};
+
+export type IV4DBNetwork = IV4DBBaseObjectWithName & {
+  impl: string;
+  symbol: string;
+  logoURI: string;
+  enabled: boolean;
+  feeSymbol: string;
+  decimals: number;
+  feeDecimals: number; // 1,000,000,000 -> 1 GWEI
+  balance2FeeDecimals: number;
+
+  rpcURL: string;
+  position: number;
+  curve?: string;
+  explorerURL?: string;
+  clientApi?: Record<string, string>;
 };

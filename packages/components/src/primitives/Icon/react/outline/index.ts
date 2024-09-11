@@ -728,6 +728,8 @@ export { default as Text } from './Text';
 export { default as ThinkingBubble } from './ThinkingBubble';
 export { default as ThumbDown } from './ThumbDown';
 export { default as ThumbUp } from './ThumbUp';
+export { default as ThumbackRotateOff } from './ThumbackRotateOff';
+export { default as ThumbackRotate } from './ThumbackRotate';
 export { default as Thumbtack } from './Thumbtack';
 export { default as Ticket } from './Ticket';
 export { default as TitleCase } from './TitleCase';

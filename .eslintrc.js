@@ -44,6 +44,8 @@ const jsRules = {
     },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
+  'radix': 'error',
+  'unicorn/numeric-separators-style': 'error',
 };
 const restrictedImportsPatterns = [
   {
@@ -165,7 +167,14 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps', 'ban'],
+  plugins: [
+    'spellcheck',
+    'import-path',
+    'use-effect-no-deps',
+    'ban',
+    'unicorn',
+    'props-checker',
+  ],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -225,9 +234,35 @@ module.exports = {
           /Erc721/i,
           /Erc1155/i,
           /protobufjs/i,
+          /boc/i,
+          /seqno/i,
+          /jetton/i,
+          /Nano/i,
+          /Bounceable/i,
+          /scdo/i,
+          /faq/i,
+          /atto/i,
+          /alephium/i,
+          /Preauthorized/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
+      },
+    ],
+    'props-checker/validator': [
+      'error',
+      {
+        props: [
+          {
+            propName: 'onPress',
+            components: [
+              { component: 'Stack', dependOn: 'pressStyle' },
+              { component: 'XStack', dependOn: 'pressStyle' },
+              { component: 'YStack', dependOn: 'pressStyle' },
+            ],
+          },
+          { propName: 'accessible', components: ['TextInput'] },
+        ],
       },
     ],
   },

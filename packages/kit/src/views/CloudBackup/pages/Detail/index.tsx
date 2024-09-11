@@ -22,12 +22,15 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import type { IIconProps } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ECloudBackupRoutes,
   ICloudBackupParamList,
@@ -57,6 +60,7 @@ export default function Detail() {
   const title = formatDate(new Date(backupTime));
   const [segmentValue, setSegmentValue] = useState(0);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const appUpdateInfo = useAppUpdateInfo();
 
   const createSectionListFromPublicData = useCallback(
     (publicData: IPublicBackupData) =>
@@ -187,6 +191,11 @@ export default function Detail() {
     return sections ?? [];
   }, [segmentValue, diffData]);
 
+  const handleDelete = useCallback(async () => {
+    await deleteBackupDialog.show(filename);
+    navigation.pop();
+  }, [deleteBackupDialog, filename, navigation]);
+
   const showDeleteActionList = useCallback(() => {
     if (submitLoading) {
       return;
@@ -198,14 +207,13 @@ export default function Detail() {
           label: intl.formatMessage({ id: ETranslations.global_delete }),
           icon: 'DeleteOutline',
           destructive: true,
-          onPress: async () => {
-            await deleteBackupDialog.show(filename);
-            navigation.pop();
+          onPress: () => {
+            void handleDelete();
           },
         },
       ],
     });
-  }, [intl, deleteBackupDialog, title, filename, navigation, submitLoading]);
+  }, [submitLoading, title, intl, handleDelete]);
 
   const renderHeaderRight = useCallback(
     () => (
@@ -249,6 +257,9 @@ export default function Detail() {
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_upgrade,
         }),
+        onConfirm: () => {
+          appUpdateInfo.toUpdatePreviewPage();
+        },
       });
       return;
     }
@@ -266,10 +277,13 @@ export default function Detail() {
           }),
         );
       }
-      if (
-        result === ERestoreResult.UNKNOWN_ERROR ||
-        result === ERestoreResult.WRONG_PASSWORD
-      ) {
+      if (result === ERestoreResult.WRONG_PASSWORD) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
+        });
+      } else if (result === ERestoreResult.UNKNOWN_ERROR) {
         Toast.error({
           title: result,
         });
@@ -294,11 +308,13 @@ export default function Detail() {
     } finally {
       setSubmitLoading(false);
     }
+    defaultLogger.account.wallet.importWallet({ importMethod: 'cloud' });
   }, [
     intl,
     restorePasswordVerifyDialog,
     diffData,
     navigation,
+    appUpdateInfo,
     handlerImportFromPassword,
   ]);
 
@@ -363,15 +379,20 @@ export default function Detail() {
                 }
               >
                 <XStack
-                  space="$1"
+                  gap="$1"
                   onPress={() => {
                     ActionList.show({
-                      title: 'Encrypted Backup Contents',
+                      title: intl.formatMessage({
+                        id: ETranslations.backup_encrypted_backup_contents,
+                      }),
                       items: item.infoList.map((infoString) => ({
-                        label: `  •\t${infoString}`,
+                        label: `  •${
+                          platformEnv.isNativeAndroid ? '\t\t' : '\t'
+                        }${infoString}`,
                       })),
                       renderItems: item?.footerDescription
-                        ? () => (
+                        ? // eslint-disable-next-line react/no-unstable-nested-components
+                          () => (
                             <SizableText
                               mx="$3"
                               my="$3"

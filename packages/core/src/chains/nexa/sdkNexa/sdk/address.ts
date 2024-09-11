@@ -102,13 +102,14 @@ function fromUint5Array(data: Buffer) {
 
 function polymod(data: Uint8Array): bigInt.BigInteger {
   const GENERATOR = [
-    0x98f2bc8e61, 0x79b76d99e2, 0xf33e5fb3c4, 0xae2eabe2a8, 0x1e4f43e470,
+    0x98_f2_bc_8e_61, 0x79_b7_6d_99_e2, 0xf3_3e_5f_b3_c4, 0xae_2e_ab_e2_a8,
+    0x1e_4f_43_e4_70,
   ];
   let checksum = bigInt(1);
   for (let i = 0; i < data.length; i += 1) {
     const value = data[i];
     const topBits = checksum.shiftRight(35);
-    checksum = checksum.and(0x07ffffffff).shiftLeft(5).xor(value);
+    checksum = checksum.and(0x07_ff_ff_ff_ff).shiftLeft(5).xor(value);
     for (let j = 0; j < GENERATOR.length; j += 1) {
       if (topBits.shiftRight(j).and(1).equals(1)) {
         checksum = checksum.xor(GENERATOR[j]);
@@ -147,6 +148,33 @@ function base32Decode(string: string) {
   return data;
 }
 
+function validChecksum(prefix: string, payload: Uint8Array): boolean {
+  const prefixData = concat(prefixToUint5Array(prefix), new Uint8Array(1));
+  const checksumData = concat(prefixData, payload);
+
+  return polymod(checksumData).equals(0);
+}
+
+/**
+ * Returns true if, and only if, the given string contains either uppercase
+ * or lowercase letters, but not both.
+ *
+ * @private
+ * @param {string} string Input string.
+ * @returns {boolean}
+ */
+function hasSingleCase(str: string): boolean {
+  return str === str.toLowerCase() || str === str.toUpperCase();
+}
+
+const VALID_PREFIXES: string[] = ['nexa', 'nexatest', 'nexareg'];
+
+function isValidPrefix(prefix: string): boolean {
+  return (
+    hasSingleCase(prefix) && VALID_PREFIXES.indexOf(prefix.toLowerCase()) !== -1
+  );
+}
+
 export function encode(
   prefix: string,
   type: ENexaAddressType,
@@ -168,18 +196,44 @@ export function encode(
   return `${prefix}:${base32Encode(payload)}`;
 }
 
-export function decode(address: string) {
-  const pieces = address.toLowerCase().split(':');
+export function decodeAddress(address: string) {
+  if (typeof address !== 'string' || !hasSingleCase(address)) {
+    throw new Error(`Invalid address: ${address}`);
+  }
+
+  // let hash: Uint8Array;
+
+  const pieces: string[] = address.toLowerCase().split(':');
+  if (pieces.length !== 2) {
+    throw new Error(`Miss prefix: ${address}`);
+  }
+
   const prefix = pieces[0];
+  if (!isValidPrefix(prefix)) {
+    throw new Error(`Invalid prefix: ${address}`);
+  }
+
   const payload = base32Decode(pieces[1]);
+
+  if (!validChecksum(prefix, payload)) {
+    throw new Error(`Invalid checksum: ${address}`);
+  }
+
   const payloadData = fromUint5Array(Buffer.from(payload.subarray(0, -8)));
   const versionByte = payloadData[0];
   const hash = payloadData.subarray(1);
-  // no length limits in nexa: validate(getHashSize(versionByte) === hash.length * 8, 'Invalid hash size: ' + address + '.');
   const type = getType(versionByte);
-  return {
-    prefix,
-    type,
-    hash,
-  };
+
+  // switch (type) {
+  //   case 'GROUP':
+  //     hash = payloadData.subarray(1);
+  //     break;
+  //   case 'TEMPLATE':
+  //     hash = payloadData.subarray(2);
+  //     break;
+  //   default:
+  //     hash = payloadData.subarray(1);
+  // }
+
+  return { prefix, type, hash };
 }

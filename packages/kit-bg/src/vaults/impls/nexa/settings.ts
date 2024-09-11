@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_NEXA,
   IMPL_NEXA,
@@ -28,6 +29,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.xprvt],
+
   isUtxo: true, //
   isSingleToken: true,
   NFTEnabled: false,
@@ -35,6 +38,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 180,
 
   accountDeriveInfo,
   networkInfo: {

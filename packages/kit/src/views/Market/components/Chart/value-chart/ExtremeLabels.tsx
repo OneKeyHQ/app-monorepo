@@ -5,6 +5,7 @@ import { useChartData } from '@onekeyfe/react-native-animated-charts';
 import { Text, View } from 'react-native';
 
 import { NumberSizeableText } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -94,7 +95,8 @@ const CenteredLabel = ({
 const ExtremeLabels = memo(
   ({ color, width }: { color: string; width: number }) => {
     const { greatestX, greatestY, smallestX, smallestY } = useChartData();
-    // const { selectedFiatMoneySymbol } = useSettings();
+    const [settings] = useSettingsPersistAtom();
+    const currency = settings.currencyInfo.symbol;
     if (!(greatestX && greatestY && smallestX && smallestY)) {
       return null;
     }
@@ -104,6 +106,7 @@ const ExtremeLabels = memo(
     const positionMax = trim(
       (greatestY.x - smallestX.x) / (greatestX.x - smallestX.x),
     );
+
     return (
       <>
         {positionMin ? (
@@ -117,7 +120,7 @@ const ExtremeLabels = memo(
           >
             <NumberSizeableText
               formatter="price"
-              formatterOptions={{ currency: '$' }}
+              formatterOptions={{ currency }}
             >
               {String(smallestY.y)}
             </NumberSizeableText>
@@ -134,7 +137,7 @@ const ExtremeLabels = memo(
           >
             <NumberSizeableText
               formatter="price"
-              formatterOptions={{ currency: '$' }}
+              formatterOptions={{ currency }}
             >
               {String(greatestY.y)}
             </NumberSizeableText>

@@ -5,7 +5,7 @@ import {
   ENexaAddressType,
   ENexaOpcode,
   bufferToScripChunk,
-  decode,
+  decodeAddress,
   decodeScriptBufferToScriptChunks,
   encode,
   getScriptBufferFromScriptTemplateOut,
@@ -21,6 +21,8 @@ import {
   writeUInt8,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa/sdk';
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { hash160, sha256 } from '../../../secret';
@@ -36,7 +38,7 @@ import type {
 
 export function verifyNexaAddress(address: string) {
   try {
-    decode(address);
+    decodeAddress(address);
     return {
       isValid: true,
       normalizedAddress: address,
@@ -56,9 +58,9 @@ const NETWORKS = {
     pubkeyhash: 0x19,
     privatekey: 0x23,
     scripthash: 0x44,
-    xpubkey: 0x42696720,
-    xprivkey: 0x426c6b73,
-    networkMagic: 0x72271221,
+    xpubkey: 0x42_69_67_20,
+    xprivkey: 0x42_6c_6b_73,
+    networkMagic: 0x72_27_12_21,
   },
   testnet: {
     name: 'nexatest',
@@ -66,9 +68,9 @@ const NETWORKS = {
     pubkeyhash: 0x6f,
     privatekey: 0xef,
     scripthash: 0xc4,
-    xpubkey: 0x043587cf,
-    xprivkey: 0x04358394,
-    networkMagic: 0xf4e5f3f4,
+    xpubkey: 0x04_35_87_cf,
+    xprivkey: 0x04_35_83_94,
+    networkMagic: 0xf4_e5_f3_f4,
   },
 };
 
@@ -142,7 +144,7 @@ export function sha256sha256(buffer: Buffer): Buffer {
   return sha256(sha256(buffer));
 }
 
-const MAXINT = 0xffffffff;
+const MAXINT = 0xff_ff_ff_ff;
 const DEFAULT_SEQNUMBER = MAXINT;
 const FEE_PER_KB = 1000 * 3;
 const CHANGE_OUTPUT_MAX_SIZE = 1 + 8 + 1 + 23;
@@ -302,7 +304,13 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());
     throw new Error(
-      `Available balance cannot be less than 0, inputAmount: ${inputAmount.toString()}, dust: ${fee.toString()}`,
+      appLocale.intl.formatMessage(
+        { id: ETranslations.feedback_account_balance_not_equal_to_utxos },
+        {
+          amount: inputAmount.toString(),
+          dust: fee.toString(),
+        },
+      ),
     );
   }
 

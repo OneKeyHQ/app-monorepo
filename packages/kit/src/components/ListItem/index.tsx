@@ -8,7 +8,6 @@ import type {
 import { isValidElement, useCallback } from 'react';
 
 import {
-  AnimatePresence,
   Divider,
   Icon,
   IconButton,
@@ -34,6 +33,7 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -224,15 +224,7 @@ const ListItemIconButton = (props: IIconButtonProps) => (
 
 // CheckMark
 const ListItemCheckMark = (props: IStackProps) => (
-  <Stack
-    key="checkMarkIndicator"
-    animation="quick"
-    enterStyle={{
-      opacity: 0,
-      scale: 0,
-    }}
-    {...props}
-  >
+  <Stack key="checkMarkIndicator" {...props}>
     <Icon name="CheckRadioSolid" color="$iconActive" />
   </Stack>
 );
@@ -269,19 +261,8 @@ export type IListItemProps = PropsWithChildren<{
   isLoading?: boolean;
   checkMark?: boolean;
   onPress?: () => void | Promise<void>;
+  childrenBefore?: ComponentType | ReactNode;
 }>;
-
-export const listItemPressStyle = {
-  hoverStyle: { bg: '$bgHover' },
-  pressStyle: { bg: '$bgActive' },
-  focusable: true,
-  focusStyle: {
-    outlineWidth: 2,
-    outlineStyle: 'solid',
-    outlineColor: '$focusRing',
-    outlineOffset: -2,
-  },
-};
 
 const renderWithFallback = (
   Component: ComponentType,
@@ -315,6 +296,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     iconProps,
     checkMark,
     onPress,
+    childrenBefore,
     children,
     renderAvatar,
     renderIcon,
@@ -330,7 +312,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       flexDirection="row"
       alignItems="center"
       minHeight="$11"
-      space="$3"
+      gap="$3"
       py="$2"
       px="$3"
       mx="$2"
@@ -343,6 +325,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       {...(onPress && !props.disabled && listItemPressStyle)}
       {...rest}
     >
+      {childrenBefore}
       {renderWithFallback(
         ListItemAvatar,
         avatarProps && {
@@ -371,14 +354,14 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
           primaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...titleProps,
-            testID: `list-item-title-${rest.testID || ''}`,
+            testID: `select-item-${rest.testID || ''}`,
           },
           secondary: subtitle,
           secondaryMatch: subTitleMatch,
           secondaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...subtitleProps,
-            testID: `list-item-subtitle-${rest.testID || ''}`,
+            testID: `select-item-subtitle-${rest.testID || ''}`,
           },
         },
         renderItemText,
@@ -387,9 +370,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       {drillIn && !isLoading ? <ListItemDrillIn /> : null}
       {isLoading ? <Spinner /> : null}
       <Unspaced>
-        <AnimatePresence>
-          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
-        </AnimatePresence>
+        {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
       </Unspaced>
     </Stack>
   );

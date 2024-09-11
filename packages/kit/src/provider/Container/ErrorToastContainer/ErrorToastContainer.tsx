@@ -2,35 +2,44 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
-import { Toast, useClipboard } from '@onekeyhq/components';
+import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isRequestIdMessage } from '@onekeyhq/shared/src/request/utils';
+
+const ERROR_CODE = [403];
+const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
 
 export function ErrorToastContainer() {
   const intl = useIntl();
   const { copyText } = useClipboard();
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      const message = p?.message ? `RequestId: ${p.message}` : undefined;
-      const actionsProps: IButtonProps | undefined = message
-        ? {
-            children: intl.formatMessage({ id: ETranslations.global_copy }),
-            my: '$2',
-            size: 'small',
-            onPress: () => {
-              copyText(message);
-            },
-          }
+      const message = p.message;
+      let toastId = isFilterErrorCode(p.errorCode)
+        ? String(p.errorCode)
         : undefined;
+      toastId = toastId || message;
+      const actions = isRequestIdMessage(message) ? (
+        <Button
+          size="small"
+          onPress={() => {
+            if (message) {
+              copyText(message);
+            }
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_copy })}
+        </Button>
+      ) : undefined;
       Toast[p.method]({
         ...p,
-        message,
-        actionsProps,
+        toastId,
+        actions,
       });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);

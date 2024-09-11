@@ -10,7 +10,6 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function InfoItemGroup({ children, ...rest }: IXStackProps) {
@@ -27,17 +26,17 @@ export function InfoItem({
   description,
   compact = false,
   showCopy = false,
-  showOpenWithUrl = undefined,
+  openWithUrl,
   disabledCopy = false,
   ...rest
 }: {
   label?: string | ReactNode;
-  renderContent: ReactNode;
+  renderContent?: ReactNode;
   description?: ReactNode;
   compact?: boolean;
   disabledCopy?: boolean;
   showCopy?: boolean;
-  showOpenWithUrl?: string;
+  openWithUrl?: () => void;
 } & IStackProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -47,7 +46,7 @@ export function InfoItem({
       flex={1}
       flexBasis="100%"
       p="$2.5"
-      space="$2"
+      gap="$2"
       {...(compact && {
         $gtMd: {
           flexBasis: '50%',
@@ -70,6 +69,7 @@ export function InfoItem({
             <SizableText
               size="$bodyMd"
               color="$textSubdued"
+              style={{ wordBreak: 'break-all' }}
               flex={1}
               {...(description && {
                 mb: '$1',
@@ -79,9 +79,9 @@ export function InfoItem({
             </SizableText>
             {description || null}
           </Stack>
-          {showCopy || showOpenWithUrl ? (
-            <XStack space="$3" ml="$5">
-              {showOpenWithUrl ? (
+          {showCopy || openWithUrl ? (
+            <XStack gap="$3" ml="$5">
+              {openWithUrl ? (
                 <IconButton
                   title={intl.formatMessage({
                     id: ETranslations.global_view_in_blockchain_explorer,
@@ -89,7 +89,7 @@ export function InfoItem({
                   variant="tertiary"
                   icon="OpenOutline"
                   size="small"
-                  onPress={() => openUrl(showOpenWithUrl)}
+                  onPress={openWithUrl}
                 />
               ) : null}
               {showCopy ? (

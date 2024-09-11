@@ -124,7 +124,9 @@ function DefaultWalletSettingsModal() {
         ? intl.formatMessage({
             id: ETranslations.explore_set_default_wallet_description,
           })
-        : 'Refresh the page to retry with a different wallet.',
+        : intl.formatMessage({
+            id: ETranslations.explore_default_wallet_canceled_desc,
+          }),
     });
     await refreshContextMenu();
     setTimeout(() => {

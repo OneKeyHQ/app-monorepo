@@ -14,15 +14,23 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePrevious } from '../../../hooks/usePrevious';
 import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
 import { useWebTabDataById } from './useWebTabs';
 
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 
+const skipDomReadyNotifySites: Record<string, boolean> = {
+  'https://wallet.keplr.app': true,
+};
+
 const notifyChanges = throttle((url: string, fromScene?: string) => {
   console.log('webview notify changed events: ', url, fromScene);
   const targetOrigin = new URL(url).origin;
+  if (fromScene === 'domReady' && skipDomReadyNotifySites[targetOrigin]) {
+    return;
+  }
   void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
   void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
 }, 800);
@@ -36,6 +44,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
     setIsFocusedInDiscoveryTab(isFocus);
   });
+  const previousUrl = usePrevious(tab?.url);
 
   // reconnect jsBridge
   useEffect(() => {
@@ -71,6 +80,14 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
       return;
     }
 
+    if (previousUrl && previousUrl !== tab.url) {
+      const preUrl = new URL(previousUrl);
+      const curUrl = new URL(tab.url);
+      if (preUrl.origin === curUrl.origin) {
+        return;
+      }
+    }
+
     console.log('webview isFocused and notifyChanges: ', tab.url);
     if (platformEnv.isDesktop) {
       const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
@@ -97,7 +114,13 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
         };
       }
     }
-  }, [isFocusedInDiscoveryTab, tab?.url, webviewRef, isMountedRef]);
+  }, [
+    isFocusedInDiscoveryTab,
+    tab?.url,
+    webviewRef,
+    isMountedRef,
+    previousUrl,
+  ]);
 }
 
 export function useShouldUpdateConnectedAccount() {

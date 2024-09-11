@@ -7,7 +7,11 @@ export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
-export function checkIsEvmNativeTransfer({ tx }: { tx: ethers.Transaction }) {
+export function checkIsEvmNativeTransfer({
+  tx,
+}: {
+  tx: ethers.Transaction | IEncodedTxEvm;
+}) {
   const { data } = tx;
   return !data || data === '0x' || data === '0x0' || data === '0';
 }

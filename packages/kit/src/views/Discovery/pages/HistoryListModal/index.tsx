@@ -13,6 +13,7 @@ import {
   Skeleton,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -23,6 +24,8 @@ import {
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
@@ -54,6 +57,7 @@ function HistoryListModal() {
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
+  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const [page, setPage] = useState(1);
@@ -168,11 +172,18 @@ function HistoryListModal() {
               {...(!isEditing && {
                 onPress: () => {
                   handleOpenWebSite({
+                    switchToMultiTabBrowser: gtMd,
                     navigation,
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
+                  });
+
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: item.url,
+                    dappName: item.title,
+                    enterMethod: EEnterMethod.history,
                   });
                 },
               })}

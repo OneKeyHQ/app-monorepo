@@ -3,10 +3,16 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -16,6 +22,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import HomeSelector from '../components/HomeSelector';
+import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -81,11 +88,14 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
+
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
-  const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
+  const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
+  const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
+  const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
 
   const tabs = useMemo(
     () =>
@@ -115,35 +125,45 @@ export function HomePageView({
           page: memo(TxHistoryListContainerWithProvider, () => true),
         },
       ].filter(Boolean),
-    [intl, isNFTEnabled],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, account?.id, network?.id, isNFTEnabled],
   );
+
+  const onRefresh = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+  }, []);
 
   const renderTabs = useCallback(
     () => (
       <Tab
+        disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}
+        onRefresh={onRefresh}
       />
     ),
-    [tabs, screenWidth],
+    [tabs, screenWidth, onRefresh],
   );
 
   const renderHomePageContent = useCallback(() => {
-    if (enabledOnClassicOnly && device?.deviceType !== 'classic') {
+    if (
+      (softwareAccountDisabled &&
+        accountUtils.isHdWallet({
+          walletId: wallet?.id ?? '',
+        })) ||
+      (supportedDeviceTypes &&
+        device?.deviceType &&
+        !supportedDeviceTypes.includes(device?.deviceType))
+    ) {
       return (
-        <YStack height="100%">
-          <HomeSelector createAddressDisabled padding="$5" />
-          <Stack flex={1} justifyContent="center">
-            <Empty
-              icon="LinkSolid"
-              title="Selected network supports only 「Classic」"
-            />
-          </Stack>
-        </YStack>
+        <HomeSupportedWallet
+          supportedDeviceTypes={supportedDeviceTypes}
+          watchingAccountEnabled={watchingAccountEnabled}
+        />
       );
     }
 
@@ -153,6 +173,7 @@ export function HomePageView({
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
+              autoCreateAddress
               name={accountName}
               chain={network?.name ?? ''}
               type={
@@ -180,11 +201,14 @@ export function HomePageView({
 
     return <>{renderTabs()}</>;
   }, [
-    enabledOnClassicOnly,
+    softwareAccountDisabled,
+    wallet?.id,
+    supportedDeviceTypes,
     device?.deviceType,
     account,
     isRequiredValidation,
     renderTabs,
+    watchingAccountEnabled,
     accountName,
     network?.name,
     network?.id,
@@ -194,7 +218,9 @@ export function HomePageView({
   ]);
 
   const renderHomePage = useCallback(() => {
-    if (!ready) return null;
+    if (!ready) {
+      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+    }
 
     let content = (
       <Stack h="100%" justifyContent="center">
@@ -211,8 +237,15 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          <UpdateReminder />
-          <HomeFirmwareUpdateReminder />
+          {
+            // The upgrade reminder does not need to be displayed on the Url Account page
+            sceneName === EAccountSelectorSceneName.home ? (
+              <>
+                <UpdateReminder />
+                <HomeFirmwareUpdateReminder />
+              </>
+            ) : null
+          }
           {content}
         </Page.Body>
       </>

@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_ALGO,
   IMPL_ALGO,
@@ -28,6 +29,13 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  dappInteractionEnabled: true,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
@@ -35,6 +43,9 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 6,
+  activateTokenRequired: true,
 
   defaultFeePresetIndex: 0,
 
@@ -48,6 +59,8 @@ const settings: IVaultSettings = {
     },
   },
   hasFrozenBalance: true,
+  withNote: true,
+  noteMaxLength: 512,
 };
 
 export default Object.freeze(settings);

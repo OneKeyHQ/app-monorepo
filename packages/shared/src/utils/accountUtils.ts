@@ -25,15 +25,12 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
-import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -89,6 +86,10 @@ function isQrWallet({ walletId }: { walletId: string | undefined }) {
 
 function isHwWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
+}
+
+function isHwOrQrWallet({ walletId }: { walletId: string | undefined }) {
+  return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
 function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
@@ -188,11 +189,13 @@ function buildImportedAccountId({
   pub,
   xpub,
   addressEncoding,
+  address,
 }: {
   coinType: string;
   pub?: string;
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
+  address?: string;
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
@@ -201,6 +204,9 @@ function buildImportedAccountId({
   let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
   if (addressEncoding) {
     id += `--${addressEncoding}`;
+  }
+  if (address) {
+    id += `--${address}`;
   }
   return id;
 }
@@ -213,6 +219,11 @@ function isExternalAccount({ accountId }: { accountId: string }) {
 function isWatchingAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isWatchingWallet({ walletId });
+}
+
+function isImportedAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isImportedWallet({ walletId });
 }
 
 function buildPathFromTemplate({
@@ -251,19 +262,22 @@ function findIndexFromTemplate({
 }
 
 function buildHDAccountId({
-  walletId,
   networkImpl,
+  walletId,
   path,
   template,
   index,
   idSuffix,
   isUtxo,
 }: {
-  walletId: string;
   networkImpl?: string;
-  path?: string;
+  //
+  walletId: string;
+  //
+  path?: string; // TODO remove path
   template?: string;
   index?: number;
+  //
   idSuffix?: string;
   isUtxo?: boolean;
 }): string {
@@ -325,6 +339,18 @@ function parseIndexedAccountId({
   };
 }
 
+function buildAllNetworkIndexedAccountIdFromAccountId({
+  accountId,
+}: {
+  accountId: string;
+}) {
+  const { walletId, usedPath } = parseAccountId({ accountId });
+  return buildIndexedAccountId({
+    walletId,
+    index: parseInt(usedPath.split('/')[1], 10),
+  });
+}
+
 function buildHdWalletId({ nextHD }: { nextHD: number }) {
   return `${WALLET_TYPE_HD}-${nextHD}`;
 }
@@ -350,7 +376,7 @@ function buildLocalHistoryId(params: {
   xpub?: string;
 }) {
   const { networkId, txid, accountAddress, xpub } = params;
-  const historyId = `${networkId}_${txid}_${xpub ?? accountAddress}`;
+  const historyId = `${networkId}_${txid}_${xpub || accountAddress}`;
   return historyId;
 }
 
@@ -392,7 +418,11 @@ function getAccountCompatibleNetwork({
   account: IDBAccount;
   networkId: string | undefined;
 }) {
-  let accountNetworkId = networkId;
+  let accountNetworkId = networkId || account.createAtNetwork;
+
+  if (networkUtils.isAllNetwork({ networkId: accountNetworkId })) {
+    return accountNetworkId;
+  }
 
   if (networkId) {
     const activeNetworkImpl = networkUtils.getNetworkImpl({
@@ -422,6 +452,7 @@ function getAccountCompatibleNetwork({
     }
   }
 
+  // recheck chainId available
   if (
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
@@ -444,6 +475,14 @@ function isOthersWallet({ walletId }: { walletId: string }) {
     walletId === WALLET_TYPE_EXTERNAL ||
     walletId === WALLET_TYPE_IMPORTED
   );
+}
+
+function isOthersAccount({ accountId }: { accountId: string | undefined }) {
+  if (!accountId) {
+    return false;
+  }
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isOthersWallet({ walletId });
 }
 
 function buildHwWalletId({
@@ -619,25 +658,9 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+// buildDeviceName() move to deviceUtils.buildDeviceName()
 function buildDeviceDbId() {
   return generateUUID();
-}
-
-async function buildDeviceName({
-  device,
-  features,
-}: {
-  device?: SearchDevice;
-  features: IOneKeyDeviceFeatures;
-}) {
-  const { getDeviceUUID } = await CoreSDKLoader();
-  // const deviceType =
-  //   device?.deviceType ||
-  //   (await deviceUtils.getDeviceTypeFromFeatures({ features }));
-  const deviceUUID = device?.uuid || getDeviceUUID(features);
-  return (
-    features.label ?? features.ble_name ?? `OneKey ${deviceUUID.slice(-4)}`
-  );
 }
 
 function buildUtxoAddressRelPath({
@@ -659,6 +682,14 @@ function removePathLastSegment({
   return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
+function buildHiddenWalletName({
+  parentWallet,
+}: {
+  parentWallet: IDBWallet | undefined;
+}) {
+  return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -674,9 +705,11 @@ export default {
   buildHwWalletId,
   buildQrWalletId,
   buildExternalAccountId,
+  buildAllNetworkIndexedAccountIdFromAccountId,
   isHdWallet,
   isQrWallet,
   isHwWallet,
+  isHwOrQrWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,
@@ -686,6 +719,7 @@ export default {
   isQrAccount,
   isExternalAccount,
   isWatchingAccount,
+  isImportedAccount,
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
@@ -695,15 +729,16 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isOthersAccount,
   isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildDeviceName,
   buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,
   findIndexFromTemplate,
   removePathLastSegment,
+  buildHiddenWalletName,
 };

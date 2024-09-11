@@ -43,6 +43,20 @@ export class NotImplemented extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorNotImplemented;
 }
 
+export class OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet;
+}
+
 export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -60,6 +74,7 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
@@ -72,9 +87,23 @@ export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapInvalidQrCode',
+        defaultKey: ETranslations.feedback_invalid_qr_code,
       }),
     );
   }
+}
+
+export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorScanQrCodeCancel',
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
 }
 
 export class OneKeyInternalError extends OneKeyError {
@@ -88,12 +117,48 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
+export class VaultKeyringNotDefinedError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'VaultKeyringNotDefinedError',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.VaultKeyringNotDefinedError;
+}
+
+export class PasswordPromptDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordPromptDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FailedToTransfer',
         defaultKey: ETranslations.send_engine_failed_to_transfer,
+      }),
+    );
+  }
+}
+
+export class RenameDuplicateNameError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RenameDuplicateNameError',
+        defaultKey: ETranslations.form_rename_error_exist,
       }),
     );
   }
@@ -109,6 +174,21 @@ export class WrongPassword extends OneKeyError {
       }),
     );
   }
+}
+
+export class SecureQRCodeDialogCancel extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'SecureQRCodeDialogCancel',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
 export class PasswordNotSet extends OneKeyError {
@@ -208,6 +288,30 @@ export class InvalidAddress extends OneKeyError {
   }
 }
 
+export class FirmwareUpdateExit extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateExit',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateExit;
+}
+
+export class FirmwareUpdateTasksClear extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateTasksClear',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.FirmwareUpdateTasksClear;
+}
+
 export class InvalidAccount extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -245,6 +349,21 @@ export class InvalidTransferValue extends OneKeyError<IInvalidTransferValueInfo>
   }
 }
 
+export type IBalanceLowerMinimumInfo = {
+  amount: string;
+  symbol: string;
+};
+export class BalanceLowerMinimum extends OneKeyError<IBalanceLowerMinimumInfo> {
+  constructor(props?: IOneKeyError<IBalanceLowerMinimumInfo> | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BalanceLowerMinimum',
+        defaultKey: ETranslations.feedback_transfer_cause_balance_lower_1_dot,
+      }),
+    );
+  }
+}
+
 export class TransferValueTooSmall extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -257,17 +376,30 @@ export class TransferValueTooSmall extends OneKeyError {
 }
 
 // **** only for Native Token  InsufficientBalance
-export class InsufficientBalance extends OneKeyError {
+
+export type IInsufficientBalanceInfo = {
+  symbol: string;
+};
+
+export class InsufficientBalance extends OneKeyError<IInsufficientBalanceInfo> {
   override className =
     EOneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
 
   // For situations that utxo selection failed.
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyError<IInsufficientBalanceInfo>) {
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'InsufficientBalance',
-        defaultKey: ETranslations.send_amount_invalid,
-      }),
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            '0': props?.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'InsufficientBalance',
+          defaultKey: ETranslations.send_amount_invalid,
+        },
+      ),
     );
   }
 }
@@ -669,3 +801,89 @@ export class MinimumTransferAmountError extends OneKeyError<IMinimumTransferAmou
 export type IChangeLessThanMinInputCapacityError = {
   amount: string;
 };
+
+export class AddressNotSupportSignMethodError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'AddressNotSupportSignMethodError',
+        defaultKey:
+          ETranslations.feedback_address_type_does_not_support_sign_method,
+      }),
+    );
+  }
+}
+
+export class LowerTransactionAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LowerTransactionAmountError',
+        defaultKey: ETranslations.send_amount_invalid,
+      }),
+    );
+  }
+}
+
+export class Expect24WordsMnemonicError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Expect24WordsMnemonicError',
+        defaultKey:
+          ETranslations.feedback_polkadot_supported_recover_phrases_type,
+      }),
+    );
+  }
+}
+
+export type IRemainingMinBalanceErrorInfo = {
+  miniAmount: string;
+};
+
+export class RemainingMinBalanceError extends OneKeyError<IRemainingMinBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IRemainingMinBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RemainingMinBalanceError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_less,
+      }),
+    );
+  }
+}
+
+export class ConvertTxError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConvertTxError',
+        defaultKey: ETranslations.feedback_transaction_ckb_error_convert,
+      }),
+    );
+  }
+}
+
+export class CanNotSendZeroAmountError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CanNotSendZeroAmountError',
+        defaultKey: ETranslations.send_cannot_send_amount_zero,
+      }),
+    );
+  }
+}
+
+export type IManageTokenInsufficientBalanceErrorInfo = {
+  token: string;
+};
+export class ManageTokenInsufficientBalanceError extends OneKeyError<IManageTokenInsufficientBalanceErrorInfo> {
+  constructor(props?: IOneKeyError<IManageTokenInsufficientBalanceErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ManageTokenInsufficientBalanceError',
+        defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}

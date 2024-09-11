@@ -4,13 +4,16 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  View,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorTrigger,
   useMockAccountSelectorLoading,
@@ -34,11 +37,17 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
-    const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
+    const { isLoading: mockIsLoading } =
+      useMockAccountSelectorLoading(loadingDuration);
+    const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+    const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+
     const {
-      activeAccount: { account, network, indexedAccount },
+      activeAccount: { account, wallet, indexedAccount },
       showAccountSelector,
     } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+    const triggerDisabled = isLoading || disabled;
 
     const handlePress = useCallback(async () => {
       await beforeShowTrigger?.();
@@ -61,68 +70,58 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     }
 
     const accountName = account?.name ? account.name : 'No Account';
-
-    const media = useMedia();
-    const isCompressionUiMode = media.md || compressionUiMode;
+    const walletName = wallet?.name ? wallet.name : 'No Wallet';
 
     const renderAvatar = useCallback(() => {
       if (isLoading) {
-        return <Skeleton w="$6" h="$6" />;
+        return <Skeleton w="$8" h="$8" />;
       }
       if (account?.address || account?.addressDetail.isValid) {
         return (
           <AccountAvatar
-            size="small"
-            borderRadius="$1"
+            size="$8"
+            borderRadius="$2"
             account={account}
-            networkId={network?.id}
             indexedAccount={indexedAccount}
           />
         );
       }
-      return <Icon size="$6" name="XSquareOutline" color="$iconSubdued" />;
-    }, [isLoading, account, network?.id, indexedAccount]);
+      return <Icon size="$8" name="XSquareOutline" color="$iconSubdued" />;
+    }, [isLoading, account, indexedAccount]);
 
-    const renderAccountName = useCallback(() => {
+    const renderWalletAndAccountName = useCallback(() => {
       if (isLoading) {
-        if (isCompressionUiMode) {
-          return (
-            <YStack flex={1} space="$2">
-              <Skeleton w={196} h="$4" />
-              <Skeleton w={196} h="$4" />
-            </YStack>
-          );
-        }
-        return <Skeleton w={118} h="$5" />;
-      }
-      if (isCompressionUiMode) {
         return (
-          <YStack flex={1}>
-            <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-              {accountName}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
-              {addressText}
-            </SizableText>
-          </YStack>
+          <XStack alignItems="center" h="$5">
+            <Skeleton w={118} h={14} />
+          </XStack>
         );
       }
       return (
-        <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {accountName}
-        </SizableText>
+        <XStack>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {walletName}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            /
+          </SizableText>
+          <XStack maxWidth="$40">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {accountName}
+            </SizableText>
+          </XStack>
+        </XStack>
       );
-    }, [isLoading, accountName, addressText, isCompressionUiMode]);
+    }, [isLoading, accountName, walletName]);
     const renderAddressText = useCallback(() => {
-      if (isLoading && !isCompressionUiMode) {
+      if (isLoading) {
         return (
-          <YStack flex={1}>
-            <Skeleton w={196} h="$5" />
-          </YStack>
+          <XStack alignItems="center" h="$5">
+            <Skeleton w={196} h={14} />
+          </XStack>
         );
-      }
-      if (isCompressionUiMode) {
-        return null;
       }
       return (
         <SizableText
@@ -134,33 +133,33 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           {addressText}
         </SizableText>
       );
-    }, [isLoading, addressText, isCompressionUiMode]);
+    }, [isLoading, addressText]);
     return (
       <XStack
         flex={1}
         py="$2"
         px="$3"
-        space="$2"
+        gap="$2"
         bg="$bgApp"
         alignItems="center"
         userSelect="none"
         hoverStyle={
-          disabled
+          triggerDisabled
             ? undefined
             : {
                 bg: '$bgHover',
               }
         }
         pressStyle={
-          disabled
+          triggerDisabled
             ? undefined
             : {
                 bg: '$bgActive',
               }
         }
-        focusable={!disabled}
-        focusStyle={
-          disabled
+        focusable={!triggerDisabled}
+        focusVisibleStyle={
+          triggerDisabled
             ? undefined
             : {
                 outlineWidth: 2,
@@ -170,14 +169,20 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         }
         borderCurve="continuous"
         onPress={handlePress}
-        disabled={disabled}
+        disabled={triggerDisabled}
         {...rest}
       >
         {renderAvatar()}
-        {renderAccountName()}
-        {renderAddressText()}
-        {disabled ? null : (
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        <YStack flex={1}>
+          {renderWalletAndAccountName()}
+          {renderAddressText()}
+        </YStack>
+        {triggerDisabled ? null : (
+          <Icon
+            name="ChevronGrabberVerOutline"
+            color="$iconSubdued"
+            size="$5"
+          />
         )}
       </XStack>
     );
@@ -186,7 +191,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { account, indexedAccount, wallet },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
@@ -209,12 +214,14 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         bg: '$bgActive',
       }}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
       onPress={handlePress}
+      maxWidth="$40"
+      minWidth={0}
     >
       <AccountAvatar
         size="small"
@@ -223,12 +230,61 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       />
       {media.gtMd ? (
         <>
-          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-            {account?.name ?? ''}
-          </SizableText>
+          <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {wallet?.name}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {account?.name}
+            </SizableText>
+          </View>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </>
       ) : null}
+    </XStack>
+  );
+}
+
+export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+  const {
+    activeAccount: { account, network },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+  const handlePress = useCallback(async () => {
+    showAccountSelector();
+  }, [showAccountSelector]);
+
+  const addressText = accountUtils.shortenAddress({
+    address: account?.address || '',
+  });
+
+  return (
+    <XStack
+      alignItems="center"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      onPress={(event) => {
+        event.stopPropagation();
+        void handlePress();
+      }}
+    >
+      <Token size="xs" tokenImageUri={network?.logoURI} />
+      <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+        {addressText}
+      </SizableText>
+      <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
     </XStack>
   );
 }

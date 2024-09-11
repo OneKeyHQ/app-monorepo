@@ -5,14 +5,16 @@ import { SizableText, styled } from 'tamagui';
 
 import { XStack, YStack } from '../../primitives';
 
+import type { IXStackProps } from '../../primitives';
 import type { GetProps } from 'tamagui';
 
-export interface ISegmentControlProps {
+export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;
   value: string | number;
   options: {
     label: string | ReactElement;
     value: string | number;
+    testID?: string;
   }[];
   onChange: (value: string | number) => void;
 }
@@ -23,6 +25,7 @@ function SegmentControlItem({
   onChange,
   active,
   disabled,
+  testID,
   ...rest
 }: {
   label: string | ReactElement;
@@ -44,11 +47,12 @@ function SegmentControlItem({
       borderCurve="continuous"
       userSelect="none"
       focusable={!disabled}
-      focusStyle={{
+      focusVisibleStyle={{
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
+      testID={testID}
       {...(active
         ? {
             bg: '$bg',
@@ -87,6 +91,7 @@ function SegmentControlFrame({
   options,
   onChange,
   fullWidth,
+  ...rest
 }: ISegmentControlProps) {
   const handleChange = useCallback(
     (v: string | number) => {
@@ -102,9 +107,11 @@ function SegmentControlFrame({
       borderRadius="$2.5"
       borderCurve="continuous"
       p="$0.5"
+      {...rest}
     >
-      {options.map(({ label, value: v }, index) => (
+      {options.map(({ label, value: v, testID }, index) => (
         <SegmentControlItem
+          testID={testID}
           key={index}
           label={label}
           value={v}

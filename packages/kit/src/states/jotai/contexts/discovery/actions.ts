@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -34,6 +35,7 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
+  browserDataReadyAtom,
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
@@ -44,6 +46,13 @@ import {
 
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
+
+function loggerForEmptyData(tabs: IWebTab[], fnName: string) {
+  if (!tabs || tabs.length === 0) {
+    defaultLogger.discovery.browser.setTabsDataFunctionName(fnName);
+    defaultLogger.discovery.browser.tabsData(tabs);
+  }
+}
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -67,12 +76,10 @@ function buildWebTabData(tabs: IWebTab[]) {
   };
 }
 
-const ABOUT_PROTOCOL = 'about:';
-const BLANK_PAGE_URL = 'about:blank';
 export const homeTab: IWebTab = {
   id: 'home',
   // current url in webview
-  url: BLANK_PAGE_URL,
+  url: 'about:blank',
   title: 'OneKey',
   canGoBack: false,
   loading: false,
@@ -87,14 +94,25 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     set(displayHomePageAtom(), payload);
   });
 
+  setBrowserDataReady = contextAtomMethod((_, set) => {
+    set(browserDataReadyAtom(), true);
+  });
+
   buildWebTabs = contextAtomMethod(
     (
       get,
       set,
-      payload: { data: IWebTab[]; options?: { forceUpdate?: boolean } },
+      payload: {
+        data: IWebTab[];
+        options?: { forceUpdate?: boolean; isInitFromStorage?: boolean };
+      },
     ) => {
-      const webTabs = get(webTabsAtom());
       const { data, options } = payload;
+      const isReady = get(browserDataReadyAtom());
+      if (!isReady && !options?.isInitFromStorage) {
+        return;
+      }
+      const webTabs = get(webTabsAtom());
       let newTabs = data;
       if (!Array.isArray(data)) {
         throw new Error('setWebTabsWriteAtom: payload must be an array');
@@ -109,17 +127,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       set(webTabsMapAtom(), () => result.map);
+      loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
       void backgroundApiProxy.simpleDb.browserTabs.setRawData({
         tabs: result.data,
       });
     },
   );
 
-  refreshTabs = contextAtomMethod((get, set) => {
-    const { tabs } = get(webTabsAtom());
-    const newTabs = [...tabs];
+  setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
+    const newTabs = tabs ?? get(webTabsAtom())?.tabs;
+    loggerForEmptyData(newTabs, 'setTabs');
     this.buildWebTabs.call(set, {
-      data: newTabs,
+      data: [...newTabs],
       options: { forceUpdate: true },
     });
   });
@@ -135,6 +154,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       tabs.forEach((t) => {
         t.isActive = false;
       });
+      loggerForEmptyData([...tabs], 'setCurrentWebTab');
       this.buildWebTabs.call(set, { data: [...tabs] });
       if (targetIndex !== -1) {
         tabs[targetIndex].isActive = true;
@@ -196,6 +216,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       });
       tabs[tabIndex] = tabToModify;
+      loggerForEmptyData(tabs, 'setWebTabData');
       this.buildWebTabs.call(set, { data: tabs });
     }
   });
@@ -223,6 +244,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
       }
     }
+    loggerForEmptyData([...tabs], 'closeWebTab');
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
 
@@ -239,6 +261,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         delete webviewRefs[id];
       }
     }
+    loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
   });
 
@@ -249,7 +272,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isPinned: payload.pinned,
         timestamp: Date.now(),
       });
-      this.refreshTabs.call(set);
+      this.setTabs.call(set);
     },
   );
 
@@ -279,13 +302,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   buildBookmarkData = contextAtomMethod(
-    (_, set, payload: IBrowserBookmark[]) => {
-      if (!Array.isArray(payload)) {
+    (
+      get,
+      set,
+      payload: {
+        data: IBrowserBookmark[];
+        options?: { isInitFromStorage?: boolean };
+      },
+    ) => {
+      const { data, options } = payload;
+      const isReady = get(browserDataReadyAtom());
+      if (!isReady && !options?.isInitFromStorage) {
+        return;
+      }
+      if (!Array.isArray(data)) {
         throw new Error('buildBookmarkData: payload must be an array');
       }
-      // set(browserBookmarkAtom(), payload);
 
-      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(payload);
+      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
     },
   );
 
@@ -303,7 +337,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       );
       const newBookmark = { url: payload.url, title: payload.title };
       const updatedBookmarks = [...filteredBookmarks, newBookmark];
-      this.buildBookmarkData.call(set, updatedBookmarks);
+      this.buildBookmarkData.call(set, { data: updatedBookmarks });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
     },
@@ -314,7 +348,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const updatedBookmarks = bookmarks.filter(
       (bookmark) => bookmark.url !== payload,
     );
-    this.buildBookmarkData.call(set, updatedBookmarks);
+    this.buildBookmarkData.call(set, { data: updatedBookmarks });
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
   });
 
@@ -327,7 +361,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmark = bookmark.map((item) =>
         item.url === payload.url ? { ...item, ...payload } : item,
       );
-      this.buildBookmarkData.call(set, updatedBookmark);
+      this.buildBookmarkData.call(set, { data: updatedBookmark });
     },
   );
 
@@ -341,14 +375,29 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     return histories;
   });
 
-  buildHistoryData = contextAtomMethod((_, set, payload: IBrowserHistory[]) => {
-    if (!Array.isArray(payload)) {
-      throw new Error('buildHistoryData: payload must be an array');
-    }
-    void backgroundApiProxy.simpleDb.browserHistory.setRawData({
-      data: payload,
-    });
-  });
+  buildHistoryData = contextAtomMethod(
+    (
+      get,
+      set,
+
+      payload: {
+        data: IBrowserHistory[];
+        options?: { isInitFromStorage?: boolean };
+      },
+    ) => {
+      const { data, options } = payload;
+      const isReady = get(browserDataReadyAtom());
+      if (!isReady && !options?.isInitFromStorage) {
+        return;
+      }
+      if (!Array.isArray(data)) {
+        throw new Error('buildHistoryData: payload must be an array');
+      }
+      void backgroundApiProxy.simpleDb.browserHistory.setRawData({
+        data,
+      });
+    },
+  );
 
   addBrowserHistory = contextAtomMethod(
     async (_, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
@@ -366,7 +415,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         createdAt: Date.now(),
       };
 
-      this.buildHistoryData.call(set, [newHistoryEntry, ...updatedHistory]);
+      this.buildHistoryData.call(set, {
+        data: [newHistoryEntry, ...updatedHistory],
+      });
     },
   );
 
@@ -375,11 +426,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
     const updatedHistory = history.filter((item) => item.id !== payload);
 
-    this.buildHistoryData.call(set, updatedHistory);
+    this.buildHistoryData.call(set, { data: updatedHistory });
   });
 
   removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
-    this.buildHistoryData.call(set, []);
+    this.buildHistoryData.call(set, { data: [] });
   });
 
   /**
@@ -459,7 +510,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabId,
           });
         }
-
         // close deep link tab after 1s
         if (maybeDeepLink) {
           if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
@@ -517,10 +567,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
+        switchToMultiTabBrowser = false,
         shouldPopNavigation = true,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
+        switchToMultiTabBrowser?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
@@ -548,7 +600,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isNewWindow,
         tabId,
       });
-      if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktop || switchToMultiTabBrowser) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);
@@ -587,6 +639,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           Array.from(cache.keys()),
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          defaultLogger.discovery.browser.logRejectUrl(url);
           handlePhishingUrl?.(url);
           return;
         }
@@ -706,16 +759,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
     if (!url) return EValidateUrlEnum.InvalidUrl;
-    if (new URL(url).protocol === ABOUT_PROTOCOL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,
       Array.from(cache.keys()),
     );
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      defaultLogger.discovery.browser.logRejectUrl(url);
       return EValidateUrlEnum.NotSupportProtocol;
     }
     if (uriUtils.containsPunycode(url)) {
+      defaultLogger.discovery.browser.logRejectUrl(url);
       return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {
@@ -735,7 +789,7 @@ export function useBrowserTabActions() {
   const addWebTab = actions.addWebTab.use();
   const addBlankWebTab = actions.addBlankWebTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
-  const refreshTabs = actions.refreshTabs.use();
+  const setTabs = actions.setTabs.use();
   const setWebTabData = actions.setWebTabData.use();
   const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
@@ -743,12 +797,13 @@ export function useBrowserTabActions() {
   const setCurrentWebTab = actions.setCurrentWebTab.use();
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
+  const setBrowserDataReady = actions.setBrowserDataReady.use();
 
   return useRef({
     addWebTab,
     addBlankWebTab,
     buildWebTabs,
-    refreshTabs,
+    setTabs,
     setWebTabData,
     getWebTabById,
     closeWebTab,
@@ -756,6 +811,7 @@ export function useBrowserTabActions() {
     setCurrentWebTab,
     setPinnedTab,
     setDisplayHomePage,
+    setBrowserDataReady,
   });
 }
 

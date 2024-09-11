@@ -1,5 +1,6 @@
 import { SUI_TYPE_ARG } from '@mysten/sui.js';
 
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_SUI,
   IMPL_SUI,
@@ -30,6 +31,13 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  dappInteractionEnabled: true,
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
@@ -39,6 +47,8 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 120,
 
   accountDeriveInfo,
   networkInfo: {

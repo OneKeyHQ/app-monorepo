@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 
 import memoizee from 'memoizee';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
+import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
 
 import {
   Badge,
@@ -143,6 +144,7 @@ export function ChunkedItemsView({
         >
           {chunk.map((item) => (
             <XStack
+              group="card"
               key={item.dappId}
               p="$3"
               alignItems="center"
@@ -169,9 +171,20 @@ export function ChunkedItemsView({
                   },
                 })
               }
+              userSelect="none"
               testID={`dapp-${item.dappId}`}
             >
-              <Image w="$14" h="$14" borderRadius="$3">
+              <Image
+                w="$14"
+                h="$14"
+                borderRadius="$3"
+                $group-card-hover={{
+                  opacity: 0.75,
+                }}
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderSubdued"
+                borderCurve="continuous"
+              >
                 <Image.Source
                   source={{
                     uri: item.logo,
@@ -209,11 +222,13 @@ export function ChunkedItemsView({
                   size="$bodyMd"
                   color="$textSubdued"
                   numberOfLines={1}
-                  $gtMd={{
-                    size: '$bodySm',
-                    numberOfLines: 2,
-                    whiteSpace: 'break-spaces',
-                  }}
+                  $gtMd={
+                    {
+                      size: '$bodySm',
+                      numberOfLines: 2,
+                      whiteSpace: 'break-spaces',
+                    } as any
+                  }
                 >
                   {item.description}
                 </SizableText>

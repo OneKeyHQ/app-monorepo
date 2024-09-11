@@ -11,6 +11,8 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
+import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
+
 function HeaderLeftToolBar({
   url,
   canGoBack,
@@ -41,6 +43,7 @@ function HeaderLeftToolBar({
   onPinnedPress?: (pinned: boolean) => void;
 }) {
   const media = useMedia();
+  const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
   if (media.md) {
     return (
       <Stack
@@ -57,13 +60,22 @@ function HeaderLeftToolBar({
           bg: '$bgActive',
         }}
       >
-        <Icon size="$5" color="$iconSubdued" name="LockSolid" />
+        <Icon
+          size="$5"
+          color="$iconSubdued"
+          name={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
+        />
         <SizableText size="$bodyLg" flex={1} numberOfLines={1} ml="$2">
           {url}
         </SizableText>
       </Stack>
     );
   }
+  const inputProps = {
+    onPress: () => {
+      onSearch?.(url);
+    },
+  };
   return (
     <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
@@ -86,14 +98,11 @@ function HeaderLeftToolBar({
         />
       </HeaderButtonGroup>
       <Input
-        containerProps={{ ml: '$6', w: '$80' }}
+        containerProps={{ ml: '$6', w: '$80' } as any}
         size="small"
-        leftIconName="LockSolid"
-        value={url}
+        leftIconName={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
+        value={hiddenHttpsUrl}
         selectTextOnFocus
-        onPress={() => {
-          onSearch?.(url);
-        }}
         testID="explore-index-search-input"
         addOns={[
           {
@@ -102,13 +111,20 @@ function HeaderLeftToolBar({
             testID: `action-header-item-${
               !isBookmark ? 'bookmark' : 'remove-bookmark'
             }`,
+            ...(isBookmark && {
+              iconColor: '$icon',
+            }),
           },
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
             testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
+            ...(isPinned && {
+              iconColor: '$icon',
+            }),
           },
         ]}
+        {...(inputProps as any)}
       />
     </XStack>
   );

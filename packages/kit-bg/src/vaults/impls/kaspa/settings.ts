@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { DUST_AMOUNT } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_KASPA,
   IMPL_KASPA,
@@ -31,15 +32,21 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
-  isSingleToken: false,
+  isSingleToken: true,
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 300,
 
   accountDeriveInfo,
   networkInfo: {

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  ESwitchSize,
   Page,
   SizableText,
   Stack,
@@ -36,6 +37,7 @@ const EnableSystemIdleTimeItem = () => {
         })}
       >
         <Switch
+          size={ESwitchSize.small}
           disabled={!supportSystemIdle}
           value={supportSystemIdle ? enableSystemIdleLock : false}
           onChange={async (checked) => {
@@ -53,6 +55,33 @@ const EnableSystemIdleTimeItem = () => {
         </SizableText>
       </Stack>
     </YStack>
+  );
+};
+
+const AutoLockDurationDescription = () => {
+  const intl = useIntl();
+  let text = intl.formatMessage({
+    id: ETranslations.settings_set_auto_lock_duration_desktop,
+  });
+  if (platformEnv.isExtension) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_extension,
+    });
+  } else if (platformEnv.isWeb) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_web,
+    });
+  } else if (platformEnv.isNative) {
+    text = intl.formatMessage({
+      id: ETranslations.settings_set_auto_lock_duration_mobile,
+    });
+  }
+  return (
+    <Stack px="$5" pb="$5">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {text}
+      </SizableText>
+    </Stack>
   );
 };
 
@@ -78,6 +107,7 @@ const AppAutoLock = () => {
             options={options}
           />
         </Stack>
+        <AutoLockDurationDescription />
         {platformEnv.isExtension || platformEnv.isDesktop ? (
           <EnableSystemIdleTimeItem />
         ) : null}

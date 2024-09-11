@@ -19,6 +19,8 @@ type IHeaderSearchBarProps = {
    * A callback that gets called when search bar has lost focus
    */
   onBlur?: (e: NativeSyntheticEvent<TargetedEvent>) => void;
+
+  onSearchTextChange?: (text: string) => void;
   /**
    * A callback that gets called when the text changes. It receives the current text value of the search bar.
    */
@@ -37,6 +39,10 @@ type IHeaderSearchBarProps = {
    * Text displayed when search field is empty
    */
   placeholder?: string;
+  /**
+   * Test ID for e2e testing purposes.For different search bars.
+   */
+  testID?: string;
 };
 
 function HeaderSearchBar({
@@ -44,6 +50,7 @@ function HeaderSearchBar({
   isModalScreen,
   onBlur,
   onFocus,
+  onSearchTextChange,
   onChangeText,
   onSearchButtonPress,
   placeholder,
@@ -103,10 +110,10 @@ function HeaderSearchBar({
       autoFocus={autoFocus}
       onBlur={onBlurCallback}
       onFocus={onFocusCallback}
+      onSearchTextChange={onSearchTextChange}
       onChangeText={handleChangeCallback}
       onSubmitEditing={onSubmitEditingCallback}
       placeholder={placeholder}
-      testID="nav-header-search"
     />
   );
 }

@@ -1,9 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Button,
   Page,
   SortableSectionList,
+  Stack,
   SwipeableCell,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -14,7 +15,7 @@ const CELL_HEIGHT = 70;
 
 const SortableSectionListGallery = () => {
   const [sections, setSections] = useState(
-    new Array(3).fill({}).map(() => ({
+    new Array(10).fill({}).map(() => ({
       data: new Array(10).fill({}).map(mapIndexToData),
     })),
   );
@@ -45,6 +46,27 @@ const SortableSectionListGallery = () => {
     },
     [sections, setSections],
   );
+  const layoutList = useMemo(() => {
+    let offset = 100;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        layouts.push({ offset, length: 8, index: layouts.length });
+        offset += 8;
+      }
+      const headerHeight = 36;
+      layouts.push({ offset, length: headerHeight, index: layouts.length });
+      offset += headerHeight;
+      section.data.forEach(() => {
+        layouts.push({ offset, length: CELL_HEIGHT, index: layouts.length });
+        offset += CELL_HEIGHT;
+      });
+      const footerHeight = 0;
+      layouts.push({ offset, length: footerHeight, index: layouts.length });
+      offset += footerHeight;
+    });
+    return layouts;
+  }, [sections]);
   return (
     <Page>
       <Page.Header headerRight={headerRight} />
@@ -52,19 +74,26 @@ const SortableSectionListGallery = () => {
         bg="$bgApp"
         sections={sections}
         enabled={isEditing}
-        keyExtractor={(item: { index: number }) => `${item?.index}`}
-        getItemLayout={(_, index) => ({
-          offset: CELL_HEIGHT,
-          length: CELL_HEIGHT * index,
-          index,
-        })}
+        keyExtractor={(item) => `${(item as { index: number }).index}`}
+        getItemLayout={(_, index) => {
+          if (index === -1) {
+            return {
+              index,
+              offset: 100,
+              length: 0,
+            };
+          }
+          return layoutList[index];
+        }}
         renderSectionHeader={({ index }) => (
           <SortableSectionList.SectionHeader
             px={0}
             title={`Section ${index}`}
           />
         )}
-        renderItem={({ item, getIndex, section, drag }) => (
+        ListHeaderComponent={<Stack h={100} />}
+        initialScrollIndex={{ sectionIndex: 4, itemIndex: 5 }}
+        renderItem={({ item, section, drag, dragProps }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
             rightItemList={[
@@ -74,7 +103,7 @@ const SortableSectionListGallery = () => {
                 backgroundColor: '$bgCriticalStrong',
                 onPress: ({ close }) => {
                   close?.();
-                  deleteCell(getIndex, section);
+                  deleteCell(() => (item as { index: number }).index, section);
                 },
               },
             ]}
@@ -94,20 +123,22 @@ const SortableSectionListGallery = () => {
               {isEditing ? (
                 <ListItem.IconButton
                   key="darg"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
                   cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}
+                  dataSet={dragProps}
                 />
               ) : null}
             </ListItem>
           </SwipeableCell>
         )}
-        onDragEnd={(result) => setSections(result.sections)}
+        onDragEnd={(result) =>
+          setSections(
+            result.sections as {
+              data: { index: number; backgroundColor: string }[];
+            }[],
+          )
+        }
         stickySectionHeadersEnabled
       />
     </Page>

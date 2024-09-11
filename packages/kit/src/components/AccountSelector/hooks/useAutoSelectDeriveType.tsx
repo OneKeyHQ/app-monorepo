@@ -56,6 +56,7 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
         const globalDeriveType =
           await serviceAccountSelector.getGlobalDeriveType({
             selectedAccount,
+            sceneName,
           });
         newDeriveType =
           globalDeriveType ||
@@ -77,6 +78,7 @@ export function useAutoSelectDeriveType({ num }: { num: number }) {
     isReady,
     networkId,
     num,
+    sceneName,
     serviceAccountSelector,
     serviceNetwork,
   ]);

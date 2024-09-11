@@ -49,6 +49,10 @@ function DAppSignMessageContent({
         }
       }
 
+      case EMessageTypesCommon.HEX_MESSAGE: {
+        return Buffer.from(message, 'hex').toString('utf8');
+      }
+
       case EMessageTypesAptos.SIGN_MESSAGE: {
         return payload?.message ?? message;
       }
@@ -69,7 +73,20 @@ function DAppSignMessageContent({
 
       case EMessageTypesEth.TYPED_DATA_V3:
       case EMessageTypesEth.TYPED_DATA_V4: {
-        return JSON.stringify(JSON.parse(message) ?? {}, null, 2);
+        try {
+          let messageObject = JSON.parse(message);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          messageObject = messageObject?.message ?? messageObject;
+          return JSON.stringify(
+            typeof messageObject === 'string'
+              ? JSON.parse(messageObject) ?? {}
+              : messageObject,
+            null,
+            2,
+          );
+        } catch {
+          return message;
+        }
       }
 
       default: {
@@ -103,7 +120,7 @@ function DAppSignMessageContent({
       text = JSON.stringify(text, null, 2);
     }
     return (
-      <YStack space="$2">
+      <YStack gap="$2">
         <Button
           variant="secondary"
           onPress={() => setShowRawMessage(!showRawMessage)}
@@ -128,7 +145,7 @@ function DAppSignMessageContent({
       <SizableText color="$text" size="$headingMd" mb="$2">
         {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
       </SizableText>
-      <YStack space="$2">
+      <YStack gap="$2">
         <TextArea value={parseMessage} editable={false} numberOfLines={11} />
         {renderRawMessage()}
       </YStack>

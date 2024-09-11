@@ -10,6 +10,7 @@ import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import type { IRequestInvoiceArgs } from '@onekeyhq/shared/types/lightning/webln';
 
 import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
@@ -57,7 +58,7 @@ function WeblnMakeInvoiceModal() {
   });
 
   const onConfirm = useCallback(
-    async (close?: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       if (isLoading) return;
       if (!networkId || !accountId) return;
       setIsLoading(true);
@@ -76,7 +77,9 @@ function WeblnMakeInvoiceModal() {
           title: 'Invoice created',
         });
         await dappApprove.resolve({
-          close,
+          close: () => {
+            close?.({ flag: EDAppModalPageStatus.Confirmed });
+          },
           result: {
             paymentRequest: invoice.payment_request,
             paymentHash: invoice.payment_hash,

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -41,14 +42,8 @@ export function NFTDetails() {
     useRoute<
       RouteProp<IModalAssetDetailsParamList, EModalAssetDetailRoutes.NFTDetails>
     >();
-  const {
-    networkId,
-    accountId,
-    walletId,
-    accountAddress,
-    collectionAddress,
-    itemId,
-  } = route.params;
+  const { networkId, accountId, walletId, collectionAddress, itemId } =
+    route.params;
 
   const [isCollecting, setIsCollecting] = useState(false);
   const modalClosed = useRef(false);
@@ -66,8 +61,8 @@ export function NFTDetails() {
       ] = [
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceNFT.fetchNFTDetails({
+          accountId,
           networkId,
-          accountAddress,
           nfts: [{ collectionAddress, itemId }],
         }),
         isHardware
@@ -83,7 +78,7 @@ export function NFTDetails() {
         device,
       };
     },
-    [accountAddress, collectionAddress, itemId, networkId, walletId],
+    [collectionAddress, itemId, networkId, walletId, accountId],
     {
       watchLoading: true,
     },
@@ -93,6 +88,12 @@ export function NFTDetails() {
 
   const handleCollectNFTToDevice = useCallback(async () => {
     if (!nft || !nft.metadata || !nft.metadata.image || !device) return;
+
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     setIsCollecting(true);
     let uploadResParams: DeviceUploadResourceParams | undefined;
@@ -132,7 +133,7 @@ export function NFTDetails() {
         setIsCollecting(false);
       }
     }
-  }, [accountAddress, device, intl, network?.name, nft]);
+  }, [accountId, device, intl, network?.name, networkId, nft]);
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
@@ -177,9 +178,15 @@ export function NFTDetails() {
         accountId,
         isNFT: true,
         nfts: [nft],
+        onSuccess: () => navigation.popStack(),
       },
     });
   }, [accountId, navigation, networkId, nft]);
+
+  const isOwnNFT = useMemo(
+    () => new BigNumber(nft?.amount ?? 0).gt(0),
+    [nft?.amount],
+  );
 
   useEffect(
     () => () => {
@@ -203,7 +210,7 @@ export function NFTDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={nft.metadata?.name} />
+      <Page.Header title={nft.metadata?.name || ''} />
       <Page.Body>
         <Stack
           $gtMd={{
@@ -228,6 +235,12 @@ export function NFTDetails() {
               mt="$5"
               variant="primary"
               onPress={handleSendPress}
+              disabled={!isOwnNFT}
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
             >
               {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>

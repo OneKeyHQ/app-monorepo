@@ -14,17 +14,26 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   contextAtomMethod,
   customFeeAtom,
+  isSinglePresetAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
   nativeTokenTransferAmountToUpdateAtom,
+  preCheckTxStatusAtom,
   sendFeeStatusAtom,
   sendSelectedFeeAtom,
   sendSelectedFeeInfoAtom,
   sendTxStatusAtom,
+  tokenApproveInfoAtom,
   unsignedTxsAtom,
 } from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
+  updateIsSinglePreset = contextAtomMethod(
+    (get, set, isSinglePreset: boolean) => {
+      set(isSinglePresetAtom(), isSinglePreset);
+    },
+  );
+
   updateUnsignedTxs = contextAtomMethod(
     (get, set, unsignedTxs: IUnsignedTxPro[]) => {
       set(unsignedTxsAtom(), unsignedTxs);
@@ -107,6 +116,16 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(sendTxStatusAtom(), status);
     },
   );
+
+  updatePreCheckTxStatus = contextAtomMethod((_, set, errorMessage: string) => {
+    set(preCheckTxStatusAtom(), { errorMessage });
+  });
+
+  updateTokenApproveInfo = contextAtomMethod(
+    (get, set, payload: { allowance: string; isUnlimited: boolean }) => {
+      set(tokenApproveInfoAtom(), payload);
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -127,6 +146,9 @@ export function useSendConfirmActions() {
     actions.updateNativeTokenTransferAmountToUpdate.use();
   const updateSendTxStatus = actions.updateSendTxStatus.use();
   const updateNativeTokenInfo = actions.updateNativeTokenInfo.use();
+  const updateIsSinglePreset = actions.updateIsSinglePreset.use();
+  const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
+  const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
 
   return useRef({
     updateUnsignedTxs,
@@ -138,5 +160,8 @@ export function useSendConfirmActions() {
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
     updateNativeTokenInfo,
+    updateIsSinglePreset,
+    updatePreCheckTxStatus,
+    updateTokenApproveInfo,
   });
 }

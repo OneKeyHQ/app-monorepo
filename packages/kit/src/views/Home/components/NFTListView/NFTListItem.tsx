@@ -1,38 +1,41 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Stack,
+  Video,
+  XStack,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
+  flexBasis: IStackProps['flexBasis'];
+  isAllNetworks?: boolean;
 };
 
-function NFTListItem(props: IProps) {
-  const { nft, onPress } = props;
-  const [isVideo, setIsVideo] = useState<boolean>(true);
+function BasicNFTListItem(props: IProps) {
+  const { nft, onPress, flexBasis, isAllNetworks } = props;
+  const [isVideo, setIsVideo] = useState<boolean>(!!nft.metadata?.image);
+  const { network } = useAccountData({ networkId: nft.networkId });
 
   return (
     <Stack
       key={nft.itemId}
       group="nftItem"
-      flexBasis="50%"
-      $gtSm={{
-        flexBasis: '33.333333%',
-      }}
-      $gtLg={{
-        flexBasis: '25%',
-      }}
-      $gtXl={{
-        flexBasis: '16.666666%',
-      }}
-      $gt2xl={{
-        flexBasis: '14.2857142857%',
-      }}
+      flexBasis={platformEnv.isNative ? '100%' : flexBasis}
       focusable
-      focusStyle={{
+      focusVisibleStyle={{
         outlineColor: '$focusRing',
         outlineWidth: 2,
         outlineStyle: 'solid',
@@ -60,7 +63,10 @@ function NFTListItem(props: IProps) {
                 style={{
                   width: '100%',
                   height: '100%',
+                  position: 'absolute',
+                  zIndex: 1,
                 }}
+                autoPlay={false}
               />
             ) : (
               <Image.Source src={nft.metadata?.image} />
@@ -86,22 +92,41 @@ function NFTListItem(props: IProps) {
               borderColor="$bgApp"
             >
               <SizableText size="$bodyMdMedium" color="$textInverse">
-                x{nft.amount}
+                x
+                {new BigNumber(nft.amount).gt(SHOW_NFT_AMOUNT_MAX)
+                  ? `${SHOW_NFT_AMOUNT_MAX}+`
+                  : nft.amount}
               </SizableText>
             </Stack>
           ) : null}
         </Stack>
       </Stack>
       <Stack mt="$2">
+        <XStack alignItems="center" justifyContent="space-between">
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            minWidth={0}
+            flex={1}
+            numberOfLines={1}
+            pr="$2"
+          >
+            {nft.collectionName || '-'}
+          </SizableText>
+          {isAllNetworks ? (
+            <Token
+              width="$3.5"
+              height="$3.5"
+              tokenImageUri={network?.logoURI}
+            />
+          ) : null}
+        </XStack>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata?.name ?? '-'}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {nft.collectionName}
+          {nft.metadata?.name || '-'}
         </SizableText>
       </Stack>
     </Stack>
   );
 }
 
-export { NFTListItem };
+export const NFTListItem = memo(BasicNFTListItem);

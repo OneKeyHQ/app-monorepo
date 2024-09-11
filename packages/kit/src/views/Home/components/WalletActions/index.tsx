@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -11,17 +13,19 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
-  EAssetSelectorRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -33,8 +37,9 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
@@ -49,10 +54,11 @@ function WalletActionSend() {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
+
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network.id,
-        accountAddress: account.address,
+        accountId: account.id,
       });
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
@@ -66,47 +72,85 @@ function WalletActionSend() {
       return;
     }
 
-    navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-      screen: EAssetSelectorRoutes.TokenSelector,
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.SendSelectToken,
       params: {
+        title: intl.formatMessage({ id: ETranslations.global_send }),
+        searchPlaceholder: intl.formatMessage({
+          id: ETranslations.global_search_asset,
+        }),
         networkId: network.id,
         accountId: account.id,
-        networkName: network.name,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
           map,
         },
+        tokenListState,
+        closeAfterSelect: false,
         onSelect: async (token: IToken) => {
-          await timerUtils.wait(600);
-          navigation.pushModal(EModalRoutes.SendModal, {
-            screen: EModalSendRoutes.SendDataInput,
-            params: {
-              accountId: account.id,
-              networkId: network.id,
-              isNFT: false,
+          const settings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: token.networkId ?? '',
+            });
+
+          if (
+            settings.mergeDeriveAssetsEnabled &&
+            network.isAllNetworks &&
+            !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+          ) {
+            const walletId = accountUtils.getWalletIdFromAccountId({
+              accountId: token.accountId ?? '',
+            });
+            navigation.push(EModalSendRoutes.SendSelectDeriveAddress, {
+              networkId: token.networkId ?? '',
+              indexedAccountId: account.indexedAccountId ?? '',
+              walletId,
+              accountId: token.accountId ?? '',
+              actionType: EDeriveAddressActionType.Select,
               token,
-            },
+              tokenMap: map,
+              onUnmounted: () => {},
+              onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                navigation.push(EModalSendRoutes.SendDataInput, {
+                  accountId: a.id,
+                  networkId: token.networkId ?? network.id,
+                  isNFT: false,
+                  token,
+                  isAllNetworks: network?.isAllNetworks,
+                });
+              },
+            });
+            return;
+          }
+
+          navigation.push(EModalSendRoutes.SendDataInput, {
+            accountId: token.accountId ?? account.id,
+            networkId: token.networkId ?? network.id,
+            isNFT: false,
+            token,
+            isAllNetworks: network?.isAllNetworks,
           });
         },
       },
     });
   }, [
     account,
-    allTokens.keys,
-    allTokens.tokens,
-    vaultSettings,
-    map,
-    navigation,
     network,
+    vaultSettings?.isSingleToken,
+    navigation,
+    intl,
+    allTokens.tokens,
+    allTokens.keys,
+    map,
+    tokenListState,
+    wallet?.id,
   ]);
 
   return (
     <RawActions.Send
       onPress={handleOnSend}
-      disabled={
-        vaultSettings?.disabledSendAction || !tokenListState.initialized
-      }
+      disabled={vaultSettings?.disabledSendAction}
     />
   );
 }
@@ -136,23 +180,17 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network, account, wallet, deriveInfo, deriveType },
+    activeAccount: { network },
   } = useActiveAccount({ num: 0 });
 
   return (
     <RawActions {...rest}>
       <ReviewControl>
-        <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+        <WalletActionBuy />
       </ReviewControl>
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
-      <WalletActionReceive
-        accountId={account?.id}
-        networkId={network?.id}
-        walletId={wallet?.id}
-        deriveInfo={deriveInfo}
-        deriveType={deriveType}
-      />
+      <WalletActionReceive />
       <WalletActionMore />
     </RawActions>
   );

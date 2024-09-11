@@ -5,7 +5,14 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  validateSignMessageData,
+  validateTypedSignMessageDataV1,
+  validateTypedSignMessageDataV3V4,
+} from '@onekeyhq/shared/src/utils/messageUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -71,8 +78,36 @@ function SignMessageModal() {
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', isRiskSignMethod });
 
   const handleSignMessage = useCallback(
-    async (close: () => void) => {
+    async (close?: (extra?: { flag?: string }) => void) => {
       setIsLoading(true);
+
+      try {
+        if (
+          unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
+          unsignedMessage.type === EMessageTypesEth.PERSONAL_SIGN
+        ) {
+          validateSignMessageData(unsignedMessage, currentNetwork?.impl);
+        }
+        if (unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V1) {
+          validateTypedSignMessageDataV1(unsignedMessage, currentNetwork?.impl);
+        }
+        if (
+          unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
+          unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
+        ) {
+          validateTypedSignMessageDataV3V4(
+            unsignedMessage,
+            networkUtils.getNetworkChainId({ networkId }),
+            currentNetwork?.impl,
+          );
+        }
+      } catch (e: any) {
+        setIsLoading(false);
+        dappApprove?.reject({ error: e });
+        close?.();
+        return;
+      }
+
       try {
         const result = await backgroundApiProxy.serviceSend.signMessage({
           unsignedMessage,
@@ -82,18 +117,29 @@ function SignMessageModal() {
         void dappApprove.resolve({
           result,
         });
-        await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
-          networkId,
-          accountId,
-          message: unsignedMessage.message,
-          sourceInfo: $sourceInfo,
-        });
-        close?.();
+        try {
+          await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
+            networkId,
+            accountId,
+            message: unsignedMessage.message,
+            sourceInfo: $sourceInfo,
+          });
+        } catch {
+          // noop
+        }
+        close?.({ flag: EDAppModalPageStatus.Confirmed });
       } finally {
         setIsLoading(false);
       }
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
+    [
+      unsignedMessage,
+      currentNetwork?.impl,
+      networkId,
+      dappApprove,
+      accountId,
+      $sourceInfo,
+    ],
   );
 
   return (
@@ -120,6 +166,9 @@ function SignMessageModal() {
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
+            confirmText={intl.formatMessage({
+              id: ETranslations.dapp_connect_confirm,
+            })}
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
               setContinueOperate(!!checked);

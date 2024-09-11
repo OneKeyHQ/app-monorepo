@@ -53,7 +53,7 @@ export function useRestorePasswordVerifyDialog() {
     () =>
       new Promise<string>((resolve, reject) =>
         Dialog.confirm({
-          icon: 'PlaceholderOutline',
+          icon: 'InfoCircleOutline',
           title: intl.formatMessage({ id: ETranslations.backup_import_data }),
           description: intl.formatMessage({
             id: ETranslations.backup_verify_app_password_to_import_data,

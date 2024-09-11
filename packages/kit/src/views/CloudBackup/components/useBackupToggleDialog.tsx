@@ -26,9 +26,7 @@ function useBackupToggleAction() {
           : { isFirstDisabled: false, isInProgress: false }),
       });
       if (!willIsEnabled && platformEnv.isNativeAndroid) {
-        await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(
-          false,
-        );
+        await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(true);
       }
       callback?.(willIsEnabled);
     },
@@ -96,7 +94,9 @@ export function useBackupToggleDialog() {
         Dialog.show({
           icon: 'CloudSyncOutline',
           title: intl.formatMessage({
-            id: ETranslations.settings_icloud_backup,
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.settings_google_drive_backup
+              : ETranslations.settings_icloud_backup,
           }),
           description: intl.formatMessage({
             id: platformEnv.isNativeAndroid

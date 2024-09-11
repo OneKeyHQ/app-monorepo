@@ -48,6 +48,7 @@ function UTXODetails() {
         accountId,
         networkId,
         txid: txId,
+        withUTXOs: true,
       });
 
       if (r) {
@@ -78,7 +79,7 @@ function UTXODetails() {
     (utxos: { address: string; balance: string }[]) => (
       <Stack>
         {utxos.map((utxo, index) => (
-          // <XStack key={index} space="$2">
+          // <XStack key={index} gap="$2">
           //   <SizableText size="$bodyMdMedium" color="$textSubdued">
           //     {`#${padStart(String(index), 2, '0')}`}
           //   </SizableText>
@@ -133,7 +134,8 @@ function UTXODetails() {
       >
         <Stack
           $gtMd={{
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: 0,
           }}
         >
           <Heading
@@ -165,7 +167,8 @@ function UTXODetails() {
         />
         <Stack
           $gtMd={{
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: 0,
           }}
         >
           <Heading
@@ -196,7 +199,9 @@ function UTXODetails() {
           id: ETranslations.global_outputs,
         })}`}
       />
-      <Page.Body>{renderUTXODetails()}</Page.Body>
+      <Page.Body testID="history-details-inputs-and-outputs">
+        {renderUTXODetails()}
+      </Page.Body>
     </Page>
   );
 }

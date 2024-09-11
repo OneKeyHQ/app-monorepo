@@ -1,4 +1,6 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+
+import { throttle } from 'lodash';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -7,7 +9,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -24,23 +29,45 @@ import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
-function useCurrentAccountActivate({ num }: { num: number }) {
+function useExternalAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
-  const connectionInfo = (
-    activeAccount.account as IDBExternalAccount | undefined
-  )?.connectionInfo;
 
   useEffect(() => {
+    if (
+      !activeAccount.account?.id ||
+      !accountUtils.isExternalAccount({
+        accountId: activeAccount.account?.id,
+      })
+    ) {
+      return;
+    }
+
+    const connectionInfo = (
+      activeAccountRef.current?.account as IDBExternalAccount | undefined
+    )?.connectionInfo;
+
     if (!connectionInfo) {
       return;
     }
-    // activate connector will register account events
-    void backgroundApiProxy.serviceDappSide.activateConnector({
-      connectionInfo,
-    });
-  }, [connectionInfo]);
+
+    void (async () => {
+      // activate connector will register account events
+      // throw error if external wallet not installed
+      //    EVM EIP6963 provider not found: so.onekey.app.wallet
+      await backgroundApiProxy.serviceDappSide.activateConnector({
+        connectionInfo,
+      });
+      if (activeAccount.account?.id && activeAccount.network?.id) {
+        await timerUtils.wait(600);
+        await backgroundApiProxy.serviceDappSide.syncAccountFromPeerWallet({
+          accountId: activeAccount.account?.id,
+          networkId: activeAccount.network?.id,
+        });
+      }
+    })();
+  }, [activeAccount.account?.id, activeAccount.network?.id]);
 }
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
@@ -48,6 +75,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+  const selectedAccountRef = useRef(selectedAccount);
+  selectedAccountRef.current = selectedAccount;
+
   const [, setContextData] = useAccountSelectorContextDataAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
@@ -73,23 +103,50 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectAccount({ num });
   useAutoSelectNetwork({ num });
   useAutoSelectDeriveType({ num });
-  useCurrentAccountActivate({ num });
+  useExternalAccountActivate({ num });
 
-  const reloadActiveAccountInfo = useCallback(async () => {
-    if (!isReady) {
-      return;
-    }
-    const activeAccount = await actions.current.reloadActiveAccountInfo({
-      num,
-      selectedAccount,
-    });
-    if (activeAccount.account && activeAccount.network?.id) {
-      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
-        account: activeAccount.account,
-        networkId: activeAccount.network?.id,
-      });
-    }
-  }, [actions, isReady, num, selectedAccount]);
+  const activeAccountReloadDeps = useMemo(
+    () => [
+      selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
+    ],
+    [
+      selectedAccount.walletId,
+      selectedAccount.indexedAccountId,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.networkId,
+      selectedAccount.deriveType,
+    ],
+  );
+  const reloadActiveAccountInfo = useMemo(
+    () =>
+      throttle(
+        async () => {
+          if (!isReady) {
+            return;
+          }
+          const activeAccount = await actions.current.reloadActiveAccountInfo({
+            num,
+            selectedAccount: selectedAccountRef.current,
+          });
+          if (activeAccount.account && activeAccount.network?.id) {
+            void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+              account: activeAccount.account,
+              networkId: activeAccount.network?.id,
+            });
+          }
+        },
+        150,
+        {
+          leading: false,
+          trailing: true,
+        },
+      ),
+    [actions, isReady, num],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -118,8 +175,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   ]);
 
   useEffect(() => {
+    noopObject(activeAccountReloadDeps);
     void reloadActiveAccountInfo();
-  }, [reloadActiveAccountInfo]);
+  }, [activeAccountReloadDeps, reloadActiveAccountInfo]);
 
   useEffect(() => {
     const updateNetwork = (params: {

@@ -4,7 +4,6 @@ import { isEmpty } from 'lodash';
 
 import {
   estimateFee,
-  estimateSize,
   getDisplayAddress,
   verifyNexaAddress,
 } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
@@ -13,12 +12,11 @@ import type {
   INexaUTXO,
 } from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  LowerTransactionAmountError,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -32,7 +30,6 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -51,7 +48,6 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -64,7 +60,7 @@ import type {
   IVaultSettings,
 } from '../../types';
 
-export default class Vault extends VaultBase {
+export default class VaultNexa extends VaultBase {
   override coreApi = coreChainApi.nexa.hd;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -117,6 +113,15 @@ export default class Vault extends VaultBase {
       address: dbAccount.address,
     });
 
+    // validate utxos balance is enough
+    const totalBalance = utxos.reduce(
+      (acc, utxo) => acc.plus(utxo.satoshis),
+      new BigNumber(0),
+    );
+    if (totalBalance.isLessThan(amount)) {
+      throw new LowerTransactionAmountError();
+    }
+
     const preEncodedTx: IEncodedTxNexa = {
       inputs: utxos,
       outputs: [
@@ -133,6 +138,10 @@ export default class Vault extends VaultBase {
       preEncodedTx,
       '0',
     );
+
+    if (!finalInputs.length) {
+      throw new LowerTransactionAmountError();
+    }
 
     return {
       ...preEncodedTx,
@@ -153,14 +162,10 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
-
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
 
     const utxoFrom = (inputs ?? []).map((input) => ({
       address: input.address,
@@ -184,31 +189,41 @@ export default class Vault extends VaultBase {
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
 
-    const transfers = utxoTo.map((utxo) => {
-      sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
-      sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
-        utxo.balanceValue,
-      );
-      return {
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
         from: account.address,
-        to: utxo.address,
-        utxoFrom,
-        utxoTo,
-        amount: utxo.balance,
-        amountValue: utxo.balanceValue,
-        tokenIdOnNetwork: nativeToken.address,
-        name: nativeToken.name,
-        icon: nativeToken.logoURI ?? '',
-        symbol: network.symbol,
-        isNFT: false,
-        isNative: true,
-      };
-    });
-    const action = await this.buildTxTransferAssetAction({
-      from: account.address,
-      to: utxoTo[0].address,
-      transfers,
-    });
+        to: utxoTo[0].address,
+      },
+    };
+
+    if (nativeToken) {
+      const transfers = utxoTo.map((utxo) => {
+        sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
+          utxo.balanceValue,
+        );
+        return {
+          from: account.address,
+          to: utxo.address,
+          utxoFrom,
+          utxoTo,
+          amount: utxo.balance,
+          amountValue: utxo.balanceValue,
+          tokenIdOnNetwork: nativeToken.address,
+          name: nativeToken.name,
+          icon: nativeToken.logoURI ?? '',
+          symbol: network.symbol,
+          isNFT: false,
+          isNative: true,
+        };
+      });
+      action = await this.buildTxTransferAssetAction({
+        from: account.address,
+        to: utxoTo[0].address,
+        transfers,
+      });
+    }
     const actions: IDecodedTxAction[] = [action];
 
     return {
@@ -268,6 +283,9 @@ export default class Vault extends VaultBase {
       params.unsignedTx.encodedTx as IEncodedTxNexa,
       newFee,
     );
+    if (!finalInputs.length) {
+      throw new LowerTransactionAmountError();
+    }
     const fixedEncodedTx = {
       ...(encodedTx as IEncodedTxNexa),
       inputs: finalInputs,
@@ -328,7 +346,7 @@ export default class Vault extends VaultBase {
         const { utxoList: utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: address,
+            accountId: this.accountId,
             withUTXOList: true,
           });
         if (!utxos || isEmpty(utxos)) {

@@ -293,10 +293,10 @@ const SortableSectionListGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList'
     ),
 );
-const SpotlightTourGallery = LazyLoadPage(
+const SpotlightGallery = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour'
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Spotlight'
     ),
 );
 const SwipeableCellGallery = LazyLoadPage(
@@ -410,6 +410,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const NotificationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NotificationGallery'
+    ),
+);
+
 const WebEmbedGallery = LazyLoadPage(
   () =>
     import(
@@ -421,6 +428,27 @@ const DotMapGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DotMap'
+    ),
+);
+
+const UsePromiseResultGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/UsePromiseResult'
+    ),
+);
+
+const ImageCropGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ImageCrop'
+    ),
+);
+
+const CurrencyGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Currency'
     ),
 );
 
@@ -481,7 +509,7 @@ export const galleryScreenList: {
   },
   {
     name: EGalleryRoutes.ComponentSpotlightTour,
-    component: SpotlightTourGallery,
+    component: SpotlightGallery,
   },
   {
     name: EGalleryRoutes.ComponentSortableSectionList,
@@ -601,11 +629,27 @@ export const galleryScreenList: {
     component: MarkdownGallery,
   },
   {
+    name: EGalleryRoutes.ComponentNotification,
+    component: NotificationGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentWebEmbed,
     component: WebEmbedGallery,
   },
   {
     name: EGalleryRoutes.ComponentDotMap,
     component: DotMapGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentUsePromiseResult,
+    component: UsePromiseResultGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImageCropGallery,
+    component: ImageCropGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentCurrency,
+    component: CurrencyGallery,
   },
 ];

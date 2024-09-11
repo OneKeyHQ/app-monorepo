@@ -8,20 +8,15 @@ import type { IPageLifeCycle } from './type';
 export function PageLifeCycle({
   onMounted,
   onUnmounted,
-  onCancel,
-  onConfirm,
   onClose,
-  confirmedRef,
-}: IPageLifeCycle & { confirmedRef: MutableRefObject<boolean> }) {
+  closeExtraRef,
+}: IPageLifeCycle & {
+  closeExtraRef: MutableRefObject<{ flag?: string }>;
+}) {
   const handleUnmounted = useCallback(() => {
     onUnmounted?.();
-    if (confirmedRef.current) {
-      onConfirm?.();
-    } else {
-      onCancel?.();
-    }
-    onClose?.(confirmedRef.current || false);
-  }, [confirmedRef, onCancel, onClose, onConfirm, onUnmounted]);
+    onClose?.(closeExtraRef.current);
+  }, [closeExtraRef, onClose, onUnmounted]);
   usePageLifeCycle({ onMounted, onUnmounted: handleUnmounted });
   return null;
 }

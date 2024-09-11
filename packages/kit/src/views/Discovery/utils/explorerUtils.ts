@@ -26,6 +26,13 @@ export function getWebviewWrapperRef(id?: string) {
   return ref ?? null;
 }
 
+export function formatHiddenHttpsUrl(url?: string) {
+  return {
+    isHttpsUrl: url && /^https/i.test(url),
+    hiddenHttpsUrl: url?.replace?.(/^https:\/\//i, ''),
+  };
+}
+
 export function crossWebviewLoadUrl({
   url,
   tabId,
@@ -37,9 +44,11 @@ export function crossWebviewLoadUrl({
   // debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
   console.log('crossWebviewLoadUrl >>>>', url);
   if (platformEnv.isDesktop) {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
+    setTimeout(() => {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      (wrapperRef?.innerRef as IElectronWebView)?.loadURL(url).catch();
+    });
   } else if (platformEnv.isRuntimeBrowser) {
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call

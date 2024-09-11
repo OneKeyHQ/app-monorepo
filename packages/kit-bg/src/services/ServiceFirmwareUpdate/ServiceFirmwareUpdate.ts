@@ -11,6 +11,8 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import {
   BridgeTimeoutError,
   FirmwareUpdateBatteryTooLow,
+  FirmwareUpdateExit,
+  FirmwareUpdateTasksClear,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -29,7 +31,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -204,6 +205,34 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async showAutoUpdateCheckDebugToast(message: string) {
+    void this.backgroundApi.serviceDevSetting
+      .getFirmwareUpdateDevSettings('showAutoCheckHardwareUpdatesToast')
+      .then((result) => {
+        if (!result) return;
+
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'message',
+          title: message,
+        });
+      })
+      .catch(() => {
+        // ignore
+      });
+  }
+
+  /**
+   * Defer device update checks
+   * @param connectId device connectId
+   */
+  @backgroundMethod()
+  async delayShouldDetectTimeCheck({ connectId }: { connectId: string }) {
+    this.detectMap.updateLastDetectAt({ connectId });
+
+    void this.showAutoUpdateCheckDebugToast('推迟硬件自动更新检测');
+  }
+
+  @backgroundMethod()
   async getFirmwareUpdateDetectInfo({ connectId }: { connectId: string }) {
     const info = this.detectMap.detectMapCache[connectId];
     return info;
@@ -325,6 +354,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bridge.shouldUpdate = true;
       }
 
+      // TODO only check bootloader upgrade？
       if (!bridge?.shouldUpdate) {
         bootloader = await this.checkBootloaderRelease({
           connectId: updatingConnectId,
@@ -358,7 +388,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-    let deviceName = await accountUtils.buildDeviceName({ features });
+    let deviceName = await deviceUtils.buildDeviceName({ features });
     const dbDeviceName = (
       await localDb.getDeviceByQuery({
         connectId: originalConnectId,
@@ -495,13 +525,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     let changelog: IFirmwareChangeLog | undefined;
     // boot releaseInfo?.release may be string of resource download url
     const versionFromReleaseInfo =
-      usedReleasePayload?.release?.bootloaderVersion;
+      usedReleasePayload?.release?.displayBootloaderVersion;
     if (versionFromReleaseInfo && isArray(versionFromReleaseInfo)) {
       toVersion = this.arrayVersionToString(versionFromReleaseInfo as any);
     }
     if (!toVersion) {
       toVersion = this.arrayVersionToString(
-        firmwareUpdateInfo.releasePayload.release?.bootloaderVersion,
+        firmwareUpdateInfo.releasePayload.release?.displayBootloaderVersion,
       );
     }
     changelog = usedReleasePayload.release?.bootloaderChangelog;
@@ -583,17 +613,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = true;
     }
 
-    if (!releasePayload?.bootloaderMode && fromVersion && toVersion) {
+    if (
+      firmwareType !== 'bootloader' &&
+      !releasePayload?.bootloaderMode &&
+      fromVersion &&
+      toVersion
+    ) {
       if (semver.gte(fromVersion, toVersion)) {
-        hasUpgrade = false;
-        hasUpgradeForce = false;
-      }
-    }
-    if (firmwareType === 'bootloader') {
-      if (
-        fromVersion === toVersion ||
-        (fromVersion && toVersion && semver.gte(fromVersion, toVersion))
-      ) {
         hasUpgrade = false;
         hasUpgradeForce = false;
       }
@@ -849,6 +875,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             {},
           ),
         );
+
         return result;
       }
     });
@@ -1041,6 +1068,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const { servicePromise } = this.backgroundApi;
     // TODO disabled servicePromise auto reject when timeout
     const id = servicePromise.createCallback({ reject, resolve });
+
     this.updateTasks[id] = fn;
     return id;
   }
@@ -1065,7 +1093,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       Object.keys(this.updateTasks).map(async (id) => {
         await this.updateTasksReject({
           id,
-          error: new Error(`updateTasksClear: ${reason}`),
+          error: new FirmwareUpdateTasksClear({
+            message: `updateTasksClear: ${reason}`,
+          }),
         });
       }),
     ]);
@@ -1081,7 +1111,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async cancelUpdateWorkflowIfExit() {
     const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
     if (!isRunning) {
-      throw new Error('FirmwareUpdateWorkflow Exit');
+      throw new FirmwareUpdateExit();
     }
   }
 
@@ -1090,7 +1120,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     actionType,
   }: {
     releaseResult: ICheckAllFirmwareReleaseResult | undefined;
-    actionType: 'nextPhase' | 'retry' | 'done';
+    actionType: 'nextPhase' | 'retry' | 'ble-done' | 'boot-done' | 'done';
   }) {
     // use getFeatures to wait device reboot, not working, will pending forever
     // await this.backgroundApi.serviceHardware.getFeatures(
@@ -1105,10 +1135,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (actionType === 'retry') {
       await timerUtils.wait(5 * 1000);
     }
+    if (actionType === 'ble-done') {
+      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+        await timerUtils.wait(15 * 1000);
+      }
+    }
     if (actionType === 'done') {
       await timerUtils.wait(
         releaseResult?.deviceType === 'mini' ? 5 * 1000 : 2 * 1000,
       );
+    }
+    if (actionType === 'boot-done') {
+      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+        await timerUtils.wait(20 * 1000);
+      }
     }
   }
 
@@ -1161,6 +1201,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.startUpdateBootloaderTask(params);
 
           shouldRebootAfterUpdate = true;
+
+          // await hardware boot install and reboot
+          // move sdk
+          await this.waitDeviceRestart({
+            actionType: 'boot-done',
+            releaseResult: params.releaseResult,
+          });
         }
 
         // TODO cancel workflow if modal closed or back
@@ -1208,6 +1255,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
           );
 
           shouldRebootAfterUpdate = true;
+
+          await this.waitDeviceRestart({
+            actionType: 'ble-done',
+            releaseResult: params.releaseResult,
+          });
         }
 
         serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
@@ -1229,6 +1281,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
         skipDeviceCancel: true,
         hideCheckingDeviceLoading: true,
+        debugMethodName: 'startUpdateWorkflow',
       },
     );
   }

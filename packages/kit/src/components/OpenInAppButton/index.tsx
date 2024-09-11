@@ -26,7 +26,7 @@ export function OpenInAppButton({
   buildFullUrl,
 }: {
   buildDeepLinkUrl: () => string;
-  buildFullUrl: () => string;
+  buildFullUrl: () => Promise<string>;
 }) {
   const intl = useIntl();
   const { result: deepLinkUrl } = usePromiseResult(async () => {
@@ -52,8 +52,8 @@ export function OpenInAppButton({
     }
   }, []);
 
-  const handlePress = useCallback(() => {
-    const text = buildFullUrl();
+  const handlePress = useCallback(async () => {
+    const text: string = await buildFullUrl();
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.open_in_mobile_app }),
       floatingPanelProps: {
@@ -66,7 +66,7 @@ export function OpenInAppButton({
               <Button
                 mb="$4"
                 onPress={() => {
-                  console.log('URL Account openByApp deepLinkUrl', deepLinkUrl);
+                  console.log('deepLinkUrl', deepLinkUrl);
                   void openUrlUtils.linkingOpenURL(deepLinkUrl);
                 }}
               >

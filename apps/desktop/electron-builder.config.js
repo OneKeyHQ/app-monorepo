@@ -55,11 +55,13 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'background': 'build/static/images/icons/background.png',
+    'icon': 'build/static/images/icons/dmg.icns',
+    'background': 'build/static/images/icons/background.tiff',
   },
   'nsis': {
     'oneClick': false,
     'installerSidebar': 'build/static/images/icons/installerSidebar.bmp',
+    'deleteAppDataOnUninstall': true,
   },
   'mac': {
     'extraResources': [

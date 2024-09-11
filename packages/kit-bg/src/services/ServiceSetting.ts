@@ -1,7 +1,10 @@
-import { flatten, groupBy } from 'lodash';
+import { flatten, groupBy, isEqual } from 'lodash';
 import semver from 'semver';
 
-import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -20,9 +23,12 @@ import {
   getDefaultLocale,
   getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
+import { clearPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -30,7 +36,9 @@ import {
   EReasonForNeedPassword,
   type IClearCacheOnAppState,
 } from '@onekeyhq/shared/types/setting';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { currencyPersistAtom } from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -42,7 +50,6 @@ export type IAccountDerivationConfigItem = {
   num: number;
   title: string;
   icon?: string;
-  networkIds: string[];
   defaultNetworkId: string;
 };
 
@@ -54,21 +61,45 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async refreshLocaleMessages() {
-    const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const locale = await this.getCurrentLocale();
     const messages = await getLocaleMessages(locale);
-    appLocale.setLocale(locale, messages);
+    appLocale.setLocale(locale, messages as any);
   }
 
   @backgroundMethod()
   public async setTheme(theme: 'light' | 'dark' | 'system') {
+    const currentSettings = await settingsPersistAtom.get();
+    if (currentSettings.theme === theme) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, theme }));
   }
 
   @backgroundMethod()
   public async setLocale(locale: ILocaleSymbol) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (currentSettings.locale === locale) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+  }
+
+  @backgroundMethod()
+  public async getCurrentLocale() {
+    const { locale } = await settingsPersistAtom.get();
+
+    if (locale === 'system') {
+      return getDefaultLocale();
+    }
+
+    return locale;
+  }
+
+  @backgroundMethod()
+  public async getInstanceId() {
+    const { instanceId } = await settingsPersistAtom.get();
+    return instanceId;
   }
 
   @backgroundMethod()
@@ -94,6 +125,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setBiologyAuthSwitchOn(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isBiologyAuthSwitchOn: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getBiologyAuthSwitchOn() {
+    const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+    return isBiologyAuthSwitchOn;
+  }
+
+  @backgroundMethod()
   public async setSpendDustUTXO(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
@@ -103,6 +148,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async refreshLastActivity() {
+    if (resetUtils.getIsResetting()) {
+      return;
+    }
     await settingsLastActivityAtom.set((prev) => ({
       ...prev,
       time: Date.now(),
@@ -124,12 +172,31 @@ class ServiceSetting extends ServiceBase {
   );
 
   @backgroundMethod()
+  public async initSystemLocale() {
+    if (!platformEnv.isExtensionBackground) return;
+    await systemLocaleUtils.initSystemLocale();
+    getDefaultLocale.clear();
+  }
+
+  @backgroundMethod()
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
     return this._getCurrencyList();
   }
 
   @backgroundMethod()
+  public async fetchCurrencyList() {
+    const currencyItems = await this._getCurrencyList();
+    await currencyPersistAtom.set({
+      currencyItems,
+    });
+  }
+
+  @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (isEqual(currentSettings.currencyInfo, currencyInfo)) {
+      return;
+    }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
   }
 
@@ -150,6 +217,9 @@ class ServiceSetting extends ServiceBase {
     if (values.browserCache) {
       await this.backgroundApi.serviceDiscovery.clearCache();
     }
+    if (values.appUpdateCache) {
+      await this.backgroundApi.serviceAppUpdate.clearCache();
+    }
     if (values.browserHistory) {
       // clear Browser History, Bookmarks, Pins
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
@@ -166,11 +236,21 @@ class ServiceSetting extends ServiceBase {
       // clear signature record
       await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
     }
+    if (values.customToken) {
+      await this.backgroundApi.simpleDb.customTokens.clearRawData();
+    }
+    if (values.customRpc) {
+      await this.backgroundApi.simpleDb.customRpc.clearRawData();
+    }
   }
 
   @backgroundMethod()
   public async clearPendingTransaction() {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
+    await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
+      ESwapTxHistoryStatus.CANCELING,
+      ESwapTxHistoryStatus.PENDING,
+    ]);
   }
 
   @backgroundMethod()
@@ -227,7 +307,6 @@ class ServiceSetting extends ServiceBase {
         num: i,
         title: network.impl === IMPL_EVM ? 'EVM' : network.name,
         icon: network?.logoURI,
-        networkIds,
         defaultNetworkId: network.id,
       }),
     );
@@ -240,10 +319,9 @@ class ServiceSetting extends ServiceBase {
 
     if (platformEnv.isDev && tbtc) {
       config.push({
-        num: 10000,
+        num: 10_000,
         title: 'Test Bitcoin',
         icon: tbtc?.logoURI,
-        networkIds,
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
@@ -251,7 +329,6 @@ class ServiceSetting extends ServiceBase {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
-          networkIds: item.networkIds,
           defaultNetworkId: item.defaultNetworkId,
         };
         return result;
@@ -277,9 +354,8 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async fetchReviewControl() {
-    const { reviewControl } = await settingsPersistAtom.get();
     const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
-    if (!reviewControl && isReviewControlEnv) {
+    if (isReviewControlEnv) {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const key = platformEnv.isAppleStoreEnv
         ? 'Intelligent_Diligent_Resourceful_Capable'
@@ -292,18 +368,18 @@ class ServiceSetting extends ServiceBase {
         },
       });
       const data = response.data.data;
-      if (data.length !== 1 && data[0].key !== key) {
-        return;
-      }
-      const reviewControlValue = data[0].value;
-      if (reviewControlValue && platformEnv.version) {
-        if (semver.lte(platformEnv.version, reviewControlValue)) {
-          await settingsPersistAtom.set((prev) => ({
-            ...prev,
-            reviewControl: true,
-          }));
+      let show = true;
+      if (data.length === 1 && data[0].key === key) {
+        const reviewVersion = data[0].value;
+        const clientVersion = platformEnv.version;
+        if (reviewVersion && clientVersion) {
+          show = semver.lte(clientVersion, reviewVersion);
         }
       }
+      await settingsPersistAtom.set((prev) => ({
+        ...prev,
+        reviewControl: show,
+      }));
     }
   }
 
@@ -331,7 +407,7 @@ class ServiceSetting extends ServiceBase {
       networkId,
       accountId,
     });
-    return isTaprootPath(account.path);
+    return isTaprootPath(account.path) || isTaprootAddress(account.address);
   }
 }
 

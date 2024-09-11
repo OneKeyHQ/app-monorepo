@@ -22,8 +22,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.onekey.wallet",
       "associatedDomains": [
-        "applinks:app.onekey.so"
+        "applinks:1key.so"
       ]
+    },
+    "android": {
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "extra": {
       "eas": {

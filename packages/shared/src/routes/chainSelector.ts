@@ -18,7 +18,8 @@ export type IChainSelectorParams = {
   networkIds?: string[];
   title?: string;
   onSelect?: (network: IServerNetwork) => void;
-  enableDangerNetwork?: boolean;
+  disableNetworkIds?: string[];
+  grouped?: boolean;
 };
 
 export type IChainSelectorParamList = {

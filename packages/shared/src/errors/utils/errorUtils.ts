@@ -1,11 +1,15 @@
-import { isObject, isString, isUndefined, omitBy } from 'lodash';
+import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETranslations,
+  ETranslationsMock,
+} from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
 import type {
+  EOneKeyErrorClassNames,
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
@@ -105,7 +109,7 @@ export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
     defaultMessage?: string | ETranslations;
-    defaultKey?: ETranslations;
+    defaultKey?: ETranslations | ETranslationsMock;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },
@@ -158,18 +162,23 @@ export function normalizeErrorProps(
 function autoPrintErrorIgnore(error: unknown | undefined) {
   const e = error as IOneKeyError | undefined;
   if (e) {
+    // disable autoLogger Error in DEV
     e.$$autoPrintErrorIgnore = true;
   }
 }
 
-function toastIfError(error: unknown) {
-  if (error instanceof Error) {
-    const e = error as IOneKeyError | undefined;
-    if (e) {
-      // handle autoToast error by BackgroundApiProxyBase
-      e.autoToast = true;
-    }
-  }
+function isErrorByClassName({
+  error,
+  className,
+}: {
+  error: unknown;
+  className: EOneKeyErrorClassNames | EOneKeyErrorClassNames[];
+}): boolean {
+  const classNames: EOneKeyErrorClassNames[] = (
+    [] as EOneKeyErrorClassNames[]
+  ).concat(className);
+  const errorClassName = (error as IOneKeyError)?.className;
+  return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
 export default {
@@ -180,5 +189,5 @@ export default {
   interceptConsoleErrorWithExtraInfo,
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
-  toastIfError,
+  isErrorByClassName,
 };

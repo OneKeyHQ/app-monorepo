@@ -1,183 +1,121 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  ActionList,
-  AnimatePresence,
-  Divider,
-  HeightTransition,
-  Stack,
-} from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { Divider, Stack } from '@onekeyhq/components';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
-import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalKeyTagRoutes,
-  EModalRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
+import { BatchCreateAccountButton } from './BatchCreateAccountButton';
+import { CheckFirmwareUpdateButton } from './CheckFirmwareUpdateButton';
+import { HardwareHomeScreenButton } from './HardwareHomeScreenButton';
+import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { Verification } from './Verification';
-import { WalletOptionItem } from './WalletOptionItem';
 import { WalletProfile } from './WalletProfile';
 
 import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const liteCard = useLiteCard();
-
-  const handleBackupPhrase = useCallback(async () => {
-    if (!wallet?.id) {
-      return;
-    }
-    const { mnemonic } =
-      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-        walletId: wallet?.id,
-        reason: EReasonForNeedPassword.Security,
-      });
-    if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
-      params: {
-        mnemonic,
-        isBackup: true,
-      },
-    });
-  }, [navigation, wallet?.id]);
-  const handleBackupLiteCard = useCallback(() => {
-    void liteCard.backupWallet(wallet?.id);
-  }, [liteCard, wallet?.id]);
-
-  const handleBackupKeyTag = useCallback(async () => {
-    if (wallet) {
-      const { mnemonic: encodedText } =
-        await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
-          walletId: wallet.id,
-          reason: EReasonForNeedPassword.Security,
-        });
-      if (encodedText) ensureSensitiveTextEncoded(encodedText);
-      navigation.pushModal(EModalRoutes.KeyTagModal, {
-        screen: EModalKeyTagRoutes.BackupDotMap,
-        params: {
-          encodedText,
-          title: wallet.name,
-        },
-      });
-    }
-  }, [navigation, wallet]);
-
+function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
-    if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
-      if (accountUtils.isHwHiddenWallet({ wallet })) {
-        return <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />;
-      }
-
+    // HD Wallet
+    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
       return (
         <>
+          <HdWalletBackupButton wallet={wallet} />
+          <BatchCreateAccountButton wallet={wallet} />
+        </>
+      );
+    }
+
+    // HW Wallet
+    if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+      // HW Hidden Wallet
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return (
+          <>
+            <BatchCreateAccountButton wallet={wallet} />
+            <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />
+          </>
+        );
+      }
+
+      // HW Normal Wallet
+      return (
+        <>
+          <CheckFirmwareUpdateButton device={device} />
           <Verification device={device} />
-          {/* Homescreen unsupprted yet */}
-          {/* <HomeScreen /> */}
+          <HardwareHomeScreenButton device={device} />
           <Advance wallet={wallet} />
+          <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
       );
     }
 
-    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
+    // QR Wallet
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      // QR Hidden Wallet
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return (
+          <>
+            <HiddenWalletRememberSwitch wallet={wallet} key={wallet?.id} />
+          </>
+        );
+      }
+      // QR Normal Wallet
       return (
-        <ActionList
-          offset={{ mainAxis: 0, crossAxis: 18 }}
-          placement="bottom-start"
-          title={intl.formatMessage({ id: ETranslations.global_backup })}
-          items={[
-            {
-              label: intl.formatMessage({
-                id: ETranslations.manual_backup,
-              }),
-              icon: 'PenOutline',
-              onPress: () => void handleBackupPhrase(),
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.global_onekey_lite,
-                    }),
-                    icon: 'OnekeyLiteOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-            {
-              label: intl.formatMessage({
-                id: ETranslations.global_onekey_keytag,
-              }),
-              icon: 'OnekeyKeytagOutline',
-              onPress: () => void handleBackupKeyTag(),
-            },
-          ]}
-          renderTrigger={
-            <WalletOptionItem
-              icon="Shield2CheckOutline"
-              label={intl.formatMessage({ id: ETranslations.global_backup })}
-            />
-          }
-        />
+        <>
+          <HiddenWalletAddButton wallet={wallet} />
+        </>
       );
     }
+
     return null;
-  }, [
-    device,
-    handleBackupLiteCard,
-    handleBackupPhrase,
-    handleBackupKeyTag,
-    intl,
-    wallet,
-  ]);
+  }, [device, wallet]);
 
   return (
-    <HeightTransition>
-      <AnimatePresence>
-        {editMode ? (
-          <Stack
-            testID="wallet-edit-options"
-            animation="quick"
-            exitStyle={{
-              opacity: 0,
-            }}
-            enterStyle={{
-              opacity: 0,
-            }}
-          >
-            {/* Profile: Avatar, Rename */}
-            {wallet ? <WalletProfile wallet={wallet} /> : null}
+    // <HeightTransition></HeightTransition>
+    <Stack>
+      {/* <AnimatePresence>
+      </AnimatePresence> */}
+      {editMode ? (
+        <Stack
+          testID="wallet-edit-options"
+          // TODO: remove animation for better performance which cause SectionList re-render
+          // animation="quick"
+          // exitStyle={{
+          //   opacity: 0,
+          // }}
+          // enterStyle={{
+          //   opacity: 0,
+          // }}
+        >
+          {(() => {
+            defaultLogger.accountSelector.perf.renderWalletOptions({
+              wallet,
+            });
+            return null;
+          })()}
 
-            {/* Options: Backup, Verification, HomeScreen, Advance  */}
-            {walletSpecifiedOptions}
+          {/* Profile: Avatar, Rename */}
+          {wallet ? <WalletProfile wallet={wallet} /> : null}
 
-            <Stack py="$2.5">
-              <Divider mt="auto" />
-            </Stack>
+          {/* Options: Backup, Verification, HomeScreen, Advance  */}
+          {walletSpecifiedOptions}
+
+          <Stack py="$2.5">
+            <Divider mt="auto" />
           </Stack>
-        ) : null}
-      </AnimatePresence>
-    </HeightTransition>
+        </Stack>
+      ) : null}
+    </Stack>
   );
 }
+
+export const WalletOptions = memo(WalletOptionsView);

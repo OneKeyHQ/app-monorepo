@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -44,7 +44,8 @@ function TxActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
-  const { vaultSettings } = useAccountData({ networkId });
+  const { vaultSettings, network } = useAccountData({ networkId });
+  const swapInfo = unsignedTxs[0]?.swapInfo;
 
   const r = usePromiseResult(
     () =>
@@ -54,10 +55,11 @@ function TxActionsContainer(props: IProps) {
             accountId,
             networkId,
             unsignedTx,
+            transferPayload,
           }),
         ),
       ),
-    [accountId, networkId, unsignedTxs],
+    [accountId, networkId, transferPayload, unsignedTxs],
   );
 
   useEffect(() => {
@@ -74,24 +76,42 @@ function TxActionsContainer(props: IProps) {
 
     if (
       !vaultSettings?.ignoreUpdateNativeAmount &&
-      !nativeTokenInfo.isLoading &&
-      decodedTxs.length === 1 &&
-      decodedTxs[0].actions.length === 1 &&
-      isSendNativeTokenAction(decodedTxs[0].actions[0])
+      !nativeTokenInfo.isLoading
     ) {
-      setIsSendNativeToken(true);
-      nativeTokenTransferBN = new BigNumber(
-        transferPayload?.amountToSend ?? nativeTokenTransferBN,
-      );
+      let isSendNativeTokenOnly = false;
+
+      if (
+        decodedTxs.length === 1 &&
+        decodedTxs[0].actions.length === 1 &&
+        isSendNativeTokenAction(decodedTxs[0].actions[0])
+      ) {
+        setIsSendNativeToken(true);
+        isSendNativeTokenOnly = true;
+      }
+
+      if (isSendNativeTokenOnly && !vaultSettings?.isUtxo) {
+        nativeTokenTransferBN = new BigNumber(
+          transferPayload?.amountToSend ?? nativeTokenTransferBN,
+        );
+      }
+
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
 
-      if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
+      if (
+        transferPayload?.isMaxSend &&
+        isSendNativeTokenOnly &&
+        nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
+      ) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
           nativeTokenTransferBN,
         );
-        const amountToUpdate = transferAmountBN.minus(feeBN);
+
+        const amountToUpdate = transferAmountBN.minus(
+          feeBN.times(network?.feeMeta.maxSendFeeUpRatio ?? 1),
+        );
+
         if (amountToUpdate.gte(0)) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
@@ -100,18 +120,13 @@ function TxActionsContainer(props: IProps) {
         } else {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: false,
-            amountToUpdate: vaultSettings?.isUtxo
-              ? nativeTokenTransferBN.toFixed()
-              : transferPayload?.amountToSend ??
-                nativeTokenTransferBN.toFixed(),
+            amountToUpdate: nativeTokenTransferBN.toFixed(),
           });
         }
       } else {
         updateNativeTokenTransferAmountToUpdate({
           isMaxSend: false,
-          amountToUpdate: vaultSettings?.isUtxo
-            ? nativeTokenTransferBN.toFixed()
-            : transferPayload?.amountToSend ?? nativeTokenTransferBN.toFixed(),
+          amountToUpdate: nativeTokenTransferBN.toFixed(),
         });
       }
     }
@@ -120,6 +135,8 @@ function TxActionsContainer(props: IProps) {
   }, [
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
+    network?.feeMeta.maxSendFeeUpRatio,
+    networkId,
     r.result,
     sendSelectedFeeInfo,
     sendSelectedFeeInfo?.totalNative,
@@ -129,6 +146,7 @@ function TxActionsContainer(props: IProps) {
     updateNativeTokenTransferAmountToUpdate,
     vaultSettings?.ignoreUpdateNativeAmount,
     vaultSettings?.isUtxo,
+    vaultSettings?.maxSendFeeUpRatio,
   ]);
 
   const renderActions = useCallback(() => {
@@ -144,7 +162,7 @@ function TxActionsContainer(props: IProps) {
               </Stack>
             }
             renderContent={
-              <XStack space="$3" alignItems="center">
+              <XStack gap="$3" alignItems="center">
                 <Skeleton height="$10" width="$10" radius="round" />
                 <Stack>
                   <Stack py="$1.5">
@@ -194,6 +212,7 @@ function TxActionsContainer(props: IProps) {
         nativeTokenTransferAmountToUpdate={
           nativeTokenTransferAmountToUpdate.amountToUpdate
         }
+        swapInfo={swapInfo}
       />
     ));
   }, [
@@ -201,6 +220,7 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
+    swapInfo,
   ]);
 
   return <>{renderActions()}</>;

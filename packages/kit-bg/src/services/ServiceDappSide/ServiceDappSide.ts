@@ -2,7 +2,6 @@ import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
-  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -56,7 +55,7 @@ class ServiceDappSide extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
+  // @toastIfError() // use Dialog show loading or error
   async connectExternalWallet({
     connectionInfo,
   }: {
@@ -114,7 +113,11 @@ class ServiceDappSide extends ServiceBase {
         }
       }
       if (shouldDestroyConnector) {
-        await this.destroyConnector({ connectionInfo });
+        try {
+          await this.destroyConnector({ connectionInfo });
+        } catch (error) {
+          //
+        }
       }
     }
   }
@@ -258,15 +261,33 @@ class ServiceDappSide extends ServiceBase {
     delete this.connectorCache[cachedKey];
   }
 
-  async sendTransaction({
-    account,
+  @backgroundMethod()
+  async syncAccountFromPeerWallet({
+    accountId,
     networkId,
-    params,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const account = (await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    })) as IDBExternalAccount;
+    const { connector, ctrl } =
+      await this.getExternalAccountControllerAndConnector({
+        account,
+      });
+    await ctrl.syncAccountFromPeerWallet({
+      account,
+      networkId,
+      connector,
+    });
+  }
+
+  async getExternalAccountControllerAndConnector({
+    account,
   }: {
     account: IDBExternalAccount;
-    networkId: string;
-    params: ISignTransactionParams;
-  }): Promise<ISignedTxPro> {
+  }) {
     const connectionInfo = account.connectionInfo;
     if (!connectionInfo) {
       throw new Error('sendTransaction ERROR: connectionInfo not found');
@@ -278,13 +299,36 @@ class ServiceDappSide extends ServiceBase {
       connectionInfo,
       // newConnection // TODO open newConnection if wallet is disconnected
     });
-    // TODO check address or network matched
+    return { ctrl, connector };
+  }
+
+  async sendTransaction({
+    account,
+    networkId,
+    params,
+  }: {
+    account: IDBExternalAccount;
+    networkId: string;
+    params: ISignTransactionParams;
+  }): Promise<ISignedTxPro> {
+    const { connector, ctrl } =
+      await this.getExternalAccountControllerAndConnector({
+        account,
+      });
+
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
+    });
+
     const result = await ctrl.sendTransaction({
       account,
       networkId,
       params,
       connector,
     });
+
     return result;
   }
 
@@ -297,23 +341,24 @@ class ServiceDappSide extends ServiceBase {
     account: IDBExternalAccount;
     params: ISignMessageParams;
   }): Promise<ISignedMessagePro> {
-    const connectionInfo = account.connectionInfo;
-    if (!connectionInfo) {
-      throw new Error('signMessage ERROR: connectionInfo not found');
-    }
-    const ctrl = await externalWalletFactory.getController({
-      connectionInfo,
+    const { connector, ctrl } =
+      await this.getExternalAccountControllerAndConnector({
+        account,
+      });
+
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
     });
-    const { connector } = await this.getConnectorCached({
-      connectionInfo,
-    });
-    // TODO check address or network matched
+
     const result = await ctrl.signMessage({
       account,
       networkId,
       params,
       connector,
     });
+
     return result;
   }
 }

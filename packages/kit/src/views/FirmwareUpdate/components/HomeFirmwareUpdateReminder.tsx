@@ -34,7 +34,7 @@ export function FirmwareUpdateReminderAlert({
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
-      space="$2"
+      gap="$2"
       flex={1}
     >
       <Icon size="$4" name="DownloadOutline" color="$iconInfo" />
@@ -65,6 +65,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const navigation = useAppNavigation();
   const { result } = usePromiseResult(async () => {
     if (!connectId) return undefined;
+
     const detectResult = detectStatus?.[connectId];
     const shouldUpdate =
       detectResult?.connectId === connectId && detectResult?.hasUpgrade;

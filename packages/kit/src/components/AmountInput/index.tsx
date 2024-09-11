@@ -32,6 +32,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
     enableMaxAmount?: boolean;
     valueProps?: {
       value?: string;
+      color?: string;
       onPress?: () => void;
       loading?: boolean;
       currency?: string;
@@ -87,12 +88,12 @@ export function AmountInput({
 
     return (
       <Input
-        keyboardType={platformEnv.isNativeIOS ? 'numeric' : 'number-pad'}
+        keyboardType="decimal-pad"
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
         size="large"
-        focusStyle={undefined}
+        focusVisibleStyle={undefined}
         containerProps={{
           flex: 1,
           borderWidth: 0,
@@ -104,6 +105,11 @@ export function AmountInput({
           selection,
           onSelectionChange: ({ nativeEvent }) =>
             setSelection(nativeEvent.selection),
+          onFocus: () =>
+            setSelection({
+              start: value?.length ?? 0,
+              end: value?.length ?? 0,
+            }),
           onBlur: () => setSelection({ start: 0, end: 0 }),
         })}
         {...inputProps}
@@ -129,7 +135,7 @@ export function AmountInput({
           formatter="value"
           formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
-          color="$textSubdued"
+          color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
         >
           {valueProps.value || '0.00'}
@@ -247,46 +253,52 @@ export function AmountInput({
     if (!balanceProps) {
       return null;
     }
-    return balanceProps.loading ? (
-      <Stack py="$1" px="$3.5">
-        <Skeleton h="$3" w="$16" />
-      </Stack>
-    ) : (
-      <XStack
-        alignItems="center"
-        px="$3.5"
-        pb="$2"
-        onPress={balanceProps.onPress}
-        {...(enableMaxAmount && {
-          userSelect: 'none',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-        })}
-        {...(balanceHelperProps && {
-          pr: '$0',
-        })}
-      >
-        <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
-        <SizableText size="$bodyMd" color="$textSubdued">
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="balance"
-          >
-            {balanceProps.value ?? 0}
-          </NumberSizeableText>
-        </SizableText>
-        {enableMaxAmount ? (
-          <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
-            {intl.formatMessage({ id: ETranslations.send_max })}
+    if (balanceProps.loading) {
+      return (
+        <Stack py="$1" px="$3.5">
+          <Skeleton h="$3" w="$16" />
+        </Stack>
+      );
+    }
+    if (balanceProps.value) {
+      return (
+        <XStack
+          alignItems="center"
+          px="$3.5"
+          pb="$2"
+          onPress={balanceProps.onPress}
+          {...(enableMaxAmount && {
+            userSelect: 'none',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+          {...(balanceHelperProps && {
+            pr: '$0',
+          })}
+        >
+          <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="balance"
+            >
+              {balanceProps.value ?? 0}
+            </NumberSizeableText>
           </SizableText>
-        ) : null}
-      </XStack>
-    );
+          {enableMaxAmount ? (
+            <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
+              {intl.formatMessage({ id: ETranslations.send_max })}
+            </SizableText>
+          ) : null}
+        </XStack>
+      );
+    }
+    return null;
   }, [balanceHelperProps, balanceProps, enableMaxAmount, intl]);
 
   const balanceHelper = useMemo(() => {
@@ -328,12 +340,12 @@ export function AmountInput({
         {InputElement}
         {TokenSelectorTrigger}
       </XStack>
-      <XStack>
+      <XStack justifyContent="space-between">
         <XStack
-          flex={1}
           alignItems="center"
           px="$3.5"
           pb="$2"
+          flex={1}
           disabled={balanceProps?.loading}
           onPress={valueProps?.onPress}
           {...(reversible && {
@@ -348,8 +360,10 @@ export function AmountInput({
         >
           {AmountElement}
         </XStack>
-        {BalanceElement}
-        {balanceHelper}
+        <XStack alignItems="center">
+          {BalanceElement}
+          {balanceHelper}
+        </XStack>
       </XStack>
     </Stack>
   );

@@ -141,7 +141,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
-  walletOrder?: number;
+  walletOrderSaved?: number; // db field
+  walletOrder?: number; // readonly field
+  hash?: string; // hd wallet only
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
@@ -151,17 +153,19 @@ export type IDBCreateHDWalletParams = {
   rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
+  walletHash?: string;
   avatar?: IAvatarInfo;
 };
-export type IDBCreateHWWalletParamsBase = {
+export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
   hideCheckingDeviceLoading?: boolean;
+  defaultIsTemp?: boolean;
 };
-export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
+export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
 };
 export type IDBCreateQRWalletParams = {
@@ -172,6 +176,7 @@ export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;
   name?: string;
   avatar?: IAvatarInfo;
+  shouldCheckDuplicate?: boolean;
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
@@ -179,6 +184,13 @@ export type IDBRemoveWalletParams = {
 export type IDBSetAccountNameParams = {
   accountId?: string;
   indexedAccountId?: string;
+  name: string;
+  shouldCheckDuplicate?: boolean;
+  skipEventEmit?: boolean;
+};
+export type IDBEnsureAccountNameNotDuplicateParams = {
+  selfAccountOrIndexedAccountId?: string;
+  walletId: string;
   name: string;
 };
 export type IDBGetWalletsParams = {
@@ -201,10 +213,13 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   coinType: string;
   impl: string; // single chain account belongs to network impl
   // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
-  networks?: string[];
+  networks?: string[]; // onlyAvailableOnCertainNetworks
   // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
+
+  accountOrder?: number; // readonly field
+  accountOrderSaved?: number; // db field
 };
 
 export type IDBSimpleAccount = IDBBaseAccount & {
@@ -253,6 +268,8 @@ export type IDBIndexedAccount = IDBBaseObjectWithName & {
   index: number;
   idHash: string;
   associateAccount?: INetworkAccount; // readonly
+  orderSaved?: number; // db field
+  order?: number; // readonly
 };
 // TODO remove, use accountsMap instead, wallet->network->derivation(template)
 export type IDBAccountDerivation = IDBBaseObject & {

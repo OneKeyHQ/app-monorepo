@@ -6,6 +6,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
+import { getMetadataRpc } from './utils';
+
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -35,7 +37,9 @@ export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsImported(params);
+    return this.basePrepareAccountsImported(params, {
+      onlyAvailableOnCertainNetworks: true,
+    });
   }
 
   override async signTransaction(
@@ -43,11 +47,22 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
-    const rawTxUnsigned = await serializeUnsignedTransaction(encodedTx);
+    const metadataRpc = await getMetadataRpc(
+      this.networkId,
+      this.backgroundApi,
+    );
+    const rawTxUnsigned = await serializeUnsignedTransaction({
+      ...encodedTx,
+      metadataRpc,
+    });
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {
         ...unsignedTx,
+        encodedTx: {
+          ...encodedTx,
+          metadataRpc,
+        },
         rawTxUnsigned: bufferUtils.bytesToHex(rawTxUnsigned.rawTx),
       },
     });

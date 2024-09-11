@@ -1,6 +1,7 @@
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { IAdaAddressInfo } from '@onekeyhq/core/src/chains/ada/types';
 import { InvalidAccount } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { KeyringWatchingBase } from '../../base/KeyringWatchingBase';
 
@@ -33,7 +34,9 @@ export class KeyringWatching extends KeyringWatchingBase {
           },
         );
     } catch {
-      throw new InvalidAccount();
+      throw new InvalidAccount({
+        key: ETranslations.feedback_address_not_activated_message,
+      });
     }
     const firstAddressRelPath = '0/0';
     const stakingAddressPath = '2/0';

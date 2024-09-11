@@ -1,9 +1,14 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -27,12 +32,11 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     desc: 'OneKey, Phantom, Sollet, m/44’/501’/*’/0’',
   },
   ledgerLive: {
-    namePrefix: 'Ledger Live',
+    namePrefix: 'SOL Ledger Live',
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
     desc: 'Ledger Live, Solflare, m/44’/501’/*’',
-    disableWalletTypes: ['hw'],
   },
 };
 
@@ -46,6 +50,13 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [
+    ECoreApiExportedSecretKeyType.privateKey,
+    // ECoreApiExportedSecretKeyType.publicKey,
+  ],
+
+  dappInteractionEnabled: true,
+
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
@@ -55,6 +66,8 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  transferZeroNativeTokenEnabled: true,
+  estimatedFeePollingInterval: 6,
 
   accountDeriveInfo,
   networkInfo: {
@@ -64,6 +77,29 @@ const settings: IVaultSettings = {
     },
   },
   hasFrozenBalance: true,
+
+  preCheckDappTxFeeInfoRequired: true,
+  customRpcEnabled: true,
+
+  sendZeroWithZeroTokenBalanceDisabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().sol]: {
+      providers: {
+        [EEarnProviderEnum.Everstake]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 export default Object.freeze(settings);

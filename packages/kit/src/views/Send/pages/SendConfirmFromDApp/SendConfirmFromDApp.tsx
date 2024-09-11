@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
@@ -9,10 +9,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
-import type { StackActionType } from '@react-navigation/native';
+import type {
+  NavigationAction,
+  StackActionType,
+} from '@react-navigation/native';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -36,10 +44,49 @@ function SendConfirmFromDApp() {
     _$t: number | undefined;
   }>();
 
-  useDappApproveAction({
+  const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const isNavigateNewPageRef = useRef(false);
+
+  const dispatchAction = useCallback(
+    (action: NavigationAction | ((state: any) => NavigationAction)) => {
+      isNavigateNewPageRef.current = true;
+      const timerId = setTimeout(() => {
+        dappApprove.reject();
+      }, 1200);
+      appEventBus.once(EAppEventBusNames.SendConfirmContainerMounted, () => {
+        clearTimeout(timerId);
+      });
+      navigation.dispatch(action);
+    },
+    [dappApprove, navigation],
+  );
+
+  const handlePageClose = useCallback(() => {
+    if (!isNavigateNewPageRef.current) {
+      dappApprove.reject();
+    }
+  }, [dappApprove]);
+
+  const sendConfirmCallback = useCallback(
+    async (result: any, error: Error | undefined) => {
+      if (!$sourceInfo) {
+        return;
+      }
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: $sourceInfo.hostname,
+        dappDomain: $sourceInfo.origin,
+        action: 'SendTxn',
+        network: networkId,
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        failReason: error ? `${error?.message ?? error}` : undefined,
+      });
+    },
+    [$sourceInfo, networkId],
+  );
 
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
@@ -47,22 +94,42 @@ function SendConfirmFromDApp() {
       if (state === 'active') {
         setTimeout(() => {
           if (pendingAction.current) {
-            navigation.dispatch(pendingAction.current);
-            pendingAction.current = undefined;
+            dispatchAction(pendingAction.current);
           }
+          pendingAction.current = undefined;
         });
       }
     });
 
     const navigationToSendConfirm = async () => {
       let action: any;
+      let newEncodedTx = encodedTx;
+      let feeInfoEditable = true;
+      if (newEncodedTx) {
+        const vaultSettings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+        if (vaultSettings?.preCheckDappTxFeeInfoRequired) {
+          const encodedTxWithFee =
+            await backgroundApiProxy.serviceGas.preCheckDappTxFeeInfo({
+              accountId,
+              networkId,
+              encodedTx: newEncodedTx,
+            });
+          if (encodedTxWithFee === '') {
+            feeInfoEditable = false;
+          } else {
+            feeInfoEditable = true;
+            newEncodedTx = encodedTxWithFee;
+          }
+        }
 
-      if (encodedTx) {
         const unsignedTx =
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
             accountId,
             networkId,
-            encodedTx,
+            encodedTx: newEncodedTx,
             transfersInfo,
           });
         const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
@@ -72,6 +139,9 @@ function SendConfirmFromDApp() {
           sourceInfo: $sourceInfo,
           signOnly,
           useFeeInTx,
+          feeInfoEditable,
+          onSuccess: (result) => sendConfirmCallback(result, undefined),
+          onFail: (error) => sendConfirmCallback(null, error),
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -82,7 +152,7 @@ function SendConfirmFromDApp() {
 
       if (action) {
         if (AppState.currentState === 'active') {
-          setTimeout(() => navigation.dispatch(action));
+          setTimeout(() => dispatchAction(action));
         } else {
           pendingAction.current = action;
         }
@@ -104,10 +174,12 @@ function SendConfirmFromDApp() {
     _$t,
     transfersInfo,
     useFeeInTx,
+    dispatchAction,
+    sendConfirmCallback,
   ]);
 
   return (
-    <Page>
+    <Page onClose={handlePageClose}>
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignContent="center">
           <Spinner size="large" />

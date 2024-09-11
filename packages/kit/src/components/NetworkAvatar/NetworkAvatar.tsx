@@ -1,14 +1,29 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
-import { Image, XStack } from '@onekeyhq/components';
+import { Icon, Image, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-export const AllNetworksAvatar = ({ size }: { size?: IImageProps['size'] }) => (
-  <Image
-    size={size}
-    src="https://uni.onekey-asset.com/static/logo/chain_selector_logo.png"
-  />
+export const NetworkAvatarBase = ({
+  logoURI,
+  size,
+}: {
+  logoURI: string;
+  size?: IImageProps['size'];
+}) => (
+  <Image size={size} src={logoURI} borderRadius="$full">
+    <Image.Source source={{ uri: logoURI }} />
+    <Image.Fallback
+      delayMs={1000}
+      alignItems="center"
+      justifyContent="center"
+      bg="$gray5"
+      padding="$1"
+    >
+      <Icon name="GlobusOutline" color="$iconSubdued" />
+    </Image.Fallback>
+  </Image>
 );
 
 type INetworkAvatarProps = {
@@ -29,7 +44,7 @@ export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
     },
   );
   const { logoURI } = res.result || {};
-  return logoURI ? <Image size={size} src={logoURI} /> : null;
+  return logoURI ? <NetworkAvatarBase size={size} logoURI={logoURI} /> : null;
 }
 
 type INetworkAvatarGroupProps = {

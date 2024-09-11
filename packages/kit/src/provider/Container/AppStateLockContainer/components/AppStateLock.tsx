@@ -2,10 +2,14 @@ import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
+import {
+  Dimensions,
+  type View as IView,
+  type KeyboardEvent,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
 import type { IThemeableStackProps } from '@onekeyhq/components';
@@ -15,6 +19,8 @@ import {
   Image,
   Stack,
   ThemeableStack,
+  updateHeightWhenKeyboardHide,
+  updateHeightWhenKeyboardShown,
   useKeyboardEvent,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -27,32 +33,34 @@ import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils'
 
 import { AppStateContainer } from './AppStateContainer';
 
-import type { View as IView } from 'react-native';
-
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
   lockContainerRef: ForwardedRef<IView>;
 }
 
-const safeKeyboardHeight = 80;
-
 const useSafeKeyboardAnimationStyle = platformEnv.isNative
   ? () => {
       const keyboardHeightValue = useSharedValue(0);
       const animatedStyles = useAnimatedStyle(() => ({
-        paddingBottom: keyboardHeightValue.value,
+        flex: 1,
+        bottom: keyboardHeightValue.value,
       }));
       useKeyboardEvent({
-        keyboardWillShow: () => {
-          keyboardHeightValue.value = withTiming(safeKeyboardHeight);
+        keyboardWillShow: (event: KeyboardEvent) => {
+          keyboardHeightValue.value = updateHeightWhenKeyboardShown(
+            event?.endCoordinates?.height
+              ? (200 * event.endCoordinates.height) /
+                  Dimensions.get('window').height
+              : 80,
+          );
         },
         keyboardWillHide: () => {
-          keyboardHeightValue.value = withTiming(0);
+          keyboardHeightValue.value = updateHeightWhenKeyboardHide();
         },
       });
       return animatedStyles;
     }
-  : () => ({});
+  : () => ({ flex: 1 });
 
 const AppStateLock = ({
   passwordVerifyContainer,
@@ -79,38 +87,42 @@ const AppStateLock = ({
         bg="$bgApp"
         {...props}
       >
-        <Stack
-          flex={1}
-          justifyContent="center"
-          alignItems="center"
-          p="$8"
-          space="$8"
-        >
-          <Stack space="$4" alignItems="center">
-            <Image w={72} h={72} source={Logo} />
-            <Heading size="$headingLg" textAlign="center">
-              {intl.formatMessage({ id: ETranslations.login_welcome_message })}
-            </Heading>
-          </Stack>
+        <Animated.View style={safeKeyboardAnimationStyle}>
           <Stack
-            w="100%"
-            $gtMd={{
-              maxWidth: '$80',
-            }}
+            flex={1}
+            justifyContent="center"
+            alignItems="center"
+            p="$8"
+            gap="$8"
           >
-            <Animated.View style={safeKeyboardAnimationStyle}>
+            <Stack gap="$4" alignItems="center">
+              <Image w={72} h={72} source={Logo} />
+              <Heading size="$headingLg" textAlign="center">
+                {intl.formatMessage({
+                  id: ETranslations.login_welcome_message,
+                })}
+              </Heading>
+            </Stack>
+            <Stack
+              w="100%"
+              $gtMd={{
+                maxWidth: '$80',
+              }}
+            >
               {passwordVerifyContainer}
-            </Animated.View>
+            </Stack>
           </Stack>
-        </Stack>
-        <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
-          {v4migrationData?.isMigrationModalOpen ||
-          v4migrationData?.isProcessing ? null : (
-            <Button size="small" variant="tertiary" onPress={resetApp}>
-              {intl.formatMessage({ id: ETranslations.login_forgot_password })}
-            </Button>
-          )}
-        </Stack>
+          <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
+            {v4migrationData?.isMigrationModalOpen ||
+            v4migrationData?.isProcessing ? null : (
+              <Button size="small" variant="tertiary" onPress={resetApp}>
+                {intl.formatMessage({
+                  id: ETranslations.login_forgot_password,
+                })}
+              </Button>
+            )}
+          </Stack>
+        </Animated.View>
       </ThemeableStack>
     </AppStateContainer>
   );

@@ -24,10 +24,16 @@ export class WalletConnectDappSideProvider extends UniversalProvider {
   // @ts-ignore
   override async request(
     args: RequestArguments,
-    chain: string,
+    wcChain: string,
     expiry?: number | undefined,
   ): Promise<unknown> {
-    return super.request(args, chain, expiry);
+    if (!wcChain) {
+      throw new Error(
+        'WalletConnectDappSideProvider.request ERROR: wcChain is required',
+      );
+    }
+    const result = await super.request(args, wcChain, expiry);
+    return result;
   }
 
   getFromStorePro(key: string): Promise<NamespaceConfig | undefined> {

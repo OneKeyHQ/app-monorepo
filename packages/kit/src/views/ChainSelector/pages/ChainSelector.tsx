@@ -1,6 +1,8 @@
+import { useIntl } from 'react-intl';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -8,7 +10,7 @@ import type {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ChainSelectorPageView } from '../components/PageView';
+import { PureChainSelector } from '../components/PureChainSelector';
 
 export default function ChainSelectorPage({
   route,
@@ -17,35 +19,48 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
+  const intl = useIntl();
   const {
     onSelect,
     defaultNetworkId,
     networkIds,
-    title = 'Networks',
-    enableDangerNetwork,
+    disableNetworkIds,
+    grouped,
+    title = intl.formatMessage({ id: ETranslations.global_networks }),
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {
-    let networks: IServerNetwork[] = [];
+    const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks({
+      excludeAllNetworkItem: true,
+    });
+    let networks: IServerNetwork[] = resp.networks;
+    let disableNetwork: IServerNetwork[] | undefined;
+    if (disableNetworkIds && disableNetworkIds.length > 0) {
+      disableNetwork = networks.filter((o) => disableNetworkIds.includes(o.id));
+    }
     if (networkIds && networkIds.length > 0) {
-      const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-        networkIds,
+      const networkIdIndex = networkIds.reduce((acc, item, index) => {
+        acc[item] = index;
+        return acc;
+      }, {} as Record<string, number>);
+      networks = networks.filter((o) => {
+        let isOK = networkIds.includes(o.id);
+        if (disableNetworkIds && disableNetworkIds?.length > 0) {
+          isOK = isOK && !disableNetworkIds.includes(o.id);
+        }
+        return isOK;
       });
-      networks = resp.networks;
-    } else {
-      const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks();
-      networks = resp.networks;
+      networks.sort((a, b) => networkIdIndex[a.id] - networkIdIndex[b.id]);
     }
-    if (enableDangerNetwork) {
-      networks = [dangerAllNetworkRepresent, ...networks];
-    }
-    return networks;
-  }, [networkIds, enableDangerNetwork]);
+    return { networks, disableNetwork };
+  }, [networkIds, disableNetworkIds]);
 
   return (
-    <ChainSelectorPageView
+    <PureChainSelector
       title={title}
       networkId={defaultNetworkId}
-      networks={result ?? []}
+      networks={result?.networks ?? []}
+      unavailable={result?.disableNetwork}
+      grouped={grouped}
       onPressItem={(network) => {
         onSelect?.(network);
         navigation.goBack();

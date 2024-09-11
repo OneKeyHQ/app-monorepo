@@ -8,6 +8,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
@@ -18,14 +19,19 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   loadingDuration?: number;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
-  const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
+  const { isLoading: mockIsLoading } =
+    useMockAccountSelectorLoading(loadingDuration);
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+
   const {
     activeAccount: { network },
     showChainSelector,
     networkIds,
   } = useNetworkSelectorTrigger({ num });
 
-  const triggerDisabled = disabled || (networkIds ?? []).length <= 1;
+  const triggerDisabled =
+    isLoading || disabled || (networkIds ?? []).length <= 1;
 
   const handlePress = useCallback(async () => {
     await beforeShowTrigger?.();
@@ -34,23 +40,28 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
 
   const renderNetworkIcon = useCallback(() => {
     if (isLoading) {
-      return <Skeleton w="$6" h="$6" />;
+      return <Skeleton w="$5" h="$5" />;
     }
     if (network?.logoURI) {
-      return <NetworkAvatar networkId={network?.id} size="$6" />;
+      return <NetworkAvatar networkId={network?.id} size="$5" />;
     }
 
-    return <Icon size="$6" name="QuestionmarkOutline" color="$iconSubdued" />;
+    return <Icon size="$5" name="QuestionmarkOutline" color="$iconSubdued" />;
   }, [isLoading, network?.logoURI, network?.id]);
+
+  const renderNetworkName = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton w="$14" h="$5" />;
+    }
+    return <SizableText size="$bodyMd">{network?.name}</SizableText>;
+  }, [isLoading, network?.name]);
 
   return (
     <XStack
       alignItems="center"
       onPress={handlePress}
-      pl="$3"
-      pr="$1.5"
-      bg="$bgSubdued"
-      w="$16"
+      h="$10"
+      px="$3"
       hoverStyle={
         triggerDisabled
           ? undefined
@@ -66,7 +77,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {
@@ -77,11 +88,19 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       }
       borderCurve="continuous"
       disabled={triggerDisabled}
+      gap="$2"
+      userSelect="none"
       {...rest}
     >
       {renderNetworkIcon()}
+      {renderNetworkName()}
       {triggerDisabled ? null : (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        <Icon
+          ml="$-2"
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+        />
       )}
     </XStack>
   );
@@ -122,7 +141,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
             }
       }
       focusable={!triggerDisabled}
-      focusStyle={
+      focusVisibleStyle={
         triggerDisabled
           ? undefined
           : {
@@ -133,6 +152,8 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }
       onPress={handlePress}
       disabled={triggerDisabled}
+      maxWidth="$40"
+      minWidth={0}
     >
       <NetworkAvatar networkId={network?.id} size="$6" />
       {media.gtMd ? (

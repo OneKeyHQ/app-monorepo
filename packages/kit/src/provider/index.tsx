@@ -7,9 +7,11 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
-import { Container } from './Container';
+import { CodeStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
+import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
@@ -31,7 +33,13 @@ const LastActivityTracker = LazyLoad(
 
 const flexStyle = { flex: 1 };
 
-export function KitProvider() {
+export function KitProvider(props: any = {}) {
+  const {
+    UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+  } = props;
+
+  CodeStartByNotification.launchNotification = launchNotification;
+
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
     <GlobalJotaiReady>
@@ -43,6 +51,8 @@ export function KitProvider() {
           <PasswordVerifyPromptMount />
           <WebViewWebEmbedProvider />
           <LastActivityTracker />
+          <SystemLocaleTracker />
+          <StateActiveContainer />
           <InAppNotification />
         </ThemeProvider>
       </GestureHandlerRootView>

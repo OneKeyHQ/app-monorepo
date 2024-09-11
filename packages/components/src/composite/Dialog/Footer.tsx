@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import {
   memo,
   useCallback,
@@ -8,16 +9,22 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
 import { useDialogInstance } from './hooks';
 
 import type { IDialogFooterProps } from './type';
-import type { IButtonProps } from '../../primitives';
 
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
@@ -66,7 +73,10 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
       ? await new Promise<boolean>((resolve) => {
           void Promise.resolve(
             onConfirm?.({
-              close,
+              close: (extra) => {
+                resolve(false);
+                void close(extra);
+              },
               preventClose: () => {
                 resolve(false);
               },
@@ -88,9 +98,45 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
   };
 };
 
+const useSafeKeyboardAnimationStyle = () => {
+  const { bottom } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value + bottom,
+  }));
+
+  useKeyboardEvent({
+    keyboardWillShow: (e) => {
+      const keyboardHeight = e.endCoordinates.height;
+      keyboardHeightValue.value = keyboardHeight - bottom;
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = 0;
+    },
+  });
+  return platformEnv.isNative ? animatedStyles : undefined;
+};
+
+const DialogFooterContainer = ({ children }: PropsWithChildren) => {
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  return (
+    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
+  );
+};
+
 export function Footer(props: IDialogFooterProps) {
   const intl = useIntl();
+  const [confirmLoading, setConfirmLoading] = useState(false);
   const { props: restProps, onConfirm } = useDialogFooterProps(props);
+  const onConfirmWithLoading = useCallback(async () => {
+    try {
+      setConfirmLoading(true);
+      await onConfirm();
+      await timerUtils.wait(300); // wait for animation done
+    } finally {
+      setConfirmLoading(false);
+    }
+  }, [onConfirm]);
   const {
     showFooter,
     showCancelButton,
@@ -109,46 +155,48 @@ export function Footer(props: IDialogFooterProps) {
     disabled,
     disabledOn,
   });
-  if (!showFooter) {
-    return null;
-  }
   return (
-    <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
-      {showCancelButton ? (
-        <Button
-          flexGrow={1}
-          flexBasis={0}
-          $md={
-            {
-              size: 'large',
-            } as IButtonProps
-          }
-          {...cancelButtonProps}
-          onPress={onCancel}
-        >
-          {onCancelText ||
-            intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
+    <DialogFooterContainer>
+      {showFooter ? (
+        <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
+          {showCancelButton ? (
+            <Button
+              flexGrow={1}
+              flexBasis={0}
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              onPress={onCancel}
+              {...cancelButtonProps}
+            >
+              {onCancelText ||
+                intl.formatMessage({ id: ETranslations.global_cancel })}
+            </Button>
+          ) : null}
+          {showConfirmButton ? (
+            <Button
+              variant={tone === 'destructive' ? 'destructive' : 'primary'}
+              flexGrow={1}
+              flexBasis={0}
+              loading={confirmLoading}
+              disabled={confirmButtonDisabled}
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              {...restConfirmButtonProps}
+              onPress={onConfirmWithLoading}
+            >
+              {onConfirmText ||
+                intl.formatMessage({ id: ETranslations.global_confirm })}
+            </Button>
+          ) : null}
+        </XStack>
       ) : null}
-      {showConfirmButton ? (
-        <Button
-          variant={tone === 'destructive' ? 'destructive' : 'primary'}
-          flexGrow={1}
-          flexBasis={0}
-          disabled={confirmButtonDisabled}
-          $md={
-            {
-              size: 'large',
-            } as IButtonProps
-          }
-          {...restConfirmButtonProps}
-          onPress={onConfirm}
-        >
-          {onConfirmText ||
-            intl.formatMessage({ id: ETranslations.global_confirm })}
-        </Button>
-      ) : null}
-    </XStack>
+    </DialogFooterContainer>
   );
 }
 

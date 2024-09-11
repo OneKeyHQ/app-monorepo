@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
-import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web/types/types';
 import type { Image, ImageProps, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {
@@ -11,7 +11,7 @@ export type IImageContext = {
 };
 
 export type IImageFallbackProps = PropsWithChildren<
-  StackStyleProps & {
+  StackStyle & {
     /** Milliseconds to wait before showing the fallback, to prevent flicker */
     delayMs?: number;
   }
@@ -20,7 +20,7 @@ export type IImageFallbackProps = PropsWithChildren<
 export type IImageLoadingProps = IImageFallbackProps;
 
 export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
-
+export type IImageSourcePropType = ImageProps['source'];
 export type IImageSourceProps = Omit<
   ImageProps,
   'width' | 'height' | 'source' | 'borderRadius' | 'size'
@@ -28,9 +28,9 @@ export type IImageSourceProps = Omit<
   circular?: boolean;
   delayMs?: number;
   src?: string;
-  source?: ImageProps['source'];
-  size?: StackStyleProps['width'];
-} & StackStyleProps;
+  source?: IImageSourcePropType;
+  size?: StackStyle['width'];
+} & StackStyle;
 export type IImageProps = PropsWithChildren<IImageSourceProps>;
 
 export type IUseSource = (

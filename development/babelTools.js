@@ -85,6 +85,9 @@ function normalizeConfig({ platform, config }) {
 
   config.plugins = [
     ...(config.plugins || []),
+    isDev &&
+      !isJest &&
+      !isNative && ['@sentry/babel-plugin-component-annotate'],
     [
       // Expose env variable to app client-side code, so you can access it like `process.env.XXXXX`
       'transform-inline-environment-variables',
@@ -167,6 +170,7 @@ function normalizeConfig({ platform, config }) {
           namespaced: false,
         },
       ],
+    !isDev && !isJest && ['babel-plugin-transform-remove-console'],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);

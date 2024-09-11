@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get, uniq } from 'lodash';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
@@ -88,12 +89,26 @@ export class DeviceOpenedPassphrase extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceOpenedPassphrase;
 }
 
+export class PinCancelled extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PinCancelled',
+        defaultKey: ETranslations.feedback_pin_verification_cancelled,
+        // defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.PinCancelled;
+}
+
 export class UserCancel extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancel',
-        defaultKey: ETranslations.global_cancel_confirm_on_device_feedback,
+        defaultKey: ETranslations.hardware_user_cancel_error,
         // defaultAutoToast: true,
       }),
     );
@@ -366,6 +381,19 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleAlreadyConnected;
 }
 
+export class BleCharacteristicNotifyChangeFailure extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleCharacteristicNotifyChangeFailure',
+        defaultKey: ETranslations.feedback_bluetooth_issue,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BleCharacteristicNotifyChangeFailure;
+}
+
 export class OpenBlindSign extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -379,13 +407,44 @@ export class OpenBlindSign extends OneKeyHardwareError {
   override code = HardwareErrorCode.BlindSignDisabled;
 }
 
-export class FirmwareVersionTooLow extends OneKeyHardwareError {
+export class ForbiddenKeyPathError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'FirmwareVersionTooLow',
-        defaultKey: ETranslations.hardware_version_need_upgrade_error,
+        defaultMessage: 'ForbiddenKeyPath',
+        defaultKey: ETranslations.feedback_forbidden_key_path_error,
       }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
+export class StringOverflowError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'StringOverflowError',
+        defaultKey: ETranslations.global_hardware_name_input_max,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
+export class FirmwareVersionTooLow extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(
+        {
+          info: { 'version': get(props, 'payload.params.require', '') },
+        },
+        {
+          defaultMessage: 'FirmwareVersionTooLow',
+          defaultKey: ETranslations.hardware_version_need_upgrade_error,
+        },
+      ),
     );
   }
 
@@ -396,11 +455,26 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
   // }
 }
 
+export class DeviceInitializeFailed extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceInitializeFailed',
+        defaultKey: ETranslations.hardware_connect_timeout_error,
+        // defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceInitializeFailed;
+}
+
 export class NotInBootLoaderMode extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotInBootLoaderMode',
+        defaultKey: ETranslations.update_device_in_bootloader_mode,
       }),
     );
 
@@ -610,10 +684,16 @@ export class NetworkError extends OneKeyHardwareError {
 export class NotSupportPassphraseError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'NotSupportPassphraseError',
-        defaultKey: ETranslations.hardware_not_support_passphrase_need_upgrade,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'version': get(props, 'payload.params.require', '') },
+        },
+        {
+          defaultMessage: 'NotSupportPassphraseError',
+          defaultKey:
+            ETranslations.hardware_not_support_passphrase_need_upgrade,
+        },
+      ),
     );
   }
 
@@ -678,18 +758,47 @@ export class DeviceDataOverload extends OneKeyHardwareError {
   override code = HardwareErrorCode.DataOverload;
 }
 
+export class UnsupportedAddressTypeError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UnsupportedAddressTypeError',
+        defaultKey:
+          ETranslations.feedback_hardware_unsupported_current_address_type,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.RuntimeError;
+}
+
+// Communication exception 通信异常
+export class HardwareCommunicationError extends OneKeyHardwareError {
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.UnknownHardwareError;
+
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CommunicationError',
+        defaultKey: ETranslations.hardware_device_need_restart,
+      }),
+    );
+  }
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
     EOneKeyErrorClassNames.UnknownHardwareError;
 
   constructor(props?: IOneKeyErrorHardwareProps) {
-    const message = [
+    const message = uniq([
       props?.payload?.error,
       props?.payload?.message, // use device raw error message as UnknownHardwareError message
       props?.message,
       props?.payload?.code,
-    ]
+    ])
       .filter(Boolean)
       .join(' : ');
     super(

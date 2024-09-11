@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 type IProps = {
   $key: string;
+  hideValue?: boolean;
 } & ISizableTextProps;
 
 function TokenValueView(props: IProps) {
@@ -19,16 +20,21 @@ function TokenValueView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
         formatter="value"
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
         {...rest}
       >
         {token?.fiatValue ?? 0}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     ),
     [rest, settings.currencyInfo.symbol, token?.fiatValue],
   );
+
+  if (!token) {
+    return null;
+  }
+
   return content;
 }
 

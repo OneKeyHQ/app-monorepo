@@ -9,16 +9,21 @@ import {
   EthereumMatic,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  getEmptyTokenData,
+  getMergedTokenData,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  ISearchTokenItem,
+  ISearchTokensParams,
   IToken,
   ITokenData,
-  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
@@ -32,48 +37,102 @@ class ServiceToken extends ServiceBase {
     super({ backgroundApi });
   }
 
-  _fetchAccountTokensController: AbortController | null = null;
+  _fetchAccountTokensControllers: AbortController[] = [];
+
+  _searchTokensControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async abortSearchTokens() {
+    this._searchTokensControllers.forEach((controller) => controller.abort());
+    this._searchTokensControllers = [];
+  }
 
   @backgroundMethod()
   public async abortFetchAccountTokens() {
-    if (this._fetchAccountTokensController) {
-      this._fetchAccountTokensController.abort();
-      this._fetchAccountTokensController = null;
-    }
+    this._fetchAccountTokensControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAccountTokensControllers = [];
   }
 
   @backgroundMethod()
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, flag, ...rest } = params;
+    const {
+      mergeTokens,
+      flag,
+      accountId,
+      isAllNetworks,
+      isManualRefresh,
+      allNetworksAccountId,
+      allNetworksNetworkId,
+      ...rest
+    } = params;
     const { networkId, contractList = [] } = rest;
     if (
-      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
-    ) {
-      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
-      const maticAddress =
-        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
-      rest.contractList = ['', maticAddress, ...contractList];
+      isAllNetworks &&
+      this._currentNetworkId !== getNetworkIdsMap().onekeyall
+    )
+      return {
+        ...getEmptyTokenData(),
+        networkId: this._currentNetworkId,
+      };
+
+    const accountParams = {
+      accountId,
+      networkId,
+    };
+    const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
+      await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi(
+          accountParams,
+        ),
+        this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
+        this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
+        this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+      ]);
+
+    if (!accountAddress && !xpub) {
+      console.log(
+        `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchAccountTokenAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
+      return getEmptyTokenData();
     }
-    const vault = await vaultFactory.getChainOnlyVault({
-      networkId: rest.networkId,
-    });
-    const { normalizedAddress } = await vault.validateAddress(
-      rest.accountAddress,
-    );
-    rest.accountAddress = normalizedAddress;
+
+    rest.contractList = [
+      ...(rest.contractList ?? []),
+      ...customTokens.map((t) => t.address),
+    ];
+
+    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
-    this._fetchAccountTokensController = controller;
-    const resp = await client.post<{ data: IFetchAccountTokensResp }>(
+    this._fetchAccountTokensControllers.push(controller);
+    const resp = await client.post<{
+      data: IFetchAccountTokensResp;
+    }>(
       `/wallet/v1/account/token/list?flag=${flag || ''}`,
-      rest,
+      {
+        ...rest,
+        accountAddress,
+        xpub,
+        isAllNetwork: isAllNetworks,
+        isForceRefresh: isManualRefresh,
+      },
       {
         signal: controller.signal,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
       },
     );
-    this._fetchAccountTokensController = null;
 
     let allTokens: ITokenData | undefined;
     if (mergeTokens) {
@@ -83,23 +142,156 @@ class ServiceToken extends ServiceBase {
         riskTokens,
         smallBalanceTokens,
       }));
+      if (allTokens) {
+        allTokens.data = allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+        }));
+      }
+      resp.data.data.allTokens = allTokens;
     }
 
-    resp.data.data.allTokens = allTokens;
+    resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
+      ...token,
+      accountId,
+      networkId,
+      mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+    }));
+
+    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
+      (token) => ({
+        ...token,
+        accountId,
+        networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+      }),
+    );
+
+    resp.data.data.smallBalanceTokens.data =
+      resp.data.data.smallBalanceTokens.data.map((token) => ({
+        ...token,
+        accountId,
+        networkId,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+      }));
+
+    resp.data.data.accountId = accountId;
+    resp.data.data.networkId = networkId;
+
+    resp.data.data.isSameAllNetworksAccountData = !!(
+      allNetworksAccountId &&
+      allNetworksNetworkId &&
+      allNetworksAccountId === this._currentAccountId &&
+      allNetworksNetworkId === this._currentNetworkId
+    );
+
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async fetchAllNetworkTokens({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }) {
+    const accounts =
+      await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+        { indexedAccountId },
+      );
+
+    console.log('accounts:', accounts);
   }
 
   @backgroundMethod()
   public async fetchTokensDetails(
     params: IFetchTokenDetailParams,
   ): Promise<IFetchTokenDetailItem[]> {
+    const {
+      accountId,
+      networkId,
+      contractList,
+      withCheckInscription,
+      withFrozenBalance,
+    } = params;
+
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    if (!accountAddress && !xpub) {
+      console.log(
+        `fetchTokensDetails ERROR: accountAddress and xpub are both empty`,
+      );
+      defaultLogger.token.request.fetchTokensDetailsAccountAddressAndXpubBothEmpty(
+        { params, accountAddress, xpub },
+      );
+      return [];
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
       '/wallet/v1/account/token/search',
-      params,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        contractList,
+        withCheckInscription,
+        withFrozenBalance,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
 
-    return resp.data.data;
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
+
+    return vault.fillTokensDetails({
+      tokensDetails: resp.data.data,
+    });
+  }
+
+  @backgroundMethod()
+  public async searchTokens(params: ISearchTokensParams) {
+    const { accountId, networkId, contractList, keywords } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const controller = new AbortController();
+    this._searchTokensControllers.push(controller);
+    const resp = await client.post<{ data: ISearchTokenItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        contractList,
+        keywords,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+        signal: controller.signal,
+      },
+    );
+
+    return resp.data.data.map((item) => ({
+      ...item.info,
+      $key: item.info.uniqueKey ?? item.info.address,
+    }));
   }
 
   @backgroundMethod()
@@ -137,12 +329,12 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async getNativeToken({
+    accountId,
     networkId,
-    accountAddress,
     tokenIdOnNetwork,
   }: {
     networkId: string;
-    accountAddress?: string;
+    accountId: string;
     tokenIdOnNetwork?: string;
   }) {
     let tokenAddress = tokenIdOnNetwork;
@@ -151,19 +343,19 @@ class ServiceToken extends ServiceBase {
     }
 
     return this.getToken({
+      accountId,
       networkId,
       tokenIdOnNetwork: tokenAddress ?? '',
-      accountAddress,
     });
   }
 
   @backgroundMethod()
   public async getToken(params: {
+    accountId: string;
     networkId: string;
     tokenIdOnNetwork: string;
-    accountAddress?: string;
   }) {
-    const { networkId, tokenIdOnNetwork, accountAddress } = params;
+    const { accountId, networkId, tokenIdOnNetwork } = params;
 
     const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
@@ -174,8 +366,8 @@ class ServiceToken extends ServiceBase {
 
     try {
       const tokensDetails = await this.fetchTokensDetails({
+        accountId,
         networkId,
-        accountAddress,
         contractList: [tokenIdOnNetwork],
       });
 
@@ -191,69 +383,7 @@ class ServiceToken extends ServiceBase {
       console.log('fetchTokensDetails ERROR:', error);
     }
 
-    throw new Error('getToken ERROR: token not found.');
-  }
-
-  @backgroundMethod()
-  public async blockToken({
-    networkId,
-    tokenId,
-  }: {
-    networkId: string;
-    tokenId: string;
-  }) {
-    const unblockedTokens =
-      await this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
-        networkId,
-      );
-
-    if (unblockedTokens[tokenId]) {
-      return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
-        networkId,
-        removeFromUnBlockedTokens: [tokenId],
-      });
-    }
-
-    return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
-      networkId,
-      addToBlockedTokens: [tokenId],
-    });
-  }
-
-  @backgroundMethod()
-  public async unblockToken({
-    networkId,
-    tokenId,
-  }: {
-    networkId: string;
-    tokenId: string;
-  }) {
-    const blockedTokens =
-      await this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
-
-    if (blockedTokens[tokenId]) {
-      return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
-        networkId,
-        removeFromBlockedTokens: [tokenId],
-      });
-    }
-
-    return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
-      networkId,
-      addToUnBlockedTokens: [tokenId],
-    });
-  }
-
-  @backgroundMethod()
-  public async getBlockedTokens({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
-  }
-
-  @backgroundMethod()
-  public async getUnblockedTokens({ networkId }: { networkId: string }) {
-    return this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
-      networkId,
-    );
+    return null;
   }
 }
 

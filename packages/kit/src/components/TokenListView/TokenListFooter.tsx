@@ -15,8 +15,6 @@ import {
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
-  useRiskyTokenListAtom,
-  useRiskyTokenListMapAtom,
   useSearchKeyAtom,
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
@@ -32,7 +30,7 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveType, deriveInfo },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -43,12 +41,7 @@ function TokenListFooter(props: IProps) {
 
   const [smallBalanceTokensFiatValue] = useSmallBalanceTokensFiatValueAtom();
 
-  const [riskyTokenList] = useRiskyTokenListAtom();
-  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
-
   const [searchKey] = useSearchKeyAtom();
-
-  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
@@ -62,9 +55,14 @@ function TokenListFooter(props: IProps) {
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: intl.formatMessage({ id: ETranslations.low_value_assets }),
-        helpText: intl.formatMessage({
-          id: ETranslations.low_value_assets_desc,
-        }),
+        helpText: [
+          intl.formatMessage({
+            id: ETranslations.low_value_assets_desc_out_of_range,
+          }),
+          intl.formatMessage({
+            id: ETranslations.low_value_assets_desc,
+          }),
+        ],
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
@@ -73,10 +71,15 @@ function TokenListFooter(props: IProps) {
           keys: smallBalanceTokenKeys,
           map: smallBalanceTokenListMap,
         },
+        deriveType,
+        deriveInfo,
+        isAllNetworks: network.isAllNetworks,
       },
     });
   }, [
     account,
+    deriveInfo,
+    deriveType,
     intl,
     navigation,
     network,
@@ -86,40 +89,8 @@ function TokenListFooter(props: IProps) {
     wallet,
   ]);
 
-  const handleOnPressBlockedTokens = useCallback(() => {
-    if (!account || !network || !wallet || riskyTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.TokenList,
-      params: {
-        title: intl.formatMessage({ id: ETranslations.hidden_assets }),
-        accountId: account.id,
-        networkId: network.id,
-        walletId: wallet.id,
-        tokenList: {
-          tokens: riskyTokens,
-          keys: riskyTokenKeys,
-          map: riskyTokenListMap,
-        },
-        isBlocked: true,
-      },
-    });
-  }, [
-    account,
-    intl,
-    navigation,
-    network,
-    riskyTokenKeys,
-    riskyTokenListMap,
-    riskyTokens,
-    wallet,
-  ]);
   return (
     <Stack>
-      {tableLayout &&
-      !isSearchMode &&
-      (smallBalanceTokens.length > 0 || riskyTokens.length > 0) ? (
-        <Divider mx="$5" my="$2" />
-      ) : null}
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <Stack
@@ -149,33 +120,6 @@ function TokenListFooter(props: IProps) {
           >
             {smallBalanceTokensFiatValue}
           </NumberSizeableText>
-        </ListItem>
-      ) : null}
-      {!isSearchMode && riskyTokens.length > 0 ? (
-        <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
-          <Stack
-            p={tableLayout ? '$1' : '$1.5'}
-            borderRadius="$full"
-            bg="$bgStrong"
-          >
-            <Icon
-              name="BlockOutline"
-              color="$iconSubdued"
-              size={tableLayout ? '$6' : '$7'}
-            />
-          </Stack>
-          <ListItem.Text
-            flex={1}
-            primary={intl.formatMessage(
-              { id: ETranslations.count_hidden_assets },
-              {
-                count: riskyTokens.length,
-              },
-            )}
-            {...(tableLayout && {
-              primaryTextProps: { size: '$bodyMdMedium' },
-            })}
-          />
         </ListItem>
       ) : null}
     </Stack>

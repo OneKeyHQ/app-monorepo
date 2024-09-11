@@ -3,8 +3,10 @@ import {
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDuration as fnsFormatDuration,
+  intervalToDuration,
   isToday,
   isYesterday,
+  millisecondsToSeconds,
   parseISO,
 } from 'date-fns';
 
@@ -34,6 +36,7 @@ export type IFormatDateOptions = {
   hideMonth?: boolean;
   hideTimeForever?: boolean;
   hideSeconds?: boolean;
+  formatTemplate?: string;
 };
 
 export type IFormatMonthOptions = {
@@ -41,7 +44,7 @@ export type IFormatMonthOptions = {
   hideYear?: boolean;
 };
 
-function format(date: Date | string, _format?: string) {
+export function formatDateFns(date: Date | string, _format?: string) {
   let parsedDate: Date;
   const locale = appLocale.getLocale();
   if (typeof date === 'string') {
@@ -94,7 +97,7 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     formatTemplate = formatTemplate.replace(', HH:mm:ss', '');
   }
 
-  return format(parsedDate, formatTemplate) ?? '';
+  return formatDateFns(parsedDate, formatTemplate) ?? '';
 }
 
 export function formatMonth(
@@ -113,9 +116,9 @@ export function formatMonth(
     (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
     options?.hideYear
   ) {
-    return format(parsedDate, 'MMMM') ?? '';
+    return formatDateFns(parsedDate, 'MMMM') ?? '';
   }
-  return format(parsedDate, 'MMMM, yyyy') ?? '';
+  return formatDateFns(parsedDate, 'MMMM, yyyy') ?? '';
 }
 
 export function formatDistanceStrict(
@@ -167,7 +170,7 @@ export function formatRelativeDate(date: Date) {
   } else if (isYesterday(date)) {
     formattedDate = formatRelativeLocale.yesterday;
   } else {
-    formattedDate = format(date, formatRelativeLocale.other);
+    formattedDate = formatDateFns(date, formatRelativeLocale.other);
   }
 
   return formattedDate;
@@ -181,11 +184,24 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  let formatTemplate = 'HH:mm:ss';
+  let formatTemplate = options?.formatTemplate || 'HH:mm:ss';
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
   }
 
-  return format(parsedDate, formatTemplate) ?? '';
+  return formatDateFns(parsedDate, formatTemplate) ?? '';
+}
+
+export function formatMillisecondsToDays(milliseconds: number): number {
+  const duration = intervalToDuration({ start: 0, end: milliseconds });
+  return duration.days ?? 0;
+}
+
+export function formatMillisecondsToBlocks(
+  milliseconds: number,
+  blockIntervalSeconds = 600,
+): number {
+  const seconds = millisecondsToSeconds(milliseconds);
+  return Math.ceil(seconds / blockIntervalSeconds);
 }

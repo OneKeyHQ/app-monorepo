@@ -191,7 +191,11 @@ const SendGallery = () => (
               <Button
                 onPress={async () => {
                   const r =
-                    await backgroundApiProxy.serviceV4Migration.prepareMigration();
+                    await backgroundApiProxy.serviceV4Migration.prepareMigration(
+                      {
+                        isAutoStartOnMount: true,
+                      },
+                    );
                   console.log(r);
                 }}
               >

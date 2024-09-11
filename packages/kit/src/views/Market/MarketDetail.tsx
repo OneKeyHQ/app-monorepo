@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   HeaderIconButton,
   NavBackButton,
-  NumberSizeableText,
   Page,
   ScrollView,
   SizableText,
@@ -36,6 +35,7 @@ import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { MarketStar } from './components/MarketStar';
 import { MarketTokenIcon } from './components/MarketTokenIcon';
+import { MarketTokenPrice } from './components/MarketTokenPrice';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
@@ -54,6 +54,7 @@ function TokenDetailHeader({
   const [token, setToken] = useState(responseToken);
   const {
     name,
+    symbol,
     stats: {
       performance,
       volume24h,
@@ -61,6 +62,7 @@ function TokenDetailHeader({
       marketCapRank,
       fdv,
       currentPrice,
+      lastUpdated,
     },
   } = token;
   const { gtMd } = useMedia();
@@ -83,38 +85,44 @@ function TokenDetailHeader({
           {name}
         </SizableText>
         <XStack ai="center" jc="space-between" pt="$2">
-          <NumberSizeableText
+          <MarketTokenPrice
             size="$heading3xl"
-            formatterOptions={{ currency: '$' }}
-            formatter="price"
-          >
-            {currentPrice || 0}
-          </NumberSizeableText>
+            price={currentPrice}
+            tokenName={name}
+            tokenSymbol={symbol}
+            lastUpdated={lastUpdated}
+          />
           <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
         </XStack>
-        <PriceChangePercentage pt="$0.5">
+        <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}
         </PriceChangePercentage>
       </YStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
+        <MarketDetailOverview token={token} />
       ) : (
-        <XStack pt="$3" flex={1} ai="center" space="$2" flexWrap="wrap">
+        <XStack
+          flex={1}
+          ai="center"
+          alignContent="stretch"
+          flexWrap="wrap"
+          gap="$5"
+        >
           <TextCell
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
           >
-            {volume24h}
+            {volume24h || '-'}
           </TextCell>
           <TextCell
             title={intl.formatMessage({ id: ETranslations.global_market_cap })}
             rank={marketCapRank}
           >
-            {marketCap}
+            {marketCap || '-'}
           </TextCell>
           <TextCell
             title={intl.formatMessage({ id: ETranslations.global_fdv })}
           >
-            {fdv}
+            {fdv || '-'}
           </TextCell>
         </XStack>
       )}
@@ -136,7 +144,7 @@ function SkeletonHeader() {
 
 function SkeletonHeaderOverItemItem() {
   return (
-    <YStack space="$2" flexGrow={1} flexBasis={0}>
+    <YStack gap="$2" flexGrow={1} flexBasis={0}>
       <Skeleton w="$10" h="$3" />
       <Skeleton w="$24" h="$3" />
     </YStack>
@@ -146,7 +154,7 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { coinGeckoId, symbol } = route.params;
+  const { token: coinGeckoId } = route.params;
   const { gtMd } = useMedia();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -175,14 +183,12 @@ function MarketDetail({
 
   const renderHeaderTitle = useCallback(
     () => (
-      <XStack space="$2">
+      <XStack gap="$2">
         <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
-        <SizableText>
-          {(tokenDetail?.symbol || symbol)?.toUpperCase()}
-        </SizableText>
+        <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
       </XStack>
     ),
-    [symbol, tokenDetail?.image, tokenDetail?.symbol],
+    [tokenDetail?.image, tokenDetail?.symbol],
   );
   const { shareText } = useShare();
 
@@ -198,19 +204,19 @@ function MarketDetail({
   );
 
   const buildFullUrl = useCallback(
-    () => buildMarketFullUrl({ coinGeckoId }),
+    async () => buildMarketFullUrl({ coinGeckoId }),
     [coinGeckoId],
   );
 
   const renderHeaderRight = useCallback(
     () => (
-      <XStack space="$6" ai="center">
-        {platformEnv.isNative ? null : (
+      <XStack gap="$6" ai="center">
+        {!platformEnv.isExtensionUiPopup && !platformEnv.isNative ? (
           <OpenInAppButton
             buildDeepLinkUrl={buildDeepLinkUrl}
             buildFullUrl={buildFullUrl}
           />
-        )}
+        ) : null}
         <HeaderIconButton
           icon="ShareOutline"
           onPress={async () => {
@@ -257,12 +263,12 @@ function MarketDetail({
     return (
       <YStack px="$5">
         {gtMd ? (
-          <YStack space="$12" width={336}>
+          <YStack gap="$12" width={392}>
             <SkeletonHeader />
-            <YStack space="$3">
+            <YStack gap="$3">
               <Skeleton w={252} h="$3" />
             </YStack>
-            <YStack space="$6">
+            <YStack gap="$6">
               <XStack>
                 <SkeletonHeaderOverItemItem />
                 <SkeletonHeaderOverItemItem />
@@ -276,7 +282,7 @@ function MarketDetail({
                 <SkeletonHeaderOverItemItem />
               </XStack>
             </YStack>
-            <YStack space="$6">
+            <YStack gap="$6">
               <Skeleton w="$10" h="$3" />
               <Skeleton w={252} h="$3" />
               <Skeleton w={252} h="$3" />
@@ -284,7 +290,7 @@ function MarketDetail({
             </YStack>
           </YStack>
         ) : (
-          <YStack space="$6" pt="$1">
+          <YStack gap="$6" pt="$1">
             <SkeletonHeader />
             <XStack>
               <SkeletonHeaderOverItemItem />
@@ -298,11 +304,6 @@ function MarketDetail({
   }, [coinGeckoId, gtMd, tokenDetail]);
 
   const defer = useDeferredPromise();
-  const onDataLoaded = useCallback(() => {
-    if (defer) {
-      defer.resolve(null);
-    }
-  }, [defer]);
 
   const tokenPriceChart = useMemo(
     () => <TokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />,
@@ -320,12 +321,12 @@ function MarketDetail({
         {gtMd ? (
           <YStack flex={1}>
             <XStack flex={1} pt="$5">
-              <ScrollView minWidth={336} maxWidth={336}>
+              <ScrollView minWidth={392} maxWidth={392}>
                 {tokenDetailHeader}
               </ScrollView>
               <YStack flex={1}>
                 <TokenDetailTabs
-                  onDataLoaded={onDataLoaded}
+                  defer={defer}
                   token={tokenDetail}
                   listHeaderComponent={tokenPriceChart}
                 />
@@ -334,10 +335,10 @@ function MarketDetail({
           </YStack>
         ) : (
           <TokenDetailTabs
+            defer={defer}
             isRefreshing={isRefreshing}
             onRefresh={onRefresh}
             token={tokenDetail}
-            onDataLoaded={onDataLoaded}
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}

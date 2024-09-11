@@ -1,15 +1,17 @@
-import { useCallback, useState } from 'react';
-
-import { useIsFocused } from '@react-navigation/core';
+/* eslint-disable react/no-unstable-nested-components */
+import type { ForwardedRef } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
   Dialog,
+  DialogContainer,
   Form,
   Input,
   ScrollView,
+  Select,
   SizableText,
   Stack,
   Toast,
@@ -18,12 +20,18 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
+import type {
+  IDialogContainerProps,
+  IDialogInstance,
+} from '@onekeyhq/components/src/composite/Dialog/type';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EGalleryRoutes,
   EModalRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -41,7 +49,7 @@ const CustomFooter = ({
   console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
-    <XStack space="$4" justifyContent="center">
+    <XStack gap="$4" justifyContent="center">
       <Button
         onPress={() => {
           console.log(form?.getValues());
@@ -91,7 +99,7 @@ function ScrollContent() {
 const DialogNavigatorDemo = () => {
   const navigation = useAppNavigation<any>();
   return (
-    <YStack space="$3">
+    <YStack gap="$3">
       <Button
         mt="$4"
         onPress={() => {
@@ -191,7 +199,26 @@ const DialogGallery = () => (
       {
         title: 'Variants',
         element: (
-          <YStack space="$2">
+          <YStack gap="$2">
+            <Button
+              onPress={async () => {
+                const d = Dialog.show({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+                // not working
+                // await d.close();
+
+                // working, should wait Dialog open animation done
+                await timerUtils.wait(350);
+                await d.close();
+              }}
+            >
+              ShowAndCloseDialog
+            </Button>
             <Button
               onPress={() =>
                 Dialog.show({
@@ -262,7 +289,7 @@ const DialogGallery = () => (
       {
         title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.show({
@@ -309,7 +336,7 @@ const DialogGallery = () => (
       {
         title: 'Disabled Confirm Button',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -467,9 +494,8 @@ const DialogGallery = () => (
       {
         title: 'Dialog Form',
         element: (
-          <YStack>
+          <YStack gap="$4">
             <Button
-              mt="$4"
               onPress={() =>
                 Dialog.confirm({
                   title: 'Password',
@@ -504,13 +530,64 @@ const DialogGallery = () => (
             >
               Open Dialog Form
             </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { a: '1234567' },
+                      }}
+                    >
+                      <Dialog.FormField
+                        name="a"
+                        rules={{
+                          maxLength: { value: 6, message: 'maxLength is 6' },
+                        }}
+                      >
+                        <Select
+                          title="Demo Title"
+                          placeholder="select"
+                          items={[
+                            { label: 'Banana0', value: 'Banana' },
+                            {
+                              label: 'Apple1',
+                              value: 'Apple',
+                            },
+
+                            {
+                              label: 'Pear2',
+                              value: 'Pear',
+                            },
+
+                            {
+                              label: 'Blackberry3',
+                              value: 'Blackberry',
+                            },
+                          ]}
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: (dialogInstance) => {
+                    alert(
+                      JSON.stringify(dialogInstance.getForm()?.getValues()),
+                    );
+                  },
+                })
+              }
+            >
+              Open Dialog Form with Select
+            </Button>
           </YStack>
         ),
       },
       {
         title: 'Execute a function call once the dialog is closed',
         element: (
-          <YStack space="$4">
+          <YStack gap="$4">
             <Button
               onPress={() =>
                 Dialog.confirm({
@@ -638,7 +715,7 @@ const DialogGallery = () => (
                       }, 100);
                       setTimeout(() => {
                         resolve();
-                      }, 99999999);
+                      }, 99_999_999);
                     }),
                 });
               }}
@@ -730,6 +807,105 @@ const DialogGallery = () => (
               }}
             >
               closeFlag
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'showExit',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                const Container = (
+                  props: IDialogContainerProps,
+                  ref: ForwardedRef<IDialogInstance>,
+                ) => {
+                  const [showExitButton, setIsShowExitButton] = useState(false);
+                  useEffect(() => {
+                    setTimeout(() => {
+                      setIsShowExitButton(true);
+                    }, 5000);
+                  }, []);
+                  return (
+                    <DialogContainer
+                      title="title"
+                      ref={ref}
+                      showExitButton={showExitButton}
+                      renderContent={<SizableText>content</SizableText>}
+                      onClose={async (data) => console.log(data)}
+                    />
+                  );
+                };
+                const ForwardedContainer = forwardRef(Container);
+                Dialog.show({
+                  dialogContainer: ({ ref }: { ref: any }) => (
+                    <ForwardedContainer
+                      ref={ref}
+                      onClose={async (extra) => console.log(extra)}
+                    />
+                  ),
+                });
+              }}
+            >
+              showExitButton
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Dialogs',
+        element: (
+          <YStack gap="$4">
+            <Button
+              onPress={() => {
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: <Stack h={200} />,
+                });
+                setTimeout(() => {
+                  Dialog.show({
+                    title: 'B',
+                    description: 'BBB',
+                    sheetProps: {
+                      zIndex: 1e5 + 2,
+                    },
+                  });
+                }, 10);
+              }}
+            >
+              Dialogs
+            </Button>
+            <Button
+              onPress={() => {
+                const SelectListItem = () => {
+                  const [val, setVal] = useState('Apple');
+                  return (
+                    <Select
+                      items={new Array(5).fill(undefined).map((_, index) => ({
+                        label: String(index),
+                        value: String(index),
+                      }))}
+                      value={val}
+                      onChange={setVal}
+                      title="Demo Title"
+                      onOpenChange={console.log}
+                    />
+                  );
+                };
+                Dialog.show({
+                  title: 'A',
+                  description: 'AAAA',
+                  renderContent: (
+                    <Stack h={200}>
+                      <SelectListItem />
+                    </Stack>
+                  ),
+                });
+              }}
+            >
+              Select In Dialog
             </Button>
           </YStack>
         ),

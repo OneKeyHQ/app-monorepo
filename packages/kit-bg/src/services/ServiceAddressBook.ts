@@ -10,6 +10,7 @@ import type {
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -107,12 +108,13 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getSafeItems({
-    networkId,
-  }: {
+  @toastIfError()
+  async getSafeItems(params?: {
     networkId?: string;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const isSafe = await this.verifyHash(true);
+    const { networkId } = params ?? {};
+    // throw new Error('address book failed to verify hash');
+    const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {
       return { isSafe, items: [] };
     }
@@ -163,7 +165,7 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   private async validateItem(item: IAddressItem) {
-    const { serviceAccountProfile } = this.backgroundApi;
+    const { serviceValidator } = this.backgroundApi;
     if (item.name.length > 24) {
       throw new Error('Name is too long');
     }
@@ -175,7 +177,7 @@ class ServiceAddressBook extends ServiceBase {
     if (result && (!item.id || result.id !== item.id)) {
       throw new Error('Name already exist');
     }
-    const validStatus = await serviceAccountProfile.validateAddress({
+    const validStatus = await serviceValidator.validateAddress({
       networkId: item.networkId,
       address: item.address,
     });
@@ -264,12 +266,14 @@ class ServiceAddressBook extends ServiceBase {
     const result: string[] = [];
     for (let i = 0; i < rawItems.length; i += 1) {
       const item = rawItems[i];
-      const network = await serviceNetwork.getNetwork({
+      const network = await serviceNetwork.getNetworkSafe({
         networkId: item.networkId,
       });
-      const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
-      const text = `${title} ${item.name} ${item.address}`;
-      result.push(text);
+      if (network) {
+        const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
+        const text = `${title} ${item.name} ${item.address}`;
+        result.push(text);
+      }
     }
     return result.join('\n');
   }
@@ -312,11 +316,27 @@ class ServiceAddressBook extends ServiceBase {
   @backgroundMethod()
   async bulkSetItemsWithUniq(items: IAddressItem[], password: string) {
     const currentItems = await this.getItems();
-    const currentNames = new Set(currentItems.map((i) => i.name));
-    const currentAddresses = new Set(currentItems.map((i) => i.address));
-    const itemsUniq = items.filter(
-      (i) => !currentNames.has(i.name) && !currentAddresses.has(i.address),
+    const currentAddressSet = new Set(
+      currentItems.map((i) => i.address.toLowerCase()),
     );
+    const currentNameSet = new Set(
+      currentItems.map((i) => i.name.toLowerCase()),
+    );
+    const itemsUniq: IAddressItem[] = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const o = items[i];
+      const lowerCaseAddress = o.address.toLowerCase();
+      const lowerCaseName = o.name.toLowerCase();
+      if (!currentAddressSet.has(lowerCaseAddress)) {
+        if (currentNameSet.has(lowerCaseName)) {
+          await timerUtils.wait(5);
+          o.name = `${o.name} (${Date.now()})`;
+        }
+        itemsUniq.push(o);
+        currentAddressSet.add(lowerCaseAddress);
+        currentNameSet.add(o.name.toLowerCase());
+      }
+    }
     const itemsToAdd = currentItems.concat(itemsUniq);
     await this.setItems(itemsToAdd, password);
   }

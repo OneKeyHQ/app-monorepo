@@ -14,6 +14,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -29,17 +30,23 @@ import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IFetchAccountDetailsResp,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
-import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
-  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -48,7 +55,16 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
+import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
+import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+} from '@onekeyhq/shared/types/token';
+import type {
+  EReplaceTxType,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionAssetTransfer,
@@ -70,6 +86,7 @@ import type {
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -78,11 +95,13 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -96,6 +115,12 @@ if (platformEnv.isExtensionUi) {
 
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
+
+  async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    return (networkAccount as IDBUtxoAccount).xpub;
+  }
 
   // Methods not related to a single account, but implementation.
 
@@ -247,6 +272,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }): Promise<IResolveNameResp | null> {
     return null;
   }
+
+  async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -298,10 +329,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
+  async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    throw new NotImplemented();
+  }
+
   async validateSendAmount(params: {
     amount: string;
     tokenBalance: string;
     to: string;
+    isNative?: boolean;
   }) {
     return Promise.resolve(true);
   }
@@ -314,7 +352,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return null;
   }
 
-  async precheckUnsignedTx(params: { unsignedTx: IUnsignedTxPro }) {
+  async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+    precheckTiming: ESendPreCheckTimingEnum;
+    nativeAmountInfo?: INativeAmountInfo;
+    feeInfo?: IFeeInfoUnit;
+  }) {
     return Promise.resolve(true);
   }
 
@@ -356,20 +399,32 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
     }
-    const address = await this.getAccountAddress();
-    const xpub = await this.getAccountXpub();
+
+    const { accountId, networkId } = decodedTx;
+
+    const [accountAddress, xpub] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     decodedTx.txid = txid || decodedTx.txid;
-    decodedTx.owner = address;
+    decodedTx.owner = accountAddress;
     decodedTx.xpub = xpub;
     if (isSigner) {
-      decodedTx.signer = address;
+      decodedTx.signer = accountAddress;
     }
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = accountUtils.buildLocalHistoryId({
-      networkId: this.networkId,
+      networkId,
       txid,
-      accountAddress: address,
+      accountAddress,
       xpub,
     });
     const historyTx: IAccountHistoryTx = {
@@ -388,14 +443,30 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
     const {
-      accountId,
-      networkId,
+      accountId: originAccountId,
+      networkId: originNetworkId,
       onChainHistoryTx,
       tokens,
       nfts,
-      accountAddress,
+      accountAddress: originAccountAddress,
       xpub,
+      allNetworkHistoryExtraItems,
     } = params;
+    let accountId = originAccountId;
+    let networkId = originNetworkId;
+    let accountAddress = originAccountAddress;
+
+    if (originNetworkId === getNetworkIdsMap().onekeyall) {
+      const allNetworkAccount = allNetworkHistoryExtraItems?.find(
+        (i) => i.networkId === onChainHistoryTx.networkId,
+      );
+      if (allNetworkAccount) {
+        accountId = allNetworkAccount.accountId;
+        networkId = allNetworkAccount.networkId;
+        accountAddress = allNetworkAccount.accountAddress;
+      }
+    }
+
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
@@ -489,10 +560,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       functionCall: {
         from: tx.from,
         to: tx.to,
-        functionName: tx.type,
+        functionName: tx.label,
         functionHash: tx.functionCode,
         args: tx.params,
-        icon: network.logoURI,
       },
     };
   }
@@ -508,7 +578,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       unknownAction: {
         from: tx.from,
         to: tx.to,
-        icon: network.logoURI,
+        label: tx.label,
       },
     };
   }
@@ -557,6 +627,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }) {
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
+        key: transfer.key,
         tokenAddress: transfer.token,
         tokens,
         nfts,
@@ -590,6 +661,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokenApprove: IOnChainHistoryTxApprove;
   }): IDecodedTxAction {
     const { icon, symbol, name, decimals } = getOnChainHistoryTxAssetInfo({
+      key: tokenApprove.key,
       tokenAddress: tokenApprove.token,
       tokens,
       nfts,
@@ -598,10 +670,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         from: tx.from,
-        to: tokenApprove.spender,
+        to: tx.to,
+        spender: tokenApprove.spender,
         icon,
         name,
         symbol,
+        decimals,
         label: tx.label,
         tokenIdOnNetwork: tokenApprove.token,
         amount: new BigNumber(tokenApprove.amount)
@@ -616,8 +690,25 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     from: string;
     to: string;
     transfers: IDecodedTxTransferInfo[];
+    data?: string;
+    application?: {
+      name: string;
+      icon: string;
+    };
+    isInternalSwap?: boolean;
+    swapReceivedAddress?: string;
+    swapReceivedNetworkId?: string;
   }): Promise<IDecodedTxAction> {
-    const { from, to, transfers } = params;
+    const {
+      from,
+      to,
+      transfers,
+      data,
+      application,
+      isInternalSwap,
+      swapReceivedAddress,
+      swapReceivedNetworkId,
+    } = params;
     const [accountAddress, network] = await Promise.all([
       this.getAccountAddress(),
       this.getNetwork(),
@@ -630,6 +721,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       to,
       sends: [],
       receives: [],
+      application,
+      isInternalSwap,
+      swapReceivedAddress,
+      swapReceivedNetworkId,
     };
 
     transfers.forEach((transfer) => {
@@ -661,8 +756,57 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
+      data,
       assetTransfer,
     };
+  }
+
+  async buildInternalSwapAction(params: {
+    swapInfo: ISwapTxInfo;
+    swapData?: string;
+    swapToAddress?: string;
+  }) {
+    const { swapData, swapInfo, swapToAddress } = params;
+    const swapSendToken = swapInfo.sender.token;
+    const swapReceiveToken = swapInfo.receiver.token;
+    const providerInfo = swapInfo.swapBuildResData.result.info;
+    const action = await this.buildTxTransferAssetAction({
+      from: swapInfo.accountAddress,
+      to: swapToAddress ?? '',
+      data: swapData,
+      application: {
+        name: providerInfo.providerName,
+        icon: providerInfo.providerLogo ?? '',
+      },
+      isInternalSwap: true,
+      swapReceivedAddress: swapInfo.receivingAddress,
+      swapReceivedNetworkId: swapInfo.receiver.token.networkId,
+      transfers: [
+        {
+          from: swapInfo.accountAddress,
+          to: '',
+          tokenIdOnNetwork: swapSendToken.contractAddress,
+          icon: swapSendToken.logoURI ?? '',
+          name: swapSendToken.name ?? '',
+          symbol: swapSendToken.symbol,
+          amount: swapInfo.sender.amount,
+          isNFT: false,
+          isNative: swapSendToken.isNative,
+        },
+        {
+          from: '',
+          to: swapInfo.receivingAddress,
+          tokenIdOnNetwork: swapReceiveToken.contractAddress,
+          icon: swapReceiveToken.logoURI ?? '',
+          name: swapReceiveToken.name ?? '',
+          symbol: swapReceiveToken.symbol,
+          amount: swapInfo.receiver.amount,
+          isNFT: false,
+          isNative: swapReceiveToken.isNative,
+        },
+      ],
+    });
+    return action;
   }
 
   // DO NOT override this method
@@ -691,7 +835,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       })
     ) {
       throw new Error(
-        `account impl not matched to network: ${this.networkId} ${account.id}`,
+        `account impl not matched to network: ${
+          this.networkId
+        } ${account.id?.slice(0, 30)}`,
       );
     }
 
@@ -769,6 +915,64 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
+    const networkAccount = await this.getAccount();
+    return this.getXpubFromAccount(networkAccount);
+  }
+
+  async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }) {
+    return Promise.resolve(tokensDetails);
+  }
+
+  async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }) {
+    return Promise.resolve(accountDetails);
+  }
+
+  async isEarliestLocalPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx;
+  }): Promise<boolean> {
+    return true;
+  }
+
+  async buildReplaceEncodedTx({
+    decodedTx,
+    replaceType,
+  }: {
+    decodedTx: IDecodedTx;
+    replaceType: EReplaceTxType;
+  }) {
+    return Promise.resolve(decodedTx.encodedTx);
+  }
+
+  async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    return Promise.resolve(params.encodedTx);
+  }
+
+  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+    throw new NotImplemented();
+  }
+
+  async getAddressType({ address }: { address: string }): Promise<{
+    typeKey?: MessageDescriptor['id'];
+    type?: string;
+  }> {
+    return Promise.resolve({});
+  }
+
+  // Staking
+  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+    return Promise.resolve(params as IEncodedTx);
   }
 }

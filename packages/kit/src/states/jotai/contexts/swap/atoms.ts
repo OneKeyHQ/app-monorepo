@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   ESwapProviderSort,
   swapSlippageAutoValue,
@@ -14,7 +16,7 @@ import type {
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
-  ISwapApproveTransaction,
+  ISwapAutoSlippageSuggestedValue,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
@@ -37,6 +39,21 @@ export { ProviderJotaiContextSwap, contextAtomMethod };
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
+
+export const {
+  atom: swapNetworksIncludeAllNetworkAtom,
+  use: useSwapNetworksIncludeAllNetworkAtom,
+} = contextAtomComputed<ISwapNetwork[]>((get) => {
+  const networks = get(swapNetworks());
+  const allNetwork = {
+    networkId: getNetworkIdsMap().onekeyall,
+    name: dangerAllNetworkRepresent.name,
+    symbol: dangerAllNetworkRepresent.symbol,
+    logoURI: dangerAllNetworkRepresent.logoURI,
+    shortcode: dangerAllNetworkRepresent.shortcode,
+  };
+  return [allNetwork, ...networks];
+});
 
 export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
   contextAtom<{
@@ -86,12 +103,22 @@ export const {
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
 
 export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
-} = contextAtom('0');
+} = contextAtom('');
+
+export const {
+  atom: swapAllNetworkTokenListMapAtom,
+  use: useSwapAllNetworkTokenListMapAtom,
+} = contextAtom<Record<string, ISwapToken[]>>({});
+
+export const {
+  atom: swapAllNetworkActionLockAtom,
+  use: useSwapAllNetworkActionLockAtom,
+} = contextAtom<boolean>(false);
 
 // swap quote
 export const {
@@ -106,6 +133,33 @@ export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
   contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
+  atom: swapQuoteActionLockAtom,
+  use: useSwapQuoteActionLockAtom,
+} = contextAtom<{
+  actionLock: boolean;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  accountId?: string;
+  address?: string;
+}>({ actionLock: false });
+
+export const {
+  atom: swapQuoteIntervalCountAtom,
+  use: useSwapQuoteIntervalCountAtom,
+} = contextAtom<number>(0);
+
+export const {
+  atom: swapQuoteEventTotalCountAtom,
+  use: useSwapQuoteEventTotalCountAtom,
+} = contextAtom<number>(0);
+
+export const {
+  atom: swapShouldRefreshQuoteAtom,
+  use: useSwapShouldRefreshQuoteAtom,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapSortedQuoteListAtom,
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
@@ -113,8 +167,16 @@ export const {
   const fromTokenAmount = get(swapFromTokenAmountAtom());
   const fromTokenAmountBN = new BigNumber(fromTokenAmount);
   const sortType = get(swapProviderSortAtom());
-  let sortedList = [...list];
-  const gasFeeSorted = list.slice().sort((a, b) => {
+  const resetList: IFetchQuoteResult[] = list.map(
+    (item: IFetchQuoteResult) => ({
+      ...item,
+      receivedBest: false,
+      isBest: false,
+      minGasCost: false,
+    }),
+  );
+  let sortedList = [...resetList];
+  const gasFeeSorted = resetList.slice().sort((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
     return aBig.comparedTo(bBig);
@@ -123,15 +185,27 @@ export const {
     sortedList = [...gasFeeSorted];
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = list.slice().sort((a, b) => {
+    sortedList = resetList.slice().sort((a, b) => {
       const aVal = new BigNumber(a.estimatedTime || Infinity);
       const bVal = new BigNumber(b.estimatedTime || Infinity);
       return aVal.comparedTo(bVal);
     });
   }
-  const receivedSorted = list.slice().sort((a, b) => {
+  const receivedSorted = resetList.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
     if (
       aVal.isZero() ||
       aVal.isNaN() ||
@@ -157,11 +231,19 @@ export const {
     sortedList = [...receivedSorted];
   }
   return sortedList.map((p) => {
-    if (p.info.provider === receivedSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === receivedSorted?.[0]?.info?.provider &&
+      p.info.providerName === receivedSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.receivedBest = true;
       p.isBest = true;
     }
-    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider && p.toAmount) {
+    if (
+      p.info.provider === gasFeeSorted?.[0]?.info?.provider &&
+      p.info.providerName === gasFeeSorted?.[0]?.info?.providerName &&
+      p.toAmount
+    ) {
       p.minGasCost = true;
     }
     return p;
@@ -175,17 +257,21 @@ export const {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
   const manualSelectQuoteResult = list.find(
-    (item) => item.info.provider === manualSelectQuoteProviders?.info.provider,
+    (item) =>
+      item.info.provider === manualSelectQuoteProviders?.info.provider &&
+      item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
-  return manualSelectQuoteProviders &&
-    (manualSelectQuoteResult?.toAmount ||
-      manualSelectQuoteResult?.limit?.max ||
-      manualSelectQuoteResult?.limit?.min)
-    ? list.find(
-        (item) =>
-          item.info.provider === manualSelectQuoteProviders.info.provider,
-      )
-    : list[0];
+  if (manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount) {
+    return list.find(
+      (item) =>
+        item.info.provider === manualSelectQuoteProviders.info.provider &&
+        item.info.providerName === manualSelectQuoteProviders.info.providerName,
+    );
+  }
+  if (list?.length > 0) {
+    return list[0];
+  }
+  return undefined;
 });
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
@@ -218,9 +304,10 @@ export const {
 });
 
 // swap state
-export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
-  ISwapAlertState[]
->([]);
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
+  states: ISwapAlertState[];
+  quoteId: string;
+}>({ states: [], quoteId: '' });
 
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(
@@ -238,17 +325,17 @@ export const {
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
 
-export const {
-  atom: swapApprovingTransactionAtom,
-  use: useSwapApprovingTransactionAtom,
-} = contextAtom<ISwapApproveTransaction | undefined>(undefined);
-
 // swap slippage
 
 export const {
   atom: swapSlippagePercentageModeAtom,
   use: useSwapSlippagePercentageModeAtom,
 } = contextAtom<ESwapSlippageSegmentKey>(ESwapSlippageSegmentKey.AUTO);
+
+export const {
+  atom: swapAutoSlippageSuggestedValueAtom,
+  use: useSwapAutoSlippageSuggestedValueAtom,
+} = contextAtom<ISwapAutoSlippageSuggestedValue | undefined>(undefined);
 
 export const {
   atom: swapSlippagePercentageCustomValueAtom,
@@ -286,7 +373,7 @@ export const {
 export const {
   atom: swapSlippageDialogOpeningAtom,
   use: useSwapSlippageDialogOpeningAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<{ status: boolean; flag?: string }>({ status: false });
 
 // swap build_tx
 export const {

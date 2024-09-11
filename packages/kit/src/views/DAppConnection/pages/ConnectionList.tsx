@@ -108,7 +108,7 @@ function ConnectionList() {
           contentContainerStyle={{
             flex: 1,
           }}
-          estimatedItemSize={48}
+          estimatedItemSize={199}
           scrollEnabled
           data={data}
           ListEmptyComponent={ConnectionListEmpty}

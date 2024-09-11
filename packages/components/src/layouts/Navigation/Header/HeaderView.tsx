@@ -72,7 +72,7 @@ function HeaderView({
 
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => (
-      <XStack>
+      <XStack className="app-region-no-drag">
         <HeaderBackButton
           canGoBack={!topStack}
           onPress={onBackCallback}
@@ -103,7 +103,7 @@ function HeaderView({
     if (isModelScreen) {
       return gtMd
         ? ({ width: 640 } as Layout)
-        : ({ width: window.screen.width } as Layout);
+        : ({ width: window.innerWidth } as Layout);
     }
     return undefined;
   }, [gtMd, isModelScreen]);
@@ -176,6 +176,7 @@ function HeaderView({
             autoFocus={headerSearchBarOptions?.autoFocus}
             placeholder={headerSearchBarOptions?.placeholder}
             onChangeText={headerSearchBarOptions?.onChangeText}
+            onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
             onBlur={headerSearchBarOptions?.onBlur}
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}

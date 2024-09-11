@@ -4,6 +4,7 @@ import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
@@ -16,6 +17,7 @@ import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
+import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -24,6 +26,7 @@ import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
+import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
@@ -48,14 +51,23 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
+    async onUnmounted() {
+      void backgroundApiProxy.serviceBatchCreateAccount.clearNetworkAccountCache();
+      // void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
+    },
   },
   {
     onMounted: () => {
       console.log('OnboardingModal onMounted');
     },
     onUnmounted: async () => {
-      await v4migrationAtom.set((v) => ({ ...v, isMigrationModalOpen: false }));
+      await v4migrationAtom.set((v) => ({
+        ...v,
+        isProcessing: false,
+        isMigrationModalOpen: false,
+      }));
       console.log('OnboardingModal onUnmounted');
+      await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
     },
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
@@ -123,6 +135,14 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.StakingModal,
     children: StakingModalRouter,
+  },
+  {
+    name: EModalRoutes.WalletAddress,
+    children: WalletAddressModalRouter,
+  },
+  {
+    name: EModalRoutes.NotificationsModal,
+    children: ModalNotificationsRouter,
   },
 ];
 

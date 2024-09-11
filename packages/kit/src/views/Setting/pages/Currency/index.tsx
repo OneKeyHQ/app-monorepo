@@ -3,20 +3,15 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Empty,
-  Page,
-  SearchBar,
-  SectionList,
-  Spinner,
-  Stack,
-} from '@onekeyhq/components';
+import type { INavSearchBarProps } from '@onekeyhq/components';
+import { Empty, Page, SectionList } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
@@ -26,31 +21,12 @@ export type ICurrencyItem = {
   unit: string;
   name: string;
   type: ICurrencyType[];
+  value: string;
 };
 
 type ISectionItem = {
   title: string;
   data: ICurrencyItem[];
-};
-
-type IListHeaderComponentProps = {
-  text: string;
-  onChangeText: (value: string) => void;
-};
-const ListHeaderComponent: FC<IListHeaderComponentProps> = ({
-  text,
-  onChangeText,
-}) => {
-  const intl = useIntl();
-  return (
-    <Stack px="$4" pt="$4">
-      <SearchBar
-        value={text}
-        onChangeText={onChangeText}
-        placeholder={intl.formatMessage({ id: ETranslations.global_search })}
-      />
-    </Stack>
-  );
 };
 
 const emptySections: ISectionItem[] = [];
@@ -80,8 +56,9 @@ const CurrencyItem: FC<{
   );
 };
 
+const keyExtractor = (_: unknown, index: number) => `${index}`;
+
 export default function SettingCurrencyModal() {
-  const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
   const [text, onChangeText] = useState('');
   const currencyRef = useRef({
@@ -92,17 +69,9 @@ export default function SettingCurrencyModal() {
     currencyRef.current as ICurrencyItem,
   );
   const intl = useIntl();
-  const currencyListResult = usePromiseResult<ICurrencyItem[]>(
-    async () => {
-      const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
-      return items;
-    },
-    [],
-    { watchLoading: true },
-  );
-
+  const [{ currencyItems }] = useCurrencyPersistAtom();
   const sections = useMemo(() => {
-    if (!currencyListResult.result) {
+    if (currencyItems.length === 0) {
       return [];
     }
     const section: Record<ICurrencyType, ICurrencyItem[]> = {
@@ -110,9 +79,7 @@ export default function SettingCurrencyModal() {
       'fiat': [],
       'popular': [],
     };
-    const data = currencyListResult.result?.filter((item) =>
-      currencyFilterFn(text, item),
-    );
+    const data = currencyItems.filter((item) => currencyFilterFn(text, item));
     for (let i = 0; i < data.length; i += 1) {
       const item = data[i];
       item.type.forEach((type) => {
@@ -135,7 +102,7 @@ export default function SettingCurrencyModal() {
         data: section.fiat,
       },
     ].filter((item) => item.data.length > 0);
-  }, [currencyListResult, text, intl]);
+  }, [currencyItems, text, intl]);
 
   const handlePress = useCallback((item: ICurrencyItem) => {
     setCurrency(item);
@@ -171,41 +138,46 @@ export default function SettingCurrencyModal() {
     [currency?.id],
   );
 
+  const headerSearchBarOptions = useMemo(
+    () =>
+      ({
+        onChangeText: ({ nativeEvent }) => {
+          const afterTrim = nativeEvent.text.trim();
+          onChangeText(afterTrim);
+        },
+        placeholder: intl.formatMessage({ id: ETranslations.global_search }),
+      } as INavSearchBarProps),
+    [intl],
+  );
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_default_currency,
         })}
+        headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
-        {currencyListResult?.isLoading ? (
-          <Stack h="$48" justifyContent="center" alignItems="center">
-            <Spinner />
-          </Stack>
-        ) : (
-          <SectionList
-            estimatedItemSize="$6"
-            ListHeaderComponent={
-              <ListHeaderComponent text={text} onChangeText={onChangeText} />
-            }
-            ListEmptyComponent={
-              <Empty
-                icon="SearchOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.global_search_no_results_desc,
-                })}
-              />
-            }
-            sections={sections ?? emptySections}
-            renderItem={renderItem}
-            renderSectionHeader={renderSectionHeader}
-            extraData={currency}
-          />
-        )}
+        <SectionList
+          estimatedItemSize={60}
+          ListEmptyComponent={
+            <Empty
+              icon="SearchOutline"
+              title={intl.formatMessage({
+                id: ETranslations.global_no_results,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.global_search_no_results_desc,
+              })}
+            />
+          }
+          sections={sections ?? emptySections}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          extraData={currency}
+          keyExtractor={keyExtractor}
+        />
       </Page.Body>
       <Page.Footer
         onConfirm={handleConfirm}

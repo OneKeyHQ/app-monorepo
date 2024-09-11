@@ -113,7 +113,7 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
 
           wmic.stdout.on('data', (buffer: Buffer) => {
             let data = buffer.toString('utf8');
-            logger.info('wmic stdout =====> ', data);
+            // logger.info('wmic stdout =====> ', data);
             data = data.replace(/DeviceID/g, '');
             data = data.replace(/VolumeName/g, '');
             const array = [...data].filter(
@@ -227,7 +227,6 @@ const init = ({ mainWindow }: { mainWindow: BrowserWindow }) => {
   const SourceFolder = path.join(resourcePath, 'res/res');
 
   const downloadFile = (fileUrl: string) => {
-    logger.info('process: ', process.env);
     logger.info('resource path: ', resourcePath);
     if (!fs.existsSync(resourcePath)) {
       logger.info('create resource path start');

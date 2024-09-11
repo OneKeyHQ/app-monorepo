@@ -35,7 +35,7 @@ function AddressInfo(props: IProps) {
     return null;
 
   return (
-    <XStack space="$2" flex={1} flexWrap="wrap">
+    <XStack gap="$2" flex={1} flexWrap="wrap">
       {addressQueryResult.walletAccountName ? (
         <Badge badgeType="success" badgeSize="sm">
           {addressQueryResult.walletAccountName}

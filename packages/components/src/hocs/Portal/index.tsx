@@ -7,6 +7,7 @@ import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 import { withStaticProperties } from 'tamagui';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
@@ -28,7 +29,9 @@ function isPortalExisted(name: string): boolean {
 
 export enum EPortalContainerConstantName {
   WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
+  SIDEBAR_BANNER = 'SIDEBAR_BANNER',
   APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+  SPOTLIGHT_OVERLAY_PORTAL = 'ONEKEY-Root-SPOTLIGHT_OVERLAY_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
@@ -43,39 +46,53 @@ export interface IPortalManager {
   destroy: (destroyCallback?: () => void) => void;
 }
 
+const MAX_RETRY_TIMES = 10;
+
+const retryDuration = (retryTimes: number) => 80 + retryTimes * 50;
+
 function renderToPortal(
   container: EPortalContainerConstantName,
   guest: ReactNode,
   callback?: () => void,
 ): IPortalManager {
-  const manager = portalManagers.get(container);
   const id = createPortalId(++portalUuid);
+  const manager: {
+    ref: RootSiblingManager | undefined;
+  } = { ref: undefined };
 
-  if (manager) {
-    manager.update(id, guest, callback);
-  } else {
-    throw new Error(
-      `react-native-root-portal: Can not find target PortalContainer named:'${container}'.`,
-    );
-  }
-
+  const retryUpdate = (retryTimes = 0) => {
+    manager.ref = portalManagers.get(container);
+    if (manager.ref) {
+      manager.ref.update(id, guest, callback);
+    } else if (retryTimes < MAX_RETRY_TIMES) {
+      // manager not exists, may be portalManagers not init yet,
+      // try again in 600ms
+      setTimeout(() => {
+        defaultLogger.app.component.renderPortalFailed(
+          'renderToPortal',
+          container,
+        );
+        retryUpdate(retryTimes + 1);
+      }, retryDuration(retryTimes));
+    }
+  };
+  retryUpdate();
   return {
     update: (updater: ReactNode, updateCallback?: () => void) => {
-      manager.update(id, updater, updateCallback);
+      manager.ref?.update(id, updater, updateCallback);
     },
     destroy: (destroyCallback?: () => void) => {
-      manager.destroy(id, destroyCallback);
+      manager.ref?.destroy(id, destroyCallback);
     },
   };
 }
 
-const MAX_RETRY_TIMES = 5;
-
 function PortalRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
+  destroyDelayMs?: number;
 }) {
-  const { children, container } = props;
+  const { children, container, destroyDelayMs = 0 } = props;
 
   if (platformEnv.isDev) {
     if (children) {
@@ -92,7 +109,7 @@ function PortalRender(props: {
         !isReactMemoElement(_owner?.child) &&
         !isReactMemoElement(_owner?.sibling)
       ) {
-        throw new Error(
+        console.error(
           `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
             container || ''
           }`,
@@ -143,9 +160,11 @@ function PortalRender(props: {
   useEffect(
     () => () => {
       // * destroy component
-      managerController.destroy();
+      setTimeout(() => {
+        managerController.destroy();
+      }, destroyDelayMs);
     },
-    [managerController],
+    [destroyDelayMs, managerController],
   );
 
   useEffect(() => {
@@ -161,11 +180,12 @@ function PortalRender(props: {
       // manager not exists, may be portalManagers not init yet,
       // try again in 600ms
       setTimeout(() => {
-        console.error(
-          `react-native-root-portal: retry load PortalContainer:'${container}'.`,
+        defaultLogger.app.component.renderPortalFailed(
+          'PortalRender',
+          container,
         );
         updateRetryTimes((i) => i + 1);
-      }, 80);
+      }, retryDuration(retryTimes));
     }
   }, [children, container, managerController, retryTimes]);
 

@@ -1,5 +1,4 @@
 import {
-  HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
   HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
   HARDWARE_SDK_VERSION,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -28,6 +27,7 @@ export const getHardwareSDKInstance = memoizee(
   async (params: {
     isPreRelease: boolean;
     hardwareConnectSrc?: EOnekeyDomain;
+    debugMode?: boolean;
   }) =>
     // eslint-disable-next-line no-async-promise-executor
     new Promise<CoreApi>(async (resolve, reject) => {
@@ -37,7 +37,7 @@ export const getHardwareSDKInstance = memoizee(
       }
 
       const settings: Partial<ConnectSettings> = {
-        debug: platformEnv.isDev,
+        debug: params.debugMode,
         fetchConfig: true,
       };
 

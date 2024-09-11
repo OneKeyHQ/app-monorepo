@@ -51,12 +51,15 @@ const DemoRootHome = () => {
           pressStyle={{
             bg: '$bgActive',
           }}
-          focusStyle={{
+          focusVisibleStyle={{
             outlineWidth: 2,
             outlineStyle: 'solid',
             outlineColor: '$focusRing',
           }}
           borderRadius="$2"
+          onPress={() => {
+            console.log('onPress Row');
+          }}
         >
           <Stack
             w="$6"

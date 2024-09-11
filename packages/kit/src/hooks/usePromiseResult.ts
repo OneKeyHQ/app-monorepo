@@ -1,20 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
+import { AppState } from 'react-native';
 
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useDeferredPromise } from './useDeferredPromise';
 import { useIsMounted } from './useIsMounted';
+import { usePrevious } from './usePrevious';
 
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
   pollingNonce?: number;
+  alwaysSetState?: boolean;
 };
 
 export type IPromiseResultOptions<T> = {
   initResult?: T; // TODO rename to initData
-  watchLoading?: boolean; // make isLoading work, which cause more once render
+  // make isLoading work, which cause more once render, use onIsLoadingChange+jotai for better performance
+  watchLoading?: boolean;
   loadingDelay?: number;
   checkIsMounted?: boolean;
   checkIsFocused?: boolean;
@@ -23,10 +29,12 @@ export type IPromiseResultOptions<T> = {
   undefinedResultIfError?: boolean;
   pollingInterval?: number;
   alwaysSetState?: boolean;
+  onIsLoadingChange?: (isLoading: boolean) => void;
 };
 
 export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
+  setResult: React.Dispatch<React.SetStateAction<T | undefined>>;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
 };
@@ -53,6 +61,61 @@ export function usePromiseResult<T>(
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
 ): IUsePromiseResultReturn<T> {
+  const defer = useDeferredPromise();
+
+  const resolveDefer = useCallback(() => {
+    defer.resolve(null);
+  }, [defer]);
+
+  const resetDefer = useCallback(() => {
+    defer.reset();
+  }, [defer]);
+
+  useEffect(() => {
+    resolveDefer();
+    // Native app will trigger visibilityChange event
+    if (platformEnv.isNative) {
+      const subscription = AppState.addEventListener(
+        'change',
+        (nextAppState) => {
+          if (nextAppState === 'active') {
+            resolveDefer();
+            return;
+          }
+          resetDefer();
+        },
+      );
+      return () => {
+        subscription.remove();
+      };
+    }
+    // Web app will trigger visibilityChange event
+    const handleVisibilityStateChange = () => {
+      const string = document.visibilityState;
+      if (string === 'hidden') {
+        resetDefer();
+      } else if (string === 'visible') {
+        resolveDefer();
+      }
+    };
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityStateChange,
+      false,
+    );
+    window.addEventListener('focus', resolveDefer);
+    window.addEventListener('blur', resetDefer);
+    return () => {
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityStateChange,
+        false,
+      );
+      window.removeEventListener('focus', resolveDefer);
+      window.removeEventListener('blur', resetDefer);
+    };
+  }, [resetDefer, resolveDefer]);
+
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
@@ -87,17 +150,18 @@ export function usePromiseResult<T>(
         checkIsMounted,
         checkIsFocused,
         undefinedResultIfError,
-        pollingInterval,
         alwaysSetState,
       } = optionsRef.current;
 
       const setLoadingTrue = () => {
+        optionsRef.current.onIsLoadingChange?.(true);
         if (watchLoading) setIsLoading(true);
       };
       const setLoadingFalse = () => {
+        optionsRef.current.onIsLoadingChange?.(false);
         if (watchLoading) setIsLoading(false);
       };
-      const shouldSetState = () => {
+      const shouldSetState = (config?: IRunnerConfig) => {
         let flag = true;
         if (checkIsMounted && !isMountedRef.current) {
           flag = false;
@@ -106,7 +170,7 @@ export function usePromiseResult<T>(
           flag = false;
         }
 
-        if (alwaysSetState) {
+        if (alwaysSetState || config?.alwaysSetState) {
           flag = true;
         }
         return flag;
@@ -121,23 +185,25 @@ export function usePromiseResult<T>(
       };
 
       const runner = async (config?: IRunnerConfig) => {
+        const { pollingInterval } = optionsRef.current;
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
         }
         try {
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;
             const { r, nonce } = await methodWithNonce({
               nonce: requestNonce,
             });
-            if (shouldSetState() && nonceRef.current === nonce) {
+            if (shouldSetState(config) && nonceRef.current === nonce) {
               setResult(r);
             }
           }
         } catch (err) {
-          if (shouldSetState() && undefinedResultIfError) {
+          console.error(err);
+          if (shouldSetState(config) && undefinedResultIfError) {
             setResult(undefined);
           } else {
             throw err;
@@ -146,7 +212,7 @@ export function usePromiseResult<T>(
           if (loadingDelay && watchLoading) {
             await timerUtils.wait(loadingDelay);
           }
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingFalse();
           }
           if (
@@ -154,9 +220,9 @@ export function usePromiseResult<T>(
             pollingNonceRef.current === config?.pollingNonce
           ) {
             await timerUtils.wait(pollingInterval);
-
+            await defer.promise;
             if (pollingNonceRef.current === config?.pollingNonce) {
-              if (shouldSetState()) {
+              if (shouldSetState(config)) {
                 void run({
                   triggerByDeps: true,
                   pollingNonce: config.pollingNonce,
@@ -175,7 +241,7 @@ export function usePromiseResult<T>(
           trailing: true,
         });
         return async (config?: IRunnerConfig) => {
-          if (shouldSetState()) {
+          if (shouldSetState(config)) {
             setLoadingTrue();
           }
           await runnerDebounced(config);
@@ -191,28 +257,55 @@ export function usePromiseResult<T>(
   const runRef = useRef(run);
   runRef.current = run;
 
+  const runnerDeps = useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => [...deps, optionsRef.current.pollingInterval],
+    [deps],
+  );
+
+  const runAtRef = useRef(0);
+  const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
-    pollingNonceRef.current += 1;
-    void runRef.current({
-      triggerByDeps: true,
-      pollingNonce: pollingNonceRef.current,
-    });
+    const callback = () => {
+      runAtRef.current = Date.now();
+      pollingNonceRef.current += 1;
+      void runRef.current({
+        triggerByDeps: true,
+        pollingNonce: pollingNonceRef.current,
+      });
+    };
+    // execute immediately when the timer has not changed.
+    if (prevPollingInterval === optionsRef.current.pollingInterval) {
+      callback();
+      // the interval duration of the call needs to be readjusted after the polling interval duration changes。
+    } else {
+      setTimeout(
+        callback,
+        Date.now() - runAtRef.current >
+          (optionsRef.current.pollingInterval || 0)
+          ? 0
+          : optionsRef.current.pollingInterval,
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
   useEffect(() => {
-    if (
-      isFocusedRefValue &&
-      optionsRef.current.checkIsFocused &&
-      isDepsChangedOnBlur.current
-    ) {
-      isDepsChangedOnBlur.current = false;
-      void runRef.current({ pollingNonce: pollingNonceRef.current });
+    if (optionsRef.current.checkIsFocused) {
+      if (isFocusedRefValue) {
+        resolveDefer();
+      } else {
+        resetDefer();
+      }
+      if (isFocusedRefValue && isDepsChangedOnBlur.current) {
+        isDepsChangedOnBlur.current = false;
+        void runRef.current({ pollingNonce: pollingNonceRef.current });
+      }
     }
-  }, [isFocusedRefValue]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer]);
 
-  return { result, isLoading, run };
+  return { result, isLoading, run, setResult };
 }
 
 export const useAsyncCall = usePromiseResult;

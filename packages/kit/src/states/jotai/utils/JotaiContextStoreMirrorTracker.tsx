@@ -17,6 +17,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
+import { EarnProvider } from '../../../views/Earn/EarnProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
@@ -147,6 +148,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.swapModal: {
             return <SwapModalRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.earn: {
+            return <EarnProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

@@ -3,13 +3,21 @@ import natsort from 'natsort';
 
 import { ListView, Page } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useGalleryPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 const Index = () => {
+  const [gallery, setGallery] = useGalleryPersistAtom();
+  const { galleryLastRoute } = gallery;
+
   const navigation = useNavigation();
   const componentsRoute = Object.values(EGalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .sort((a, b) => natsort({ insensitive: true })(a, b));
+
+  if (galleryLastRoute) {
+    componentsRoute.unshift(galleryLastRoute);
+  }
 
   return (
     <Page>
@@ -17,7 +25,9 @@ const Index = () => {
         <ListView
           estimatedItemSize="$11"
           flex={1}
-          paddingVertical={20}
+          contentContainerStyle={{
+            py: 20,
+          }}
           data={componentsRoute}
           renderItem={({ item }) => (
             <ListItem
@@ -27,8 +37,14 @@ const Index = () => {
               onPress={() => {
                 // @ts-expect-error
                 navigation.navigate(item);
+
+                setGallery((v) => ({
+                  ...v,
+                  galleryLastRoute: item,
+                }));
               }}
               title={
+                (galleryLastRoute === item ? '📌 ' : '') +
                 item.replace('component-', '').charAt(0).toUpperCase() +
                 item.replace('component-', '').substring(1)
               }

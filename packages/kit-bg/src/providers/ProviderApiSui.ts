@@ -8,6 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
@@ -90,6 +91,7 @@ class ProviderApiSui extends ProviderApiBase {
 
   @providerApiMethod()
   async requestPermissions(request: IJsBridgeMessagePayload): Promise<boolean> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const account = await this.sui_accounts(request);
     if (account) {
       return true;
@@ -142,6 +144,7 @@ class ProviderApiSui extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignAndExecuteTransactionBlockInput,
   ): Promise<SuiTransactionBlockResponse> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -174,6 +177,7 @@ class ProviderApiSui extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignTransactionBlockInput,
   ): Promise<ISignTransactionBlockOutput> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -204,6 +208,7 @@ class ProviderApiSui extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISignMessageInput,
   ): Promise<SignedMessage> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -213,7 +218,7 @@ class ProviderApiSui extends ProviderApiBase {
       accountId: accountId ?? '',
       networkId: networkId ?? '',
       unsignedMessage: {
-        type: EMessageTypesCommon.SIMPLE_SIGN,
+        type: EMessageTypesCommon.HEX_MESSAGE,
         message: params.messageSerialize,
         secure: true,
       },
@@ -233,6 +238,7 @@ class ProviderApiSui extends ProviderApiBase {
     bytes: string;
     signature: string;
   }> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const result = await this.signMessage(request, params);
     return {
       bytes: result.messageBytes,

@@ -1,0 +1,87 @@
+diff --git a/node_modules/@tamagui/switch/dist/cjs/createSwitch.js b/node_modules/@tamagui/switch/dist/cjs/createSwitch.js
+index 6d58745..33ce829 100644
+--- a/node_modules/@tamagui/switch/dist/cjs/createSwitch.js
++++ b/node_modules/@tamagui/switch/dist/cjs/createSwitch.js
+@@ -107,7 +107,7 @@ function createSwitch(createProps) {
+               Frame,
+               {
+                 ref: switchRef,
+-                tag: "button",
++                tag: _props.tag ? _props.tag : "button",
+                 ...import_core.isWeb && { type: "button" },
+                 ...switchProps,
+                 ...!disableActiveTheme && {
+diff --git a/node_modules/@tamagui/switch/dist/esm/createSwitch.js b/node_modules/@tamagui/switch/dist/esm/createSwitch.js
+index 1aba85e..9d650be 100644
+--- a/node_modules/@tamagui/switch/dist/esm/createSwitch.js
++++ b/node_modules/@tamagui/switch/dist/esm/createSwitch.js
+@@ -94,7 +94,7 @@ function createSwitch(createProps) {
+               Frame,
+               {
+                 ref: switchRef,
+-                tag: "button",
++                tag: _props.tag ? _props.tag : "button",
+                 ...isWeb && { type: "button" },
+                 ...switchProps,
+                 ...!disableActiveTheme && {
+diff --git a/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs b/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
+index dee26b0..106f065 100644
+--- a/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
++++ b/node_modules/@tamagui/switch/dist/esm/createSwitch.mjs
+@@ -105,7 +105,7 @@ function createSwitch(createProps) {
+         },
+         children: [/* @__PURE__ */jsx(Frame, {
+           ref: switchRef,
+-          tag: "button",
++          tag: _props.tag ? _props.tag : "button",
+           ...(isWeb && {
+             type: "button"
+           }),
+@@ -120,7 +120,7 @@ function createSwitch(createProps) {
+             alignSelf: "stretch",
+             flex: 1,
+             onLayout: e => {
+-              setFrameWidth(e.nativeEvent.layout.width);
++              setFrameWidth(Math.max(e.nativeEvent.layout.width, propsActive.width - 4));
+             },
+             children: switchProps.children
+           })
+diff --git a/node_modules/@tamagui/switch/dist/jsx/createSwitch.js b/node_modules/@tamagui/switch/dist/jsx/createSwitch.js
+index 1aba85e..9d650be 100644
+--- a/node_modules/@tamagui/switch/dist/jsx/createSwitch.js
++++ b/node_modules/@tamagui/switch/dist/jsx/createSwitch.js
+@@ -94,7 +94,7 @@ function createSwitch(createProps) {
+               Frame,
+               {
+                 ref: switchRef,
+-                tag: "button",
++                tag: _props.tag ? _props.tag : "button",
+                 ...isWeb && { type: "button" },
+                 ...switchProps,
+                 ...!disableActiveTheme && {
+diff --git a/node_modules/@tamagui/switch/dist/jsx/createSwitch.mjs b/node_modules/@tamagui/switch/dist/jsx/createSwitch.mjs
+index dee26b0..e612d5a 100644
+--- a/node_modules/@tamagui/switch/dist/jsx/createSwitch.mjs
++++ b/node_modules/@tamagui/switch/dist/jsx/createSwitch.mjs
+@@ -105,7 +105,7 @@ function createSwitch(createProps) {
+         },
+         children: [/* @__PURE__ */jsx(Frame, {
+           ref: switchRef,
+-          tag: "button",
++          tag: _props.tag ? _props.tag : "button",
+           ...(isWeb && {
+             type: "button"
+           }),
+diff --git a/node_modules/@tamagui/switch/src/createSwitch.tsx b/node_modules/@tamagui/switch/src/createSwitch.tsx
+index cfdd0b3..e2de930 100644
+--- a/node_modules/@tamagui/switch/src/createSwitch.tsx
++++ b/node_modules/@tamagui/switch/src/createSwitch.tsx
+@@ -196,7 +196,7 @@ export function createSwitch<
+         >
+           <Frame
+             ref={switchRef}
+-            tag="button"
++            tag={props.tag ?? "button"}
+             {...(isWeb && { type: 'button' })}
+             {...(switchProps as any)}
+             {...(!disableActiveTheme && {

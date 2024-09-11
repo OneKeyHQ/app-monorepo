@@ -1,6 +1,7 @@
 import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
 import { getCoreChainApiScopeByImpl } from '@onekeyhq/core/src/instance/coreChainApi';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -29,10 +30,6 @@ export class V4MigrationManagerBase {
     return v4context;
   }
 
-  getMigrationPassword() {
-    return this.backgroundApi.serviceV4Migration.getMigrationPassword();
-  }
-
   getCoreApi({ networkId }: { networkId: string }): CoreChainScopeBase {
     const impl = networkUtils.getNetworkImpl({ networkId });
     const coreApi = getCoreChainApiScopeByImpl({ impl });
@@ -48,6 +45,24 @@ export class V4MigrationManagerBase {
       ids: v4wallet.accounts,
     });
     const v4accounts: IV4DBAccount[] = r?.records || [];
-    return v4accounts.filter(Boolean);
+    const result = v4accounts.filter(Boolean).sort((a, b) => {
+      if (a.coinType === COINTYPE_ETH && b.coinType === COINTYPE_ETH) {
+        // BIP44 first, Ledger live second
+        if (a?.id?.endsWith?.('--LedgerLive')) {
+          return 1;
+        }
+        return 0;
+      }
+
+      // EVM first
+      if (a.coinType === COINTYPE_ETH) {
+        if (a?.id?.endsWith?.('--LedgerLive')) {
+          return 1;
+        }
+        return -1;
+      }
+      return 0;
+    });
+    return result;
   }
 }

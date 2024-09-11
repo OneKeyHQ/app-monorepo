@@ -35,6 +35,7 @@ export interface IMarketToken {
   priceChangePercentage24H: number;
   priceChangePercentage7D: number;
   sparkline: number[];
+  lastUpdated: string;
 }
 
 export interface IMarketDetailAth {
@@ -80,6 +81,7 @@ export interface IMarketDetailStats {
   totalSupply: number;
   maxSupply: number;
   currentPrice: string;
+  lastUpdated: string;
 }
 
 export interface IMarketTokenExplorer {
@@ -190,5 +192,4 @@ export interface IMarketWatchListItem {
 
 export interface IMarketWatchListData {
   data: IMarketWatchListItem[];
-  loading?: boolean;
 }

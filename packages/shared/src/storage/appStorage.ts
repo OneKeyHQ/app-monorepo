@@ -2,18 +2,32 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import platformEnv from '../platformEnv';
 
 import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
-import MockStorage from './MockStorage';
+import mockStorageInstance from './instance/mockStorageInstance';
+import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 const appStorage: AsyncStorageStatic = // iOS/Android AsyncStorage
-  AsyncStorage;
+  nativeAsyncStorageInstance;
 
-export const mockStorage = new MockStorage();
+const originalClear = appStorage.clear;
+// https://stackoverflow.com/questions/46736268/react-native-asyncstorage-clear-is-failing-on-ios
+appStorage.clear = async () => {
+  const asyncStorageKeys = await appStorage.getAllKeys();
+  if (asyncStorageKeys.length > 0) {
+    if (platformEnv.isNativeAndroid) {
+      await originalClear.call(appStorage);
+    } else if (platformEnv.isNativeIOS) {
+      await appStorage.multiRemove(asyncStorageKeys);
+    }
+  }
+};
+
+export const mockStorage = mockStorageInstance;
 
 /*
 - Extension internal: ExtensionStorage

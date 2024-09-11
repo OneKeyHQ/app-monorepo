@@ -46,40 +46,63 @@ const SwapTxHistoryListCell = ({
 }: ISwapTxHistoryListCellProps) => {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
+  const statusBadge = useMemo(() => {
+    if (item.status === ESwapTxHistoryStatus.FAILED) {
+      return (
+        <Badge badgeType="critical" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_failed,
+          })}
+        </Badge>
+      );
+    }
+    if (item.status === ESwapTxHistoryStatus.CANCELED) {
+      return (
+        <Badge badgeType="warning" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_canceled,
+          })}
+        </Badge>
+      );
+    }
+    if (item.status === ESwapTxHistoryStatus.CANCELING) {
+      return (
+        <Badge badgeType="warning" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_cancelling,
+          })}
+        </Badge>
+      );
+    }
+    return null;
+  }, [intl, item.status]);
   const subContent = useMemo(() => {
     const { created } = item.date;
     const dateStr = formatDate(new Date(created), {
       hideYear: true,
-      onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
+      onlyTime:
+        item.status !== ESwapTxHistoryStatus.PENDING &&
+        item.status !== ESwapTxHistoryStatus.CANCELING,
     });
+
     return (
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
-        {item.status === ESwapTxHistoryStatus.FAILED ||
-        item.status === ESwapTxHistoryStatus.DISCARD ? (
-          <Badge badgeType="critical" badgeSize="lg">
-            {intl.formatMessage({
-              id:
-                item.status === ESwapTxHistoryStatus.DISCARD
-                  ? ETranslations.swap_history_status_discard
-                  : ETranslations.swap_history_status_failed,
-            })}
-          </Badge>
-        ) : null}
+        {statusBadge}
       </XStack>
     );
-  }, [formatDate, intl, item.date, item.status]);
+  }, [formatDate, item.date, item.status, statusBadge]);
 
   const title = useMemo(
     () => (
-      <XStack alignItems="center" space="$1">
-        <SizableText size="$bodyLgMedium">
+      <XStack alignItems="center" gap="$1" flex={1} flexWrap="wrap">
+        <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
           {item.baseInfo.fromToken.symbol.toUpperCase()}
         </SizableText>
         <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
-        <SizableText size="$bodyLgMedium">
+        <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
           {item.baseInfo.toToken.symbol.toUpperCase()}
         </SizableText>
       </XStack>
@@ -100,6 +123,7 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text flex={1} primary={title} secondary={subContent} />
       <ListItem.Text
         align="right"
+        flexShrink={0}
         primary={
           <SizableText color="$textSuccess">
             +

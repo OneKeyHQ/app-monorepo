@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Icon,
@@ -9,12 +11,15 @@ import {
   Stack,
   XStack,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
 
 export function MarketTokenAddress({
   tokenName,
@@ -33,6 +38,7 @@ export function MarketTokenAddress({
   tokenNameSize?: ISizableTextProps['size'];
   addressSize?: ISizableTextProps['size'];
 }) {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   const { result: network } = usePromiseResult(
     () =>
@@ -45,13 +51,13 @@ export function MarketTokenAddress({
       overrideIsFocused: () => false,
     },
   );
+  const dialog = useDialogInstance();
   const handleOpenUrl = useCallback(async () => {
-    if (network?.explorers[0].address) {
-      openUrlExternal(
-        network.explorers[0].address.replace('{address}', address),
-      );
+    if (platformEnv.isNative) {
+      await dialog.close();
     }
-  }, [address, network?.explorers]);
+    void openExplorerAddressUrl({ networkId, address });
+  }, [dialog, networkId, address]);
   const renderIcon = useCallback(() => {
     if (uri) {
       return (
@@ -76,9 +82,9 @@ export function MarketTokenAddress({
     );
   }, [networkId, uri]);
   return (
-    <XStack space="$1.5" ai="center">
+    <XStack gap="$1.5" ai="center">
       {renderIcon()}
-      <XStack space="$2">
+      <XStack gap="$2">
         <SizableText color={tokenNameColor} size={tokenNameSize}>{`${
           tokenName || network?.name || ''
         }:`}</SizableText>
@@ -91,6 +97,7 @@ export function MarketTokenAddress({
         )}`}</SizableText>
       </XStack>
       <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_copy })}
         variant="tertiary"
         color="$iconSubdued"
         icon="Copy1Outline"
@@ -99,6 +106,9 @@ export function MarketTokenAddress({
         onPress={() => copyText(address)}
       />
       <IconButton
+        title={intl.formatMessage({
+          id: ETranslations.global_view_in_blockchain_explorer,
+        })}
         variant="tertiary"
         color="$iconSubdued"
         icon="OpenOutline"

@@ -19,7 +19,6 @@ import type {
   IDBAccount,
   IDBSimpleAccount,
   IDBUtxoAccount,
-  IDBVariantAccount,
 } from '../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../types';
 
@@ -136,6 +135,11 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       address,
       isUrlAccount,
     });
+
+    // const { normalizedAddress } = await this.vault.validateAddress(
+    //   address || '',
+    // );
+
     const account: IDBSimpleAccount = {
       id,
       name: name || '',
@@ -148,53 +152,6 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       pub: '',
       path: '',
     };
-    return Promise.resolve([account]);
-  }
-
-  async basePrepareVariantWatchingAccounts(
-    params: IPrepareWatchingAccountsParams,
-    options: {
-      impl?: string;
-      coinType?: string;
-    } = {},
-  ): Promise<IDBAccount[]> {
-    const { address, name, createAtNetwork, isUrlAccount } = params;
-    if (!address) {
-      throw new InvalidAddress();
-    }
-    if (!createAtNetwork) {
-      throw new Error(
-        'basePrepareSimpleWatchingAccounts ERROR: createAtNetwork is not defined',
-      );
-    }
-
-    const settings = await this.getVaultSettings();
-    const coinType = options.coinType || settings.coinTypeDefault;
-    const impl = options.impl || settings.impl;
-
-    const id = accountUtils.buildWatchingAccountId({
-      coinType,
-      address,
-      isUrlAccount,
-    });
-
-    const { normalizedAddress } = await this.vault.validateAddress(
-      address || '',
-    );
-
-    const account: IDBVariantAccount = {
-      id,
-      name: name || '',
-      type: EDBAccountType.VARIANT,
-      path: '',
-      coinType,
-      pub: '',
-      impl,
-      createAtNetwork,
-      address: '',
-      addresses: { [this.networkId]: normalizedAddress },
-    };
-
     return Promise.resolve([account]);
   }
 }

@@ -7,7 +7,12 @@ import { ActionBase } from './ActionBase';
 
 import type { IActionProps } from './type';
 
-const ActionBuy = ({ networkId, tokenAddress, accountId }: IActionProps) => {
+const ActionBuy = ({
+  networkId,
+  tokenAddress,
+  accountId,
+  walletType,
+}: IActionProps) => {
   const intl = useIntl();
   return (
     <ActionBase
@@ -17,6 +22,7 @@ const ActionBuy = ({ networkId, tokenAddress, accountId }: IActionProps) => {
       label={intl.formatMessage({ id: ETranslations.global_buy })}
       icon="PlusLargeOutline"
       type="buy"
+      walletType={walletType}
     />
   );
 };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -41,7 +41,6 @@ const SwapToAnotherAddressPage = () => {
   const { accountInfo, networkId, address } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
-
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const intl = useIntl();
@@ -54,12 +53,13 @@ const SwapToAnotherAddressPage = () => {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-
   useEffect(() => {
-    if (address && address !== paramAddress) {
+    if (address && accountInfo?.account?.address === address) {
       form.setValue('address', { raw: address });
+    } else if (paramAddress) {
+      form.setValue('address', { raw: paramAddress });
     }
-  }, [address, form, paramAddress]);
+  }, [accountInfo?.account?.address, address, form, paramAddress]);
 
   const handleOnOpenAccountSelector = useCallback(() => {
     setSettings((v) => ({
@@ -92,11 +92,20 @@ const SwapToAnotherAddressPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: false,
     }));
-  }, [setSettings]);
+    setSwapToAddress((v) => ({ ...v, address: undefined }));
+  }, [setSwapToAddress, setSettings]);
+
+  const accountSelector = useMemo(
+    () => ({
+      num: 1,
+      onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
+    }),
+    [handleOnOpenAccountSelector],
+  );
 
   return accountInfo && accountInfo?.network?.id ? (
-    <Page>
-      <Page.Body px="$5" space="$4">
+    <Page scrollEnabled>
+      <Page.Body px="$5" gap="$4">
         <Form form={form}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_recipient })}
@@ -122,11 +131,9 @@ const SwapToAnotherAddressPage = () => {
               networkId={accountInfo?.network?.id}
               enableAddressBook
               enableWalletName
+              accountId={accountInfo?.account?.id}
               contacts
-              accountSelector={{
-                num: 1,
-                onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
-              }}
+              accountSelector={accountSelector}
             />
           </Form.Field>
         </Form>

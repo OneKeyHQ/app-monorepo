@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
-
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useAccountSelectorSceneInfo,
   useActiveAccount,
@@ -20,6 +19,8 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
   const { selectedAccount } = useSelectedAccount({ num });
   const { sceneName } = useAccountSelectorSceneInfo();
+  const accountRef = useRef(activeAccount?.account);
+  accountRef.current = activeAccount?.account;
   const address = activeAccount?.account?.address;
   const networkId = activeAccount?.network?.id;
   const networkCode = activeAccount?.network?.code;
@@ -43,11 +44,15 @@ export function UrlAccountAutoReplaceHistory({ num }: { num: number }) {
         isFocusedRef.current
       ) {
         timerRef.current = setTimeout(() => {
-          replaceUrlAccountLandingRoute({ networkId, networkCode, address });
+          void replaceUrlAccountLandingRoute({
+            account: accountRef.current,
+            networkId,
+            address,
+          });
         }, delay);
       }
     },
-    [address, networkId, networkCode, sceneName],
+    [address, networkId, sceneName],
   );
 
   useEffect(() => {

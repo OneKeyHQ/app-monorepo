@@ -11,7 +11,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
-import { useBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupToggleDialog';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -19,11 +19,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -45,6 +46,13 @@ function FinalizeWalletSetupPage({
   const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
+  const [onboardingError, setOnboardingError] = useState<
+    IOneKeyError | undefined
+  >(undefined);
+
+  useEffect(() => {
+    setOnboardingError(undefined);
+  }, []);
 
   const actions = useAccountSelectorActions();
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
@@ -102,6 +110,19 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
+    ) => {
+      setOnboardingError(event.error);
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    };
+  }, []);
+
   const isFirstCreateWallet = useRef(false);
   const readIsFirstCreateWallet = async () => {
     const { isOnboardingDone } =
@@ -146,10 +167,14 @@ function FinalizeWalletSetupPage({
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
-                enterStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                enterStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               >
                 <Icon name="CheckRadioSolid" color="$iconSuccess" size="$16" />
               </Stack>
@@ -158,10 +183,14 @@ function FinalizeWalletSetupPage({
                 key="spinner"
                 size="large"
                 animation="quick"
-                exitStyle={{
-                  opacity: 0,
-                  scale: 0,
-                }}
+                exitStyle={
+                  platformEnv.isNativeAndroid
+                    ? undefined
+                    : {
+                        opacity: 0,
+                        scale: 0,
+                      }
+                }
               />
             )}
           </AnimatePresence>
@@ -181,6 +210,14 @@ function FinalizeWalletSetupPage({
           </Stack>
         </AnimatePresence>
       </Page.Body>
+      {onboardingError ? (
+        <Page.Footer
+          onCancel={() => {
+            //
+            navigation.pop();
+          }}
+        />
+      ) : null}
     </Page>
   );
 }

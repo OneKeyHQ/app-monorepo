@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Empty,
+  Icon,
   Image,
   SectionList,
   SizableText,
@@ -28,47 +29,60 @@ const getConnectedSiteTitle = (url: string) => {
 };
 
 const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
-  <YStack
-    borderWidth={StyleSheet.hairlineWidth}
-    mx="$5"
-    mb="$3"
-    borderRadius="$3"
-    borderColor="$borderSubdued"
-    overflow="hidden"
-  >
-    <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-      <SizableText size="$bodyMd">
-        {formatTime(new Date(item.createdAt), { hideSeconds: true })}
-      </SizableText>
-    </XStack>
-    <XStack p="$3" alignItems="center">
-      <Image
-        borderRadius="$full"
-        overflow="hidden"
-        width={40}
-        height={40}
-        src={item.logo}
-        mr="$3"
-      />
-      <SizableText size="$bodyLgMedium">
-        {getConnectedSiteTitle(item.url)}
-      </SizableText>
-    </XStack>
-    <YStack p="$3" backgroundColor="$bgSubdued">
-      {item.networkIds.map((networkId, i) => (
-        <XStack key={networkId} alignItems="center">
-          <Stack mr="$2">
-            <NetworkAvatar size={16} networkId={networkId} />
-          </Stack>
-          <SizableText color="$textSubdued">
-            {item.networks[i].name}
-            {' • '}
-            {utils.shortenAddress({ address: item.addresses[i] })}
-          </SizableText>
-        </XStack>
-      ))}
+  <Stack px="$5" pb="$3">
+    <YStack
+      borderWidth={StyleSheet.hairlineWidth}
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      overflow="hidden"
+    >
+      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+        <SizableText size="$bodyMd">
+          {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+        </SizableText>
+      </XStack>
+      <XStack p="$3" alignItems="center">
+        <Image
+          borderRadius="$full"
+          overflow="hidden"
+          width={40}
+          height={40}
+          mr="$3"
+        >
+          <Image.Source
+            source={{
+              uri: item.logo,
+            }}
+          />
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$gray5"
+            delayMs={1000}
+          >
+            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
+          </Image.Fallback>
+        </Image>
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          {`${getConnectedSiteTitle(item.url)}`}
+        </SizableText>
+      </XStack>
+      <YStack p="$3" backgroundColor="$bgSubdued">
+        {item.networkIds.map((networkId, i) => (
+          <XStack key={networkId} alignItems="center">
+            <Stack mr="$2">
+              <NetworkAvatar size={16} networkId={networkId} />
+            </Stack>
+            <SizableText color="$textSubdued" size="$bodySmMedium">
+              {item.networks[i].name}
+              {' • '}
+              {utils.shortenAddress({ address: item.addresses[i] })}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
     </YStack>
-  </YStack>
+  </Stack>
 );
 
 type ISectionListData = {
@@ -91,6 +105,12 @@ const ListEmptyComponent = () => {
   );
 };
 
+const keyExtractor = (item: unknown) => {
+  const createdAt = (item as IConnectedSite)?.createdAt;
+  const url = (item as IConnectedSite)?.url;
+  return `${url}${createdAt}`;
+};
+
 export const ConnectedSites = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
     backgroundApiProxy.serviceSignature.getConnectedSites(params),
@@ -99,7 +119,7 @@ export const ConnectedSites = () => {
   return (
     <SectionList
       sections={sections}
-      estimatedItemSize="$36"
+      estimatedItemSize={154}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}
       renderSectionHeader={({ section }) => (
@@ -107,6 +127,7 @@ export const ConnectedSites = () => {
           title={(section as ISectionListData).title}
         />
       )}
+      keyExtractor={keyExtractor}
       renderItem={({ item }) => <ConnectedSiteItem item={item} />}
       ListEmptyComponent={ListEmptyComponent}
       onEndReached={onEndReached}

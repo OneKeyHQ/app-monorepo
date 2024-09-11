@@ -1,3 +1,4 @@
+import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_ADA,
   IMPL_ADA,
@@ -29,6 +30,10 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  supportExportedSecretKeys: [ECoreApiExportedSecretKeyType.xprvt],
+
+  dappInteractionEnabled: true,
+
   minTransferAmount: '1',
   defaultFeePresetIndex: 0,
 
@@ -39,6 +44,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  estimatedFeePollingInterval: 600,
 
   accountDeriveInfo,
   networkInfo: {

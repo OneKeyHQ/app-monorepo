@@ -66,7 +66,7 @@ Execute the following commands in the root directory to develop different busine
 - `yarn app:ios`: connect to iphone device via USB for development debugging
 - `yarn app:android`: develop android
 - `yarn app:desktop`: development in desktop mode
-- `yarn app:web`: development in extension mode
+- `yarn app:ext`: development in extension mode
 
 
 ## 💬 Docs in your languages
@@ -127,8 +127,3 @@ Execute the following commands in the root directory to develop different busine
 <a href="https://github.com/onekeyhq/app-monorepo/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=onekeyhq/app-monorepo&max=240&columns=24"/>
 </a>
-
-## ⚖️ License
-
-OneKey is available under the [Apache-2.0 license](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license.
-Free for commercial and non-commercial use.

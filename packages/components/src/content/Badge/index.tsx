@@ -28,6 +28,7 @@ const BadgeFrame = styled(XStack, {
   paddingVertical: '$0.5',
   borderRadius: '$1',
   borderCurve: 'continuous',
+  maxWidth: '100%',
   variants: {
     badgeType: {
       success: {
@@ -55,6 +56,9 @@ const BadgeFrame = styled(XStack, {
 
 const BadgeText = styled(SizableText, {
   name: 'BadgeText',
+  style: {
+    wordBreak: 'break-all',
+  },
   context: BadgeContext,
   variants: {
     badgeSize: {
@@ -99,7 +103,7 @@ const BadgeComponent = BadgeFrame.styleable((props, ref) => {
       {!isString ? (
         children
       ) : (
-        <BadgeText selectable={false}>{children}</BadgeText>
+        <BadgeText userSelect="none">{children}</BadgeText>
       )}
     </BadgeFrame>
   );

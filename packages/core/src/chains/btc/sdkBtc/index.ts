@@ -25,7 +25,7 @@ import type { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/Provid
 import {
   CKDPub,
   ecc,
-  generateRootFingerprint,
+  generateRootFingerprintHexAsync,
   secp256k1,
 } from '../../../secret';
 import { EAddressEncodings } from '../../../types';
@@ -135,6 +135,18 @@ export const loadOPReturn = (
 
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
+export const isNativeSegwitPath = (pathPrefix: string) =>
+  pathPrefix.startsWith(`m/84'/`);
+
+// eslint-disable-next-line spellcheck/spell-checker
+// Taproot addresses start with 'bc1p' on mainnet
+// eslint-disable-next-line spellcheck/spell-checker
+// Taproot addresses start with 'tb1p' on testnet
+export const isTaprootAddress = (address: string): boolean =>
+  address.startsWith('bc1p') || address.startsWith('tb1p');
+
+export const isNativeSegwitAddress = (address: string): boolean =>
+  address.startsWith('bc1q') || address.startsWith('tb1q');
 
 export function scriptPkToAddress(
   scriptPk: string | Buffer,
@@ -190,7 +202,10 @@ export function getInputsToSignFromPsbt({
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
         // P2TR taproot
-        if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+        if (
+          (isTaprootAddress(account.address) || isTaprootPath(account.path)) &&
+          !v.tapInternalKey
+        ) {
           // slice pub length from 33 to 32
           v.tapInternalKey = toXOnly(
             Buffer.from(checkIsDefined(account.pub), 'hex'),
@@ -216,7 +231,29 @@ export function isBRC20Token(tokenAddress?: string) {
   );
 }
 
-export function validateBtcXpub({ xpub }: { xpub: string }): IXpubValidation {
+function isMatchedByRegex({ regex, value }: { regex: string; value: string }) {
+  if (regex) {
+    const regexRule = new RegExp(regex);
+    if (!regexRule.test(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function validateBtcXpub({
+  xpub,
+  regex,
+}: {
+  xpub: string;
+  regex: string;
+}): IXpubValidation {
+  if (!isMatchedByRegex({ regex, value: xpub })) {
+    return {
+      isValid: false,
+    };
+  }
+
   let isValid = false;
   try {
     bs58check.decode(xpub);
@@ -231,9 +268,17 @@ export function validateBtcXpub({ xpub }: { xpub: string }): IXpubValidation {
 
 export function validateBtcXprvt({
   xprvt,
+  regex,
 }: {
   xprvt: string;
+  regex: string;
 }): IXprvtValidation {
+  if (!isMatchedByRegex({ regex, value: xprvt })) {
+    return {
+      isValid: false,
+    };
+  }
+
   let isValid = false;
   try {
     bs58check.decode(xprvt);
@@ -246,6 +291,7 @@ export function validateBtcXprvt({
   };
 }
 
+// validateBtcAddress
 export function validateBtcAddress({
   network,
   address,
@@ -343,7 +389,7 @@ export function getBtcXpubFromXprvt({
   const xprv = bufferUtils.toBuffer(privateKeyRaw);
 
   let xpub = '';
-  let pubKey = '';
+  // let pubKey = ''; // use getPublicKeyFromXpub get certain relPath 0/0 publicKey
 
   const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
 
@@ -372,11 +418,11 @@ export function getBtcXpubFromXprvt({
           xprv.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
         );
         // const publicKeyStr1 = keyPair.publicKey.toString('hex');
-        const publicKeyStr2 = publicKey.toString('hex');
+        // const publicKeyStr2 = publicKey.toString('hex');
         // TODO publicKey is different with HD account
         //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
         //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
-        pubKey = publicKeyStr2;
+        // pubKey = publicKeyStr2;
       } catch (e) {
         console.error(e);
       }
@@ -386,7 +432,7 @@ export function getBtcXpubFromXprvt({
   if (xpub === '') {
     throw new OneKeyInternalError('Invalid X Private Key.');
   }
-  return { xpub, pubKey };
+  return { xpub };
 }
 
 export function getBtcVersionBytesToEncodings({
@@ -449,7 +495,7 @@ export function getBtcXpubSupportedAddressEncodings({
   };
 }
 
-export function buildBtcXpubSegwit({
+export async function buildBtcXpubSegwitAsync({
   xpub,
   addressEncoding: encoding,
   hdAccountPayload,
@@ -472,13 +518,13 @@ export function buildBtcXpubSegwit({
     // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
     if (hdAccountPayload) {
       const { curveName, hdCredential, password, path } = hdAccountPayload;
-      const rootFingerprint = generateRootFingerprint(
+      const rootFingerprint = await generateRootFingerprintHexAsync({
         curveName,
         hdCredential,
         password,
-      );
+      });
       const fingerprint = Number(
-        Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+        Buffer.from(rootFingerprint, 'hex').readUInt32BE(0) || 0,
       )
         .toString(16)
         .padStart(8, '0');
@@ -588,7 +634,7 @@ export type IGetAddressFromXpubResult = {
   publicKeys: Record<string, string>;
   xpubSegwit: string;
 };
-export function getAddressFromXpub({
+export async function getAddressFromXpub({
   curve,
   network,
   xpub,
@@ -614,7 +660,7 @@ export function getAddressFromXpub({
     encoding = supportEncodings[0];
   }
 
-  const xpubSegwit = buildBtcXpubSegwit({
+  const xpubSegwit = await buildBtcXpubSegwitAsync({
     xpub,
     addressEncoding: encoding,
   });
@@ -643,8 +689,8 @@ export function getAddressFromXpub({
       }
 
       const index = part.endsWith("'")
-        ? parseInt(part.slice(0, -1)) + 2 ** 31
-        : parseInt(part);
+        ? parseInt(part.slice(0, -1), 10) + 2 ** 31
+        : parseInt(part, 10);
       extendedKey = CKDPub(curve, extendedKey, index);
       cache.set(relPath, extendedKey);
     }
@@ -702,4 +748,71 @@ export function convertBtcScriptTypeForHardware(sdkScriptType: string) {
     throw new Error(`${sdkScriptType} not found in map`);
   }
   return val;
+}
+
+export function getBtcForkVersionBytesByAddressEncoding({
+  addressEncoding,
+  btcForkNetwork,
+}: {
+  btcForkNetwork: IBtcForkNetwork;
+  addressEncoding: EAddressEncodings;
+}): IBtcForkNetwork['bip32'] {
+  let versionBytes = btcForkNetwork?.segwitVersionBytes?.[addressEncoding];
+
+  // legacy address encoding
+  if (
+    !versionBytes &&
+    addressEncoding === EAddressEncodings.P2PKH &&
+    btcForkNetwork?.bip32
+  ) {
+    versionBytes = btcForkNetwork?.bip32;
+  }
+
+  if (!versionBytes) {
+    throw new Error(
+      `getBtcForkVersionBytesByAddressEncoding ERROR: Invalid addressEncoding ${addressEncoding}`,
+    );
+  }
+
+  return versionBytes;
+}
+
+export function btcForkVersionBytesToBuffer({
+  versionBytes,
+}: {
+  versionBytes: number;
+}) {
+  return Buffer.from(versionBytes.toString(16).padStart(8, '0'), 'hex');
+}
+
+export function convertBtcForkXpub({
+  btcForkNetwork,
+  xpub,
+  addressEncoding,
+}: {
+  btcForkNetwork: IBtcForkNetwork;
+  xpub: string;
+  addressEncoding: EAddressEncodings | undefined;
+}) {
+  if (!addressEncoding) {
+    throw new Error('convertBtcForkXpub ERROR: Invalid addressEncoding');
+  }
+  const versionBytes = getBtcForkVersionBytesByAddressEncoding({
+    addressEncoding,
+    btcForkNetwork,
+  });
+  if (!versionBytes || isNil(versionBytes.public)) {
+    throw new Error('convertBtcForkXpub ERROR: Invalid versionBytes');
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  xpub = xpub.trim();
+
+  const data = bs58check.decode(xpub);
+  return bs58check.encode(
+    Buffer.concat([
+      btcForkVersionBytesToBuffer({ versionBytes: versionBytes.public }),
+      data.slice(4),
+    ]),
+  );
 }

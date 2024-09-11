@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import type { Input } from '@onekeyhq/components';
 import { Icon, SizableText, Stack } from '@onekeyhq/components';
@@ -10,14 +10,16 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 
 import { NetworkAvatar } from '../NetworkAvatar';
 
-type IChainSelectorInputProps = Pick<
+export type IChainSelectorInputProps = Pick<
   ComponentProps<typeof Input>,
   'value' | 'disabled' | 'error' | 'editable' | 'size'
 > & {
-  excludedNetworkIds?: string[];
+  networkIds?: string[];
   testID?: string;
   onChange?: (value: string) => void;
   title?: string;
+  excludeAllNetworkItem?: boolean;
+  miniMode?: boolean;
 } & ComponentProps<typeof Stack>;
 
 export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
@@ -28,25 +30,39 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   size,
   onChange,
   title,
-  excludedNetworkIds,
+  networkIds,
+  excludeAllNetworkItem,
+  miniMode,
   ...rest
 }) => {
-  const { result } = usePromiseResult(
+  const { result: selectorNetworks } = usePromiseResult(
     async () => {
       const { networks } =
-        await backgroundApiProxy.serviceNetwork.getAllNetworks();
-      if (excludedNetworkIds && excludedNetworkIds.length > 0) {
-        return networks.filter((o) => !excludedNetworkIds.includes(o.id));
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeAllNetworkItem,
+        });
+      if (networkIds && networkIds.length > 0) {
+        return networks.filter((o) => networkIds.includes(o.id));
       }
       return networks;
     },
-    [excludedNetworkIds],
+    [excludeAllNetworkItem, networkIds],
     { initResult: [] },
   );
+
   const current = useMemo(() => {
-    const item = result.find((o) => o.id === value);
-    return item || result[0];
-  }, [result, value]);
+    const item = selectorNetworks.find((o) => o.id === value);
+    return item;
+  }, [selectorNetworks, value]);
+
+  useEffect(() => {
+    if (selectorNetworks.length && !current) {
+      const fallbackValue = selectorNetworks?.[0]?.id;
+      if (fallbackValue) {
+        onChange?.(fallbackValue);
+      }
+    }
+  }, [selectorNetworks, current, onChange]);
 
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -58,17 +74,36 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   const openChainSelector = useConfigurableChainSelector();
 
   const onPress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
     openChainSelector({
       title,
-      networkIds: result.map((o) => o.id),
-      defaultNetworkId: current.id,
+      networkIds: selectorNetworks.map((o) => o.id),
+      defaultNetworkId: current?.id,
       onSelect: (network) => onChange?.(network.id),
     });
-  }, [openChainSelector, current, onChange, title, result]);
+  }, [
+    disabled,
+    openChainSelector,
+    title,
+    selectorNetworks,
+    current?.id,
+    onChange,
+  ]);
+
+  if (miniMode) {
+    return (
+      <Stack onPress={onPress} px="$3" py="$2.5" {...rest}>
+        <NetworkAvatar networkId={current?.id} size="$6" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
       userSelect="none"
-      onPress={disabled ? undefined : onPress}
+      onPress={onPress}
       flexDirection="row"
       alignItems="center"
       borderRadius="$3"
@@ -94,13 +129,16 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
     >
       <NetworkAvatar networkId={current?.id} size="$6" />
       <SizableText
+        testID="network-selector-input-text"
         px={sharedStyles.px}
         flex={1}
         size={size === 'small' ? '$bodyMd' : '$bodyLg'}
       >
         {current?.name ?? ''}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
+      {!disabled ? (
+        <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
+      ) : null}
     </Stack>
   );
 };

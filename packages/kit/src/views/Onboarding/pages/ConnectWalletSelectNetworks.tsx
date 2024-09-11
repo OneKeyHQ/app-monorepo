@@ -36,7 +36,7 @@ export function ConnectWalletSelectNetworksPage() {
       />
       <Page.Body>
         <YStack>
-          <ListItem
+          {/* <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_multi_networks,
             })}
@@ -50,7 +50,7 @@ export function ConnectWalletSelectNetworksPage() {
                 title: 'Multi-networks',
               })
             }
-          />
+          /> */}
           <ListItem
             title="EVM"
             drillIn

@@ -3,6 +3,7 @@
 /* eslint-disable camelcase */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { getBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   providerApiMethod,
@@ -14,9 +15,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -74,6 +76,42 @@ class ProviderApiPrivate extends ProviderApiBase {
     const params = await this.getWalletInfo();
     info.send(
       { method: 'wallet_events_ext_switch_changed', params },
+      info.targetOrigin,
+    );
+  }
+
+  // UI Notify
+  public async notifyDappSiteOfNetworkChange(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: {
+      getNetworkName: ({ origin }: { origin: string }) => Promise<string>;
+    },
+  ) {
+    const networkName = await params.getNetworkName({
+      origin: info.targetOrigin,
+    });
+    if (!networkName) {
+      return;
+    }
+    const networkChangedText = appLocale.intl.formatMessage(
+      {
+        id: ETranslations.feedback_current_network_message,
+      },
+      {
+        network: networkName,
+      },
+    );
+    console.log(
+      'notifyNetworkChangedToDappSite ======>>>>>>>>>>>>: ',
+      networkChangedText,
+    );
+    info.send(
+      {
+        method: 'wallet_events_dapp_network_changed',
+        params: {
+          networkChangedText,
+        },
+      },
       info.targetOrigin,
     );
   }
@@ -271,6 +309,11 @@ class ProviderApiPrivate extends ProviderApiBase {
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },
     });
+  }
+
+  @providerApiMethod()
+  async getSensitiveEncodeKey(): Promise<string> {
+    return getBgSensitiveTextEncodeKey();
   }
 
   isWebEmbedApiReady = false;

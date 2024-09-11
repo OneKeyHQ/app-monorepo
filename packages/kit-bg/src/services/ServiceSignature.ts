@@ -1,10 +1,14 @@
+import { debounce } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IBaseSignedMessageContentType,
   IConnectedSite,
@@ -24,6 +28,10 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceSignature extends ServiceBase {
+  private debouncedAddConnectedSite:
+    | ((url: string, networkIds: string[], addresses: string[]) => void)
+    | null = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -46,7 +54,9 @@ class ServiceSignature extends ServiceBase {
   public async getSignedMessages(
     params?: ISignatureItemQueryParams,
   ): Promise<ISignedMessage[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -66,16 +76,14 @@ class ServiceSignature extends ServiceBase {
     if (isSearch) {
       items = items
         .filter((item) => {
-          if (networkId && item.networkId === networkId) {
-            return true;
+          let match = true;
+          if (networkId) {
+            match = item.networkId === networkId;
           }
-          if (
-            address &&
-            item.address.toLowerCase().includes(address.toLowerCase())
-          ) {
-            return true;
+          if (match && address) {
+            match = item.address.toLowerCase().includes(address.toLowerCase());
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -100,7 +108,9 @@ class ServiceSignature extends ServiceBase {
   public async getSignedTransactions(
     params?: ISignatureItemQueryParams,
   ): Promise<ISignedTransaction[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -113,26 +123,29 @@ class ServiceSignature extends ServiceBase {
       const network = await this.backgroundApi.serviceNetwork.getNetwork({
         networkId: item.networkId,
       });
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        });
       return {
         ...rest,
         data,
         network,
+        vaultSettings,
       };
     });
     let items = await Promise.all(promises);
     if (isSearch) {
       items = items
         .filter((item) => {
-          if (networkId && item.networkId === networkId) {
-            return true;
+          let match = true;
+          if (networkId) {
+            match = item.networkId === networkId;
           }
-          if (
-            address &&
-            item.address.toLowerCase().includes(address.toLowerCase())
-          ) {
-            return true;
+          if (address && match) {
+            match = item.address.toLowerCase().includes(address.toLowerCase());
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -147,6 +160,24 @@ class ServiceSignature extends ServiceBase {
     const { url, items } = params;
     const networkIds = items.map((item) => item.networkId);
     const addresses = items.map((item) => item.address);
+
+    // Lazy initialization of the debounced function
+    if (!this.debouncedAddConnectedSite) {
+      this.debouncedAddConnectedSite = debounce(
+        this._addConnectedSiteToDb.bind(this),
+        500,
+      );
+    }
+
+    // Avoid repeated calls to dApp or UI hooks
+    this.debouncedAddConnectedSite(url, networkIds, addresses);
+  }
+
+  private async _addConnectedSiteToDb(
+    url: string,
+    networkIds: string[],
+    addresses: string[],
+  ) {
     try {
       await localDb.addConnectedSite({ url, networkIds, addresses });
     } catch (e) {
@@ -163,7 +194,9 @@ class ServiceSignature extends ServiceBase {
   public async getConnectedSites(
     params?: ISignatureItemQueryParams,
   ): Promise<IConnectedSite[]> {
-    const { networkId, address, limit, offset } = params ?? {};
+    const { networkId: _networkId, address, limit, offset } = params ?? {};
+    const networkId =
+      _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
@@ -187,14 +220,21 @@ class ServiceSignature extends ServiceBase {
     if (isSearch) {
       return items
         .filter((item) => {
+          let match = true;
           if (networkId) {
-            return item.networkIds.includes(networkId);
+            match = item.networkIds.includes(networkId);
           }
-          if (address && item.addresses.length) {
-            const allAddresses = item.addresses.map((o) => o.toLowerCase());
-            return allAddresses.some((o) => o.includes(address.toLowerCase()));
+          if (match && address) {
+            if (item.addresses.length) {
+              const allAddresses = item.addresses.map((o) => o.toLowerCase());
+              match = allAddresses.some((o) =>
+                o.includes(address.toLowerCase()),
+              );
+            } else {
+              match = false;
+            }
           }
-          return false;
+          return match;
         })
         .sort((a, b) => b.createdAt - a.createdAt);
     }
@@ -210,6 +250,7 @@ class ServiceSignature extends ServiceBase {
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
+    const stakingInfo = signedTx.stakingInfo;
     let title = 'OneKey Wallet';
     if (sourceInfo?.origin) {
       title = uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin });
@@ -218,6 +259,8 @@ class ServiceSignature extends ServiceBase {
       if (providerName) {
         title = providerName;
       }
+    } else if (stakingInfo) {
+      title = stakingInfo.protocol;
     }
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
@@ -228,11 +271,11 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'swap',
+          type: ETransactionType.SWAP,
           fromNetworkId: fromToken.networkId,
           toNetworkId: toToken.networkId,
           fromAmount: swapInfo.sender.amount,
-          toAmount: swapInfo.sender.amount,
+          toAmount: swapInfo.receiver.amount,
           fromToken: {
             name: fromToken.name ?? toToken.symbol,
             symbol: fromToken.symbol,
@@ -249,7 +292,21 @@ class ServiceSignature extends ServiceBase {
       });
       return;
     }
-    // add stake action here
+    if (stakingInfo) {
+      await this.addSignedTransaction({
+        networkId,
+        address,
+        title,
+        hash: signedTx.txid,
+        data: {
+          type: ETransactionType.EARN,
+          label: stakingInfo.label,
+          send: stakingInfo.send,
+          receive: stakingInfo.receive,
+        },
+      });
+      return;
+    }
     if (actions.length < 1) {
       return;
     }
@@ -265,7 +322,7 @@ class ServiceSignature extends ServiceBase {
           title,
           hash: signedTx.txid,
           data: {
-            type: 'approve',
+            type: ETransactionType.APPROVE,
             amount: tokenApprove.amount,
             token: {
               name: tokenApprove.name,
@@ -290,7 +347,7 @@ class ServiceSignature extends ServiceBase {
         title,
         hash: signedTx.txid,
         data: {
-          type: 'send',
+          type: ETransactionType.SEND,
           amount: assetTransfer.sends[0].amount,
           token: {
             name: assetTransfer.sends[0].name,
@@ -300,7 +357,17 @@ class ServiceSignature extends ServiceBase {
           },
         },
       });
+      return;
     }
+    await this.addSignedTransaction({
+      networkId,
+      address,
+      title,
+      hash: signedTx.txid,
+      data: {
+        type: ETransactionType.CONTRACT_INTERACTION,
+      },
+    });
   }
 
   @backgroundMethod()

@@ -62,10 +62,9 @@ function CreateInvoice() {
         accountId,
       });
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      accountId,
       networkId,
-      accountAddress,
       contractList: [''],
-      xpub: '',
       withFrozenBalance: false,
       withCheckInscription: false,
     });
@@ -119,6 +118,7 @@ function CreateInvoice() {
             name="amount"
             description={
               <NumberSizeableText
+                pt="$1.5"
                 size="$bodyMd"
                 color="$textSubdued"
                 formatter="value"

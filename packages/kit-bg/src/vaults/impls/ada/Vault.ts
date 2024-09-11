@@ -23,13 +23,16 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
+  LowerTransactionAmountError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -160,7 +163,7 @@ export default class Vault extends VaultBase {
         [utxoValueTooSmall, insufficientBalance].includes(e.code) ||
         [utxoValueTooSmall, insufficientBalance].includes(e.message)
       ) {
-        throw new InsufficientBalance();
+        throw new LowerTransactionAmountError();
       }
       throw e;
     }
@@ -195,18 +198,11 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
 
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: '',
-      accountAddress: account.address,
     });
 
-    if (!nativeToken) {
-      throw new OneKeyInternalError('Native token not found');
-    }
-
-    let actions: IDecodedTxAction[] = [];
-
-    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
     const utxoFrom = inputs.map((input) => {
       const { balance, balanceValue } = this._getInputOrOutputBalance(
         input.amount,
@@ -220,67 +216,95 @@ export default class Vault extends VaultBase {
         isMine: true,
       };
     });
+
     const utxoTo = outputs
       .filter((output) => !output.isChange)
       .map((output) => ({
         address: output.address,
-        balance: new BigNumber(output.amount)
-          .shiftedBy(network.decimals)
-          .toFixed(),
+        balance: chainValueUtils.convertChainValueToAmount({
+          value: output.amount,
+          network,
+        }),
         balanceValue: output.amount,
         symbol: network.symbol,
         isMine: output.address === account.address,
       }));
 
-    const sends = [];
-    for (const output of outputs.filter((o) => !o.isChange)) {
-      for (const asset of output.assets) {
-        const token = await this.backgroundApi.serviceToken.getToken({
-          networkId: this.networkId,
-          tokenIdOnNetwork: asset.unit,
-          accountAddress: account.address,
-        });
-        sends.push({
-          from: account.address,
-          to: output.address,
-          isNative: false,
-          tokenIdOnNetwork: asset.unit,
-          name: token.name,
-          icon: token.logoURI ?? '',
-          amount: new BigNumber(asset.quantity)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
-          amountValue: asset.quantity,
-          symbol: token.symbol,
-        });
-      }
-      sends.push({
-        from: account.address,
-        to: output.address,
-        isNative: true,
-        tokenIdOnNetwork: '',
-        name: nativeToken.name,
-        icon: nativeToken.logoURI ?? '',
-        amount: new BigNumber(output.amount)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
-        amountValue: output.amount,
-        symbol: network.symbol,
-      });
-    }
-    actions = [
+    let actions: IDecodedTxAction[] = [
       {
-        type: EDecodedTxActionType.ASSET_TRANSFER,
-        assetTransfer: {
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
           from: account.address,
           to: utxoTo[0].address,
-          sends,
-          receives: [],
-          utxoFrom,
-          utxoTo,
         },
       },
     ];
+
+    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+
+    if (nativeToken) {
+      const sends = [];
+      for (const output of outputs.filter((o) => !o.isChange)) {
+        for (const asset of output.assets) {
+          const token = await this.backgroundApi.serviceToken.getToken({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            tokenIdOnNetwork: asset.unit,
+          });
+          if (token) {
+            sends.push({
+              from: account.address,
+              to: output.address,
+              isNative: false,
+              tokenIdOnNetwork: asset.unit,
+              name: token.name,
+              icon: token.logoURI ?? '',
+              amount: new BigNumber(asset.quantity)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              amountValue: asset.quantity,
+              symbol: token.symbol,
+            });
+          }
+        }
+        sends.push({
+          from: account.address,
+          to: output.address,
+          isNative: true,
+          tokenIdOnNetwork: '',
+          name: nativeToken.name,
+          icon: nativeToken.logoURI ?? '',
+          amount: new BigNumber(output.amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          amountValue: output.amount,
+          symbol: network.symbol,
+        });
+      }
+      // put native token first
+      sends.sort((a, b) => {
+        if (a.isNative && !b.isNative) {
+          return -1;
+        }
+        if (!a.isNative && b.isNative) {
+          return 1;
+        }
+        return 0;
+      });
+      actions = [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: account.address,
+            to: utxoTo[0].address,
+            sends,
+            receives: [],
+            utxoFrom,
+            utxoTo,
+          },
+        },
+      ];
+    }
 
     return {
       txid: '',
@@ -288,6 +312,7 @@ export default class Vault extends VaultBase {
       signer: account.address,
       nonce: 0,
       actions,
+      to: utxoTo[0].address,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -380,8 +405,10 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async getAccountXpub(): Promise<string | undefined> {
-    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+  override async getXpubFromAccount(
+    networkAccount: INetworkAccount,
+  ): Promise<string | undefined> {
+    const dbAccount = networkAccount as IDBUtxoAccount;
     const stakeAddress = dbAccount.addresses?.['2/0'];
     return stakeAddress;
   }
@@ -393,14 +420,12 @@ export default class Vault extends VaultBase {
       addresses: Record<string, string>;
       xpub: string;
     }): Promise<IAdaUTXO[]> => {
-      const { addresses, path, address, xpub } = params;
-      const stakeAddress = addresses['2/0'];
+      const { path, address, xpub } = params;
       try {
         const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: address,
-            xpub: stakeAddress,
+            accountId: this.accountId,
             withUTXOList: true,
             cardanoPubKey: xpub,
           });

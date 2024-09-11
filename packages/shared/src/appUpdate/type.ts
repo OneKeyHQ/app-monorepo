@@ -1,4 +1,5 @@
 import type { ETranslations } from '../locale';
+import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
 export interface IBasicAppUpdateInfo {
   // app store url
@@ -9,8 +10,6 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: string;
-  // sha256 for downloaded package
-  sha256?: string;
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -29,11 +28,13 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   //  2. notify -> failed
   status: EAppUpdateStatus;
   errorText?: ETranslations;
+  downloadedEvent?: IUpdateDownloadedEvent;
 }
 
 export enum EAppUpdateStatus {
   notify = 'notify',
   downloading = 'downloading',
+  verifying = 'verifying',
   ready = 'ready',
   failed = 'failed',
   done = 'done',

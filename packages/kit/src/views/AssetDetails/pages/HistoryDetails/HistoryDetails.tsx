@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,8 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
-  Image,
-  NumberSizeableText,
   Page,
   SizableText,
   Spinner,
@@ -19,20 +17,31 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EHistoryTxDetailsBlock,
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
+import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type {
   IDecodedTxActionTokenApprove,
   IDecodedTxTransferInfo,
@@ -40,6 +49,7 @@ import type {
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
 import { getHistoryTxMeta } from '../../utils';
@@ -49,27 +59,47 @@ import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
 
-function getTxStatusTextProps(status: EDecodedTxStatus): {
+function getTxStatusTextProps(
+  status: EDecodedTxStatus | EOnChainHistoryTxStatus | undefined,
+): {
   key: ETranslations;
   color: ColorValue;
 } {
-  if (status === EDecodedTxStatus.Pending) {
+  if (
+    status === EDecodedTxStatus.Pending ||
+    status === EOnChainHistoryTxStatus.Pending
+  ) {
     return {
       key: ETranslations.global_pending,
       color: '$textCaution',
     };
   }
 
-  if (status === EDecodedTxStatus.Confirmed) {
+  if (
+    status === EDecodedTxStatus.Confirmed ||
+    status === EOnChainHistoryTxStatus.Success
+  ) {
     return {
       key: ETranslations.global_success,
       color: '$textSuccess',
     };
   }
 
+  if (
+    status === EDecodedTxStatus.Dropped ||
+    status === EDecodedTxStatus.Removed ||
+    status === EDecodedTxStatus.Failed ||
+    status === EOnChainHistoryTxStatus.Failed
+  ) {
+    return {
+      key: ETranslations.global_failed,
+      color: '$textCritical',
+    };
+  }
+
   return {
-    key: ETranslations.global_failed,
-    color: '$textCritical',
+    key: ETranslations.global_pending,
+    color: '$textCaution',
   };
 }
 
@@ -82,6 +112,7 @@ export function AssetItem({
   currencySymbol,
   isApprove,
   isApproveUnlimited,
+  isAllNetworks,
 }: {
   asset: {
     name: string;
@@ -89,7 +120,7 @@ export function AssetItem({
     icon: string;
     isNFT?: boolean;
     isNative?: boolean;
-    price: string;
+    price?: string;
   };
   index: number;
   direction?: EDecodedTxDirection;
@@ -98,6 +129,7 @@ export function AssetItem({
   currencySymbol: string;
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
+  isAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   let primary = null;
@@ -106,31 +138,62 @@ export function AssetItem({
   const amountAbs = new BigNumber(amount).abs().toFixed();
 
   if (isApprove) {
-    primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$textSuccess">
-        {isApproveUnlimited
-          ? intl.formatMessage({
-              id: ETranslations.swap_page_button_approve_unlimited,
-            })
-          : intl.formatMessage(
-              { id: ETranslations.form__approve_str },
-              {
-                amount: amountAbs,
-                symbol: asset.symbol,
-              },
-            )}
-      </SizableText>
-    );
+    if (new BigNumber(amountAbs).eq(0)) {
+      primary = (
+        <SizableText
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+        >
+          {intl.formatMessage(
+            { id: ETranslations.global_revoke_approve },
+            {
+              symbol: asset.symbol,
+            },
+          )}
+        </SizableText>
+      );
+    } else {
+      primary = (
+        <NumberSizeableTextWrapper
+          hideValue
+          textAlign="right"
+          size="$bodyLgMedium"
+          color="$textSuccess"
+          formatter="value"
+        >
+          {isApproveUnlimited
+            ? intl.formatMessage({
+                id: ETranslations.swap_page_button_approve_unlimited,
+              })
+            : intl.formatMessage(
+                { id: ETranslations.form__approve_str },
+                {
+                  amount: amountAbs,
+                  symbol: asset.symbol,
+                },
+              )}
+        </NumberSizeableTextWrapper>
+      );
+    }
   } else if (!amount) {
     primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
+      <NumberSizeableTextWrapper
+        hideValue
+        formatter="value"
+        textAlign="right"
+        size="$bodyLgMedium"
+        color="$text"
+      >
         -
-      </SizableText>
+      </NumberSizeableTextWrapper>
     );
     secondary = primary;
   } else {
     primary = (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
+        hideValue
+        numberOfLines={1}
         textAlign="right"
         size="$bodyLgMedium"
         color={direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'}
@@ -141,10 +204,11 @@ export function AssetItem({
         }}
       >
         {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amountAbs}`}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     );
-    secondary = (
-      <NumberSizeableText
+    secondary = !isNil(asset.price) ? (
+      <NumberSizeableTextWrapper
+        hideValue
         textAlign="right"
         size="$bodyMd"
         color="$textSubdued"
@@ -152,8 +216,8 @@ export function AssetItem({
         formatterOptions={{ currency: currencySymbol }}
       >
         {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
-      </NumberSizeableText>
-    );
+      </NumberSizeableTextWrapper>
+    ) : null;
   }
 
   return (
@@ -161,10 +225,24 @@ export function AssetItem({
       <Token
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
-        networkImageUri={networkIcon}
+        networkImageUri={isAllNetworks ? networkIcon : undefined}
       />
-      <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
-      <ListItem.Text primary={primary} secondary={secondary} align="right" />
+      <ListItem.Text
+        flexGrow={1}
+        flexBasis={0}
+        minWidth={96}
+        primary={asset.isNFT ? asset.name : asset.symbol}
+        primaryTextProps={{
+          numberOfLines: 1,
+        }}
+        secondary={asset.name}
+      />
+      <ListItem.Text
+        flexShrink={1}
+        primary={primary}
+        secondary={secondary}
+        align="right"
+      />
     </ListItem>
   );
 }
@@ -179,54 +257,123 @@ function HistoryDetails() {
       >
     >();
 
-  const { accountId, networkId, accountAddress, historyTx, xpub } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    transactionHash,
+    notificationId,
+    historyTx: historyTxParam,
+    isAllNetworks,
+  } = route.params;
+
+  const historyInit = useRef(false);
+  const historyConfirmed = useRef(false);
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-  const resp = usePromiseResult(
+
+  const { account, network, vaultSettings } = useAccountData({
+    networkId,
+    accountId,
+  });
+
+  const accountAddress = route.params?.accountAddress || account?.address;
+  const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
+
+  const nativeToken = usePromiseResult(
     () =>
-      Promise.all([
-        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-        backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
-          accountId,
-          networkId,
-          accountAddress,
-          xpub,
-          txid: historyTx.decodedTx.txid,
-        }),
-        backgroundApiProxy.serviceToken.getNativeToken({
-          networkId,
-          accountAddress,
-        }),
-      ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId, accountId, xpub],
-    { watchLoading: true },
+      backgroundApiProxy.serviceToken.getNativeToken({
+        accountId,
+        networkId,
+      }),
+    [accountId, networkId],
+  ).result;
+
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+        accountId,
+        networkId,
+        txid,
+      });
+      historyInit.current = true;
+      if (
+        r?.data &&
+        r?.data.status !== EOnChainHistoryTxStatus.Pending &&
+        historyTxParam?.decodedTx.status === EDecodedTxStatus.Pending
+      ) {
+        historyConfirmed.current = true;
+        appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+      }
+
+      let decodedOnChainTx: IAccountHistoryTx | undefined = historyTxParam;
+
+      if (!decodedOnChainTx && r?.data) {
+        decodedOnChainTx =
+          await backgroundApiProxy.serviceHistory.decodeOnChainHistoryTx({
+            accountId,
+            networkId,
+            tx: r.data,
+            tokens: r.tokens,
+            nfts: r.nfts,
+          });
+      }
+
+      return {
+        txDetails: r?.data,
+        decodedOnChainTx,
+      };
+    },
+
+    [accountId, networkId, txid, historyTxParam],
+    {
+      watchLoading: true,
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused &&
+        (!historyInit.current ||
+          (historyTxParam?.decodedTx.status === EDecodedTxStatus.Pending &&
+            !historyConfirmed.current)),
+    },
   );
 
-  const [network, vaultSettings, txDetailsResp, nativeToken] =
-    resp.result ?? [];
+  const { txDetails, decodedOnChainTx } = result || {};
+  const historyTx = historyTxParam ?? decodedOnChainTx;
 
-  const { data: txDetails } = txDetailsResp ?? {};
+  useEffect(() => {
+    if (txDetails && notificationId) {
+      void backgroundApiProxy.serviceNotification.ackNotificationMessage({
+        msgId: notificationId,
+        action: ENotificationPushMessageAckAction.readed,
+      });
+    }
+  }, [txDetails, notificationId]);
+
+  const handleReplaceTxSuccess = useCallback(() => {
+    navigation.popStack();
+  }, [navigation]);
+
+  const { handleReplaceTx, canReplaceTx, canCancelTx } = useReplaceTx({
+    historyTx,
+    onSuccess: handleReplaceTxSuccess,
+    isConfirmed:
+      txDetails && txDetails.status !== EOnChainHistoryTxStatus.Pending,
+  });
 
   const handleViewUTXOsOnPress = useCallback(() => {
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
       accountId,
       networkId,
-      txId: historyTx.decodedTx.txid,
-      inputs: historyTx.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
-      outputs: historyTx.decodedTx.actions[0]?.assetTransfer?.utxoTo,
+      txId: txid,
+      inputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
+      outputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoTo,
     });
-  }, [
-    historyTx.decodedTx.actions,
-    historyTx.decodedTx.txid,
-    navigation,
-    accountId,
-    networkId,
-  ]);
+  }, [navigation, accountId, networkId, txid, historyTx?.decodedTx.actions]);
 
   const txAddresses = useMemo(() => {
+    if (!historyTx) {
+      return undefined;
+    }
     const { decodedTx } = historyTx;
     const sends = historyTx.decodedTx.actions[0]?.assetTransfer?.sends ?? [];
     const receives =
@@ -264,12 +411,15 @@ function HistoryDetails() {
             ? true
             : new BigNumber(utxoSends.length ?? 0)
                 .plus(utxoReceives.length ?? 0)
-                .eq(1),
+                .isLessThanOrEqualTo(1),
       };
     }
 
     const from = decodedTx.signer;
-    const to = decodedTx.to ?? decodedTx.actions[0]?.assetTransfer?.to;
+    let to = decodedTx.actions[0]?.assetTransfer?.to ?? decodedTx.to;
+    if (vaultSettings?.impl === IMPL_DOT && !to) {
+      to = txDetails?.to;
+    }
 
     return {
       from,
@@ -279,7 +429,14 @@ function HistoryDetails() {
           ? true
           : new BigNumber(sends?.length ?? 0).plus(receives?.length ?? 0).eq(1),
     };
-  }, [accountAddress, historyTx, intl, vaultSettings?.isUtxo]);
+  }, [
+    accountAddress,
+    historyTx,
+    intl,
+    txDetails?.to,
+    vaultSettings?.impl,
+    vaultSettings?.isUtxo,
+  ]);
 
   const renderAssetsChange = useCallback(
     ({
@@ -296,7 +453,6 @@ function HistoryDetails() {
           name: approve.name,
           symbol: approve.symbol,
           icon: approve.icon ?? '',
-          price: '0',
         };
 
         return (
@@ -309,6 +465,7 @@ function HistoryDetails() {
             amount={approve.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       }
@@ -320,7 +477,7 @@ function HistoryDetails() {
           icon: transfer.icon,
           isNFT: transfer.isNFT,
           isNative: transfer.isNative,
-          price: transfer.price ?? '0',
+          price: transfer.price,
         };
 
         return (
@@ -332,31 +489,35 @@ function HistoryDetails() {
             amount={transfer.amount}
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
+            isAllNetworks={isAllNetworks}
           />
         );
       });
     },
-    [network?.logoURI, settings.currencyInfo.symbol],
+    [isAllNetworks, network?.logoURI, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
     () =>
       !!(
+        txAddresses &&
         txAddresses.isSingleTransfer &&
         txAddresses.from &&
         txAddresses.to &&
         txAddresses.from === txAddresses.to &&
-        !isEmpty(historyTx.decodedTx.actions[0]?.assetTransfer?.sends)
+        !isEmpty(historyTx?.decodedTx.actions[0]?.assetTransfer?.sends) &&
+        historyTx?.decodedTx.actions[0]?.assetTransfer?.sends[0]
+          ?.tokenIdOnNetwork ===
+          historyTx?.decodedTx.actions[0]?.assetTransfer?.receives[0]
+            ?.tokenIdOnNetwork
       ),
-    [
-      historyTx.decodedTx.actions,
-      txAddresses.from,
-      txAddresses.isSingleTransfer,
-      txAddresses.to,
-    ],
+    [historyTx?.decodedTx.actions, txAddresses],
   );
 
   const historyDetailsTitle = useMemo(() => {
+    if (!historyTx) {
+      return '--';
+    }
     const { decodedTx } = historyTx;
     const label = historyTx.decodedTx.payload?.label;
     let title = label;
@@ -376,14 +537,26 @@ function HistoryDetails() {
       title = intl.formatMessage({ id: ETranslations.global_receive });
     }
 
-    if (decodedTx.status !== EDecodedTxStatus.Pending && label) {
+    if (
+      !historyTx.isLocalCreated ||
+      (decodedTx.status !== EDecodedTxStatus.Pending && label)
+    ) {
       title = label;
+    }
+
+    if (!title && decodedTx.actions[0]?.assetTransfer?.isInternalSwap) {
+      title = intl.formatMessage({
+        id: ETranslations.global_swap,
+      });
     }
 
     return title;
   }, [historyTx, intl, isSendToSelf]);
 
   const transfersToRender = useMemo(() => {
+    if (!historyTx) {
+      return undefined;
+    }
     let transfers: {
       transfers?: IDecodedTxTransferInfo[];
       approve?: IDecodedTxActionTokenApprove;
@@ -394,6 +567,17 @@ function HistoryDetails() {
 
     let sends = decodedTx.actions[0]?.assetTransfer?.sends;
     let receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    if (vaultSettings?.impl === IMPL_DOT) {
+      sends = decodedTx.actions[0]?.assetTransfer?.sends.map((e, i) => ({
+        ...e,
+        ...txDetails?.sends?.[i],
+      }));
+      receives = decodedTx.actions[0]?.assetTransfer?.receives.map((e, i) => ({
+        ...e,
+        ...txDetails?.receives?.[i],
+      }));
+    }
+
     const onChainTxPayload = historyTx.decodedTx.payload;
 
     if (vaultSettings?.isUtxo) {
@@ -459,43 +643,134 @@ function HistoryDetails() {
     ];
 
     return transfers.filter(Boolean);
-  }, [historyTx, isSendToSelf, vaultSettings?.isUtxo]);
+  }, [
+    historyTx,
+    isSendToSelf,
+    txDetails?.receives,
+    txDetails?.sends,
+    vaultSettings?.impl,
+    vaultSettings?.isUtxo,
+  ]);
+
+  const renderReplaceTxActions = useCallback(() => {
+    if (!canReplaceTx) return null;
+
+    return (
+      <XStack ml="$5">
+        {canCancelTx ? (
+          <XStack gap="$2">
+            <Button
+              size="small"
+              variant="primary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_speed_up })}
+            </Button>
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={() =>
+                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_cancel })}
+            </Button>
+          </XStack>
+        ) : (
+          <Button
+            size="small"
+            variant="primary"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.speed_up_cancellation })}
+          </Button>
+        )}
+      </XStack>
+    );
+  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl]);
 
   const renderTxStatus = useCallback(() => {
-    const status =
-      txDetails?.status === EOnChainHistoryTxStatus.Success
-        ? EDecodedTxStatus.Confirmed
-        : historyTx.decodedTx.status;
-    const { key, color } = getTxStatusTextProps(status);
+    const { key, color } = getTxStatusTextProps(
+      txDetails?.status ?? historyTx?.decodedTx.status,
+    );
     return (
-      <XStack h="$5" alignItems="center">
+      <XStack minHeight="$5" alignItems="center">
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {vaultSettings?.replaceTxEnabled &&
-        status === EDecodedTxStatus.Pending ? (
-          <XStack ml="$5">
-            <Button size="small" variant="primary">
-              Speed Up
-            </Button>
-            <Button size="small" variant="secondary" ml="$2.5">
-              Cancel
-            </Button>
-          </XStack>
-        ) : null}
+        {renderReplaceTxActions()}
       </XStack>
     );
   }, [
-    historyTx.decodedTx.status,
+    historyTx?.decodedTx.status,
     intl,
+    renderReplaceTxActions,
     txDetails?.status,
-    vaultSettings?.replaceTxEnabled,
   ]);
 
   const renderTxFlow = useCallback(() => {
-    if (vaultSettings?.isUtxo && !txAddresses.isSingleTransfer) return null;
+    const action = historyTx?.decodedTx.actions[0];
 
-    if (txAddresses.from && txAddresses.to && txAddresses.isSingleTransfer) {
+    if (action?.assetTransfer?.isInternalSwap) {
+      const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
+        action.assetTransfer;
+      return (
+        <>
+          {to ? (
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.interact_with_contract,
+              })}
+              renderContent={to}
+              showCopy
+              description={
+                <AddressInfo
+                  address={to}
+                  networkId={networkId}
+                  accountId={accountId}
+                />
+              }
+            />
+          ) : null}
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_pay_address,
+            })}
+            renderContent={from}
+            showCopy
+            description={
+              <AddressInfo
+                address={from}
+                networkId={networkId}
+                accountId={accountId}
+              />
+            }
+          />
+          <InfoItem
+            label={intl.formatMessage({
+              id: ETranslations.swap_history_detail_received_address,
+            })}
+            renderContent={swapReceivedAddress}
+            showCopy
+            description={
+              <AddressInfo
+                address={swapReceivedAddress ?? ''}
+                networkId={swapReceivedNetworkId ?? ''}
+                accountId={accountId}
+              />
+            }
+          />
+        </>
+      );
+    }
+
+    if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
+
+    if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
       return (
         <>
           <InfoItem
@@ -526,7 +801,7 @@ function HistoryDetails() {
       );
     }
 
-    if (txAddresses.to) {
+    if (txAddresses?.to) {
       return (
         <InfoItem
           label={intl.formatMessage({
@@ -538,14 +813,31 @@ function HistoryDetails() {
       );
     }
   }, [
+    historyTx?.decodedTx.actions,
     vaultSettings?.isUtxo,
-    txAddresses.isSingleTransfer,
-    txAddresses.from,
-    txAddresses.to,
+    txAddresses?.isSingleTransfer,
+    txAddresses?.from,
+    txAddresses?.to,
     intl,
     networkId,
     accountId,
   ]);
+
+  const renderTxApproveFor = useCallback(() => {
+    const approve = historyTx?.decodedTx.actions[0]?.tokenApprove;
+
+    if (approve) {
+      return (
+        <InfoItem
+          label={intl.formatMessage({
+            id: ETranslations.global_for,
+          })}
+          renderContent={approve.spender}
+          showCopy
+        />
+      );
+    }
+  }, [historyTx?.decodedTx.actions, intl]);
 
   const renderTxMetaInfo = useCallback(() => {
     const components = getHistoryTxMeta({ impl: network?.impl ?? '' });
@@ -554,13 +846,27 @@ function HistoryDetails() {
 
     return (
       <>
-        {TxFlow ? <TxFlow decodedTx={historyTx.decodedTx} /> : renderTxFlow()}
-        {TxAttributes ? (
-          <TxAttributes decodedTx={historyTx.decodedTx} txDetails={txDetails} />
+        {TxFlow && historyTx?.decodedTx ? (
+          <TxFlow decodedTx={historyTx?.decodedTx} />
+        ) : (
+          renderTxFlow()
+        )}
+        {renderTxApproveFor()}
+        {TxAttributes && historyTx?.decodedTx ? (
+          <TxAttributes
+            decodedTx={historyTx?.decodedTx}
+            txDetails={txDetails}
+          />
         ) : null}
       </>
     );
-  }, [historyTx.decodedTx, network?.impl, renderTxFlow, txDetails]);
+  }, [
+    historyTx?.decodedTx,
+    network?.impl,
+    renderTxApproveFor,
+    renderTxFlow,
+    txDetails,
+  ]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -570,7 +876,7 @@ function HistoryDetails() {
   const renderFeeInfo = useCallback(
     () => (
       <XStack alignItems="center">
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
           formatter="balance"
           size="$bodyMd"
           color="$textSubdued"
@@ -579,19 +885,21 @@ function HistoryDetails() {
           }}
         >
           {txInfo?.gasFee}
-        </NumberSizeableText>
-        <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
-          (
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {txInfo?.gasFeeFiatValue ?? '0'}
-          </NumberSizeableText>
-          )
-        </SizableText>
+        </NumberSizeableTextWrapper>
+        {!isNil(txInfo?.gasFeeFiatValue) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" ml="$1">
+            (
+            <NumberSizeableTextWrapper
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {txInfo?.gasFeeFiatValue ?? '0'}
+            </NumberSizeableTextWrapper>
+            )
+          </SizableText>
+        ) : null}
       </XStack>
     ),
     [
@@ -603,7 +911,7 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (resp.isLoading) {
+    if (isLoading && !historyInit.current) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -615,7 +923,7 @@ function HistoryDetails() {
       <>
         {/* Part 1: What change */}
         <Stack>
-          {transfersToRender.map((block) =>
+          {transfersToRender?.map((block) =>
             renderAssetsChange({
               transfers: block.transfers,
               approve: block.approve,
@@ -635,7 +943,7 @@ function HistoryDetails() {
             />
             <InfoItem
               label={intl.formatMessage({ id: ETranslations.global_time })}
-              renderContent={txInfo.date}
+              renderContent={txInfo?.date}
               compact
             />
           </InfoItemGroup>
@@ -647,12 +955,18 @@ function HistoryDetails() {
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
               })}
-              renderContent={txInfo.txid}
+              renderContent={txid}
               showCopy
-              showOpenWithUrl={buildTransactionDetailsUrl({
-                network,
-                txid: txInfo.txid,
-              })}
+              openWithUrl={
+                vaultSettings?.hideBlockExplorer
+                  ? undefined
+                  : () => {
+                      void openTransactionDetailsUrl({
+                        networkId: network?.id,
+                        txid,
+                      });
+                    }
+              }
             />
             <InfoItem
               label={intl.formatMessage({
@@ -661,33 +975,35 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
-            {new BigNumber(txInfo.blockHeight ?? 0).isGreaterThan(0) ? (
+            {new BigNumber(txInfo?.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.global_block_height,
                 })}
-                renderContent={String(txInfo.blockHeight)}
+                renderContent={String(txInfo?.blockHeight)}
                 compact
               />
             ) : null}
-            {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
+            {vaultSettings?.nonceRequired && !isNil(txInfo?.nonce) ? (
               <InfoItem
                 label="Nonce"
-                renderContent={String(txInfo.nonce)}
+                renderContent={String(txInfo?.nonce)}
                 compact
               />
             ) : null}
 
-            {new BigNumber(txInfo.confirmations ?? 0).isGreaterThan(0) ? (
+            {new BigNumber(txInfo?.confirmations ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
                   id: ETranslations.global_confirmations,
                 })}
-                renderContent={String(txInfo.confirmations)}
+                renderContent={String(txInfo?.confirmations)}
                 compact
               />
             ) : null}
-            {vaultSettings?.isUtxo ? (
+            {vaultSettings?.isUtxo &&
+            (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
+              !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
                 renderContent={
                   <Button
@@ -708,66 +1024,29 @@ function HistoryDetails() {
               />
             ) : null}
           </InfoItemGroup>
-          {/* Tertiary */}
-          {txInfo.swapInfo ? (
-            <>
-              <Divider mx="$5" />
-              <InfoItemGroup>
-                <InfoItem
-                  label="Rate"
-                  renderContent="1 ETH = 2229.259 USDC"
-                  compact
-                />
-                <InfoItem
-                  label="Application"
-                  renderContent={
-                    <XStack>
-                      <Image
-                        src="https://cdn.1inch.io/logo.png"
-                        w="$5"
-                        h="$5"
-                      />
-                      <SizableText
-                        size="$bodyMd"
-                        color="$textSubdued"
-                        pl="$1.5"
-                      >
-                        1inch
-                      </SizableText>
-                    </XStack>
-                  }
-                  compact
-                />
-                <InfoItem label="Protocol Fee" renderContent="$0.12" compact />
-                <InfoItem
-                  label="OneKey Fee"
-                  renderContent="0.3% (0.002 ETH)"
-                  compact
-                />
-              </InfoItemGroup>
-            </>
-          ) : null}
         </Stack>
       </>
     );
   }, [
-    resp.isLoading,
+    isLoading,
     transfersToRender,
     intl,
     renderTxStatus,
-    txInfo.date,
-    txInfo.txid,
-    txInfo.nonce,
-    txInfo.blockHeight,
-    txInfo.confirmations,
-    txInfo.swapInfo,
+    txInfo?.date,
+    txInfo?.blockHeight,
+    txInfo?.nonce,
+    txInfo?.confirmations,
     renderTxMetaInfo,
-    vaultSettings?.isUtxo,
+    txid,
+    vaultSettings?.hideBlockExplorer,
     vaultSettings?.nonceRequired,
-    handleViewUTXOsOnPress,
-    network,
+    vaultSettings?.isUtxo,
+    vaultSettings?.hideTxUtxoListWhenPending,
     renderFeeInfo,
+    historyTx?.decodedTx.status,
+    handleViewUTXOsOnPress,
     renderAssetsChange,
+    network?.id,
   ]);
 
   return (

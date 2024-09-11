@@ -40,11 +40,9 @@ export function SuggestedAndExploreSection({
       backgroundApiProxy.serviceNetwork.getNetwork({
         networkId: getNetworkIdsMap().eth,
       }),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      backgroundApiProxy.serviceNetwork.getDappInteractionEnabledNetworks(),
     ]);
-    const networkList = allNetworks.networks
-      .filter((n) => !n.isTestnet)
-      .map((n) => n.id);
+    const networkList = allNetworks.map((n) => n.id);
     setSelectedCategory(categoryList[0].categoryId);
     setSelectedNetwork(defaultNetwork);
     return {
@@ -77,9 +75,9 @@ export function SuggestedAndExploreSection({
   const chunkSize = media.gtMd && media.lg ? 2 : 3;
   const renderSkeletonView = useCallback(
     () => (
-      <Stack space="$5">
+      <Stack gap="$5">
         {Array.from({ length: 4 }).map((_, index) => (
-          <Stack space="$3" key={index}>
+          <Stack gap="$3" key={index}>
             <Skeleton w="$14" h="$6" />
             <ChunkedItemsSkeletonView
               key="skeleton-view"

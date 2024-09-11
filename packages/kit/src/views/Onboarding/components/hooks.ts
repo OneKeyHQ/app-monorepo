@@ -66,6 +66,19 @@ export const useSuggestion = (
 
   const updateByPressLock = useRef(false);
 
+  const checkAllWords = useCallback(() => {
+    const values = form.getValues() as Record<string, string>;
+    const errors: Record<string, boolean> = {};
+    for (let i = 0; i < phraseLength; i += 1) {
+      const key = `phrase${i + 1}`;
+      const value = values[key];
+      if (!isValidWord(value)) {
+        errors[i] = true;
+      }
+    }
+    setIsShowErrors(errors);
+  }, [form, phraseLength]);
+
   const checkIsValidWord = useCallback(
     (index: number, text?: string, isBlur = false) => {
       setTimeout(() => {
@@ -223,29 +236,32 @@ export const useSuggestion = (
   const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
-    (value: string) => {
-      const arrays = value.split(' ');
-      if (arrays.length === phraseLength) {
+    (value: string, inputIndex: number) => {
+      const arrays = value.trim().split(' ');
+      if (arrays.length > 1) {
         setTimeout(() => {
           clearText();
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_pasted_and_cleared,
-            }),
-          });
+          const values: string[] = Object.values(form.getValues()).slice(
+            0,
+            inputIndex,
+          );
+          const words = [...values, ...arrays].slice(0, phraseLength);
           form.reset(
-            arrays.reduce((prev, next, index) => {
+            words.reduce((prev, next, index) => {
               prev[`phrase${index + 1}`] = next;
               return prev;
             }, {} as Record<`phrase${number}`, string>),
           );
           resetSuggestions();
+          setTimeout(() => {
+            checkAllWords();
+          }, 10);
         }, 10);
         return true;
       }
       return false;
     },
-    [clearText, form, intl, phraseLength, resetSuggestions],
+    [checkAllWords, clearText, form, phraseLength, resetSuggestions],
   );
 
   const closePopover = useCallback(() => {

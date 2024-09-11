@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -7,6 +8,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
@@ -23,20 +27,27 @@ import type {
 } from '@onekeyhq/shared/types/externalWallet.types';
 
 import localDb from '../../../dbs/local/localDb';
+import { WalletConnectDappSideProvider } from '../../../services/ServiceWalletConnect/WalletConnectDappSideProvider';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
+import { ExternalConnectorWalletConnect } from '../walletconnect/ExternalConnectorWalletConnect';
 
 import { EvmConnectorManager } from './EvmConnectorManager';
 import evmConnectorUtils from './evmConnectorUtils';
 import { ExternalConnectorEvmEIP6963 } from './ExternalConnectorEvmEIP6963';
-import { ExternalConnectorEvmInjected } from './ExternalConnectorEvmInjected';
+import {
+  EVM_INJECTED_GLOBAL_VAR,
+  ExternalConnectorEvmInjected,
+} from './ExternalConnectorEvmInjected';
 
 import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
 import type {
+  IExternalCheckNetworkOrAddressMatchedPayload,
   IExternalHandleWalletConnectEventsParams,
   IExternalSendTransactionByWalletConnectPayload,
   IExternalSendTransactionPayload,
   IExternalSignMessageByWalletConnectPayload,
   IExternalSignMessagePayload,
+  IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
 export class ExternalControllerEvm extends ExternalControllerBase {
@@ -107,22 +118,37 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const { accounts } = wagmiConnectorChangeEventParams;
     const usedChainId = wagmiConnectorChangeEventParams.chainId ?? chainId;
     if (accounts && accounts.length && !isNil(usedChainId)) {
-      const { addressMap, createAtNetwork } =
-        await this.buildEvmConnectedAddressMap({
-          chainId: usedChainId,
-          accounts: accounts as any,
-        });
-      await localDb.updateExternalAccount({
+      await this.updateAccountAddresses({
         accountId,
-        addressMap,
-        createAtNetwork,
+        chainId: usedChainId,
+        accounts,
       });
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     } else if (!isNil(usedChainId)) {
       await this.updateAccountCreateAtNetwork({
         chainId: usedChainId,
         accountId,
       });
+    }
+  }
+
+  async syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ) {
+    const connector = payload.connector as IExternalConnectorEvm;
+    const { networkId, account } = payload;
+    const accounts: `0x${string}`[] = await this.requestAccounts({
+      connector,
+      networkId,
+    });
+    const chainId: number = await this.requestChainId({ connector, networkId });
+
+    await this.updateAccountAddresses({
+      accountId: account.id,
+      chainId,
+      accounts,
+    });
+    if (!accounts?.length) {
+      connector.emitter.emit('disconnect');
     }
   }
 
@@ -143,17 +169,24 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       .filter((item) => item.info.uuid !== uuidOneKeyInjectAsMetamask);
 
     const icon = externalWalletLogoUtils.getLogoInfo('injected').logo;
-    const evmInjectedWallet: IExternalWalletInfo = {
-      name: 'Injected',
-      icon,
-      connectionInfo: {
-        evmInjected: {
-          global: 'ethereum',
-          icon,
-          name: 'Injected',
+    let evmInjectedWallet: IExternalWalletInfo | undefined;
+    if (
+      platformEnv.isWeb &&
+      // @ts-ignore
+      global?.[EVM_INJECTED_GLOBAL_VAR]
+    ) {
+      evmInjectedWallet = {
+        name: 'Injected',
+        icon,
+        connectionInfo: {
+          evmInjected: {
+            global: EVM_INJECTED_GLOBAL_VAR,
+            icon,
+            name: 'Injected',
+          },
         },
-      },
-    };
+      };
+    }
 
     // return allProvidersDetail;
     const eip6963Wallets: IExternalWalletInfo[] = uniqBy(
@@ -170,7 +203,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     }));
 
     return {
-      wallets: [evmInjectedWallet, ...eip6963Wallets],
+      wallets: [evmInjectedWallet, ...eip6963Wallets].filter(Boolean),
     };
   }
 
@@ -405,6 +438,32 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     }
   }
 
+  async updateAccountAddresses({
+    accountId,
+    chainId,
+    accounts,
+  }: {
+    accountId: string;
+    chainId: number;
+    accounts: readonly `0x${string}`[];
+  }) {
+    // emit disconnect event
+    if (!accounts?.length) {
+      return;
+    }
+    const { addressMap, createAtNetwork } =
+      await this.buildEvmConnectedAddressMap({
+        chainId,
+        accounts: accounts as any,
+      });
+    await localDb.updateExternalAccount({
+      accountId,
+      addressMap,
+      createAtNetwork,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+  }
+
   async updateAccountCreateAtNetwork({
     accountId,
     chainId,
@@ -466,10 +525,104 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const provider = await connector.getProvider();
     // TODO check address or network matched
     const result = await provider.request({
+      // @ts-ignore
       method,
       params: callParams,
     });
 
+    // @ts-ignore
     return [result];
+  }
+
+  async requestChainId({
+    connector,
+    networkId,
+  }: {
+    connector: IExternalConnectorEvm;
+    networkId: string;
+  }): Promise<number> {
+    const provider = await connector.getProvider();
+    const walletConnectProvider =
+      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+
+    if (walletConnectProvider) {
+      const wcChain = await this.getWcChain({ networkId });
+      const chainIdNumOrHexString = (await walletConnectProvider.request(
+        {
+          method: 'eth_chainId',
+        },
+        wcChain,
+      )) as string;
+      return new BigNumber(chainIdNumOrHexString).toNumber();
+    }
+
+    const chainIdNumOrHexString = await provider.request({
+      method: 'eth_chainId',
+    });
+    return new BigNumber(chainIdNumOrHexString).toNumber();
+  }
+
+  async requestAccounts({
+    connector,
+    networkId,
+  }: {
+    connector: IExternalConnectorEvm;
+    networkId: string;
+  }): Promise<`0x${string}`[]> {
+    const provider = await connector.getProvider();
+    const walletConnectProvider =
+      provider instanceof WalletConnectDappSideProvider ? provider : undefined;
+
+    let addresses: `0x${string}`[] = [];
+    if (walletConnectProvider) {
+      const wcChain = await this.getWcChain({ networkId });
+      addresses = (await walletConnectProvider.request(
+        {
+          method: 'eth_accounts',
+        },
+        wcChain,
+      )) as `0x${string}`[];
+    } else {
+      addresses = await provider.request({
+        method: 'eth_accounts',
+      });
+    }
+
+    return addresses.map((address) =>
+      (address || '')?.toLowerCase(),
+    ) as `0x${string}`[];
+  }
+
+  override async checkNetworkOrAddressMatched(
+    payload: IExternalCheckNetworkOrAddressMatchedPayload,
+  ): Promise<void> {
+    const { account, networkId } = payload;
+    const chainId = networkUtils.getNetworkChainId({ networkId });
+    const isWalletConnect =
+      payload.connector instanceof ExternalConnectorWalletConnect;
+    const connector = payload.connector as IExternalConnectorEvm;
+    const peerChainIdNum = await this.requestChainId({ connector, networkId });
+    const peerAddresses = await this.requestAccounts({ connector, networkId });
+
+    if (
+      !peerAddresses.includes((account.address || '')?.toLowerCase() as any)
+    ) {
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.feedback_address_not_matched,
+        })}: ${networkId} ${account.address}`,
+      );
+    }
+
+    // walletconnect does not need to check if chainId matches
+    // because wcChain has been passed in request()
+    // and OKX wallet will not return the correct chainId
+    if (!isWalletConnect && chainId !== peerChainIdNum.toString()) {
+      throw new Error(
+        `${appLocale.intl.formatMessage({
+          id: ETranslations.global_network_not_matched,
+        })}: ${networkId} peerChainId=${peerChainIdNum}`,
+      );
+    }
   }
 }

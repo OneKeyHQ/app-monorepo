@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType, usePageType } from '../../hocs';
 import { useThemeValue } from '../../hooks';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
@@ -65,6 +66,8 @@ const PageHeader = (props: IPageHeaderProps) => {
     navigation.setOptions(reloadOptions);
   }, [navigation, reloadOptions]);
 
+  const pageType = usePageType();
+
   const { headerSearchBarOptions } = props;
   // Android & Web HeaderSearchBar in packages/components/src/layouts/Navigation/Header/HeaderView.tsx
   return platformEnv.isNativeIOS && headerSearchBarOptions ? (
@@ -72,8 +75,10 @@ const PageHeader = (props: IPageHeaderProps) => {
       autoFocus={headerSearchBarOptions?.autoFocus}
       placeholder={headerSearchBarOptions?.placeholder}
       onChangeText={headerSearchBarOptions?.onChangeText}
+      onSearchTextChange={headerSearchBarOptions?.onSearchTextChange}
       onBlur={headerSearchBarOptions?.onBlur}
       onFocus={headerSearchBarOptions?.onFocus}
+      isModalScreen={pageType === EPageType.modal}
       onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
     />
   ) : null;

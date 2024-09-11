@@ -1,18 +1,34 @@
-import { useBuyToken } from '@onekeyhq/kit/src/hooks/useBuyToken';
+import { useMemo } from 'react';
+
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { RawActions } from './RawActions';
 
-type IProps = {
-  networkId: string | undefined;
-  accountId: string | undefined;
-};
+export function WalletActionBuy() {
+  const {
+    activeAccount: { network, account, wallet },
+  } = useActiveAccount({ num: 0 });
 
-export function WalletActionBuy(props: IProps) {
-  const { networkId, accountId } = props;
-  const { isSupported, handleOnBuy } = useBuyToken({
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
+  const { isSupported, handleFiatCrypto } = useFiatCrypto({
+    networkId: network?.id ?? '',
+    accountId: account?.id ?? '',
+    fiatCryptoType: 'buy',
   });
 
-  return <RawActions.Buy onPress={handleOnBuy} disabled={!isSupported} />;
+  const isBuyDisabled = useMemo(() => {
+    if (wallet?.type === WALLET_TYPE_WATCHING && !platformEnv.isDev) {
+      return true;
+    }
+
+    if (!isSupported) {
+      return true;
+    }
+
+    return false;
+  }, [isSupported, wallet?.type]);
+
+  return <RawActions.Buy onPress={handleFiatCrypto} disabled={isBuyDisabled} />;
 }

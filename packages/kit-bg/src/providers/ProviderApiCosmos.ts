@@ -17,6 +17,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -34,6 +35,8 @@ class ProviderApiCosmos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cosmos;
 
   private _queue = new Semaphore(1);
+
+  private signMessageSemaphore = new Semaphore(1);
 
   private async _getAccount(
     request: IJsBridgeMessagePayload,
@@ -56,17 +59,43 @@ class ProviderApiCosmos extends ProviderApiBase {
     return account;
   }
 
+  private async _switchNetwork(
+    request: IJsBridgeMessagePayload,
+    networkId: string,
+  ) {
+    const accounts = await this.getAccountsInfo(request);
+    const isSameNetwork = accounts.find(
+      (item) => item.accountInfo?.networkId === networkId,
+    );
+    if (!isSameNetwork) {
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        newNetworkId: networkId,
+      });
+    }
+  }
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this.getAccountsInfo({
-        origin: info.targetOrigin,
-        scope: this.providerName,
-      });
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      let params;
+      try {
+        if (accounts && accounts.length > 0) {
+          params = this._getKeyFromAccount(accounts[0].account);
+        }
+      } catch {
+        // ignore
+      }
       const result = {
         method: 'wallet_events_accountChanged',
-        params: this._getKeyFromAccount(accounts[0].account),
+        params,
       };
       return result;
     };
@@ -77,15 +106,19 @@ class ProviderApiCosmos extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this.getAccountsInfo({
-        origin: info.targetOrigin,
-        scope: this.providerName,
-      });
-      const chainId = accounts[0].accountInfo?.networkId
-        ? networkUtils.getNetworkChainId({
-            networkId: accounts[0].accountInfo?.networkId,
-          })
-        : '';
+      const accounts =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+          origin: info.targetOrigin,
+          scope: this.providerName,
+        });
+      let chainId;
+      if (accounts && accounts.length > 0) {
+        chainId = accounts[0].accountInfo?.networkId
+          ? networkUtils.getNetworkChainId({
+              networkId: accounts[0].accountInfo?.networkId,
+            })
+          : '';
+      }
       const result = {
         method: 'wallet_events_networkChange',
         params: chainId,
@@ -93,6 +126,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       return result;
     };
     info.send(data, info.targetOrigin);
+    this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
   public rpcCall() {
@@ -206,6 +240,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signOptions?: any;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txWrapper = TransactionWrapper.fromAminoSignDoc(
       params.signDoc,
       undefined,
@@ -276,6 +311,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signOptions?: any;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
     if (!networkId) throw new Error('Invalid chainId');
 
@@ -350,12 +386,14 @@ class ProviderApiCosmos extends ProviderApiBase {
       mode: string;
     },
   ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.chainId);
     if (!networkId) throw new Error('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
     const res = await this.backgroundApi.serviceSend.broadcastTransaction({
+      accountId: account.account.id ?? '',
       networkId,
       accountAddress: account?.account.address ?? '',
       signedTx: {
@@ -376,30 +414,37 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ) {
-    const paramsData = {
-      data: params.data,
-      signer: params.signer,
-    };
+    return this.signMessageSemaphore.runExclusive(async () => {
+      defaultLogger.discovery.dapp.dappRequest({ request });
+      const paramsData = {
+        data: params.data,
+        signer: params.signer,
+      };
 
-    const networkId = this.convertCosmosChainId(params.chainId);
-    if (!networkId) throw new Error('Invalid chainId');
+      const networkId = this.convertCosmosChainId(params.chainId);
+      if (!networkId) throw new Error('Invalid chainId');
 
-    const account = await this._getAccount(request, networkId);
+      const account = await this._getAccount(request, networkId);
 
-    const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
-      request,
-      unsignedMessage: {
-        type: EMessageTypesCommon.SIGN_MESSAGE,
-        message: JSON.stringify(paramsData),
-        secure: true,
-      },
-      networkId,
-      accountId: account?.account.id ?? '',
-    })) as string;
+      await this._switchNetwork(request, networkId);
 
-    return deserializeTx(
-      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
-    );
+      const result = (await this.backgroundApi.serviceDApp.openSignMessageModal(
+        {
+          request,
+          unsignedMessage: {
+            type: EMessageTypesCommon.SIMPLE_SIGN,
+            message: JSON.stringify(paramsData),
+            secure: true,
+          },
+          networkId,
+          accountId: account?.account.id ?? '',
+        },
+      )) as string;
+
+      return deserializeTx(
+        hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+      );
+    });
   }
 
   @permissionRequired()
@@ -412,6 +457,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       data: string;
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
@@ -447,6 +493,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     },
   ): Promise<any> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
     const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;

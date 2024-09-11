@@ -1,6 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import ProviderApiAlgo from './ProviderApiAlgo';
+import ProviderApiAlph from './ProviderApiAlph';
 import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
@@ -11,10 +12,12 @@ import ProviderApiNear from './ProviderApiNear';
 import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
-import ProviderApiPrivateExternalAccount from './ProviderApiPrivateExternalAccount';
+// import ProviderApiPrivateExternalAccount from './ProviderApiPrivateExternalAccount';
+import ProviderApiScdo from './ProviderApiScdo';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
+import ProviderApiTon from './ProviderApiTon';
 import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
@@ -60,6 +63,15 @@ function createBackgroundProviders({
     [IInjectedProviderNames.sui]: new ProviderApiSui({
       backgroundApi,
     }),
+    [IInjectedProviderNames.ton]: new ProviderApiTon({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.alephium]: new ProviderApiAlph({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.scdo]: new ProviderApiScdo({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
@@ -74,10 +86,10 @@ function createBackgroundProviders({
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),
-    [IInjectedProviderNames.$privateExternalAccount]:
-      new ProviderApiPrivateExternalAccount({
-        backgroundApi,
-      }),
+    // [IInjectedProviderNames.$privateExternalAccount]:
+    //   new ProviderApiPrivateExternalAccount({
+    //     backgroundApi,
+    //   }),
     // near
     // eslint-disable-next-line spellcheck/spell-checker
     // sollet

@@ -17,10 +17,12 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -63,24 +65,14 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <>
-      <Stack
-        $gtMd={{
-          flexShrink: 1,
-          minWidth: '$32',
-        }}
-      >
+    <XStack gap="$3" alignItems="center">
+      <Stack>
         <NetworkSelectorTriggerBrowserSingle num={num} />
       </Stack>
-      <Stack
-        $gtMd={{
-          flexShrink: 1,
-          minWidth: '$36',
-        }}
-      >
+      <Stack>
         <AccountSelectorTriggerBrowserSingle num={num} />
       </Stack>
-    </>
+    </XStack>
   );
 }
 
@@ -95,7 +87,14 @@ function AvatarStackTrigger({
         accountId: accountInfo.accountId,
         networkId: accountInfo.networkId || '',
       });
-      return { account, networkId: accountInfo.networkId };
+      let indexedAccount: IDBIndexedAccount | undefined;
+      if (account.indexedAccountId) {
+        indexedAccount =
+          await backgroundApiProxy.serviceAccount.getIndexedAccount({
+            id: account.indexedAccountId,
+          });
+      }
+      return { account, networkId: accountInfo.networkId, indexedAccount };
     });
     return Promise.all(promises);
   }, [accountsInfo]);
@@ -110,6 +109,7 @@ function AvatarStackTrigger({
             size="small"
             zIndex={-index}
             networkId={account?.networkId}
+            indexedAccount={account.indexedAccount}
           />
         </Stack>
       ))}
@@ -167,7 +167,7 @@ function AccountSelectorPopoverContent({
         return acc;
       }, {} as Record<number, { networkIds: string[] }>)}
     >
-      <YStack p="$5" space="$2">
+      <YStack p="$5" gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}
@@ -251,7 +251,7 @@ function HeaderRightToolBar() {
       return (
         <Stack
           $gtMd={{
-            width: '100%',
+            width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
           }}
         >

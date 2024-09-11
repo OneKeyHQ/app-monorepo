@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type {
@@ -19,13 +16,14 @@ import { ExternalControllerBase } from '../../base/ExternalControllerBase';
 
 import { ExternalConnectorWalletConnect } from './ExternalConnectorWalletConnect';
 
-import type { IDBExternalAccount } from '../../../dbs/local/types';
 import type {
+  IExternalCheckNetworkOrAddressMatchedPayload,
   IExternalHandleWalletConnectEventsParams,
   IExternalSendTransactionByWalletConnectPayload,
   IExternalSendTransactionPayload,
   IExternalSignMessageByWalletConnectPayload,
   IExternalSignMessagePayload,
+  IExternalSyncAccountFromPeerWalletPayload,
 } from '../../base/ExternalControllerBase';
 
 export class ExternalControllerWalletConnect extends ExternalControllerBase {
@@ -103,13 +101,10 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     // events are handled by the WalletConnectDappSide getSharedClient()
   }
 
-  async checkNetworkOrAddressMatched({
+  override async checkNetworkOrAddressMatched({
     networkId,
     account,
-  }: {
-    account: IDBExternalAccount;
-    networkId: string;
-  }) {
+  }: IExternalCheckNetworkOrAddressMatchedPayload) {
     const { connectedAddresses, address, connectionInfo } = account;
     const topic = connectionInfo?.walletConnect?.topic;
     const sessions = await walletConnectStorage.dappSideStorage.getSessions();
@@ -165,13 +160,24 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   ): Promise<ISignedTxPro> {
     const { networkId, account } = payload;
     const connector = payload.connector as ExternalConnectorWalletConnect;
+
+    // call walletconnect general checkNetworkOrAddressMatched
     await this.checkNetworkOrAddressMatched({
       networkId,
       account,
+      connector,
     });
     const ctrl = await this.factory.getController({
       networkId,
     });
+
+    // call chain specified (EVM) checkNetworkOrAddressMatched
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
+    });
+
     // TODO openNativeWalletAppByDeepLink
     return ctrl.sendTransactionByWalletConnect({ ...payload, connector });
   }
@@ -181,14 +187,33 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   ): Promise<ISignedMessagePro> {
     const { networkId, account } = payload;
     const connector = payload.connector as ExternalConnectorWalletConnect;
+
+    // call walletconnect general checkNetworkOrAddressMatched
     await this.checkNetworkOrAddressMatched({
       networkId,
       account,
+      connector,
     });
     const ctrl = await this.factory.getController({
       networkId,
     });
+
+    // call chain specified (EVM) checkNetworkOrAddressMatched
+    await ctrl.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+      connector,
+    });
+
     // TODO openNativeWalletAppByDeepLink
     return ctrl.signMessageByWalletConnect({ ...payload, connector });
+  }
+
+  override async syncAccountFromPeerWallet(
+    payload: IExternalSyncAccountFromPeerWalletPayload,
+  ): Promise<void> {
+    console.log(
+      'walletconnect syncAccountFromPeerWallet skipped, walletconnect support offline events sync',
+    );
   }
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import {
   Icon,
@@ -18,8 +18,6 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: string;
   isLoading?: boolean;
-  renderPopoverContent?: () => ReactNode;
-  popoverOnOpenChange?: (open: boolean) => void;
 }
 
 const SwapCommonInfoItem = ({
@@ -29,8 +27,6 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
-  renderPopoverContent,
-  popoverOnOpenChange,
 }: ISwapCommonInfoItemProps) => {
   const questionMarkComponent = useMemo(
     () => (
@@ -66,11 +62,13 @@ const SwapCommonInfoItem = ({
           opacity: 0.5,
         }}
         alignItems="center"
+        onPress={onPress}
+        cursor={onPress ? 'pointer' : undefined}
       >
         {valueComponent || (
           <SizableText size="$bodyMdMedium">{value}</SizableText>
         )}
-        {onPress || renderPopoverContent ? (
+        {onPress ? (
           <Icon
             name="ChevronRightSmallOutline"
             mr="$-1"
@@ -80,42 +78,30 @@ const SwapCommonInfoItem = ({
         ) : null}
       </XStack>
     ),
-    [onPress, renderPopoverContent, value, valueComponent],
+    [onPress, value, valueComponent],
   );
-  const popoverContent = useCallback(() => {
-    if (renderPopoverContent) {
-      return (
-        <Popover
-          renderTrigger={rightTrigger}
-          renderContent={renderPopoverContent}
-          title={title}
-          keepChildrenMounted
-          onOpenChange={popoverOnOpenChange}
-        />
-      );
-    }
-    return rightTrigger;
-  }, [popoverOnOpenChange, renderPopoverContent, rightTrigger, title]);
+
   return (
-    <XStack
-      onPress={onPress}
-      justifyContent="space-between"
-      alignItems="center"
-    >
+    <XStack justifyContent="space-between" alignItems="center">
       <XStack>
-        <SizableText mr="$1" size="$bodyMd" color="$textSubdued">
+        <SizableText
+          userSelect="none"
+          mr="$1"
+          size="$bodyMd"
+          color="$textSubdued"
+        >
           {title}
         </SizableText>
         {questionMarkContent ? questionMarkComponent : null}
       </XStack>
 
-      <XStack space="$2">
+      <XStack gap="$2">
         {isLoading ? (
           <Stack py="$1">
             <Skeleton h="$3" w="$24" />
           </Stack>
         ) : (
-          popoverContent()
+          rightTrigger
         )}
       </XStack>
     </XStack>

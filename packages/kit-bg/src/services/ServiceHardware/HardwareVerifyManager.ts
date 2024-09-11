@@ -34,7 +34,7 @@ export type IFirmwareAuthenticateParams = {
   skipDeviceCancel?: boolean;
 };
 
-const deviceCheckingCodes = [0, 10101, 10102, 10103, 10104];
+const deviceCheckingCodes = [10_104, 10_105, 10_106, 10_107];
 
 export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   @backgroundMethod()
@@ -126,48 +126,43 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         const client = await this.serviceHardware.getClient(
           EServiceEndpointEnum.Wallet,
         );
-        const shouldUseProxy =
-          platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
+
         const payload = {
           deviceType,
           data,
           cert,
           signature,
         };
-        const resp = await client.post<{
-          message?: string;
-          data?: string;
+        let result: {
           code?: number;
-        }>(
-          '/wallet/v1/hardware/verify',
-          // shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL,
-
-          payload,
-          {
-            headers: shouldUseProxy
-              ? {
-                  // 'X-OneKey-Dev-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
-                }
-              : {},
-          },
-        );
-        const result = resp.data;
+          message?: string;
+        } = {};
+        try {
+          const resp = await client.post<{
+            message?: string;
+            data?: string;
+            code?: number;
+          }>('/wallet/v1/hardware/verify', payload);
+          result = resp.data;
+        } catch (error) {
+          if (
+            error instanceof OneKeyServerApiError &&
+            deviceCheckingCodes.includes(error.code)
+          ) {
+            result = {
+              code: error.code,
+              message: error.message,
+            };
+          } else {
+            throw error;
+          }
+        }
         console.log('firmwareAuthenticate result: ', result, connectId);
 
         // result.message = 'false';
 
         // result.data = 'CLA45F0024'; // server return SN
         // SearchDevice.connectId (web sdk return SN, but ble sdk return uuid)
-
-        if (
-          typeof result.code !== 'number' ||
-          !deviceCheckingCodes.includes(result.code)
-        ) {
-          throw new OneKeyServerApiError({
-            code: result.code,
-            message: result.message,
-          });
-        }
 
         const verified = result.code === 0;
 
@@ -190,6 +185,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         deviceParams: { dbDevice: device as any },
         hideCheckingDeviceLoading: true,
         skipDeviceCancel,
+        debugMethodName: 'firmwareAuthenticate.verify',
       },
     );
   }

@@ -51,6 +51,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -180,6 +181,7 @@ export default class Vault extends VaultBase {
                         new BigNumber(amount)
                           .shiftedBy(tokenInfo.decimals)
                           .toFixed(),
+                        10,
                       ),
                       from,
                     ],
@@ -191,7 +193,11 @@ export default class Vault extends VaultBase {
         return transaction;
       } catch (e) {
         if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
-          throw new InsufficientBalance();
+          throw new InsufficientBalance({
+            info: {
+              symbol: tokenInfo.symbol,
+            },
+          });
         } else if (typeof e === 'string') {
           throw new Error(e);
         } else {
@@ -213,8 +219,11 @@ export default class Vault extends VaultBase {
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
+    const { swapInfo } = unsignedTx;
+
     let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
     let toAddress = '';
+
     if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
       const actionFromNativeTransfer =
         await this._buildTxTransferNativeTokenAction({
@@ -232,6 +241,13 @@ export default class Vault extends VaultBase {
         action = actionFromContract.action;
         toAddress = actionFromContract.toAddress;
       }
+    }
+
+    if (swapInfo) {
+      action = await this.buildInternalSwapAction({
+        swapInfo,
+        swapToAddress: toAddress,
+      });
     }
 
     const owner = await this.getAccountAddress();
@@ -264,8 +280,8 @@ export default class Vault extends VaultBase {
 
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
-      accountAddress,
       tokenIdOnNetwork: '',
     });
 
@@ -309,8 +325,6 @@ export default class Vault extends VaultBase {
     } = (encodedTx.raw_data.contract[0] as ITriggerSmartContractCall).parameter
       .value;
 
-    const accountAddress = await this.getAccountAddress();
-
     let action;
 
     try {
@@ -318,9 +332,9 @@ export default class Vault extends VaultBase {
       const tokenAddress = TronWeb.address.fromHex(contractAddressHex);
 
       const token = await this.backgroundApi.serviceToken.getToken({
+        accountId: this.accountId,
         networkId: this.networkId,
         tokenIdOnNetwork: tokenAddress,
-        accountAddress,
       });
 
       if (!token) return;
@@ -350,7 +364,7 @@ export default class Vault extends VaultBase {
 
         action = await this.buildTxTransferAssetAction({
           from: fromAddress,
-          to: tokenAddress,
+          to: TronWeb.address.fromHex(toAddressHex),
           transfers: [transfer],
         });
       }
@@ -366,11 +380,13 @@ export default class Vault extends VaultBase {
           type: EDecodedTxActionType.TOKEN_APPROVE,
           tokenApprove: {
             from: fromAddress,
-            to: TronWeb.address.fromHex(spenderAddressHex),
+            to: tokenAddress,
+            spender: TronWeb.address.fromHex(spenderAddressHex),
             amount: amountBN.shiftedBy(-token.decimals).toFixed(),
             icon: token.logoURI ?? '',
             name: token.name,
             symbol: token.symbol,
+            decimals: token.decimals,
             tokenIdOnNetwork: token.address,
             isInfiniteAmount: toBigIntHex(amountBN) === INFINITE_AMOUNT_HEX,
           },
@@ -404,8 +420,15 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx, nativeAmountInfo, tokenApproveInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxTron;
+
+    if (tokenApproveInfo) {
+      encodedTxNew = await this._updateTokenApproveInfo({
+        encodedTx: encodedTxNew,
+        tokenApproveInfo,
+      });
+    }
 
     if (nativeAmountInfo) {
       encodedTxNew = await this._updateNativeTokenAmount({
@@ -416,6 +439,78 @@ export default class Vault extends VaultBase {
 
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
+  }
+
+  async _updateTokenApproveInfo(params: {
+    encodedTx: IEncodedTxTron;
+    tokenApproveInfo: ITokenApproveInfo;
+  }) {
+    const { encodedTx, tokenApproveInfo } = params;
+    const actionFromContract = await this._buildTxActionFromContract({
+      encodedTx,
+    });
+    if (
+      actionFromContract &&
+      actionFromContract.action &&
+      actionFromContract.action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      actionFromContract.action.tokenApprove
+    ) {
+      const accountAddress = await this.getAccountAddress();
+      const { allowance, isUnlimited } = tokenApproveInfo;
+      const { spender, decimals, tokenIdOnNetwork } =
+        actionFromContract.action.tokenApprove;
+
+      const amountHex = toBigIntHex(
+        isUnlimited
+          ? new BigNumber(2).pow(256).minus(1)
+          : new BigNumber(allowance).shiftedBy(decimals),
+      );
+
+      try {
+        const [
+          {
+            result: { result },
+            transaction,
+          },
+        ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+          result: { result: boolean };
+          transaction: IUnsignedTransaction;
+        }>({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'tronweb',
+              params: {
+                method: 'transactionBuilder.triggerSmartContract',
+                params: [
+                  tokenIdOnNetwork,
+                  'approve(address,uint256)',
+                  {},
+                  [
+                    { type: 'address', value: spender },
+                    {
+                      type: 'uint256',
+                      value: amountHex,
+                    },
+                  ],
+                  accountAddress,
+                ],
+              },
+            },
+          ],
+        });
+        if (!result) {
+          throw new OneKeyInternalError(
+            'Unable to build token approve transaction',
+          );
+        }
+        return transaction;
+      } catch (e) {
+        console.error('updateTokenApproveInfo ERROR:', e);
+        return encodedTx;
+      }
+    }
+    return encodedTx;
   }
 
   async _updateNativeTokenAmount(params: {
@@ -469,7 +564,11 @@ export default class Vault extends VaultBase {
         address,
       });
     }
-    return Promise.reject(new InvalidAddress());
+    return Promise.resolve({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {

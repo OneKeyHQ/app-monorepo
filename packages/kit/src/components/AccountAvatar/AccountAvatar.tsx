@@ -63,7 +63,9 @@ export interface IAccountAvatarProps extends IImageProps {
 }
 
 function HashImageSource({ id }: { id: string }) {
-  const uri = useBlockieImageUri(id);
+  // native ethereum-blockies-base64 can't parse ':' in address
+  const idFixed = id.replaceAll(':', '');
+  const uri = useBlockieImageUri(idFixed);
   return uri ? <Image.Source src={uri} /> : null;
 }
 

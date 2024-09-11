@@ -162,6 +162,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx?.encodedTx as IEncodedTxSui;
+    const { swapInfo } = unsignedTx;
     const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
     if (!transactionBlock) {
       throw new OneKeyInternalError('Failed to decode transaction');
@@ -175,18 +176,25 @@ export default class Vault extends VaultBase {
       gasLimit = gasConfig.budget.toString() ?? '0';
     }
 
-    const actions: IDecodedTxAction[] = [];
+    let actions: IDecodedTxAction[] = [];
+    let toAddress = '';
+
     try {
       for (const transaction of transactions) {
         switch (transaction.kind) {
           case 'TransferObjects': {
-            const action = await this._buildTxActionFromTransferObjects({
-              transaction,
-              transactions,
-              inputs,
-              payments: gasConfig.payment,
-            });
-            actions.push(action);
+            const { action, to } = await this._buildTxActionFromTransferObjects(
+              {
+                transaction,
+                transactions,
+                inputs,
+                payments: gasConfig.payment,
+              },
+            );
+            if (action) {
+              actions.push(action);
+            }
+            toAddress = to;
             break;
           }
           case 'MoveCall': {
@@ -230,6 +238,7 @@ export default class Vault extends VaultBase {
             }
 
             const callName = moveCallTxnName(transaction.target).split('::');
+            toAddress = `${callName?.[1]}::${callName?.[2]}`;
             actions.push({
               type: EDecodedTxActionType.FUNCTION_CALL,
               'functionCall': {
@@ -261,6 +270,26 @@ export default class Vault extends VaultBase {
       }
     } catch (e) {
       // ignore parse error
+    }
+
+    if (swapInfo) {
+      actions = [
+        await this.buildInternalSwapAction({
+          swapInfo,
+          swapToAddress: toAddress,
+        }),
+      ];
+    }
+
+    if (actions.length === 0) {
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: account.address,
+          to: '',
+          icon: network.logoURI ?? '',
+        },
+      });
     }
 
     const result: IDecodedTx = {
@@ -366,6 +395,7 @@ export default class Vault extends VaultBase {
       }
 
       const txid = await this.backgroundApi.serviceSend.broadcastTransaction({
+        accountId: this.accountId,
         networkId: this.networkId,
         signedTx: params.signedTx,
         accountAddress: (await this.getAccount()).address,
@@ -427,6 +457,11 @@ export default class Vault extends VaultBase {
   override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
+    if (!/^(0x)?[0-9a-zA-Z]{64}$/.test(privateKey)) {
+      return {
+        isValid: false,
+      };
+    }
     return this.baseValidatePrivateKey(privateKey);
   }
 
@@ -447,7 +482,10 @@ export default class Vault extends VaultBase {
     transactions: TransactionBlock['blockData']['transactions'];
     inputs: TransactionBlockInput[];
     payments?: SuiGasData['payment'] | undefined;
-  }): Promise<IDecodedTxAction> {
+  }): Promise<{
+    action: IDecodedTxAction | undefined;
+    to: string;
+  }> {
     if (transaction.kind !== 'TransferObjects') {
       throw new Error('Invalid transaction kind');
     }
@@ -465,7 +503,7 @@ export default class Vault extends VaultBase {
             acc.push(current.objectId);
           }
           return acc;
-        }, new Array<string>(inputs.length));
+        }, [] as string[]);
 
         const objects = await client.multiGetObjects({
           ids: objectIds,
@@ -542,50 +580,55 @@ export default class Vault extends VaultBase {
     }
 
     let to = '';
-    if (
-      transaction.address.kind === 'Input' &&
-      transaction?.address?.index != null
-    ) {
-      const input = inputs[transaction.address.index];
-      const addressValue = get(input?.value, 'Pure', undefined);
-      try {
-        to = builder.de(
-          'vector<u8>',
-          new Uint8Array(Buffer.from(addressValue)),
-        );
-      } catch (e) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          to = `0x${bufferUtils.bytesToHex(Buffer.from(addressValue))}`;
-        } catch (error) {
-          // ignore
+    if (transaction.address.kind === 'Input') {
+      if (transaction.address.value) {
+        const argValue = get(transaction.address.value, 'Pure', undefined);
+        if (argValue) {
+          try {
+            to = builder.de('vector<u8>', argValue);
+          } catch (e) {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+              to = argValue.toString();
+            } catch (error) {
+              // ignore
+            }
+          }
+        } else {
+          to = transaction.address.value;
         }
-      }
-    } else if (transaction.address.kind === 'Input') {
-      const argValue = get(transaction.address.value, 'Pure', undefined);
-      if (argValue) {
+      } else {
+        const input = inputs[transaction.address.index];
+        const addressValue = get(input?.value, 'Pure', undefined);
         try {
-          to = builder.de('vector<u8>', argValue);
+          to = builder.de(
+            'vector<u8>',
+            new Uint8Array(Buffer.from(addressValue)),
+          );
         } catch (e) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            to = argValue.toString();
+            to = `0x${bufferUtils.bytesToHex(Buffer.from(addressValue))}`;
           } catch (error) {
             // ignore
           }
         }
-      } else {
-        to = transaction.address.value;
       }
     }
 
     const isNative = coinType === SUI_TYPE_ARG;
     const { address: sender } = await this.getAccount();
     const token = await this.backgroundApi.serviceToken.getToken({
+      accountId: this.accountId,
       networkId: this.networkId,
       tokenIdOnNetwork: coinType,
-      accountAddress: sender,
     });
+
+    if (!token)
+      return {
+        action: undefined,
+        to,
+      };
 
     const transfer = {
       from: sender,
@@ -598,11 +641,16 @@ export default class Vault extends VaultBase {
       isNative,
     };
 
-    return this.buildTxTransferAssetAction({
+    const action = await this.buildTxTransferAssetAction({
       from: sender,
       to,
       transfers: [transfer],
     });
+
+    return {
+      action,
+      to,
+    };
   }
 
   async waitPendingTransaction(

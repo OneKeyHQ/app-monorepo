@@ -1,5 +1,8 @@
+/* eslint-disable spellcheck/spell-checker */
+import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
+import { ONEKEY_LOGO_ICON_URL } from '../consts';
 import {
   ONEKEY_APP_DEEP_LINK,
   WalletConnectUniversalLinkFull,
@@ -9,8 +12,6 @@ import {
   // IMPL_COSMOS,
   // IMPL_DOT,
   IMPL_EVM,
-  // IMPL_SOL,
-  // IMPL_TRON,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
 
@@ -28,11 +29,11 @@ export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
-const platformName = [
+const platformName = uniq([
   process.env.ONEKEY_PLATFORM ?? '',
   process.env.EXT_CHANNEL ?? '',
   Platform.OS ?? '',
-]
+])
   .filter(Boolean)
   .join('-');
 
@@ -57,17 +58,20 @@ function getPlatformShortName() {
 }
 
 export const WALLET_CONNECT_CLIENT_NAME = `OneKey ${getPlatformShortName()}`;
+export const WALLET_CONNECT_CLIENT_DESC = 'Connect with OneKey';
 export const WALLET_CONNECT_CLIENT_META = {
   name: WALLET_CONNECT_CLIENT_NAME,
-  description: 'Connect with OneKey',
+  description: WALLET_CONNECT_CLIENT_DESC,
   // wallet-connect identify different dApps by url
-  url: `https://${platformName}.onekey.so`,
-  icons: ['https://uni.onekey-asset.com/static/logo/onekey.png'],
+  url: platformEnv.isWeb
+    ? `https://1key.so`
+    : `https://${platformName}.1key.so`,
+  icons: [ONEKEY_LOGO_ICON_URL],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative
     ? {
         native: ONEKEY_APP_DEEP_LINK, // 'onekey-wallet://',
-        universal: WalletConnectUniversalLinkFull, // 'https://app.onekey.so/wc/connect',
+        universal: WalletConnectUniversalLinkFull, // 'https://1key.so/wc/connect',
       }
     : (undefined as any),
 };
@@ -125,6 +129,12 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   algorand: [
     {
       caipsChainId: 'wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+      networkId: 'algo--4160',
+      impl: IMPL_ALGO,
+      namespace: 'algorand',
+    },
+    {
+      caipsChainId: 'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe',
       networkId: 'algo--4160',
       impl: IMPL_ALGO,
       namespace: 'algorand',

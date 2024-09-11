@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -5,12 +8,14 @@ import type {
   ITabPageProps,
 } from '@onekeyhq/components';
 import {
+  NestedScrollView,
   NumberSizeableText,
   Progress,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IMarketDetailPlatform,
@@ -19,6 +24,7 @@ import type {
 
 import { MarketAbout } from './MarketAbout';
 import { MarketDetailOverviewContract } from './MarketDetailOverviewContract';
+import { useTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
 function OverviewPriceChange({
@@ -33,7 +39,11 @@ function OverviewPriceChange({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <PriceChangePercentage size="$bodyMdMedium">
+      <PriceChangePercentage
+        size="$bodyMdMedium"
+        width="100%"
+        textAlign="center"
+      >
         {children}
       </PriceChangePercentage>
     </YStack>
@@ -41,42 +51,73 @@ function OverviewPriceChange({
 }
 
 export function Overview24PriceChange({
+  name,
+  symbol,
+  currentPrice,
   low,
   high,
+  lastUpdated,
 }: {
+  name: string;
+  symbol: string;
+  currentPrice: string;
   low: number;
   high: number;
+  lastUpdated: string;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
+  const price = useTokenPrice({
+    name,
+    symbol,
+    price: currentPrice,
+    lastUpdated: new Date(lastUpdated).getTime(),
+  });
+  const lowPrice = Math.min(Number(low), Number(price));
+  const highPrice = Math.max(Number(high), Number(price));
+  const priceChange = useMemo(() => {
+    const priceBN = new BigNumber(price);
+    if (priceBN.isNaN()) {
+      return undefined;
+    }
+    const lowBN = new BigNumber(lowPrice);
+    const highBN = new BigNumber(highPrice);
+    return Number(
+      priceBN.minus(lowBN).div(highBN.minus(lowBN)).shiftedBy(2).toFixed(2),
+    );
+  }, [price, lowPrice, highPrice]);
   return (
-    <YStack space="$2.5">
+    <YStack gap="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
-      <Progress value={(low / high) * 100} height="$1" />
+      {priceChange !== undefined ? (
+        <Progress value={priceChange} height="$1" />
+      ) : null}
       <XStack jc="space-between">
-        <XStack space="$1">
+        <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({ id: ETranslations.market_low })}
           </SizableText>
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="price"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
           >
-            {low}
+            {lowPrice}
           </NumberSizeableText>
         </XStack>
-        <XStack space="$1">
+        <XStack gap="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({ id: ETranslations.market_high })}
           </SizableText>
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="price"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
           >
-            {high}
+            {highPrice}
           </NumberSizeableText>
         </XStack>
       </XStack>
@@ -95,6 +136,7 @@ function OverviewMarketVOLItem({
   currency?: boolean;
   children: INumberSizeableTextProps['children'];
 }) {
+  const [settings] = useSettingsPersistAtom();
   return (
     <YStack
       pb="$3"
@@ -106,11 +148,13 @@ function OverviewMarketVOLItem({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <XStack space="$1" ai="center" pt="$0.5">
+      <XStack gap="$1" ai="center" pt="$0.5">
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter="marketCap"
-          formatterOptions={currency ? { currency: '$' } : undefined}
+          formatterOptions={
+            currency ? { currency: settings.currencyInfo.symbol } : undefined
+          }
         >
           {children}
         </NumberSizeableText>
@@ -152,44 +196,44 @@ function OverviewMarketVOL({
   const intl = useIntl();
   return (
     <YStack pt="$10">
-      <YStack space="$3">
-        <XStack space="$4">
+      <YStack gap="$3">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             currency
             title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
           >
-            {volume24h}
+            {volume24h || '-'}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             currency
             title={intl.formatMessage({ id: ETranslations.global_market_cap })}
             rank={marketCapRank}
           >
-            {marketCap}
+            {marketCap || '-'}
           </OverviewMarketVOLItem>
         </XStack>
-        <XStack space="$4">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             currency
             title={intl.formatMessage({ id: ETranslations.global_fdv })}
           >
-            {fdv}
+            {fdv || '-'}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             title={intl.formatMessage({
               id: ETranslations.global_circulating_supply,
             })}
           >
-            {circulatingSupply}
+            {circulatingSupply || '-'}
           </OverviewMarketVOLItem>
         </XStack>
-        <XStack space="$4">
+        <XStack gap="$4">
           <OverviewMarketVOLItem
             title={intl.formatMessage({
               id: ETranslations.global_total_supply,
             })}
           >
-            {totalSupply}
+            {totalSupply || '-'}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             title={intl.formatMessage({
@@ -205,27 +249,17 @@ function OverviewMarketVOL({
   );
 }
 
-// function GoPlus() {
-//   return (
-//     <XStack jc="space-between" ai="center">
-//       <YStack space="$1">
-//         <SizableText size="$headingMd">GoPlus</SizableText>
-//         <SizableText size="$bodyMd" color="$textSubdued">
-//           No risk detected
-//         </SizableText>
-//       </YStack>
-//       <Button h={38}>View</Button>
-//     </XStack>
-//   );
-// }
-
 export function MarketDetailOverview({
   token: {
+    name,
+    symbol,
     detailPlatforms,
     stats: {
       maxSupply,
       totalSupply,
       circulatingSupply,
+      currentPrice,
+      lastUpdated,
       performance,
       volume24h,
       marketCap,
@@ -236,61 +270,62 @@ export function MarketDetailOverview({
     },
     about,
   },
-  onContentSizeChange,
 }: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
   return (
-    <YStack
-      pb="$10"
-      onLayout={({
-        nativeEvent: {
-          layout: { width, height },
-        },
-      }) => onContentSizeChange(width, height)}
-    >
-      <XStack
-        borderWidth="$px"
-        borderRadius="$2"
-        borderColor="$borderSubdued"
-        py="$3"
-        my="$6"
-      >
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1d })}
+    <NestedScrollView>
+      <YStack pb="$10" $md={{ px: '$5' }}>
+        <XStack
+          borderWidth="$px"
+          borderRadius="$2"
+          borderColor="$borderSubdued"
+          py="$3"
+          my="$6"
         >
-          {performance.priceChangePercentage24h}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1w })}
-        >
-          {performance.priceChangePercentage7d}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1m })}
-        >
-          {performance.priceChangePercentage30d}
-        </OverviewPriceChange>
-        <OverviewPriceChange
-          title={intl.formatMessage({ id: ETranslations.market_1y })}
-        >
-          {performance.priceChangePercentage1y}
-        </OverviewPriceChange>
-      </XStack>
-      <Overview24PriceChange low={low24h} high={high24h} />
-      <OverviewMarketVOL
-        volume24h={volume24h}
-        fdv={fdv}
-        marketCap={marketCap}
-        marketCapRank={marketCapRank}
-        maxSupply={maxSupply}
-        totalSupply={totalSupply}
-        circulatingSupply={circulatingSupply}
-        detailPlatforms={detailPlatforms}
-      />
-      {/* <GoPlus /> */}
-      <MarketAbout>{about}</MarketAbout>
-    </YStack>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1d })}
+          >
+            {performance.priceChangePercentage24h}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1w })}
+          >
+            {performance.priceChangePercentage7d}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1m })}
+          >
+            {performance.priceChangePercentage30d}
+          </OverviewPriceChange>
+          <OverviewPriceChange
+            title={intl.formatMessage({ id: ETranslations.market_1y })}
+          >
+            {performance.priceChangePercentage1y}
+          </OverviewPriceChange>
+        </XStack>
+        <Overview24PriceChange
+          name={name}
+          symbol={symbol}
+          currentPrice={currentPrice}
+          low={low24h}
+          high={high24h}
+          lastUpdated={lastUpdated}
+        />
+        <OverviewMarketVOL
+          volume24h={volume24h}
+          fdv={fdv}
+          marketCap={marketCap}
+          marketCapRank={marketCapRank}
+          maxSupply={maxSupply}
+          totalSupply={totalSupply}
+          circulatingSupply={circulatingSupply}
+          detailPlatforms={detailPlatforms}
+        />
+        {/* <GoPlus /> */}
+        <MarketAbout>{about}</MarketAbout>
+      </YStack>
+    </NestedScrollView>
   );
 }

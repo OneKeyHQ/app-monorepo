@@ -13,7 +13,8 @@ export function ScanCamera({
   ...rest
 }: IScanCameraProps) {
   if (!isActive) {
-    // navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    // void navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    //   stream.getVideoTracks().forEach((track) => track.stop());
     //   stream.getTracks().forEach((track) => track.stop());
     // });
     return null;

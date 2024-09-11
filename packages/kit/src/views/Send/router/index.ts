@@ -2,6 +2,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import {
   SendConfirmWithProvider,
   SendDataInputWithProvider,
+  SendReplaceTx,
 } from '@onekeyhq/kit/src/views/Send';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
@@ -37,6 +38,15 @@ const WeblnSendPaymentModal = LazyLoadPage(
     ),
 );
 
+const TokenSelector = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
+);
+
+const DeriveTypesAddress = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -54,6 +64,10 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     component: SendConfirmFromDApp,
   },
   {
+    name: EModalSendRoutes.SendReplaceTx,
+    component: SendReplaceTx,
+  },
+  {
     name: EModalSendRoutes.LnurlPayRequest,
     component: LnurlPayRequestModal,
   },
@@ -68,5 +82,13 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.WeblnSendPayment,
     component: WeblnSendPaymentModal,
+  },
+  {
+    name: EModalSendRoutes.SendSelectToken,
+    component: TokenSelector,
+  },
+  {
+    name: EModalSendRoutes.SendSelectDeriveAddress,
+    component: DeriveTypesAddress,
   },
 ];

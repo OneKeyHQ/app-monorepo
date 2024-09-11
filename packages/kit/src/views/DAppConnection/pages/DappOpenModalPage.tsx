@@ -1,21 +1,22 @@
 import type { PropsWithChildren } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 import type useDappApproveAction from '../../../hooks/useDappApproveAction';
 
 type IProps = PropsWithChildren<{
   dappApprove: ReturnType<typeof useDappApproveAction>;
-  onClose?: (confirmed: boolean) => void;
+  onClose?: (extra?: { flag?: string }) => void;
 }>;
 
 function DappOpenModalPage({ children, onClose, dappApprove }: IProps) {
-  const handleOnClose = (confirmed: boolean) => {
-    if (!confirmed) {
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
       dappApprove.reject();
     }
     if (typeof onClose === 'function') {
-      onClose(confirmed);
+      onClose(extra);
     }
   };
 

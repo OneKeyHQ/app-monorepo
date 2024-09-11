@@ -13,11 +13,9 @@ export interface IPageFooterRef {
 export interface IPageContentOptions {
   safeAreaEnabled?: boolean;
   scrollEnabled?: boolean;
-  pageRef: RefObject<IScrollViewRef>;
-  pageOffsetRef: MutableRefObject<NativeScrollPoint>;
   footerRef: MutableRefObject<IPageFooterRef>;
   scrollProps?: Omit<IScrollViewProps, 'children'>;
-  confirmedRef?: MutableRefObject<boolean>;
+  closeExtraRef?: MutableRefObject<{ flag?: string }>;
 }
 
 type IPageContentProps = IPageContentOptions;

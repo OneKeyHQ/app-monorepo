@@ -5,9 +5,8 @@ import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
 
-export const NETWORK_ID_ETC = 'evm--61';
-
 export type INetworkShortCode =
+  | 'onekeyall'
   | 'eth'
   | 'goerli'
   | 'arbitrum'
@@ -35,6 +34,7 @@ export type INetworkShortCode =
   | 'ckb'
   | 'btc'
   | 'tbtc'
+  | 'sbtc'
   | 'juno'
   | 'osmosis'
   | 'secretnetwork'
@@ -51,7 +51,15 @@ export type INetworkShortCode =
   | 'trx'
   | 'neurai'
   | 'sepolia'
-  | 'fevm';
+  | 'mantle'
+  | 'mantapacific'
+  | 'blast'
+  | 'opbnb'
+  | 'fevm'
+  | 'holesky'
+  | 'flare'
+  | 'base'
+  | 'ton';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time

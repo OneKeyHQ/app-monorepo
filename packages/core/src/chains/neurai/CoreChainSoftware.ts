@@ -1,3 +1,5 @@
+import { Psbt } from 'bitcoinjs-lib';
+
 import CoreChainSoftwareBtc from '../btc/CoreChainSoftware';
 
 import type {
@@ -12,10 +14,26 @@ import type {
   ICoreApiSignTxPayload,
   ISignedTxPro,
 } from '../../types';
+import type { IBtcForkNetwork } from '../btc/types';
 
 export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   override async getCoinName() {
     return Promise.resolve('NEURAI');
+  }
+
+  override async getXpubRegex() {
+    return '^xpub';
+  }
+
+  override async getXprvtRegex() {
+    return '^xprv';
+  }
+
+  override getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
+    return new Psbt({
+      network,
+      maximumFeeRate: network.maximumFeeRate,
+    });
   }
 
   override signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

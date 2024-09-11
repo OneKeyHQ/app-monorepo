@@ -44,7 +44,6 @@ export abstract class CoreChainScopeBase {
         get:
           (target, prop) =>
           async (...args: any[]) => {
-            // console.log(target, prop, args, others, this.scopeName, name);
             const method = prop;
             if (!isString(method)) {
               throw new Error('FlowLogger api method must be string');

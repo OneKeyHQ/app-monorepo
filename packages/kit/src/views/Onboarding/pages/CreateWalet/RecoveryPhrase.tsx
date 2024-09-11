@@ -51,7 +51,7 @@ function FocusDisplayInput({
       }}
     >
       <SizableText
-        selectable={false}
+        userSelect="none"
         minWidth="$7"
         color="$textSubdued"
         $md={{ minWidth: '$8' }}
@@ -100,7 +100,12 @@ export function RecoveryPhrase() {
     if (route.params?.isBackup) {
       return [];
     }
-    const shufflePhrases = shuffle(phrases).slice(0, 3);
+    const shufflePhrasesIndex = shuffle(
+      Array(phrases.length)
+        .fill(0)
+        .map((_, index) => index),
+    ).slice(0, 3);
+    const shufflePhrases = shufflePhrasesIndex.map((i) => phrases[i]);
     const length = wordLists.length;
     const confuseWords: string[] = [];
     const getConfuseWord: () => string = () => {
@@ -117,7 +122,7 @@ export function RecoveryPhrase() {
     }
     return shufflePhrases
       .map((word, index) => [
-        phrases.indexOf(word),
+        shufflePhrasesIndex[index],
         shuffle([
           shufflePhrases[index],
           ...confuseWords.slice(index * 2, index * 2 + 2),
@@ -129,7 +134,9 @@ export function RecoveryPhrase() {
   const handleConfirmPress = useCallback(async () => {
     if (route.params?.isBackup) {
       Toast.success({
-        title: 'Done! Your recovery phrase is backuped.',
+        title: intl.formatMessage({
+          id: ETranslations.backup_recovery_phrase_backed_up,
+        }),
       });
       navigation.popStack();
       return;
@@ -142,6 +149,7 @@ export function RecoveryPhrase() {
       verifyRecoveryPhrases,
     });
   }, [
+    intl,
     mnemonic,
     navigation,
     route.params?.isBackup,
@@ -153,9 +161,15 @@ export function RecoveryPhrase() {
     () => (
       <ActionList
         title={intl.formatMessage({ id: ETranslations.global_more })}
-        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+        renderTrigger={
+          <HeaderIconButton
+            icon="DotHorOutline"
+            testID="copy-recovery-phrase-icon"
+          />
+        }
         items={[
           {
+            testID: 'copy-recovery-phrase-button',
             label: intl.formatMessage({
               id: ETranslations.global_copy_recovery_phrase,
             }),
@@ -180,12 +194,14 @@ export function RecoveryPhrase() {
                   copyText(mnemonic);
                 },
                 confirmButtonProps: {
+                  testID: 'copy-recovery-phrase-confirm',
                   variant: 'secondary',
                 },
                 onCancelText: intl.formatMessage({
                   id: ETranslations.global_cancel_copy,
                 }),
                 cancelButtonProps: {
+                  testID: 'copy-recovery-phrase-cancel',
                   variant: 'primary',
                 },
               });

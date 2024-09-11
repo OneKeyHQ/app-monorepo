@@ -12,7 +12,7 @@ function demoLog(data: any) {
 
 function LocalDBDemo1() {
   return (
-    <Stack space="$2">
+    <Stack gap="$2">
       <Button
         onPress={async () => {
           const ctx = await backgroundApiProxy.serviceDemo.demoGetAllRecords();
@@ -110,6 +110,16 @@ function LocalDBDemo1() {
       >
         demoUpdateCredentialRecord
       </Button>
+
+      <Button
+        onPress={async () => {
+          const ctx =
+            await backgroundApiProxy.serviceDemo.addMultipleWatchingAccounts();
+          demoLog(ctx);
+        }}
+      >
+        demoAddMultipleWatchingAccounts
+      </Button>
     </Stack>
   );
 }
@@ -123,7 +133,7 @@ const LocalDBGallery = () => (
       {
         title: 'localDB',
         element: (
-          <Stack space="$1">
+          <Stack gap="$1">
             <LocalDBDemo1 />
           </Stack>
         ),
