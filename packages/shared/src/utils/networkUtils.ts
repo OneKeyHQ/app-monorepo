@@ -15,6 +15,7 @@ import {
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+import platformEnv from '../platformEnv';
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -96,12 +97,21 @@ function isAllNetwork({
 }
 
 function getDefaultDeriveTypeVisibleNetworks() {
-  return [
-    getNetworkIdsMap().btc,
-    getNetworkIdsMap().tbtc,
-    getNetworkIdsMap().sbtc,
-    getNetworkIdsMap().ltc,
-  ];
+  return platformEnv.isE2E
+    ? [
+        getNetworkIdsMap().eth,
+        getNetworkIdsMap().sol,
+        getNetworkIdsMap().btc,
+        getNetworkIdsMap().tbtc,
+        getNetworkIdsMap().sbtc,
+        getNetworkIdsMap().ltc,
+      ]
+    : [
+        getNetworkIdsMap().btc,
+        getNetworkIdsMap().tbtc,
+        getNetworkIdsMap().sbtc,
+        getNetworkIdsMap().ltc,
+      ];
 }
 
 function toNetworkIdFallback({
