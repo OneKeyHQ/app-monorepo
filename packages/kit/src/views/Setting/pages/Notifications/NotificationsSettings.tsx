@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -7,6 +8,7 @@ import {
   Button,
   Divider,
   Page,
+  SizableText,
   Spinner,
   Stack,
   Switch,
@@ -14,6 +16,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
@@ -22,8 +29,15 @@ export default function NotificationsSettings() {
   const [settings, setSettings] = useState<
     INotificationPushSettings | undefined
   >();
+  const [devAppSettings] = useDevSettingsPersistAtom();
+  const [appSettings] = useSettingsPersistAtom();
 
   const prevSettings = useRef<INotificationPushSettings | undefined>();
+
+  const { result: pushClient } = usePromiseResult(() => {
+    noop(devAppSettings.enabled);
+    return backgroundApiProxy.serviceNotification.getPushClient();
+  }, [devAppSettings.enabled]);
 
   const reloadSettings = useCallback(async () => {
     const result =
@@ -151,6 +165,18 @@ export default function NotificationsSettings() {
             ) : null}
           </>
         )}
+
+        {devAppSettings?.enabled ? (
+          <Stack>
+            <SizableText>
+              InstanceId: {appSettings?.instanceId?.slice(0, 8)}
+            </SizableText>
+            <SizableText>JPush: {pushClient?.jpushId?.slice(0, 8)}</SizableText>
+            <SizableText>
+              WebSocket: {pushClient?.socketId?.slice(0, 8)}
+            </SizableText>
+          </Stack>
+        ) : null}
       </Page.Body>
     </Page>
   );

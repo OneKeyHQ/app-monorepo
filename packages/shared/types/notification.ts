@@ -13,6 +13,7 @@ export type INotificationShowResult = {
   desktopNotification?: Notification;
 };
 export type INotificationShowParams = {
+  swapTxid?: string;
   notificationId?: string;
   icon?: string; // base64 or remote url
   title: string;
@@ -183,9 +184,12 @@ export type INotificationPushMessageAckParams = {
   action: ENotificationPushMessageAckAction;
 };
 export type INotificationPushMessageExtras = {
+  badge?: string;
+  msgId: string; // obsoleted, use params.msgId instead
   topic: ENotificationPushTopicTypes.accountActivity;
   image?: string;
   params: {
+    msgId: string; // msgId
     accountAddress: string;
     accountId: string;
     networkId: string;
@@ -201,16 +205,34 @@ export type IJPushRemotePushMessageInfo = INotificationPushMessageExtras & {
       title?: string;
     };
   };
-  msgId: string;
+};
+export type IJPushNotificationRemoteEvent = {
+  messageID: string;
+  title: string;
+  content: string;
+  badge: string;
+  ring: string;
+  extras: INotificationPushMessageExtras | undefined;
+  notificationEventType?: 'notificationArrived' | 'notificationOpened';
+};
+export type IJPushNotificationLocalEvent = {
+  messageID: string;
+  title: string;
+  content: string;
+  extras: INotificationPushMessageExtras | undefined;
+  notificationEventType?: 'notificationArrived' | 'notificationOpened';
 };
 export type INotificationPushMessageInfo = {
-  pushSource: 'jpush' | 'websocket';
+  pushSource?: 'jpush' | 'websocket' | undefined;
   title: string;
   content: string;
   badge?: string;
-  extras?: {
-    msgId: string;
-  } & INotificationPushMessageExtras;
+  extras?: INotificationPushMessageExtras;
+};
+export type INativeNotificationCenterMessageInfo = {
+  notificationId: string;
+  title: string;
+  content: string;
 };
 export type INotificationPushMessageListItem = {
   msgId: string;
