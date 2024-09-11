@@ -44,6 +44,11 @@ type IUniversalWithdrawProps = {
   minAmount?: string;
   withdrawMinAmount?: number;
   unstakingPeriod?: number;
+
+  showPayWith?: boolean;
+  payWithToken?: string;
+  payWithTokenRate?: string;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -60,6 +65,11 @@ export const UniversalWithdraw = ({
   unstakingPeriod,
   providerLabel,
   decimals,
+  // pay with
+  showPayWith,
+  payWithToken,
+  payWithTokenRate = '1',
+
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
@@ -262,6 +272,24 @@ export const UniversalWithdraw = ({
                 formatterOptions={{ tokenSymbol }}
               >
                 {amountValue}
+              </NumberSizeableText>
+            </SizableText>
+          </ListItem>
+        ) : null}
+        {showPayWith && payWithToken && Number(amountValue) > 0 ? (
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
+            titleProps={fieldTitleProps}
+          >
+            <SizableText>
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyLgMedium"
+                formatterOptions={{ tokenSymbol: payWithToken }}
+              >
+                {BigNumber(amountValue)
+                  .multipliedBy(payWithTokenRate)
+                  .toFixed()}
               </NumberSizeableText>
             </SizableText>
           </ListItem>
