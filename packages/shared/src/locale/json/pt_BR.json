@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC está em excesso e deve ser retirado e reivindicado.",
   "earn.pay_with": "Pague com",
   "earn.pending_activation": "Ativação pendente",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "Novas apostas precisam esperar cerca de {number} antes de se tornarem ativas e começarem a ganhar recompensas.",
   "earn.pending_activation_tooltip_eth": "O seu ETH em staking torna-se ativo quando o validador atinge o requisito de 32 ETH.",
   "earn.portfolio": "Portfólio",
   "earn.portfolio_details": "Detalhes do portfólio",

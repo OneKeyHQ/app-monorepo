@@ -304,7 +304,15 @@ function RawPopover({
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             />
-            <TMPopover.Sheet.Frame unstyled paddingBottom={keyboardHeight}>
+            <TMPopover.Sheet.Frame
+              unstyled
+              paddingBottom={keyboardHeight}
+              $gtMd={{
+                minWidth: 400,
+                maxWidth: 480,
+                mx: 'auto',
+              }}
+            >
               {/* header */}
               <XStack
                 borderTopLeftRadius="$6"

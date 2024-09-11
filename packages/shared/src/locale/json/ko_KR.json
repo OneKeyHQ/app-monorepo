@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC가 넘쳐나고 있으며 인출하고 청구해야 합니다.",
   "earn.pay_with": "결제하기",
   "earn.pending_activation": "활성화 대기 중",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "새로운 스테이킹은 활성화되어 보상을 받기 시작하기 전에 대략 {number}의 대기 시간이 필요합니다.",
   "earn.pending_activation_tooltip_eth": "검증자가 32 ETH 요구 사항을 충족하면 스테이킹한 ETH가 활성화됩니다.",
   "earn.portfolio": "포트폴리오",
   "earn.portfolio_details": "포트폴리오 세부사항",
