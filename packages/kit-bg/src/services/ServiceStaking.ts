@@ -21,6 +21,7 @@ import type {
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnAccountTokenResponse,
   IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
@@ -407,19 +408,32 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountAsset(params: {
-    networkId: string;
-    accountAddress: string;
-    publicKey?: string;
-  }) {
+  async getAccountAsset(
+    params: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[],
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<{
+    const response = await client.post<{
       data: IEarnAccountResponse;
-    }>(`/earn/v1/get-account`, { params });
-    return {
-      ...params,
-      earn: resp.data.data,
+    }>(`/earn/v1/account/list`, { accounts: params });
+    const resp = response.data.data;
+    const result: IEarnAccountTokenResponse = {
+      totalFiatValue: resp.totalFiatValue,
+      earnings24h: resp.earnings24h,
+      accounts: [],
     };
+
+    for (const account of params) {
+      result.accounts.push({
+        ...account,
+        tokens:
+          resp.tokens?.filter((i) => i.networkId === account.networkId) || [],
+      });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -458,20 +472,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.map((item) => [JSON.stringify(item), item]),
       ).values(),
     );
-
-    const resp = await Promise.allSettled(
-      uniqueAccountParams.map((params) => this.getAccountAsset(params)),
-    );
-    return (
-      resp.filter((v) => v.status === 'fulfilled') as {
-        value: {
-          earn: IEarnAccountResponse;
-          networkId: string;
-          accountAddress: string;
-          publicKey?: string;
-        };
-      }[]
-    ).map((i) => i.value);
+    return this.getAccountAsset(uniqueAccountParams);
   }
 
   @backgroundMethod()

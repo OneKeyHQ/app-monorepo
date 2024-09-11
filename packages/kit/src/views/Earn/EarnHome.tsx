@@ -317,13 +317,13 @@ function Recommended({
     () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
     [account?.id, actions, network?.id],
   );
-  const [{ accounts }] = useEarnAtom();
+  const [{ earnAccount }] = useEarnAtom();
   const { tokens, profit } = useMemo(() => {
     const accountTokens: ITokenAccount[] = [];
     let totalProfit = new BigNumber(0);
-    const list = accounts?.[totalFiatMapKey] || [];
+    const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
     list?.forEach((accountItem) => {
-      accountItem.earn.tokens.forEach((token) => {
+      accountItem.tokens.forEach((token) => {
         totalProfit = totalProfit.plus(token.profit || 0);
         accountTokens.push({
           ...token,
@@ -335,7 +335,7 @@ function Recommended({
       tokens: accountTokens,
       profit: totalProfit,
     };
-  }, [accounts, totalFiatMapKey]);
+  }, [earnAccount, totalFiatMapKey]);
   if (isFetchingAccounts && tokens.length < 1) {
     return (
       <RecommendedContainer profit={profit}>
@@ -374,8 +374,6 @@ function Recommended({
   return null;
 }
 
-const totalFiatMap: Record<string, [string, string]> = {};
-
 function Overview() {
   const {
     activeAccount: { account, network },
@@ -385,38 +383,16 @@ function Overview() {
     () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
     [account?.id, actions, network?.id],
   );
-  const [{ accounts }] = useEarnAtom();
+  const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
-  const totalFiatValue = useMemo(() => {
-    const list = accounts?.[totalFiatMapKey] || [];
-    if (list?.length) {
-      const sum = list
-        .reduce(
-          (prev, currentAccount) =>
-            prev.plus(currentAccount.earn.totalFiatValue || 0),
-          new BigNumber(0),
-        )
-        .toFixed();
-      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
-      totalFiatMap[totalFiatMapKey][0] = sum;
-      return sum;
-    }
-    return totalFiatMap[totalFiatMapKey]?.[0] || 0;
-  }, [accounts, totalFiatMapKey]);
-  const earnings24h = useMemo(() => {
-    const list = accounts?.[totalFiatMapKey] || [];
-    if (list?.length) {
-      const sum = list.reduce(
-        (prev, currentAccount) =>
-          prev.plus(currentAccount.earn.earnings24h || 0),
-        new BigNumber(0),
-      );
-      totalFiatMap[totalFiatMapKey] = totalFiatMap[totalFiatMapKey] || [];
-      totalFiatMap[totalFiatMapKey][1] = sum.toFixed();
-      return sum;
-    }
-    return new BigNumber(totalFiatMap[totalFiatMapKey]?.[1] || 0);
-  }, [accounts, totalFiatMapKey]);
+  const totalFiatValue = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
+    [earnAccount, totalFiatMapKey],
+  );
+  const earnings24h = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
+    [earnAccount, totalFiatMapKey],
+  );
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -472,7 +448,7 @@ function Overview() {
           formatter="price"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
-            showPlusMinusSigns: !earnings24h.isZero(),
+            showPlusMinusSigns: Number(earnings24h) === 0,
           }}
           size="$bodyLgMedium"
           color="$textSuccess"
@@ -481,7 +457,7 @@ function Overview() {
             size: '$heading5xl',
           }}
         >
-          {earnings24h.toFixed()}
+          {earnings24h}
         </NumberSizeableText>
         <XStack gap="$1.5" alignItems="center">
           <SizableText
@@ -672,7 +648,7 @@ function BasicEarnHome() {
         });
       }
 
-      const accounts =
+      const earnAccount =
         await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
           assets,
           accountId: account?.id ?? '',
@@ -680,7 +656,7 @@ function BasicEarnHome() {
         });
       actions.current.updateEarnAccounts({
         key: totalFiatMapKey,
-        accounts,
+        earnAccount,
       });
     },
     [actions, account?.id, network?.id],
