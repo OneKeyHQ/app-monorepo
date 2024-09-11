@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "Frais de réseau",
   "swap_history_detail.order_status": "Statut de la commande",
   "swap_history_detail.pay_address": "Adresse de paiement",
-  "swap_history_detail.protocol_fee": "Frais de protocole",
+  "swap_history_detail.protocol_fee": "Frais du fournisseur",
   "swap_history_detail.provider": "Fournisseur",
   "swap_history_detail.rate": "Taux",
   "swap_history_detail.receive_amount": "+Recevoir le montant",

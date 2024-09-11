@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "Phí Mạng",
   "swap_history_detail.order_status": "Tình trạng đơn hàng",
   "swap_history_detail.pay_address": "Địa chỉ thanh toán",
-  "swap_history_detail.protocol_fee": "Phí Giao thức",
+  "swap_history_detail.protocol_fee": "Phí Dịch vụ",
   "swap_history_detail.provider": "Nhà cung cấp",
   "swap_history_detail.rate": "Đánh giá",
   "swap_history_detail.receive_amount": "+Số tiền nhận",
