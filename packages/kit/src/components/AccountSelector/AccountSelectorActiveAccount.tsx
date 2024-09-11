@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalReceiveRoutes,
@@ -31,7 +32,6 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -53,7 +53,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
 
   return (
     <Spotlight
-      isVisible={isFocus && !platformEnv.isE2E}
+      isVisible={isFocus ? !platformEnv.isE2E : null}
       message={intl.formatMessage({
         id: ETranslations.spotlight_enable_network_message,
       })}
