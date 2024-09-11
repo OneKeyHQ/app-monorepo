@@ -15,7 +15,7 @@ import {
 
 import { compact, range } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, View } from 'react-native';
+import { View } from 'react-native';
 
 import type {
   IButtonProps,
@@ -186,9 +186,6 @@ function PageFooter({
     </Page.Footer>
   );
 }
-
-const { height: windowHeight } = Dimensions.get('window');
-const visibleHeight = windowHeight / 5;
 
 const PINYIN_COMPOSITION_SPACE = platformEnv.isNative
   ? String.fromCharCode(8198)
