@@ -95,6 +95,86 @@ function DAppConnectExtensionFloatingTrigger() {
     }
   }, [result?.origin, result?.connectedAccountsInfo, refreshConnectionInfo]);
 
+  const renderAccountTrigger = useCallback(() => {
+    if (result?.connectedAccountsInfo?.length === 1) {
+      if (hideAccountSelectorTrigger) {
+        return <Skeleton width={153} height="$5" />;
+      }
+      return (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: result?.origin ?? '',
+          }}
+          enabledNum={result?.connectedAccountsInfo?.map(
+            (connectAccount) => connectAccount.num,
+          )}
+          availableNetworksMap={result?.connectedAccountsInfo?.reduce(
+            (acc, connectAccount) => {
+              if (Array.isArray(connectAccount.availableNetworkIds)) {
+                acc[connectAccount.num] = {
+                  networkIds: connectAccount.availableNetworkIds,
+                };
+              }
+              return acc;
+            },
+            {} as Record<number, { networkIds: string[] }>,
+          )}
+        >
+          <XStack minHeight="$5">
+            <SingleAccountAddressSelectorTrigger
+              origin={result?.origin ?? ''}
+              num={result?.connectedAccountsInfo?.[0]?.num}
+              account={result?.connectedAccountsInfo?.[0]}
+              afterChangeAccount={() => {
+                void refreshConnectionInfo();
+              }}
+            />
+          </XStack>
+        </AccountSelectorProviderMirror>
+      );
+    }
+    return (
+      <XStack
+        alignItems="center"
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        onPress={() => {}}
+      >
+        {result?.networkIcons.slice(0, 2).map((icon, index) => (
+          <Token
+            key={icon}
+            size="xs"
+            tokenImageUri={icon}
+            ml={index === 1 ? '$-2' : undefined}
+            borderColor={index === 1 ? '$bgApp' : undefined}
+            borderWidth={index === 1 ? 2 : undefined}
+            borderStyle={index === 1 ? 'solid' : undefined}
+            style={
+              // @ts-expect-error
+              index === 1 ? { boxSizing: 'content-box' } : undefined
+            }
+          />
+        ))}
+        <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+          {result?.addressLabel}
+        </SizableText>
+        <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
+      </XStack>
+    );
+  }, [result, hideAccountSelectorTrigger, refreshConnectionInfo]);
+
   if (!result?.showFloatingPanel) {
     return null;
   }
@@ -194,80 +274,7 @@ function DAppConnectExtensionFloatingTrigger() {
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {result?.connectLabel}
             </SizableText>
-            {result?.connectedAccountsInfo?.length === 1 &&
-            !hideAccountSelectorTrigger ? (
-              <AccountSelectorProviderMirror
-                config={{
-                  sceneName: EAccountSelectorSceneName.discover,
-                  sceneUrl: result?.origin ?? '',
-                }}
-                enabledNum={result?.connectedAccountsInfo?.map(
-                  (connectAccount) => connectAccount.num,
-                )}
-                availableNetworksMap={result?.connectedAccountsInfo?.reduce(
-                  (acc, connectAccount) => {
-                    if (Array.isArray(connectAccount.availableNetworkIds)) {
-                      acc[connectAccount.num] = {
-                        networkIds: connectAccount.availableNetworkIds,
-                      };
-                    }
-                    return acc;
-                  },
-                  {} as Record<number, { networkIds: string[] }>,
-                )}
-              >
-                <SingleAccountAddressSelectorTrigger
-                  origin={result?.origin ?? ''}
-                  num={result?.connectedAccountsInfo?.[0]?.num}
-                  account={result?.connectedAccountsInfo?.[0]}
-                  afterChangeAccount={() => {
-                    void refreshConnectionInfo();
-                  }}
-                />
-              </AccountSelectorProviderMirror>
-            ) : (
-              <XStack
-                alignItems="center"
-                borderRadius="$2"
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                pressStyle={{
-                  bg: '$bgActive',
-                }}
-                focusable
-                focusVisibleStyle={{
-                  outlineWidth: 2,
-                  outlineColor: '$focusRing',
-                  outlineStyle: 'solid',
-                }}
-                onPress={() => {}}
-              >
-                {result?.networkIcons.slice(0, 2).map((icon, index) => (
-                  <Token
-                    key={icon}
-                    size="xs"
-                    tokenImageUri={icon}
-                    ml={index === 1 ? '$-2' : undefined}
-                    borderColor={index === 1 ? '$bgApp' : undefined}
-                    borderWidth={index === 1 ? 2 : undefined}
-                    borderStyle={index === 1 ? 'solid' : undefined}
-                    style={
-                      // @ts-expect-error
-                      index === 1 ? { boxSizing: 'content-box' } : undefined
-                    }
-                  />
-                ))}
-                <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-                  {result?.addressLabel}
-                </SizableText>
-                <Icon
-                  size="$4"
-                  color="$iconSubdued"
-                  name="ChevronRightSmallOutline"
-                />
-              </XStack>
-            )}
+            {renderAccountTrigger()}
           </YStack>
         </XStack>
         <IconButton

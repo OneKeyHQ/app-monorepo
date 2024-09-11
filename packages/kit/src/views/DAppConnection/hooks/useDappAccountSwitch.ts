@@ -189,10 +189,13 @@ export function useDappAccountSwitch({
           result.origin,
         );
       }
-      setHideAccountSelectorTrigger(false);
       setIsSwitching(false);
       setShouldSwitchAccount(false);
     }, 200);
+
+    setTimeout(() => {
+      setHideAccountSelectorTrigger(false);
+    }, 400);
   }, [
     intl,
     result?.connectedAccountsInfo,
