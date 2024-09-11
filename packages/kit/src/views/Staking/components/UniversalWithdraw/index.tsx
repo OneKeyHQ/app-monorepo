@@ -7,8 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   Dialog,
+  IconButton,
+  Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -16,10 +19,10 @@ import {
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -31,10 +34,16 @@ type IUniversalWithdrawProps = {
   providerLogo?: string;
   providerName?: string;
 
+  providerLabel?: string;
+
+  decimals?: number;
+
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;
   minAmount?: string;
+  withdrawMinAmount?: number;
+  unstakingPeriod?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -47,9 +56,13 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
+  withdrawMinAmount,
+  unstakingPeriod,
+  providerLabel,
+  decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
-  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
@@ -84,21 +97,34 @@ export const UniversalWithdraw = ({
     });
   }, [amountValue, onConfirm, intl, tokenImageUri, tokenSymbol, providerName]);
 
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
-    const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.isNaN()) return undefined;
-    return amountValueBn.multipliedBy(price).toFixed();
+    if (Number(amountValue) > 0 && Number(price) > 0) {
+      return BigNumber(amountValue).multipliedBy(price).toFixed();
+    }
+    return undefined;
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
@@ -106,14 +132,43 @@ export const UniversalWithdraw = ({
     [amountValue, balance],
   );
 
-  const isLessThanMinAmount = useMemo<boolean>(() => {
-    const minAmountBn = new BigNumber(minAmount);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return amountValueBn.isLessThan(minAmountBn);
+  const isLessThanMinAmountResp = useMemo<{
+    result: boolean;
+    value: string;
+  }>(() => {
+    const minValue = Math.max(
+      Number(withdrawMinAmount ?? 0),
+      Number(minAmount ?? 0),
+    );
+    const minAmountBN = new BigNumber(minValue);
+    const amountValueBN = new BigNumber(amountValue);
+    if (minAmountBN.gt(0) && amountValueBN.gt(0)) {
+      return {
+        result: amountValueBN.isLessThan(minAmountBN),
+        value: minAmountBN.toFixed(),
+      };
+    }
+    return { result: false, value: minAmountBN.toFixed() };
+  }, [minAmount, amountValue, withdrawMinAmount]);
+
+  const isLessThanWithdrawMinAmountWarning = useMemo<boolean>(() => {
+    if (Number(withdrawMinAmount) > 0) {
+      const withdrawMinAmountBN = new BigNumber(Number(withdrawMinAmount));
+      const amountValueBN = new BigNumber(amountValue);
+      const balanceBN = new BigNumber(balance);
+      if (
+        withdrawMinAmountBN.gt(0) &&
+        amountValueBN.gt(0) &&
+        balanceBN.gte(0)
+      ) {
+        return (
+          amountValueBN.gt(0) &&
+          balanceBN.minus(amountValueBN).lt(withdrawMinAmountBN)
+        );
+      }
     }
     return false;
-  }, [minAmount, amountValue]);
+  }, [withdrawMinAmount, amountValue, balance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -124,8 +179,8 @@ export const UniversalWithdraw = ({
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
+      isLessThanMinAmountResp.result,
+    [amountValue, isInsufficientBalance, isLessThanMinAmountResp.result],
   );
 
   const editable = initialAmount === undefined;
@@ -136,7 +191,7 @@ export const UniversalWithdraw = ({
         <Stack position="relative" opacity={editable ? 1 : 0.7}>
           <AmountInput
             bg={editable ? '$bgApp' : '$bgDisabled'}
-            hasError={isInsufficientBalance || isLessThanMinAmount}
+            hasError={isInsufficientBalance || isLessThanMinAmountResp.result}
             value={amountValue}
             onChange={onChangeAmountValue}
             tokenSelectorTriggerProps={{
@@ -159,13 +214,27 @@ export const UniversalWithdraw = ({
           {!editable ? <Stack position="absolute" w="100%" h="100%" /> : null}
         </Stack>
         <YStack gap="$1">
-          {isLessThanMinAmount ? (
+          {isLessThanWithdrawMinAmountWarning ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="warning"
+              title={intl.formatMessage(
+                { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
+                { number: withdrawMinAmount, symbol: tokenSymbol },
+              )}
+            />
+          ) : null}
+          {isLessThanMinAmountResp.result ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${tokenSymbol ?? ''}` },
+                {
+                  number: `${isLessThanMinAmountResp.value} ${
+                    tokenSymbol ?? ''
+                  }`,
+                },
               )}
             />
           ) : null}
@@ -199,14 +268,67 @@ export const UniversalWithdraw = ({
         ) : null}
         {providerLogo && providerName ? (
           <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.global_protocol,
-            })}
+            title={
+              providerLabel ??
+              intl.formatMessage({
+                id: ETranslations.global_protocol,
+              })
+            }
             titleProps={fieldTitleProps}
           >
             <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
-              <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+              <Image
+                width="$5"
+                height="$5"
+                src={providerLogo}
+                borderRadius="$2"
+              />
+              <SizableText size="$bodyLgMedium">
+                {capitalizeString(providerName)}
+              </SizableText>
+            </XStack>
+          </ListItem>
+        ) : null}
+        {unstakingPeriod ? (
+          <ListItem>
+            <XStack flex={1} alignItems="center" gap="$1">
+              <SizableText {...fieldTitleProps}>
+                {intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
+              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period,
+                })}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.earn_unstaking_period_tooltip,
+                      })}
+                    </SizableText>
+                  </Stack>
+                }
+              />
+            </XStack>
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.earn_up_to_number_days,
+                  },
+                  { 'number': unstakingPeriod },
+                )}
+              </SizableText>
             </XStack>
           </ListItem>
         ) : null}

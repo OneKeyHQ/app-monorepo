@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -16,6 +15,7 @@ import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -24,23 +24,12 @@ const StakePage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const {
-    accountId,
-    networkId,
-    minTransactionFee = '0',
-    details,
-    onSuccess,
-  } = route.params;
-  const { token, provider } = details;
+  const { accountId, networkId, details, onSuccess } = route.params;
+  const { token, provider, rewardToken } = details;
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
   const actionTag = buildLocalTxStatusSyncId(details);
-
-  const minAmount = useMemo(() => {
-    if (provider.minStakeAmount) return provider.minStakeAmount;
-    return BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
-  }, [tokenInfo, provider]);
 
   const btcStakingTerm = useMemo<number | undefined>(() => {
     if (provider?.minStakeTerm) {
@@ -58,23 +47,17 @@ const StakePage = () => {
         symbol: tokenInfo.symbol.toUpperCase(),
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Stake,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
         term: btcStakingTerm,
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: tokenInfo,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
           onSuccess?.();
         },
@@ -84,14 +67,35 @@ const StakePage = () => {
       handleStake,
       appNavigation,
       tokenInfo,
-      price,
       provider,
       actionTag,
       onSuccess,
       btcStakingTerm,
     ],
   );
+
   const intl = useIntl();
+  const providerLabel = useProviderLabel(provider.name);
+
+  const isReachBabylonCap = useMemo<boolean | undefined>(() => {
+    if (provider && provider.name === 'babylon') {
+      const { stakingCap, totalStaked } = provider;
+      return (
+        Number(stakingCap) > 0 &&
+        Number(totalStaked) > 0 &&
+        Number(totalStaked) > Number(stakingCap)
+      );
+    }
+    return false;
+  }, [provider]);
+
+  const showEstReceive = useMemo<boolean>(
+    () =>
+      provider.name.toLowerCase() === 'lido' &&
+      token.info.symbol.toLowerCase() === 'eth',
+    [provider, token],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -102,19 +106,26 @@ const StakePage = () => {
       />
       <Page.Body>
         <UniversalStake
-          minTransactionFee={minTransactionFee}
-          apr={Number.isNaN(provider.apr) ? 4 : Number(provider.apr)}
+          decimals={details.token.info.decimals}
+          details={details}
+          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
           price={price}
           balance={balanceParsed}
-          minAmount={minAmount}
+          minAmount={provider.minStakeAmount}
           maxAmount={provider.maxStakeAmount}
-          minStakeTerm={provider?.minStakeTerm}
-          unbondingTime={provider?.unbondingTime}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          minStakeTerm={provider.minStakeTerm}
+          minStakeBlocks={provider.minStakeBlocks}
+          tokenImageUri={tokenInfo.logoURI}
           tokenSymbol={tokenInfo.symbol}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          providerLabel={providerLabel}
+          isReachBabylonCap={isReachBabylonCap}
+          isDisabled={isReachBabylonCap}
+          showEstReceive={showEstReceive}
+          estReceiveToken={rewardToken}
           onConfirm={onConfirm}
+          minTransactionFee={provider.minTransactionFee}
         />
       </Page.Body>
     </Page>

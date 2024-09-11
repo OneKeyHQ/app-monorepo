@@ -228,6 +228,7 @@ export type IVaultSettings = {
 
   stakingConfig?: IStakingConfig;
   editApproveAmountEnabled?: boolean;
+  useRemoteTxId?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -390,6 +391,7 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  originalRecipient: string;
 };
 
 export enum EWrappedType {

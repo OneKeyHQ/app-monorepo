@@ -10,6 +10,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
@@ -18,6 +20,10 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import {
+  getBabylonPortfolioStatus,
+  useBabylonStatusMap,
+} from '../../utils/babylon';
 
 const WithdrawOptions = () => {
   const appRoute = useAppRoute<
@@ -58,10 +64,15 @@ const WithdrawOptions = () => {
     [appNavigation, accountId, networkId, symbol, provider, details],
   );
 
+  const babylonStatusMap = useBabylonStatusMap();
+
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_redeem })}
+        title={intl.formatMessage(
+          { id: ETranslations.earn_withdraw_token },
+          { 'token': symbol },
+        )}
       />
       <Page.Body>
         <PageFrame
@@ -76,6 +87,42 @@ const WithdrawOptions = () => {
               token={result.token}
               network={result.network}
               onPress={onPress}
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              })}
+              extraFields={
+                networkUtils.isBTCNetwork(networkId)
+                  ? [
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.global_status,
+                        }),
+                        renderItem({ item }) {
+                          if (item.babylonExtra) {
+                            return (
+                              babylonStatusMap[
+                                getBabylonPortfolioStatus(item.babylonExtra)
+                              ] ?? item.babylonExtra.status
+                            );
+                          }
+                          return '';
+                        },
+                      },
+                      {
+                        name: intl.formatMessage({
+                          id: ETranslations.earn_unlock_time,
+                        }),
+                        renderItem({ item }) {
+                          return item.babylonExtra?.endTime
+                            ? formatDate(new Date(item.babylonExtra?.endTime), {
+                                hideTimeForever: true,
+                              })
+                            : '';
+                        },
+                      },
+                    ]
+                  : undefined
+              }
             />
           ) : null}
         </PageFrame>

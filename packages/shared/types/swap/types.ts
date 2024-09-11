@@ -233,6 +233,7 @@ export interface IFetchQuoteResult {
   quoteResultCtx?: any;
   protocolNoRouterInfo?: string;
   supportUrl?: string;
+  isAntiMEV?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -378,6 +379,7 @@ export interface IFetchBuildTxOrderResponse {
   depositCoinAmt: string;
   depositCoinCode: string;
   orderId: string;
+  memo?: string;
 }
 export interface IFetchBuildTxChangellyOrderResponse {
   payinAddress: string;

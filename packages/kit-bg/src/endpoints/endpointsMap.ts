@@ -28,6 +28,15 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Earn,
       env: 'test',
     }),
+    notification: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Notification,
+      env: 'test',
+    }),
+    notificationWebSocket: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Notification,
+      env: 'test',
+      isWebSocket: true,
+    }),
   },
   prod: {
     wallet: buildServiceEndpoint({
@@ -49,6 +58,15 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
     earn: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Earn,
       env: 'prod',
+    }),
+    notification: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Notification,
+      env: 'prod',
+    }),
+    notificationWebSocket: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Notification,
+      env: 'prod',
+      isWebSocket: true,
     }),
   },
 };

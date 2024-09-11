@@ -1,83 +1,35 @@
-import { useMemo } from 'react';
-
-import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Icon,
   Image,
-  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
-  rate?: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   providerIcon: string;
+  providerName: string;
   showLock?: boolean;
-  showBest?: boolean;
   onPress?: () => void;
   isLoading?: boolean;
 }
 const SwapProviderInfoItem = ({
-  showBest,
-  rate,
   fromToken,
   toToken,
   providerIcon,
+  providerName,
   showLock,
   onPress,
   isLoading,
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
-  const { md } = useMedia();
-  const rateIsExit = useMemo(() => {
-    const rateBN = new BigNumber(rate ?? 0);
-    return !rateBN.isZero();
-  }, [rate]);
-  const rateContent = useMemo(() => {
-    if (!onPress || !fromToken || !toToken) {
-      return (
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({
-            id: ETranslations.swap_page_provider_provider_insufficient_liquidity,
-          })}
-        </SizableText>
-      );
-    }
-    if (!rateIsExit) {
-      return (
-        <SizableText ml="$1" size="$bodyMdMedium">
-          {intl.formatMessage({
-            id: ETranslations.swap_page_provider_rate_unavailable,
-          })}
-        </SizableText>
-      );
-    }
-    const rateBN = new BigNumber(rate ?? 0);
-    return (
-      <SizableText
-        size="$bodyMdMedium"
-        pl="$1"
-        maxWidth={md ? 240 : 360}
-        textAlign="right"
-      >
-        {`1 ${fromToken.symbol.toUpperCase()} = `}
-        <NumberSizeableText size="$bodyMdMedium" formatter="balance">
-          {rateBN.toFixed()}
-        </NumberSizeableText>{' '}
-        <SizableText size="$bodyMdMedium">{toToken.symbol}</SizableText>
-      </SizableText>
-    );
-  }, [fromToken, intl, md, onPress, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -96,21 +48,21 @@ const SwapProviderInfoItem = ({
             opacity: 0.5,
           }}
           onPress={onPress}
+          cursor={onPress ? 'pointer' : undefined}
         >
-          {showBest ? (
-            <Badge badgeType="success" badgeSize="sm" mr="$1">
-              Best
-            </Badge>
-          ) : null}
           {!providerIcon || !fromToken || !toToken ? null : (
-            <Image
-              source={{ uri: providerIcon }}
-              w="$5"
-              h="$5"
-              borderRadius="$1"
-            />
+            <>
+              <Image
+                source={{ uri: providerIcon }}
+                w="$5"
+                h="$5"
+                borderRadius="$1"
+              />
+              <SizableText size="$bodyMdMedium" ml="$1">
+                {providerName ?? ''}
+              </SizableText>
+            </>
           )}
-          {rateContent}
           {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
           ) : null}

@@ -3,6 +3,7 @@ import {
   NumberSizeableText,
   SizableText,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function PriceChangePercentage({
   children,
@@ -10,6 +11,8 @@ export function PriceChangePercentage({
 }: INumberSizeableTextProps) {
   return children ? (
     <NumberSizeableText
+      adjustsFontSizeToFit
+      numberOfLines={platformEnv.isNative ? 1 : 2}
       userSelect="none"
       size="$bodyMd"
       formatter="priceChange"

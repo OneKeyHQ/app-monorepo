@@ -1,4 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
+import BigNumber from 'bignumber.js';
 import RLP from 'rlp';
 import { keccak256 } from 'viem';
 
@@ -6,8 +7,6 @@ import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
 import { secp256k1 } from '@onekeyhq/core/src/secret';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-
-import type BigNumber from 'bignumber.js';
 
 const TransferMethod = '0xa9059cbb';
 
@@ -55,14 +54,17 @@ export function serializeSignedTransaction(
   ).toString('base64');
 }
 
-export function publicKeyToAddress(publicKey: string) {
+export function publicKeyToAddress(publicKey: Buffer) {
+  let publicKeyBytes = Buffer.alloc(0);
+  if (publicKey.length === 33) {
+    publicKeyBytes = secp256k1.transformPublicKey(publicKey).subarray(1);
+  } else if (publicKey.length === 65) {
+    publicKeyBytes = publicKey.subarray(1);
+  } else {
+    throw new Error('Invalid public key');
+  }
   const shard = 1;
-  const publicKeyBytes = Buffer.from(hexUtils.stripHexPrefix(publicKey), 'hex');
-  const publicKeyBytesCompressed =
-    publicKeyBytes.length === 33
-      ? publicKeyBytes
-      : secp256k1.transformPublicKey(publicKeyBytes);
-  const pubkey = RLP.encode(publicKeyBytesCompressed);
+  const pubkey = RLP.encode(publicKeyBytes);
   const pubkeyHash = bufferUtils.hexToBytes(
     hexUtils.stripHexPrefix(keccak256(pubkey)),
   );
@@ -87,7 +89,10 @@ export function decodeTransferPayload(payload: string):
       ['address', 'uint256'],
       `0x${payload.slice(TransferMethod.length)}`,
     );
-    return { address, amount: (amount as BigNumber).toFixed() };
+    return {
+      address,
+      amount: new BigNumber((amount as BigNumber).toString()).toFixed(),
+    };
   } catch (error) {
     return undefined;
   }

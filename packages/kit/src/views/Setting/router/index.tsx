@@ -51,6 +51,13 @@ const ExportCustomNetworkConfig = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
 );
 
+const NotificationsSettings = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/Notifications/NotificationsSettings'
+    ),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -98,6 +105,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
     component: ExportCustomNetworkConfig,
+  },
+  {
+    name: EModalSettingRoutes.SettingNotifications,
+    component: NotificationsSettings,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

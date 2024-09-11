@@ -13,6 +13,8 @@ export type ITonMessage = {
     jettonMasterAddress: string;
     jettonWalletAddress: string;
     fwdFee: string;
+    fwdPayload?: IBase64String;
+    toAddress: string;
   };
 };
 

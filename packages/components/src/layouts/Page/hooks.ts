@@ -17,18 +17,6 @@ import { PageContext } from './PageContext';
 
 import type { IPageLifeCycle } from './type';
 
-export const usePage = () => {
-  const { pageOffsetRef, pageRef } = useContext(PageContext);
-  const getContentOffset = useCallback(
-    () => pageOffsetRef?.current,
-    [pageOffsetRef],
-  );
-  return {
-    pageRef: pageRef?.current,
-    getContentOffset,
-  };
-};
-
 export function usePageLifeCycle(params?: IPageLifeCycle) {
   const navigation = useNavigation();
   const { onMounted, onUnmounted } = params || {};

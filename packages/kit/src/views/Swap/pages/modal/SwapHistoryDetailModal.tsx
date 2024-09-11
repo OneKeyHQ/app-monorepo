@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -10,10 +10,12 @@ import {
   Button,
   Dialog,
   Divider,
+  Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -55,16 +57,6 @@ const SwapHistoryDetailModal = () => {
     openUrlExternal(url);
   }, []);
 
-  const durationTime = useMemo(() => {
-    const { created, updated } = txHistory.date;
-    const usedTimeMinusRes = new BigNumber(updated)
-      .minus(new BigNumber(created))
-      .dividedBy(1000)
-      .dividedBy(60)
-      .decimalPlaces(0, BigNumber.ROUND_UP)
-      .toFixed(0);
-    return `${usedTimeMinusRes} min`;
-  }, [txHistory.date]);
   const { md } = useMedia();
   const renderSwapAssetsChange = useCallback(() => {
     const fromAsset = {
@@ -148,6 +140,26 @@ const SwapHistoryDetailModal = () => {
     );
   }, [formatDate, txHistory.date]);
 
+  const renderSwapProvider = useCallback(
+    () => (
+      <XStack alignItems="center" gap="$1">
+        <Image
+          source={{ uri: txHistory.swapInfo.provider.providerLogo }}
+          width={20}
+          height={20}
+          borderRadius="$full"
+        />
+        <SizableText size={14} color="$textSubdued">
+          {txHistory.swapInfo.provider.providerName}
+        </SizableText>
+      </XStack>
+    ),
+    [
+      txHistory.swapInfo.provider.providerName,
+      txHistory.swapInfo.provider.providerLogo,
+    ],
+  );
+
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
@@ -189,14 +201,12 @@ const SwapHistoryDetailModal = () => {
         rate={txHistory.swapInfo.instantRate}
         fromToken={txHistory.baseInfo.fromToken}
         toToken={txHistory.baseInfo.toToken}
-        providerUrl={txHistory.swapInfo.provider.providerLogo ?? ''}
       />
     ),
     [
       txHistory.baseInfo.fromToken,
       txHistory.baseInfo.toToken,
       txHistory.swapInfo.instantRate,
-      txHistory.swapInfo.provider.providerLogo,
     ],
   );
   const renderSwapHistoryDetails = useCallback(() => {
@@ -256,6 +266,13 @@ const SwapHistoryDetailModal = () => {
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
+            <InfoItem
+              disabledCopy
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_provider,
+              })}
+              renderContent={renderSwapProvider()}
+            />
             {txHistory.txInfo.orderId ? (
               <InfoItem
                 label="Order ID"
@@ -270,22 +287,6 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={renderRate()}
             />
-            <InfoItem
-              disabledCopy
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_swap_duration,
-              })}
-              renderContent={durationTime}
-            />
-            {/* {!isNil(txHistory.swapInfo.oneKeyFee) ? (
-              <InfoItem
-                disabledCopy
-                label={intl.formatMessage({
-                  id: ETranslations.swap_history_detail_service_fee,
-                })}
-                renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
-              />
-            ) : null} */}
             {!isNil(txHistory.swapInfo.protocolFee) ? (
               <InfoItem
                 disabledCopy
@@ -313,13 +314,13 @@ const SwapHistoryDetailModal = () => {
       </>
     );
   }, [
-    durationTime,
     intl,
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,
     renderSwapDate,
     renderSwapOrderStatus,
+    renderSwapProvider,
     settingsPersistAtom.currencyInfo.symbol,
     txHistory,
   ]);

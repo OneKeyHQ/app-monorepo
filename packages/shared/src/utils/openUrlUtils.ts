@@ -18,6 +18,8 @@ export const openUrlExternal = (url: string) => {
 
 export const openSettings = (prefType: IPrefType) => {
   if (platformEnv.isNative) {
+    // android notification settings
+    // Notifications.openSettingsAsync();
     void linkingOpenSettings();
   } else {
     window?.desktopApi?.openPreferences(prefType);

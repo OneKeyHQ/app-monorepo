@@ -41,6 +41,7 @@ import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
+import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -260,6 +261,17 @@ export const DevSettingsSection = () => {
           // });
         }}
       />
+
+      <SectionPressItem
+        title="NotificationDevSettings"
+        onPress={() => {
+          const dialog = Dialog.cancel({
+            title: 'NotificationDevSettings',
+            renderContent: <NotificationDevSettings />,
+          });
+        }}
+      />
+
       {platformEnv.isNative ? (
         <SectionPressItem
           title="AppNotificationBadge"
@@ -420,18 +432,6 @@ export const DevSettingsSection = () => {
           setTimeout(() => {
             void backgroundApiProxy.serviceSpotlight.reset();
           }, 5000);
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.reset();
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态为失败状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
         }}
       />
       {platformEnv.isNativeAndroid ? (

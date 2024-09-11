@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -10,8 +10,7 @@ import {
   Alert,
   Divider,
   Empty,
-  Icon,
-  Image,
+  IconButton,
   ListView,
   Page,
   SizableText,
@@ -69,6 +68,7 @@ import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { FlatList } from 'react-native';
 
 const SwapTokenSelectPage = () => {
   const navigation =
@@ -92,7 +92,8 @@ const SwapTokenSelectPage = () => {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { selectFromToken, selectToToken, syncNetworksSort } =
+    useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
@@ -141,6 +142,7 @@ const SwapTokenSelectPage = () => {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(syncDefaultNetworkSelect);
+  const listViewRef = useRef<FlatList>(null);
 
   useEffect(() => {
     const accountNet =
@@ -234,6 +236,10 @@ const SwapTokenSelectPage = () => {
           networkId: network.networkId,
         });
       }
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
     },
     [type, updateSelectedAccountNetwork],
   );
@@ -329,7 +335,9 @@ const SwapTokenSelectPage = () => {
             moreComponent={
               <ActionList
                 title={tokenItem.tokenSymbol ?? ''}
-                renderTrigger={<Icon name="DotVerSolid" />}
+                renderTrigger={
+                  <IconButton variant="tertiary" icon="DotVerSolid" />
+                }
                 items={[
                   {
                     icon: 'Copy3Outline',
@@ -432,20 +440,13 @@ const SwapTokenSelectPage = () => {
         }}
       />
       <Page.Body>
-        <XStack px="$5" py="$2">
-          <SizableText size="$headingSm" pr="$2">
+        <XStack px="$5" pb="$2">
+          <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
             {`${intl.formatMessage({
               id: ETranslations.token_selector_network,
-            })}:`}
+            })}`}
           </SizableText>
           <XStack>
-            <Image height="$5" width="$5" borderRadius="$full" mr="$2">
-              <Image.Source
-                source={{
-                  uri: currentSelectNetwork?.logoURI,
-                }}
-              />
-            </Image>
             <SizableText size="$bodyMd">
               {currentSelectNetwork?.name ??
                 currentSelectNetwork?.symbol ??
@@ -467,6 +468,7 @@ const SwapTokenSelectPage = () => {
                 );
                 if (!findSwapNetwork) return;
                 onSelectCurrentNetwork(findSwapNetwork);
+                void syncNetworksSort(findSwapNetwork.networkId);
               },
             });
           }}
@@ -475,52 +477,51 @@ const SwapTokenSelectPage = () => {
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
         />
-        <Divider my="$2" />
-        <YStack px="$5" py="$1">
-          {currentNetworkPopularTokens.length > 0 ? (
-            <>
-              <SizableText size="$headingSm" pr="$2">
-                {`${intl.formatMessage({
-                  id: ETranslations.swap_token_selector_popular_token,
-                })}:`}
-              </SizableText>
-              <SwapPopularTokenGroup
-                onSelectToken={onSelectToken}
-                selectedToken={
-                  type === ESwapDirectionType.FROM ? toToken : fromToken
-                }
-                tokens={currentNetworkPopularTokens}
-              />
-            </>
-          ) : null}
-          <SizableText size="$headingSm" pr="$2" mt="$1">
-            {`${intl.formatMessage({
-              id: ETranslations.swap_token_selector_all_token,
-            })}:`}
-          </SizableText>
-        </YStack>
-        {fetchLoading ? (
-          Array.from({ length: 5 }).map((_, index) => (
-            <ListItem key={index}>
-              <Skeleton w="$10" h="$10" radius="round" />
-              <YStack>
-                <YStack py="$1">
-                  <Skeleton h="$4" w="$32" />
+        <Divider mt="$2" />
+        <YStack flex={1}>
+          <ListView
+            ref={listViewRef}
+            data={currentTokens}
+            renderItem={renderItem}
+            estimatedItemSize={60}
+            ListHeaderComponent={
+              currentNetworkPopularTokens.length > 0 &&
+              !searchKeywordDebounce ? (
+                <YStack px="$5" pt="$3" gap="$2">
+                  <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
+                    {`${intl.formatMessage({
+                      id: ETranslations.swap_token_selector_popular_token,
+                    })}`}
+                  </SizableText>
+                  <SwapPopularTokenGroup
+                    onSelectToken={onSelectToken}
+                    selectedToken={
+                      type === ESwapDirectionType.FROM ? toToken : fromToken
+                    }
+                    tokens={currentNetworkPopularTokens}
+                  />
                 </YStack>
-                <YStack py="$1">
-                  <Skeleton h="$3" w="$24" />
-                </YStack>
-              </YStack>
-            </ListItem>
-          ))
-        ) : (
-          <YStack flex={1}>
-            <ListView
-              data={currentTokens}
-              renderItem={renderItem}
-              estimatedItemSize={60}
-              ListFooterComponent={<Stack h={bottom || '$2'} />}
-              ListEmptyComponent={
+              ) : null
+            }
+            ListFooterComponent={<Stack h={bottom || '$2'} />}
+            ListEmptyComponent={
+              fetchLoading ? (
+                <>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <ListItem key={index}>
+                      <Skeleton w="$10" h="$10" radius="round" />
+                      <YStack>
+                        <YStack py="$1">
+                          <Skeleton h="$4" w="$32" />
+                        </YStack>
+                        <YStack py="$1">
+                          <Skeleton h="$3" w="$24" />
+                        </YStack>
+                      </YStack>
+                    </ListItem>
+                  ))}
+                </>
+              ) : (
                 <Empty
                   icon="SearchOutline"
                   title={intl.formatMessage({
@@ -530,10 +531,10 @@ const SwapTokenSelectPage = () => {
                     id: ETranslations.token_no_search_results_desc,
                   })}
                 />
-              }
-            />
-          </YStack>
-        )}
+              )
+            }
+          />
+        </YStack>
       </Page.Body>
     </Page>
   );

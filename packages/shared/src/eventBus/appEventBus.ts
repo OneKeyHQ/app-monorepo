@@ -2,6 +2,7 @@
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import type { IQrcodeDrawType } from '@onekeyhq/components';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
@@ -14,6 +15,7 @@ import type { IFeeSelectorItem } from '../../types/fee';
 import type {
   IFetchQuotesParams,
   ISwapQuoteEvent,
+  ISwapToken,
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
@@ -28,8 +30,11 @@ export enum EAppEventBusNames {
   ConfirmAccountSelected = 'ConfirmAccountSelected',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
+  WalletRemove = 'WalletRemove',
   AccountUpdate = 'AccountUpdate',
   AccountRemove = 'AccountRemove',
+  AddDBAccountsToWallet = 'AddDBAccountsToWallet',
+  RenameDBAccounts = 'RenameDBAccounts',
   CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
@@ -84,8 +89,18 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
+  [EAppEventBusNames.WalletRemove]: {
+    walletId: string;
+  };
   [EAppEventBusNames.AccountUpdate]: undefined;
   [EAppEventBusNames.AccountRemove]: undefined;
+  [EAppEventBusNames.AddDBAccountsToWallet]: {
+    walletId: string;
+    accounts: IDBAccount[];
+  };
+  [EAppEventBusNames.RenameDBAccounts]: {
+    accounts: IDBAccount[];
+  };
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
@@ -204,6 +219,7 @@ export interface IAppEventBusPayload {
     event: ISwapQuoteEvent;
     params: IFetchQuotesParams;
     accountId?: string;
+    tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
 }
 

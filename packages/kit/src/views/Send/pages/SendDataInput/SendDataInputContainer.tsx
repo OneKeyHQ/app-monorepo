@@ -473,8 +473,6 @@ function SendDataInputContainer() {
             tokenAddress: isNFT
               ? `${nft?.collectionAddress ?? ''}:${nft?.itemId ?? ''}`
               : tokenInfo?.address,
-            tokenAmount: realAmount,
-            tokenValue: linkedAmount.originalAmount,
           });
 
           await sendConfirm.navigationToSendConfirm({
@@ -487,6 +485,7 @@ function SendDataInputContainer() {
               amountToSend: realAmount,
               isMaxSend,
               isNFT,
+              originalRecipient: toAddress,
             },
           });
           setIsSubmitting(false);
@@ -828,16 +827,9 @@ function SendDataInputContainer() {
 
     return (
       <>
-        <XStack pt="$5" />
         <Form.Field
           label={intl.formatMessage({ id: ETranslations.send_tag })}
-          labelAddon={
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.form_optional_indicator,
-              })}
-            </SizableText>
-          }
+          optional
           name="memo"
           rules={{
             maxLength: {
@@ -860,7 +852,7 @@ function SendDataInputContainer() {
         >
           <TextArea
             numberOfLines={2}
-            size="large"
+            size={media.gtMd ? 'medium' : 'large'}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
@@ -868,7 +860,7 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, memoMaxLength, numericOnlyMemo]);
+  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, numericOnlyMemo]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
@@ -877,13 +869,7 @@ function SendDataInputContainer() {
         <XStack pt="$5" />
         <Form.Field
           label="Payment ID"
-          labelAddon={
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.form_optional_indicator,
-              })}
-            </SizableText>
-          }
+          optional
           name="paymentId"
           rules={{
             validate: (value) => {
@@ -917,13 +903,7 @@ function SendDataInputContainer() {
         label={intl.formatMessage({
           id: ETranslations.global_Note,
         })}
-        labelAddon={
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.form_optional_indicator,
-            })}
-          </SizableText>
-        }
+        optional
         name="note"
         rules={{
           maxLength: {
@@ -1092,6 +1072,7 @@ function SendDataInputContainer() {
                 enableWalletName
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
+                enableAddressContract
                 contacts={addressBookEnabledNetworkIds.includes(
                   currentAccount.networkId,
                 )}

@@ -15,6 +15,7 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -33,7 +34,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, staked, pendingInactive } = details;
+  const { token, provider, active } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -46,22 +47,16 @@ const WithdrawPage = () => {
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Withdraw,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
           onSuccess?.();
         },
@@ -71,7 +66,6 @@ const WithdrawPage = () => {
       handleWithdraw,
       tokenInfo,
       appNavigation,
-      price,
       provider,
       actionTag,
       identity,
@@ -79,7 +73,7 @@ const WithdrawPage = () => {
     ],
   );
 
-  const balance = Number(staked) - Number(pendingInactive);
+  const providerLabel = useProviderLabel(provider.name);
 
   return (
     <Page>
@@ -92,13 +86,17 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
-          balance={String(balance)}
+          decimals={details.token.info.decimals}
+          balance={BigNumber(active ?? 0).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
+          withdrawMinAmount={details.minUnstakeAmount}
+          unstakingPeriod={details.unstakingPeriod}
+          providerLabel={providerLabel}
         />
       </Page.Body>
     </Page>

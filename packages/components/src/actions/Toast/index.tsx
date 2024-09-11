@@ -6,7 +6,6 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Portal } from '../../hocs';
 import {
@@ -119,18 +118,20 @@ const RenderLines = ({
   );
 };
 
-function Title({
+export function ToastContent({
   title,
   message,
   icon,
   maxWidth,
   actions,
+  actionsAlign = 'right',
 }: {
   title: string;
   message?: string;
   maxWidth?: number;
   icon?: JSX.Element;
   actions?: IToastProps['actions'];
+  actionsAlign?: 'left' | 'right';
 }) {
   const { height, width } = useWindowDimensions();
   const media = useMedia();
@@ -180,7 +181,9 @@ function Title({
           {actions ? (
             <XStack
               gap="$2"
-              justifyContent="flex-end"
+              justifyContent={
+                actionsAlign === 'left' ? 'flex-start' : 'flex-end'
+              }
               paddingTop="$3"
               paddingRight="$0.5"
               paddingBottom="$0.5"
@@ -225,7 +228,7 @@ function toastMessage({
   }
   showMessage({
     renderContent: (props) => (
-      <Title
+      <ToastContent
         title={title}
         maxWidth={props?.width}
         message={message}

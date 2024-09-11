@@ -297,13 +297,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         event: ISwapQuoteEvent;
         type: 'done' | 'close' | 'error' | 'message' | 'open';
         params: IFetchQuotesParams;
+        tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
         accountId?: string;
       },
     ) => {
       switch (event.type) {
         case 'open': {
-          set(swapQuoteEventTotalCountAtom(), 0);
           set(swapQuoteListAtom(), []);
+          set(swapQuoteEventTotalCountAtom(), 0);
           break;
         }
         case 'message': {
@@ -356,10 +357,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
             ) {
               const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
-              if (totalQuoteCount === 0) {
-                set(swapQuoteListAtom(), []);
-              }
               set(swapQuoteEventTotalCountAtom(), totalQuoteCount);
+              if (totalQuoteCount === 0) {
+                set(swapQuoteListAtom(), [
+                  {
+                    info: { provider: '', providerName: '' },
+                    fromTokenInfo: event.tokenPairs.fromToken,
+                    toTokenInfo: event.tokenPairs.toToken,
+                  },
+                ]);
+              }
             } else {
               const quoteResultData = dataJson as ISwapQuoteEventQuoteResult;
               const swapAutoSlippageSuggestedValue = get(
@@ -406,7 +413,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                           oldQuoteRes.info.providerName,
                     ),
                 );
-                newQuoteList = [...newQuoteList, ...newAddQuoteRes];
+                newQuoteList = [...newQuoteList, ...newAddQuoteRes].filter(
+                  (quote) => !!quote.info.provider,
+                );
                 set(swapQuoteListAtom(), [...newQuoteList]);
               }
               set(swapQuoteFetchingAtom(), false);
@@ -1110,10 +1119,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       const swapSupportNetworks = get(swapNetworks());
+      const accountIdKey =
+        indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
       if (indexedAccountId || otherWalletTypeAccountId) {
         try {
           set(swapAllNetworkActionLockAtom(), true);
-
           const allNetAccountId = indexedAccountId
             ? (
                 await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount(
@@ -1125,7 +1135,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             : otherWalletTypeAccountId ?? '';
           const currentSwapAllNetworkTokenList = get(
             swapAllNetworkTokenListMapAtom(),
-          )[indexedAccountId ?? otherWalletTypeAccountId ?? ''];
+          )[accountIdKey];
           const { accountsInfo } =
             await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
               accountId: allNetAccountId,
@@ -1182,7 +1192,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               );
             })
             .filter((item) => item.apiAddress);
-
           const requests = swapSupportAccounts.map((networkDataString) => {
             const {
               apiAddress,
@@ -1206,15 +1215,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             const allTokensResult = (result.filter(Boolean) ?? []).flat();
             set(swapAllNetworkTokenListMapAtom(), (v) => ({
               ...v,
-              [indexedAccountId ?? otherWalletTypeAccountId ?? '']:
-                allTokensResult,
+              [accountIdKey]: allTokensResult,
             }));
           }
         } catch (e) {
+          set(swapAllNetworkTokenListMapAtom(), (v) => ({
+            ...v,
+            [accountIdKey]: [],
+          }));
           console.error(e);
         } finally {
           set(swapAllNetworkActionLockAtom(), false);
         }
+      } else {
+        set(swapAllNetworkTokenListMapAtom(), (v) => ({
+          ...v,
+          [accountIdKey]: [],
+        }));
       }
     },
   );

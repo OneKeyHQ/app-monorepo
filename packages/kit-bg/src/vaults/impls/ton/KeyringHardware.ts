@@ -122,10 +122,12 @@ export class KeyringHardware extends KeyringHardwareBase {
       seqno: encodedTx.sequenceNo || 0,
       expireAt: encodedTx.validUntil || 0,
       comment: msg.payload,
+      isRawData: true,
       mode: msg.sendMode,
       walletVersion: versionMap[version as keyof typeof versionMap],
     };
     if (msg.jetton?.amount) {
+      hwParams.destination = msg.jetton.toAddress;
       hwParams.jettonAmount = Number(msg.jetton.amount);
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
       hwParams.jettonWalletAddress = msg.jetton.jettonWalletAddress;
@@ -133,10 +135,21 @@ export class KeyringHardware extends KeyringHardwareBase {
         hwParams.fwdFee = Number(msg.jetton.fwdFee);
       }
       hwParams.comment = undefined;
+      if (msg.jetton.fwdPayload) {
+        const decodedPayload = decodePayload(msg.jetton.fwdPayload);
+        if (decodedPayload.comment) {
+          hwParams.comment = decodedPayload.comment;
+          hwParams.isRawData = false;
+        }
+      }
     } else if (msg.payload) {
       const decodedPayload = decodePayload(msg.payload);
       if (decodedPayload.comment) {
         hwParams.comment = decodedPayload.comment;
+        hwParams.isRawData = false;
+      } else {
+        hwParams.comment = Buffer.from(msg.payload, 'base64').toString('hex');
+        hwParams.isRawData = true;
       }
     }
     if (encodedTx.messages.length > 1) {

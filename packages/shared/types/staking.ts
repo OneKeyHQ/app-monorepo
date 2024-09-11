@@ -12,6 +12,7 @@ export enum EEarnLabels {
   Stake = 'Stake',
   Claim = 'Claim',
   Redeem = 'Redeem',
+  Withdraw = 'Withdraw',
   Unknown = 'Unknown',
 }
 
@@ -23,32 +24,32 @@ export type IStakingInfo = {
   receive?: { amount: string; token: IToken };
 };
 
-export type ILidoHistorySendOrReceive = { amount: string; token: IToken };
-
-export type ILidoHistoryItem = {
-  label: string;
-  send?: ILidoHistorySendOrReceive;
-  receive?: ILidoHistorySendOrReceive;
-  txHash: string;
-  timestamp: number;
-};
-
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
   website: string;
-  apr: string;
+  // btc don't have apr
+  apr?: string;
   poolFee: string;
   totalStaked: string;
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
+  minClaimableAmount?: string;
   isNative: string;
   nextLaunchLeft?: string;
   labels?: string[];
+
+  // native token only
+  minTransactionFee?: string;
+
+  // babylon
   minStakeTerm?: number;
   maxStakeTerm?: number;
+  minStakeBlocks?: number;
+  maxStakeBlocks?: number;
   unbondingTime?: number;
+  stakingCap?: string;
 };
 
 export type IStakeBaseParams = {
@@ -84,6 +85,14 @@ export type IUnstakePushParams = {
   unstakeTxHex: string;
 };
 
+export type IClaimRecordParams = {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountId: string;
+  identity: string;
+};
+
 export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
@@ -101,10 +110,10 @@ export type IStakeHistoryParams = {
 };
 
 export type IStakeHistory = {
-  txId: string;
+  txHash: string;
   title: string;
   type: string;
-  amount: string;
+  amount?: string;
   timestamp: number;
   tokenAddress: string;
   direction: 'receive' | 'send';
@@ -158,6 +167,7 @@ export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
   available: string;
+  active?: string;
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;
@@ -171,10 +181,17 @@ export type IStakeProtocolDetails = {
     price24h: string;
     info: IToken;
   };
+  network?: {
+    name: string;
+  };
   updateFrequency: string;
   rewardToken: string;
   approveTarget?: string;
   earnHistoryEnable?: boolean;
+  pendingActivatePeriod?: number;
+  unstakingPeriod?: number;
+  minUnstakeAmount?: number;
+  overflow?: string;
 };
 
 export type IStakeProtocolListItem = {
@@ -187,6 +204,31 @@ export type IStakeProtocolListItem = {
   isEarning: boolean;
 };
 
+export type IBabylonPortfolioStatus =
+  | 'active'
+  | 'withdraw_requested'
+  | 'claimable'
+  | 'claimed';
+
+export type IBabylonPortfolioItem = {
+  txId: string;
+  status: IBabylonPortfolioStatus;
+  amount: string;
+  fiatValue: string;
+  startTime?: number;
+  endTime?: number;
+  lockBlocks: number;
+  isOverflow: string;
+};
+
+export type IClaimableListItem = {
+  id: string;
+  amount: string;
+  fiatValue?: string;
+  isPending?: boolean;
+  babylonExtra?: IBabylonPortfolioItem;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -194,7 +236,7 @@ export type IClaimableListResponse = {
     name: string;
     logoURI: string;
   };
-  items: { id: string; amount: string }[];
+  items: IClaimableListItem[];
 };
 
 export interface IEarnAccountToken {
@@ -220,6 +262,7 @@ export type IEarnAccount = {
   earn: IEarnAccountResponse;
   networkId: string;
   accountAddress: string;
+  publicKey?: string;
 };
 
 export type IAvailableAsset = {
@@ -232,20 +275,9 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: IEarnAccount[];
+  accounts?: Record<string, IEarnAccount[]>;
   availableAssets?: IAvailableAsset[];
 }
-
-export type IPortfolioItem = {
-  txId: string;
-  status: string;
-  amount: string;
-  fiatValue: string;
-  startTime?: number;
-  endTime?: number;
-  lockBlocks: number;
-  isOverflow: string;
-};
 
 export type IGetPortfolioParams = {
   networkId: string;
@@ -280,3 +312,9 @@ export interface IEarnInvestmentItem {
   logoURI: string;
   investment: IInvestment[];
 }
+
+export interface IEarnFAQListItem {
+  question: string;
+  answer: string;
+}
+export type IEarnFAQList = IEarnFAQListItem[];

@@ -30,7 +30,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { IPortfolioItem } from '@onekeyhq/shared/types/staking';
+import type { IBabylonPortfolioItem } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
@@ -38,10 +38,14 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
-import { capitalizeString } from '../../utils/utils';
+import {
+  type IBabylonStatus,
+  getBabylonPortfolioStatus,
+  useBabylonStatusMap,
+} from '../../utils/babylon';
 
 type IPortfolioItemProps = {
-  item: IPortfolioItem;
+  item: IBabylonPortfolioItem;
   network?: IServerNetwork;
 };
 
@@ -50,6 +54,7 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
     IModalStakingParamList,
     EModalStakingRoutes.ProtocolDetails
   >();
+  const statusMap = useBabylonStatusMap();
   const { networkId } = route.params;
   const onPress = useCallback(async () => {
     await openTransactionDetailsUrl({ networkId, txid: item.txId });
@@ -71,13 +76,17 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
   ] = useSettingsPersistAtom();
 
   const statusBadgeType: Record<
-    string,
+    IBabylonStatus,
     ComponentProps<typeof Badge>['badgeType']
   > = {
     'active': 'success',
-    'withdrawn': 'warning',
+    'withdraw_requested': 'warning',
+    'overflow': 'critical',
+    'claimable': 'info',
+    'claimed': 'default',
   };
   const intl = useIntl();
+
   return (
     <Stack px={20}>
       <Stack
@@ -86,8 +95,12 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
         borderRadius="$3"
       >
         <XStack px={14} pt={14} justifyContent="space-between">
-          <Badge badgeType={statusBadgeType[item.status] ?? 'default'}>
-            {capitalizeString(item.status)}
+          <Badge
+            badgeType={
+              statusBadgeType[getBabylonPortfolioStatus(item)] ?? 'default'
+            }
+          >
+            {statusMap[getBabylonPortfolioStatus(item)]}
           </Badge>
           <Button
             onPress={onPress}
@@ -154,7 +167,7 @@ const PortfolioDetails = () => {
     { watchLoading: true },
   );
   const renderItem = useCallback(
-    ({ item }: { item: IPortfolioItem }) => (
+    ({ item }: { item: IBabylonPortfolioItem }) => (
       <PortfolioItem item={item} network={result?.[1]} />
     ),
     [result],
@@ -174,7 +187,7 @@ const PortfolioDetails = () => {
         >
           {result ? (
             <ListView
-              estimatedItemSize={60}
+              estimatedItemSize={164}
               data={result[0]}
               renderItem={renderItem}
               ListFooterComponent={<Stack h="$2" />}

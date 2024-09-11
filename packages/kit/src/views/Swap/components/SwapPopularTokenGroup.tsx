@@ -1,6 +1,8 @@
 import { memo } from 'react';
 
-import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import { Image, SizableText, XStack } from '@onekeyhq/components';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -15,17 +17,32 @@ const SwapPopularTokenGroup = ({
   selectedToken,
   tokens,
 }: ISwapPopularTokenGroupProps) => (
-  <XStack pt="$1" pb="$3" gap="$2" flexWrap="wrap">
+  <XStack pt="$1" pb="$3" gap="$1.5" flexWrap="wrap">
     {tokens.map((token) => (
-      <Button
+      <XStack
         key={token.contractAddress}
-        variant="secondary"
+        role="button"
+        userSelect="none"
+        alignItems="center"
+        px="$1.5"
+        py="$1"
+        bg="$bg"
         borderRadius="$4"
-        size="small"
+        borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        flexDirection="row"
-        backgroundColor="$background"
-        gap="$0.5"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+          outlineOffset: 2,
+        }}
         disabled={
           !!equalTokenNoCaseSensitive({
             token1: selectedToken,
@@ -35,18 +52,21 @@ const SwapPopularTokenGroup = ({
         onPress={() => {
           onSelectToken(token);
         }}
+        disabledStyle={{
+          opacity: 0.5,
+        }}
       >
-        <XStack justifyContent="center" gap="$1" alignItems="center">
-          <Image height="$4.5" width="$4.5" borderRadius="$full">
-            <Image.Source
-              source={{
-                uri: token.logoURI,
-              }}
-            />
-          </Image>
-          <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-        </XStack>
-      </Button>
+        <Image height="$4.5" width="$4.5" borderRadius="$full">
+          <Image.Source
+            source={{
+              uri: token.logoURI,
+            }}
+          />
+        </Image>
+        <SizableText pl="$1" size="$bodyLgMedium">
+          {token.symbol}
+        </SizableText>
+      </XStack>
     ))}
   </XStack>
 );

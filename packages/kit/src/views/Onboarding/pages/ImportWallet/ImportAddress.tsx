@@ -277,7 +277,7 @@ function ImportAddress() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_import_address })}
       />

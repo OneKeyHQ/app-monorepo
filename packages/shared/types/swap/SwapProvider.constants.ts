@@ -57,6 +57,8 @@ export const swapNetworksCommonCountMD = 5;
 export const swapRateDifferenceMax = -10;
 export const swapRateDifferenceMin = 0.05;
 
+export const maxRecentTokenPairs = 10;
+
 export enum ESwapProviderSort {
   RECOMMENDED = 'recommended',
   GAS_FEE = 'gasFee',
@@ -138,11 +140,11 @@ export const swapDefaultSetTokens: Record<
     fromToken: {
       'networkId': 'evm--137',
       'contractAddress': '',
-      'name': 'Matic',
-      'symbol': 'MATIC',
+      'name': 'Polygon',
+      'symbol': 'POL',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
 
       'isNative': true,
     },
@@ -188,7 +190,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1721283262262.png',
 
       'isNative': true,
     },
@@ -211,7 +213,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
       'isNative': true,
     },
     toToken: {
@@ -233,7 +235,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'ETH',
       'decimals': 18,
       'logoURI':
-        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-.png',
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
       'isNative': true,
     },
     toToken: {
@@ -432,6 +434,42 @@ export const swapDefaultSetTokens: Record<
       'isNative': false,
     },
   },
+  'sui--mainnet': {
+    fromToken: {
+      'networkId': 'sui--mainnet',
+      'contractAddress': '0x2::sui::SUI',
+      'name': 'Sui',
+      'symbol': 'SUI',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0x2::sui::SUI.png',
+      'isNative': true,
+    },
+  },
+  'ton--mainnet': {
+    fromToken: {
+      'networkId': 'ton--mainnet',
+      'contractAddress': '',
+      'name': 'Toncoin',
+      'symbol': 'TON',
+      'decimals': 9,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
+      'isNative': true,
+    },
+  },
+  'aptos--1': {
+    fromToken: {
+      'networkId': 'aptos--1',
+      'contractAddress': '0x1::aptos_coin::AptosCoin',
+      'name': 'Aptos Coin',
+      'symbol': 'APT',
+      'decimals': 8,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
+      'isNative': true,
+    },
+  },
 };
 
 export const swapPopularTokens: Record<string, ISwapToken[]> = {
@@ -445,6 +483,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
       'isNative': true,
+      'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     {
       'networkId': 'evm--1',
@@ -456,6 +496,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xdac17f958d2ee523a2206206994597c13d831ec7-1722246302921.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     {
       'networkId': 'evm--1',
@@ -467,6 +508,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     {
       'networkId': 'evm--1',
@@ -478,6 +520,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     {
       'networkId': 'evm--1',
@@ -489,6 +532,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2-1720667871986.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     {
       'networkId': 'evm--1',
@@ -500,6 +544,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x6b175474e89094c44da98b954eedeac495271d0f.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
   ],
   'evm--56': [
@@ -513,6 +558,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-.png',
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     {
       'networkId': 'evm--56',
@@ -524,6 +570,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x55d398326f99059ff775485246999027b3197955-1720668660063.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     {
       'networkId': 'evm--56',
@@ -535,6 +582,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d-1720669239205.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     {
       'networkId': 'evm--56',
@@ -547,6 +595,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     {
       'networkId': 'evm--56',
@@ -558,6 +607,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     {
       'networkId': 'evm--56',
@@ -569,6 +619,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
   ],
   'evm--42161': [
@@ -583,6 +634,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
     {
       'networkId': 'evm--42161',
@@ -595,6 +648,22 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+    {
+      'networkId': 'evm--42161',
+      'contractAddress': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831-1720669320510.png',
+
+      'isNative': false,
+      'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
     {
       'networkId': 'evm--42161',
@@ -607,6 +676,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
   ],
   'evm--8453': [
@@ -621,6 +692,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     {
       'networkId': 'evm--8453',
@@ -633,6 +705,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     {
       'networkId': 'evm--8453',
@@ -645,6 +718,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     {
       'networkId': 'evm--8453',
@@ -657,6 +731,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     {
       'networkId': 'evm--8453',
@@ -668,19 +743,22 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
   ],
   'evm--137': [
     {
       'networkId': 'evm--137',
       'contractAddress': '',
-      'name': 'Matic',
-      'symbol': 'MATIC',
+      'name': 'Polygon',
+      'symbol': 'POL',
       'decimals': 18,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
+
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
     {
       'networkId': 'evm--137',
@@ -693,6 +771,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
     {
       'networkId': 'evm--137',
@@ -704,6 +783,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0xc2132d05d31c914a87c6611c10748aeb04b58e8f-1720668692077.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
     {
       'networkId': 'evm--137',
@@ -715,6 +795,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
     {
       'networkId': 'evm--137',
@@ -726,6 +807,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0x7ceb23fd6bc0add59e62ac25578270cff1b9f619-1720668277811.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
   ],
   'sol--101': [
@@ -740,6 +822,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
     {
       'networkId': 'sol--101',
@@ -752,6 +835,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
     {
       'networkId': 'sol--101',
@@ -764,6 +848,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
     {
       'networkId': 'sol--101',
@@ -776,6 +861,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
   ],
   'evm--43114': [
@@ -789,6 +875,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-.png',
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
     {
       'networkId': 'evm--43114',
@@ -800,6 +888,9 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e-1720669345050.png',
 
       'isNative': false,
+      'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
     {
       'networkId': 'evm--43114',
@@ -811,6 +902,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7-1720668785282.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
     {
       'networkId': 'evm--43114',
@@ -823,6 +916,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
   ],
   'evm--10': [
@@ -837,6 +932,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
     {
       'networkId': 'evm--10',
@@ -848,6 +945,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-0x0b2c639c533813f4aa9d7837caf62653d097ff85-1720669214787.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
     {
       'networkId': 'evm--10',
@@ -859,6 +958,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-0x94b008aa00579c1307b0ef2c499ad98a8ce58e58-1720668629218.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
     {
       'networkId': 'evm--10',
@@ -870,6 +971,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-0x68f180fcce6836688e9084f035309e29bf0a2095.png',
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
     {
       'networkId': 'evm--10',
@@ -882,6 +985,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
   ],
   'evm--250': [
@@ -896,6 +1001,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
     {
       'networkId': 'evm--250',
@@ -908,6 +1014,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
     {
       'networkId': 'evm--250',
@@ -920,6 +1027,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
     {
       'networkId': 'evm--250',
@@ -932,6 +1040,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
   ],
   'tron--0x2b6653dc': [
@@ -946,6 +1055,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     },
     {
       'networkId': 'tron--0x2b6653dc',
@@ -958,6 +1068,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     },
     {
       'networkId': 'tron--0x2b6653dc',
@@ -970,6 +1081,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     },
   ],
   'evm--324': [
@@ -984,6 +1096,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': true,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
     {
       'networkId': 'evm--324',
@@ -996,6 +1110,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
     {
       'networkId': 'evm--324',
@@ -1008,6 +1124,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
     {
       'networkId': 'evm--324',
@@ -1020,6 +1138,8 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
 
       'isNative': false,
       'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
   ],
 };

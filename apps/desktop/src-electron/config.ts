@@ -8,6 +8,9 @@ export const cspRules = [
 ];
 
 export const ipcMessageKeys = {
+  // DEV Only
+  APP_DEV_ONLY_API: 'electronAppMainProcessDevOnly/api',
+
   // Updater
   UPDATE_CHECK: 'update/check',
   UPDATE_SETTINGS: 'update/settings',
@@ -16,6 +19,7 @@ export const ipcMessageKeys = {
   UPDATE_VERIFY: 'update/verify',
   UPDATE_VERIFIED: 'update/verified',
   UPDATE_INSTALL: 'update/install',
+  UPDATE_CLEAR: 'update/clear',
   UPDATE_CHECKING: 'update/checking',
   UPDATE_AVAILABLE: 'update/available',
   UPDATE_NOT_AVAILABLE: 'update/not-available',
@@ -81,4 +85,8 @@ export const ipcMessageKeys = {
   WEBVIEW_NEW_WINDOW: 'webview/newWindow',
   SET_ALLOWED_PHISHING_URLS: 'webview/setAllowedPhishingUrls',
   CLEAR_WEBVIEW_CACHE: 'webview/clearCache',
+
+  NOTIFICATION_SHOW: 'notification/show',
+  NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
+  NOTIFICATION_SET_BADGE: 'notification/setBadge',
 };

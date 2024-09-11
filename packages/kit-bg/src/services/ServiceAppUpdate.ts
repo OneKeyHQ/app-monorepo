@@ -8,7 +8,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  type IUpdateDownloadedEvent,
+  clearPackage,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -66,7 +69,6 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         isForceUpdate: false,
-        sha256: '',
         errorText: undefined,
         downloadedEvent: undefined,
         status: EAppUpdateStatus.done,
@@ -138,6 +140,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
+    clearTimeout(extensionSyncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
@@ -145,6 +148,13 @@ class ServiceAppUpdate extends ServiceBase {
       updateAt: 0,
       status: EAppUpdateStatus.done,
     });
+  }
+
+  @backgroundMethod()
+  public async clearCache() {
+    clearTimeout(downloadTimeoutId);
+    await clearPackage();
+    await this.reset();
   }
 
   @backgroundMethod()

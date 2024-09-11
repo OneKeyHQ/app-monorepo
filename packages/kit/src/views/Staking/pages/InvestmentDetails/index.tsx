@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,6 +11,7 @@ import {
   Page,
   SectionList,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -20,7 +22,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
@@ -28,41 +33,78 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IInvestment } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnInvestmentItem,
+  IInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
+function ListSkeletonItem() {
+  return (
+    <ListItem
+      drillIn
+      px={0}
+      mx={0}
+      renderAvatar={<Skeleton w="$10" h="$10" radius="round" />}
+      renderItemText={
+        <YStack flex={1} justifyContent="space-between" h="$10">
+          <Skeleton h="$4" w={80} borderRadius="$3" />
+          <Skeleton h="$4" w={120} borderRadius="$3" />
+        </YStack>
+      }
+    />
+  );
+}
+
 const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
+  const accountInfo = useActiveAccount({ num: 0 });
+  const actions = useEarnActions();
   const [{ accounts }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const { result: earnInvestmentItems } = usePromiseResult(
-    () =>
-      accounts
+  const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
+    () => {
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
+        accountInfo.activeAccount?.account?.id,
+        accountInfo.activeAccount?.network?.id,
+      );
+      const list = accounts?.[totalFiatMapKey] || [];
+      return list.length
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
-            accounts
-              ?.map(({ networkId, accountAddress }) => ({
-                networkId,
-                accountAddress,
-              }))
-              .filter((c) => !c.networkId.includes('btc')),
+            list.map(({ networkId, accountAddress, publicKey }) => ({
+              networkId,
+              accountAddress,
+              publicKey,
+            })),
           )
-        : Promise.resolve([]),
-    [accounts],
+        : new Promise<IEarnInvestmentItem[]>((resolve) => {
+            setTimeout(() => resolve([]), 1500);
+          });
+    },
+    [
+      accountInfo.activeAccount?.account?.id,
+      accountInfo.activeAccount?.network?.id,
+      accounts,
+      actions,
+    ],
     {
-      initResult: [],
+      watchLoading: true,
     },
   );
-  const accountInfo = useActiveAccount({ num: 0 });
 
-  const sectionData = earnInvestmentItems.map((item) => ({
-    title: item.name,
-    logoURI: item.logoURI,
-    data: item.investment.map((i) => ({ ...i, providerName: item.name })),
-  }));
+  const sectionData = earnInvestmentItems
+    .map((item) => ({
+      title: item.name,
+      logoURI: item.logoURI,
+      data: item.investment
+        .map((i) => ({ ...i, providerName: item.name }))
+        .filter((i) => !new BigNumber(i.staked).isZero()),
+    }))
+    .filter((i) => i.data.length > 0);
   const renderItem = useCallback(
     ({
       item: {
@@ -160,20 +202,41 @@ function BasicInvestmentDetails() {
       <Page.Body>
         <SectionList
           ListEmptyComponent={
-            <YStack flex={1} alignItems="center">
-              <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
-              <SizableText mt="$6" size="$headingXl">
-                {intl.formatMessage({ id: ETranslations.earn_no_orders })}
-              </SizableText>
-              <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.earn_no_orders_desc })}
-              </SizableText>
-            </YStack>
+            isLoading ? (
+              <YStack px="$4">
+                <XStack gap="$1.5" py="$3">
+                  <Skeleton width="$5" height="$5" radius="round" />
+                  <Skeleton h="$5" w={80} borderRadius="$3" />
+                </XStack>
+                <ListSkeletonItem />
+                <ListSkeletonItem />
+                <ListSkeletonItem />
+              </YStack>
+            ) : (
+              <YStack flex={1} alignItems="center">
+                <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
+                <SizableText mt="$6" size="$headingXl">
+                  {intl.formatMessage({ id: ETranslations.earn_no_orders })}
+                </SizableText>
+                <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_no_orders_desc,
+                  })}
+                </SizableText>
+              </YStack>
+            )
           }
           renderItem={renderItem}
           sections={sectionData}
           py="$3"
-          renderSectionHeader={({ section: { title, logoURI }, index }) => (
+          renderSectionHeader={({
+            section: { title, logoURI },
+          }: {
+            section: {
+              title: string;
+              logoURI: string;
+            };
+          }) => (
             <XStack px="$5" gap="$1.5" py="$3">
               <Image height="$5" width="$5" borderRadius="$1">
                 <Image.Source
@@ -191,7 +254,7 @@ function BasicInvestmentDetails() {
                 </Image.Fallback>
               </Image>
               <SizableText color="$textSubdued" size="$bodyMdMedium">
-                {title}
+                {`${title.charAt(0).toUpperCase()}${title.slice(1)}`}
               </SizableText>
             </XStack>
           )}

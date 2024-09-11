@@ -218,7 +218,9 @@ function DialogFrame({
       <AnimatePresence>
         {open ? (
           <Stack
-            position={'fixed' as unknown as any}
+            position={
+              platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
+            }
             top={0}
             left={0}
             right={0}

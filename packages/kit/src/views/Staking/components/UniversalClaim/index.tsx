@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  NumberSizeableText,
+  Image,
   Page,
   SizableText,
   Stack,
@@ -15,10 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
@@ -26,14 +26,16 @@ const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 type IUniversalClaimProps = {
   balance: string;
   price: string;
-  tokenImageUri: string;
-  tokenSymbol: string;
-  providerLogo: string;
-  providerName: string;
-  receivingTokenSymbol: string;
+
+  tokenImageUri?: string;
+  tokenSymbol?: string;
+  providerLogo?: string;
+  providerName?: string;
+  providerLabel?: string;
   initialAmount?: string;
   rate?: string;
   minAmount?: string;
+  decimals?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -44,13 +46,14 @@ export const UniversalClaim = ({
   tokenSymbol,
   providerLogo,
   providerName,
-  receivingTokenSymbol,
+  providerLabel,
   initialAmount,
   minAmount = '0',
   rate = '1',
+  decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
-  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
@@ -68,16 +71,28 @@ export const UniversalClaim = ({
     }
   }, [amountValue, onConfirm]);
 
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
@@ -113,22 +128,23 @@ export const UniversalClaim = ({
   );
 
   const receiving = useMemo(() => {
-    const amountValueBN = BigNumber(amountValue);
-    if (amountValueBN.isNaN()) return null;
-    const receivingAmount = amountValueBN.dividedBy(rate).toFixed();
-    const receivingValue = amountValueBN
-      .multipliedBy(price)
-      .dividedBy(rate)
-      .toFixed();
-    return (
-      <ValuePriceListItem
-        amount={receivingAmount}
-        fiatSymbol={symbol}
-        fiatValue={receivingValue}
-        tokenSymbol={receivingTokenSymbol}
-      />
-    );
-  }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
+    if (Number(amountValue) > 0) {
+      const receivingAmount = BigNumber(amountValue).dividedBy(rate);
+      return (
+        <ValuePriceListItem
+          amount={receivingAmount.toFixed()}
+          fiatSymbol={symbol}
+          fiatValue={
+            Number(price) > 0
+              ? receivingAmount.multipliedBy(price).dividedBy(rate).toFixed()
+              : undefined
+          }
+          tokenSymbol={tokenSymbol ?? ''}
+        />
+      );
+    }
+    return null;
+  }, [amountValue, price, tokenSymbol, rate, symbol]);
   const intl = useIntl();
 
   const editable = initialAmount === undefined;
@@ -168,7 +184,7 @@ export const UniversalClaim = ({
               type="critical"
               title={intl.formatMessage(
                 { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${tokenSymbol}` },
+                { number: `${minAmount} ${tokenSymbol ?? ''}` },
               )}
             />
           ) : null}
@@ -177,7 +193,7 @@ export const UniversalClaim = ({
               icon="InfoCircleOutline"
               type="critical"
               title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_staked_balance,
+                id: ETranslations.earn_insufficient_claimable_balance,
               })}
             />
           ) : null}
@@ -192,35 +208,31 @@ export const UniversalClaim = ({
             {receiving}
           </ListItem>
         ) : null}
-        {amountValue ? (
+        {providerName && providerLogo ? (
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
+            title={
+              providerLabel ??
+              intl.formatMessage({ id: ETranslations.global_protocol })
+            }
             titleProps={fieldTitleProps}
           >
-            <SizableText>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
-            </SizableText>
+            <XStack gap="$2" alignItems="center">
+              <Image
+                width="$5"
+                height="$5"
+                src={providerLogo}
+                borderRadius="$2"
+              />
+              <SizableText size="$bodyLgMedium">
+                {capitalizeString(providerName)}
+              </SizableText>
+            </XStack>
           </ListItem>
         ) : null}
-        <ListItem
-          title={intl.formatMessage({ id: ETranslations.global_protocol })}
-          titleProps={fieldTitleProps}
-        >
-          <XStack gap="$2" alignItems="center">
-            <Token size="xs" tokenImageUri={providerLogo} />
-            <SizableText size="$bodyLgMedium">{providerName}</SizableText>
-          </XStack>
-        </ListItem>
       </YStack>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.earn_redeem,
+          id: ETranslations.earn_claim,
         })}
         confirmButtonProps={{
           onPress,

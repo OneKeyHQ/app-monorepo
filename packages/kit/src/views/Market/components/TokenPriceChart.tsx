@@ -73,7 +73,7 @@ function BasicTokenPriceChart({
   }, [init]);
   const { gtLg } = useMedia();
   return (
-    <YStack px="$5" $gtMd={{ pr: 0 }}>
+    <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
       <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 294 }}>
         <PriceChart isFetching={isLoading} data={points}>
           {gtLg ? (

@@ -36,6 +36,7 @@ import {
   encodeJettonPayload,
   getAccountVersion,
   getJettonData,
+  getJettonWalletAddress,
   getWalletContractInstance,
   serializeUnsignedTransaction,
 } from './sdkTon/utils';
@@ -101,21 +102,27 @@ export default class Vault extends VaultBase {
         const msg: IEncodedTxTon['messages'][0] = {
           address: transfer.to,
           amount,
-          sendMode: 0,
+          sendMode: 3,
         };
         if (transfer.memo) {
           msg.payload = await encodeComment(transfer.memo);
         }
         if (transfer.tokenInfo && !transfer.tokenInfo?.isNative) {
-          const fwdFee = ''; // when use forward_payload, need to set fwdFee
+          let fwdFee = ''; // when use forward_payload, need to set fwdFee
           msg.amount = TonWeb.utils.toNano('0.05').toString();
-          const jettonAddress = transfer.tokenInfo.address;
-          if (!transfer.tokenInfo.uniqueKey) {
-            throw new OneKeyInternalError('Invalid token uniqueKey');
+          const jettonMasterAddress = transfer.tokenInfo.address;
+          const jettonWalletAddress = await getJettonWalletAddress({
+            backgroundApi: this.backgroundApi,
+            networkId: network.id,
+            masterAddress: jettonMasterAddress,
+            address: fromAddress,
+          });
+          const jettonAddress = jettonWalletAddress.toString(true, true, true);
+          let forwardPayload;
+          if (transfer.memo) {
+            forwardPayload = await encodeComment(transfer.memo);
+            fwdFee = '1';
           }
-          const jettonMasterAddress = new TonWeb.utils.Address(
-            transfer.tokenInfo.uniqueKey,
-          ).toString(true, true, true);
           const { payload } = await encodeJettonPayload({
             backgroundApi: this.backgroundApi,
             networkId: network.id,
@@ -124,6 +131,7 @@ export default class Vault extends VaultBase {
             params: {
               tokenAmount: amount,
               forwardAmount: fwdFee,
+              forwardPayload,
               toAddress: transfer.to,
               responseAddress: fromAddress,
             },
@@ -135,6 +143,8 @@ export default class Vault extends VaultBase {
             jettonMasterAddress,
             jettonWalletAddress: jettonAddress,
             fwdFee,
+            fwdPayload: forwardPayload,
+            toAddress: transfer.to,
           };
         }
         return msg;
@@ -152,9 +162,11 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxTon;
+    const swapInfo = params.unsignedTx.swapInfo;
     const from = await this.getAccountAddress();
     const network = await this.getNetwork();
-    const actions = await Promise.all(
+    let toAddress = '';
+    let actions = await Promise.all(
       encodedTx.messages.map(async (message) => {
         const decodedPayload = decodePayload(message.payload);
         if (decodedPayload.type === EDecodedTxActionType.ASSET_TRANSFER) {
@@ -164,15 +176,17 @@ export default class Vault extends VaultBase {
           if (decodedPayload.jetton) {
             to = decodedPayload.jetton.toAddress;
             amount = decodedPayload.jetton.amount;
-            const jettonData = await getJettonData({
-              backgroundApi: this.backgroundApi,
-              networkId: network.id,
-              address: from,
-            }).catch((e) => {
-              console.error(e);
-            });
-            if (jettonData) {
-              tokenAddress = jettonData.jettonMinterAddress.toString();
+            if (!tokenAddress) {
+              const jettonData = await getJettonData({
+                backgroundApi: this.backgroundApi,
+                networkId: network.id,
+                address: message.address,
+              }).catch((e) => {
+                console.error(e);
+              });
+              if (jettonData) {
+                tokenAddress = jettonData.jettonMinterAddress.toString();
+              }
             }
           }
           const token = await this.backgroundApi.serviceToken.getToken({
@@ -183,6 +197,7 @@ export default class Vault extends VaultBase {
           if (token) {
             amount = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
           }
+          toAddress = to;
           return this.buildTxTransferAssetAction({
             from,
             to,
@@ -210,6 +225,15 @@ export default class Vault extends VaultBase {
         };
       }),
     );
+
+    if (swapInfo) {
+      actions = [
+        await this.buildInternalSwapAction({
+          swapInfo,
+          swapToAddress: toAddress,
+        }),
+      ];
+    }
 
     const feeInfo = params.unsignedTx.feeInfo;
 
@@ -271,7 +295,7 @@ export default class Vault extends VaultBase {
       const stateInit = await wallet.createStateInit();
       encodedTx.messages[0].stateInit = Buffer.from(
         await stateInit.stateInit.toBoc(),
-      ).toString('hex');
+      ).toString('base64');
     }
 
     const validUntil = Math.floor(Date.now() / 1000) + 60 * 3;

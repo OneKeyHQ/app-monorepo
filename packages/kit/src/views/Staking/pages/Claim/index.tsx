@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -15,6 +14,7 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalClaim } from '../../components/UniversalClaim';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -45,22 +45,16 @@ const ClaimPage = () => {
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Claim,
           protocol: provider.name,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
           onSuccess?.();
         },
@@ -70,13 +64,15 @@ const ClaimPage = () => {
       handleClaim,
       tokenInfo,
       appNavigation,
-      price,
       provider,
       actionTag,
       identity,
       onSuccess,
     ],
   );
+
+  const providerLabel = useProviderLabel(provider.name);
+
   return (
     <Page>
       <Page.Header
@@ -87,14 +83,15 @@ const ClaimPage = () => {
       />
       <Page.Body>
         <UniversalClaim
-          receivingTokenSymbol=""
           price={price}
+          decimals={details.token.info.decimals}
           initialAmount={initialAmount}
           balance={details.claimable ?? '0'}
           tokenSymbol={tokenInfo.symbol}
-          tokenImageUri={tokenInfo.logoURI ?? ''}
+          tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
+          providerLabel={providerLabel}
           onConfirm={onConfirm}
         />
       </Page.Body>

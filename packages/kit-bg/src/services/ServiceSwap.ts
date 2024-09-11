@@ -19,8 +19,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  maxRecentTokenPairs,
   swapHistoryStateFetchInterval,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteEventTimeout,
@@ -392,6 +394,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchQuotesEvents({
     fromToken,
     toToken,
@@ -453,6 +456,7 @@ export default class ServiceSwap extends ServiceBase {
             url: swapEventUrl,
           },
           params,
+          tokenPairs: { fromToken, toToken },
           accountId,
         });
       };
@@ -468,6 +472,7 @@ export default class ServiceSwap extends ServiceBase {
             event: { type: 'done' },
             params,
             accountId,
+            tokenPairs: { fromToken, toToken },
           });
         } else {
           appEventBus.emit(EAppEventBusNames.SwapQuoteEvent, {
@@ -480,6 +485,7 @@ export default class ServiceSwap extends ServiceBase {
             },
             params,
             accountId,
+            tokenPairs: { fromToken, toToken },
           });
         }
         await this.cancelFetchQuoteEvents();
@@ -490,6 +496,7 @@ export default class ServiceSwap extends ServiceBase {
           event: { type: 'open' },
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       };
     } else {
@@ -505,6 +512,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('message', (event) => {
@@ -513,6 +521,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('done', (event) => {
@@ -521,6 +530,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('close', (event) => {
@@ -529,6 +539,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
       this._quoteEventSource.addEventListener('error', (event) => {
@@ -537,6 +548,7 @@ export default class ServiceSwap extends ServiceBase {
           event,
           params,
           accountId,
+          tokenPairs: { fromToken, toToken },
         });
       });
     }
@@ -956,6 +968,99 @@ export default class ServiceSwap extends ServiceBase {
       statusPendingList.map(async (swapTxHistory) => {
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
+    );
+  }
+
+  @backgroundMethod()
+  async swapRecentTokenPairsUpdate({
+    fromToken,
+    toToken,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+  }) {
+    let { swapRecentTokenPairs: recentTokenPairs } =
+      await inAppNotificationAtom.get();
+    const isExit = recentTokenPairs.some(
+      (pair) =>
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.fromToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.toToken,
+          })) ||
+        (equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: pair.toToken,
+        }) &&
+          equalTokenNoCaseSensitive({
+            token1: toToken,
+            token2: pair.fromToken,
+          })),
+    );
+    if (isExit) {
+      recentTokenPairs = recentTokenPairs.filter(
+        (pair) =>
+          !(
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.fromToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.toToken,
+              })) ||
+            (equalTokenNoCaseSensitive({
+              token1: fromToken,
+              token2: pair.toToken,
+            }) &&
+              equalTokenNoCaseSensitive({
+                token1: toToken,
+                token2: pair.fromToken,
+              }))
+          ),
+      );
+    }
+    const fromTokenBaseInfo: ISwapToken = {
+      networkId: fromToken.networkId,
+      contractAddress: fromToken.contractAddress,
+      symbol: fromToken.symbol,
+      decimals: fromToken.decimals,
+      name: fromToken.name,
+      logoURI: fromToken.logoURI,
+      networkLogoURI: fromToken.networkLogoURI,
+      isNative: fromToken.isNative,
+    };
+    const toTokenBaseInfo: ISwapToken = {
+      networkId: toToken.networkId,
+      contractAddress: toToken.contractAddress,
+      symbol: toToken.symbol,
+      decimals: toToken.decimals,
+      name: toToken.name,
+      logoURI: toToken.logoURI,
+      networkLogoURI: toToken.networkLogoURI,
+      isNative: toToken.isNative,
+    };
+    let newRecentTokenPairs = [
+      {
+        fromToken: fromTokenBaseInfo,
+        toToken: toTokenBaseInfo,
+      },
+      ...recentTokenPairs,
+    ];
+    if (newRecentTokenPairs.length > maxRecentTokenPairs) {
+      newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: newRecentTokenPairs,
+    }));
+    await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
+      fromToken,
+      toToken,
+      isExit,
     );
   }
 }

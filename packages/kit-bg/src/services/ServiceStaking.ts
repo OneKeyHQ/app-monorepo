@@ -17,11 +17,13 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
+  IBabylonPortfolioItem,
+  IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
-  IPortfolioItem,
   IStakeBaseParams,
   IStakeClaimBaseParams,
   IStakeHistoriesResponse,
@@ -200,18 +202,45 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async babylonClaimRecord(params: IClaimRecordParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v1/claim/record`, {
+      accountAddress: acc.address,
+      publicKey: acc.pub,
+      networkId,
+      ...rest,
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   async buildClaimTransaction(params: IStakeClaimBaseParams) {
     const { networkId, accountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        networkId,
-        accountId,
-      });
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const stakingConfig = await this.getStakingConfigs({
+      networkId,
+      symbol: params.symbol,
+      provider: params.provider,
+    });
+    if (!stakingConfig) {
+      throw new Error('Staking config not found');
+    }
 
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/claim`, { accountAddress, networkId, ...rest });
+    }>(`/earn/v1/claim`, {
+      accountAddress: account.address,
+      networkId,
+      publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      ...rest,
+    });
     return resp.data.data;
   }
 
@@ -245,7 +274,7 @@ class ServiceStaking extends ServiceBase {
     const acc = await vault.getAccount();
 
     const resp = await client.get<{
-      data: IPortfolioItem[];
+      data: IBabylonPortfolioItem[];
     }>(`/earn/v1/portfolio/list`, {
       params: {
         accountAddress: acc.address,
@@ -289,7 +318,8 @@ class ServiceStaking extends ServiceBase {
       '/earn/v1/stake-protocol/detail',
       { params: requestParams },
     );
-    return resp.data.data;
+    const result = resp.data.data;
+    return result;
   }
 
   _getProtocolList = memoizee(
@@ -449,6 +479,7 @@ class ServiceStaking extends ServiceBase {
     list: {
       accountAddress: string;
       networkId: string;
+      publicKey?: string;
     }[],
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -652,6 +683,19 @@ class ServiceStaking extends ServiceBase {
           !isTaprootAddress(account.apiAddress)
         ),
     );
+  }
+
+  @backgroundMethod()
+  async getFAQList(params: { provider: string; symbol: string }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        list: IEarnFAQList;
+      };
+    }>(`/earn/v1/faq/list`, {
+      params,
+    });
+    return resp.data.data.list;
   }
 }
 

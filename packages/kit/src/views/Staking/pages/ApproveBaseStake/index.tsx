@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -25,7 +24,7 @@ const ApproveBaseStakePage = () => {
   >();
 
   const { networkId, accountId, details, currentAllowance } = route.params;
-  const { token, provider, rewardToken } = details;
+  const { token, provider } = details;
   const { balanceParsed, price } = token;
   const appNavigation = useAppNavigation();
   const actionTag = buildLocalTxStatusSyncId(details);
@@ -47,18 +46,12 @@ const ApproveBaseStakePage = () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: token.info,
-            amount,
             stakingProtocol: provider.name,
-            tokenValue:
-              Number(price) > 0
-                ? BigNumber(amount).multipliedBy(price).toFixed()
-                : '0',
-            txnHash: txs[0].signedTx.txid,
           });
         },
       });
     },
-    [token, appNavigation, handleStake, price, provider, actionTag],
+    [token, appNavigation, handleStake, provider, actionTag],
   );
   const intl = useIntl();
   return (
@@ -74,15 +67,11 @@ const ApproveBaseStakePage = () => {
           price={price}
           balance={balanceParsed}
           token={token.info}
-          receivingTokenSymbol={rewardToken}
-          minAmount={
-            provider.minStakeAmount ??
-            BigNumber(1).shiftedBy(-token.info.decimals).toFixed()
-          }
+          minAmount={provider.minStakeAmount}
+          decimals={token.info.decimals}
           onConfirm={onConfirm}
-          apr={Number(provider.apr)}
+          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
           currentAllowance={currentAllowance}
-          rate="1"
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}
           approveTarget={{

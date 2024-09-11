@@ -133,11 +133,13 @@ export default class Vault extends VaultBase {
     let tokenInfo;
     let amount = new BigNumber(encodedTx.Amount).toFixed();
     let isNative = true;
+    let toAddress = encodedTx.To;
     if (encodedTx.Payload && encodedTx.Amount === 0) {
       const transfer = decodeTransferPayload(encodedTx.Payload);
       if (transfer) {
         isNative = false;
         amount = transfer.amount;
+        toAddress = transfer.address;
         tokenInfo = await this.backgroundApi.serviceToken.getToken({
           networkId: this.networkId,
           accountId: this.accountId,
@@ -153,7 +155,7 @@ export default class Vault extends VaultBase {
     if (tokenInfo) {
       const transfer: IDecodedTxTransferInfo = {
         from: encodedTx.From,
-        to: encodedTx.To,
+        to: toAddress,
         tokenIdOnNetwork: tokenInfo.address,
         icon: tokenInfo.logoURI ?? '',
         name: tokenInfo.name,
