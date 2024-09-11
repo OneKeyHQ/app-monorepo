@@ -299,6 +299,7 @@ export function BatchCreateAccountFormBase({
       >
         <Input
           secureTextEntry={false}
+          testID="account-generate-amount-input"
           placeholder={intl.formatMessage({
             id: ETranslations.global_generate_amount,
           })}

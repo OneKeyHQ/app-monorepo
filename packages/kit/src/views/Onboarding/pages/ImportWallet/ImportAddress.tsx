@@ -83,6 +83,7 @@ const FormDeriveTypeInput = ({
           enabledItems={deriveInfoItems}
           renderTrigger={({ label, onPress }) => (
             <Stack
+              testID={'derive-type-input'}
               userSelect="none"
               flexDirection="row"
               px="$3.5"
@@ -304,12 +305,14 @@ function ImportAddress() {
                     id: ETranslations.global_address,
                   }),
                   value: EImportMethod.Address,
+                  testID: 'import-address-address',
                 },
                 {
                   label: intl.formatMessage({
                     id: ETranslations.global_public_key,
                   }),
                   value: EImportMethod.PublicKey,
+                  testID: 'import-address-publicKey',
                 },
               ]}
             />

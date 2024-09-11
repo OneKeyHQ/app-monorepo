@@ -332,6 +332,7 @@ export const EditableChainSelectorContent = ({
       <Stack flex={1}>
         <Stack px="$5">
           <SearchBar
+            testID="chain-selector"
             placeholder={intl.formatMessage({
               id: ETranslations.global_search,
             })}
