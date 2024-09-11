@@ -1,4 +1,4 @@
-import type { ForwardedRef, MutableRefObject, Ref, RefObject } from 'react';
+import type { Ref } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
