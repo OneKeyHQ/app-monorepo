@@ -1,4 +1,4 @@
-import { debounce, isNumber, merge, uniqBy } from 'lodash';
+import { debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import {
@@ -42,6 +42,7 @@ import {
 import {
   notificationsAtom,
   notificationsReadedAtom,
+  settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -116,6 +117,11 @@ export default class ServiceNotification extends ServiceBase {
 
   pushClient: INotificationPushClient = {};
 
+  @backgroundMethod()
+  async getPushClient() {
+    return this.pushClient;
+  }
+
   onPushProviderConnected = async ({
     jpushId,
     socketId,
@@ -136,30 +142,42 @@ export default class ServiceNotification extends ServiceBase {
   onNotificationReceived = async (
     messageInfo: INotificationPushMessageInfo,
   ) => {
+    const msgId =
+      messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
     defaultLogger.notification.common.notificationReceived({
-      notificationId: messageInfo.extras?.msgId,
+      messageInfo,
+      notificationId: msgId,
       topic: messageInfo.extras?.topic,
       title: messageInfo.title,
       content: messageInfo.content,
     });
 
     void this.ackNotificationMessage({
-      msgId: messageInfo.extras?.msgId,
+      msgId,
       action: ENotificationPushMessageAckAction.show,
       remotePushMessageInfo: messageInfo,
     });
 
-    if (messageInfo.pushSource === 'websocket') {
+    if (messageInfo.pushSource === 'jpush') {
       // jpush will show notification automatically
-      // websocket should show notification by ourselves
-      await this.showNotification({
-        notificationId: messageInfo.extras?.msgId,
-        title: messageInfo.title,
-        description: messageInfo.content,
-        icon: messageInfo.extras?.image,
-        remotePushMessageInfo: messageInfo,
-      });
     }
+
+    // websocket push should show notification by ourselves
+    if (messageInfo.pushSource === 'websocket') {
+      if (!(await this.isNotificationShowed(msgId))) {
+        // jpush will show notification automatically
+        // websocket should show notification by ourselves
+        await this.showNotification({
+          notificationId: msgId,
+          title: messageInfo.title,
+          description: messageInfo.content,
+          icon: messageInfo.extras?.image,
+          remotePushMessageInfo: messageInfo,
+        });
+      }
+    }
+
+    this.addShowedNotificationId(msgId);
 
     await notificationsAtom.set((v) => ({
       ...v,
@@ -175,6 +193,8 @@ export default class ServiceNotification extends ServiceBase {
     webEvent,
     eventSource,
   }: INotificationClickParams) => {
+    this.addShowedNotificationId(notificationId);
+
     defaultLogger.notification.common.notificationClicked({
       eventSource,
       notificationId,
@@ -235,6 +255,39 @@ export default class ServiceNotification extends ServiceBase {
     });
     this.isColdStartByNotificationDone = true;
     return r;
+  }
+
+  showedNotificationIds: string[] = [];
+
+  async isNotificationShowed(
+    notificationId: string | undefined,
+  ): Promise<boolean> {
+    try {
+      if (!notificationId) {
+        return false;
+      }
+      if (this.showedNotificationIds.includes(notificationId)) {
+        return true;
+      }
+      const nativeNotifications =
+        await this.notificationProvider.getNativeNotifications();
+      return Boolean(
+        nativeNotifications.find(
+          (n) => n.notificationId === notificationId && notificationId,
+        ),
+      );
+    } catch (error) {
+      console.log('getNativeNotifications error', error);
+      return false;
+    }
+  }
+
+  addShowedNotificationId(notificationId: string | undefined) {
+    if (!notificationId) {
+      return;
+    }
+    this.showedNotificationIds.push(notificationId);
+    this.showedNotificationIds = uniq(this.showedNotificationIds.slice(-100));
   }
 
   @backgroundMethod()
@@ -537,7 +590,12 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
-    defaultLogger.notification.common.registerClient(params, null);
+    const settings = await settingsPersistAtom.get();
+    defaultLogger.notification.common.registerClient(
+      params,
+      null,
+      settings.instanceId,
+    );
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<{
@@ -547,7 +605,11 @@ export default class ServiceNotification extends ServiceBase {
       }>
     >('/notification/v1/account/register', params);
     // TODO return badge count
-    defaultLogger.notification.common.registerClient(params, result.data);
+    defaultLogger.notification.common.registerClient(
+      params,
+      result.data,
+      settings.instanceId,
+    );
 
     const badge = result?.data?.data?.badges;
     if (isNumber(badge)) {
@@ -568,31 +630,24 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async ackNotificationMessage(params: INotificationPushMessageAckParams) {
-    let isWsAckSuccess = false;
+    let isWebSocketAckSuccess = false;
+    let ackRes: any;
     if (this.notificationProvider?.webSocketProvider) {
-      try {
-        const res =
-          await this.notificationProvider.webSocketProvider.ackMessage(params);
-        if (res) {
-          isWsAckSuccess = true;
-        }
-      } catch (error) {
-        defaultLogger.notification.common.consoleLog(
-          'ackNotificationMessage error',
-          error,
-        );
-      }
+      isWebSocketAckSuccess =
+        await this.notificationProvider.webSocketProvider.ackMessage(params);
     }
 
-    if (!isWsAckSuccess) {
+    if (!isWebSocketAckSuccess) {
       const client = await this.getClient(EServiceEndpointEnum.Notification);
-      await client.post('/notification/v1/message/ack', {
+      const res = await client.post('/notification/v1/message/ack', {
         msgId: params.msgId,
         action: params.action,
       });
+      ackRes = res.data;
     }
 
-    defaultLogger.notification.common.ackMessage(params, null);
+    defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
+
     void this.refreshBadgeFromServer();
     if (
       params.msgId &&

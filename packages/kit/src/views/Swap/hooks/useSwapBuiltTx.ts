@@ -29,6 +29,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -45,6 +46,7 @@ export function useSwapBuildTx() {
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
@@ -80,6 +82,7 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         setSwapFromTokenAmount(''); // send success, clear from token amount
         setSwapQuoteResultList([]);
+        setSwapQuoteEventTotalCount(0);
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
@@ -113,6 +116,7 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching,
       setSwapFromTokenAmount,
       setSwapQuoteResultList,
+      setSwapQuoteEventTotalCount,
     ],
   );
 
