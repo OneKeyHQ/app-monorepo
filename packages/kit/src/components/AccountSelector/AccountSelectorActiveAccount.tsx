@@ -31,6 +31,7 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -52,7 +53,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
 
   return (
     <Spotlight
-      isVisible={isFocus}
+      isVisible={isFocus && !platformEnv.isE2E}
       message={intl.formatMessage({
         id: ETranslations.spotlight_enable_network_message,
       })}
@@ -182,10 +183,24 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             }}
             hitSlop={NATIVE_HIT_SLOP}
             userSelect="none"
+            testID="account-selector-address"
           >
-            <SizableText size="$bodyMd">
-              {accountUtils.shortenAddress({ address: account?.address })}
-            </SizableText>
+            {platformEnv.isE2E ? (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+                width={200}
+              >
+                {account?.address}
+              </SizableText>
+            ) : (
+              <SizableText
+                testID="account-selector-address-text"
+                size="$bodyMd"
+              >
+                {accountUtils.shortenAddress({ address: account?.address })}
+              </SizableText>
+            )}
           </XStack>
         }
       />

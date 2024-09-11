@@ -222,6 +222,7 @@ function ExportPrivateKeysPage({
   }>[] = useMemo(
     () => [
       {
+        testID: 'account-key-show-btn',
         iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: async () => {
           if (!rawKeyValue) {
@@ -232,6 +233,7 @@ function ExportPrivateKeysPage({
       },
       {
         iconName: 'Copy3Outline',
+        testID: 'account-key-copy-btn',
         onPress: async () => {
           if (!rawKeyValue) {
             await refreshKey({ noDebouncedCall: true });
@@ -312,6 +314,7 @@ function ExportPrivateKeysPage({
 
           <Form.Field label={keyLabel} name="rawKeyContent">
             <Input
+              testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
               placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"

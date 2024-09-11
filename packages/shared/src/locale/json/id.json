@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "Biaya Jaringan",
   "swap_history_detail.order_status": "Status pesanan",
   "swap_history_detail.pay_address": "Alamat pembayaran",
-  "swap_history_detail.protocol_fee": "Biaya Protokol",
+  "swap_history_detail.protocol_fee": "Biaya Penyedia",
   "swap_history_detail.provider": "Penyedia",
   "swap_history_detail.rate": "Nilai",
   "swap_history_detail.receive_amount": "+Jumlah yang Diterima",

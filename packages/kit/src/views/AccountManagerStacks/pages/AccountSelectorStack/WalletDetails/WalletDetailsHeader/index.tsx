@@ -65,7 +65,7 @@ export function WalletDetailsHeader({
       ) : null}
       {editable ? (
         <Button
-          testID="AccountSelectorModal-EditButton"
+          testID="account-edit-button"
           variant="tertiary"
           alignSelf="flex-start"
           $gtMd={{ top: '$0.5' }}
