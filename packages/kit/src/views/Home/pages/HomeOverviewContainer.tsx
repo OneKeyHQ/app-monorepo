@@ -39,6 +39,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -174,6 +175,7 @@ function HomeOverviewContainer() {
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
+  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
@@ -225,7 +227,18 @@ function HomeOverviewContainer() {
     });
   }, [account, network]);
 
-  const handleResourceDetailsOnPress = useCallback(() => {}, []);
+  const handleResourceDetailsOnPress = useCallback(() => {
+    if (resourceDialogInstance?.current) {
+      return;
+    }
+    resourceDialogInstance.current = showResourceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        resourceDialogInstance.current = null;
+      },
+    });
+  }, [account?.id, network?.id]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
