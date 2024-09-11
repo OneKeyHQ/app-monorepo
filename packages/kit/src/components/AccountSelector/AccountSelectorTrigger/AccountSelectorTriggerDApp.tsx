@@ -259,9 +259,15 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
     address: account?.address || '',
   });
 
+  if (!addressText) {
+    return <Skeleton width={153} height="$5" />;
+  }
+
   return (
     <XStack
       alignItems="center"
+      px="$1.5"
+      mx="$-1.5"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',

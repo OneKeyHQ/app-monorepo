@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "Сетевая комиссия",
   "swap_history_detail.order_status": "Статус заказа",
   "swap_history_detail.pay_address": "Платежный адрес",
-  "swap_history_detail.protocol_fee": "Плата за протокол",
+  "swap_history_detail.protocol_fee": "Плата поставщика",
   "swap_history_detail.provider": "Провайдер",
   "swap_history_detail.rate": "Оценка",
   "swap_history_detail.receive_amount": "+Получить сумму",

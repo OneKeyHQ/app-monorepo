@@ -1609,7 +1609,7 @@
   "swap_history_detail.network_fee": "Netzwerkgebühr",
   "swap_history_detail.order_status": "Bestellstatus",
   "swap_history_detail.pay_address": "Zahlungsadresse",
-  "swap_history_detail.protocol_fee": "Protokollgebühr",
+  "swap_history_detail.protocol_fee": "Anbietergebühr",
   "swap_history_detail.provider": "Anbieter",
   "swap_history_detail.rate": "Bewertung",
   "swap_history_detail.receive_amount": "+Erhaltener Betrag",
