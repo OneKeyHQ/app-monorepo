@@ -83,7 +83,7 @@ const FormDeriveTypeInput = ({
           enabledItems={deriveInfoItems}
           renderTrigger={({ label, onPress }) => (
             <Stack
-              testID={'derive-type-input'}
+              testID="derive-type-input"
               userSelect="none"
               flexDirection="row"
               px="$3.5"

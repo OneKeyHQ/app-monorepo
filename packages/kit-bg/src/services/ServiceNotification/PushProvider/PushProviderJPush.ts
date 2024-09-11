@@ -3,7 +3,11 @@ import { isString } from 'lodash';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+import type {
+  IJPushNotificationLocalEvent,
+  IJPushNotificationRemoteEvent,
+  INotificationPushMessageInfo,
+} from '@onekeyhq/shared/types/notification';
 import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
 
 import { PushProviderBase } from './PushProviderBase';
@@ -44,8 +48,8 @@ export class PushProviderJPush extends PushProviderBase {
 
   private addListeners() {
     JPush.addConnectEventListener(this.handleConnect);
-    JPush.addNotificationListener(this.handleNotification);
-    JPush.addLocalNotificationListener(this.handleLocalNotification);
+    JPush.addNotificationListener(this.handleNotification as any);
+    JPush.addLocalNotificationListener(this.handleLocalNotification as any);
 
     try {
       JPush.addTagAliasListener((payload) => {
@@ -95,22 +99,14 @@ export class PushProviderJPush extends PushProviderBase {
     }
   };
 
-  private handleNotification = (notification: {
-    messageID: string;
-    title: string;
-    content: string;
-    badge: string;
-    ring: string;
-    extras: {
-      [key: string]: string;
-    };
-    notificationEventType: 'notificationArrived' | 'notificationOpened';
-  }) => {
+  baseHandleNotification({
+    notification,
+    ignoreNotificationArrived,
+  }: {
+    notification: IJPushNotificationRemoteEvent | IJPushNotificationLocalEvent;
+    ignoreNotificationArrived?: boolean;
+  }) {
     const { notificationEventType } = notification;
-    defaultLogger.notification.jpush.consoleLog(
-      'JPush 收到推送:',
-      notification,
-    );
     let extraParams = notification?.extras?.params;
     if (notification?.extras && notification?.extras?.params) {
       if (
@@ -124,23 +120,29 @@ export class PushProviderJPush extends PushProviderBase {
         }
       }
     }
+    const msgId =
+      notification?.extras?.params?.msgId ||
+      notification?.extras?.msgId ||
+      notification.messageID;
     const payload: INotificationPushMessageInfo = {
       pushSource: 'jpush',
       title: notification.title,
       content: notification.content,
-      badge: notification.badge,
+      badge:
+        (notification as IJPushNotificationRemoteEvent)?.badge ??
+        notification.extras?.badge,
       extras: {
         ...notification?.extras,
-        msgId: notification.messageID,
+        msgId,
         image: notification?.extras?.image,
         params: extraParams,
       } as any,
-      // @ts-ignore
-      jpushNotificationBadge: notification.badge,
-      jpushNotificationRaw: notification,
     };
 
-    if (notificationEventType === 'notificationArrived') {
+    if (
+      notificationEventType === 'notificationArrived' &&
+      !ignoreNotificationArrived
+    ) {
       // jpush show notification automatically, so we don't need to show it again
       this.eventEmitter.emit(
         EPushProviderEventNames.notification_received,
@@ -150,9 +152,9 @@ export class PushProviderJPush extends PushProviderBase {
 
     if (notificationEventType === 'notificationOpened') {
       this.eventEmitter.emit(EPushProviderEventNames.notification_clicked, {
-        notificationId: notification.messageID,
+        notificationId: msgId,
         params: {
-          notificationId: notification.messageID,
+          notificationId: msgId,
           title: payload.title,
           description: payload.content,
           icon: notification?.extras?.image,
@@ -160,13 +162,29 @@ export class PushProviderJPush extends PushProviderBase {
         },
       });
     }
+  }
+
+  private handleNotification = (
+    notification: IJPushNotificationRemoteEvent,
+  ) => {
+    defaultLogger.notification.jpush.consoleLog(
+      'JPush 收到远程推送:',
+      notification,
+    );
+    this.baseHandleNotification({ notification });
   };
 
-  private handleLocalNotification = (notification: any) => {
+  private handleLocalNotification = (
+    notification: IJPushNotificationLocalEvent,
+  ) => {
     defaultLogger.notification.jpush.consoleLog(
       'JPush 收到本地推送:',
       notification,
     );
+    this.baseHandleNotification({
+      notification,
+      ignoreNotificationArrived: true, // websocket will handle received notification
+    });
   };
 
   setBadge(params: { badge: number; appBadge: number }) {

@@ -6,19 +6,22 @@ import {
   cancelScheduledNotificationAsync,
   dismissNotificationAsync,
   getPermissionsAsync,
+  getPresentedNotificationsAsync,
   requestPermissionsAsync,
   scheduleNotificationAsync,
   setNotificationHandler,
 } from 'expo-notifications';
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { setBadgeCountAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
+  IJPushNotificationLocalEvent,
+  INativeNotificationCenterMessageInfo,
   INotificationPermissionDetail,
+  INotificationPushMessageExtras,
   INotificationRemoveParams,
   INotificationSetBadgeParams,
   INotificationShowParams,
@@ -61,6 +64,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     //   console.log('Notifications dropped');
     // });
 
+    // not working when jpush enabled, use JPush.addLocalNotificationListener instead
     const sub1 = addNotificationResponseReceivedListener(async (event) => {
       defaultLogger.notification.common.consoleLog(
         'native addNotificationResponseReceivedListener',
@@ -93,14 +97,14 @@ export default class NotificationProvider extends NotificationProviderBase {
     // Notifications.removeNotificationSubscription(sub2);
 
     // not working
-    // const codeStartNotification: NotificationResponse | null =
+    // const col dStartNotification: NotificationResponse | null =
     //   await getLastNotificationResponseAsync();
-    // console.log('codeStartNotification', codeStartNotification);
-    // if (codeStartNotification) {
-    //   const data = codeStartNotification?.notification?.request?.content
+    // console.log('coldStartNotification', coldStartNotification);
+    // if (coldStartNotification) {
+    //   const data = coldStartNotification?.notification?.request?.content
     //     ?.data as INotificationShowParams;
     //   this.eventEmitter.emit(EPushProviderEventNames.notification_clicked, {
-    //     notificationId: codeStartNotification.actionIdentifier,
+    //     notificationId: coldStartNotification.actionIdentifier,
     //     params: data,
     //   });
     // }
@@ -154,10 +158,16 @@ export default class NotificationProvider extends NotificationProviderBase {
     this.fixShowParams(params);
     const { icon, notificationId, title, description } = params;
     const uuid = notificationId || generateUUID();
+    const data: IJPushNotificationLocalEvent = {
+      messageID: uuid,
+      title,
+      content: description,
+      extras: params?.remotePushMessageInfo?.extras,
+    };
     const content: NotificationContentInput = {
       title,
       body: description,
-      data: params,
+      data,
       sound: true,
       // attachments: icon
       //   ? [
@@ -228,5 +238,25 @@ export default class NotificationProvider extends NotificationProviderBase {
 
   override async clearNotificationCache(): Promise<void> {
     console.log('Native -- clearNotificationCache');
+  }
+
+  override async getNativeNotifications(): Promise<
+    INativeNotificationCenterMessageInfo[]
+  > {
+    const notifications = await getPresentedNotificationsAsync();
+    return notifications.map((n) => {
+      const extras = // @ts-ignore
+        n?.request?.trigger?.payload as INotificationPushMessageExtras;
+
+      return {
+        notificationId:
+          extras?.params?.msgId ||
+          extras?.msgId ||
+          n?.request?.identifier ||
+          '',
+        title: n.request.content?.title || '',
+        content: n.request.content?.body || '',
+      };
+    });
   }
 }

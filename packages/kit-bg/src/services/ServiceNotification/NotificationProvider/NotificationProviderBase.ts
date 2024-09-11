@@ -4,6 +4,7 @@ import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
+  INativeNotificationCenterMessageInfo,
   INotificationPermissionDetail,
   INotificationRemoveParams,
   INotificationSetBadgeParams,
@@ -60,5 +61,11 @@ export default abstract class NotificationProviderBase {
     params.notificationId = params.notificationId || generateUUID();
     params.time = params.time || Date.now();
     return params;
+  }
+
+  async getNativeNotifications(): Promise<
+    INativeNotificationCenterMessageInfo[]
+  > {
+    return [];
   }
 }

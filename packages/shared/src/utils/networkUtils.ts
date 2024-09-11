@@ -11,11 +11,11 @@ import {
   IMPL_LIGHTNING_TESTNET,
   SEPERATOR,
 } from '../engine/engineConsts';
+import platformEnv from '../platformEnv';
 
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
-import platformEnv from '../platformEnv';
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);

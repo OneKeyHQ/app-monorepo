@@ -184,6 +184,13 @@ export const DevSettingsSection = () => {
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }
+        onBeforeValueChange={async () => {
+          try {
+            await backgroundApiProxy.serviceNotification.unregisterClient();
+          } catch (error) {
+            console.error(error);
+          }
+        }}
         onValueChange={(enabled: boolean) => {
           if (platformEnv.isDesktop) {
             window.desktopApi?.setAutoUpdateSettings?.({
