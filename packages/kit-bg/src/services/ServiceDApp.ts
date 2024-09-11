@@ -956,12 +956,73 @@ class ServiceDApp extends ServiceBase {
           networkId: connectedAccountInfo.networkId ?? '',
           deriveType: connectedAccountInfo.deriveType,
         });
+
+      if (connectedAccount.id === networkAccount?.id) {
+        return {
+          supportSwitchConnectionAccount: false,
+          accountExist: !!networkAccount?.id,
+        };
+      }
       return {
         supportSwitchConnectionAccount: true,
         accountExist: !!networkAccount?.id,
       };
     } catch {
       return { supportSwitchConnectionAccount: true, accountExist: false };
+    }
+  }
+
+  @backgroundMethod()
+  async getDappConnectNetworkAccount(params: {
+    origin: string;
+    accountId?: string;
+    networkId?: string;
+    indexedAccountId?: string;
+    isOthersWallet?: boolean;
+  }) {
+    const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
+      params;
+    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
+      origin,
+    );
+    if (
+      !connectedAccountsInfo ||
+      !connectedAccountsInfo.length ||
+      connectedAccountsInfo.length > 1
+    ) {
+      return null;
+    }
+
+    const connectedAccountInfo = connectedAccountsInfo[0];
+    if (isOthersWallet && accountId && networkId) {
+      try {
+        const otherAccount = await this.backgroundApi.serviceAccount.getAccount(
+          {
+            accountId,
+            networkId,
+          },
+        );
+        return otherAccount;
+      } catch {
+        return null;
+      }
+    }
+
+    if (!indexedAccountId) {
+      return null;
+    }
+
+    try {
+      const networkAccount =
+        await this.backgroundApi.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId: connectedAccountInfo.networkId ?? '',
+          deriveType: connectedAccountInfo.deriveType,
+        });
+      return networkAccount;
+    } catch {
+      return null;
     }
   }
 

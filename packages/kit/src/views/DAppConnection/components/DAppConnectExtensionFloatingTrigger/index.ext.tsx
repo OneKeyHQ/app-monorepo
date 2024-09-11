@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-  Button,
   Icon,
   IconButton,
   Image,
@@ -14,6 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -80,8 +80,10 @@ function DAppConnectExtensionFloatingTrigger() {
 
   const [shouldSwitchAccount, setShouldSwitchAccount] = useState(false);
   const [accountExist, setAccountExist] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [hideAccountSelectorTrigger, setHideAccountSelectorTrigger] =
     useState(false);
+  const [switchProcessText, setSwitchProcessText] = useState('');
   const checkShouldSwitchAccount = useCallback(
     async (params: {
       origin: string;
@@ -107,19 +109,16 @@ function DAppConnectExtensionFloatingTrigger() {
         ', accountExist:',
         _accountExist,
       );
+      setSwitchProcessText(
+        `Switch to Account ${account?.name ?? indexedAccount?.name ?? ''} ?`,
+      );
       setShouldSwitchAccount(supportSwitchConnectionAccount);
       setAccountExist(_accountExist);
     },
-    [],
+    [account?.name, indexedAccount?.name],
   );
 
   useEffect(() => {
-    // 1. 判断能不能切换
-    // - 针对当前 tab 有没有 dApp 连接
-    // - 针对当前 tab 的 dApp 连接的账户有没有变动
-    // - 如果当前账户是 othersWallet，判断当前账户的网络是否支持，EVM 理论上支持全系切换，其他网络必须 networkId 相等
-    // 2. 判断账户存不存在，需不需要创建账户
-    // 3. 切换账户
     void checkShouldSwitchAccount({
       origin: result?.origin ?? '',
       accountId: account?.id,
@@ -136,13 +135,49 @@ function DAppConnectExtensionFloatingTrigger() {
     checkShouldSwitchAccount,
   ]);
 
+  const { createAddress } = useAccountSelectorCreateAddress();
   const onSwitchAccount = useCallback(async () => {
     console.log('onSwitchAccount');
 
     if (typeof result?.connectedAccountsInfo?.[0].num !== 'number') {
       return;
     }
+    setIsSwitching(true);
     setHideAccountSelectorTrigger(true);
+    if (!accountExist) {
+      try {
+        setSwitchProcessText('Creating Address');
+        await createAddress({
+          num: 0,
+          account: {
+            walletId: wallet?.id,
+            networkId: result?.connectedAccountsInfo?.[0].networkId,
+            indexedAccountId: indexedAccount?.id,
+            deriveType: result?.connectedAccountsInfo?.[0].deriveType,
+          },
+          selectAfterCreate: false,
+        });
+      } catch (e) {
+        console.log('🚀 ~ onSwitchAccount ~ error:', e);
+        setIsSwitching(true);
+        return;
+      } finally {
+        setSwitchProcessText(
+          `Switch to Account ${account?.name ?? indexedAccount?.name ?? ''} ?`,
+        );
+      }
+    }
+    const dappNetworkAccount =
+      await backgroundApiProxy.serviceDApp.getDappConnectNetworkAccount({
+        origin: result?.origin ?? '',
+        indexedAccountId: indexedAccount?.id,
+        accountId: account?.id,
+        networkId: result?.connectedAccountsInfo?.[0].networkId,
+        isOthersWallet,
+      });
+    if (!dappNetworkAccount) {
+      return;
+    }
     await backgroundApiProxy.serviceDApp.updateConnectionSession({
       origin: result?.origin ?? '',
       accountSelectorNum: result?.connectedAccountsInfo?.[0].num,
@@ -150,11 +185,11 @@ function DAppConnectExtensionFloatingTrigger() {
         walletId: wallet?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
         othersWalletAccountId: isOthersWallet ? wallet?.id : undefined,
-        networkId: network?.id ?? '',
-        deriveType,
-        networkImpl: network?.impl ?? '',
-        accountId: account?.id ?? '',
-        address: account?.address ?? '',
+        networkId: result?.connectedAccountsInfo?.[0].networkId ?? '',
+        deriveType: result?.connectedAccountsInfo?.[0].deriveType,
+        networkImpl: result?.connectedAccountsInfo?.[0].networkImpl ?? '',
+        accountId: dappNetworkAccount.id ?? '',
+        address: dappNetworkAccount.address ?? '',
         num: result?.connectedAccountsInfo?.[0].num,
         focusedWallet: wallet?.id,
       },
@@ -167,20 +202,22 @@ function DAppConnectExtensionFloatingTrigger() {
           result.origin,
         );
       }
-      setHideAccountSelectorTrigger(true);
+      setHideAccountSelectorTrigger(false);
+      setIsSwitching(false);
+      setShouldSwitchAccount(false);
     }, 200);
   }, [
     result?.connectedAccountsInfo,
     wallet?.id,
     indexedAccount?.id,
     isOthersWallet,
-    network?.id,
-    deriveType,
-    network?.impl,
     account?.id,
-    account?.address,
     result?.origin,
+    account?.name,
+    indexedAccount?.name,
     refreshConnectionInfo,
+    createAddress,
+    accountExist,
   ]);
 
   const navigation = useAppNavigation();
@@ -216,15 +253,39 @@ function DAppConnectExtensionFloatingTrigger() {
           bottom="$16"
           right="0"
           left="0"
-          h="$16"
+          h="$9"
           w="100%"
-          py="$3"
-          px="$5"
+          bg="$bgApp"
+          borderTopWidth="$px"
+          borderBottomWidth="0"
+          borderLeftWidth="0"
+          borderRightWidth="0"
+          borderColor="$borderInfoSubdued"
         >
-          <Button size="small" onPress={() => onSwitchAccount()}>
-            Switch Account
-          </Button>
-          <Button onPress={() => setShouldSwitchAccount(false)}>Cancel</Button>
+          <XStack
+            py="$2"
+            px="$5"
+            justifyContent="space-between"
+            gap="$2"
+            bg="$bgInfoSubdued"
+          >
+            <SizableText size="$bodyMdMedium">{switchProcessText}</SizableText>
+            <XStack gap="$3">
+              <IconButton
+                icon="CornerDownRightOutline"
+                size="small"
+                variant="tertiary"
+                onPress={onSwitchAccount}
+                loading={isSwitching}
+              />
+              <IconButton
+                icon="CrossedLargeOutline"
+                size="small"
+                variant="tertiary"
+                onPress={() => setShouldSwitchAccount(false)}
+              />
+            </XStack>
+          </XStack>
         </Stack>
       ) : null}
       <Stack
@@ -244,7 +305,7 @@ function DAppConnectExtensionFloatingTrigger() {
         borderBottomWidth="0"
         borderLeftWidth="0"
         borderRightWidth="0"
-        borderColor="$border"
+        borderColor={shouldSwitchAccount ? '$borderInfoSubdued' : '$border'}
         onPress={handlePressFloatingButton}
       >
         <XStack alignItems="center" gap="$3">
