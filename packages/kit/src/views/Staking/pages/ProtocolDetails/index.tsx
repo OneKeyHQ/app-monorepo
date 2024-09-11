@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -159,6 +159,8 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const intl = useIntl();
+  const media = useMedia();
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -167,7 +169,7 @@ const ProtocolDetailsPage = () => {
           { 'symbol': symbol },
         )}
       />
-      <Page.Body px="$5">
+      <Page.Body px="$5" pb="$5" gap="$8">
         <PageFrame
           LoadingSkeleton={OverviewSkeleton}
           loading={isLoadingState({ result, isLoading })}
@@ -185,26 +187,28 @@ const ProtocolDetailsPage = () => {
             onPortfolioDetails={onPortfolioDetails}
             onCreateAddress={onCreateAddress}
           />
-          <Page.Footer
-            onConfirmText={intl.formatMessage({
-              id: ETranslations.earn_stake,
-            })}
-            confirmButtonProps={{
-              variant: 'primary',
-              loading: stakeLoading,
-              onPress: onStake,
-              disabled: !earnAccount?.accountAddress,
-            }}
-            onCancelText={intl.formatMessage({
-              id: ETranslations.global_withdraw,
-            })}
-            cancelButtonProps={{
-              onPress: onWithdraw,
-              disabled:
-                !earnAccount?.accountAddress ||
-                Number(result?.staked) - Number(result?.pendingInactive) <= 0,
-            }}
-          />
+          {!media.gtMd ? (
+            <Page.Footer
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.earn_stake,
+              })}
+              confirmButtonProps={{
+                variant: 'primary',
+                loading: stakeLoading,
+                onPress: onStake,
+                disabled: !earnAccount?.accountAddress,
+              }}
+              onCancelText={intl.formatMessage({
+                id: ETranslations.global_withdraw,
+              })}
+              cancelButtonProps={{
+                onPress: onWithdraw,
+                disabled:
+                  !earnAccount?.accountAddress ||
+                  Number(result?.staked) - Number(result?.pendingInactive) <= 0,
+              }}
+            />
+          ) : null}
           {result ? (
             <StakingTransactionIndicator
               accountId={earnAccount?.accountId ?? ''}

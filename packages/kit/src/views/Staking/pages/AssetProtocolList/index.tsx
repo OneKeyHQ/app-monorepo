@@ -5,18 +5,15 @@ import { useIntl } from 'react-intl';
 
 import type { ColorTokens } from '@onekeyhq/components';
 import {
-  Badge,
   Dialog,
   IconButton,
   ListView,
   Page,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   XStack,
   YStack,
-  getColor,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
