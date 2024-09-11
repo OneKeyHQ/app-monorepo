@@ -111,6 +111,14 @@ export type IOnChainHistoryTx = {
 
   // TON
   eventId?: string;
+
+  // Tron
+  receipt?: {
+    energyUsage?: number;
+    energyFee?: number;
+    energyUsageTotal?: number;
+    netUsage?: number;
+  };
 };
 
 export type IAccountHistoryTx = {

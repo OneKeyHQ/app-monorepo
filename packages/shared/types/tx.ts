@@ -6,6 +6,7 @@ import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
+import { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -83,7 +84,8 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraAlgo
   | IDecodedTxExtraLightning
   | IDecodedTxExtraXrp
-  | IDecodedTxExtraDnx;
+  | IDecodedTxExtraDnx
+  | IDecodedTxExtraTron;
 
 export type IDecodedTx = {
   txid: string; // blockHash
