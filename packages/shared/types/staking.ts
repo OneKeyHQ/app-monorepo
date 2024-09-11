@@ -36,9 +36,10 @@ export type IStakeProviderInfo = {
   minStakeAmount: string;
   maxStakeAmount: string;
   minClaimableAmount?: string;
-  isNative: string;
+  isNative?: string;
   nextLaunchLeft?: string;
 
+  lidoStTokenRate?: string;
   type?: 'native' | 'liquid';
   isStaking?: boolean;
 
