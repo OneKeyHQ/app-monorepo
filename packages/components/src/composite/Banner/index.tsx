@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
-import { Image, SizableText, Skeleton, Stack, XStack } from '../../primitives';
+import { Image, SizableText, Stack, XStack } from '../../primitives';
 
 import type { IStackStyle } from '../../primitives';
 
@@ -72,7 +72,7 @@ export function Banner<
         </Stack>
       </Stack>
     ),
-    [onItemPress],
+    [itemContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(
