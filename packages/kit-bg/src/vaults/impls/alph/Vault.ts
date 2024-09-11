@@ -2,6 +2,7 @@
 import {
   AddressType,
   DUST_AMOUNT,
+  addressFromTokenId,
   bs58,
   contractIdFromAddress,
   isValidAddress,
@@ -172,7 +173,7 @@ export default class Vault extends VaultBase {
       const transfers: IDecodedTxTransferInfo[] = [];
       await Promise.all(
         destinations.map(async (dest) => {
-          if (dest.attoAlphAmount.toString() !== '0') {
+          if (new BigNumber(dest.attoAlphAmount.toString()).isGreaterThan(0)) {
             transfers.push({
               from,
               to: dest.address,
@@ -190,11 +191,14 @@ export default class Vault extends VaultBase {
           if (dest.tokens) {
             await Promise.all(
               dest.tokens.map(async (tokenData) => {
+                const tokenIdOnNetwork = bufferUtils.bytesToHex(
+                  addressFromTokenId(tokenData.id),
+                );
                 const tokenInfo =
                   await this.backgroundApi.serviceToken.getToken({
                     networkId: network.id,
                     accountId: this.accountId,
-                    tokenIdOnNetwork: tokenData.id,
+                    tokenIdOnNetwork,
                   });
                 if (tokenInfo) {
                   transfers.push({
