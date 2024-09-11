@@ -55,6 +55,7 @@ type IPortfolioValue = {
   token: IToken;
   onClaim?: () => void;
   onWithdraw?: () => void;
+  onStake?: () => void;
   onPortfolioDetails?: () => void;
   babylonOverflow?: string;
 };
@@ -103,7 +104,12 @@ function StakedValue({
   stakedNumber = 0,
   availableNumber = 0,
   tokenSymbol,
-}: IStakedValue) {
+  onWithdraw,
+  onStake,
+}: IStakedValue & {
+  onWithdraw?: () => void;
+  onStake?: () => void;
+}) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   const media = useMedia();
@@ -125,10 +131,10 @@ function StakedValue({
           </NumberSizeableText>
           {media.gtMd ? (
             <XStack gap="$2">
-              <Button>
+              <Button onPress={onWithdraw}>
                 {intl.formatMessage({ id: ETranslations.global_withdraw })}
               </Button>
-              <Button variant="primary">
+              <Button variant="primary" onPress={onStake}>
                 {intl.formatMessage({ id: ETranslations.earn_stake })}
               </Button>
             </XStack>
@@ -811,6 +817,7 @@ type IProtocolDetails = {
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
   onWithdraw?: () => void;
+  onStake?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
 };
@@ -822,6 +829,7 @@ export function ProtocolDetails({
   earnAccount,
   details,
   onClaim,
+  onStake,
   onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
@@ -930,7 +938,11 @@ export function ProtocolDetails({
     <>
       {earnAccount?.accountAddress ? (
         <>
-          <StakedValue {...stakedValue} />
+          <StakedValue
+            {...stakedValue}
+            onWithdraw={onWithdraw}
+            onStake={onStake}
+          />
           <Portfolio
             {...portfolio}
             onClaim={onClaim}
