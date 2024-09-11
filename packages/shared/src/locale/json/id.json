@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC telah melebihi batas dan harus ditarik dan diklaim.",
   "earn.pay_with": "Bayar dengan",
   "earn.pending_activation": "Menunggu aktivasi",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "Staking baru perlu menunggu sekitar {number} sebelum menjadi aktif dan mulai mendapatkan hadiah.",
   "earn.pending_activation_tooltip_eth": "ETH yang Anda stake akan aktif setelah validator mencapai persyaratan 32 ETH.",
   "earn.portfolio": "Portofolio",
   "earn.portfolio_details": "Detail Portofolio",

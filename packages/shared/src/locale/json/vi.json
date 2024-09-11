@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} BTC đang bị tràn và nên được rút và yêu cầu.",
   "earn.pay_with": "Thanh toán bằng",
   "earn.pending_activation": "Đang chờ kích hoạt",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "Việc đặt cược mới cần phải chờ khoảng {number} trước khi trở nên hoạt động và bắt đầu kiếm được phần thưởng.",
   "earn.pending_activation_tooltip_eth": "ETH mà bạn stake sẽ hoạt động khi trình xác thực đạt yêu cầu 32 ETH.",
   "earn.portfolio": "Danh mục đầu tư",
   "earn.portfolio_details": "Chi tiết danh mục",

@@ -373,7 +373,7 @@
   "earn.overflow_number_alert": "{number} বিটিসি অতিপ্রবাহিত হয়েছে এবং এটি উদ্ধার এবং দাবি করা উচিত।",
   "earn.pay_with": "পেমেন্ট করুন",
   "earn.pending_activation": "অপেক্ষামান অ্যাক্টিভেশন",
-  "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
+  "earn.pending_activation_tooltip": "নতুন স্টেকিংয়ের জন্য সক্রিয় হওয়ার আগে এবং পুরস্কার অর্জন শুরু করার আগে {number} অপেক্ষা করতে হবে।",
   "earn.pending_activation_tooltip_eth": "আপনার স্টেক করা ETH তখনই সক্রিয় হবে যখন ভ্যালিডেটর ৩২ ETH এর প্রয়োজনীয়তা পূরণ করবে।",
   "earn.portfolio": "পরিচয়পত্র",
   "earn.portfolio_details": "পরিকল্পনা বিবরণী",
