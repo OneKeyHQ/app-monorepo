@@ -3,6 +3,7 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPermissionDetail,
   INotificationPushMessageAckParams,
+  INotificationPushMessageInfo,
   INotificationPushRegisterParams,
   INotificationSetBadgeParams,
   INotificationShowParams,
@@ -34,7 +35,11 @@ export class CommonScene extends BaseScene {
   }
 
   @LogToLocal()
-  registerClient(params: INotificationPushRegisterParams, apiResult: any) {
+  registerClient(
+    params: INotificationPushRegisterParams,
+    apiResult: any,
+    instanceId: string,
+  ) {
     const { client, syncAccounts, syncMethod } = params;
     return [
       {
@@ -42,13 +47,18 @@ export class CommonScene extends BaseScene {
         socketId: client.socketId,
         syncMethod,
         syncAccountsCount: syncAccounts?.length,
+        firstAccountAddress: syncAccounts?.[0]?.accountAddress,
+        instanceId,
       },
       devOnlyData(apiResult),
     ];
   }
 
   @LogToConsole()
-  ackMessage(params: INotificationPushMessageAckParams, apiResult: any) {
+  ackNotificationMessage(
+    params: INotificationPushMessageAckParams,
+    apiResult: any,
+  ) {
     return [
       {
         msgId: params.msgId,
@@ -99,8 +109,10 @@ export class CommonScene extends BaseScene {
     title: string | undefined;
     content: string | undefined;
     topic: ENotificationPushTopicTypes | undefined;
+    messageInfo: INotificationPushMessageInfo | undefined;
   }) {
-    return params;
+    const { notificationId, title, content, topic, messageInfo } = params;
+    return [messageInfo?.pushSource, notificationId, title, content, topic];
   }
 
   @LogToLocal()
