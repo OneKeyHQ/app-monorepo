@@ -1,4 +1,5 @@
-import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -42,6 +43,8 @@ type IStakedValue = {
   stakedNumber: number;
   availableNumber: number;
   tokenSymbol: string;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 type IPortfolioValue = {
@@ -55,7 +58,6 @@ type IPortfolioValue = {
   token: IToken;
   onClaim?: () => void;
   onWithdraw?: () => void;
-  onStake?: () => void;
   onPortfolioDetails?: () => void;
   babylonOverflow?: string;
 };
@@ -104,12 +106,9 @@ function StakedValue({
   stakedNumber = 0,
   availableNumber = 0,
   tokenSymbol,
-  onWithdraw,
-  onStake,
-}: IStakedValue & {
-  onWithdraw?: () => void;
-  onStake?: () => void;
-}) {
+  stakeButtonProps,
+  withdrawButtonProps,
+}: IStakedValue) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   const media = useMedia();
@@ -131,10 +130,10 @@ function StakedValue({
           </NumberSizeableText>
           {media.gtMd ? (
             <XStack gap="$2">
-              <Button onPress={onWithdraw}>
+              <Button {...withdrawButtonProps}>
                 {intl.formatMessage({ id: ETranslations.global_withdraw })}
               </Button>
-              <Button variant="primary" onPress={onStake}>
+              <Button {...stakeButtonProps}>
                 {intl.formatMessage({ id: ETranslations.earn_stake })}
               </Button>
             </XStack>
@@ -817,9 +816,10 @@ type IProtocolDetails = {
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
   onWithdraw?: () => void;
-  onStake?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 export function ProtocolDetails({
@@ -829,10 +829,11 @@ export function ProtocolDetails({
   earnAccount,
   details,
   onClaim,
-  onStake,
   onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
+  stakeButtonProps,
+  withdrawButtonProps,
 }: IProtocolDetails) {
   const intl = useIntl();
   const result: IEarnTokenDetailResult | null = useMemo(() => {
@@ -940,8 +941,8 @@ export function ProtocolDetails({
         <>
           <StakedValue
             {...stakedValue}
-            onWithdraw={onWithdraw}
-            onStake={onStake}
+            stakeButtonProps={stakeButtonProps}
+            withdrawButtonProps={withdrawButtonProps}
           />
           <Portfolio
             {...portfolio}
