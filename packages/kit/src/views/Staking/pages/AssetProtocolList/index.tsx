@@ -98,14 +98,14 @@ const AssetProtocolIntroButton = ({
       onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
     });
   }, [intl, providerTypes]);
-  return (
+  return providerTypes && providerTypes.length > 0 ? (
     <IconButton
       icon="InfoCircleOutline"
       // size="small"
       variant="tertiary"
       onPress={onPress}
     />
-  );
+  ) : null;
 };
 
 const ProviderTypeBadge = ({
@@ -261,7 +261,7 @@ const AssetProtocolList = () => {
   const headerRight = useCallback(
     () => (
       <AssetProtocolIntroButton
-        providerTypes={result?.map((o) => o.provider.type)}
+        providerTypes={result?.map((o) => o.provider.type).filter(Boolean)}
       />
     ),
     [result],

@@ -327,8 +327,9 @@ class ServiceStaking extends ServiceBase {
       symbol: string;
       networkId?: string;
       accountAddress?: string;
+      publicKey?: string;
     }) => {
-      const { symbol, accountAddress } = params;
+      const { symbol, accountAddress, publicKey } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const protocolListResp = await client.get<{
         data: { protocols: IStakeProtocolListItem[] };
@@ -336,6 +337,7 @@ class ServiceStaking extends ServiceBase {
         params: {
           symbol: symbol.toUpperCase(),
           accountAddress,
+          publicKey,
         },
       });
       const protocols = protocolListResp.data.data.protocols;
@@ -359,6 +361,7 @@ class ServiceStaking extends ServiceBase {
       symbol: string;
       networkId?: string;
       accountAddress?: string;
+      publicKey?: string;
     } = { symbol: params.symbol };
     if (params.networkId && params.accountId) {
       const earnAccount = await this.getEarnAccount({
@@ -369,6 +372,9 @@ class ServiceStaking extends ServiceBase {
       if (earnAccount) {
         listParams.networkId = earnAccount.networkId;
         listParams.accountAddress = earnAccount.accountAddress;
+        if (networkUtils.isBTCNetwork(listParams.networkId)) {
+          listParams.publicKey = earnAccount.account.pub;
+        }
       }
     }
     let items = await this._getProtocolList(listParams);
