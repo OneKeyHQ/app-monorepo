@@ -323,14 +323,21 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: { networkId?: string; symbol: string }) => {
-      const { symbol } = params;
+    async (params: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    }) => {
+      const { symbol, accountAddress, publicKey } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const protocolListResp = await client.get<{
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v1/stake-protocol/list', {
         params: {
           symbol: symbol.toUpperCase(),
+          accountAddress,
+          publicKey,
         },
       });
       const protocols = protocolListResp.data.data.protocols;
@@ -338,17 +345,39 @@ class ServiceStaking extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
   @backgroundMethod()
   async getProtocolList(params: {
-    networkId?: string;
     symbol: string;
+    networkId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
     filter?: boolean;
   }) {
-    let items = await this._getProtocolList(params);
+    const listParams: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    } = { symbol: params.symbol };
+    if (params.networkId && params.accountId) {
+      const earnAccount = await this.getEarnAccount({
+        accountId: params.accountId,
+        networkId: params.networkId,
+        indexedAccountId: params.indexedAccountId,
+      });
+      if (earnAccount) {
+        listParams.networkId = earnAccount.networkId;
+        listParams.accountAddress = earnAccount.accountAddress;
+        if (networkUtils.isBTCNetwork(listParams.networkId)) {
+          listParams.publicKey = earnAccount.account.pub;
+        }
+      }
+    }
+    let items = await this._getProtocolList(listParams);
     if (params.filter && params.networkId) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }

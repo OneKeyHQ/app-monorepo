@@ -85,24 +85,71 @@ function StakeTypeBadge({
     </Stack>
   );
 }
-const AssetProtocolIntroButton = () => {
+const AssetProtocolIntroButton = ({
+  providerTypes,
+}: {
+  providerTypes?: IStakeProtocolListItem['provider']['type'][];
+}) => {
   const intl = useIntl();
   const onPress = useCallback(() => {
     Dialog.show({
-      renderContent: <AssetProtocolContent />,
+      renderContent: <AssetProtocolContent providerTypes={providerTypes} />,
       showConfirmButton: false,
       onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
-      cancelButtonProps: { size: 'small' },
     });
-  }, [intl]);
-  return (
+  }, [intl, providerTypes]);
+  return providerTypes && providerTypes.length > 0 ? (
     <IconButton
       icon="InfoCircleOutline"
-      size="small"
+      // size="small"
       variant="tertiary"
       onPress={onPress}
     />
+  ) : null;
+};
+
+const ProviderTypeBadge = ({
+  type,
+}: {
+  type?: IStakeProtocolListItem['provider']['type'];
+}) => {
+  const intl = useIntl();
+  if (!type) {
+    return null;
+  }
+  const stakeType = type === 'native' ? 'locked' : 'liquid';
+  const label =
+    type === 'native'
+      ? intl.formatMessage({ id: ETranslations.earn_native_staking })
+      : intl.formatMessage({ id: ETranslations.earn_liquid_staking });
+  return <StakeTypeBadge stakeType={stakeType} label={label} />;
+};
+
+const ProviderStakingBadge = ({ isStaking }: { isStaking?: boolean }) => {
+  const intl = useIntl();
+  if (!isStaking) return null;
+  return (
+    <StakeTypeBadge
+      stakeType="default"
+      label={intl.formatMessage({ id: ETranslations.earn_currently_staking })}
+    />
   );
+};
+
+const ProviderBadges = ({
+  provider,
+}: {
+  provider?: IStakeProtocolListItem['provider'];
+}) => {
+  if (provider?.type || provider?.isStaking) {
+    return (
+      <XStack flexWrap="wrap" gap="$1">
+        <ProviderTypeBadge type={provider.type} />
+        <ProviderStakingBadge isStaking={provider.isStaking} />
+      </XStack>
+    );
+  }
+  return null;
 };
 
 const AssetProtocolListContent = ({
@@ -149,35 +196,13 @@ const AssetProtocolListContent = ({
           <ListItem.Text
             flex={1}
             primary={capitalizeString(item.provider.name)}
-            secondary={
-              item.provider.labels && item.provider.labels.length > 0 ? (
-                <XStack flexWrap="wrap" gap="$1">
-                  {item.provider.labels.map((label) => {
-                    let stakeType: string;
-                    if (label.toLowerCase().includes('liquid')) {
-                      stakeType = 'liquid';
-                    } else if (label.toLowerCase().includes('native')) {
-                      stakeType = 'locked';
-                    } else {
-                      stakeType = 'current';
-                    }
-                    return (
-                      <StakeTypeBadge
-                        key={label}
-                        stakeType={stakeType}
-                        label={label}
-                      />
-                    );
-                  })}
-                </XStack>
-              ) : null
-            }
+            secondary={<ProviderBadges provider={item.provider} />}
           />
           <ListItem.Text
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr).toFixed(2)}%`
+                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
                 : null
             }
             secondary={
@@ -217,20 +242,30 @@ const AssetProtocolList = () => {
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
-  const { filter, symbol, networkId } = appRoute.params;
+  const { filter, symbol, networkId, accountId, indexedAccountId } =
+    appRoute.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolList({
-        networkId,
         symbol,
+        accountId,
+        indexedAccountId,
+        networkId,
         filter,
       }),
-    [filter, symbol, networkId],
+    [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },
   );
   const intl = useIntl();
 
-  const headerRight = useCallback(() => <AssetProtocolIntroButton />, []);
+  const headerRight = useCallback(
+    () => (
+      <AssetProtocolIntroButton
+        providerTypes={result?.map((o) => o.provider.type).filter(Boolean)}
+      />
+    ),
+    [result],
+  );
 
   return (
     <Page scrollEnabled>
