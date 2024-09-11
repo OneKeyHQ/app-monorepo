@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   IconButton,
@@ -17,10 +19,13 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDAppConnectionModal,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -65,8 +70,8 @@ function SingleAccountAddressSelectorTrigger({
 }
 
 function DAppConnectExtensionFloatingTrigger() {
+  const intl = useIntl();
   const { result, refreshConnectionInfo } = useActiveTabDAppInfo();
-
   const {
     activeAccount: {
       account,
@@ -91,6 +96,7 @@ function DAppConnectExtensionFloatingTrigger() {
       networkId?: string;
       indexedAccountId?: string;
       isOthersWallet?: boolean;
+      deriveType: IAccountDeriveTypes;
     }) => {
       if (!params.origin) {
         console.log(
@@ -110,12 +116,19 @@ function DAppConnectExtensionFloatingTrigger() {
         _accountExist,
       );
       setSwitchProcessText(
-        `Switch to Account ${account?.name ?? indexedAccount?.name ?? ''} ?`,
+        intl.formatMessage(
+          {
+            id: ETranslations.browser_switch_to_account,
+          },
+          {
+            account: account?.name ?? indexedAccount?.name ?? '',
+          },
+        ),
       );
       setShouldSwitchAccount(supportSwitchConnectionAccount);
       setAccountExist(_accountExist);
     },
-    [account?.name, indexedAccount?.name],
+    [account?.name, indexedAccount?.name, intl],
   );
 
   useEffect(() => {
@@ -125,6 +138,7 @@ function DAppConnectExtensionFloatingTrigger() {
       networkId: network?.id,
       indexedAccountId: indexedAccount?.id,
       isOthersWallet,
+      deriveType,
     });
   }, [
     indexedAccount?.id,
@@ -132,6 +146,7 @@ function DAppConnectExtensionFloatingTrigger() {
     isOthersWallet,
     network?.id,
     result?.origin,
+    deriveType,
     checkShouldSwitchAccount,
   ]);
 
@@ -146,7 +161,11 @@ function DAppConnectExtensionFloatingTrigger() {
     setHideAccountSelectorTrigger(true);
     if (!accountExist) {
       try {
-        setSwitchProcessText('Creating Address');
+        setSwitchProcessText(
+          intl.formatMessage({
+            id: ETranslations.global_creating_address,
+          }),
+        );
         await createAddress({
           num: 0,
           account: {
@@ -157,13 +176,17 @@ function DAppConnectExtensionFloatingTrigger() {
           },
           selectAfterCreate: false,
         });
-      } catch (e) {
-        console.log('🚀 ~ onSwitchAccount ~ error:', e);
-        setIsSwitching(true);
-        return;
       } finally {
+        setIsSwitching(false);
         setSwitchProcessText(
-          `Switch to Account ${account?.name ?? indexedAccount?.name ?? ''} ?`,
+          intl.formatMessage(
+            {
+              id: ETranslations.browser_switch_to_account,
+            },
+            {
+              account: account?.name ?? indexedAccount?.name ?? '',
+            },
+          ),
         );
       }
     }
@@ -174,19 +197,27 @@ function DAppConnectExtensionFloatingTrigger() {
         accountId: account?.id,
         networkId: result?.connectedAccountsInfo?.[0].networkId,
         isOthersWallet,
+        deriveType,
       });
     if (!dappNetworkAccount) {
       return;
     }
+    const usedDeriveType = networkUtils.isBTCNetwork(
+      result?.connectedAccountsInfo?.[0].networkId,
+    )
+      ? result?.connectedAccountsInfo?.[0].deriveType
+      : deriveType;
     await backgroundApiProxy.serviceDApp.updateConnectionSession({
       origin: result?.origin ?? '',
       accountSelectorNum: result?.connectedAccountsInfo?.[0].num,
       updatedAccountInfo: {
         walletId: wallet?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
-        othersWalletAccountId: isOthersWallet ? wallet?.id : undefined,
+        othersWalletAccountId: isOthersWallet
+          ? dappNetworkAccount?.id
+          : undefined,
         networkId: result?.connectedAccountsInfo?.[0].networkId ?? '',
-        deriveType: result?.connectedAccountsInfo?.[0].deriveType,
+        deriveType: usedDeriveType,
         networkImpl: result?.connectedAccountsInfo?.[0].networkImpl ?? '',
         accountId: dappNetworkAccount.id ?? '',
         address: dappNetworkAccount.address ?? '',
@@ -207,6 +238,7 @@ function DAppConnectExtensionFloatingTrigger() {
       setShouldSwitchAccount(false);
     }, 200);
   }, [
+    intl,
     result?.connectedAccountsInfo,
     wallet?.id,
     indexedAccount?.id,
@@ -215,6 +247,7 @@ function DAppConnectExtensionFloatingTrigger() {
     result?.origin,
     account?.name,
     indexedAccount?.name,
+    deriveType,
     refreshConnectionInfo,
     createAddress,
     accountExist,

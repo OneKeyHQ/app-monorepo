@@ -54,7 +54,7 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
-import type { ITransferInfo } from '../vaults/types';
+import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -904,9 +904,16 @@ class ServiceDApp extends ServiceBase {
     networkId?: string;
     indexedAccountId?: string;
     isOthersWallet?: boolean;
+    deriveType: IAccountDeriveTypes;
   }) {
-    const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
-      params;
+    const {
+      origin,
+      accountId,
+      indexedAccountId,
+      networkId,
+      isOthersWallet,
+      deriveType,
+    } = params;
     const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
       origin,
     );
@@ -949,12 +956,17 @@ class ServiceDApp extends ServiceBase {
     }
 
     try {
+      const usedDeriveType = networkUtils.isBTCNetwork(
+        connectedAccountInfo.networkId,
+      )
+        ? connectedAccountInfo.deriveType
+        : deriveType;
       const networkAccount =
         await this.backgroundApi.serviceAccount.getNetworkAccount({
           accountId: undefined,
           indexedAccountId,
           networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: connectedAccountInfo.deriveType,
+          deriveType: usedDeriveType,
         });
 
       if (connectedAccount.id === networkAccount?.id) {
@@ -979,9 +991,16 @@ class ServiceDApp extends ServiceBase {
     networkId?: string;
     indexedAccountId?: string;
     isOthersWallet?: boolean;
+    deriveType: IAccountDeriveTypes;
   }) {
-    const { origin, accountId, indexedAccountId, networkId, isOthersWallet } =
-      params;
+    const {
+      origin,
+      accountId,
+      indexedAccountId,
+      networkId,
+      isOthersWallet,
+      deriveType,
+    } = params;
     const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
       origin,
     );
@@ -1013,12 +1032,17 @@ class ServiceDApp extends ServiceBase {
     }
 
     try {
+      const usedDeriveType = networkUtils.isBTCNetwork(
+        connectedAccountInfo.networkId,
+      )
+        ? connectedAccountInfo.deriveType
+        : deriveType;
       const networkAccount =
         await this.backgroundApi.serviceAccount.getNetworkAccount({
           accountId: undefined,
           indexedAccountId,
           networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: connectedAccountInfo.deriveType,
+          deriveType: usedDeriveType,
         });
       return networkAccount;
     } catch {
