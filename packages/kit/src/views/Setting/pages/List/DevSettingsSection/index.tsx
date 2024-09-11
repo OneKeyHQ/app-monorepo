@@ -431,18 +431,6 @@ export const DevSettingsSection = () => {
           }, 5000);
         }}
       />
-      <SectionPressItem
-        title="重置清空应用更新状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.reset();
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态为失败状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
-        }}
-      />
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
           copyable
