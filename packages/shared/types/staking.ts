@@ -38,7 +38,9 @@ export type IStakeProviderInfo = {
   minClaimableAmount?: string;
   isNative: string;
   nextLaunchLeft?: string;
-  labels?: string[];
+
+  type?: 'native' | 'liquid';
+  isStaking?: boolean;
 
   // native token only
   minTransactionFee?: string;
