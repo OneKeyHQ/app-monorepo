@@ -9,6 +9,7 @@ import {
   Button,
   Icon,
   IconButton,
+  Image,
   Page,
   Popover,
   SectionList,
@@ -29,7 +30,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -45,6 +45,14 @@ import type { RouteProp } from '@react-navigation/core';
 enum ESwapProviderStatus {
   AVAILABLE = 'Available',
   UNAVAILABLE = 'Unavailable',
+}
+
+interface IProtocolFeeInfo {
+  name: string;
+  fee: number;
+  color: string;
+  icon: string;
+  maxFee: number;
 }
 
 const InformationItem = ({
@@ -194,131 +202,141 @@ const SwapProviderSelectModal = () => {
       toToken,
     ],
   );
-  const rightInfoComponent = useCallback(() => {
-    if (platformEnv.isNative || platformEnv.isDesktop || platformEnv.isWeb) {
-      return (
-        <Popover
-          title={intl.formatMessage({
-            id: ETranslations.provider_ios_popover_title,
-          })}
-          renderTrigger={
-            <IconButton
-              variant="tertiary"
-              size="medium"
-              icon="InfoCircleOutline"
-            />
-          }
-          renderContent={
-            <Stack p="$5" gap="$6">
-              <Stack gap="$2">
+
+  const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
+    () => [
+      {
+        maxFee: 0.875,
+        name: 'metamask',
+        fee: 0.875,
+        color: '#F5841F',
+        icon: require('@onekeyhq/kit/assets/walletLogo/metamask_logo.png'),
+      },
+      {
+        maxFee: 0.875,
+        name: 'zerion',
+        fee: 0.8,
+        color: '#2461ED',
+        icon: require('@onekeyhq/kit/assets/walletLogo/zerion_logo.png'),
+      },
+      {
+        maxFee: 0.875,
+        name: 'oneKey',
+        fee: 0.3,
+        color: '#202020',
+        icon: require('@onekeyhq/kit/assets/walletLogo/onekey_logo.png'),
+      },
+    ],
+    [],
+  );
+
+  const renderProtocolFeeListItem = useCallback(
+    (item: IProtocolFeeInfo) => (
+      <XStack gap="$3" alignItems="center">
+        <Image source={{ uri: item.icon }} w={20} h={20} borderRadius="$full" />
+        <Stack flex={1}>
+          <Stack
+            backgroundColor={item.color}
+            borderRadius="$full"
+            width={`${(item.fee / item.maxFee) * 100}%`}
+            height="$1"
+          />
+        </Stack>
+        <SizableText size="$bodySm" color="$text" textAlign="right">
+          {item.fee}%
+        </SizableText>
+      </XStack>
+    ),
+    [],
+  );
+
+  const rightInfoComponent = useCallback(
+    () => (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.provider_ios_popover_title,
+        })}
+        renderTrigger={
+          <IconButton
+            variant="tertiary"
+            size="medium"
+            icon="InfoCircleOutline"
+          />
+        }
+        renderContent={
+          <Stack p="$5" gap="$6">
+            <Stack gap="$2">
+              <SizableText size="$headingMd" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_order_info_title,
+                })}
+              </SizableText>
+              <InformationItem
+                icon="LockOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_ios_popover_approval_require_msg,
+                })}
+              />
+              <InformationItem
+                icon="GasOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_network_fee,
+                })}
+              />
+              <InformationItem
+                icon="ClockTimeHistoryOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_swap_duration,
+                })}
+              />
+              <InformationItem
+                icon="HandCoinsOutline"
+                content={intl.formatMessage({
+                  id: ETranslations.provider_protocol_fee,
+                })}
+              />
+            </Stack>
+            <Stack gap="$3">
+              <Stack gap="$1">
                 <SizableText size="$headingMd" color="$text">
                   {intl.formatMessage({
-                    id: ETranslations.provider_ios_popover_order_info_title,
+                    id: ETranslations.provider_ios_popover_onekey_fee,
                   })}
                 </SizableText>
-                <InformationItem
-                  icon="LockOutline"
-                  content={intl.formatMessage({
-                    id: ETranslations.provider_ios_popover_approval_require_msg,
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_onekey_fee_content,
                   })}
-                />
-                <InformationItem
-                  icon="GasOutline"
-                  content={intl.formatMessage({
-                    id: ETranslations.provider_network_fee,
-                  })}
-                />
-                <InformationItem
-                  icon="ClockTimeHistoryOutline"
-                  content={intl.formatMessage({
-                    id: ETranslations.provider_swap_duration,
-                  })}
-                />
-                <InformationItem
-                  icon="HandCoinsOutline"
-                  content={intl.formatMessage({
-                    id: ETranslations.provider_protocol_fee,
-                  })}
-                />
+                </SizableText>
               </Stack>
-              <Stack gap="$3">
-                <Stack gap="$1">
-                  <SizableText size="$headingMd" color="$text">
+              <Stack gap="$2">
+                <XStack gap="$3">
+                  <SizableText size="$bodySm" color="$textSubdued" flex={100}>
                     {intl.formatMessage({
-                      id: ETranslations.provider_ios_popover_onekey_fee,
+                      id: ETranslations.provider_popover_wallet,
                     })}
                   </SizableText>
-                  <SizableText size="$bodySm" color="$textSubdued">
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="right"
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.provider_ios_popover_onekey_fee_content,
+                      id: ETranslations.provider_popover_fee_rate,
                     })}
                   </SizableText>
-                </Stack>
-                <Stack gap="$2">
-                  <XStack gap="$3">
-                    <SizableText size="$bodySm" color="$textSubdued" flex={100}>
-                      {intl.formatMessage({
-                        id: ETranslations.provider_popover_wallet,
-                      })}
-                    </SizableText>
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      textAlign="right"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.provider_popover_fee_rate,
-                      })}
-                    </SizableText>
-                  </XStack>
-                  <XStack gap="$3" alignItems="center">
-                    <Stack flex={1}>
-                      <Stack
-                        backgroundColor="#F5841F"
-                        borderRadius="$full"
-                        width="100%"
-                        height="$1"
-                      ></Stack>
-                    </Stack>
-                    <SizableText size="$bodySm" color="$text" textAlign="right">
-                      {'0.875%'}
-                    </SizableText>
-                  </XStack>
-                  <XStack gap="$3" alignItems='center'>
-                    <Stack flex={1}>
-                    <Stack
-                      backgroundColor="#2461ED"
-                      borderRadius="$full"
-                      width={`${(0.8 / 0.875) * 100}%`}
-                      height="$1"
-                    ></Stack>
-                    </Stack>
-                    <SizableText size="$bodySm" color="$text" textAlign="right">
-                      {'0.80%'}
-                    </SizableText>
-                  </XStack>
-                  <XStack gap="$3" alignItems='center'>
-                    <Stack flex={1}>
-                    <Stack
-                      backgroundColor="#202020"
-                      borderRadius="$full"
-                      width={`${(0.3/0.875) * 100}%`}
-                      height="$1"
-                    ></Stack>
-                    </Stack>
-                    <SizableText size="$bodySm" color="$text" textAlign="right">
-                      {'0.3%'}
-                    </SizableText>
-                  </XStack>
-                </Stack>
+                </XStack>
+                {protocolFeeInfoList.map((item) =>
+                  renderProtocolFeeListItem(item),
+                )}
               </Stack>
             </Stack>
-          }
-        />
-      );
-    }
-    return null;
-  }, [intl]);
+          </Stack>
+        }
+      />
+    ),
+    [intl, protocolFeeInfoList, renderProtocolFeeListItem],
+  );
   return (
     <Page>
       <Page.Header headerRight={rightInfoComponent} />
