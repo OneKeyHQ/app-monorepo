@@ -1,5 +1,5 @@
 import type { ForwardedRef, MutableRefObject, Ref, RefObject } from 'react';
-import { forwardRef, useCallback, useRef } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
@@ -23,12 +23,8 @@ export type ITextAreaProps = Pick<
 > &
   Omit<TextAreaProps, 'size'>;
 
-const useSafeRef = (ref: ForwardedRef<TextInput>) => {
-  const safeRef = useRef<MutableRefObject<TextInput>>();
-  return ref || (safeRef as unknown as typeof ref);
-};
-
-const defaultTextAlignVertical = platformEnv.isNative ? 'top' : undefined;
+const defaultAlignVertical: TextAreaProps['verticalAlign'] =
+  platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
   {
     disabled,
@@ -36,10 +32,10 @@ function BaseTextArea(
     error,
     size,
     onFocus,
-    textAlignVertical,
+    verticalAlign,
     ...props
   }: ITextAreaProps,
-  ref: Ref<TextInput>,
+  forwardedRef: Ref<TextInput>,
 ) {
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -47,12 +43,11 @@ function BaseTextArea(
     error,
     size,
   });
+  const ref = useRef<TextInput>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as TextInput);
 
-  const inputRef = useSafeRef(ref);
   const selectionColor = useSelectionColor();
-  const { scrollToView } = useScrollToLocation(
-    inputRef as RefObject<TextInput>,
-  );
+  const { scrollToView } = useScrollToLocation(ref);
   const handleFocus = useCallback(
     async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
       onFocus?.(e);
@@ -64,7 +59,7 @@ function BaseTextArea(
   return (
     <TMTextArea
       unstyled
-      ref={inputRef}
+      ref={ref}
       onFocus={handleFocus}
       fontSize={getFontSize('$bodyLg')}
       px={sharedStyles.px}
@@ -81,7 +76,7 @@ function BaseTextArea(
       cursor={sharedStyles.cursor}
       borderCurve="continuous"
       editable={editable}
-      textAlignVertical={textAlignVertical || defaultTextAlignVertical}
+      verticalAlign={verticalAlign || defaultAlignVertical}
       {...props}
     />
   );
