@@ -106,20 +106,34 @@ function StakedValue({
 }: IStakedValue) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
+  const media = useMedia();
   return (
     <YStack gap="$6">
       <YStack gap="$2">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
         </SizableText>
-        <NumberSizeableText
-          size="$heading4xl"
-          color={value === 0 ? '$textDisabled' : '$text'}
-          formatter="value"
-          formatterOptions={{ currency: '$' }}
-        >
-          {value || 0}
-        </NumberSizeableText>
+        <XStack gap="$2">
+          <NumberSizeableText
+            flex={1}
+            size="$heading4xl"
+            color={value === 0 ? '$textDisabled' : '$text'}
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {value || 0}
+          </NumberSizeableText>
+          {media.gtMd ? (
+            <XStack gap="$2">
+              <Button>
+                {intl.formatMessage({ id: ETranslations.global_withdraw })}
+              </Button>
+              <Button variant="primary">
+                {intl.formatMessage({ id: ETranslations.earn_stake })}
+              </Button>
+            </XStack>
+          ) : null}
+        </XStack>
       </YStack>
       <YStack gap="$1.5">
         <YStack my="$1.5">
@@ -195,6 +209,7 @@ const PortfolioItem = ({
       </XStack>
       {tooltip ? (
         <Popover
+          placement="bottom"
           title={statusText}
           renderTrigger={
             <IconButton
@@ -255,7 +270,7 @@ function Portfolio({
         Number(claimable) < Number(minClaimableNum),
     );
     return (
-      <YStack pt="$3" pb="$8" gap="$6" px="$5">
+      <YStack gap="$6">
         <XStack justifyContent="space-between">
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: ETranslations.earn_portfolio })}
@@ -388,6 +403,7 @@ function GridItem({
         </SizableText>
         {tooltip ? (
           <Popover
+            placement="top"
             title={title}
             renderTrigger={
               <IconButton
@@ -428,12 +444,10 @@ export function Profit({
     () =>
       gtMd
         ? {
-            width: '33%',
-            pt: '$6',
+            width: 'calc(33.33% - 16px)',
           }
         : {
-            width: '50%',
-            pt: '$6',
+            width: 'calc(50% - 12px)',
           },
     [gtMd],
   );
@@ -445,11 +459,11 @@ export function Profit({
     },
   ] = useSettingsPersistAtom();
   return (
-    <YStack py="$8" px="$5">
+    <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack flexWrap="wrap">
+      <XStack flexWrap="wrap" gap="$6">
         {apr && Number(apr) > 0 ? (
           <GridItem
             title={intl.formatMessage({
@@ -515,22 +529,20 @@ export function Provider({
     () =>
       gtMd
         ? {
-            width: '33%',
-            pt: '$6',
+            width: 'calc(33.33% - 16px)',
           }
         : {
-            width: '50%',
-            pt: '$6',
+            width: 'calc(50% - 12px)',
           },
     [gtMd],
   );
   const intl = useIntl();
   return (
-    <YStack py="$8" px="$5">
+    <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
-      <XStack flexWrap="wrap">
+      <XStack flexWrap="wrap" gap="$6">
         <GridItem
           title={
             validator.isProtocol
@@ -595,41 +607,64 @@ export function Provider({
 function FAQ({ solutions }: { solutions: ISolutions }) {
   const intl = useIntl();
   return (
-    <YStack py="$8" gap="$6">
-      <SizableText size="$headingLg" px="$5">
+    <YStack gap="$6">
+      <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
-        <Accordion type="multiple">
+        <Accordion type="multiple" gap="$2">
           {solutions.map(({ question, answer }, index) => (
             <Accordion.Item value={String(index)} key={String(index)}>
               <Accordion.Trigger
                 unstyled
+                flexDirection="row"
+                alignItems="center"
                 borderWidth={0}
                 bg="$transparent"
-                p="$0"
-                cursor="pointer"
+                px="$2"
+                py="$1"
+                mx="$-2"
+                my="$-1"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                borderRadius="$2"
               >
                 {({ open }: { open: boolean }) => (
-                  <XStack flex={1} mx="$5" mb="$2" py="$2">
-                    <XStack flex={1}>
-                      <SizableText size="$headingMd">{question}</SizableText>
-                    </XStack>
-                    <XStack>
+                  <>
+                    <SizableText
+                      textAlign="left"
+                      flex={1}
+                      size="$bodyLgMedium"
+                      color={open ? '$text' : '$textSubdued'}
+                    >
+                      {question}
+                    </SizableText>
+                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
-                        name={
-                          open
-                            ? 'ChevronTopSmallOutline'
-                            : 'ChevronDownSmallOutline'
-                        }
+                        name="ChevronDownSmallOutline"
+                        color={open ? '$iconActive' : '$iconSubdued'}
+                        size="$5"
                       />
-                    </XStack>
-                  </XStack>
+                    </Stack>
+                  </>
                 )}
               </Accordion.Trigger>
-              <Accordion.Content pb="$5" mx="$3">
-                <SizableText size="$bodyMd">{answer}</SizableText>
-              </Accordion.Content>
+              <Accordion.HeightAnimator animation="quick">
+                <Accordion.Content
+                  unstyled
+                  pt="$2"
+                  pb="$5"
+                  animation="quick"
+                  enterStyle={{ opacity: 0 }}
+                  exitStyle={{ opacity: 0 }}
+                >
+                  <SizableText size="$bodyMd">{answer}</SizableText>
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
             </Accordion.Item>
           ))}
         </Accordion>
@@ -742,12 +777,6 @@ function NoAddressWarning({
 
   return (
     <Alert
-      mt="$3"
-      mx="$5"
-      fullBleed
-      borderRadius="$3"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderCautionSubdued"
       type="warning"
       title={content.title}
       description={content.description}
@@ -898,7 +927,7 @@ export function ProtocolDetails({
 
   const { stakedValue, portfolio, profit, provider } = result;
   return (
-    <YStack>
+    <>
       {earnAccount?.accountAddress ? (
         <>
           <StakedValue {...stakedValue} />
@@ -908,7 +937,6 @@ export function ProtocolDetails({
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />
-          <Divider mx="$5" />
         </>
       ) : (
         <NoAddressWarning
@@ -918,9 +946,12 @@ export function ProtocolDetails({
           onCreateAddress={onCreateAddress}
         />
       )}
+      <Divider />
       <Profit {...profit} />
+      <Divider />
       <Provider {...provider} />
+      <Divider />
       <FAQ solutions={solutions} />
-    </YStack>
+    </>
   );
 }
