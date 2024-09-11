@@ -24,9 +24,11 @@ export function Banner<
   onItemPress,
   isLoading,
   emptyComponent,
+  itemContainerStyle,
   ...props
 }: {
   data: T[];
+  itemContainerStyle?: IStackStyle;
   onItemPress: (item: T) => void;
   isLoading?: boolean;
   emptyComponent?: ReactElement;
@@ -36,13 +38,13 @@ export function Banner<
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
       <Stack
-        p="$5"
         tag="section"
         flex={1}
         position="relative"
         userSelect="none"
         cursor="pointer"
         onPress={() => onItemPress(item)}
+        {...itemContainerStyle}
       >
         <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
         <Stack

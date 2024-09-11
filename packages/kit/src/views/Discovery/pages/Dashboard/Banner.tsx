@@ -24,6 +24,7 @@ export function DashboardBanner({
   );
   return (
     <Banner
+      itemContainerStyle={{ p: 5 }}
       data={data}
       isLoading={isLoading}
       height={228}
