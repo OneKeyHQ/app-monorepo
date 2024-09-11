@@ -47,7 +47,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSuggestion } from './hooks';
+import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
@@ -421,7 +421,7 @@ export function PhaseInputArea({
 }) {
   const intl = useIntl();
 
-  const phraseLengths = [12, 15, 18, 21, 24];
+  const phraseLengths = PHRASE_LENGTHS;
   const phraseLengthOptions = phraseLengths.map((length) => ({
     label: intl.formatMessage({ id: ETranslations.count_words }, { length }),
     value: `${length}`,
@@ -473,7 +473,9 @@ export function PhaseInputArea({
     focusNextInput,
     onPasteMnemonic,
     isShowErrors,
-  } = useSuggestion(form, Number(phraseLength));
+  } = useSuggestion(form, Number(phraseLength), {
+    setPhraseLength,
+  });
 
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
