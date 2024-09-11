@@ -699,7 +699,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       get,
       set,
       swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>,
-      // swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>,
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -712,6 +711,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
+
+      // current quote result  current token  not match
       if (
         quoteResult &&
         fromToken &&
@@ -725,6 +726,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
+
       if (
         !networks.length ||
         !swapFromAddressInfo.accountInfo?.ready ||
