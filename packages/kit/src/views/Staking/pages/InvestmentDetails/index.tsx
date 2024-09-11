@@ -62,7 +62,7 @@ const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [{ accounts }] = useEarnAtom();
+  const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -73,7 +73,7 @@ function BasicInvestmentDetails() {
         accountInfo.activeAccount?.account?.id,
         accountInfo.activeAccount?.network?.id,
       );
-      const list = accounts?.[totalFiatMapKey] || [];
+      const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       return list.length
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
             list.map(({ networkId, accountAddress, publicKey }) => ({
@@ -89,8 +89,8 @@ function BasicInvestmentDetails() {
     [
       accountInfo.activeAccount?.account?.id,
       accountInfo.activeAccount?.network?.id,
-      accounts,
       actions,
+      earnAccount,
     ],
     {
       watchLoading: true,
