@@ -40,6 +40,9 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
   labels?: string[];
 
+  // native token only
+  minTransactionFee?: string;
+
   // babylon
   minStakeTerm?: number;
   maxStakeTerm?: number;
@@ -80,6 +83,14 @@ export type IUnstakePushParams = {
   provider: string;
   txId: string;
   unstakeTxHex: string;
+};
+
+export type IClaimRecordParams = {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountId: string;
+  identity: string;
 };
 
 export type IStakeClaimBaseParams = {
@@ -156,6 +167,7 @@ export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
   available: string;
+  active?: string;
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;
@@ -213,6 +225,7 @@ export type IClaimableListItem = {
   id: string;
   amount: string;
   fiatValue?: string;
+  isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
 };
 

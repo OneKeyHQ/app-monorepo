@@ -122,8 +122,8 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
           </Badge>
         }
         renderContent={() => (
-          <Stack gap="$4" p="$5">
-            <SizableText>
+          <Stack gap="$4" p="$4">
+            <SizableText size="$bodyMd">
               {intl.formatMessage(
                 {
                   id: ETranslations.address_input_first_transfer_popover,
@@ -148,8 +148,8 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
           </Badge>
         }
         renderContent={() => (
-          <Stack gap="$4" p="$5">
-            <SizableText>
+          <Stack gap="$4" p="$4">
+            <SizableText size="$bodyMd">
               {intl.formatMessage({
                 id: ETranslations.address_input_transferred_popover,
               })}
@@ -173,8 +173,8 @@ const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
         </Badge>
       }
       renderContent={() => (
-        <Stack gap="$4" p="$5">
-          <SizableText>
+        <Stack gap="$4" p="$4">
+          <SizableText size="$bodyMd">
             {intl.formatMessage({
               id: ETranslations.address_input_contract_popover,
             })}

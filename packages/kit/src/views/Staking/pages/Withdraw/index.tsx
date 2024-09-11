@@ -34,7 +34,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, staked, pendingInactive } = details;
+  const { token, provider, active } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -75,8 +75,6 @@ const WithdrawPage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
-  const balance = Number(staked) - Number(pendingInactive ?? '0');
-
   return (
     <Page>
       <Page.Header
@@ -89,7 +87,7 @@ const WithdrawPage = () => {
         <UniversalWithdraw
           price={price}
           decimals={details.token.info.decimals}
-          balance={BigNumber(balance).toFixed()}
+          balance={BigNumber(active ?? 0).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}

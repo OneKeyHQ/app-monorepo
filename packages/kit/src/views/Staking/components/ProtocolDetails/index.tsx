@@ -8,11 +8,12 @@ import {
   Button,
   Divider,
   Icon,
+  IconButton,
   NumberSizeableText,
+  Popover,
   Progress,
   SizableText,
   Stack,
-  Tooltip,
   XStack,
   YStack,
   useMedia,
@@ -43,6 +44,7 @@ type IStakedValue = {
 };
 
 type IPortfolioValue = {
+  active?: string;
   pendingInactive?: string;
   pendingInactivePeriod?: string;
   pendingActive?: string;
@@ -184,7 +186,7 @@ const PortfolioItem = ({
       <Token size="sm" tokenImageUri={tokenImageUri} />
       <NumberSizeableText
         size="$bodyLgMedium"
-        formatter="value"
+        formatter="balance"
         formatterOptions={{ tokenSymbol }}
       >
         {amount}
@@ -193,11 +195,20 @@ const PortfolioItem = ({
         <SizableText size="$bodyLg">{statusText}</SizableText>
       </XStack>
       {tooltip ? (
-        <Tooltip
-          placement="top"
-          renderContent={tooltip}
+        <Popover
+          title={statusText}
           renderTrigger={
-            <Icon color="$textSubdued" name="InfoCircleOutline" size="$5" />
+            <IconButton
+              iconColor="$iconSubdued"
+              size="small"
+              icon="InfoCircleOutline"
+              variant="tertiary"
+            />
+          }
+          renderContent={
+            <Stack p="$5">
+              <SizableText>{tooltip}</SizableText>
+            </Stack>
           }
         />
       ) : null}
@@ -218,6 +229,7 @@ const PortfolioItem = ({
 );
 
 function Portfolio({
+  active,
   pendingInactive,
   pendingInactivePeriod,
   pendingActive,
@@ -235,7 +247,8 @@ function Portfolio({
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
     Number(pendingActive) > 0 ||
-    Number(babylonOverflow) > 0
+    Number(babylonOverflow) > 0 ||
+    Number(active) > 0
   ) {
     const isLessThanMinClaimable = Boolean(
       minClaimableNum &&
@@ -259,6 +272,16 @@ function Portfolio({
           ) : null}
         </XStack>
         <YStack gap="$3">
+          {active && Number(active) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={active}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_active,
+              })}
+            />
+          ) : null}
           {pendingInactive && Number(pendingInactive) ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
@@ -365,11 +388,20 @@ function GridItem({
           {title}
         </SizableText>
         {tooltip ? (
-          <Tooltip
-            placement="top"
-            renderContent={tooltip}
+          <Popover
+            title={title}
             renderTrigger={
-              <Icon color="$iconSubdued" name="InfoCircleOutline" size="$5" />
+              <IconButton
+                iconColor="$iconSubdued"
+                size="small"
+                icon="InfoCircleOutline"
+                variant="tertiary"
+              />
+            }
+            renderContent={
+              <Stack p="$5">
+                <SizableText>{tooltip}</SizableText>
+              </Stack>
             }
           />
         ) : null}
@@ -397,8 +429,7 @@ export function Profit({
     () =>
       gtMd
         ? {
-            flexGrow: 1,
-            flexBasis: 0,
+            width: '33%',
             pt: '$6',
           }
         : {
@@ -419,8 +450,8 @@ export function Profit({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack $md={{ flexWrap: 'wrap' }}>
-        {apr ? (
+      <XStack flexWrap="wrap">
+        {apr && Number(apr) > 0 ? (
           <GridItem
             title={intl.formatMessage({
               id: ETranslations.earn_rewards_percentage,
@@ -485,8 +516,7 @@ export function Provider({
     () =>
       gtMd
         ? {
-            flexGrow: 1,
-            flexBasis: 0,
+            width: '33%',
             pt: '$6',
           }
         : {
@@ -501,7 +531,7 @@ export function Provider({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
-      <XStack $md={{ flexWrap: 'wrap' }}>
+      <XStack flexWrap="wrap">
         <GridItem
           title={
             validator.isProtocol
@@ -798,7 +828,7 @@ export function ProtocolDetails({
         {
           id: ETranslations.earn_pending_activation_tooltip,
         },
-        { number: pendingActiveTooltip },
+        { number: details.pendingActivatePeriod },
       );
     }
     const portfolio: IPortfolioValue = {
@@ -809,6 +839,7 @@ export function ProtocolDetails({
       pendingActive: details.pendingActive,
       pendingActiveTooltip,
       claimable: details.claimable,
+      active: details.active,
       minClaimableNum: details.provider.minClaimableAmount,
       babylonOverflow:
         Number(details?.staked) - Number(details?.pendingInactive) &&
@@ -834,7 +865,7 @@ export function ProtocolDetails({
       provider.network = details.network;
     }
     const profit: IProfit = {
-      apr: details.provider.apr,
+      apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
       earningsIn24h: details.earnings24h,
       rewardTokens: details.rewardToken,
       updateFrequency: details.updateFrequency,

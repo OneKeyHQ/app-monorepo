@@ -67,10 +67,27 @@ const ClaimOptions = () => {
             token: details.token.info,
             stakingProtocol: provider,
           });
+          if (provider === 'babylon') {
+            void backgroundApiProxy.serviceStaking.babylonClaimRecord({
+              accountId,
+              networkId,
+              provider,
+              symbol,
+              identity: item.id,
+            });
+          }
         },
       });
     },
-    [appNavigation, details, handleClaim, provider],
+    [
+      appNavigation,
+      details,
+      handleClaim,
+      provider,
+      accountId,
+      networkId,
+      symbol,
+    ],
   );
 
   const intl = useIntl();

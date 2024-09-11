@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -23,23 +22,24 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
+import { countDecimalPlaces } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
   price: string;
   balance: string;
   token: IToken;
-  receivingTokenSymbol: string;
   approveTarget: {
     accountId: string;
     networkId: string;
     spenderAddress: string;
     token: IToken;
   };
+
   currentAllowance?: string;
-  rate?: string;
-  apr?: number;
+  apr?: string;
   minAmount?: string;
+  decimals?: number;
 
   providerName?: string;
   providerLogo?: string;
@@ -52,10 +52,9 @@ export const ApproveBaseStake = ({
   price,
   balance,
   token,
-  receivingTokenSymbol,
-  apr = 4,
+  apr,
+  decimals,
   minAmount = '0',
-  rate = '1',
   currentAllowance = '0',
   providerName,
   providerLogo,
@@ -87,16 +86,28 @@ export const ApproveBaseStake = ({
     },
   ] = useSettingsPersistAtom();
 
-  const onChangeAmountValue = useCallback((value: string) => {
-    const valueBN = new BigNumber(value);
-    if (valueBN.isNaN()) {
-      if (value === '') {
-        setAmountValue('');
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+        }
+        return;
       }
-      return;
-    }
-    setAmountValue(value);
-  }, []);
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+      }
+    },
+    [decimals],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
@@ -184,28 +195,23 @@ export const ApproveBaseStake = ({
   }, [onChangeAmountValue, balance]);
 
   const estAnnualRewards = useMemo(() => {
-    const bn = BigNumber(amountValue);
-    if (!amountValue || bn.isNaN()) {
-      return null;
+    if (Number(amountValue) > 0 && apr && Number(apr) > 0) {
+      const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
+      return (
+        <ValuePriceListItem
+          tokenSymbol={token.symbol}
+          amount={amountBN.toFixed()}
+          fiatSymbol={symbol}
+          fiatValue={
+            Number(price) > 0
+              ? amountBN.multipliedBy(price).toFixed()
+              : undefined
+          }
+        />
+      );
     }
-    const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
-    return (
-      <ValuePriceListItem
-        tokenSymbol={token.symbol}
-        amount={amountBN.toFixed()}
-        fiatSymbol={symbol}
-        fiatValue={amountBN.multipliedBy(price).toFixed()}
-      />
-    );
+    return null;
   }, [amountValue, apr, price, symbol, token.symbol]);
-
-  const receivingTokenAmount = useMemo<string | undefined>(() => {
-    const amountValueBN = BigNumber(amountValue);
-    if (amountValueBN.isNaN()) {
-      return undefined;
-    }
-    return amountValueBN.multipliedBy(rate).toFixed();
-  }, [amountValue, rate]);
 
   return (
     <YStack>
@@ -265,31 +271,17 @@ export const ApproveBaseStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          {receivingTokenAmount ? (
+          {apr && Number(apr) > 0 ? (
             <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              title={intl.formatMessage({ id: ETranslations.global_apr })}
               titleProps={fieldTitleProps}
             >
-              <SizableText>
-                <NumberSizeableText
-                  formatter="balance"
-                  size="$bodyLgMedium"
-                  formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
-                >
-                  {receivingTokenAmount}
-                </NumberSizeableText>
-              </SizableText>
+              <ListItem.Text
+                primary={`${apr}%`}
+                primaryTextProps={{ color: '$textSuccess' }}
+              />
             </ListItem>
           ) : null}
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.global_apr })}
-            titleProps={fieldTitleProps}
-          >
-            <ListItem.Text
-              primary={`${apr}%`}
-              primaryTextProps={{ color: '$textSuccess' }}
-            />
-          </ListItem>
           {providerName && providerLogo ? (
             <ListItem
               title={intl.formatMessage({ id: ETranslations.global_protocol })}
@@ -301,19 +293,6 @@ export const ApproveBaseStake = ({
               </XStack>
             </ListItem>
           ) : null}
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_stake_release_period,
-            })}
-            titleProps={fieldTitleProps}
-          >
-            <ListItem.Text
-              primary={intl.formatMessage(
-                { id: ETranslations.earn_less_than_number_days },
-                { number: 4 },
-              )}
-            />
-          </ListItem>
         </YStack>
       </Stack>
       <Page.Footer

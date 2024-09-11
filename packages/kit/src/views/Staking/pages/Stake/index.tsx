@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -25,14 +24,8 @@ const StakePage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const {
-    accountId,
-    networkId,
-    minTransactionFee = '0',
-    details,
-    onSuccess,
-  } = route.params;
-  const { token, provider } = details;
+  const { accountId, networkId, details, onSuccess } = route.params;
+  const { token, provider, rewardToken } = details;
   const { balanceParsed, price } = token;
   const tokenInfo = token.info;
 
@@ -96,6 +89,13 @@ const StakePage = () => {
     return false;
   }, [provider]);
 
+  const showEstReceive = useMemo<boolean>(
+    () =>
+      provider.name.toLowerCase() === 'lido' &&
+      token.info.symbol.toLowerCase() === 'eth',
+    [provider, token],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -108,8 +108,7 @@ const StakePage = () => {
         <UniversalStake
           decimals={details.token.info.decimals}
           details={details}
-          minTransactionFee={minTransactionFee}
-          apr={Number(provider.apr) > 0 ? Number(provider.apr) : undefined}
+          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
           price={price}
           balance={balanceParsed}
           minAmount={provider.minStakeAmount}
@@ -123,7 +122,10 @@ const StakePage = () => {
           providerLabel={providerLabel}
           isReachBabylonCap={isReachBabylonCap}
           isDisabled={isReachBabylonCap}
+          showEstReceive={showEstReceive}
+          estReceiveToken={rewardToken}
           onConfirm={onConfirm}
+          minTransactionFee={provider.minTransactionFee}
         />
       </Page.Body>
     </Page>

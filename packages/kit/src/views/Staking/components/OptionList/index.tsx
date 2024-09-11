@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Empty,
   ListView,
   NumberSizeableText,
@@ -83,6 +84,7 @@ const OptionItem = ({
   ] = useSettingsPersistAtom();
   const { extraFields, activeId } = useContext(OptionListContext);
   const active = activeId === item.id;
+  const intl = useIntl();
   return (
     <Stack px="$5" py="$2">
       <YStack
@@ -93,31 +95,40 @@ const OptionItem = ({
         overflow="hidden"
         {...listItemPressStyle}
       >
-        <XStack bg="$bgSubdued" px={14} py={12}>
-          <Stack pr="$3">
-            <Token
-              tokenImageUri={token.logoURI}
-              networkImageUri={network?.logoURI}
-            />
-          </Stack>
-          <YStack>
-            <NumberSizeableText
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: token?.symbol,
-              }}
-            >
-              {item.amount}
-            </NumberSizeableText>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: symbol }}
-            >
-              {item.fiatValue}
-            </NumberSizeableText>
-          </YStack>
+        <XStack bg="$bgSubdued" px={14} py={12} jc="space-between" ai="center">
+          <XStack>
+            <Stack pr="$3">
+              <Token
+                tokenImageUri={token.logoURI}
+                networkImageUri={network?.logoURI}
+              />
+            </Stack>
+            <YStack>
+              <NumberSizeableText
+                formatter="balance"
+                formatterOptions={{
+                  tokenSymbol: token?.symbol,
+                }}
+              >
+                {item.amount}
+              </NumberSizeableText>
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: symbol }}
+              >
+                {item.fiatValue}
+              </NumberSizeableText>
+            </YStack>
+          </XStack>
+          {item.isPending ? (
+            <Stack>
+              <Badge badgeType="info">
+                {intl.formatMessage({ id: ETranslations.global_pending })}
+              </Badge>
+            </Stack>
+          ) : null}
         </XStack>
         {extraFields && extraFields.length > 0 ? (
           <YStack py={12} px={14} gap={10}>
@@ -205,6 +216,12 @@ export const OptionList = ({
     [extraFields, activeId],
   );
 
+  const isDisabled = useMemo(() => {
+    if (!activeId) return true;
+    const find = items.find((item) => item.id === activeId && !item.isPending);
+    return !find;
+  }, [activeId, items]);
+
   return (
     <OptionListContext.Provider value={ctx}>
       <Stack>
@@ -218,7 +235,7 @@ export const OptionList = ({
           onConfirmText={onConfirmText}
           confirmButtonProps={{
             onPress: onSubmit,
-            disabled: !activeId,
+            disabled: isDisabled,
             loading,
           }}
           cancelButtonProps={{
