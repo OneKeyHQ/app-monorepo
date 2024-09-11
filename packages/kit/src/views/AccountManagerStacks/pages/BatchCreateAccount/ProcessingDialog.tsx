@@ -137,6 +137,7 @@ function ProcessingDialogContent({
         showConfirmButton
         confirmButtonProps={{
           variant: isFlowEnded ? 'primary' : 'secondary',
+          testID: 'process-dialog-confirm-button',
         }}
         onConfirmText={
           isFlowEnded

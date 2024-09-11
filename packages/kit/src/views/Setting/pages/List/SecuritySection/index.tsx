@@ -62,6 +62,7 @@ const SetPasswordItem = () => {
   const intl = useIntl();
   return (
     <ListItem
+      testID="setting-set-password"
       onPress={() => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}

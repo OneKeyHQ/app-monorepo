@@ -116,12 +116,14 @@ const SocialButtonGroup = () => {
           />
         </XStack>
       </XStack>
-      <YStack jc="center" py="$4" ai="center" userSelect="none">
-        <SizableText
-          color="$textSubdued"
-          onPress={handlePress}
-          testID="setting-version"
-        >
+      <YStack
+        jc="center"
+        py="$4"
+        ai="center"
+        userSelect="none"
+        testID="setting-version"
+      >
+        <SizableText color="$textSubdued" onPress={handlePress}>
           {versionString}
         </SizableText>
         {appUpdateInfo.status === EAppUpdateStatus.done ? (

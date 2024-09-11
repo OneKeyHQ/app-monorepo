@@ -35,7 +35,7 @@ export function Content({
   );
 
   const checkMeasureY = useCallback(() => {
-    (ref.current as View).measure(
+    (ref.current as View)?.measure(
       (
         x: number,
         y: number,

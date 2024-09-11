@@ -91,6 +91,7 @@ export const EditableListItem = ({
 
   return (
     <ListItem
+      testID={item.id}
       title={
         item.isAllNetworks
           ? intl.formatMessage({ id: ETranslations.global_all_networks })

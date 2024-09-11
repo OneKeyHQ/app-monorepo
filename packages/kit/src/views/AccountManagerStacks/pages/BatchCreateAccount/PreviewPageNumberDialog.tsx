@@ -7,10 +7,12 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 type IFormValues = { page?: number };
 
 function DialogInput({
+  testID,
   value,
   onChange,
   placeholder,
 }: {
+  testID?: string;
   value?: string;
   onChange?: (val: string) => void;
   placeholder?: IInputProps['placeholder'];
@@ -18,6 +20,7 @@ function DialogInput({
   return (
     <Input
       size="large"
+      testID={testID}
       $gtMd={{ size: 'medium' }}
       autoFocus
       selectTextOnFocus
@@ -62,10 +65,14 @@ export function showBatchCreateAccountPreviewPageNumberDialog({
             // },
           }}
         >
-          <DialogInput placeholder={String(page)} />
+          <DialogInput
+            testID="batch-create-account-preview-page-number-input"
+            placeholder={String(page)}
+          />
         </Dialog.FormField>
       </Dialog.Form>
     ),
+
     onConfirm: async ({ getForm, close }) => {
       const form = getForm();
       await onSubmit(form?.getValues());

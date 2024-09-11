@@ -129,6 +129,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
     >
       <NetworkAvatar networkId={current?.id} size="$6" />
       <SizableText
+        testID="network-selector-input-text"
         px={sharedStyles.px}
         flex={1}
         size={size === 'small' ? '$bodyMd' : '$bodyLg'}

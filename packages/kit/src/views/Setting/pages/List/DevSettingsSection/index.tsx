@@ -352,6 +352,9 @@ export const DevSettingsSection = () => {
                         await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
                           params,
                         );
+                        if (platformEnv.isExtension) {
+                          backgroundApiProxy.serviceApp.restartApp();
+                        }
                         Toast.success({
                           title: 'Success',
                         });

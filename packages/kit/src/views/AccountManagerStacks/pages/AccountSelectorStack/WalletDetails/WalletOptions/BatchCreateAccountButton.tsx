@@ -26,7 +26,7 @@ function BatchCreateAccountButtonView({
 
   return (
     <WalletOptionItem
-      testID="AccountSelector-WalletOption-Backup"
+      testID="account-batch-add-account"
       icon="Back10Outline"
       label={intl.formatMessage({ id: ETranslations.global_bulk_add_accounts })}
       onPress={async () => {

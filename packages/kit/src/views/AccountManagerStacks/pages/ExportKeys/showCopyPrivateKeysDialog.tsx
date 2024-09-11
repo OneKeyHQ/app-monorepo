@@ -27,6 +27,7 @@ export function CopyPrivateKeysDialog({
       {showCheckBox ? (
         <Stack pr="$1">
           <Checkbox
+            testID="private-key-copy-check"
             value={value}
             onChange={handleChange}
             label={intl.formatMessage({
@@ -38,6 +39,7 @@ export function CopyPrivateKeysDialog({
       <Dialog.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.global_copy })}
         confirmButtonProps={{
+          testID: 'private-key-copy-confirm',
           disabled: showCheckBox && !value,
           //   variant: 'destructive',
         }}

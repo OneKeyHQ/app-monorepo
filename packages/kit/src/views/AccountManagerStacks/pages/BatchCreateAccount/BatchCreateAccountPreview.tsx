@@ -564,6 +564,9 @@ function BatchCreateAccountPreviewPage({
           const checkedState: ICheckedState = getAccountCheckedState(account);
           return (
             <Checkbox
+              testID={`batch-create-account-checkbox-${
+                account.pathIndex || ''
+              }`}
               containerProps={{
                 flex: 1,
               }}
@@ -698,6 +701,7 @@ function BatchCreateAccountPreviewPage({
           columns={columns as any}
           TableEmptyComponent={
             <Stack
+              testID="batch-create-account-preview-loading-icon"
               py="$20"
               flexDirection="column"
               justifyContent="center"
@@ -870,6 +874,7 @@ function BatchCreateAccountPreviewPage({
             />
             <ButtonGroup disabled={isLoading}>
               <ButtonGroup.Item
+                testID="batch-create-account-preview-page-prev"
                 opacity={1}
                 onPress={() => {
                   setPageNumber(Math.max(1, page - 1));
@@ -892,10 +897,15 @@ function BatchCreateAccountPreviewPage({
                 />
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                testID="batch-create-account-preview-page-number"
                 opacity={1}
                 onPress={() => {
                   showBatchCreateAccountPreviewPageNumberDialog({
                     page,
+                    confirmButtonProps: {
+                      testID:
+                        'batch-create-account-preview-page-number-confirm-button',
+                    },
                     onSubmit: async (values) => {
                       if (!isNil(values?.page)) {
                         setPageNumber(values.page);
@@ -915,6 +925,7 @@ function BatchCreateAccountPreviewPage({
                 </Stack>
               </ButtonGroup.Item>
               <ButtonGroup.Item
+                testID="batch-create-account-preview-page-next"
                 opacity={1}
                 onPress={() => {
                   setPageNumber(page + 1);

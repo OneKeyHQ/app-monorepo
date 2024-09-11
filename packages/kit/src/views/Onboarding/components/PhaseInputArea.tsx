@@ -574,7 +574,6 @@ export function PhaseInputArea({
                   }}
                   flexBasis="33.33%"
                   p="$1"
-                  testID={`phrase-input-index${index}`}
                 >
                   <Form.Field name={`phrase${index + 1}`}>
                     <PhaseInput

@@ -75,8 +75,8 @@ export const IconButton = (props: IIconButtonProps) => {
     <ButtonFrame
       p={p}
       borderRadius="$full"
-      disabled={disabled || loading}
-      aria-disabled={disabled || loading}
+      disabled={!!disabled || !!loading}
+      aria-disabled={!!disabled || !!loading}
       // @ts-expect-error
       onKeyDown={hotKey ? undefined : onKeyDown}
       hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
