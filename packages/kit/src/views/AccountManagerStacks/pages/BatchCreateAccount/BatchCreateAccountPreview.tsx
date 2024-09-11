@@ -564,7 +564,9 @@ function BatchCreateAccountPreviewPage({
           const checkedState: ICheckedState = getAccountCheckedState(account);
           return (
             <Checkbox
-              testID={`batch-create-account-checkbox-${account.pathIndex}`}
+              testID={`batch-create-account-checkbox-${
+                account.pathIndex || ''
+              }`}
               containerProps={{
                 flex: 1,
               }}
