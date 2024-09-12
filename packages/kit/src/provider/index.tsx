@@ -9,7 +9,7 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
-import { Container } from './Container';
+import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
@@ -33,7 +33,13 @@ const LastActivityTracker = LazyLoad(
 
 const flexStyle = { flex: 1 };
 
-export function KitProvider() {
+export function KitProvider(props: any = {}) {
+  const {
+    UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+  } = props;
+
+  ColdStartByNotification.launchNotification = launchNotification;
+
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
     <GlobalJotaiReady>

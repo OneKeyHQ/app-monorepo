@@ -1,4 +1,5 @@
 export * from './InAppNotification';
+export * from './notifications';
 export * from './account';
 export * from './addressBooks';
 export * from './appUpdate';

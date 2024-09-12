@@ -410,6 +410,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const NotificationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NotificationGallery'
+    ),
+);
+
 const WebEmbedGallery = LazyLoadPage(
   () =>
     import(
@@ -620,6 +627,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentMarkdown,
     component: MarkdownGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNotification,
+    component: NotificationGallery,
   },
   {
     name: EGalleryRoutes.ComponentWebEmbed,

@@ -41,6 +41,7 @@ import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
+import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -183,6 +184,13 @@ export const DevSettingsSection = () => {
             ? ONEKEY_TEST_API_HOST
             : ONEKEY_API_HOST
         }
+        onBeforeValueChange={async () => {
+          try {
+            await backgroundApiProxy.serviceNotification.unregisterClient();
+          } catch (error) {
+            console.error(error);
+          }
+        }}
         onValueChange={(enabled: boolean) => {
           if (platformEnv.isDesktop) {
             window.desktopApi?.setAutoUpdateSettings?.({
@@ -260,6 +268,17 @@ export const DevSettingsSection = () => {
           // });
         }}
       />
+
+      <SectionPressItem
+        title="NotificationDevSettings"
+        onPress={() => {
+          const dialog = Dialog.cancel({
+            title: 'NotificationDevSettings',
+            renderContent: <NotificationDevSettings />,
+          });
+        }}
+      />
+
       {platformEnv.isNative ? (
         <SectionPressItem
           title="AppNotificationBadge"
@@ -340,6 +359,9 @@ export const DevSettingsSection = () => {
                         await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
                           params,
                         );
+                        if (platformEnv.isExtension) {
+                          backgroundApiProxy.serviceApp.restartApp();
+                        }
                         Toast.success({
                           title: 'Success',
                         });
@@ -417,18 +439,6 @@ export const DevSettingsSection = () => {
           setTimeout(() => {
             void backgroundApiProxy.serviceSpotlight.reset();
           }, 5000);
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.reset();
-        }}
-      />
-      <SectionPressItem
-        title="重置清空应用更新状态为失败状态"
-        onPress={() => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
         }}
       />
       {platformEnv.isNativeAndroid ? (

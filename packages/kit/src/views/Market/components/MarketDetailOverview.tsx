@@ -249,20 +249,6 @@ function OverviewMarketVOL({
   );
 }
 
-// function GoPlus() {
-//   return (
-//     <XStack jc="space-between" ai="center">
-//       <YStack gap="$1">
-//         <SizableText size="$headingMd">GoPlus</SizableText>
-//         <SizableText size="$bodyMd" color="$textSubdued">
-//           No risk detected
-//         </SizableText>
-//       </YStack>
-//       <Button h={38}>View</Button>
-//     </XStack>
-//   );
-// }
-
 export function MarketDetailOverview({
   token: {
     name,

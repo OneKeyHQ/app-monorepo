@@ -1,21 +1,33 @@
 import { useCallback } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  Empty,
   HeaderButtonGroup,
   HeaderIconButton,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import {
+  useNotificationsAtom,
+  useNotificationsReadedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import type { INotificationPushMessageListItem } from '@onekeyhq/shared/types/notification';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import useFormatDate from '../../../hooks/useFormatDate';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IListItemProps } from '../../../components/ListItem';
 
@@ -42,6 +54,9 @@ function HeaderRight() {
             description: intl.formatMessage({
               id: ETranslations.global_mark_all_as_confirmation_desc,
             }),
+            onConfirm: async () => {
+              await backgroundApiProxy.serviceNotification.markNotificationReadAll();
+            },
           });
         }}
       />
@@ -54,23 +69,26 @@ function HeaderRight() {
 }
 
 function NotificationItem({
-  title,
-  description,
-  time,
-  read,
+  item,
   ...rest
 }: {
-  title: string;
-  description: string;
-  time: string;
-  read?: boolean;
+  item: INotificationPushMessageListItem;
 } & IListItemProps) {
+  const { formatDistanceToNow } = useFormatDate();
+
+  const { title, content } = item.body;
+  const { createdAt, readed, msgId } = item;
+  const [{ badge }] = useNotificationsAtom();
+  const [readedMap] = useNotificationsReadedAtom();
   return (
     <ListItem
       gap="$1"
       flexDirection="column"
       alignItems="stretch"
       userSelect="none"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
       {...rest}
     >
       <XStack alignItems="baseline" gap="$3">
@@ -78,16 +96,16 @@ function NotificationItem({
           {title}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-          {time}
+          {formatDistanceToNow(new Date(createdAt))}
         </SizableText>
       </XStack>
       <XStack>
         <XStack flex={1}>
           <SizableText size="$bodyMd" flex={1} maxWidth="$96">
-            {description}
+            {content}
           </SizableText>
         </XStack>
-        {!read ? (
+        {!readed && !!badge && !readedMap?.[msgId] ? (
           <Stack
             m="$1.5"
             borderRadius="$full"
@@ -101,56 +119,62 @@ function NotificationItem({
   );
 }
 
-const DATA = [
-  {
-    title: '💸 Sent',
-    description: 'Account #1 0x4EF880...9A296e sent 10 MATIC',
-    time: '10:45 AM',
-    onPress: () => console.log('sent'),
-  },
-  {
-    title: '🤑 Received',
-    description: 'Account #1 0x4EF880...9A296e received 10 MATIC',
-    time: 'Yesterday 10:45 AM',
-    onPress: () => console.log('received'),
-  },
-  {
-    title: '🎉 Successful trade',
-    description:
-      'Account #1 0x4EF880...9A296e has successfully traded 10 DAl for 2690 OP',
-    time: 'Wednesday 10:45 AM',
-    read: true,
-    onPress: () => console.log('trade'),
-  },
-  {
-    title: '🔓 Approved USDC on 0x123456...123456',
-    description: 'Account #1 0x123456...123456 • Polygon',
-    time: 'August 25, 10:45 AM',
-    read: true,
-    onPress: () => console.log('trade'),
-  },
-];
-
 function NotificationList() {
   const intl = useIntl();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
+  const [{ lastReceivedTime }] = useNotificationsAtom();
 
+  const { result = [], isLoading } = usePromiseResult(
+    async () => {
+      noop(lastReceivedTime);
+      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
+      const r = await backgroundApiProxy.serviceNotification.fetchMessageList();
+      return r;
+    },
+    [lastReceivedTime],
+    {
+      watchLoading: true,
+    },
+  );
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
         headerRight={renderHeaderRight}
       />
       <Page.Body>
-        {DATA.map((item, index) => (
-          <NotificationItem
-            key={index}
-            {...item}
-            {...(index !== 0 && {
-              mt: '$1.5',
-            })}
-          />
-        ))}
+        {isLoading ? (
+          <Stack pt={240} justifyContent="center" alignItems="center">
+            <Spinner size="large" />
+          </Stack>
+        ) : (
+          <>
+            {!result?.length ? (
+              <Empty
+                title={intl.formatMessage({ id: ETranslations.global_no_data })}
+              />
+            ) : null}
+            {result.map((item, index) => (
+              <NotificationItem
+                key={index}
+                item={item}
+                {...(index !== 0 && {
+                  mt: '$1.5',
+                })}
+                onPress={() => {
+                  void notificationsUtils.navigateToNotificationDetail({
+                    message: item.body,
+                    notificationId:
+                      item?.msgId ||
+                      item?.body?.extras?.params?.msgId ||
+                      item?.body?.extras?.msgId ||
+                      '',
+                  });
+                }}
+              />
+            ))}
+          </>
+        )}
       </Page.Body>
     </Page>
   );

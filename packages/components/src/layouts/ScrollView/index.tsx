@@ -5,6 +5,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useImperativeHandle,
   useMemo,
   useRef,
 } from 'react';
@@ -75,11 +76,6 @@ export const useScrollToLocation = (inputRef: RefObject<TextInput>) => {
   return useMemo(() => ({ scrollToView }), [scrollToView]);
 };
 
-const useSafeRef = (ref: ForwardedRef<IScrollViewRef>) => {
-  const safeRef = useRef<ForwardedRef<IScrollViewRef>>();
-  return ref || (safeRef as unknown as typeof ref);
-};
-
 function BaseScrollView(
   {
     children,
@@ -87,7 +83,7 @@ function BaseScrollView(
     contentContainerStyle = {},
     ...props
   }: IScrollViewProps,
-  ref: ForwardedRef<IScrollViewRef>,
+  forwardedRef: ForwardedRef<IScrollViewRef>,
 ) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -98,7 +94,8 @@ function BaseScrollView(
       resolveValues: 'auto',
     },
   );
-  const safeRef = useSafeRef(ref);
+  const ref = useRef<IScrollViewRef>(null);
+  useImperativeHandle(forwardedRef, () => ref.current as IScrollViewRef);
   const pageOffsetRef = useRef({ x: 0, y: 0 });
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -109,14 +106,14 @@ function BaseScrollView(
   );
   const value = useMemo(
     () => ({
-      scrollViewRef: safeRef as any,
+      scrollViewRef: ref,
       pageOffsetRef,
     }),
-    [safeRef],
+    [ref],
   );
   return (
     <ScrollViewNative
-      ref={safeRef}
+      ref={ref}
       style={style as StyleProp<ViewStyle>}
       contentContainerStyle={contentStyle}
       scrollEventThrottle={30}

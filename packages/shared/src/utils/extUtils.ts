@@ -5,6 +5,8 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
+import { buildModalRouteParams } from './routeUtils';
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -94,7 +96,12 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
     // Position window in top right corner of lastFocused window.
-    if (lastFocused && lastFocused.top && lastFocused.left && lastFocused.width) {
+    if (
+      lastFocused &&
+      lastFocused.top &&
+      lastFocused.left &&
+      lastFocused.width
+    ) {
       top = lastFocused.top;
       left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
     }
@@ -176,10 +183,16 @@ async function openSidePanel(
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
       if (sidePanelState.isOpen) {
+        const modalParams =
+          routeInfo?.modalParams ??
+          buildModalRouteParams({
+            screens: routeInfo.routes as string[],
+            routeParams: routeInfo.params,
+          });
         appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
           type: 'pushModal',
           payload: {
-            modalParams: routeInfo?.modalParams,
+            modalParams,
           },
         });
       } else {
@@ -202,13 +215,20 @@ async function openSidePanel(
   return openExpandTab(routeInfo);
 }
 
+async function openExpandTabOrSidePanel(routeInfo: IOpenUrlRouteInfo) {
+  if (sidePanelState.isOpen) {
+    return openSidePanel(routeInfo);
+  }
+  return openExpandTab(routeInfo);
+}
+
 async function openPanelOnActionClick(enableSidePanel: boolean) {
   await chrome.sidePanel.setPanelBehavior({
     openPanelOnActionClick: enableSidePanel,
   });
 }
 
-function openExistWindow({
+function focusExistWindow({
   windowId,
 }: {
   windowId: number | undefined | null;
@@ -218,13 +238,27 @@ function openExistWindow({
   }
 }
 
+async function openPermissionSettings() {
+  // eslint-disable-next-line spellcheck/spell-checker
+  // chrome://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
+  // eslint-disable-next-line spellcheck/spell-checker
+  // edge://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
+
+  const extensionId: string = chrome.runtime.id;
+  await chrome.tabs.create({
+    url: `chrome://settings/content/siteDetails?site=chrome-extension%3A%2F%2F${extensionId}%2F`,
+  });
+}
+
 export default {
   openUrl,
   openUrlInTab,
+  openExpandTabOrSidePanel,
   openStandaloneWindow,
   openExpandTab,
   openSidePanel,
   resetSidePanelPath,
-  openExistWindow,
+  focusExistWindow,
   openPanelOnActionClick,
+  openPermissionSettings,
 };
