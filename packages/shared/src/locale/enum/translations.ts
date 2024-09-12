@@ -1339,6 +1339,7 @@ export enum ETranslations {
   provider_min_amount_required = 'provider.min_amount_required',
   provider_network_fee = 'provider.network_fee',
   provider_popover_fee_rate = 'provider.popover_fee_rate',
+  provider_popover_order_info_content = 'provider.popover_order_info_content',
   provider_popover_wallet = 'provider.popover_wallet',
   provider_protocol_fee = 'provider.protocol_fee',
   provider_recommend = 'provider.recommend',

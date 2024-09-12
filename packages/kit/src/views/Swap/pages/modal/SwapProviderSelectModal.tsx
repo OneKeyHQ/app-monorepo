@@ -268,12 +268,19 @@ const SwapProviderSelectModal = () => {
         }
         renderContent={
           <Stack p="$5" gap="$6">
-            <Stack gap="$2">
+            <Stack gap="$3">
+              <Stack gap="$1">
               <SizableText size="$headingMd" color="$text">
                 {intl.formatMessage({
                   id: ETranslations.provider_ios_popover_order_info_title,
                 })}
               </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.provider_popover_order_info_content,
+                })}
+              </SizableText>
+              </Stack>
               <InformationItem
                 icon="LockOutline"
                 content={intl.formatMessage({
