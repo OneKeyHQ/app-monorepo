@@ -181,7 +181,7 @@ const useParseQRCode = () => {
                       key="1"
                       variant="primary"
                       size="small"
-                      onPress={() => {
+                      onPressIn={() => {
                         void toast.close();
                         navigation.pushModal(EModalRoutes.OnboardingModal, {
                           screen: EOnboardingPages.ConnectYourDevice,
@@ -198,7 +198,7 @@ const useParseQRCode = () => {
                     <Button
                       key="2"
                       size="small"
-                      onPress={() => {
+                      onPressIn={() => {
                         void toast.close();
                       }}
                     >
