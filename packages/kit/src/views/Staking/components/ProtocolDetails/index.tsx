@@ -1,4 +1,5 @@
-import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -42,6 +43,8 @@ type IStakedValue = {
   stakedNumber: number;
   availableNumber: number;
   tokenSymbol: string;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 type IPortfolioValue = {
@@ -103,6 +106,8 @@ function StakedValue({
   stakedNumber = 0,
   availableNumber = 0,
   tokenSymbol,
+  stakeButtonProps,
+  withdrawButtonProps,
 }: IStakedValue) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
@@ -125,10 +130,10 @@ function StakedValue({
           </NumberSizeableText>
           {media.gtMd ? (
             <XStack gap="$2">
-              <Button>
+              <Button {...withdrawButtonProps}>
                 {intl.formatMessage({ id: ETranslations.global_withdraw })}
               </Button>
-              <Button variant="primary">
+              <Button {...stakeButtonProps}>
                 {intl.formatMessage({ id: ETranslations.earn_stake })}
               </Button>
             </XStack>
@@ -788,6 +793,8 @@ type IProtocolDetails = {
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 export function ProtocolDetails({
@@ -800,6 +807,8 @@ export function ProtocolDetails({
   onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
+  stakeButtonProps,
+  withdrawButtonProps,
 }: IProtocolDetails) {
   const intl = useIntl();
   const result: IEarnTokenDetailResult | null = useMemo(() => {
@@ -905,7 +914,11 @@ export function ProtocolDetails({
     <>
       {earnAccount?.accountAddress ? (
         <>
-          <StakedValue {...stakedValue} />
+          <StakedValue
+            {...stakedValue}
+            stakeButtonProps={stakeButtonProps}
+            withdrawButtonProps={withdrawButtonProps}
+          />
           <Portfolio
             {...portfolio}
             onClaim={onClaim}

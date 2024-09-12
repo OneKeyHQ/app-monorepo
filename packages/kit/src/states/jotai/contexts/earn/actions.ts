@@ -5,7 +5,7 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   IAvailableAsset,
-  IEarnAccount,
+  IEarnAccountTokenResponse,
   IEarnAtomData,
 } from '@onekeyhq/shared/types/staking';
 
@@ -53,17 +53,17 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       set,
       {
         key,
-        accounts,
+        earnAccount,
       }: {
         key: string;
-        accounts: IEarnAccount[];
+        earnAccount: IEarnAccountTokenResponse;
       },
     ) => {
       const earnData = get(earnAtom());
       this.syncToJotai.call(set, {
-        accounts: {
-          ...earnData.accounts,
-          [key]: accounts,
+        earnAccount: {
+          ...earnData.earnAccount,
+          [key]: earnAccount,
         },
       });
     },

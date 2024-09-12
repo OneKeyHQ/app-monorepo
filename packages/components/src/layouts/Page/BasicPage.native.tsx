@@ -33,7 +33,9 @@ const useMinHeight = (isFullPage: boolean) => {
     return undefined;
   }
   if (pageType !== EPageType.modal) {
-    return Dimensions.get('window').height - tabHeight;
+    return platformEnv.isNativeIOSPad
+      ? Dimensions.get('window').height
+      : Dimensions.get('window').height - tabHeight;
   }
   return undefined;
 };

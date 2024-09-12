@@ -1,7 +1,9 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { Button } from '@onekeyhq/components';
 import { Page, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -161,6 +163,24 @@ const ProtocolDetailsPage = () => {
   const intl = useIntl();
   const media = useMedia();
 
+  const stakeButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      variant: 'primary',
+      loading: stakeLoading,
+      onPress: onStake,
+      disabled: !earnAccount?.accountAddress,
+    }),
+    [stakeLoading, earnAccount?.accountAddress, onStake],
+  );
+
+  const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      onPress: onWithdraw,
+      disabled: !earnAccount?.accountAddress || !(Number(result?.active) > 0),
+    }),
+    [onWithdraw, earnAccount?.accountAddress, result?.active],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -186,27 +206,19 @@ const ProtocolDetailsPage = () => {
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
             onCreateAddress={onCreateAddress}
+            withdrawButtonProps={withdrawButtonProps}
+            stakeButtonProps={stakeButtonProps}
           />
           {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_stake,
               })}
-              confirmButtonProps={{
-                variant: 'primary',
-                loading: stakeLoading,
-                onPress: onStake,
-                disabled: !earnAccount?.accountAddress,
-              }}
+              confirmButtonProps={stakeButtonProps}
               onCancelText={intl.formatMessage({
                 id: ETranslations.global_withdraw,
               })}
-              cancelButtonProps={{
-                onPress: onWithdraw,
-                disabled:
-                  !earnAccount?.accountAddress ||
-                  Number(result?.staked) - Number(result?.pendingInactive) <= 0,
-              }}
+              cancelButtonProps={withdrawButtonProps}
             />
           ) : null}
           {result ? (

@@ -243,6 +243,7 @@ export type IClaimableListResponse = {
 };
 
 export interface IEarnAccountToken {
+  networkId: string;
   name: string;
   symbol: string;
   logoURI: string;
@@ -262,10 +263,16 @@ export type IEarnAccountResponse = {
 };
 
 export type IEarnAccount = {
-  earn: IEarnAccountResponse;
+  tokens: IEarnAccountToken[];
   networkId: string;
   accountAddress: string;
   publicKey?: string;
+};
+
+export type IEarnAccountTokenResponse = {
+  totalFiatValue: string;
+  earnings24h: string;
+  accounts: IEarnAccount[];
 };
 
 export type IAvailableAsset = {
@@ -278,7 +285,7 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: Record<string, IEarnAccount[]>;
+  earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssets?: IAvailableAsset[];
 }
 
