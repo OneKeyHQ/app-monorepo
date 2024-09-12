@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { Button, Toast, YStack } from '@onekeyhq/components';
+import { Button, Toast, ToastContent, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -368,6 +368,45 @@ const ToastGallery = () => (
               }}
             >
               Rich Text
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.show({
+                  children: (
+                    <YStack p="$4">
+                      <ToastContent
+                        title="Google is trying to steal the Ray-Ban partnership from Meta"
+                        message="The smart glasses market is heating up. Also: layoffs and a strategy shift hit Magic Leap."
+                        actionsAlign="left"
+                        actions={[
+                          <Button
+                            key="1"
+                            variant="secondary"
+                            size="small"
+                            onPressIn={() => {
+                              console.log('Secondary');
+                            }}
+                          >
+                            Secondary
+                          </Button>,
+                          <Button
+                            key="2"
+                            variant="primary"
+                            size="small"
+                            onPressIn={() => {
+                              console.log('Primary');
+                            }}
+                          >
+                            Primary
+                          </Button>,
+                        ]}
+                      />
+                    </YStack>
+                  ),
+                });
+              }}
+            >
+              Custom
             </Button>
           </YStack>
         ),
