@@ -90,7 +90,7 @@ export const UniversalWithdraw = ({
           provider={providerName ?? ''}
           logoURI={tokenImageUri ?? ''}
           symbol={tokenSymbol ?? ''}
-          withdrawalPeriod={3}
+          withdrawalPeriod={unstakingPeriod ?? 3}
         />
       ),
       onConfirm: async (inst) => {
@@ -105,7 +105,15 @@ export const UniversalWithdraw = ({
       onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
       showCancelButton: false,
     });
-  }, [amountValue, onConfirm, intl, tokenImageUri, tokenSymbol, providerName]);
+  }, [
+    amountValue,
+    onConfirm,
+    intl,
+    tokenImageUri,
+    tokenSymbol,
+    providerName,
+    unstakingPeriod,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
