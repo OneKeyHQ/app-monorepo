@@ -19,9 +19,11 @@ import {
 
 import NotificationProviderBase from './NotificationProviderBase';
 
+import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor() {
-    super();
+  constructor(options: INotificationProviderBaseOptions) {
+    super(options);
     this.initWebSocketProvider();
     this.addNotificationListeners();
   }
