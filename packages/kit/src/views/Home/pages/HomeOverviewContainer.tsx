@@ -29,6 +29,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -39,7 +40,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
-import { showResourceDetailsDialog } from '../../../components/Resource';
 
 function HomeOverviewContainer() {
   const num = 0;

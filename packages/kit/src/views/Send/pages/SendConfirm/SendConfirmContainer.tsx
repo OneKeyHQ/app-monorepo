@@ -32,9 +32,9 @@ import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxExtraInfoContainer } from './TxExtraInfoContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
+import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
-import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 function SendConfirmContainer() {
   const intl = useIntl();

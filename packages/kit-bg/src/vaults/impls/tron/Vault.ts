@@ -24,6 +24,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -59,7 +60,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';

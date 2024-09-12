@@ -20,8 +20,8 @@ import {
   LightningTxAttributes,
   LightningTxFlow,
 } from './pages/HistoryDetails/components/LigntningTxMeta';
-import { XrpTxAttributes } from './pages/HistoryDetails/components/XrpTxMeta';
 import { TronAttributes } from './pages/HistoryDetails/components/TronTxMeta';
+import { XrpTxAttributes } from './pages/HistoryDetails/components/XrpTxMeta';
 
 export function getHistoryTxMeta({ impl }: { impl: string }) {
   let components: IHistoryTxMetaComponents = {};
