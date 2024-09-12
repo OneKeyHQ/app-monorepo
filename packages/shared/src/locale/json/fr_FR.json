@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Vos transactions apparaîtront ici",
   "no_transaction_title": "Aucune transaction pour l'instant",
   "no_watched_account_message": "Aucun compte surveillé. Importez une adresse pour commencer la surveillance.",
+  "notifications.empty_desc": "Vous n'avez encore reçu aucune notification",
+  "notifications.empty_title": "Aucune notification",
   "notifications.notifications_account_activity_desc": "Soyez averti lors de la réception, de l'envoi, de l'échange et plus encore.",
   "notifications.notifications_account_activity_label": "Activité du compte",
   "notifications.notifications_price_alert_desc": "Soyez averti lorsque les cryptos surveillées augmentent ou chutent de plus de 10 % en 24 heures.",

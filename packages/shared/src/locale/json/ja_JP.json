@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "ここに取引が表示されます",
   "no_transaction_title": "まだ取引はありません",
   "no_watched_account_message": "監視するアカウントがありません。監視を開始するためにアドレスをインポートしてください。",
+  "notifications.empty_desc": "まだ通知は受け取っていません",
+  "notifications.empty_title": "通知なし",
   "notifications.notifications_account_activity_desc": "受信、送信、取引などの際に通知を受け取ります。",
   "notifications.notifications_account_activity_label": "アカウントアクティビティ",
   "notifications.notifications_price_alert_desc": "監視対象の暗号通貨が 24 時間以内に 10% 以上増加または減少した場合に通知を受け取ります。",
