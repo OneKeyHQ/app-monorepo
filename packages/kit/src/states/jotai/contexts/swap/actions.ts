@@ -1264,7 +1264,8 @@ export const useSwapActions = () => {
     },
   );
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
-  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
+  const { cleanQuoteInterval, cleanApprovingInterval, closeQuoteEvent } =
+    actions;
 
   return useRef({
     selectFromToken,
@@ -1282,5 +1283,6 @@ export const useSwapActions = () => {
     loadSwapSelectTokenDetail,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
+    closeQuoteEvent,
   });
 };
