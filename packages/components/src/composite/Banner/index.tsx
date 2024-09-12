@@ -29,6 +29,7 @@ export function Banner<
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
   emptyComponent?: ReactElement;
@@ -42,7 +43,6 @@ export function Banner<
         flex={1}
         position="relative"
         userSelect="none"
-        cursor="pointer"
         onPress={() => onItemPress(item)}
         {...itemContainerStyle}
       >

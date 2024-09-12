@@ -396,7 +396,14 @@ function GridItem({
     }
   }, [link]);
   return (
-    <YStack {...props}>
+    <YStack
+      p="$3"
+      flexBasis="50%"
+      $gtMd={{
+        flexBasis: '33.33%',
+      }}
+      {...props}
+    >
       <XStack gap="$1" mb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
@@ -439,18 +446,6 @@ export function Profit({
   rewardTokens,
   updateFrequency,
 }: IProfit) {
-  const { gtMd } = useMedia();
-  const gridItemStyle = useMemo(
-    () =>
-      gtMd
-        ? {
-            width: 'calc(33.33% - 16px)',
-          }
-        : {
-            width: 'calc(50% - 12px)',
-          },
-    [gtMd],
-  );
   const intl = useIntl();
 
   const [
@@ -463,13 +458,12 @@ export function Profit({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack flexWrap="wrap" gap="$6">
+      <XStack flexWrap="wrap" m="$-5" p="$2">
         {apr && Number(apr) > 0 ? (
           <GridItem
             title={intl.formatMessage({
               id: ETranslations.earn_rewards_percentage,
             })}
-            {...gridItemStyle}
           >
             <SizableText size="$bodyLgMedium" color="$textSuccess">
               {`${apr}% ${intl.formatMessage({
@@ -484,7 +478,6 @@ export function Profit({
             tooltip={intl.formatMessage({
               id: ETranslations.earn_24h_earnings_tooltip,
             })}
-            {...gridItemStyle}
           >
             <NumberSizeableText
               formatter="value"
@@ -498,7 +491,6 @@ export function Profit({
         {rewardTokens ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_reward_tokens })}
-            {...gridItemStyle}
           >
             {rewardTokens}
           </GridItem>
@@ -508,7 +500,6 @@ export function Profit({
             title={intl.formatMessage({
               id: ETranslations.earn_update_frequency,
             })}
-            {...gridItemStyle}
           >
             {updateFrequency}
           </GridItem>
@@ -524,32 +515,19 @@ export function Provider({
   untilNextLaunch,
   network,
 }: IProvider) {
-  const { gtMd } = useMedia();
-  const gridItemStyle = useMemo(
-    () =>
-      gtMd
-        ? {
-            width: 'calc(33.33% - 16px)',
-          }
-        : {
-            width: 'calc(50% - 12px)',
-          },
-    [gtMd],
-  );
   const intl = useIntl();
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
-      <XStack flexWrap="wrap" gap="$6">
+      <XStack flexWrap="wrap" m="$-5" p="$2">
         <GridItem
           title={
             validator.isProtocol
               ? intl.formatMessage({ id: ETranslations.global_protocol })
               : intl.formatMessage({ id: ETranslations.earn_validator })
           }
-          {...gridItemStyle}
           link={validator.link}
         >
           {capitalizeString(validator.name)}
@@ -559,7 +537,6 @@ export function Provider({
             title={intl.formatMessage({
               id: ETranslations.earn_min_max_staking,
             })}
-            {...gridItemStyle}
           >
             <SizableText size="$bodyLgMedium">
               {minOrMaxStaking.minValue && minOrMaxStaking.maxValue
@@ -578,7 +555,6 @@ export function Provider({
             tooltip={intl.formatMessage({
               id: ETranslations.earn_until_next_launch_tooltip,
             })}
-            {...gridItemStyle}
           >
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage(
@@ -594,7 +570,6 @@ export function Provider({
         {network?.name ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.global_network })}
-            {...gridItemStyle}
           >
             {network.name}
           </GridItem>

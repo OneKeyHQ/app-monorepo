@@ -339,15 +339,18 @@ function Recommended({
   if (isFetchingAccounts && tokens.length < 1) {
     return (
       <RecommendedContainer profit={profit}>
-        <XStack gap="$3">
+        <XStack m="$-5" p="$3.5">
           {Array.from({ length: 2 }).map((_, index) => (
-            <RecommendedSkeletonItem
+            <YStack
               key={index}
-              width="calc(50% - 6px)"
+              p="$1.5"
+              flexBasis="50%"
               $gtLg={{
-                width: 'calc(33.33% - 8px)',
+                flexBasis: '33.33%',
               }}
-            />
+            >
+              <RecommendedSkeletonItem />
+            </YStack>
           ))}
         </XStack>
       </RecommendedContainer>
@@ -356,16 +359,18 @@ function Recommended({
   if (tokens.length) {
     return (
       <RecommendedContainer profit={profit}>
-        <XStack gap="$3" flexWrap="wrap">
+        <XStack m="$-5" p="$3.5" flexWrap="wrap">
           {tokens.map((token) => (
-            <RecommendedItem
+            <YStack
               key={token.symbol}
-              token={token}
-              width="calc(50% - 6px)"
+              p="$1.5"
+              flexBasis="50%"
               $gtLg={{
-                width: 'calc(33.33% - 8px)',
+                flexBasis: '33.33%',
               }}
-            />
+            >
+              <RecommendedItem token={token} />
+            </YStack>
           ))}
         </XStack>
       </RecommendedContainer>
