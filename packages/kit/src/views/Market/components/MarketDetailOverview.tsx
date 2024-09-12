@@ -39,7 +39,11 @@ function OverviewPriceChange({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <PriceChangePercentage size="$bodyMdMedium" width="100%">
+      <PriceChangePercentage
+        size="$bodyMdMedium"
+        width="100%"
+        textAlign="center"
+      >
         {children}
       </PriceChangePercentage>
     </YStack>
