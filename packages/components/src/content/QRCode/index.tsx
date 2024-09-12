@@ -15,6 +15,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
@@ -279,7 +280,7 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
 export function QRCode({
   value,
   valueUr,
-  interval = 100,
+  interval = platformEnv.isNativeAndroid ? 250 : 100,
   drawType,
   ...props
 }: IQRCodeProps) {
