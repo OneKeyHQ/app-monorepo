@@ -223,8 +223,9 @@ const SwapProviderSelectModal = () => {
         maxFee: 0.875,
         name: 'oneKey',
         fee: 0.3,
-        color: '#202020',
-        icon: 'https://uni.onekey-asset.com/static/logo/onekeylogo.png',
+        // color: '#202020',
+        color: '$bgInverse',
+        icon: require('@onekeyhq/kit/assets/logo.png'),
       },
     ],
     [],
@@ -233,7 +234,9 @@ const SwapProviderSelectModal = () => {
   const renderProtocolFeeListItem = useCallback(
     (item: IProtocolFeeInfo) => (
       <XStack gap="$3" alignItems="center">
-        <Image source={{ uri: item.icon }} w={20} h={20} />
+        <Stack w={20} h={20}>
+        <Image source={{ uri: item.icon }} w={16} h={16} />
+        </Stack>
         <Stack flex={1}>
           <Stack
             backgroundColor={item.color}
