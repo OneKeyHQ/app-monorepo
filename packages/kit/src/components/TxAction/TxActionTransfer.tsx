@@ -500,6 +500,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     swapInfo,
   } = props;
 
+  const { networkId } = decodedTx;
+
   const { sends, receives, from, to, application } = getTxActionTransferInfo({
     ...props,
     intl,
@@ -508,6 +510,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const { network: swapReceiveNetwork } = useAccountData({
     networkId: swapInfo?.receiver?.token?.networkId,
   });
+
+  const { vaultSettings } = useAccountData({ networkId });
+
+  const isUTXO = vaultSettings?.isUtxo;
 
   const sendsBlock = buildTransfersBlock(
     groupBy(sends, 'to'),
@@ -545,7 +551,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT
+                  block.direction === EDecodedTxDirection.OUT &&
+                  !isUTXO
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount
                 } ${
@@ -763,6 +770,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       from,
       intl,
       isSendNativeToken,
+      isUTXO,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.logoURI,
