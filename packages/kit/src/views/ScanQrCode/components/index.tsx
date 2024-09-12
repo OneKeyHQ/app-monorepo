@@ -93,7 +93,8 @@ export function ScanQrCode({
     if (status === PermissionStatus.GRANTED) {
       return;
     }
-    const { isExtensionUiExpandTab } = platformEnv;
+    const canRequestExpandView =
+      platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab;
     const canViewTutorial =
       platformEnv.isRuntimeBrowser &&
       !platformEnv.isDesktop &&
@@ -110,19 +111,19 @@ export function ScanQrCode({
         id: ETranslations.scan_camera_access_denied,
       }),
       description: intl.formatMessage({
-        id: !isExtensionUiExpandTab
+        id: canRequestExpandView
           ? ETranslations.scan_grant_camera_access_in_expand_view
           : ETranslations.scan_enable_camera_permissions,
       }),
       onConfirmText: intl.formatMessage({
-        id: !isExtensionUiExpandTab
+        id: canRequestExpandView
           ? ETranslations.global_expand_view
           : permissionConfirmText,
       }),
       showCancelButton: true,
       showConfirmButton: true,
       onConfirm: () => {
-        if (!isExtensionUiExpandTab) {
+        if (canRequestExpandView) {
           extUtils
             .openUrlInTab(EXT_HTML_FILES.uiExpandTab)
             .catch(console.error);
