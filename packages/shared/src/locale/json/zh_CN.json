@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "您的交易将会在此显示",
   "no_transaction_title": "暂无交易",
   "no_watched_account_message": "目前没有观察账户。导入一个地址以开始观察。",
+  "notifications.empty_desc": "您尚未收到任何通知",
+  "notifications.empty_title": "没有通知",
   "notifications.notifications_account_activity_desc": "在接收、发送、交易等操作时收到通知。",
   "notifications.notifications_account_activity_label": "帐户活动",
   "notifications.notifications_price_alert_desc": "当所关注的加密货币在 24 小时内上涨或下跌超过 10% 时收到通知。",

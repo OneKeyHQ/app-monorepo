@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "여기에 거래 내역이 표시됩니다",
   "no_transaction_title": "아직 거래가 없습니다",
   "no_watched_account_message": "감시 중인 계정이 없습니다. 모니터링을 시작하려면 주소를 가져오세요.",
+  "notifications.empty_desc": "아직 알림을 받지 않았습니다",
+  "notifications.empty_title": "알림 없음",
   "notifications.notifications_account_activity_desc": "수신, 전송, 거래 등의 경우 알림을 받으세요.",
   "notifications.notifications_account_activity_label": "계정 활동",
   "notifications.notifications_price_alert_desc": "관심 암호화폐가 24시간 동안 10% 이상 상승하거나 하락하면 알림을 받으세요.",

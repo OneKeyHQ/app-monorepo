@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Ваши транзакции появятся здесь",
   "no_transaction_title": "Пока нет транзакций",
   "no_watched_account_message": "Нет отслеживаемых аккаунтов. Импортируйте адрес, чтобы начать мониторинг.",
+  "notifications.empty_desc": "Вы еще не получили никаких уведомлений",
+  "notifications.empty_title": "Нет уведомлений",
   "notifications.notifications_account_activity_desc": "Получайте уведомления при получении, отправке, торговле и т. д.",
   "notifications.notifications_account_activity_label": "Активность аккаунта",
   "notifications.notifications_price_alert_desc": "Получайте уведомления, когда отслеживаемые криптовалюты вырастут или упадут более чем на 10% за 24 часа.",

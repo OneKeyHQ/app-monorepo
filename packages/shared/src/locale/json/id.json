@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Transaksi Anda akan muncul di sini",
   "no_transaction_title": "Belum ada transaksi",
   "no_watched_account_message": "Tidak ada akun yang dipantau. Impor alamat untuk mulai memantau.",
+  "notifications.empty_desc": "Anda belum menerima notifikasi apa pun",
+  "notifications.empty_title": "Tidak ada pemberitahuan",
   "notifications.notifications_account_activity_desc": "Dapatkan pemberitahuan saat menerima, mengirim, berdagang, dan banyak lagi.",
   "notifications.notifications_account_activity_label": "Aktivitas akun",
   "notifications.notifications_price_alert_desc": "Dapatkan pemberitahuan saat kripto yang dipantau naik atau turun lebih dari 10% dalam 24 jam.",

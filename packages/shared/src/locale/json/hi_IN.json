@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "आपके लेन-देन यहां दिखाई देंगे",
   "no_transaction_title": "अभी तक कोई लेन-देन नहीं",
   "no_watched_account_message": "कोई देखे गए खाते नहीं। मॉनिटरिंग शुरू करने के लिए एक पता आयात करें।",
+  "notifications.empty_desc": "आपको अभी तक कोई सूचनाएं प्राप्त नहीं हुईं",
+  "notifications.empty_title": "कोई सूचना नहीं",
   "notifications.notifications_account_activity_desc": "प्राप्त करने, भेजने, व्यापार करने आदि पर सूचना प्राप्त करें।",
   "notifications.notifications_account_activity_label": "खाता संबंधी काम",
   "notifications.notifications_price_alert_desc": "जब देखे गए क्रिप्टो 24 घंटे में 10% से अधिक बढ़ या गिर जाए तो अधिसूचित हो जाएं।",

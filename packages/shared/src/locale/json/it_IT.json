@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Le tue transazioni appariranno qui",
   "no_transaction_title": "Nessuna transazione ancora",
   "no_watched_account_message": "Nessun account monitorato. Importa un indirizzo per iniziare il monitoraggio.",
+  "notifications.empty_desc": "Non hai ancora ricevuto alcuna notifica",
+  "notifications.empty_title": "Nessuna notifica",
   "notifications.notifications_account_activity_desc": "Ricevi notifiche quando ricevi, invii, fai trading e altro ancora.",
   "notifications.notifications_account_activity_label": "Attività dell'account",
   "notifications.notifications_price_alert_desc": "Ricevi una notifica quando le criptovalute monitorate aumentano o diminuiscono di oltre il 10% in 24 ore.",

@@ -1248,6 +1248,8 @@ export enum ETranslations {
   no_transaction_desc = 'no_transaction_desc',
   no_transaction_title = 'no_transaction_title',
   no_watched_account_message = 'no_watched_account_message',
+  notifications_empty_desc = 'notifications.empty_desc',
+  notifications_empty_title = 'notifications.empty_title',
   notifications_notifications_account_activity_desc = 'notifications.notifications_account_activity_desc',
   notifications_notifications_account_activity_label = 'notifications.notifications_account_activity_label',
   notifications_notifications_price_alert_desc = 'notifications.notifications_price_alert_desc',
