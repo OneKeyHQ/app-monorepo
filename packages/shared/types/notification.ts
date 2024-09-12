@@ -13,7 +13,7 @@ export type INotificationShowResult = {
   desktopNotification?: Notification;
 };
 export type INotificationShowParams = {
-  swapTxid?: string;
+  // swapTxid?: string;
   notificationId?: string;
   icon?: string; // base64 or remote url
   title: string;
@@ -60,8 +60,8 @@ export enum EPushProviderEventNames {
 export type INotificationClickParams = {
   notificationId: string | undefined;
   params: INotificationShowParams | undefined;
-  webEvent?: Event;
   eventSource?: 'coldStartByNotification' | 'notificationClick';
+  webEvent?: Event;
 };
 
 export interface IPushProviderEventPayload {
@@ -185,7 +185,7 @@ export type INotificationPushMessageAckParams = {
 };
 export type INotificationPushMessageExtras = {
   badge?: string;
-  msgId: string; // obsoleted, use params.msgId instead
+  msgId: string; // TODO obsoleted, use params.msgId instead
   topic: ENotificationPushTopicTypes.accountActivity;
   image?: string;
   params: {
@@ -207,27 +207,30 @@ export type IJPushRemotePushMessageInfo = INotificationPushMessageExtras & {
   };
 };
 export type IJPushNotificationRemoteEvent = {
-  messageID: string;
   title: string;
   content: string;
+  extras: INotificationPushMessageExtras | undefined;
+  //
   badge: string;
   ring: string;
-  extras: INotificationPushMessageExtras | undefined;
+  messageID: string;
   notificationEventType?: 'notificationArrived' | 'notificationOpened';
 };
 export type IJPushNotificationLocalEvent = {
-  messageID: string;
   title: string;
   content: string;
   extras: INotificationPushMessageExtras | undefined;
+  //
+  messageID: string;
   notificationEventType?: 'notificationArrived' | 'notificationOpened';
 };
 export type INotificationPushMessageInfo = {
-  pushSource?: 'jpush' | 'websocket' | undefined;
   title: string;
   content: string;
-  badge?: string;
   extras?: INotificationPushMessageExtras;
+  //
+  badge?: string;
+  pushSource?: 'jpush' | 'websocket' | undefined;
 };
 export type INativeNotificationCenterMessageInfo = {
   notificationId: string;

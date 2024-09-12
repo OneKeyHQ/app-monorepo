@@ -22,6 +22,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
 export default function NotificationsSettings() {
@@ -166,7 +167,7 @@ export default function NotificationsSettings() {
           </>
         )}
 
-        {devAppSettings?.enabled ? (
+        {devAppSettings?.enabled && platformEnv.isDev ? (
           <Stack>
             <SizableText>
               InstanceId: {appSettings?.instanceId?.slice(0, 8)}
