@@ -5604,12 +5604,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@notifee/react-native@npm:7.8.2":
-  version: 7.8.2
-  resolution: "@notifee/react-native@npm:7.8.2"
+"@notifee/react-native@npm:9.0.0":
+  version: 9.0.0
+  resolution: "@notifee/react-native@npm:9.0.0"
   peerDependencies:
     react-native: "*"
-  checksum: 10/fcb3bc5bd379d6bbde2aa85c394c4f444c3b27f322866480723f96221dfe4d24ba7ea7c9a514fd8968e4aef05adefba714d9c735064459eecd143fd334b79cff
+  checksum: 10/b3090cea81ca9c15b12eb3a2c0fa674bac9bc1328aa3ab119726817cacd6452fd57c75e0942d3168bc823bfe5bb6840afd1ef3ee8f3aed3ad00d6c6d912efab9
   languageName: node
   linkType: hard
 
@@ -6622,7 +6622,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
-    "@notifee/react-native": "npm:7.8.2"
+    "@notifee/react-native": "npm:9.0.0"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
