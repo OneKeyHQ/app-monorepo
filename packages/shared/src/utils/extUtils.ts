@@ -5,6 +5,8 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
+import { buildModalRouteParams } from './routeUtils';
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -181,10 +183,16 @@ async function openSidePanel(
   if (typeof chrome !== 'undefined' && chrome.sidePanel) {
     if (platformEnv.isExtensionBackground) {
       if (sidePanelState.isOpen) {
+        const modalParams =
+          routeInfo?.modalParams ??
+          buildModalRouteParams({
+            screens: routeInfo.routes as string[],
+            routeParams: routeInfo.params,
+          });
         appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
           type: 'pushModal',
           payload: {
-            modalParams: routeInfo?.modalParams,
+            modalParams,
           },
         });
       } else {
