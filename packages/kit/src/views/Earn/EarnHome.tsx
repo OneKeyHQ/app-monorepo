@@ -766,7 +766,7 @@ function BasicEarnHome() {
                 flex: 1,
               }}
             >
-              <Recommended isFetchingAccounts={isFetchingAccounts} />
+              <Recommended isFetchingAccounts={!!isFetchingAccounts} />
               <AvailableAssets />
             </YStack>
             {media.gtLg ? (
