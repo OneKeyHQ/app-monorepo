@@ -7,7 +7,9 @@ import type {
   INotificationShowResult,
 } from '@onekeyhq/shared/types/notification';
 
-import NotificationProviderBase, { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import NotificationProviderBase from './NotificationProviderBase';
+
+import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
 
 export default class NotificationProviderWeb extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {

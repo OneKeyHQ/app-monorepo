@@ -17,7 +17,9 @@ import {
   EPushProviderEventNames,
 } from '@onekeyhq/shared/types/notification';
 
-import NotificationProviderBase, { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import NotificationProviderBase from './NotificationProviderBase';
+
+import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {

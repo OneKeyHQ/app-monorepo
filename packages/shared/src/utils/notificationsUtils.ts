@@ -1,3 +1,5 @@
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+
 import {
   ENotificationPermission,
   ENotificationPushMessageAckAction,
@@ -31,10 +33,12 @@ async function navigateToNotificationDetail({
   notificationId,
   message,
   isFromNotificationClick,
+  navigation,
 }: {
   notificationId: string;
   message: INotificationPushMessageInfo | undefined;
-  isFromNotificationClick?: boolean;
+  isFromNotificationClick?: boolean; // click by system notification banner
+  navigation?: IAppNavigation;
 }) {
   let routes: string[] = [];
   let params: any = {};
@@ -96,10 +100,23 @@ async function navigateToNotificationDetail({
       screens: routes,
       routeParams: params,
     });
-    global.$navigationRef.current?.navigate(
-      modalParams.screen,
-      modalParams.params,
-    );
+    if (
+      navigation &&
+      routes?.length === 3 &&
+      routes?.[0] === ERootRoutes.Modal
+    ) {
+      const [, screen1, screen2] = routes;
+      navigation.pushModal(screen1 as any, {
+        screen: screen2,
+        params,
+      });
+    } else {
+      // navigate\pushModal\pushFullModal
+      global.$navigationRef.current?.navigate(
+        modalParams.screen,
+        modalParams.params,
+      );
+    }
   }
 }
 
