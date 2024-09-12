@@ -210,21 +210,21 @@ const SwapProviderSelectModal = () => {
         name: 'metamask',
         fee: 0.875,
         color: '#F5841F',
-        icon: require('@onekeyhq/kit/assets/walletLogo/metamask_logo.png'),
+        icon: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
       },
       {
         maxFee: 0.875,
         name: 'zerion',
         fee: 0.8,
         color: '#2461ED',
-        icon: require('@onekeyhq/kit/assets/walletLogo/zerion_logo.png'),
+        icon: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
       },
       {
         maxFee: 0.875,
         name: 'oneKey',
         fee: 0.3,
         color: '#202020',
-        icon: require('@onekeyhq/kit/assets/walletLogo/onekey_logo.png'),
+        icon: 'https://uni.onekey-asset.com/static/logo/onekeylogo.png',
       },
     ],
     [],
@@ -233,7 +233,7 @@ const SwapProviderSelectModal = () => {
   const renderProtocolFeeListItem = useCallback(
     (item: IProtocolFeeInfo) => (
       <XStack gap="$3" alignItems="center">
-        <Image source={{ uri: item.icon }} w={20} h={20} borderRadius="$full" />
+        <Image source={{ uri: item.icon }} w={20} h={20} />
         <Stack flex={1}>
           <Stack
             backgroundColor={item.color}
