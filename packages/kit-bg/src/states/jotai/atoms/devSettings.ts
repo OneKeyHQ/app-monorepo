@@ -71,3 +71,22 @@ export const {
     showAutoCheckHardwareUpdatesToast: false,
   },
 });
+
+export type INotificationsDevSettings = {
+  showMessagePushSource?: boolean;
+  disabledWebSocket?: boolean;
+  disabledJPush?: boolean;
+};
+export type INotificationsDevSettingsKeys = keyof INotificationsDevSettings;
+export const {
+  target: notificationsDevSettingsPersistAtom,
+  use: useNotificationsDevSettingsPersistAtom,
+} = globalAtom<INotificationsDevSettings>({
+  persist: true,
+  name: EAtomNames.notificationsDevSettingsPersistAtom,
+  initialValue: {
+    showMessagePushSource: false,
+    disabledWebSocket: false,
+    disabledJPush: false,
+  },
+});
