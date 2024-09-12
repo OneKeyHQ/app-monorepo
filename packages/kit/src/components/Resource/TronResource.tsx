@@ -38,7 +38,7 @@ function ResourceDetails({
 
   return (
     <YStack gap="$2" flex={1}>
-      <Progress size="medium" value={percentage} />
+      <Progress size="medium" value={percentage} minWidth={0} />
       <XStack justifyContent="space-between">
         <SizableText size="$bodySmMedium">{name}</SizableText>
         <XStack alignItems="center">
