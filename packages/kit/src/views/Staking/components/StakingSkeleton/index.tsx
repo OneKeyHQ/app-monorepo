@@ -33,7 +33,7 @@ const OverviewSkeletonItem = () => (
 );
 
 export const OverviewSkeleton = () => (
-  <Stack px="$5">
+  <Stack>
     <YStack>
       <Skeleton width={100} height={16} />
       <Stack h="$4" />

@@ -1,9 +1,11 @@
-import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Accordion,
   Alert,
   Button,
   Divider,
@@ -41,6 +43,8 @@ type IStakedValue = {
   stakedNumber: number;
   availableNumber: number;
   tokenSymbol: string;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 type IPortfolioValue = {
@@ -102,26 +106,40 @@ function StakedValue({
   stakedNumber = 0,
   availableNumber = 0,
   tokenSymbol,
+  stakeButtonProps,
+  withdrawButtonProps,
 }: IStakedValue) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
+  const media = useMedia();
   return (
-    <YStack pb="$8" px="$5">
-      <YStack h="$2" />
+    <YStack gap="$6">
       <YStack gap="$2">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
         </SizableText>
-        <NumberSizeableText
-          size="$heading4xl"
-          color={value === 0 ? '$textDisabled' : '$text'}
-          formatter="value"
-          formatterOptions={{ currency: '$' }}
-        >
-          {value || 0}
-        </NumberSizeableText>
+        <XStack gap="$2">
+          <NumberSizeableText
+            flex={1}
+            size="$heading4xl"
+            color={value === 0 ? '$textDisabled' : '$text'}
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {value || 0}
+          </NumberSizeableText>
+          {media.gtMd ? (
+            <XStack gap="$2">
+              <Button {...withdrawButtonProps}>
+                {intl.formatMessage({ id: ETranslations.global_withdraw })}
+              </Button>
+              <Button {...stakeButtonProps}>
+                {intl.formatMessage({ id: ETranslations.earn_stake })}
+              </Button>
+            </XStack>
+          ) : null}
+        </XStack>
       </YStack>
-      <YStack h="$6" />
       <YStack gap="$1.5">
         <YStack my="$1.5">
           <Progress
@@ -196,6 +214,7 @@ const PortfolioItem = ({
       </XStack>
       {tooltip ? (
         <Popover
+          placement="bottom"
           title={statusText}
           renderTrigger={
             <IconButton
@@ -256,7 +275,7 @@ function Portfolio({
         Number(claimable) < Number(minClaimableNum),
     );
     return (
-      <YStack pt="$3" pb="$8" gap="$6" px="$5">
+      <YStack gap="$6">
         <XStack justifyContent="space-between">
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: ETranslations.earn_portfolio })}
@@ -382,13 +401,21 @@ function GridItem({
     }
   }, [link]);
   return (
-    <YStack {...props}>
+    <YStack
+      p="$3"
+      flexBasis="50%"
+      $gtMd={{
+        flexBasis: '33.33%',
+      }}
+      {...props}
+    >
       <XStack gap="$1" mb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
         {tooltip ? (
           <Popover
+            placement="top"
             title={title}
             renderTrigger={
               <IconButton
@@ -424,20 +451,6 @@ export function Profit({
   rewardTokens,
   updateFrequency,
 }: IProfit) {
-  const { gtMd } = useMedia();
-  const gridItemStyle = useMemo(
-    () =>
-      gtMd
-        ? {
-            width: '33%',
-            pt: '$6',
-          }
-        : {
-            width: '50%',
-            pt: '$6',
-          },
-    [gtMd],
-  );
   const intl = useIntl();
 
   const [
@@ -446,17 +459,16 @@ export function Profit({
     },
   ] = useSettingsPersistAtom();
   return (
-    <YStack py="$8" px="$5">
+    <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack flexWrap="wrap">
+      <XStack flexWrap="wrap" m="$-5" p="$2">
         {apr && Number(apr) > 0 ? (
           <GridItem
             title={intl.formatMessage({
               id: ETranslations.earn_rewards_percentage,
             })}
-            {...gridItemStyle}
           >
             <SizableText size="$bodyLgMedium" color="$textSuccess">
               {`${apr}% ${intl.formatMessage({
@@ -465,17 +477,17 @@ export function Profit({
             </SizableText>
           </GridItem>
         ) : null}
-        {earningsIn24h ? (
+        {earningsIn24h && Number(earningsIn24h) > 0 ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
             tooltip={intl.formatMessage({
               id: ETranslations.earn_24h_earnings_tooltip,
             })}
-            {...gridItemStyle}
           >
             <NumberSizeableText
               formatter="value"
               color="$textSuccess"
+              size="$bodyLgMedium"
               formatterOptions={{ currency: symbol }}
             >
               {earningsIn24h}
@@ -485,7 +497,6 @@ export function Profit({
         {rewardTokens ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_reward_tokens })}
-            {...gridItemStyle}
           >
             {rewardTokens}
           </GridItem>
@@ -495,7 +506,6 @@ export function Profit({
             title={intl.formatMessage({
               id: ETranslations.earn_update_frequency,
             })}
-            {...gridItemStyle}
           >
             {updateFrequency}
           </GridItem>
@@ -511,51 +521,47 @@ export function Provider({
   untilNextLaunch,
   network,
 }: IProvider) {
-  const { gtMd } = useMedia();
-  const gridItemStyle = useMemo(
-    () =>
-      gtMd
-        ? {
-            width: '33%',
-            pt: '$6',
-          }
-        : {
-            width: '50%',
-            pt: '$6',
-          },
-    [gtMd],
-  );
   const intl = useIntl();
+  let minOrMaxStakingItem: { label: string; value: string } | undefined;
+  if (minOrMaxStaking) {
+    const { minValue, maxValue } = minOrMaxStaking;
+    if (maxValue && minValue) {
+      minOrMaxStakingItem = {
+        label: intl.formatMessage({
+          id: ETranslations.earn_min_max_staking,
+        }),
+        value: `${minValue}/${maxValue} ${minOrMaxStaking.token}`,
+      };
+    } else if (minValue) {
+      minOrMaxStakingItem = {
+        label: intl.formatMessage({
+          id: ETranslations.earn_min_staking,
+        }),
+        value: `${minValue} ${minOrMaxStaking.token}`,
+      };
+    }
+  }
+
   return (
-    <YStack py="$8" px="$5">
+    <YStack gap="$6">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
-      <XStack flexWrap="wrap">
+      <XStack flexWrap="wrap" m="$-5" p="$2">
         <GridItem
           title={
             validator.isProtocol
               ? intl.formatMessage({ id: ETranslations.global_protocol })
               : intl.formatMessage({ id: ETranslations.earn_validator })
           }
-          {...gridItemStyle}
           link={validator.link}
         >
           {capitalizeString(validator.name)}
         </GridItem>
-        {minOrMaxStaking ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_min_max_staking,
-            })}
-            {...gridItemStyle}
-          >
+        {minOrMaxStakingItem ? (
+          <GridItem title={minOrMaxStakingItem.label}>
             <SizableText size="$bodyLgMedium">
-              {minOrMaxStaking.minValue && minOrMaxStaking.maxValue
-                ? `${minOrMaxStaking.minValue}/${minOrMaxStaking.maxValue}${minOrMaxStaking.token}`
-                : `${
-                    minOrMaxStaking.minValue || minOrMaxStaking.maxValue || ''
-                  }${minOrMaxStaking.token}`}
+              {minOrMaxStakingItem.value}
             </SizableText>
           </GridItem>
         ) : null}
@@ -567,7 +573,6 @@ export function Provider({
             tooltip={intl.formatMessage({
               id: ETranslations.earn_until_next_launch_tooltip,
             })}
-            {...gridItemStyle}
           >
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage(
@@ -583,7 +588,6 @@ export function Provider({
         {network?.name ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.global_network })}
-            {...gridItemStyle}
           >
             {network.name}
           </GridItem>
@@ -593,52 +597,70 @@ export function Provider({
   );
 }
 
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [show, setShow] = useState(false);
-  const onToggle = useCallback(() => setShow((v) => !v), []);
-  return (
-    <YStack>
-      <XStack mb="$2" px="$2">
-        <XStack
-          flex={1}
-          hoverStyle={{ backgroundColor: '$bgHover' }}
-          pressStyle={{ backgroundColor: '$bgHover' }}
-          borderRadius={12}
-          onPress={onToggle}
-          py="$2"
-          px="$3"
-        >
-          <XStack flex={1}>
-            <SizableText size="$headingMd">{question}</SizableText>
-          </XStack>
-          <XStack>
-            <Icon
-              name={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            />
-          </XStack>
-        </XStack>
-      </XStack>
-      <XStack px="$5">
-        {show ? (
-          <SizableText size="$bodyMd" pb="$5">
-            {answer}
-          </SizableText>
-        ) : null}
-      </XStack>
-    </YStack>
-  );
-}
 function FAQ({ solutions }: { solutions: ISolutions }) {
   const intl = useIntl();
   return (
-    <YStack py="$8" gap="$6">
-      <SizableText size="$headingLg" px="$5">
+    <YStack gap="$6">
+      <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
-        {solutions.map(({ question, answer }, index) => (
-          <FAQItem question={question} answer={answer} key={String(index)} />
-        ))}
+        <Accordion type="multiple" gap="$2">
+          {solutions.map(({ question, answer }, index) => (
+            <Accordion.Item value={String(index)} key={String(index)}>
+              <Accordion.Trigger
+                unstyled
+                flexDirection="row"
+                alignItems="center"
+                borderWidth={0}
+                bg="$transparent"
+                px="$2"
+                py="$1"
+                mx="$-2"
+                my="$-1"
+                hoverStyle={{
+                  bg: '$bgHover',
+                }}
+                pressStyle={{
+                  bg: '$bgActive',
+                }}
+                borderRadius="$2"
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <SizableText
+                      textAlign="left"
+                      flex={1}
+                      size="$bodyLgMedium"
+                      color={open ? '$text' : '$textSubdued'}
+                    >
+                      {question}
+                    </SizableText>
+                    <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={open ? '$iconActive' : '$iconSubdued'}
+                        size="$5"
+                      />
+                    </Stack>
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator animation="quick">
+                <Accordion.Content
+                  unstyled
+                  pt="$2"
+                  pb="$5"
+                  animation="quick"
+                  enterStyle={{ opacity: 0 }}
+                  exitStyle={{ opacity: 0 }}
+                >
+                  <SizableText size="$bodyMd">{answer}</SizableText>
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          ))}
+        </Accordion>
       </YStack>
     </YStack>
   );
@@ -748,12 +770,6 @@ function NoAddressWarning({
 
   return (
     <Alert
-      mt="$3"
-      mx="$5"
-      fullBleed
-      borderRadius="$3"
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderCautionSubdued"
       type="warning"
       title={content.title}
       description={content.description}
@@ -790,6 +806,8 @@ type IProtocolDetails = {
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
+  stakeButtonProps?: ComponentProps<typeof Button>;
+  withdrawButtonProps?: ComponentProps<typeof Button>;
 };
 
 export function ProtocolDetails({
@@ -802,6 +820,8 @@ export function ProtocolDetails({
   onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
+  stakeButtonProps,
+  withdrawButtonProps,
 }: IProtocolDetails) {
   const intl = useIntl();
   const result: IEarnTokenDetailResult | null = useMemo(() => {
@@ -904,17 +924,20 @@ export function ProtocolDetails({
 
   const { stakedValue, portfolio, profit, provider } = result;
   return (
-    <YStack>
+    <>
       {earnAccount?.accountAddress ? (
         <>
-          <StakedValue {...stakedValue} />
+          <StakedValue
+            {...stakedValue}
+            stakeButtonProps={stakeButtonProps}
+            withdrawButtonProps={withdrawButtonProps}
+          />
           <Portfolio
             {...portfolio}
             onClaim={onClaim}
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />
-          <Divider mx="$5" />
         </>
       ) : (
         <NoAddressWarning
@@ -924,9 +947,12 @@ export function ProtocolDetails({
           onCreateAddress={onCreateAddress}
         />
       )}
+      <Divider />
       <Profit {...profit} />
+      <Divider />
       <Provider {...provider} />
+      <Divider />
       <FAQ solutions={solutions} />
-    </YStack>
+    </>
   );
 }

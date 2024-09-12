@@ -90,10 +90,8 @@ const StakePage = () => {
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () =>
-      provider.name.toLowerCase() === 'lido' &&
-      token.info.symbol.toLowerCase() === 'eth',
-    [provider, token],
+    () => provider.name.toLowerCase() === 'lido',
+    [provider],
   );
 
   return (
@@ -124,6 +122,7 @@ const StakePage = () => {
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
+          estReceiveTokenRate={provider.lidoStTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
         />

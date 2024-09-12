@@ -1,10 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
-import {
-  LazyLoadPage,
-  LazyLoadRootTabPage,
-} from '../../../components/LazyLoadPage';
+import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const EarnHome = LazyLoadRootTabPage(
   () => import('../../../views/Earn/EarnHome'),

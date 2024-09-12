@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -75,6 +75,11 @@ const WithdrawPage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
+  const showPayWith = useMemo<boolean>(
+    () => provider.name.toLowerCase() === 'lido',
+    [provider],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -97,6 +102,9 @@ const WithdrawPage = () => {
           withdrawMinAmount={details.minUnstakeAmount}
           unstakingPeriod={details.unstakingPeriod}
           providerLabel={providerLabel}
+          showPayWith={showPayWith}
+          payWithToken={details.rewardToken}
+          payWithTokenRate={provider.lidoStTokenRate}
         />
       </Page.Body>
     </Page>

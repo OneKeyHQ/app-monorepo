@@ -20,7 +20,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
-import { Banner } from './Banner';
+import { DashboardBanner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
 import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
 
@@ -97,7 +97,7 @@ function DashboardContent({
   const content = useMemo(
     () => (
       <>
-        <Banner
+        <DashboardBanner
           key="Banner"
           banners={
             Array.isArray(homePageData?.banners) ? homePageData?.banners : []

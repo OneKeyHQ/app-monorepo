@@ -52,6 +52,7 @@ type IUniversalStakeProps = {
 
   showEstReceive?: boolean;
   estReceiveToken?: string;
+  estReceiveTokenRate?: string;
 
   minStakeBlocks?: number;
   minStakeTerm?: number;
@@ -82,6 +83,7 @@ export const UniversalStake = ({
   isReachBabylonCap,
   showEstReceive,
   estReceiveToken,
+  estReceiveTokenRate = '1',
   isDisabled,
   maxAmount,
   onConfirm,
@@ -334,7 +336,9 @@ export const UniversalStake = ({
                   size="$bodyLgMedium"
                   formatterOptions={{ tokenSymbol: estReceiveToken }}
                 >
-                  {amountValue}
+                  {BigNumber(amountValue)
+                    .multipliedBy(estReceiveTokenRate)
+                    .toFixed()}
                 </NumberSizeableText>
               </SizableText>
             </ListItem>

@@ -193,6 +193,8 @@ PODS:
   - hermes-engine (0.73.7):
     - hermes-engine/Pre-built (= 0.73.7)
   - hermes-engine/Pre-built (0.73.7)
+  - ImageColors (2.4.0):
+    - ExpoModulesCore
   - IQKeyboardManagerSwift (6.5.11)
   - JCore (2.0.3):
     - React
@@ -1452,6 +1454,7 @@ DEPENDENCIES:
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - glog (from `../../../node_modules/react-native/third-party-podspecs/glog.podspec`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - ImageColors (from `../../../node_modules/react-native-image-colors/ios`)
   - JCore (from `../../../node_modules/jcore-react-native`)
   - JPush (from `../../../node_modules/jpush-react-native`)
   - libevent (~> 2.1.12)
@@ -1644,6 +1647,8 @@ EXTERNAL SOURCES:
   hermes-engine:
     :podspec: "../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2024-02-20-RNv0.73.5-18f99ace4213052c5e7cdbcd39ee9766cd5df7e4
+  ImageColors:
+    :path: "../../../node_modules/react-native-image-colors/ios"
   JCore:
     :path: "../../../node_modules/jcore-react-native"
   JPush:
@@ -1863,6 +1868,7 @@ SPEC CHECKSUMS:
   GoogleDataTransport: 6c09b596d841063d76d4288cc2d2f42cc36e1e2a
   GoogleUtilities: ea963c370a38a8069cc5f7ba4ca849a60b6d7d15
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
+  ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
   JCore: fd3304b14f32fdb8cc3999c58d4d8366fb50085f
   JPush: 0f2e50224c69fe5c2d6385776ed8c84e1b0727bd

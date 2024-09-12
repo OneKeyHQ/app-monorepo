@@ -325,13 +325,14 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
+  if (showPlusMinusSigns && !isNegativeNumber) {
+    strings.push('+');
+  }
+
   if (currency) {
     strings.push(currency);
   }
 
-  if (showPlusMinusSigns && !isNegativeNumber) {
-    strings.push('+');
-  }
   if (leadingZeros && leadingZeros > 4) {
     if (isNegativeNumber) {
       strings.push('-');

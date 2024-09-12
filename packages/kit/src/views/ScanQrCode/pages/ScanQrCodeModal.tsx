@@ -156,10 +156,10 @@ function ScanQrCodeModalFooter({
             <Icon name={item.icon} size="$5" color="$iconSubdued" />
           </Stack>
           <SizableText
+            flex={1}
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
-            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}

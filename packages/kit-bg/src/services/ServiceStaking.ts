@@ -21,6 +21,7 @@ import type {
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnAccountTokenResponse,
   IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
@@ -323,14 +324,21 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: { networkId?: string; symbol: string }) => {
-      const { symbol } = params;
+    async (params: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    }) => {
+      const { symbol, accountAddress, publicKey } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const protocolListResp = await client.get<{
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v1/stake-protocol/list', {
         params: {
           symbol: symbol.toUpperCase(),
+          accountAddress,
+          publicKey,
         },
       });
       const protocols = protocolListResp.data.data.protocols;
@@ -338,17 +346,39 @@ class ServiceStaking extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
   @backgroundMethod()
   async getProtocolList(params: {
-    networkId?: string;
     symbol: string;
+    networkId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
     filter?: boolean;
   }) {
-    let items = await this._getProtocolList(params);
+    const listParams: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    } = { symbol: params.symbol };
+    if (params.networkId && params.accountId) {
+      const earnAccount = await this.getEarnAccount({
+        accountId: params.accountId,
+        networkId: params.networkId,
+        indexedAccountId: params.indexedAccountId,
+      });
+      if (earnAccount) {
+        listParams.networkId = earnAccount.networkId;
+        listParams.accountAddress = earnAccount.accountAddress;
+        if (networkUtils.isBTCNetwork(listParams.networkId)) {
+          listParams.publicKey = earnAccount.account.pub;
+        }
+      }
+    }
+    let items = await this._getProtocolList(listParams);
     if (params.filter && params.networkId) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
@@ -407,19 +437,32 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountAsset(params: {
-    networkId: string;
-    accountAddress: string;
-    publicKey?: string;
-  }) {
+  async getAccountAsset(
+    params: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[],
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<{
+    const response = await client.post<{
       data: IEarnAccountResponse;
-    }>(`/earn/v1/get-account`, { params });
-    return {
-      ...params,
-      earn: resp.data.data,
+    }>(`/earn/v1/account/list`, { accounts: params });
+    const resp = response.data.data;
+    const result: IEarnAccountTokenResponse = {
+      totalFiatValue: resp.totalFiatValue,
+      earnings24h: resp.earnings24h,
+      accounts: [],
     };
+
+    for (const account of params) {
+      result.accounts.push({
+        ...account,
+        tokens:
+          resp.tokens?.filter((i) => i.networkId === account.networkId) || [],
+      });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -458,20 +501,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.map((item) => [JSON.stringify(item), item]),
       ).values(),
     );
-
-    const resp = await Promise.allSettled(
-      uniqueAccountParams.map((params) => this.getAccountAsset(params)),
-    );
-    return (
-      resp.filter((v) => v.status === 'fulfilled') as {
-        value: {
-          earn: IEarnAccountResponse;
-          networkId: string;
-          accountAddress: string;
-          publicKey?: string;
-        };
-      }[]
-    ).map((i) => i.value);
+    return this.getAccountAsset(uniqueAccountParams);
   }
 
   @backgroundMethod()

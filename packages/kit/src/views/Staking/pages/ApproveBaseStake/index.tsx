@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -42,7 +42,7 @@ const ApproveBaseStakePage = () => {
         },
         symbol: token.info.symbol.toUpperCase(),
         provider: provider.name,
-        onSuccess: (txs) => {
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: token.info,
@@ -54,6 +54,12 @@ const ApproveBaseStakePage = () => {
     [token, appNavigation, handleStake, provider, actionTag],
   );
   const intl = useIntl();
+
+  const showEstReceive = useMemo<boolean>(
+    () => provider.name.toLowerCase() === 'lido',
+    [provider],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -74,6 +80,9 @@ const ApproveBaseStakePage = () => {
           currentAllowance={currentAllowance}
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}
+          showEstReceive={showEstReceive}
+          estReceiveToken={details.rewardToken}
+          estReceiveTokenRate={provider.lidoStTokenRate}
           approveTarget={{
             accountId,
             networkId,

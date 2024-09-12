@@ -130,7 +130,12 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
           </Stack>
         </XStack>
         <XStack p={14} bg="$bgSubdued" alignItems="center">
-          <Icon name="Calendar2Outline" />
+          <Icon
+            width={20}
+            height={20}
+            name="Calendar2Outline"
+            color="$iconSubdued"
+          />
           <XStack w="$1.5" />
           <SizableText size="$bodyMd">
             {`${intl.formatMessage(
