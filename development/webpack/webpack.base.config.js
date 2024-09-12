@@ -216,7 +216,7 @@ module.exports = ({ platform, basePath, configName }) => ({
                   ),
                   components: ['tamagui'],
                   importsWhitelist: [],
-                  logTimings: true,
+                  logTimings: false,
                   disableExtraction: isDev,
                 },
               },
