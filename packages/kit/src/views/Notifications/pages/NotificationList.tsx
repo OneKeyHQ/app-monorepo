@@ -10,6 +10,7 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -145,14 +146,30 @@ function NotificationList() {
       />
       <Page.Body>
         {isLoading && !result?.length ? (
-          <Stack pt={240} justifyContent="center" alignItems="center">
-            <Spinner size="large" />
+          <Stack gap="$1.5" px="$5">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Stack key={index} gap="$1" py="$2">
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$16" />
+                </Stack>
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$48" />
+                </Stack>
+              </Stack>
+            ))}
           </Stack>
         ) : (
           <>
             {!result?.length ? (
               <Empty
-                title={intl.formatMessage({ id: ETranslations.global_no_data })}
+                pt={170}
+                icon="BellOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.notifications_empty_title,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.notifications_empty_desc,
+                })}
               />
             ) : null}
             {result.map((item, index) => (
