@@ -24,6 +24,9 @@ import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteActionLockAtom,
+  useSwapQuoteEventTotalCountAtom,
+  useSwapQuoteFetchingAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
@@ -49,10 +52,27 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
+    useSwapQuoteEventTotalCountAtom();
+  const [swapQuoteFetching] = useSwapQuoteFetchingAtom();
+  const { closeQuoteEvent } = useSwapActions().current;
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
+  const swapQuoteFetchingRef = useRef(swapQuoteFetching);
+  if (swapQuoteFetchingRef.current !== swapQuoteFetching) {
+    swapQuoteFetchingRef.current = swapQuoteFetching;
+  }
+  const swapQuoteResultListRef = useRef(swapQuoteResultList);
+  if (swapQuoteResultListRef.current !== swapQuoteResultList) {
+    swapQuoteResultListRef.current = swapQuoteResultList;
+  }
+  const swapQuoteEventTotalCountRef = useRef(swapQuoteEventTotalCount);
+  if (swapQuoteEventTotalCountRef.current !== swapQuoteEventTotalCount) {
+    swapQuoteEventTotalCountRef.current = swapQuoteEventTotalCount;
+  }
   if (swapQuoteActionLockRef.current !== swapQuoteActionLock) {
     swapQuoteActionLockRef.current = swapQuoteActionLock;
   }
@@ -239,6 +259,18 @@ export function useSwapQuote() {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         } else if (isHiddenModel) {
+          if (
+            swapQuoteFetchingRef.current ||
+            (swapQuoteEventTotalCountRef.current > 0 &&
+              swapQuoteResultListRef.current.length <
+                swapQuoteEventTotalCountRef.current)
+          ) {
+            // reset tab quote data when swap modal is open and tab quote data is fetching
+            closeQuoteEvent();
+            setSwapQuoteEventTotalCount(0);
+            setSwapQuoteResultList([]);
+            setFromTokenAmount('');
+          }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         } else {
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
