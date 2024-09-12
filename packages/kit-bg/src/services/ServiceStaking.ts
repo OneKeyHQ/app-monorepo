@@ -382,7 +382,29 @@ class ServiceStaking extends ServiceBase {
     if (params.filter && params.networkId) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
-    return items;
+
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const showAllStakingProviders =
+      devSetting?.settings?.showAllStakingProviders;
+
+    const itemsWithEnabledStatus = await Promise.all(
+      items.map(async (item) => {
+        const stakingConfig = await this.getStakingConfigs({
+          networkId: item.network.networkId,
+          symbol: params.symbol,
+          provider: item.provider.name,
+        });
+        const isEnabled =
+          stakingConfig && (showAllStakingProviders || stakingConfig.enabled);
+        return { item, isEnabled };
+      }),
+    );
+
+    const enabledItems = itemsWithEnabledStatus
+      .filter(({ isEnabled }) => isEnabled)
+      .map(({ item }) => item);
+    return enabledItems;
   }
 
   @backgroundMethod()
@@ -544,7 +566,7 @@ class ServiceStaking extends ServiceBase {
   }) {
     const providerKey = earnUtils.getEarnProviderEnumKey(provider);
     if (!providerKey) {
-      throw new Error('Invalid provider');
+      return null;
     }
 
     const vaultSettings =
@@ -598,11 +620,17 @@ class ServiceStaking extends ServiceBase {
       ([, providerConfig]) => providerConfig !== undefined,
     );
 
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const showAllStakingProviders =
+      devSetting?.settings?.showAllStakingProviders;
+
     for (const [provider, providerConfig] of providerEntries) {
       const symbolEntry = Object.entries(providerConfig.configs).find(
         ([, config]) =>
           config &&
-          config.tokenAddress.toLowerCase() === normalizedTokenAddress,
+          config.tokenAddress.toLowerCase() === normalizedTokenAddress &&
+          (showAllStakingProviders || config.enabled),
       );
 
       if (symbolEntry) {

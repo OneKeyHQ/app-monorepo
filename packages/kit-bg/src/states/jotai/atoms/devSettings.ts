@@ -12,6 +12,8 @@ export interface IDevSettings {
   alwaysSignOnlySendTx?: boolean;
   // show dev export private key
   showDevExportPrivateKey?: boolean;
+  // show all staking providers
+  showAllStakingProviders?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

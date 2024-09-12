@@ -134,6 +134,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['BTC'],
           configs: {
             'BTC': {
+              enabled: false,
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
               withdrawWithTx: true,

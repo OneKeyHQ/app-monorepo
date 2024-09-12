@@ -101,6 +101,10 @@ export function useUniversalWithdraw({
           symbol,
           provider,
         });
+      if (!stakingConfig) {
+        throw new Error('Staking config not found');
+      }
+
       if (stakingConfig?.unstakeWithSignMessage) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
