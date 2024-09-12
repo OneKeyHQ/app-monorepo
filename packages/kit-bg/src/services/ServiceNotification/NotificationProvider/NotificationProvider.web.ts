@@ -7,11 +7,11 @@ import type {
   INotificationShowResult,
 } from '@onekeyhq/shared/types/notification';
 
-import NotificationProviderBase from './NotificationProviderBase';
+import NotificationProviderBase, { INotificationProviderBaseOptions } from './NotificationProviderBase';
 
 export default class NotificationProviderWeb extends NotificationProviderBase {
-  constructor() {
-    super();
+  constructor(options: INotificationProviderBaseOptions) {
+    super(options);
     console.log('NotificationProviderWeb constructor');
     // this.initWebSocketProvider();
   }

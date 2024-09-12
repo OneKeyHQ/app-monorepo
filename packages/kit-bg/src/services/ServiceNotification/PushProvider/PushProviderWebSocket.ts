@@ -92,6 +92,10 @@ export class PushProviderWebSocket extends PushProviderBase {
       );
     });
 
+    this.socket.on('ping', (payload) => {
+      this.socket?.emit('pong', payload);
+    });
+
     this.socket.on('notification', (message: INotificationPushMessageInfo) => {
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 收到 notification 消息:',

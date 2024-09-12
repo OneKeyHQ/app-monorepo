@@ -143,7 +143,7 @@ function NotificationList() {
         headerRight={renderHeaderRight}
       />
       <Page.Body>
-        {isLoading ? (
+        {isLoading && !result?.length ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
           </Stack>

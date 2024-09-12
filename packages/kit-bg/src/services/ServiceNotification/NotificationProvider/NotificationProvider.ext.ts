@@ -17,11 +17,11 @@ import {
   EPushProviderEventNames,
 } from '@onekeyhq/shared/types/notification';
 
-import NotificationProviderBase from './NotificationProviderBase';
+import NotificationProviderBase, { INotificationProviderBaseOptions } from './NotificationProviderBase';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor() {
-    super();
+  constructor(options: INotificationProviderBaseOptions) {
+    super(options);
     this.initWebSocketProvider();
     this.addNotificationListeners();
   }
