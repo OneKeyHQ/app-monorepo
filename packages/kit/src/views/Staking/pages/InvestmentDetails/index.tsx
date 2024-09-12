@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Empty,
+  Heading,
   Icon,
   Image,
   NumberSizeableText,
@@ -42,18 +44,17 @@ import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 
 function ListSkeletonItem() {
   return (
-    <ListItem
-      drillIn
-      px={0}
-      mx={0}
-      renderAvatar={<Skeleton w="$10" h="$10" radius="round" />}
-      renderItemText={
-        <YStack flex={1} justifyContent="space-between" h="$10">
-          <Skeleton h="$4" w={80} borderRadius="$3" />
-          <Skeleton h="$4" w={120} borderRadius="$3" />
+    <ListItem>
+      <Skeleton w="$10" h="$10" radius="round" />
+      <YStack>
+        <YStack py="$1">
+          <Skeleton h="$4" w={120} borderRadius="$2" />
         </YStack>
-      }
-    />
+        <YStack py="$1">
+          <Skeleton h="$3" w={80} borderRadius="$2" />
+        </YStack>
+      </YStack>
+    </ListItem>
   );
 }
 
@@ -61,7 +62,7 @@ const isTrue = (value: number | string) => Number(value) > 0;
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [{ accounts }] = useEarnAtom();
+  const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -72,7 +73,7 @@ function BasicInvestmentDetails() {
         accountInfo.activeAccount?.account?.id,
         accountInfo.activeAccount?.network?.id,
       );
-      const list = accounts?.[totalFiatMapKey] || [];
+      const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
       return list.length
         ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
             list.map(({ networkId, accountAddress, publicKey }) => ({
@@ -88,8 +89,8 @@ function BasicInvestmentDetails() {
     [
       accountInfo.activeAccount?.account?.id,
       accountInfo.activeAccount?.network?.id,
-      accounts,
       actions,
+      earnAccount,
     ],
     {
       watchLoading: true,
@@ -119,9 +120,8 @@ function BasicInvestmentDetails() {
       item: IInvestment & { providerName: string };
     }) => (
       <ListItem
+        userSelect="none"
         drillIn
-        mx={0}
-        px="$5"
         onPress={() => {
           const {
             activeAccount: { account, indexedAccount },
@@ -203,32 +203,30 @@ function BasicInvestmentDetails() {
         <SectionList
           ListEmptyComponent={
             isLoading ? (
-              <YStack px="$4">
-                <XStack gap="$1.5" py="$3">
-                  <Skeleton width="$5" height="$5" radius="round" />
-                  <Skeleton h="$5" w={80} borderRadius="$3" />
+              <YStack>
+                <XStack px="$5" gap="$3" py="$3">
+                  <Skeleton width="$6" height="$6" radius="round" />
+                  <YStack py="$1">
+                    <Skeleton h="$3" w={80} borderRadius="$2" />
+                  </YStack>
                 </XStack>
                 <ListSkeletonItem />
                 <ListSkeletonItem />
                 <ListSkeletonItem />
               </YStack>
             ) : (
-              <YStack flex={1} alignItems="center">
-                <Icon size="$16" mt="$5" name="ClockTimeHistoryOutline" />
-                <SizableText mt="$6" size="$headingXl">
-                  {intl.formatMessage({ id: ETranslations.earn_no_orders })}
-                </SizableText>
-                <SizableText mt="$2" size="$bodyLg" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_no_orders_desc,
-                  })}
-                </SizableText>
-              </YStack>
+              <Empty
+                pt={180}
+                icon="ClockTimeHistoryOutline"
+                title={intl.formatMessage({ id: ETranslations.earn_no_orders })}
+                description={intl.formatMessage({
+                  id: ETranslations.earn_no_orders_desc,
+                })}
+              />
             )
           }
           renderItem={renderItem}
           sections={sectionData}
-          py="$3"
           renderSectionHeader={({
             section: { title, logoURI },
           }: {
@@ -237,8 +235,8 @@ function BasicInvestmentDetails() {
               logoURI: string;
             };
           }) => (
-            <XStack px="$5" gap="$1.5" py="$3">
-              <Image height="$5" width="$5" borderRadius="$1">
+            <XStack px="$5" gap="$3" py="$3" alignItems="center">
+              <Image height="$6" width="$6" borderRadius="$1">
                 <Image.Source
                   source={{
                     uri: logoURI,
@@ -253,9 +251,9 @@ function BasicInvestmentDetails() {
                   <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
                 </Image.Fallback>
               </Image>
-              <SizableText color="$textSubdued" size="$bodyMdMedium">
+              <Heading color="$textSubdued" size="$headingSm">
                 {`${title.charAt(0).toUpperCase()}${title.slice(1)}`}
-              </SizableText>
+              </Heading>
             </XStack>
           )}
           estimatedItemSize={60}

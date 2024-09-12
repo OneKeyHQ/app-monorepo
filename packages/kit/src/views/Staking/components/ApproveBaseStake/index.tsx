@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -41,6 +42,10 @@ type IApproveBaseStakeProps = {
   minAmount?: string;
   decimals?: number;
 
+  showEstReceive?: boolean;
+  estReceiveToken?: string;
+  estReceiveTokenRate?: string;
+
   providerName?: string;
   providerLogo?: string;
   onConfirm?: (amount: string) => Promise<void>;
@@ -60,6 +65,10 @@ export const ApproveBaseStake = ({
   providerLogo,
   onConfirm,
   approveTarget,
+
+  showEstReceive,
+  estReceiveToken,
+  estReceiveTokenRate = '1',
 }: PropsWithChildren<IApproveBaseStakeProps>) => {
   const intl = useIntl();
   const { navigationToSendConfirm } = useSendConfirm({
@@ -269,6 +278,24 @@ export const ApproveBaseStake = ({
               titleProps={fieldTitleProps}
             >
               {estAnnualRewards}
+            </ListItem>
+          ) : null}
+          {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              titleProps={fieldTitleProps}
+            >
+              <SizableText>
+                <NumberSizeableText
+                  formatter="balance"
+                  size="$bodyLgMedium"
+                  formatterOptions={{ tokenSymbol: estReceiveToken }}
+                >
+                  {BigNumber(amountValue)
+                    .multipliedBy(estReceiveTokenRate)
+                    .toFixed()}
+                </NumberSizeableText>
+              </SizableText>
             </ListItem>
           ) : null}
           {apr && Number(apr) > 0 ? (
