@@ -194,14 +194,26 @@ class ProviderApiAlph extends ProviderApiBase {
     return this.wrapperConnectAccount(accountsInfo[0]);
   }
 
+  private parseParams<T>(paramsString: string | T): T {
+    if (typeof paramsString === 'string') {
+      try {
+        return JSON.parse(paramsString) as T;
+      } catch (error) {
+        return paramsString as unknown as T;
+      }
+    }
+    return paramsString;
+  }
+
   @permissionRequired()
   @providerApiMethod()
   public async signAndSubmitTransferTx(
     request: IJsBridgeMessagePayload,
-    params: SignTransferTxParams,
+    paramsString: string | SignTransferTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
+    const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
     const result =
@@ -239,10 +251,11 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitDeployContractTx(
     request: IJsBridgeMessagePayload,
-    params: SignDeployContractTxParams,
+    paramsString: string | SignDeployContractTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
+    const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
     const encodedTx = {
@@ -277,14 +290,14 @@ class ProviderApiAlph extends ProviderApiBase {
     return res;
   }
 
-  @permissionRequired()
   @providerApiMethod()
   public async signAndSubmitExecuteScriptTx(
     request: IJsBridgeMessagePayload,
-    params: SignExecuteScriptTxParams,
+    paramsString: string | SignExecuteScriptTxParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
+    const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
     const result =
@@ -361,8 +374,9 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitUnsignedTx(
     request: IJsBridgeMessagePayload,
-    params: SignUnsignedTxParams,
+    paramsString: string | SignUnsignedTxParams,
   ) {
+    const params = this.parseParams(paramsString);
     return this._signUnsignedTx(request, params, false);
   }
 
@@ -370,8 +384,9 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signUnsignedTx(
     request: IJsBridgeMessagePayload,
-    params: SignUnsignedTxParams,
+    paramsString: string | SignUnsignedTxParams,
   ) {
+    const params = this.parseParams(paramsString);
     return this._signUnsignedTx(request, params, true);
   }
 
@@ -379,9 +394,11 @@ class ProviderApiAlph extends ProviderApiBase {
   @providerApiMethod()
   public async signMessage(
     request: IJsBridgeMessagePayload,
-    params: SignMessageParams,
+    paramsString: string | SignMessageParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
 

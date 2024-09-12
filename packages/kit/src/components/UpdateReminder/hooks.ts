@@ -15,13 +15,13 @@ import {
   installPackage,
   verifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useAppChangeLog = (version?: string) => {
   const response = usePromiseResult(
