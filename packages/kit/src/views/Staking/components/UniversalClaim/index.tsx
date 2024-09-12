@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  NumberSizeableText,
+  Image,
   Page,
   SizableText,
   Stack,
@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -54,7 +53,7 @@ export const UniversalClaim = ({
   decimals,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
-  const price = !inputPrice || Number.isNaN(inputPrice) ? '0' : inputPrice;
+  const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
@@ -129,22 +128,23 @@ export const UniversalClaim = ({
   );
 
   const receiving = useMemo(() => {
-    const amountValueBN = BigNumber(amountValue);
-    if (amountValueBN.isNaN()) return null;
-    const receivingAmount = amountValueBN.dividedBy(rate).toFixed();
-    const receivingValue = amountValueBN
-      .multipliedBy(price)
-      .dividedBy(rate)
-      .toFixed();
-    return (
-      <ValuePriceListItem
-        amount={receivingAmount}
-        fiatSymbol={symbol}
-        fiatValue={receivingValue}
-        tokenSymbol={symbol}
-      />
-    );
-  }, [amountValue, price, symbol, rate]);
+    if (Number(amountValue) > 0) {
+      const receivingAmount = BigNumber(amountValue).dividedBy(rate);
+      return (
+        <ValuePriceListItem
+          amount={receivingAmount.toFixed()}
+          fiatSymbol={symbol}
+          fiatValue={
+            Number(price) > 0
+              ? receivingAmount.multipliedBy(price).dividedBy(rate).toFixed()
+              : undefined
+          }
+          tokenSymbol={tokenSymbol ?? ''}
+        />
+      );
+    }
+    return null;
+  }, [amountValue, price, tokenSymbol, rate, symbol]);
   const intl = useIntl();
 
   const editable = initialAmount === undefined;
@@ -208,22 +208,6 @@ export const UniversalClaim = ({
             {receiving}
           </ListItem>
         ) : null}
-        {amountValue ? (
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.earn_pay_with })}
-            titleProps={fieldTitleProps}
-          >
-            <SizableText>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
-            </SizableText>
-          </ListItem>
-        ) : null}
         {providerName && providerLogo ? (
           <ListItem
             title={
@@ -233,7 +217,12 @@ export const UniversalClaim = ({
             titleProps={fieldTitleProps}
           >
             <XStack gap="$2" alignItems="center">
-              <Token size="xs" tokenImageUri={providerLogo} />
+              <Image
+                width="$5"
+                height="$5"
+                src={providerLogo}
+                borderRadius="$2"
+              />
               <SizableText size="$bodyLgMedium">
                 {capitalizeString(providerName)}
               </SizableText>

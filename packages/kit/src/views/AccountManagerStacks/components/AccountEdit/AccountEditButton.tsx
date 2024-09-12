@@ -184,6 +184,7 @@ function AccountEditButtonView({
           />
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
+              testID={`popover-export-private-key-${name}`}
               icon="KeyOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -197,6 +198,7 @@ function AccountEditButtonView({
           ) : null}
           {exportKeysVisible?.showExportPublicKey ? (
             <AccountExportPrivateKeyButton
+              testID={`popover-export-public-key-${name}`}
               icon="PasswordOutline"
               accountName={name}
               indexedAccount={indexedAccount}
@@ -246,7 +248,12 @@ function AccountEditButtonView({
   return (
     <ActionList
       title={name}
-      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
+      renderTrigger={
+        <ListItem.IconButton
+          testID={`account-item-edit-button-${name}`}
+          icon="DotHorOutline"
+        />
+      }
       renderItemsAsync={renderItems}
       estimatedContentHeight={estimatedContentHeight}
     />

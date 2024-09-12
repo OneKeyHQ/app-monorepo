@@ -151,11 +151,18 @@ class ProviderApiScdo extends ProviderApiBase {
         signOnly: !isSend,
       });
 
+    if (!result.signature) {
+      throw web3Errors.provider.custom({
+        code: 4001,
+        message: 'Failed to sign transaction',
+      });
+    }
+
     const tx = {
       Data: encodedTx,
       Hash: result.txid,
       Signature: {
-        Sig: result.signature,
+        Sig: Buffer.from(result.signature, 'hex').toString('base64'),
       },
     };
 

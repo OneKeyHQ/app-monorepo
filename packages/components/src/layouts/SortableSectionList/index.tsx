@@ -294,35 +294,16 @@ function BaseSortableSectionList<T>(
       });
 
       reloadSections.forEach((layoutItem, index) => {
-        let reloadSectionIndex = layoutItem.sectionIndex;
-        let itemIndex = 0;
-        if (layoutItem.type === ESectionLayoutType.Footer) {
-          itemIndex = Math.max(
-            0,
-            (sections?.[layoutItem?.index]?.data?.length ?? 0) - 1,
-          );
-        } else if (layoutItem.type === ESectionLayoutType.Item) {
-          itemIndex = layoutItem.index;
-        } else {
-          reloadSectionIndex = Math.max(0, layoutItem.index - 1);
-          itemIndex =
-            layoutItem.index === 0
-              ? 0
-              : Math.max(
-                  0,
-                  (sections?.[reloadSectionIndex]?.data?.length ?? 0) - 1,
-                );
-        }
         if (result.from === index) {
           fromIndex = {
-            sectionIndex: reloadSectionIndex,
-            itemIndex,
+            sectionIndex: layoutItem.sectionIndex,
+            itemIndex: layoutItem.index,
           };
         }
-        if (result.to === index) {
+        if (result.to === index && allowCrossSection) {
           toIndex = {
-            sectionIndex: reloadSectionIndex,
-            itemIndex,
+            sectionIndex: layoutItem.sectionIndex,
+            itemIndex: layoutItem.index,
           };
         }
       });

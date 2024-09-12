@@ -6,6 +6,8 @@ import { StyleSheet } from 'react-native';
 
 import {
   Badge,
+  Dialog,
+  IconButton,
   ListView,
   Page,
   SizableText,
@@ -33,6 +35,8 @@ import {
 } from '../../components/PageFrame';
 import { capitalizeString } from '../../utils/utils';
 
+import { AssetProtocolContent } from './AssetProtocolIntro';
+
 function formatNumber(num: number): string {
   if (num >= 1_000_000_000) {
     return `${(num / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
@@ -45,6 +49,26 @@ function formatNumber(num: number): string {
   }
   return num.toFixed(2);
 }
+
+const AssetProtocolIntroButton = () => {
+  const intl = useIntl();
+  const onPress = useCallback(() => {
+    Dialog.show({
+      renderContent: <AssetProtocolContent />,
+      showConfirmButton: false,
+      onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
+      cancelButtonProps: { size: 'small' },
+    });
+  }, [intl]);
+  return (
+    <IconButton
+      icon="InfoCircleOutline"
+      size="small"
+      variant="tertiary"
+      onPress={onPress}
+    />
+  );
+};
 
 const AssetProtocolListContent = ({
   items,
@@ -169,10 +193,14 @@ const AssetProtocolList = () => {
     { watchLoading: true },
   );
   const intl = useIntl();
+
+  const headerRight = useCallback(() => <AssetProtocolIntroButton />, []);
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.provider_title })}
+        headerRight={headerRight}
       />
       <Page.Body>
         <PageFrame

@@ -52,6 +52,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -461,7 +462,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         | undefined;
       subTitleInfo: { address: string | undefined; isEmptyAddress: boolean };
     }) => {
-      if (linkNetwork) return null;
+      if (platformEnv.isE2E || linkNetwork) return null;
 
       return (
         <>
@@ -575,13 +576,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               </>
             )}
             renderItem={({
-              index,
               item,
               section,
+              index,
             }: {
-              index: number;
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
+              index: number;
             }) => {
               const account = isOthersUniversal
                 ? (item as IDBAccount)
@@ -660,6 +661,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
 
               return (
                 <ListItem
+                  testID={`account-item-index-${index}`}
                   key={item.id}
                   renderAvatar={
                     <AccountAvatar
@@ -755,6 +757,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               // editable mode and not searching, can add account
               isEditableRouteParams && !searchText ? (
                 <ListItem
+                  testID="account-add-account"
                   onPress={async () => {
                     if (isOthersUniversal) {
                       if (section.walletId === WALLET_TYPE_WATCHING) {

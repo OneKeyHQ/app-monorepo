@@ -4,6 +4,7 @@ import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
+  INativeNotificationCenterMessageInfo,
   INotificationPermissionDetail,
   INotificationRemoveParams,
   INotificationSetBadgeParams,
@@ -14,16 +15,25 @@ import type {
 import { NotificationEventEmitter } from '../NotificationEventEmitter';
 import { PushProviderWebSocket } from '../PushProvider/PushProviderWebSocket';
 
+export type INotificationProviderBaseOptions = {
+  disabledWebSocket?: boolean;
+  disabledJPush?: boolean;
+};
 export default abstract class NotificationProviderBase {
-  constructor() {
-    console.log('NotificationProviderBase constructor');
+  constructor(options: INotificationProviderBaseOptions) {
+    this.options = options;
   }
+
+  options: INotificationProviderBaseOptions;
 
   eventEmitter: NotificationEventEmitter = new NotificationEventEmitter();
 
   webSocketProvider: PushProviderWebSocket | undefined;
 
   initWebSocketProvider() {
+    if (this.options.disabledWebSocket) {
+      return;
+    }
     this.webSocketProvider = new PushProviderWebSocket({
       eventEmitter: this.eventEmitter,
     });
@@ -60,5 +70,11 @@ export default abstract class NotificationProviderBase {
     params.notificationId = params.notificationId || generateUUID();
     params.time = params.time || Date.now();
     return params;
+  }
+
+  async getNativeNotifications(): Promise<
+    INativeNotificationCenterMessageInfo[]
+  > {
+    return [];
   }
 }

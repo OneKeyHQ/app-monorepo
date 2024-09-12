@@ -17,6 +17,7 @@ export function SearchBar({
   value: defaultValue,
   onChangeText,
   onSearchTextChange,
+  testID,
   ...rest
 }: ISearchBarProps) {
   const [value, setValue] = useState(defaultValue ?? '');
@@ -78,13 +79,13 @@ export function SearchBar({
           {
             iconName: 'XCircleOutline',
             onPress: handleClearValue,
-            testID: `${rest.testID || ''}-clear`,
+            testID: `${testID || ''}-clear`,
           },
         ],
       })}
       returnKeyType="search"
       returnKeyLabel="Search"
-      testID="nav-header-search"
+      testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
       {...rest}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}

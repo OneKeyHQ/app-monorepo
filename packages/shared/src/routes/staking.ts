@@ -28,14 +28,12 @@ export type IModalStakingParamList = {
     details?: IStakeProtocolDetails;
   };
   [EModalStakingRoutes.Stake]: IBaseRouteParams & {
-    minTransactionFee?: string;
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;
     onSuccess?: () => void;
   };
   [EModalStakingRoutes.ApproveBaseStake]: IBaseRouteParams & {
-    minTransactionFee?: string;
     symbol: string;
     provider: string;
     details: IStakeProtocolDetails;

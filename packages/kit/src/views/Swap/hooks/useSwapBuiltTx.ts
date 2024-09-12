@@ -29,6 +29,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -45,8 +46,10 @@ export function useSwapBuildTx() {
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
+  const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const [inAppNotificationAtom, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -79,11 +82,13 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         setSwapFromTokenAmount(''); // send success, clear from token amount
         setSwapQuoteResultList([]);
+        setSwapQuoteEventTotalCount(0);
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
         const { swapInfo } = transactionSignedInfo;
-        const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
+        const { totalFeeInNative, totalFeeFiatValue, networkId } =
+          transactionDecodedInfo;
         if (swapInfo) {
           await generateSwapHistoryItem({
             txId,
@@ -91,6 +96,17 @@ export function useSwapBuildTx() {
             gasFeeInNative: totalFeeInNative,
             swapTxInfo: swapInfo,
           });
+          if (
+            swapInfo.sender.token.networkId ===
+            swapInfo.receiver.token.networkId
+          ) {
+            void backgroundApiProxy.serviceNotification.blockNotificationForTxId(
+              {
+                networkId,
+                tx: txId,
+              },
+            );
+          }
         }
       }
       setSwapBuildTxFetching(false);
@@ -100,6 +116,7 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching,
       setSwapFromTokenAmount,
       setSwapQuoteResultList,
+      setSwapQuoteEventTotalCount,
     ],
   );
 
@@ -108,6 +125,17 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         const transactionSignedInfo = data[0].signedTx;
         const txId = transactionSignedInfo.txid;
+        if (
+          inAppNotificationAtom.swapApprovingTransaction &&
+          !inAppNotificationAtom.swapApprovingTransaction.resetApproveValue
+        ) {
+          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
+            networkId:
+              inAppNotificationAtom.swapApprovingTransaction.fromToken
+                .networkId,
+            tx: txId,
+          });
+        }
         setInAppNotificationAtom((prev) => {
           if (prev.swapApprovingTransaction) {
             return {
@@ -122,7 +150,7 @@ export function useSwapBuildTx() {
         });
       }
     },
-    [setInAppNotificationAtom],
+    [inAppNotificationAtom.swapApprovingTransaction, setInAppNotificationAtom],
   );
 
   const handleTxFail = useCallback(() => {

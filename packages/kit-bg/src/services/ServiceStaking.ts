@@ -18,6 +18,7 @@ import type {
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
   IEarnFAQList,
@@ -194,6 +195,23 @@ class ServiceStaking extends ServiceBase {
       data: IStakeTxResponse;
     }>(`/earn/v1/unstake/push`, {
       accountAddress: acc.address,
+      networkId,
+      ...rest,
+    });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async babylonClaimRecord(params: IClaimRecordParams) {
+    const { networkId, accountId, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const acc = await vault.getAccount();
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v1/claim/record`, {
+      accountAddress: acc.address,
+      publicKey: acc.pub,
       networkId,
       ...rest,
     });

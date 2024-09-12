@@ -1,4 +1,4 @@
-import { debounce, isNumber, merge, uniqBy } from 'lodash';
+import { debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import {
@@ -41,7 +41,9 @@ import {
 
 import {
   notificationsAtom,
+  notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
+  settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -76,10 +78,14 @@ export default class ServiceNotification extends ServiceBase {
 
   _notificationProvider: NotificationProviderBase | undefined;
 
-  get notificationProvider(): NotificationProviderBase {
+  async getNotificationProvider(): Promise<NotificationProviderBase> {
     if (!this._notificationProvider) {
-      // TODO init and use shared eventEmitter here
-      this._notificationProvider = new NotificationProvider();
+      const { disabledWebSocket, disabledJPush } =
+        await notificationsDevSettingsPersistAtom.get();
+      this._notificationProvider = new NotificationProvider({
+        disabledWebSocket,
+        disabledJPush,
+      });
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.ws_connected,
         this.onPushProviderConnected,
@@ -109,12 +115,17 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   init() {
-    return InteractionManager.runAfterInteractions(
-      () => this.notificationProvider,
+    return InteractionManager.runAfterInteractions(() =>
+      this.getNotificationProvider(),
     );
   }
 
   pushClient: INotificationPushClient = {};
+
+  @backgroundMethod()
+  async getPushClient() {
+    return this.pushClient;
+  }
 
   onPushProviderConnected = async ({
     jpushId,
@@ -136,30 +147,45 @@ export default class ServiceNotification extends ServiceBase {
   onNotificationReceived = async (
     messageInfo: INotificationPushMessageInfo,
   ) => {
+    const { showMessagePushSource } =
+      await notificationsDevSettingsPersistAtom.get();
+    const msgId =
+      messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
     defaultLogger.notification.common.notificationReceived({
-      notificationId: messageInfo.extras?.msgId,
+      messageInfo,
+      notificationId: msgId,
       topic: messageInfo.extras?.topic,
       title: messageInfo.title,
       content: messageInfo.content,
     });
 
     void this.ackNotificationMessage({
-      msgId: messageInfo.extras?.msgId,
+      msgId,
       action: ENotificationPushMessageAckAction.show,
       remotePushMessageInfo: messageInfo,
     });
 
-    if (messageInfo.pushSource === 'websocket') {
+    if (messageInfo.pushSource === 'jpush') {
       // jpush will show notification automatically
-      // websocket should show notification by ourselves
-      await this.showNotification({
-        notificationId: messageInfo.extras?.msgId,
-        title: messageInfo.title,
-        description: messageInfo.content,
-        icon: messageInfo.extras?.image,
-        remotePushMessageInfo: messageInfo,
-      });
     }
+
+    // websocket push should show notification by ourselves
+    if (messageInfo.pushSource === 'websocket') {
+      if (!(await this.isNotificationShowed(msgId))) {
+        const prefix = showMessagePushSource ? '[wss:] ' : '';
+        // jpush will show notification automatically
+        // websocket should show notification by ourselves
+        await this.showNotification({
+          notificationId: msgId,
+          title: prefix + messageInfo.title,
+          description: messageInfo.content,
+          icon: messageInfo.extras?.image,
+          remotePushMessageInfo: messageInfo,
+        });
+      }
+    }
+
+    this.addShowedNotificationId(msgId);
 
     await notificationsAtom.set((v) => ({
       ...v,
@@ -175,6 +201,8 @@ export default class ServiceNotification extends ServiceBase {
     webEvent,
     eventSource,
   }: INotificationClickParams) => {
+    this.addShowedNotificationId(notificationId);
+
     defaultLogger.notification.common.notificationClicked({
       eventSource,
       notificationId,
@@ -191,7 +219,7 @@ export default class ServiceNotification extends ServiceBase {
     // native may trigger twice? jpush and local notification click handler
     // 在这里可以添加点击通知后的处理逻辑
     // 例如，打开一个新窗口或执行其他操作
-    await this.notificationProvider.showAndFocusApp();
+    await (await this.getNotificationProvider()).showAndFocusApp();
 
     await timerUtils.wait(400); // wait for app opened
     await notificationsUtils.navigateToNotificationDetail({
@@ -237,23 +265,59 @@ export default class ServiceNotification extends ServiceBase {
     return r;
   }
 
+  showedNotificationIds: string[] = [];
+
+  async isNotificationShowed(
+    notificationId: string | undefined,
+  ): Promise<boolean> {
+    try {
+      if (!notificationId) {
+        return false;
+      }
+      if (this.showedNotificationIds.includes(notificationId)) {
+        return true;
+      }
+      const nativeNotifications = await (
+        await this.getNotificationProvider()
+      ).getNativeNotifications();
+      return Boolean(
+        nativeNotifications.find(
+          (n) => n.notificationId === notificationId && notificationId,
+        ),
+      );
+    } catch (error) {
+      console.log('getNativeNotifications error', error);
+      return false;
+    }
+  }
+
+  addShowedNotificationId(notificationId: string | undefined) {
+    if (!notificationId) {
+      return;
+    }
+    this.showedNotificationIds.push(notificationId);
+    this.showedNotificationIds = uniq(this.showedNotificationIds.slice(-100));
+  }
+
   @backgroundMethod()
   async requestPermission(): Promise<INotificationPermissionDetail> {
-    const result = await this.notificationProvider.requestPermission();
+    const result = await (
+      await this.getNotificationProvider()
+    ).requestPermission();
     defaultLogger.notification.common.requestPermission(result);
     return result;
   }
 
   @backgroundMethod()
   async getPermission(): Promise<INotificationPermissionDetail> {
-    const result = await this.notificationProvider.getPermission();
+    const result = await (await this.getNotificationProvider()).getPermission();
     defaultLogger.notification.common.getPermission(result);
     return result;
   }
 
   @backgroundMethod()
-  openPermissionSettings() {
-    return this.notificationProvider.openPermissionSettings();
+  async openPermissionSettings() {
+    return (await this.getNotificationProvider()).openPermissionSettings();
   }
 
   @backgroundMethod()
@@ -289,8 +353,10 @@ export default class ServiceNotification extends ServiceBase {
   async showNotification(
     params: INotificationShowParams,
   ): Promise<INotificationShowResult> {
-    this.notificationProvider.fixShowParams(params);
-    const result = await this.notificationProvider.showNotification(params);
+    (await this.getNotificationProvider()).fixShowParams(params);
+    const result = await (
+      await this.getNotificationProvider()
+    ).showNotification(params);
     // delete non-serializable field
     if (result && result?.desktopNotification && result?.notificationId) {
       this.desktopNotificationCache[result.notificationId] =
@@ -311,7 +377,7 @@ export default class ServiceNotification extends ServiceBase {
         params.desktopNotification ||
         this.desktopNotificationCache[params.notificationId];
     }
-    return this.notificationProvider.removeNotification(params);
+    return (await this.getNotificationProvider()).removeNotification(params);
   }
 
   @backgroundMethod()
@@ -321,13 +387,13 @@ export default class ServiceNotification extends ServiceBase {
       ...v,
       badge: params.count ?? undefined,
     }));
-    return this.notificationProvider.setBadge(params);
+    return (await this.getNotificationProvider()).setBadge(params);
   }
 
   @backgroundMethod()
   async clearBadge() {
     await notificationsAtom.set((v) => ({ ...v, badge: undefined }));
-    return this.notificationProvider.clearBadge();
+    return (await this.getNotificationProvider()).clearBadge();
   }
 
   // only call this method when app start
@@ -531,13 +597,18 @@ export default class ServiceNotification extends ServiceBase {
     ) {
       return;
     }
-    void this.notificationProvider.clearNotificationCache();
+    void (await this.getNotificationProvider()).clearNotificationCache();
     return this.registerClientWithOverrideAllAccounts();
   }
 
   @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
-    defaultLogger.notification.common.registerClient(params, null);
+    const settings = await settingsPersistAtom.get();
+    defaultLogger.notification.common.registerClient(
+      params,
+      null,
+      settings.instanceId,
+    );
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
       IApiClientResponse<{
@@ -547,7 +618,11 @@ export default class ServiceNotification extends ServiceBase {
       }>
     >('/notification/v1/account/register', params);
     // TODO return badge count
-    defaultLogger.notification.common.registerClient(params, result.data);
+    defaultLogger.notification.common.registerClient(
+      params,
+      result.data,
+      settings.instanceId,
+    );
 
     const badge = result?.data?.data?.badges;
     if (isNumber(badge)) {
@@ -568,31 +643,25 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async ackNotificationMessage(params: INotificationPushMessageAckParams) {
-    let isWsAckSuccess = false;
-    if (this.notificationProvider?.webSocketProvider) {
-      try {
-        const res =
-          await this.notificationProvider.webSocketProvider.ackMessage(params);
-        if (res) {
-          isWsAckSuccess = true;
-        }
-      } catch (error) {
-        defaultLogger.notification.common.consoleLog(
-          'ackNotificationMessage error',
-          error,
-        );
-      }
+    let isWebSocketAckSuccess = false;
+    let ackRes: any;
+    const webSocketProvider = (await this.getNotificationProvider())
+      ?.webSocketProvider;
+    if (webSocketProvider) {
+      isWebSocketAckSuccess = await webSocketProvider?.ackMessage(params);
     }
 
-    if (!isWsAckSuccess) {
+    if (!isWebSocketAckSuccess) {
       const client = await this.getClient(EServiceEndpointEnum.Notification);
-      await client.post('/notification/v1/message/ack', {
+      const res = await client.post('/notification/v1/message/ack', {
         msgId: params.msgId,
         action: params.action,
       });
+      ackRes = res.data;
     }
 
-    defaultLogger.notification.common.ackMessage(params, null);
+    defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
+
     void this.refreshBadgeFromServer();
     if (
       params.msgId &&
@@ -692,5 +761,24 @@ export default class ServiceNotification extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     await client.post('/notification/v1/config/update', params);
     return true;
+  }
+
+  @backgroundMethod()
+  async blockNotificationForTxId({
+    networkId,
+    tx,
+  }: {
+    networkId: string;
+    tx: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Notification);
+    const params = {
+      networkId,
+      tx,
+    };
+    await client.post<IApiClientResponse<INotificationPushSettings>>(
+      '/notification/v1/message/block-tx',
+      params,
+    );
   }
 }

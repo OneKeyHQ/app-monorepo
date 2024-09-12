@@ -154,7 +154,9 @@ export function HeaderRight({
       <Stack>
         <HeaderIconButton
           key="notifications"
-          title="Notifications"
+          title={intl.formatMessage({
+            id: ETranslations.global_notifications,
+          })}
           icon="BellOutline"
           onPress={openNotificationsModal}
           // TODO onLongPress also trigger onPress

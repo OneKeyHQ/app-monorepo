@@ -15,6 +15,7 @@ import {
   installPackage,
   verifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -69,6 +70,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const navigation = useAppNavigation();
   const downloadPackage = useDownloadPackage();
   const onViewReleaseInfo = useCallback(() => {
+    if (platformEnv.isE2E) {
+      return;
+    }
     setTimeout(() => {
       const pushModal = isFullModal
         ? navigation.pushFullModal

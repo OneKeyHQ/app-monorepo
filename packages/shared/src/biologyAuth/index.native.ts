@@ -34,7 +34,7 @@ export const biologyAuthenticate = async () => {
 
   return authenticateAsync({
     promptMessage: appLocale.intl.formatMessage({
-      id: ETranslations.global_biometric,
+      id: ETranslations.touch_id_unlock_desc,
     }),
   });
 };

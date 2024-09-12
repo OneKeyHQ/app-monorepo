@@ -26,6 +26,7 @@ import type { INotificationPushMessageListItem } from '@onekeyhq/shared/types/no
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IListItemProps } from '../../../components/ListItem';
@@ -73,6 +74,8 @@ function NotificationItem({
 }: {
   item: INotificationPushMessageListItem;
 } & IListItemProps) {
+  const { formatDistanceToNow } = useFormatDate();
+
   const { title, content } = item.body;
   const { createdAt, readed, msgId } = item;
   const [{ badge }] = useNotificationsAtom();
@@ -93,7 +96,7 @@ function NotificationItem({
           {title}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-          {createdAt}
+          {formatDistanceToNow(new Date(createdAt))}
         </SizableText>
       </XStack>
       <XStack>
@@ -118,6 +121,7 @@ function NotificationItem({
 
 function NotificationList() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime }] = useNotificationsAtom();
 
@@ -140,7 +144,7 @@ function NotificationList() {
         headerRight={renderHeaderRight}
       />
       <Page.Body>
-        {isLoading ? (
+        {isLoading && !result?.length ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
           </Stack>
@@ -160,9 +164,13 @@ function NotificationList() {
                 })}
                 onPress={() => {
                   void notificationsUtils.navigateToNotificationDetail({
+                    navigation,
                     message: item.body,
                     notificationId:
-                      item?.msgId || item?.body?.extras?.msgId || '',
+                      item?.msgId ||
+                      item?.body?.extras?.params?.msgId ||
+                      item?.body?.extras?.msgId ||
+                      '',
                   });
                 }}
               />

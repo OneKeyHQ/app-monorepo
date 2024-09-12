@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import _ from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -222,64 +221,7 @@ function DesktopCustomTabBar() {
         sectionIndex: number;
         itemIndex: number;
       };
-      to?: {
-        sectionIndex: number;
-        itemIndex: number;
-      };
     }) => {
-      const reloadTimeStamp = () => {
-        if (!dragResult?.from || !dragResult?.to || !result) {
-          return;
-        }
-        const fromItem =
-          sections?.[dragResult?.from?.sectionIndex]?.data?.[
-            dragResult?.from?.itemIndex
-          ];
-        const toItemId =
-          sections?.[dragResult?.to?.sectionIndex]?.data?.[
-            dragResult?.to?.itemIndex
-          ]?.id;
-        if (!fromItem || !toItemId) {
-          return;
-        }
-        const reloadTabs = [...result.pinnedTabs, ...result.unpinnedTabs];
-        const toItemIndex = reloadTabs.findIndex(
-          (item) => item.id === toItemId,
-        );
-        if (toItemIndex === -1) {
-          return;
-        }
-        const isDown =
-          dragResult.to.sectionIndex > dragResult.from.sectionIndex ||
-          (dragResult.to.sectionIndex === dragResult.from.sectionIndex &&
-            dragResult.to.itemIndex > dragResult.from.itemIndex);
-        const toItem = reloadTabs?.[toItemIndex];
-        if (!toItem) {
-          return;
-        }
-        const toItemTimestamp = toItem?.timestamp;
-        if (!toItemTimestamp) {
-          return;
-        }
-        const toItemBeforeIndex = isDown
-          ? reloadTabs.findIndex(
-              (item, index) =>
-                item.isPinned === toItem.isPinned && index > toItemIndex,
-            )
-          : _.findLastIndex(
-              reloadTabs,
-              (item, index) =>
-                item.isPinned === toItem.isPinned && index < toItemIndex,
-            );
-        const toItemBeforeTimestamp =
-          reloadTabs?.[toItemBeforeIndex]?.timestamp ??
-          toItemTimestamp + (isDown ? 2 : -2) * (toItem.isPinned ? 1 : -1);
-        fromItem.timestamp = Math.round(
-          (toItemBeforeTimestamp + toItemTimestamp) / 2,
-        );
-      };
-      reloadTimeStamp();
-
       const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as (IWebTab & {
         hasConnectedAccount: boolean;
       })[];
@@ -289,10 +231,58 @@ function DesktopCustomTabBar() {
       })[];
       pinnedTabs?.forEach?.((item) => (item.isPinned = true));
       unpinnedTabs?.forEach?.((item) => (item.isPinned = false));
+      const reloadTimeStamp = () => {
+        if (!dragResult?.from) {
+          return;
+        }
+        const fromItem =
+          sections?.[dragResult?.from?.sectionIndex]?.data?.[
+            dragResult?.from?.itemIndex
+          ];
+        let fromItemIndex: number | undefined;
+        let fromSectionData: IWebTab[] | undefined;
+        dragResult?.sections?.forEach((section) => {
+          section?.data?.forEach((item, index) => {
+            if (item === fromItem) {
+              fromItemIndex = index;
+              fromSectionData = section?.data;
+            }
+          });
+        });
+
+        if (
+          !fromSectionData ||
+          fromSectionData.length === 1 ||
+          !fromItem ||
+          fromItemIndex === undefined
+        ) {
+          return;
+        }
+
+        const beforeTimestamp =
+          fromItemIndex === 0
+            ? undefined
+            : fromSectionData?.[fromItemIndex - 1]?.timestamp;
+        const afterTimestamp =
+          fromItemIndex === fromSectionData.length - 1
+            ? undefined
+            : fromSectionData?.[fromItemIndex + 1]?.timestamp;
+        const isPinnedDiff = fromItem.isPinned ? 1 : -1;
+        if (!beforeTimestamp && afterTimestamp) {
+          fromItem.timestamp = afterTimestamp + isPinnedDiff * -1;
+        } else if (!afterTimestamp && beforeTimestamp) {
+          fromItem.timestamp = beforeTimestamp + isPinnedDiff * 1;
+        } else if (beforeTimestamp && afterTimestamp) {
+          fromItem.timestamp = Math.round(
+            (beforeTimestamp + afterTimestamp) / 2,
+          );
+        }
+      };
+      reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTabs([...pinnedTabs, ...unpinnedTabs]);
     },
-    [setTabs, setResult, sections, result],
+    [setTabs, setResult, sections],
   );
 
   return (
