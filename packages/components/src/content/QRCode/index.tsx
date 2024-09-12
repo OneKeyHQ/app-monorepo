@@ -13,6 +13,7 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
+import { Theme } from 'tamagui';
 
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -285,10 +286,11 @@ export function QRCode({
   ...props
 }: IQRCodeProps) {
   const [partValue, setPartValue] = useState<string>(value || '');
+  const isAnimatedCode = useMemo(() => drawType === 'animated', [drawType]);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval>;
-    if (drawType === 'animated') {
+    if (isAnimatedCode) {
       if (!valueUr) {
         throw new Error('valueUr is required for animated QRCode');
       }
@@ -308,11 +310,15 @@ export function QRCode({
       }, interval);
     }
     return () => clearInterval(timerId);
-  }, [value, interval, drawType, valueUr]);
+  }, [value, interval, isAnimatedCode, valueUr]);
 
   if (!partValue) {
     // TODO return Skeleton
     return null;
   }
-  return <BasicQRCode value={partValue} drawType={drawType} {...props} />;
+  return (
+    <Theme name={isAnimatedCode ? 'light' : undefined}>
+      <BasicQRCode value={partValue} drawType={drawType} {...props} />
+    </Theme>
+  );
 }
