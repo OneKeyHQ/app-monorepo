@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
 import type { IDialogShowProps } from '@onekeyhq/components';
 import {
   Button,
@@ -5,15 +8,16 @@ import {
   NumberSizeableText,
   Progress,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useIntl } from 'react-intl';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { openUrl } from '../../utils/openUrl';
 
 const TRON_RESOURCE_DOC_URL =
@@ -21,25 +25,29 @@ const TRON_RESOURCE_DOC_URL =
 
 function ResourceDetails({
   name,
-  usage,
+  available,
   total,
 }: {
   name: string;
-  usage: number;
-  total: number;
+  available: BigNumber;
+  total: BigNumber;
 }) {
+  const percentage = total.isZero()
+    ? 0
+    : available.div(total).times(100).toNumber();
+
   return (
     <YStack gap="$2" flex={1}>
-      <Progress size="medium" value={100} />
+      <Progress size="medium" value={percentage} />
       <XStack justifyContent="space-between">
         <SizableText size="$bodySmMedium">{name}</SizableText>
         <XStack alignItems="center">
           <NumberSizeableText size="$bodySmMedium" formatter="marketCap">
-            {usage}
+            {available.toFixed()}
           </NumberSizeableText>
           <SizableText size="$bodySmMedium">/</SizableText>
           <NumberSizeableText size="$bodySmMedium" formatter="marketCap">
-            {total}
+            {total.toFixed()}
           </NumberSizeableText>
         </XStack>
       </XStack>
@@ -57,19 +65,67 @@ function ResourceDetailsContent({
   const intl = useIntl();
   const { result, isLoading } = usePromiseResult(
     async () => {
-      const r =
-        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
-          withTronAccountResources: true,
         });
-      return r;
+      const [resources] =
+        await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
+          EnergyLimit: number;
+          EnergyUsed: number;
+          NetLimit: number;
+          NetUsed: number;
+          freeEnergyLimit: number;
+          freeEnergyUsed: number;
+          freeNetLimit: number;
+          freeNetUsed: number;
+        }>({
+          networkId,
+          body: [
+            {
+              route: 'tronweb',
+              params: {
+                method: 'trx.getAccountResources',
+                params: [accountAddress],
+              },
+            },
+          ],
+        });
+      const netTotal = new BigNumber(resources.NetLimit ?? 0).plus(
+        resources.freeNetLimit ?? 0,
+      );
+      const netAvailable = netTotal
+        .minus(resources.NetUsed ?? 0)
+        .minus(resources.freeNetUsed ?? 0);
+
+      const energyTotal = new BigNumber(resources.EnergyLimit ?? 0).plus(
+        resources.freeEnergyLimit ?? 0,
+      );
+
+      const energyAvailable = energyTotal
+        .minus(resources.EnergyUsed ?? 0)
+        .minus(resources.freeEnergyUsed ?? 0);
+
+      return {
+        netAvailable,
+        netTotal,
+        energyAvailable,
+        energyTotal,
+      };
     },
     [accountId, networkId],
     {
       watchLoading: true,
     },
   );
+
+  const { netAvailable, netTotal, energyAvailable, energyTotal } = result ?? {
+    netAvailable: new BigNumber(0),
+    netTotal: new BigNumber(0),
+    energyAvailable: new BigNumber(0),
+    energyTotal: new BigNumber(0),
+  };
 
   return (
     <Stack gap="$5">
@@ -83,18 +139,22 @@ function ResourceDetailsContent({
           {intl.formatMessage({ id: ETranslations.global_learn_more })}
         </Button>
       </XStack>
-      <XStack gap="$4" flex={1}>
-        <ResourceDetails
-          name={intl.formatMessage({ id: ETranslations.global_energy })}
-          usage={0.5}
-          total={1}
-        />
-        <ResourceDetails
-          name={intl.formatMessage({ id: ETranslations.global_bandwidth })}
-          usage={0.5}
-          total={1}
-        />
-      </XStack>
+      {isLoading ? (
+        <Skeleton h="$7" flex={1} width="100%" />
+      ) : (
+        <XStack gap="$4" flex={1}>
+          <ResourceDetails
+            name={intl.formatMessage({ id: ETranslations.global_energy })}
+            total={energyTotal}
+            available={energyAvailable}
+          />
+          <ResourceDetails
+            name={intl.formatMessage({ id: ETranslations.global_bandwidth })}
+            total={netTotal}
+            available={netAvailable}
+          />
+        </XStack>
+      )}
     </Stack>
   );
 }

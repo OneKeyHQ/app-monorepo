@@ -118,6 +118,8 @@ export type IOnChainHistoryTx = {
     energyFee?: number;
     energyUsageTotal?: number;
     netUsage?: number;
+    netFee?: number;
+    netFeeCost?: number;
   };
 };
 

@@ -1,3 +1,7 @@
+import { useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,6 +18,26 @@ function TronAttributes({
 }) {
   const intl = useIntl();
 
+  const totalNetUsage = useMemo(() => {
+    const netUsage = txDetails?.receipt?.netUsage;
+    const netFee = txDetails?.receipt?.netFee;
+    const netFeeCost = txDetails?.receipt?.netFeeCost;
+
+    if (!isNil(netUsage)) {
+      return netUsage;
+    }
+
+    if (
+      !isNil(netFee) &&
+      !isNil(netFeeCost) &&
+      new BigNumber(netFeeCost).isGreaterThan(0)
+    ) {
+      return new BigNumber(netFee).div(netFeeCost).toFixed();
+    }
+
+    return '0';
+  }, [txDetails?.receipt]);
+
   return (
     <>
       {txDetails && txDetails.receipt ? (
@@ -25,7 +49,7 @@ function TronAttributes({
             },
             {
               num_1: txDetails.receipt.energyUsageTotal ?? '0',
-              num_2: txDetails.receipt.netUsage ?? '0',
+              num_2: totalNetUsage,
             },
           )}
         />
