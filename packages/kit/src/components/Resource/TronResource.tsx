@@ -37,7 +37,7 @@ function ResourceDetails({
     : available.div(total).times(100).toNumber();
 
   return (
-    <YStack gap="$2" flex={1}>
+    <YStack gap="$2" flexGrow={1} flexBasis={0}>
       <Progress size="medium" value={percentage} minWidth={0} />
       <XStack justifyContent="space-between">
         <SizableText size="$bodySmMedium">{name}</SizableText>
