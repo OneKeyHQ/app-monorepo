@@ -75,6 +75,9 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervalCountMap: Record<string, number> = {};
 
+  private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
+    {};
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -807,6 +810,20 @@ export default class ServiceSwap extends ServiceBase {
         item.status === ESwapTxHistoryStatus.SUCCESS
       ) {
         item.status = ESwapTxHistoryStatus.CANCELED;
+      }
+      if (
+        item.txInfo.receiverTransactionId &&
+        !this._crossChainReceiveTxBlockNotificationMap[
+          item.txInfo.receiverTransactionId
+        ]
+      ) {
+        void this.backgroundApi.serviceNotification.blockNotificationForTxId({
+          networkId: item.baseInfo.toToken.networkId,
+          tx: item.txInfo.receiverTransactionId,
+        });
+        this._crossChainReceiveTxBlockNotificationMap[
+          item.txInfo.receiverTransactionId
+        ] = true;
       }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {

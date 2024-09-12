@@ -228,7 +228,7 @@ export function useSwapQuote() {
       cleanQuoteInterval();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.address]);
+  }, [swapAddressInfo.accountInfo?.deriveType]);
 
   const pageType = usePageType();
   useListenTabFocusState(

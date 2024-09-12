@@ -1,3 +1,4 @@
+import { cloneDeep } from 'lodash';
 import { io } from 'socket.io-client';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -23,15 +24,28 @@ export class PushProviderWebSocket extends PushProviderBase {
 
   private socket: Socket | null = null;
 
-  async ackMessage(params: INotificationPushMessageAckParams) {
-    const { msgId, action } = params;
-    if (this.socket && msgId && action) {
-      const r = await this.socket
-        .timeout(3000)
-        .emitWithAck('ack', { msgId, action });
-      return r as { updated: number };
+  async ackMessage(
+    params: INotificationPushMessageAckParams,
+  ): Promise<boolean> {
+    try {
+      const { msgId, action } = params;
+      if (this.socket && msgId && action) {
+        if (!this.socket.connected) {
+          return false;
+        }
+        const r = await this.socket
+          .timeout(3000)
+          .emitWithAck('ack', { msgId, action });
+        return !!r;
+      }
+      return false;
+    } catch (error) {
+      defaultLogger.notification.websocket.consoleLog(
+        'WebSocket ackMessage error',
+        error,
+      );
+      return false;
     }
-    return null;
   }
 
   private async initWebSocket() {
@@ -78,15 +92,24 @@ export class PushProviderWebSocket extends PushProviderBase {
       );
     });
 
+    this.socket.on('ping', (payload) => {
+      this.socket?.emit('pong', payload);
+    });
+
     this.socket.on('notification', (message: INotificationPushMessageInfo) => {
       defaultLogger.notification.websocket.consoleLog(
         'WebSocket 收到 notification 消息:',
         message,
       );
-      this.eventEmitter.emit(EPushProviderEventNames.notification_received, {
-        ...message,
-        pushSource: 'websocket',
-      });
+      const data: INotificationPushMessageInfo = cloneDeep(message);
+      data.pushSource = 'websocket';
+      if (data.extras) {
+        data.extras.badge = data?.extras?.badge ?? message?.badge;
+      }
+      this.eventEmitter.emit(
+        EPushProviderEventNames.notification_received,
+        data,
+      );
     });
     defaultLogger.notification.websocket.consoleLog('WebSocket 初始化完成');
 
