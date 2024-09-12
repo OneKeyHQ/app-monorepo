@@ -121,6 +121,7 @@ function NotificationItem({
 
 function NotificationList() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime }] = useNotificationsAtom();
 
@@ -143,7 +144,7 @@ function NotificationList() {
         headerRight={renderHeaderRight}
       />
       <Page.Body>
-        {isLoading ? (
+        {isLoading && !result?.length ? (
           <Stack pt={240} justifyContent="center" alignItems="center">
             <Spinner size="large" />
           </Stack>
@@ -163,6 +164,7 @@ function NotificationList() {
                 })}
                 onPress={() => {
                   void notificationsUtils.navigateToNotificationDetail({
+                    navigation,
                     message: item.body,
                     notificationId:
                       item?.msgId ||

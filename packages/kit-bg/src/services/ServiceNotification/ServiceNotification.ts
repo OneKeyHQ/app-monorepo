@@ -41,6 +41,7 @@ import {
 
 import {
   notificationsAtom,
+  notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
@@ -77,10 +78,14 @@ export default class ServiceNotification extends ServiceBase {
 
   _notificationProvider: NotificationProviderBase | undefined;
 
-  get notificationProvider(): NotificationProviderBase {
+  async getNotificationProvider(): Promise<NotificationProviderBase> {
     if (!this._notificationProvider) {
-      // TODO init and use shared eventEmitter here
-      this._notificationProvider = new NotificationProvider();
+      const { disabledWebSocket, disabledJPush } =
+        await notificationsDevSettingsPersistAtom.get();
+      this._notificationProvider = new NotificationProvider({
+        disabledWebSocket,
+        disabledJPush,
+      });
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.ws_connected,
         this.onPushProviderConnected,
@@ -110,8 +115,8 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   init() {
-    return InteractionManager.runAfterInteractions(
-      () => this.notificationProvider,
+    return InteractionManager.runAfterInteractions(() =>
+      this.getNotificationProvider(),
     );
   }
 
@@ -142,6 +147,8 @@ export default class ServiceNotification extends ServiceBase {
   onNotificationReceived = async (
     messageInfo: INotificationPushMessageInfo,
   ) => {
+    const { showMessagePushSource } =
+      await notificationsDevSettingsPersistAtom.get();
     const msgId =
       messageInfo.extras?.params?.msgId || messageInfo.extras?.msgId;
     defaultLogger.notification.common.notificationReceived({
@@ -165,11 +172,12 @@ export default class ServiceNotification extends ServiceBase {
     // websocket push should show notification by ourselves
     if (messageInfo.pushSource === 'websocket') {
       if (!(await this.isNotificationShowed(msgId))) {
+        const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
         // websocket should show notification by ourselves
         await this.showNotification({
           notificationId: msgId,
-          title: messageInfo.title,
+          title: prefix + messageInfo.title,
           description: messageInfo.content,
           icon: messageInfo.extras?.image,
           remotePushMessageInfo: messageInfo,
@@ -211,7 +219,7 @@ export default class ServiceNotification extends ServiceBase {
     // native may trigger twice? jpush and local notification click handler
     // 在这里可以添加点击通知后的处理逻辑
     // 例如，打开一个新窗口或执行其他操作
-    await this.notificationProvider.showAndFocusApp();
+    await (await this.getNotificationProvider()).showAndFocusApp();
 
     await timerUtils.wait(400); // wait for app opened
     await notificationsUtils.navigateToNotificationDetail({
@@ -269,8 +277,9 @@ export default class ServiceNotification extends ServiceBase {
       if (this.showedNotificationIds.includes(notificationId)) {
         return true;
       }
-      const nativeNotifications =
-        await this.notificationProvider.getNativeNotifications();
+      const nativeNotifications = await (
+        await this.getNotificationProvider()
+      ).getNativeNotifications();
       return Boolean(
         nativeNotifications.find(
           (n) => n.notificationId === notificationId && notificationId,
@@ -292,21 +301,23 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async requestPermission(): Promise<INotificationPermissionDetail> {
-    const result = await this.notificationProvider.requestPermission();
+    const result = await (
+      await this.getNotificationProvider()
+    ).requestPermission();
     defaultLogger.notification.common.requestPermission(result);
     return result;
   }
 
   @backgroundMethod()
   async getPermission(): Promise<INotificationPermissionDetail> {
-    const result = await this.notificationProvider.getPermission();
+    const result = await (await this.getNotificationProvider()).getPermission();
     defaultLogger.notification.common.getPermission(result);
     return result;
   }
 
   @backgroundMethod()
-  openPermissionSettings() {
-    return this.notificationProvider.openPermissionSettings();
+  async openPermissionSettings() {
+    return (await this.getNotificationProvider()).openPermissionSettings();
   }
 
   @backgroundMethod()
@@ -342,8 +353,10 @@ export default class ServiceNotification extends ServiceBase {
   async showNotification(
     params: INotificationShowParams,
   ): Promise<INotificationShowResult> {
-    this.notificationProvider.fixShowParams(params);
-    const result = await this.notificationProvider.showNotification(params);
+    (await this.getNotificationProvider()).fixShowParams(params);
+    const result = await (
+      await this.getNotificationProvider()
+    ).showNotification(params);
     // delete non-serializable field
     if (result && result?.desktopNotification && result?.notificationId) {
       this.desktopNotificationCache[result.notificationId] =
@@ -364,7 +377,7 @@ export default class ServiceNotification extends ServiceBase {
         params.desktopNotification ||
         this.desktopNotificationCache[params.notificationId];
     }
-    return this.notificationProvider.removeNotification(params);
+    return (await this.getNotificationProvider()).removeNotification(params);
   }
 
   @backgroundMethod()
@@ -374,13 +387,13 @@ export default class ServiceNotification extends ServiceBase {
       ...v,
       badge: params.count ?? undefined,
     }));
-    return this.notificationProvider.setBadge(params);
+    return (await this.getNotificationProvider()).setBadge(params);
   }
 
   @backgroundMethod()
   async clearBadge() {
     await notificationsAtom.set((v) => ({ ...v, badge: undefined }));
-    return this.notificationProvider.clearBadge();
+    return (await this.getNotificationProvider()).clearBadge();
   }
 
   // only call this method when app start
@@ -584,7 +597,7 @@ export default class ServiceNotification extends ServiceBase {
     ) {
       return;
     }
-    void this.notificationProvider.clearNotificationCache();
+    void (await this.getNotificationProvider()).clearNotificationCache();
     return this.registerClientWithOverrideAllAccounts();
   }
 
@@ -632,9 +645,10 @@ export default class ServiceNotification extends ServiceBase {
   async ackNotificationMessage(params: INotificationPushMessageAckParams) {
     let isWebSocketAckSuccess = false;
     let ackRes: any;
-    if (this.notificationProvider?.webSocketProvider) {
-      isWebSocketAckSuccess =
-        await this.notificationProvider.webSocketProvider.ackMessage(params);
+    const webSocketProvider = (await this.getNotificationProvider())
+      ?.webSocketProvider;
+    if (webSocketProvider) {
+      isWebSocketAckSuccess = await webSocketProvider?.ackMessage(params);
     }
 
     if (!isWebSocketAckSuccess) {
