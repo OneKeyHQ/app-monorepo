@@ -477,7 +477,7 @@ export function Profit({
             </SizableText>
           </GridItem>
         ) : null}
-        {earningsIn24h ? (
+        {earningsIn24h && Number(earningsIn24h) > 0 ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
             tooltip={intl.formatMessage({
@@ -487,6 +487,7 @@ export function Profit({
             <NumberSizeableText
               formatter="value"
               color="$textSuccess"
+              size="$bodyLgMedium"
               formatterOptions={{ currency: symbol }}
             >
               {earningsIn24h}
@@ -521,6 +522,26 @@ export function Provider({
   network,
 }: IProvider) {
   const intl = useIntl();
+  let minOrMaxStakingItem: { label: string; value: string } | undefined;
+  if (minOrMaxStaking) {
+    const { minValue, maxValue } = minOrMaxStaking;
+    if (maxValue && minValue) {
+      minOrMaxStakingItem = {
+        label: intl.formatMessage({
+          id: ETranslations.earn_min_max_staking,
+        }),
+        value: `${minValue}/${maxValue} ${minOrMaxStaking.token}`,
+      };
+    } else if (minValue) {
+      minOrMaxStakingItem = {
+        label: intl.formatMessage({
+          id: ETranslations.earn_min_staking,
+        }),
+        value: `${minValue} ${minOrMaxStaking.token}`,
+      };
+    }
+  }
+
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -537,18 +558,10 @@ export function Provider({
         >
           {capitalizeString(validator.name)}
         </GridItem>
-        {minOrMaxStaking ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_min_max_staking,
-            })}
-          >
+        {minOrMaxStakingItem ? (
+          <GridItem title={minOrMaxStakingItem.label}>
             <SizableText size="$bodyLgMedium">
-              {minOrMaxStaking.minValue && minOrMaxStaking.maxValue
-                ? `${minOrMaxStaking.minValue}/${minOrMaxStaking.maxValue}${minOrMaxStaking.token}`
-                : `${
-                    minOrMaxStaking.minValue || minOrMaxStaking.maxValue || ''
-                  }${minOrMaxStaking.token}`}
+              {minOrMaxStakingItem.value}
             </SizableText>
           </GridItem>
         ) : null}
