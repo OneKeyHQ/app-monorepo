@@ -511,7 +511,7 @@ export default class VaultCosmos extends VaultBase {
           });
         const balance = new BigNumber(tokenDetail[0].balance);
         const feeNum = new BigNumber(feeAmount.amount);
-        if (balance < feeNum.plus(sendNative)) {
+        if (balance.isLessThan(feeNum.plus(sendNative))) {
           const amount = balance
             .minus(feeNum)
             .toFixed(0, BigNumber.ROUND_FLOOR);
