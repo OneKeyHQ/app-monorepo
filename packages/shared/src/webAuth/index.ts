@@ -26,12 +26,23 @@ const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
   return isAvailable;
 };
 
+const isCMA = async () => {
+  let isAvailable = false;
+  if (global?.PublicKeyCredential) {
+    isAvailable =
+      await global?.PublicKeyCredential.isConditionalMediationAvailable();
+  }
+  return isAvailable;
+};
+
 export const isSupportWebAuth = async () => {
   let isSupport = false;
   if (!platformEnv.isE2E && isContextSupportWebAuth) {
-    isSupport = await isUserVerifyingPlatformAuthenticatorAvailable();
+    isSupport =
+      (await isUserVerifyingPlatformAuthenticatorAvailable()) &&
+      (await isCMA());
   }
-  return isSupport;
+  return isSupport && navigator?.credentials;
 };
 
 export const verifiedWebAuth = async (credId: string) => {
