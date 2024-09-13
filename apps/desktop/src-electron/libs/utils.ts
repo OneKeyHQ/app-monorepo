@@ -60,9 +60,10 @@ export const parseContentPList = () => {
   }
   try {
     const appPath = app.getPath('exe');
-    const pListPath = path.resolve(
-      appPath.split('/Contents/')[0],
-      '/Contents/Info.plist',
+    const pListPath = path.join(
+      appPath.split('Contents')[0],
+      'Contents',
+      'Info.plist',
     );
     if (fs.existsSync(pListPath)) {
       const pListString = fs.readFileSync(pListPath, 'utf8');
