@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
   Divider,
+  LinearGradient,
   Page,
   SizableText,
   Spinner,
@@ -27,6 +29,7 @@ import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notificat
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import NotificationIntroIllustration from '../../../Notifications/components/NotificationIntroIllustration';
 
 export default function NotificationsSettings() {
   const intl = useIntl();
@@ -95,7 +98,7 @@ export default function NotificationsSettings() {
   }, [reloadSettings]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
@@ -112,6 +115,9 @@ export default function NotificationsSettings() {
                 primary={intl.formatMessage({
                   id: ETranslations.notifications_notifications_switch_label,
                 })}
+                primaryTextProps={{
+                  size: '$headingMd',
+                }}
               />
               <Switch
                 value={!!settings?.pushEnabled}
@@ -168,8 +174,8 @@ export default function NotificationsSettings() {
           </>
         )}
 
-        {devAppSettings?.enabled ? (
-          <Stack p="$8">
+        {/* {devAppSettings?.enabled ? (
+          <Stack px="$5">
             <Button onPress={showNotificationPermissionsDialog}>
               通知权限
             </Button>
@@ -192,7 +198,58 @@ export default function NotificationsSettings() {
               WebSocket: {pushClient?.socketId?.slice(0, 8)}...
             </SizableText>
           </Stack>
-        ) : null}
+        ) : null} */}
+
+        <Stack
+          gap="$8"
+          px="$5"
+          mt="$5"
+          pt="$8"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderColor="$border"
+        >
+          <LinearGradient
+            zIndex={0}
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h="$10"
+            colors={['$neutral3', '$transparent']}
+            $platform-native={{
+              display: 'none',
+            }}
+          />
+          <Stack
+            zIndex={1}
+            gap="$2"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: '$10',
+            }}
+          >
+            <Stack
+              gap="$2"
+              $gtMd={{
+                flex: 1,
+              }}
+            >
+              <SizableText size="$bodyMdMedium">
+                Enable push notifications
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Enable notifications for OneKey in your device settings for
+                faster, easier alerts. Tap the button below to test permissions,
+                or visit our Help Center if issues arise.
+              </SizableText>
+            </Stack>
+            <Button size="small" alignSelf="flex-start">
+              Test push notifications
+            </Button>
+          </Stack>
+          <NotificationIntroIllustration />
+        </Stack>
       </Page.Body>
     </Page>
   );
