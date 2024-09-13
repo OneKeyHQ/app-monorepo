@@ -44,6 +44,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_sendSiteMetadata',
   'wallet_scanQrcode',
   'wallet_detectRiskLevel',
+  'wallet_lastFocusUrl',
   'wallet_closeCurrentBrowserTab',
   'wallet_addBrowserUrlToRiskWhiteList',
   'btc_requestAccount',

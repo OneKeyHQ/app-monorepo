@@ -30,11 +30,16 @@ export default function useActiveTabDAppInfo() {
         addressLabel: string;
       } | null>((resolve) => {
         chrome.tabs.query(
-          { active: true, currentWindow: true },
+          { active: true, lastFocusedWindow: true },
           async (tabs) => {
             if (tabs[0]) {
               try {
-                const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
+                let url = tabs[0]?.url;
+                if (!url) {
+                  url = await backgroundApiProxy.serviceDApp.getLastFocusUrl();
+                }
+                console.log('=====>>>>useActiveTabDAppInfo url: ', url);
+                const currentOrigin = new URL(url ?? '').origin;
                 const hostName = new URL(currentOrigin).hostname;
                 const connectLabel = intl.formatMessage(
                   { id: ETranslations.dapp_connect_connect_to_website },
@@ -128,9 +133,16 @@ export default function useActiveTabDAppInfo() {
   }, []);
 
   useEffect(() => {
+    const fn = () => {
+      setTimeout(() => {
+        void run();
+      }, 300);
+    };
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
+    appEventBus.on(EAppEventBusNames.DAppLastFocusUrlUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.DAppConnectUpdate, run);
+      appEventBus.off(EAppEventBusNames.DAppLastFocusUrlUpdate, fn);
     };
   }, [run]);
 

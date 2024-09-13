@@ -39,6 +39,7 @@ export enum EAppEventBusNames {
   CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
+  DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
@@ -104,6 +105,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
+  [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
   [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
