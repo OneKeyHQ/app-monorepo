@@ -66,7 +66,10 @@ export function HeaderRight({
   const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
     if (!firstTimeGuideOpened) {
-      showNotificationPermissionsDialog();
+      // showNotificationPermissionsDialog();
+      navigation.pushModal(EModalRoutes.NotificationsModal, {
+        screen: EModalNotificationsRoutes.NotificationIntroduction,
+      });
       setNotificationsData((v) => ({
         ...v,
         firstTimeGuideOpened: true,
@@ -164,36 +167,41 @@ export function HeaderRight({
         />
         {!firstTimeGuideOpened || badge ? (
           <Stack
-            borderRadius="$full"
-            bg="$bgApp"
             position="absolute"
             right="$-2.5"
             top="$-2"
-            borderWidth={2}
-            borderColor="$transparent"
+            alignItems="flex-end"
+            w="$10"
             pointerEvents="none"
           >
             <Stack
-              px="$1"
+              bg="$bgApp"
               borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              minHeight="$4"
-              alignItems="center"
-              justifyContent="center"
+              borderWidth={2}
+              borderColor="$transparent"
             >
-              {!firstTimeGuideOpened ? (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              ) : (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badge}
-                </SizableText>
-              )}
+              <Stack
+                px="$1"
+                borderRadius="$full"
+                bg="$bgCriticalStrong"
+                minWidth="$4"
+                height="$4"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {!firstTimeGuideOpened ? (
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                ) : (
+                  <SizableText color="$textOnColor" size="$bodySm">
+                    {badge}
+                  </SizableText>
+                )}
+              </Stack>
             </Stack>
           </Stack>
         ) : null}
