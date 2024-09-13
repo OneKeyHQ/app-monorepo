@@ -138,6 +138,7 @@ export function useDappAccountSwitch({
             },
           ),
         );
+        setHideAccountSelectorTrigger(false);
       }
     }
 
