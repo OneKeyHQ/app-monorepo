@@ -75,7 +75,7 @@ export const parseContentPList = () => {
   }
 };
 
-export const getAppId = () => {
+export const getMacAppId = () => {
   const bundleInfo = parseContentPList();
   return bundleInfo?.CFBundleIdentifier || '';
 };

@@ -39,7 +39,7 @@ import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { getAppId, parseContentPList } from './libs/utils';
+import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 
 // https://github.com/sindresorhus/electron-context-menu

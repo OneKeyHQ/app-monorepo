@@ -8,7 +8,7 @@ import type {
 } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
-import { getAppId } from './libs/utils';
+import { getMacAppId } from './libs/utils';
 
 function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
   ipcMain.on(
@@ -17,7 +17,7 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
       const platform = os.type();
       if (platform === 'Darwin') {
         if (prefType === 'notification') {
-          const appId = getAppId();
+          const appId = getMacAppId();
           void shell.openExternal(
             `x-apple.systempreferences:com.apple.preference.notifications?id=${appId}`,
           );
