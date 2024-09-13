@@ -6,7 +6,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
 
-import type { IKeyOfIcons, IYStackProps } from '@onekeyhq/components';
+import type {
+  IImageSourceProps,
+  IKeyOfIcons,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Banner,
@@ -56,14 +60,13 @@ const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
 
 const bannerData = [
   {
-    'theme': 'light',
     'title': 'Stake in Babylon ecosystem',
     'titleColor': '#ffffff',
     'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
     'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
     $gtLg: {
       'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-      imgResizeMode: 'contain',
+      imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
     },
   },
 ];
