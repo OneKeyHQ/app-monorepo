@@ -35,4 +35,33 @@ export class PageScene extends BaseScene {
       stakingProtocol,
     };
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public enterEarn() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public selectAsset({ tokenSymbol }: { tokenSymbol: string }) {
+    return {
+      tokenSymbol,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public selectProvider({
+    network,
+    stakeProvider,
+  }: {
+    network: string;
+    stakeProvider: string;
+  }) {
+    return {
+      network,
+      stakeProvider,
+    };
+  }
 }

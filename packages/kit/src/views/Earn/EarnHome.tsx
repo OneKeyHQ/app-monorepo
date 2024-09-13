@@ -28,6 +28,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -110,6 +111,7 @@ const toTokenProviderListPage = async (
     symbol: string;
   },
 ) => {
+  defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
   navigation.pushModal(EModalRoutes.StakingModal, {
     screen: EModalStakingRoutes.AssetProtocolList,
     params: {
