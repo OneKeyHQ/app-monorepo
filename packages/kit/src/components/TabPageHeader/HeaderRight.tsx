@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -151,7 +152,7 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    const notificationsButton = (
+    let notificationsButton: ReactNode | null = (
       <Stack>
         <HeaderIconButton
           key="notifications"
@@ -214,10 +215,22 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [layoutExtView, notificationsButton, settingsButton];
+      return [layoutExtView, notificationsButton, settingsButton].filter(
+        Boolean,
+      );
     }
 
-    return [scanButton, notificationsButton, settingsButton, searchInput];
+    // notifications is not supported on web currently
+    if (platformEnv.isWeb) {
+      notificationsButton = null;
+    }
+
+    return [
+      scanButton,
+      notificationsButton,
+      settingsButton,
+      searchInput,
+    ].filter(Boolean);
   }, [
     intl,
     openSettingPage,
