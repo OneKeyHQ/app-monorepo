@@ -54,47 +54,14 @@ interface ITokenAccount extends IEarnAccountToken {
 
 const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
 
-const testBannerData = [
+const bannerData = [
   {
-    'hrefType': 'internal',
-    'href':
-      'https://asset.onekey-asset.com/portal/803ff853ecdd7808b35fdf6f837ae1af514aad56/static/shop-hero-animation-poster-8e1206b59d2201dfaa8cd72a8134179f.jpg',
-    'rank': 3,
-    'takeEffect': {
-      'start': 1_609_914_358_330,
-      'end': 1_845_358_687_300,
-      'platform': [],
-      'deleted': false,
-    },
-    'useSystemBrowser': true,
     'theme': 'light',
-    'bannerId': '8f9dcfef-1dad-4aff-bc10-f32a47a0aece',
-    'title': 'Lorem do minim dolore excepteur veniam Lorem id dolor.',
-    'imgUrl':
-      'https://dev.onekey-asset.com/dashboard/banner/upload_1706683116708.0.6327129942895648.0.jpeg',
-  },
-  {
-    'hrefType': 'internal',
-    'href': 'https://www.onekey.so/zh_CN/',
-    'rank': 2,
-    'takeEffect': {
-      'versionGreaterThan': {
-        'major': 3,
-        'minor': 100,
-        'patch': 91,
-      },
-      'start': 1_709_535_771_451,
-      'end': 1_741_752_171_000,
-      'platform': [],
-      'remark': 'rrrrrr',
-      'deleted': false,
-    },
-    'useSystemBrowser': false,
-    'theme': 'light',
-    'title': 'onekey test',
+    'title': 'Stake in Babylon ecosystem',
+    'titleColor': '#ffffff',
     'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-    'imgUrl':
-      'https://dev.onekey-asset.com/dashboard/banner/upload_1710134618176.0.8362196640872233.0.png',
+    'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
+    'gtLgImgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
   },
 ];
 
@@ -754,7 +721,7 @@ function BasicEarnHome() {
             >
               <Banner
                 height="$36"
-                data={testBannerData}
+                data={bannerData}
                 onItemPress={(item) => console.log(item)}
                 isLoading={false}
               />

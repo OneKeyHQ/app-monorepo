@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia } from 'tamagui';
+import { useMedia, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,14 +10,17 @@ import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
-import type { IStackStyle } from '../../primitives';
+import type { IImageSourceProps, IStackStyle } from '../../primitives';
 
 export function Banner<
   T extends {
     title: string;
-    imgUrl: string;
+    titleColor?: string;
+    imgUrl?: string;
     theme?: 'dark' | 'light' | string;
     bannerId: string;
+    imgSource?: IImageSourceProps['source'];
+    gtLgImgSource?: IImageSourceProps['source'];
   },
 >({
   data,
@@ -35,6 +38,7 @@ export function Banner<
   emptyComponent?: ReactElement;
 } & IStackStyle) {
   const media = useMedia();
+  const theme = useThemeName();
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
@@ -46,7 +50,19 @@ export function Banner<
         onPress={() => onItemPress(item)}
         {...itemContainerStyle}
       >
-        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
+        {item.imgUrl ? (
+          <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
+        ) : null}
+
+        {item.imgSource || item.gtLgImgSource ? (
+          <Image
+            flex={1}
+            borderRadius="$3"
+            bg="$bgStrong"
+            source={media.gtLg ? item.gtLgImgSource : item.imgSource}
+            resizeMode="contain"
+          />
+        ) : null}
         <Stack
           position="absolute"
           bottom={0}
@@ -60,7 +76,11 @@ export function Banner<
           }}
         >
           <SizableText
-            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+            color={
+              item.titleColor || (item.theme || theme) === 'dark'
+                ? '$textDark'
+                : '$textLight'
+            }
             size="$headingLg"
             $gtMd={{
               size: '$heading2xl',
@@ -72,7 +92,7 @@ export function Banner<
         </Stack>
       </Stack>
     ),
-    [itemContainerStyle, onItemPress],
+    [itemContainerStyle, media.gtLg, onItemPress, theme],
   );
 
   const renderPagination = useCallback(
