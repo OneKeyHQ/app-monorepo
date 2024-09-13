@@ -196,7 +196,7 @@ export const CleanDataItem = () => {
                         confirmButtonProps: {
                           variant: 'primary',
                           size: 'large',
-                          icon: 'Copy1Outline',
+                          icon: 'Copy3Outline',
                         },
                         onConfirmText: intl.formatMessage({
                           id: ETranslations.global_copy,

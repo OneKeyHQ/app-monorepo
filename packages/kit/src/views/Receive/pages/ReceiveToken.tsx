@@ -224,7 +224,7 @@ function ReceiveToken() {
         return (
           <Button
             mt="$5"
-            icon="Copy1Outline"
+            icon="Copy3Outline"
             disabled={isVerifying}
             loading={isVerifying}
             onPress={() => copyText(account?.address ?? '')}
@@ -259,7 +259,7 @@ function ReceiveToken() {
     return (
       <Button
         mt="$5"
-        icon="Copy1Outline"
+        icon="Copy3Outline"
         onPress={() => copyText(account?.address ?? '')}
       >
         {intl.formatMessage({

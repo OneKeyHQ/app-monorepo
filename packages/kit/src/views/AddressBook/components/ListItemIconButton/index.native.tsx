@@ -24,7 +24,7 @@ export const ListItemIconButton = ({ item }: IListItemIconButtonProps) => {
               label: intl.formatMessage({
                 id: ETranslations.global_copy,
               }),
-              icon: 'Copy1Outline',
+              icon: 'Copy3Outline',
               onPress: async () => {
                 copyText(item.address);
               },

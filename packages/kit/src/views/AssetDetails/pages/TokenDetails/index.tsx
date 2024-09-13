@@ -95,7 +95,7 @@ function TokenDetails() {
             label: intl.formatMessage({
               id: ETranslations.global_copy_token_contract,
             }),
-            icon: 'Copy1Outline',
+            icon: 'Copy3Outline',
             onPress: () => copyText(tokenInfo.address),
           },
         ],
@@ -106,7 +106,7 @@ function TokenDetails() {
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
           }),
-          icon: 'ShareOutline',
+          icon: 'OpenOutline',
           onPress: () =>
             openTokenDetailsUrl({
               networkId: network.id,

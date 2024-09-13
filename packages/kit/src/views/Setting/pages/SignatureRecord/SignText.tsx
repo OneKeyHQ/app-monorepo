@@ -57,7 +57,7 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
           </SizableText>
           <IconButton
             variant="tertiary"
-            icon="Copy1Outline"
+            icon="Copy3Outline"
             size="small"
             onPress={onPress}
           />

@@ -83,7 +83,7 @@ function ScanQrCodeModalFooter({
 
   const FOOTER_NORMAL_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
     {
-      icon: 'Copy1Outline',
+      icon: 'Copy3Outline',
       title: intl.formatMessage({
         id: ETranslations.scan_scan_address_codes_to_copy_address,
       }),
