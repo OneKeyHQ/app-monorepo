@@ -61,8 +61,10 @@ const bannerData = [
     'titleColor': '#ffffff',
     'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
     'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
-    'gtLgImgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-    'gtLgResizeMode': 'contain',
+    $gtLg: {
+      'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
+      imgResizeMode: 'contain',
+    },
   },
 ];
 
