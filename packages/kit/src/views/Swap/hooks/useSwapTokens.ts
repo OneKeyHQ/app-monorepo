@@ -12,7 +12,10 @@ import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapDefaultSetTokens,
+  tokenDetailSwapDefaultToTokens,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -129,6 +132,17 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       setFromToken(params.importFromToken);
       setToToken(params.importToToken);
+      if (
+        params.importFromToken &&
+        !params.importToToken &&
+        !params.importFromToken?.isNative
+      ) {
+        const defaultToToken =
+          tokenDetailSwapDefaultToTokens[params.importFromToken.networkId];
+        if (defaultToToken) {
+          setToToken(defaultToToken);
+        }
+      }
       void syncNetworksSort(
         params.importFromToken?.networkId ??
           params.importToToken?.networkId ??
@@ -147,20 +161,20 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       return;
     }
-    const accountNetwork = swapNetworksRef.current.find(
-      (net) => net.networkId === swapAddressInfoRef.current?.networkId,
-    );
     const isAllNet = networkUtils.isAllNetwork({
       networkId: swapAddressInfoRef.current?.networkId,
     });
-
+    const accountNetwork = swapNetworksRef.current.find(
+      (net) => net.networkId === swapAddressInfoRef.current?.networkId,
+    );
     let netInfo = accountNetwork;
     let netId = accountNetwork?.networkId;
     if (isAllNet) {
       netId = getNetworkIdsMap().onekeyall;
+      const allNetDefaultToken = swapDefaultSetTokens[netId]?.fromToken;
       netInfo = swapNetworksRef.current.find(
-        (net) => net.networkId === 'evm--1',
-      ); // all net use evm default token
+        (net) => net.networkId === allNetDefaultToken?.networkId,
+      );
     }
 
     if (netInfo && netId) {
@@ -173,14 +187,18 @@ export function useSwapInit(params?: ISwapInitParams) {
         if (defaultFromToken) {
           setFromToken({
             ...defaultFromToken,
-            networkLogoURI: netInfo?.logoURI,
+            networkLogoURI: isAllNet
+              ? defaultFromToken.networkLogoURI
+              : netInfo?.logoURI,
           });
           void syncNetworksSort(defaultFromToken.networkId);
         }
         if (defaultToToken) {
           setToToken({
             ...defaultToToken,
-            networkLogoURI: netInfo?.logoURI,
+            networkLogoURI: isAllNet
+              ? defaultToToken.networkLogoURI
+              : netInfo?.logoURI,
           });
           void syncNetworksSort(defaultToToken.networkId);
         }
