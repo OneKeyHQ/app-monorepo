@@ -294,6 +294,7 @@ function HistoryDetails() {
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
+        accountAddress,
         txid,
       });
       historyInit.current = true;
@@ -313,6 +314,7 @@ function HistoryDetails() {
           await backgroundApiProxy.serviceHistory.decodeOnChainHistoryTx({
             accountId,
             networkId,
+            accountAddress,
             tx: r.data,
             tokens: r.tokens,
             nfts: r.nfts,
@@ -325,7 +327,7 @@ function HistoryDetails() {
       };
     },
 
-    [accountId, networkId, txid, historyTxParam],
+    [accountId, networkId, accountAddress, txid, historyTxParam],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
