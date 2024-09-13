@@ -14,7 +14,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IStakingConfig,
   IStakingFlowConfig,
-  ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
@@ -37,11 +36,13 @@ const networkIdMap = getNetworkIdsMap();
 
 const commonStakeConfigs = {
   ETH: {
+    enabled: false,
     tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
     displayProfit: true,
     stakingWithApprove: false,
   },
   MATIC: {
+    enabled: false,
     tokenAddress: EthereumMatic,
     displayProfit: true,
     stakingWithApprove: true,
@@ -51,12 +52,13 @@ const commonStakeConfigs = {
 const lidoConfig: { ETH: IStakingFlowConfig; MATIC: IStakingFlowConfig } = {
   ETH: {
     ...commonStakeConfigs.ETH,
+    enabled: true,
     unstakeWithSignMessage: true,
     claimWithAmount: true,
-    // claimWithTx: true,
   },
   MATIC: {
     ...commonStakeConfigs.MATIC,
+    enabled: true,
     claimWithTx: true,
   },
 };

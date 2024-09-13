@@ -29,6 +29,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -174,6 +175,7 @@ function HomeOverviewContainer() {
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
+  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
@@ -224,6 +226,19 @@ function HomeOverviewContainer() {
       },
     });
   }, [account, network]);
+
+  const handleResourceDetailsOnPress = useCallback(() => {
+    if (resourceDialogInstance?.current) {
+      return;
+    }
+    resourceDialogInstance.current = showResourceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        resourceDialogInstance.current = null;
+      },
+    });
+  }, [account?.id, network?.id]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -298,6 +313,18 @@ function HomeOverviewContainer() {
         >
           {intl.formatMessage({
             id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+      {vaultSettings?.hasResource ? (
+        <Button
+          onPress={handleResourceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+        >
+          {intl.formatMessage({
+            id: vaultSettings.resourceKey,
           })}
         </Button>
       ) : undefined}

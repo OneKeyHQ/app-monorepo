@@ -122,6 +122,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['ATOM'],
           configs: {
             'ATOM': {
+              enabled: false,
               tokenAddress: 'uatom',
               displayProfit: true,
               usePublicKey: true,
