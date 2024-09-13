@@ -42,7 +42,7 @@ export const isSupportWebAuth = async () => {
       (await isUserVerifyingPlatformAuthenticatorAvailable()) &&
       (await isCMA());
   }
-  return isSupport && navigator?.credentials;
+  return isSupport && !!navigator?.credentials;
 };
 
 export const verifiedWebAuth = async (credId: string) => {
