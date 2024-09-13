@@ -59,6 +59,9 @@ const settings: IVaultSettings = {
   },
 
   cannotSendToSelf: true,
+
+  hasResource: true,
+  resourceKey: ETranslations.global_energy_bandwidth,
 };
 
 export default Object.freeze(settings);

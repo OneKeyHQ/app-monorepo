@@ -32,6 +32,7 @@ import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxExtraInfoContainer } from './TxExtraInfoContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
+import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -195,6 +196,7 @@ function SendConfirmContainer() {
           />
           {/* <TxSwapInfoContainer /> */}
           {/* <TxSimulationContainer /> */}
+          <TxSpecialInfoContainer accountId={accountId} networkId={networkId} />
           <TxExtraInfoContainer />
         </Page.Body>
         <SendConfirmActionsContainer
