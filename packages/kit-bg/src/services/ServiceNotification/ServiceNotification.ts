@@ -50,9 +50,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type { Socket } from 'socket.io-client';
-import type { IDBAccount } from '../../dbs/local/types';
 import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
+import type { IDBAccount } from '../../dbs/local/types';
+import type { Socket } from 'socket.io-client';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -83,7 +83,10 @@ export default class ServiceNotification extends ServiceBase {
     if (!this._notificationProvider) {
       const { disabledWebSocket, disabledJPush } =
         await notificationsDevSettingsPersistAtom.get();
+      const settings = await settingsPersistAtom.get();
+
       this._notificationProvider = new NotificationProvider({
+        instanceId: settings.instanceId,
         disabledWebSocket,
         disabledJPush,
       });

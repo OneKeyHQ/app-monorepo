@@ -18,6 +18,7 @@ import { PushProviderWebSocket } from '../PushProvider/PushProviderWebSocket';
 export type INotificationProviderBaseOptions = {
   disabledWebSocket?: boolean;
   disabledJPush?: boolean;
+  instanceId: string;
 };
 export default abstract class NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {
@@ -36,6 +37,7 @@ export default abstract class NotificationProviderBase {
     }
     this.webSocketProvider = new PushProviderWebSocket({
       eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
     });
   }
 
