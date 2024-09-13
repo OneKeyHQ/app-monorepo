@@ -16,10 +16,9 @@ import Svg, {
 import { Theme } from 'tamagui';
 
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../hooks';
-import { Icon } from '../../primitives';
+import { Icon, Stack } from '../../primitives';
 
 import type { IThemeColorKeys } from '../../hooks';
 import type { IIconProps } from '../../primitives';
@@ -281,7 +280,7 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
 export function QRCode({
   value,
   valueUr,
-  interval = platformEnv.isNativeAndroid ? 250 : 100,
+  interval = 500,
   drawType,
   ...props
 }: IQRCodeProps) {
@@ -296,7 +295,7 @@ export function QRCode({
       }
       const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
         ur: valueUr,
-        maxFragmentLength: 100,
+        maxFragmentLength: 30,
         firstSeqNum: 0,
       });
       if (process.env.NODE_ENV !== 'production') {
@@ -318,7 +317,17 @@ export function QRCode({
   }
   return (
     <Theme name={isAnimatedCode ? 'light' : undefined}>
-      <BasicQRCode value={partValue} drawType={drawType} {...props} />
+      <Stack
+        {...(isAnimatedCode
+          ? {
+              p: '$2',
+              bg: '$bgApp',
+              alignSelf: 'flex-start',
+            }
+          : {})}
+      >
+        <BasicQRCode value={partValue} drawType={drawType} {...props} />
+      </Stack>
     </Theme>
   );
 }
