@@ -47,6 +47,11 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
+  getEarnAccount = contextAtomMethod((get, set, key: string) => {
+    const { earnAccount } = get(earnAtom());
+    return earnAccount?.[key];
+  });
+
   updateEarnAccounts = contextAtomMethod(
     (
       get,
@@ -77,6 +82,7 @@ export function useEarnActions() {
   const getAvailableAssets = actions.getAvailableAssets.use();
   const updateAvailableAssets = actions.updateAvailableAssets.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
+  const getEarnAccount = actions.getEarnAccount.use();
 
   const buildEarnAccountsKey = useCallback(
     (account = '', network = '') => `${account}-${network}`,
@@ -88,5 +94,6 @@ export function useEarnActions() {
     updateAvailableAssets,
     buildEarnAccountsKey,
     updateEarnAccounts,
+    getEarnAccount,
   });
 }
