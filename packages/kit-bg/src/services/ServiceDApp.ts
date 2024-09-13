@@ -1101,6 +1101,14 @@ class ServiceDApp extends ServiceBase {
       | undefined;
     return privateProvider?.callWebEmbedApiProxy(data);
   }
+
+  @backgroundMethod()
+  async getLastFocusUrl() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.getLastFocusUrl();
+  }
 }
 
 export default ServiceDApp;
