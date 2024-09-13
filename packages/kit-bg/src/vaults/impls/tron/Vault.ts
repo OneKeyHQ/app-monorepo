@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import TronWeb from 'tronweb';
 
-import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type {
+  IDecodedTxExtraTron,
+  IEncodedTxTron,
+} from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -21,6 +24,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -600,5 +604,19 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraTron> {
+    const receipt = onChainHistoryTx.receipt;
+    return Promise.resolve({
+      energyUsage: receipt?.energyUsage,
+      energyFee: receipt?.energyFee,
+      energyUsageTotal: receipt?.energyUsageTotal,
+      netUsage: receipt?.netUsage,
+    });
   }
 }
