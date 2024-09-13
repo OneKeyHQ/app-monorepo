@@ -425,6 +425,8 @@ export function useSwapBuildTx() {
             swapToToken: toToken,
           });
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapProvider: selectQuote?.info.provider,
+            swapProviderName: selectQuote?.info.providerName,
             swapType: EProtocolOfExchange.SWAP,
             slippage: slippageItem.value.toString(),
             sourceChain: fromToken.networkId,
@@ -454,6 +456,7 @@ export function useSwapBuildTx() {
     selectQuote?.fromAmount,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
+    selectQuote?.info.providerName,
     selectQuote?.quoteResultCtx,
     selectQuote?.fee?.percentageFee,
     selectQuote?.routesData,
