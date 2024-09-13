@@ -126,6 +126,9 @@ function formatBadgeNumber(badgeNumber: number | undefined) {
   if (isNil(badgeNumber)) {
     return '';
   }
+  if (!badgeNumber || badgeNumber <= 0) {
+    return '';
+  }
   if (badgeNumber > 99) {
     return '99+';
   }
