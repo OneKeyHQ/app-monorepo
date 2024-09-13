@@ -95,7 +95,7 @@ const StakePage = () => {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_stake_token },

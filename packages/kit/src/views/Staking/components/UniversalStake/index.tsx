@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -216,6 +217,7 @@ export const UniversalStake = ({
   }, [minStakeTerm]);
 
   const onPress = useCallback(async () => {
+    Keyboard.dismiss();
     Dialog.show({
       renderContent: (
         <StakeShouldUnderstand
