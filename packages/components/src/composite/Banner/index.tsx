@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia, useThemeName } from 'tamagui';
+import { useMedia, useProps } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,18 +12,87 @@ import { Image, SizableText, Stack, XStack } from '../../primitives';
 
 import type { IImageSourceProps, IStackStyle } from '../../primitives';
 
-export function Banner<
-  T extends {
-    title: string;
-    titleColor?: string;
-    imgUrl?: string;
-    theme?: 'dark' | 'light' | string;
-    bannerId: string;
-    imgSource?: IImageSourceProps['source'];
-    gtLgImgSource?: IImageSourceProps['source'];
-    gtLgResizeMode?: IImageSourceProps['resizeMode'];
-  },
->({
+export interface IBannerData {
+  title: string;
+  titleColor?: string;
+  imgUrl?: string;
+  theme?: 'dark' | 'light' | string;
+  bannerId: string;
+  imgSource?: IImageSourceProps['source'];
+  imgResizeMode?: IImageSourceProps['resizeMode'];
+  $gtMd?: IBannerData;
+  $gtLg?: IBannerData;
+}
+
+function BannerItem<T extends IBannerData>({
+  itemContainerStyle,
+  onPress,
+  item: rawItem,
+}: {
+  onPress: (item: T) => void;
+  item: T;
+  itemContainerStyle?: IStackStyle;
+}) {
+  const item = useProps(rawItem, {
+    resolveValues: 'value',
+  }) as T;
+  const onItemPress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
+  return (
+    <Stack
+      tag="section"
+      flex={1}
+      position="relative"
+      userSelect="none"
+      onPress={onItemPress}
+      {...itemContainerStyle}
+    >
+      {item.imgUrl ? (
+        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
+      ) : null}
+
+      {item.imgSource ? (
+        <Image
+          flex={1}
+          borderRadius="$3"
+          bg="$bgStrong"
+          source={item.imgSource}
+          resizeMode={item.imgResizeMode}
+        />
+      ) : null}
+      <Stack
+        position="absolute"
+        bottom={0}
+        right={0}
+        left={0}
+        px="$10"
+        py="$8"
+        $gtMd={{
+          px: '$14',
+          py: '$10',
+        }}
+      >
+        <SizableText
+          color={
+            item.titleColor || item.theme === 'dark'
+              ? '$textDark'
+              : '$textLight'
+          }
+          size="$headingLg"
+          $gtMd={{
+            size: '$heading2xl',
+          }}
+          maxWidth="$96"
+        >
+          {item.title ?? ''}
+        </SizableText>
+      </Stack>
+    </Stack>
+  );
+}
+
+export function Banner<T extends IBannerData>({
   data,
   onItemPress,
   isLoading,
@@ -39,61 +108,16 @@ export function Banner<
   emptyComponent?: ReactElement;
 } & IStackStyle) {
   const media = useMedia();
-  const theme = useThemeName();
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
-      <Stack
-        tag="section"
-        flex={1}
-        position="relative"
-        userSelect="none"
-        onPress={() => onItemPress(item)}
-        {...itemContainerStyle}
-      >
-        {item.imgUrl ? (
-          <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
-        ) : null}
-
-        {item.imgSource || item.gtLgImgSource ? (
-          <Image
-            flex={1}
-            borderRadius="$3"
-            bg="$bgStrong"
-            source={media.gtLg ? item.gtLgImgSource : item.imgSource}
-            resizeMode={item.gtLgResizeMode}
-          />
-        ) : null}
-        <Stack
-          position="absolute"
-          bottom={0}
-          right={0}
-          left={0}
-          px="$10"
-          py="$8"
-          $gtMd={{
-            px: '$14',
-            py: '$10',
-          }}
-        >
-          <SizableText
-            color={
-              item.titleColor || (item.theme || theme) === 'dark'
-                ? '$textDark'
-                : '$textLight'
-            }
-            size="$headingLg"
-            $gtMd={{
-              size: '$heading2xl',
-            }}
-            maxWidth="$96"
-          >
-            {item.title ?? ''}
-          </SizableText>
-        </Stack>
-      </Stack>
+      <BannerItem
+        onPress={onItemPress}
+        item={item}
+        itemContainerStyle={itemContainerStyle}
+      />
     ),
-    [itemContainerStyle, media.gtLg, onItemPress, theme],
+    [itemContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(
