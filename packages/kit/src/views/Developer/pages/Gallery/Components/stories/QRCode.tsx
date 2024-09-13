@@ -87,7 +87,7 @@ const QRCodeGallery = () => (
       {
         title: 'Animated QR',
         element: (
-          <YStack justifyContent="center" flex={1} gap="$4">
+          <YStack justifyContent="center" flex={1} gap="$4" mb={260}>
             <QRCode
               drawType="animated"
               valueUr={{

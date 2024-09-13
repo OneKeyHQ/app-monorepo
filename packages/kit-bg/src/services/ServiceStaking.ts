@@ -21,6 +21,7 @@ import type {
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnAccountTokenResponse,
   IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
@@ -323,14 +324,21 @@ class ServiceStaking extends ServiceBase {
   }
 
   _getProtocolList = memoizee(
-    async (params: { networkId?: string; symbol: string }) => {
-      const { symbol } = params;
+    async (params: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    }) => {
+      const { symbol, accountAddress, publicKey } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
       const protocolListResp = await client.get<{
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v1/stake-protocol/list', {
         params: {
           symbol: symbol.toUpperCase(),
+          accountAddress,
+          publicKey,
         },
       });
       const protocols = protocolListResp.data.data.protocols;
@@ -338,21 +346,65 @@ class ServiceStaking extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
   @backgroundMethod()
   async getProtocolList(params: {
-    networkId?: string;
     symbol: string;
+    networkId?: string;
+    accountId?: string;
+    indexedAccountId?: string;
     filter?: boolean;
   }) {
-    let items = await this._getProtocolList(params);
+    const listParams: {
+      symbol: string;
+      networkId?: string;
+      accountAddress?: string;
+      publicKey?: string;
+    } = { symbol: params.symbol };
+    if (params.networkId && params.accountId) {
+      const earnAccount = await this.getEarnAccount({
+        accountId: params.accountId,
+        networkId: params.networkId,
+        indexedAccountId: params.indexedAccountId,
+      });
+      if (earnAccount) {
+        listParams.networkId = earnAccount.networkId;
+        listParams.accountAddress = earnAccount.accountAddress;
+        if (networkUtils.isBTCNetwork(listParams.networkId)) {
+          listParams.publicKey = earnAccount.account.pub;
+        }
+      }
+    }
+    let items = await this._getProtocolList(listParams);
     if (params.filter && params.networkId) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
-    return items;
+
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const showAllStakingProviders =
+      devSetting?.settings?.showAllStakingProviders;
+
+    const itemsWithEnabledStatus = await Promise.all(
+      items.map(async (item) => {
+        const stakingConfig = await this.getStakingConfigs({
+          networkId: item.network.networkId,
+          symbol: params.symbol,
+          provider: item.provider.name,
+        });
+        const isEnabled =
+          stakingConfig && (showAllStakingProviders || stakingConfig.enabled);
+        return { item, isEnabled };
+      }),
+    );
+
+    const enabledItems = itemsWithEnabledStatus
+      .filter(({ isEnabled }) => isEnabled)
+      .map(({ item }) => item);
+    return enabledItems;
   }
 
   @backgroundMethod()
@@ -407,19 +459,32 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountAsset(params: {
-    networkId: string;
-    accountAddress: string;
-    publicKey?: string;
-  }) {
+  async getAccountAsset(
+    params: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[],
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<{
+    const response = await client.post<{
       data: IEarnAccountResponse;
-    }>(`/earn/v1/get-account`, { params });
-    return {
-      ...params,
-      earn: resp.data.data,
+    }>(`/earn/v1/account/list`, { accounts: params });
+    const resp = response.data.data;
+    const result: IEarnAccountTokenResponse = {
+      totalFiatValue: resp.totalFiatValue,
+      earnings24h: resp.earnings24h,
+      accounts: [],
     };
+
+    for (const account of params) {
+      result.accounts.push({
+        ...account,
+        tokens:
+          resp.tokens?.filter((i) => i.networkId === account.networkId) || [],
+      });
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -458,20 +523,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.map((item) => [JSON.stringify(item), item]),
       ).values(),
     );
-
-    const resp = await Promise.allSettled(
-      uniqueAccountParams.map((params) => this.getAccountAsset(params)),
-    );
-    return (
-      resp.filter((v) => v.status === 'fulfilled') as {
-        value: {
-          earn: IEarnAccountResponse;
-          networkId: string;
-          accountAddress: string;
-          publicKey?: string;
-        };
-      }[]
-    ).map((i) => i.value);
+    return this.getAccountAsset(uniqueAccountParams);
   }
 
   @backgroundMethod()
@@ -514,7 +566,7 @@ class ServiceStaking extends ServiceBase {
   }) {
     const providerKey = earnUtils.getEarnProviderEnumKey(provider);
     if (!providerKey) {
-      throw new Error('Invalid provider');
+      return null;
     }
 
     const vaultSettings =
@@ -568,11 +620,17 @@ class ServiceStaking extends ServiceBase {
       ([, providerConfig]) => providerConfig !== undefined,
     );
 
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const showAllStakingProviders =
+      devSetting?.settings?.showAllStakingProviders;
+
     for (const [provider, providerConfig] of providerEntries) {
       const symbolEntry = Object.entries(providerConfig.configs).find(
         ([, config]) =>
           config &&
-          config.tokenAddress.toLowerCase() === normalizedTokenAddress,
+          config.tokenAddress.toLowerCase() === normalizedTokenAddress &&
+          (showAllStakingProviders || config.enabled),
       );
 
       if (symbolEntry) {

@@ -104,38 +104,17 @@ const SwapTokenSelectPage = () => {
           ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
-      if (swapFromAddressInfo.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) =>
-              item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-    } else {
-      if (toToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-      if (swapToAddressInfo.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) =>
-              item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-
-      return swapNetworksIncludeAllNetwork?.[0];
+    } else if (toToken?.networkId) {
+      return (
+        swapNetworksIncludeAllNetwork.find(
+          (item: ISwapNetwork) => item.networkId === toToken.networkId,
+        ) ?? swapNetworksIncludeAllNetwork?.[0]
+      );
     }
+    return swapNetworksIncludeAllNetwork?.[0];
   }, [
     fromToken?.networkId,
-    swapFromAddressInfo.networkId,
     swapNetworksIncludeAllNetwork,
-    swapToAddressInfo.networkId,
     toToken?.networkId,
     type,
   ]);
@@ -342,7 +321,7 @@ const SwapTokenSelectPage = () => {
                   {
                     icon: 'Copy3Outline',
                     label: intl.formatMessage({
-                      id: ETranslations.global_copy_address,
+                      id: ETranslations.global_copy_token_contract,
                     }),
                     onPress: () => {
                       copyText(rawItem.contractAddress);

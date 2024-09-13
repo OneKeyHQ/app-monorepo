@@ -83,7 +83,7 @@ function ScanQrCodeModalFooter({
 
   const FOOTER_NORMAL_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
     {
-      icon: 'Copy1Outline',
+      icon: 'Copy3Outline',
       title: intl.formatMessage({
         id: ETranslations.scan_scan_address_codes_to_copy_address,
       }),
@@ -156,10 +156,10 @@ function ScanQrCodeModalFooter({
             <Icon name={item.icon} size="$5" color="$iconSubdued" />
           </Stack>
           <SizableText
+            flex={1}
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
-            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}

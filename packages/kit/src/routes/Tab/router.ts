@@ -5,6 +5,7 @@ import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -52,6 +53,8 @@ const getDiscoverRouterConfig = (
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
+  const [devSettings] = useDevSettingsPersistAtom();
+
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
 
   const isShowMDDiscover = useMemo(
@@ -74,26 +77,18 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: homeRouters,
         },
-        {
-          name: ETabRoutes.Market,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
-          translationId: ETranslations.global_market,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/market',
-          exact: true,
-          children: marketRouters,
-        },
-        {
-          name: ETabRoutes.Earn,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'CoinsSolid' : 'CoinsOutline',
-          translationId: ETranslations.global_earn,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
-          exact: true,
-          children: earnRouters,
-        },
+        devSettings.enabled && devSettings.settings?.showAllStakingProviders
+          ? {
+              name: ETabRoutes.Earn,
+              tabBarIcon: (focused?: boolean) =>
+                focused ? 'CoinsSolid' : 'CoinsOutline',
+              translationId: ETranslations.global_earn,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/earn',
+              exact: true,
+              children: earnRouters,
+            }
+          : undefined,
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
@@ -103,6 +98,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/swap',
           exact: true,
           children: swapRouters,
+        },
+        {
+          name: ETabRoutes.Market,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+          translationId: ETranslations.global_market,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/market',
+          exact: true,
+          children: marketRouters,
         },
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
@@ -137,7 +142,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       ].filter<ITabNavigatorConfig<ETabRoutes>>(
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
-    [isShowDesktopDiscover, isShowMDDiscover, params],
+    [
+      devSettings.enabled,
+      devSettings.settings?.showAllStakingProviders,
+      isShowDesktopDiscover,
+      isShowMDDiscover,
+      params,
+    ],
   );
 };
 

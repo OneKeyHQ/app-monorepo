@@ -9,6 +9,7 @@ import {
   Button,
   Icon,
   IconButton,
+  Image,
   Page,
   Popover,
   SectionList,
@@ -29,7 +30,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -45,6 +45,14 @@ import type { RouteProp } from '@react-navigation/core';
 enum ESwapProviderStatus {
   AVAILABLE = 'Available',
   UNAVAILABLE = 'Unavailable',
+}
+
+interface IProtocolFeeInfo {
+  name: string;
+  fee: number;
+  color: string;
+  icon: string;
+  maxFee: number;
 }
 
 const InformationItem = ({
@@ -194,38 +202,91 @@ const SwapProviderSelectModal = () => {
       toToken,
     ],
   );
-  const rightInfoComponent = useCallback(() => {
-    if (platformEnv.isNative) {
-      return (
-        <Popover
-          title={intl.formatMessage({
-            id: ETranslations.provider_ios_popover_title,
-          })}
-          renderTrigger={
-            <IconButton
-              variant="tertiary"
-              size="medium"
-              icon="InfoCircleOutline"
-            />
-          }
-          renderContent={
-            <Stack px="$4" pb="$4" gap="$2">
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_approval_require_title,
-                })}
-              </SizableText>
+
+  const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
+    () => [
+      {
+        maxFee: 0.875,
+        name: 'metamask',
+        fee: 0.875,
+        color: '#F5841F',
+        icon: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
+      },
+      {
+        maxFee: 0.875,
+        name: 'zerion',
+        fee: 0.8,
+        color: '#2461ED',
+        icon: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
+      },
+      {
+        maxFee: 0.875,
+        name: 'oneKey',
+        fee: 0.3,
+        // color: '#202020',
+        color: '$bgInverse',
+        icon: require('@onekeyhq/kit/assets/logo.png'),
+      },
+    ],
+    [],
+  );
+
+  const renderProtocolFeeListItem = useCallback(
+    (item: IProtocolFeeInfo) => (
+      <XStack gap="$3" alignItems="center">
+        <Stack w={20} h={20}>
+          <Image source={{ uri: item.icon }} w={16} h={16} />
+        </Stack>
+        <Stack flex={1}>
+          <Stack
+            backgroundColor={item.color}
+            borderRadius="$full"
+            width={`${(item.fee / item.maxFee) * 100}%`}
+            height="$1"
+          />
+        </Stack>
+        <SizableText size="$bodySm" color="$text" textAlign="right">
+          {item.fee}%
+        </SizableText>
+      </XStack>
+    ),
+    [],
+  );
+
+  const rightInfoComponent = useCallback(
+    () => (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.provider_ios_popover_title,
+        })}
+        renderTrigger={
+          <IconButton
+            variant="tertiary"
+            size="medium"
+            icon="InfoCircleOutline"
+          />
+        }
+        renderContent={
+          <Stack p="$5" gap="$6">
+            <Stack gap="$3">
+              <Stack gap="$1">
+                <SizableText size="$headingMd" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_order_info_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_popover_order_info_content,
+                  })}
+                </SizableText>
+              </Stack>
               <InformationItem
                 icon="LockOutline"
                 content={intl.formatMessage({
                   id: ETranslations.provider_ios_popover_approval_require_msg,
                 })}
               />
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_order_info_title,
-                })}
-              </SizableText>
               <InformationItem
                 icon="GasOutline"
                 content={intl.formatMessage({
@@ -245,12 +306,47 @@ const SwapProviderSelectModal = () => {
                 })}
               />
             </Stack>
-          }
-        />
-      );
-    }
-    return null;
-  }, [intl]);
+            <Stack gap="$3">
+              <Stack gap="$1">
+                <SizableText size="$headingMd" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_onekey_fee,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_onekey_fee_content,
+                  })}
+                </SizableText>
+              </Stack>
+              <Stack gap="$2">
+                <XStack gap="$3">
+                  <SizableText size="$bodySm" color="$textSubdued" flex={100}>
+                    {intl.formatMessage({
+                      id: ETranslations.provider_popover_wallet,
+                    })}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="right"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.provider_popover_fee_rate,
+                    })}
+                  </SizableText>
+                </XStack>
+                {protocolFeeInfoList.map((item) =>
+                  renderProtocolFeeListItem(item),
+                )}
+              </Stack>
+            </Stack>
+          </Stack>
+        }
+      />
+    ),
+    [intl, protocolFeeInfoList, renderProtocolFeeListItem],
+  );
   return (
     <Page>
       <Page.Header headerRight={rightInfoComponent} />
