@@ -52,6 +52,8 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
+const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
+
 const testBannerData = [
   {
     'hrefType': 'internal',
@@ -241,7 +243,7 @@ function RecommendedItem({
         </SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {token.apr}
+        {buildAprText(token.apr)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -625,7 +627,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={apr.endsWith('%') ? `${apr} APR` : apr}
+                  primary={buildAprText(apr)}
                 />
               </ListItem>
             ),
