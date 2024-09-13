@@ -62,6 +62,7 @@ const bannerData = [
     'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
     'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
     'gtLgImgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
+    'gtLgResizeMode': 'contain',
   },
 ];
 
@@ -608,7 +609,7 @@ function AvailableAssets() {
 
 function BasicEarnHome() {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const media = useMedia();
@@ -692,6 +693,24 @@ function BasicEarnHome() {
       }),
     },
   ];
+
+  const navigation = useAppNavigation();
+
+  const onBannerPress = useCallback(async () => {
+    if (account) {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetails,
+        params: {
+          accountId: account?.id ?? '',
+          networkId: 'btc--0',
+          indexedAccountId: indexedAccount?.id,
+          symbol: 'BTC',
+          provider: 'babylon',
+        },
+      });
+    }
+  }, [account, indexedAccount?.id, navigation]);
+
   return (
     <Page scrollEnabled fullPage>
       <TabPageHeader
@@ -722,7 +741,7 @@ function BasicEarnHome() {
               <Banner
                 height="$36"
                 data={bannerData}
-                onItemPress={(item) => console.log(item)}
+                onItemPress={onBannerPress}
                 isLoading={false}
               />
             </YStack>
