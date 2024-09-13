@@ -30,7 +30,7 @@ module.exports = function (api) {
               '../../packages/components/tamagui.config.ts',
             ),
             importsWhitelist: [],
-            logTimings: true,
+            logTimings: false,
             disableExtraction: process.env.NODE_ENV === 'development',
             experimentalFlattenThemesOnNative: true,
           },
