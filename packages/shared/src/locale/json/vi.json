@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Giao dịch của bạn sẽ xuất hiện ở đây",
   "no_transaction_title": "Chưa có giao dịch nào",
   "no_watched_account_message": "Không có tài khoản nào được theo dõi. Nhập một địa chỉ để bắt đầu giám sát.",
+  "notifications.empty_desc": "Bạn chưa nhận được bất kỳ thông báo nào",
+  "notifications.empty_title": "Không có thông báo",
   "notifications.notifications_account_activity_desc": "Nhận thông báo khi nhận, gửi, giao dịch và nhiều hoạt động khác.",
   "notifications.notifications_account_activity_label": "Hoạt động tài khoản",
   "notifications.notifications_price_alert_desc": "Nhận thông báo khi giá tiền điện tử được theo dõi tăng hoặc giảm hơn 10% trong 24 giờ.",

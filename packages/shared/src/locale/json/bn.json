@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "আপনার লেনদেনগুলি এখানে প্রদর্শিত হবে",
   "no_transaction_title": "এখনো কোনো লেনদেন নেই",
   "no_watched_account_message": "কোন নজর রাখা অ্যাকাউন্ট নেই। মনিটরিং শুরু করতে একটি ঠিকানা আমদানি করুন।",
+  "notifications.empty_desc": "আপনি এখনো কোনো বিজ্ঞপ্তি পাননি",
+  "notifications.empty_title": "কোনো বিজ্ঞপ্তি নেই",
   "notifications.notifications_account_activity_desc": "প্রাপ্তি, পাঠানো, ট্রেডিং এবং আরও অনেক কিছু করার সময় বিজ্ঞপ্তি পান।",
   "notifications.notifications_account_activity_label": "অ্যাকাউন্ট কার্যকলাপ",
   "notifications.notifications_price_alert_desc": "24 ঘন্টার মধ্যে দেখা ক্রিপ্টো 10% এর বেশি বাড়লে বা কমে গেলে বিজ্ঞপ্তি পান।",

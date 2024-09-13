@@ -1247,6 +1247,8 @@
   "no_transaction_desc": "Your transactions will appear here",
   "no_transaction_title": "No transactions yet",
   "no_watched_account_message": "No watched accounts. Import an address to start monitoring.",
+  "notifications.empty_desc": "You have not received any notifications yet",
+  "notifications.empty_title": "No notifications",
   "notifications.notifications_account_activity_desc": "Get notified when receiving, sending, trading, and more.",
   "notifications.notifications_account_activity_label": "Account activity",
   "notifications.notifications_price_alert_desc": "Get notified when the watched cryptos increase or drop more than 10% in 24 hours.",
