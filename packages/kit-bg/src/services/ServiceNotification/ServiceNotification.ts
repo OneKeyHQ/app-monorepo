@@ -11,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -771,6 +772,9 @@ export default class ServiceNotification extends ServiceBase {
     networkId: string;
     tx: string;
   }) {
+    if (platformEnv.isExtension) {
+      return;
+    }
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const params = {
       networkId,
