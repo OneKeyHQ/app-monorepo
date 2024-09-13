@@ -100,7 +100,7 @@ export function MarketTokenAddress({
         title={intl.formatMessage({ id: ETranslations.global_copy })}
         variant="tertiary"
         color="$iconSubdued"
-        icon="Copy1Outline"
+        icon="Copy3Outline"
         size="small"
         iconSize="$4"
         onPress={() => copyText(address)}

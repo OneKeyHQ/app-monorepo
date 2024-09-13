@@ -114,9 +114,10 @@ const SwapHistoryListModal = () => {
     // dialog
     if (!swapTxHistoryList?.length) return;
     Dialog.show({
-      description: intl.formatMessage({
-        id: ETranslations.swap_history_all_history_content,
-      }),
+      icon: 'BroomOutline',
+      // description: intl.formatMessage({
+      //   id: ETranslations.swap_history_all_history_content,
+      // }),
       title: intl.formatMessage({
         id: ETranslations.swap_history_all_history_title,
       }),

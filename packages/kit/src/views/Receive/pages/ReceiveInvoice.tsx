@@ -123,7 +123,7 @@ function ReceiveInvoice() {
             {paymentRequest}
           </SizableText>
         </ConfirmHighlighter>
-        <Button mt="$5" icon="Copy1Outline" onPress={handleCopyInvoice}>
+        <Button mt="$5" icon="Copy3Outline" onPress={handleCopyInvoice}>
           {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
       </>

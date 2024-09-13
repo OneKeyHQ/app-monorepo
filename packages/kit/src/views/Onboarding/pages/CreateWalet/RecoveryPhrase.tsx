@@ -173,7 +173,7 @@ export function RecoveryPhrase() {
             label: intl.formatMessage({
               id: ETranslations.global_copy_recovery_phrase,
             }),
-            icon: 'Copy1Outline',
+            icon: 'Copy3Outline',
             onPress: () => {
               Dialog.show({
                 icon: 'ErrorOutline',
