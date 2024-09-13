@@ -382,19 +382,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
-  async buildHistoryTx({
-    historyTxToMerge,
-    decodedTx,
-    signedTx,
-    isSigner,
-    isLocalCreated,
-  }: {
+  async buildHistoryTx(params: {
     historyTxToMerge?: IAccountHistoryTx;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
     isSigner?: boolean;
     isLocalCreated?: boolean;
+    accountAddress?: string;
+    xpub?: string;
   }): Promise<IAccountHistoryTx> {
+    const { historyTxToMerge, decodedTx, signedTx, isSigner, isLocalCreated } =
+      params;
+
+    let accountAddress = params.accountAddress || '';
+    let xpub = params.xpub;
+
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
@@ -402,16 +404,22 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     const { accountId, networkId } = decodedTx;
 
-    const [accountAddress, xpub] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-    ]);
+    try {
+      const [a, x] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+      accountAddress = a;
+      xpub = x;
+    } catch (e) {
+      // pass
+    }
 
     decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = accountAddress;
@@ -516,6 +524,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
       return await this.buildHistoryTx({
         decodedTx,
+        accountAddress,
+        xpub,
       });
     } catch (e) {
       console.log(e);
