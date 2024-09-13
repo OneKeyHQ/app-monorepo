@@ -307,7 +307,7 @@ function RecommendedContainer({
 function Recommended({
   isFetchingAccounts = false,
 }: {
-  isFetchingAccounts?: boolean;
+  isFetchingAccounts: boolean;
 }) {
   const {
     activeAccount: { account, network },
@@ -379,7 +379,7 @@ function Recommended({
   return null;
 }
 
-function Overview() {
+function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -501,6 +501,7 @@ function Overview() {
 
       {/* details button */}
       <Button
+        disabled={isFetchingAccounts}
         onPress={onPress}
         variant="tertiary"
         iconAfter="ChevronRightOutline"
@@ -653,16 +654,26 @@ function BasicEarnHome() {
         });
       }
 
-      const earnAccount =
-        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-          assets,
-          accountId: account?.id ?? '',
-          networkId: network?.id ?? '',
+      const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
+      const fetchAndUpdateAction = async () => {
+        const earnAccount =
+          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
+            assets,
+            accountId: account?.id ?? '',
+            networkId: network?.id ?? '',
+          });
+        actions.current.updateEarnAccounts({
+          key: totalFiatMapKey,
+          earnAccount,
         });
-      actions.current.updateEarnAccounts({
-        key: totalFiatMapKey,
-        earnAccount,
-      });
+      };
+      if (earnAccountData) {
+        setTimeout(() => {
+          void fetchAndUpdateAction();
+        });
+      } else {
+        await fetchAndUpdateAction();
+      }
     },
     [actions, account?.id, network?.id],
     {
@@ -721,7 +732,7 @@ function BasicEarnHome() {
               flexDirection: 'row',
             }}
           >
-            <Overview />
+            <Overview isFetchingAccounts={!!isFetchingAccounts} />
             <YStack
               minHeight="$36"
               borderRadius="$3"
@@ -755,7 +766,7 @@ function BasicEarnHome() {
                 flex: 1,
               }}
             >
-              <Recommended isFetchingAccounts={isFetchingAccounts} />
+              <Recommended isFetchingAccounts={!!isFetchingAccounts} />
               <AvailableAssets />
             </YStack>
             {media.gtLg ? (
