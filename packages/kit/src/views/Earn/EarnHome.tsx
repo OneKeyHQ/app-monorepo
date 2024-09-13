@@ -156,6 +156,7 @@ function RecommendedItem({
   token,
   ...rest
 }: { token?: ITokenAccount } & IYStackProps) {
+  const intl = useIntl();
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const [decorationColor, setDecorationColor] = useState<string | null>(null);
@@ -243,7 +244,14 @@ function RecommendedItem({
         {token.apr}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Available: 0.05 symbol
+        {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
+
+        <NumberSizeableText
+          formatter="balance"
+          formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
+        >
+          {token.balanceParsed}
+        </NumberSizeableText>
       </SizableText>
     </YStack>
   );
