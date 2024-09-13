@@ -321,7 +321,7 @@ const SwapTokenSelectPage = () => {
                   {
                     icon: 'Copy3Outline',
                     label: intl.formatMessage({
-                      id: ETranslations.global_copy_address,
+                      id: ETranslations.global_copy_token_contract,
                     }),
                     onPress: () => {
                       copyText(rawItem.contractAddress);
