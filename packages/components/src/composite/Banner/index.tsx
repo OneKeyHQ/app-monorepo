@@ -21,6 +21,7 @@ export function Banner<
     bannerId: string;
     imgSource?: IImageSourceProps['source'];
     gtLgImgSource?: IImageSourceProps['source'];
+    gtLgResizeMode?: IImageSourceProps['resizeMode'];
   },
 >({
   data,
@@ -60,7 +61,7 @@ export function Banner<
             borderRadius="$3"
             bg="$bgStrong"
             source={media.gtLg ? item.gtLgImgSource : item.imgSource}
-            resizeMode="contain"
+            resizeMode={item.gtLgResizeMode}
           />
         ) : null}
         <Stack
