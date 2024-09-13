@@ -324,6 +324,7 @@ export default class ServiceNotification extends ServiceBase {
   @toastIfError()
   async enableNotificationPermissions() {
     let permission = await this.requestPermission();
+    await timerUtils.wait(600);
     if (permission.permission === ENotificationPermission.granted) {
       return permission;
     }

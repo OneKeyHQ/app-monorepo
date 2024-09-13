@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,6 +40,7 @@ const DATA = [
 
 function NotificationIntroduction() {
   const intl = useIntl();
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   const shouldShowCancelButton = useMemo(() => {
     if (platformEnv.isNativeIOS || platformEnv.isExtension) {
@@ -185,15 +186,23 @@ function NotificationIntroduction() {
       </Page.Body>
 
       <Page.Footer
+        confirmButtonProps={{
+          loading: confirmLoading,
+        }}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_enable })}
         onConfirm={async (close) => {
-          const permission =
-            await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
-          if (
-            permission.isSupported &&
-            permission.permission === ENotificationPermission.granted
-          ) {
-            close();
+          try {
+            setConfirmLoading(true);
+            const permission =
+              await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
+            if (
+              permission.isSupported &&
+              permission.permission === ENotificationPermission.granted
+            ) {
+              close();
+            }
+          } finally {
+            setConfirmLoading(false);
           }
         }}
         {...(shouldShowCancelButton && {
