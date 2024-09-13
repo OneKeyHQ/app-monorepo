@@ -19,8 +19,8 @@ export const ListItemIconButton = ({ item }: IListItemIconButtonProps) => {
       })}
       items={[
         {
-          label: intl.formatMessage({ id: ETranslations.global_copy }),
-          icon: 'Copy1Outline',
+          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
+          icon: 'Copy3Outline',
           onPress: async () => {
             copyText(item.address);
           },
