@@ -384,22 +384,31 @@ export default class ServiceNotification extends ServiceBase {
     return (await this.getNotificationProvider()).removeNotification(params);
   }
 
-  // TODO debounced
   @backgroundMethod()
   async setBadge(params: INotificationSetBadgeParams) {
-    defaultLogger.notification.common.setBadge(params);
-    await notificationsAtom.set((v) => ({
-      ...v,
-      badge: params.count ?? undefined,
-    }));
-    return (await this.getNotificationProvider()).setBadge(params);
+    await this.setBadgeDebounced(params);
   }
 
-  // TODO debounced
+  setBadgeDebounced = debounce(
+    async (params: INotificationSetBadgeParams) => {
+      defaultLogger.notification.common.setBadge(params);
+      await notificationsAtom.set((v) => ({
+        ...v,
+        badge: params.count ?? undefined,
+      }));
+      await (await this.getNotificationProvider()).setBadge(params);
+    },
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   @backgroundMethod()
   async clearBadge() {
-    await notificationsAtom.set((v) => ({ ...v, badge: undefined }));
-    return (await this.getNotificationProvider()).clearBadge();
+    await this.setBadge({ count: null });
+    defaultLogger.notification.common.clearBadge();
   }
 
   // only call this method when app start
@@ -623,7 +632,6 @@ export default class ServiceNotification extends ServiceBase {
         removed: number;
       }>
     >('/notification/v1/account/register', params);
-    // TODO return badge count
     defaultLogger.notification.common.registerClient(
       params,
       result.data,
@@ -718,7 +726,6 @@ export default class ServiceNotification extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
     >('/notification/v1/message/list');
-    // TODO return badge count
     return result?.data?.data || [];
   }
 
@@ -739,18 +746,28 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
-  // TODO debounced
   @backgroundMethod()
   async refreshBadgeFromServer() {
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.get<IApiClientResponse<number>>(
-      '/notification/v1/message/badges',
-    );
-    const badge = result?.data?.data;
-    if (isNumber(badge)) {
-      await this.setBadge({ count: badge });
-    }
+    await this.refreshBadgeFromServerDebounced();
   }
+
+  refreshBadgeFromServerDebounced = debounce(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.get<IApiClientResponse<number>>(
+        '/notification/v1/message/badges',
+      );
+      const badge = result?.data?.data;
+      if (isNumber(badge)) {
+        await this.setBadge({ count: badge });
+      }
+    },
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   @toastIfError()

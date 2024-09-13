@@ -58,11 +58,6 @@ export default abstract class NotificationProviderBase {
   abstract setBadge(params: INotificationSetBadgeParams): Promise<void>;
   // TODO getBadgeCount
 
-  async clearBadge() {
-    await this.setBadge({ count: null });
-    defaultLogger.notification.common.clearBadge();
-  }
-
   abstract showAndFocusApp(): Promise<void>;
 
   abstract clearNotificationCache(): Promise<void>;
