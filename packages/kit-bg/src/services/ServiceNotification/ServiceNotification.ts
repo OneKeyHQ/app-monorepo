@@ -50,9 +50,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
-import type { IDBAccount } from '../../dbs/local/types';
 import type { Socket } from 'socket.io-client';
+import type { IDBAccount } from '../../dbs/local/types';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -381,6 +381,7 @@ export default class ServiceNotification extends ServiceBase {
     return (await this.getNotificationProvider()).removeNotification(params);
   }
 
+  // TODO debounced
   @backgroundMethod()
   async setBadge(params: INotificationSetBadgeParams) {
     defaultLogger.notification.common.setBadge(params);
@@ -391,6 +392,7 @@ export default class ServiceNotification extends ServiceBase {
     return (await this.getNotificationProvider()).setBadge(params);
   }
 
+  // TODO debounced
   @backgroundMethod()
   async clearBadge() {
     await notificationsAtom.set((v) => ({ ...v, badge: undefined }));
@@ -663,11 +665,12 @@ export default class ServiceNotification extends ServiceBase {
 
     defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
 
-    void this.refreshBadgeFromServer();
     if (
       params.msgId &&
       params.action === ENotificationPushMessageAckAction.readed
     ) {
+      // readed action may change badge, should refresh badge from server
+      void this.refreshBadgeFromServer();
       await notificationsReadedAtom.set((v) => ({
         ...v,
         [params.msgId as string]: true,
@@ -725,13 +728,15 @@ export default class ServiceNotification extends ServiceBase {
         updated: number;
       }>
     >('/notification/v1/message/read-all');
+
     if (result?.data?.data?.updated > 0) {
-      await this.clearBadge();
+      void this.clearBadge();
     }
     // await timerUtils.wait(5000);
     return result?.data?.data;
   }
 
+  // TODO debounced
   @backgroundMethod()
   async refreshBadgeFromServer() {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
