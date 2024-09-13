@@ -83,7 +83,10 @@ export default class ServiceNotification extends ServiceBase {
     if (!this._notificationProvider) {
       const { disabledWebSocket, disabledJPush } =
         await notificationsDevSettingsPersistAtom.get();
+      const settings = await settingsPersistAtom.get();
+
       this._notificationProvider = new NotificationProvider({
+        instanceId: settings.instanceId,
         disabledWebSocket,
         disabledJPush,
       });
@@ -383,18 +386,29 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async setBadge(params: INotificationSetBadgeParams) {
-    defaultLogger.notification.common.setBadge(params);
-    await notificationsAtom.set((v) => ({
-      ...v,
-      badge: params.count ?? undefined,
-    }));
-    return (await this.getNotificationProvider()).setBadge(params);
+    await this.setBadgeDebounced(params);
   }
+
+  setBadgeDebounced = debounce(
+    async (params: INotificationSetBadgeParams) => {
+      defaultLogger.notification.common.setBadge(params);
+      await notificationsAtom.set((v) => ({
+        ...v,
+        badge: params.count ?? undefined,
+      }));
+      await (await this.getNotificationProvider()).setBadge(params);
+    },
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   async clearBadge() {
-    await notificationsAtom.set((v) => ({ ...v, badge: undefined }));
-    return (await this.getNotificationProvider()).clearBadge();
+    await this.setBadge({ count: null });
+    defaultLogger.notification.common.clearBadge();
   }
 
   // only call this method when app start
@@ -618,7 +632,6 @@ export default class ServiceNotification extends ServiceBase {
         removed: number;
       }>
     >('/notification/v1/account/register', params);
-    // TODO return badge count
     defaultLogger.notification.common.registerClient(
       params,
       result.data,
@@ -663,11 +676,12 @@ export default class ServiceNotification extends ServiceBase {
 
     defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
 
-    void this.refreshBadgeFromServer();
     if (
       params.msgId &&
       params.action === ENotificationPushMessageAckAction.readed
     ) {
+      // readed action may change badge, should refresh badge from server
+      void this.refreshBadgeFromServer();
       await notificationsReadedAtom.set((v) => ({
         ...v,
         [params.msgId as string]: true,
@@ -712,7 +726,6 @@ export default class ServiceNotification extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<INotificationPushMessageListItem[]>
     >('/notification/v1/message/list');
-    // TODO return badge count
     return result?.data?.data || [];
   }
 
@@ -725,8 +738,9 @@ export default class ServiceNotification extends ServiceBase {
         updated: number;
       }>
     >('/notification/v1/message/read-all');
+
     if (result?.data?.data?.updated > 0) {
-      await this.clearBadge();
+      void this.clearBadge();
     }
     // await timerUtils.wait(5000);
     return result?.data?.data;
@@ -734,15 +748,26 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async refreshBadgeFromServer() {
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.get<IApiClientResponse<number>>(
-      '/notification/v1/message/badges',
-    );
-    const badge = result?.data?.data;
-    if (isNumber(badge)) {
-      await this.setBadge({ count: badge });
-    }
+    await this.refreshBadgeFromServerDebounced();
   }
+
+  refreshBadgeFromServerDebounced = debounce(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.get<IApiClientResponse<number>>(
+        '/notification/v1/message/badges',
+      );
+      const badge = result?.data?.data;
+      if (isNumber(badge)) {
+        await this.setBadge({ count: badge });
+      }
+    },
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   @toastIfError()

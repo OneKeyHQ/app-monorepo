@@ -1,4 +1,7 @@
 // This file is automatically created by `yarn fetch:locale`.
+// @ts-ignore
+/* eslint-disable  */
+
 import enUS from './json/en_US.json';
 
 export const LOCALES = {

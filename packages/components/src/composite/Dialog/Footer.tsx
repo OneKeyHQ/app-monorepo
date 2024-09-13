@@ -70,7 +70,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
     }
 
     const result = onConfirm
-      ? await new Promise<boolean>((resolve) => {
+      ? await new Promise<boolean>((resolve, reject) => {
           void Promise.resolve(
             onConfirm?.({
               close: (extra) => {
@@ -82,9 +82,13 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
               },
               getForm: () => dialogInstance.ref.current,
             }),
-          ).then(() => {
-            resolve(true);
-          });
+          )
+            .catch((error) => {
+              reject(error);
+            })
+            .then(() => {
+              resolve(true);
+            });
         })
       : true;
     if (result) {
@@ -132,8 +136,8 @@ export function Footer(props: IDialogFooterProps) {
     try {
       setConfirmLoading(true);
       await onConfirm();
-      await timerUtils.wait(300); // wait for animation done
     } finally {
+      await timerUtils.wait(300); // wait for animation done
       setConfirmLoading(false);
     }
   }, [onConfirm]);

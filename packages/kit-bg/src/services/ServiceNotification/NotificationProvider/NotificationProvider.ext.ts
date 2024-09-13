@@ -20,6 +20,7 @@ import {
 import NotificationProviderBase from './NotificationProviderBase';
 
 import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {
@@ -251,7 +252,9 @@ export default class NotificationProvider extends NotificationProviderBase {
     // chrome extension set badge
     void chrome.action.setBadgeTextColor({ color: '#ffffff' });
     void chrome.action.setBadgeBackgroundColor({ color: '#eb5b4a' });
-    return chrome.action.setBadgeText({ text: params.count.toString() });
+    return chrome.action.setBadgeText({
+      text: notificationsUtils.formatBadgeNumber(params.count),
+    });
   }
 
   override async showAndFocusApp(): Promise<void> {

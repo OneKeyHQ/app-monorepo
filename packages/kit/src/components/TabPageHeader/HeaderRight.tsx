@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -18,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -150,7 +152,7 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    const notificationsButton = (
+    let notificationsButton: ReactNode | null = (
       <Stack>
         <HeaderIconButton
           key="notifications"
@@ -191,7 +193,7 @@ export function HeaderRight({
                 />
               ) : (
                 <SizableText color="$textOnColor" size="$bodySm">
-                  {badge}
+                  {notificationsUtils.formatBadgeNumber(badge)}
                 </SizableText>
               )}
             </Stack>
@@ -213,10 +215,22 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [layoutExtView, notificationsButton, settingsButton];
+      return [layoutExtView, notificationsButton, settingsButton].filter(
+        Boolean,
+      );
     }
 
-    return [scanButton, notificationsButton, settingsButton, searchInput];
+    // notifications is not supported on web currently
+    if (platformEnv.isWeb) {
+      notificationsButton = null;
+    }
+
+    return [
+      scanButton,
+      notificationsButton,
+      settingsButton,
+      searchInput,
+    ].filter(Boolean);
   }, [
     intl,
     openSettingPage,

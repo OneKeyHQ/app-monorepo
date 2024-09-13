@@ -61,6 +61,9 @@ export class PushProviderWebSocket extends PushProviderBase {
     // TODO init timeout
     this.socket = io(endpoint, {
       transports: ['websocket'],
+      auth: {
+        instanceId: this.instanceId,
+      },
     });
     this.socket.on('connect', () => {
       // 获取 socketId
