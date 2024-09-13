@@ -3631,6 +3631,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/plist@npm:^0.1.3":
+  version: 0.1.3
+  resolution: "@expo/plist@npm:0.1.3"
+  dependencies:
+    "@xmldom/xmldom": "npm:~0.7.7"
+    base64-js: "npm:^1.2.3"
+    xmlbuilder: "npm:^14.0.0"
+  checksum: 10/7026e45744784539a0a3534dc393f4d7ccc04cc5a4c71a194f61aa9c5577599e27066c43e60c6611a4d34ebc30bec9380190be1685040bc72b037704fe2d2aec
+  languageName: node
+  linkType: hard
+
 "@expo/prebuild-config@npm:6.7.4":
   version: 6.7.4
   resolution: "@expo/prebuild-config@npm:6.7.4"
@@ -6418,6 +6429,7 @@ __metadata:
     "@babel/preset-env": "npm:^7.22.9"
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:^11.5.0"
+    "@expo/plist": "npm:^0.1.3"
     "@expo/webpack-config": "npm:~19.0.1"
     "@firebase/analytics": "npm:^0.10.6"
     "@firebase/app": "npm:^0.10.7"

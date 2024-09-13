@@ -17,6 +17,7 @@ import type {
 import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
+import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -222,6 +223,8 @@ const desktopApi = {
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
       [key: string]: string;
     },
+  getBundleInfo: () =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
