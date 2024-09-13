@@ -22,7 +22,11 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 export default function NotificationsSettings() {
   const intl = useIntl();
@@ -31,6 +35,7 @@ export default function NotificationsSettings() {
   >();
   const [devAppSettings] = useDevSettingsPersistAtom();
   const [appSettings] = useSettingsPersistAtom();
+  const navigation = useAppNavigation();
 
   const prevSettings = useRef<INotificationPushSettings | undefined>();
 
@@ -120,9 +125,6 @@ export default function NotificationsSettings() {
 
             {settings?.pushEnabled ? (
               <>
-                <Button onPress={showNotificationPermissionsDialog}>
-                  通知权限
-                </Button>
                 <Divider m="$5" />
                 <ListItem>
                   <ListItem.Text
@@ -167,13 +169,27 @@ export default function NotificationsSettings() {
         )}
 
         {devAppSettings?.enabled ? (
-          <Stack>
+          <Stack p="$8">
+            <Button onPress={showNotificationPermissionsDialog}>
+              通知权限
+            </Button>
+            <Button
+              onPress={() => {
+                navigation.pushModal(EModalRoutes.NotificationsModal, {
+                  screen: EModalNotificationsRoutes.NotificationIntroduction,
+                });
+              }}
+            >
+              初次引导
+            </Button>
             <SizableText>
-              InstanceId: {appSettings?.instanceId?.slice(0, 8)}
+              InstanceId: {appSettings?.instanceId?.slice(0, 8)}...
             </SizableText>
-            <SizableText>JPush: {pushClient?.jpushId?.slice(0, 8)}</SizableText>
             <SizableText>
-              WebSocket: {pushClient?.socketId?.slice(0, 8)}
+              JPush: {pushClient?.jpushId?.slice(0, 8)}...
+            </SizableText>
+            <SizableText>
+              WebSocket: {pushClient?.socketId?.slice(0, 8)}...
             </SizableText>
           </Stack>
         ) : null}

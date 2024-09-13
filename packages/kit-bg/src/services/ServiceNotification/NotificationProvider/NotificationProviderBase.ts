@@ -1,6 +1,5 @@
 // eslint-disable-next-line max-classes-per-file
 
-import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
@@ -66,7 +65,8 @@ export default abstract class NotificationProviderBase {
   abstract clearNotificationCache(): Promise<void>;
 
   fixShowParams(params: INotificationShowParams) {
-    params.icon = params.icon || ONEKEY_LOGO_ICON_URL;
+    // ONEKEY_LOGO_ICON_URL
+    params.icon = params.remotePushMessageInfo?.extras?.image || params.icon;
     params.notificationId = params.notificationId || generateUUID();
     params.time = params.time || Date.now();
     return params;

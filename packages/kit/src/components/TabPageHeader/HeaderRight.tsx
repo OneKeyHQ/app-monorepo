@@ -24,7 +24,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { showNotificationPermissionsDialog } from '../PermissionsDialog';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
 
@@ -36,8 +35,7 @@ export function HeaderRight({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
-  const [{ firstTimeGuideOpened, badge }, setNotificationsData] =
-    useNotificationsAtom();
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -65,21 +63,10 @@ export function HeaderRight({
 
   const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
-    if (!firstTimeGuideOpened) {
-      // showNotificationPermissionsDialog();
-      navigation.pushModal(EModalRoutes.NotificationsModal, {
-        screen: EModalNotificationsRoutes.NotificationIntroduction,
-      });
-      setNotificationsData((v) => ({
-        ...v,
-        firstTimeGuideOpened: true,
-      }));
-      return;
-    }
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
-  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
+  }, [navigation]);
 
   const items = useMemo(() => {
     const settingsButton = (
@@ -154,9 +141,8 @@ export function HeaderRight({
       />
     );
     const notificationsButton = (
-      <Stack>
+      <Stack key="notifications">
         <HeaderIconButton
-          key="notifications"
           title={intl.formatMessage({
             id: ETranslations.global_notifications,
           })}

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +15,9 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 const DATA = [
   {
@@ -35,6 +40,13 @@ const DATA = [
 
 function NotificationIntroduction() {
   const intl = useIntl();
+
+  const shouldShowCancelButton = useMemo(() => {
+    if (platformEnv.isNativeIOS || platformEnv.isExtension) {
+      return false;
+    }
+    return true;
+  }, []);
 
   return (
     <Page>
@@ -174,8 +186,17 @@ function NotificationIntroduction() {
 
       <Page.Footer
         onConfirmText={intl.formatMessage({ id: ETranslations.global_enable })}
-        onConfirm={() => console.log('clicked')}
-        {...(platformEnv.isDesktopMac && {
+        onConfirm={async (close) => {
+          const permission =
+            await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
+          if (
+            permission.isSupported &&
+            permission.permission === ENotificationPermission.granted
+          ) {
+            close();
+          }
+        }}
+        {...(shouldShowCancelButton && {
           onCancelText: intl.formatMessage({ id: ETranslations.global_done }),
           onCancel: () => console.log('clicked'),
         })}
