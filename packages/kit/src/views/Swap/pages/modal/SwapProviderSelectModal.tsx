@@ -235,7 +235,7 @@ const SwapProviderSelectModal = () => {
     (item: IProtocolFeeInfo) => (
       <XStack gap="$3" alignItems="center">
         <Stack w={20} h={20}>
-        <Image source={{ uri: item.icon }} w={16} h={16} />
+          <Image source={{ uri: item.icon }} w={16} h={16} />
         </Stack>
         <Stack flex={1}>
           <Stack
@@ -270,16 +270,16 @@ const SwapProviderSelectModal = () => {
           <Stack p="$5" gap="$6">
             <Stack gap="$3">
               <Stack gap="$1">
-              <SizableText size="$headingMd" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_order_info_title,
-                })}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.provider_popover_order_info_content,
-                })}
-              </SizableText>
+                <SizableText size="$headingMd" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_ios_popover_order_info_title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_popover_order_info_content,
+                  })}
+                </SizableText>
               </Stack>
               <InformationItem
                 icon="LockOutline"
