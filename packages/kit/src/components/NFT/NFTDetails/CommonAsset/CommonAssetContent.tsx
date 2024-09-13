@@ -75,7 +75,7 @@ function CommonAssetContent(props: IProps) {
             address: nft.collectionAddress,
           }),
           onPress: () => copyText(nft.collectionAddress),
-          iconAfter: 'Copy1Outline' as IKeyOfIcons,
+          iconAfter: 'Copy3Outline' as IKeyOfIcons,
         },
       ].filter((item) => !isNil(item.value)),
     [
