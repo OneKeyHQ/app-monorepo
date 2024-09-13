@@ -18,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -191,7 +192,7 @@ export function HeaderRight({
                 />
               ) : (
                 <SizableText color="$textOnColor" size="$bodySm">
-                  {badge}
+                  {notificationsUtils.formatBadgeNumber(badge)}
                 </SizableText>
               )}
             </Stack>

@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import {
@@ -120,7 +122,18 @@ async function navigateToNotificationDetail({
   }
 }
 
+function formatBadgeNumber(badgeNumber: number | undefined) {
+  if (isNil(badgeNumber)) {
+    return '';
+  }
+  if (badgeNumber > 99) {
+    return '99+';
+  }
+  return badgeNumber.toString();
+}
+
 export default {
   convertWebPermissionToEnum,
   navigateToNotificationDetail,
+  formatBadgeNumber,
 };
