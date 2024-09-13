@@ -1,8 +1,8 @@
 import fs from 'fs';
+import path from 'path';
 
 import plist from '@expo/plist';
 import { app } from 'electron';
-import isDev from 'electron-is-dev';
 
 // Bool 2 Text
 export const b2t = (bool: boolean) => (bool ? 'Yes' : 'No');
@@ -60,9 +60,10 @@ export const parseContentPList = () => {
   }
   try {
     const appPath = app.getPath('exe');
-    const pListPath = `${
-      appPath.split('/Contents/')[0]
-    }/Contents/Info.plist`.replace(/(\s+)/g, '\\$1');
+    const pListPath = path.resolve(
+      appPath.split('/Contents/')[0],
+      '/Contents/Info.plist',
+    );
     if (fs.existsSync(pListPath)) {
       const pListString = fs.readFileSync(pListPath, 'utf8');
       cachedMacBundleInfo = plist.parse(pListString) as IMacBundleInfo;
