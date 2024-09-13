@@ -13,11 +13,11 @@ import { Image, SizableText, Stack, XStack } from '../../primitives';
 import type { IImageSourceProps, IStackStyle } from '../../primitives';
 
 export interface IBannerData {
-  title: string;
+  title?: string;
   titleColor?: string;
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
-  bannerId: string;
+  bannerId?: string;
   imgSource?: IImageSourceProps['source'];
   imgResizeMode?: IImageSourceProps['resizeMode'];
   $gtMd?: IBannerData;
