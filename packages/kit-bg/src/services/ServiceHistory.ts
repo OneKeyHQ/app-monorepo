@@ -551,16 +551,25 @@ class ServiceHistory extends ServiceBase {
     try {
       const { accountId, networkId, txid, withUTXOs } = params;
 
-      const [accountAddress, xpub] = await Promise.all([
-        this.backgroundApi.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        }),
-        this.backgroundApi.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        }),
-      ]);
+      let accountAddress = params.accountAddress;
+      let xpub = params.xpub;
+
+      try {
+        const [a, x] = await Promise.all([
+          this.backgroundApi.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          }),
+          this.backgroundApi.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+        ]);
+        accountAddress = a;
+        xpub = x;
+      } catch (e) {
+        // pass
+      }
 
       const extraParams = await this.buildFetchHistoryListParams({
         ...params,
@@ -608,27 +617,38 @@ class ServiceHistory extends ServiceBase {
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
+    accountAddress?: string;
+    xpub?: string;
   }) {
     const { accountId, networkId, tx, tokens, nfts } = params;
 
-    const [xpub, accountAddress] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-    ]);
+    let accountAddress = params.accountAddress;
+    let xpub = params.xpub;
+
+    try {
+      const [x, a] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
+      accountAddress = a;
+      xpub = x;
+    } catch (e) {
+      // pass
+    }
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
 
     const resp = await vault.buildOnChainHistoryTx({
       accountId,
       networkId,
-      accountAddress,
-      xpub,
+      accountAddress: accountAddress || '',
+      xpub: xpub || '',
       onChainHistoryTx: tx,
       tokens,
       nfts,

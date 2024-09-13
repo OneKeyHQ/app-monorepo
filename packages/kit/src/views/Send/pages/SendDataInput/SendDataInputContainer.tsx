@@ -968,6 +968,15 @@ function SendDataInputContainer() {
     }
   }, [networkId, token, nft, isNFT, currentAccount.networkId]);
 
+  useEffect(() => {
+    if (
+      !isNil(tokenDetails?.balance) &&
+      form.getFieldState('amount').isTouched
+    ) {
+      void form.trigger('amount');
+    }
+  }, [form, tokenDetails?.balance]);
+
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
       addressBookEnabledNetworkIds.includes(currentAccount.networkId)

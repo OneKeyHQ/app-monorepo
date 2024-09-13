@@ -168,6 +168,8 @@ export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
   withUTXOs?: boolean;
+  accountAddress?: string;
+  xpub?: string;
 };
 
 export type IFetchTxDetailsParams = {
