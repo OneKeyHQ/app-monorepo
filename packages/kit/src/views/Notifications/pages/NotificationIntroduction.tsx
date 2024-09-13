@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,9 +15,12 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { INotificationPermissionDetail } from '@onekeyhq/shared/types/notification';
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 
 const DATA = [
   {
@@ -41,13 +44,42 @@ const DATA = [
 function NotificationIntroduction() {
   const intl = useIntl();
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const isEnablePermissionCalled = useRef(false);
+  const isFocused = useRouteIsFocused();
+  const navigation = useAppNavigation();
 
-  const shouldShowCancelButton = useMemo(() => {
+  const canAutoCloseWhenGranted = useMemo(() => {
     if (platformEnv.isNativeIOS || platformEnv.isExtension) {
-      return false;
+      return true;
     }
-    return true;
+    return false;
   }, []);
+
+  const shouldShowCancelButton = !canAutoCloseWhenGranted;
+
+  const checkShouldClose = useCallback(
+    (permission: INotificationPermissionDetail) =>
+      canAutoCloseWhenGranted &&
+      permission.isSupported &&
+      permission.permission === ENotificationPermission.granted,
+    [canAutoCloseWhenGranted],
+  );
+
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      if (!isEnablePermissionCalled.current || !canAutoCloseWhenGranted) {
+        return;
+      }
+      const permission =
+        await backgroundApiProxy.serviceNotification.getPermissionWithoutLog();
+      if (checkShouldClose(permission)) {
+        navigation.pop();
+      }
+    }, 1000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [navigation, canAutoCloseWhenGranted, checkShouldClose]);
 
   return (
     <Page>
@@ -193,14 +225,8 @@ function NotificationIntroduction() {
         onConfirm={async (close) => {
           try {
             setConfirmLoading(true);
-            const permission =
-              await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
-            if (
-              permission.isSupported &&
-              permission.permission === ENotificationPermission.granted
-            ) {
-              close();
-            }
+            isEnablePermissionCalled.current = true;
+            await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
           } finally {
             setConfirmLoading(false);
           }
