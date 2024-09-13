@@ -140,7 +140,9 @@ export const useSuggestion = (
         if (platformEnv.isNative && selectInputIndex === phraseLength - 1) {
           Keyboard.dismiss();
         } else {
-          form.setFocus(key);
+          setTimeout(() => {
+            form.setFocus(key);
+          }, 100);
         }
         resolve();
       }, 300);
@@ -213,9 +215,13 @@ export const useSuggestion = (
     },
   });
 
-  const onInputFocus = useCallback((index: number) => {
-    setSelectInputIndex(index);
-  }, []);
+  const onInputFocus = useCallback(
+    (index: number) => {
+      setSelectInputIndex(index);
+      resetSuggestions();
+    },
+    [resetSuggestions],
+  );
 
   const onInputBlur = useCallback(
     async (index: number) => {
