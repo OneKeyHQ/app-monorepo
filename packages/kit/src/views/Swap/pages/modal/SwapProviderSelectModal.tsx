@@ -235,7 +235,7 @@ const SwapProviderSelectModal = () => {
         fee: 0.3,
         // color: '#202020',
         color: '$bgInverse',
-        source: require('@onekeyhq/kit/assets/logo.png'),
+        icon: require('@onekeyhq/kit/assets/logo.png'),
       },
     ],
     [],
