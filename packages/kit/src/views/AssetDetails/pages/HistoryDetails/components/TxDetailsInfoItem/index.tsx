@@ -96,7 +96,7 @@ export function InfoItem({
                 <IconButton
                   title={intl.formatMessage({ id: ETranslations.global_copy })}
                   variant="tertiary"
-                  icon="Copy1Outline"
+                  icon="Copy3Outline"
                   size="small"
                   onPress={() => {
                     if (!disabledCopy) {
