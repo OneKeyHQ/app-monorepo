@@ -625,7 +625,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={apr}
+                  primary={apr.endsWith('%') ? `${apr} APR` : apr}
                 />
               </ListItem>
             ),
