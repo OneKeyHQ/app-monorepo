@@ -47,7 +47,8 @@ const ClaimPage = () => {
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: provider.name,
-          send: { token: tokenInfo, amount },
+          protocolLogoURI: provider.logoURI,
+          receive: { token: tokenInfo, amount },
           tags: [actionTag],
         },
         onSuccess: () => {

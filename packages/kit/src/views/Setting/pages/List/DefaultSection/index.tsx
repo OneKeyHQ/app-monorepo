@@ -17,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECloudBackupRoutes,
@@ -38,6 +39,7 @@ export const useOnLock = () => {
       await backgroundApiProxy.servicePassword.lockApp();
     }
     navigation.popStack();
+    defaultLogger.setting.page.lockNow();
   }, [passwordSetting.isPasswordSet, navigation]);
   return onLock;
 };
@@ -48,6 +50,7 @@ const AddressBookItem = () => {
   const showAddressBook = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EModalAddressBookRoutes.ListItemModal);
+    defaultLogger.setting.page.enterAddressBook();
   }, [navigation]);
   const [{ hideDialogInfo }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
@@ -168,6 +171,7 @@ export const DefaultSection = () => {
           drillIn
           onPress={async () => {
             await backupEntryStatus.check();
+            defaultLogger.setting.page.enterBackup();
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
               screen: ECloudBackupRoutes.CloudBackupHome,
             });
@@ -191,6 +195,7 @@ export const DefaultSection = () => {
         title={intl.formatMessage({ id: ETranslations.global_onekey_keytag })}
         drillIn
         onPress={() => {
+          defaultLogger.setting.page.enterKeyTag();
           navigation.pushModal(EModalRoutes.KeyTagModal, {
             screen: EModalKeyTagRoutes.UserOptions,
           });

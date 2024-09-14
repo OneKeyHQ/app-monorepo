@@ -8,6 +8,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -77,6 +78,7 @@ export const AdvancedSection = () => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
   const onCustomRPC = useCallback(() => {
+    defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomRPC);
   }, [navigation]);
   return (

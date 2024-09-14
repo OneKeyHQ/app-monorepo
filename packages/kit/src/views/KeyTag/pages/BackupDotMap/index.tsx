@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -20,6 +21,10 @@ const BackupDotMap = () => {
     useRoute<
       RouteProp<IModalKeyTagParamList, EModalKeyTagRoutes.BackupDotMap>
     >();
+
+  useEffect(() => {
+    defaultLogger.setting.page.keyTagBackup();
+  }, []);
 
   const { encodedText, title } = route.params;
   const { result } = usePromiseResult(

@@ -229,7 +229,9 @@ export const UniversalWithdraw = ({
             }}
             enableMaxAmount
           />
-          {!editable ? <Stack position="absolute" w="100%" h="100%" /> : null}
+          {!editable ? (
+            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+          ) : null}
         </Stack>
         <YStack gap="$1">
           {isLessThanWithdrawMinAmountWarning ? (

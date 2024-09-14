@@ -49,7 +49,7 @@ const WithdrawPage = () => {
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: provider.name,
-          send: { token: tokenInfo, amount },
+          protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
         onSuccess: () => {
