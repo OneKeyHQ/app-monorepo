@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia, useProps } from 'tamagui';
+import { useMedia, useProps, useStyle } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,11 +10,15 @@ import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
-import type { IImageSourceProps, IStackStyle } from '../../primitives';
+import type {
+  IImageSourceProps,
+  ISizableTextProps,
+  IStackStyle,
+} from '../../primitives';
 
 export interface IBannerData {
   title?: string;
-  titleColor?: string;
+  titleTextProps?: ISizableTextProps;
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
   bannerId?: string;
@@ -26,16 +30,21 @@ export interface IBannerData {
 
 function BannerItem<T extends IBannerData>({
   itemContainerStyle,
+  itemTitleContainerStyle,
   onPress,
   item: rawItem,
 }: {
   onPress: (item: T) => void;
   item: T;
   itemContainerStyle?: IStackStyle;
+  itemTitleContainerStyle?: IStackStyle;
 }) {
   const item = useProps(rawItem, {
     resolveValues: 'value',
   }) as T;
+  const textStyle = useStyle(item.titleTextProps || {}, {
+    resolveValues: 'auto',
+  });
   const onItemPress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
@@ -61,29 +70,11 @@ function BannerItem<T extends IBannerData>({
           resizeMode={item.imgResizeMode}
         />
       ) : null}
-      <Stack
-        position="absolute"
-        bottom={0}
-        right={0}
-        left={0}
-        px="$10"
-        py="$8"
-        $gtMd={{
-          px: '$14',
-          py: '$10',
-        }}
-      >
+      <Stack position="absolute" {...itemTitleContainerStyle}>
         <SizableText
-          color={
-            item.titleColor || item.theme === 'dark'
-              ? '$textDark'
-              : '$textLight'
-          }
+          color={item.theme === 'dark' ? '$textDark' : '$textLight'}
           size="$headingLg"
-          $gtMd={{
-            size: '$heading2xl',
-          }}
-          maxWidth="$96"
+          {...textStyle}
         >
           {item.title ?? ''}
         </SizableText>
@@ -98,10 +89,12 @@ export function Banner<T extends IBannerData>({
   isLoading,
   emptyComponent,
   itemContainerStyle,
+  itemTitleContainerStyle,
   ...props
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
@@ -115,9 +108,10 @@ export function Banner<T extends IBannerData>({
         onPress={onItemPress}
         item={item}
         itemContainerStyle={itemContainerStyle}
+        itemTitleContainerStyle={itemTitleContainerStyle}
       />
     ),
-    [itemContainerStyle, onItemPress],
+    [itemContainerStyle, itemTitleContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(
