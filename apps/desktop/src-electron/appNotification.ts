@@ -6,6 +6,7 @@ import {
   systemPreferences,
 } from 'electron';
 import logger from 'electron-log';
+import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -85,6 +86,26 @@ async function getElectronNotificationPermission() {
 function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_NAME);
+    const safelyMainWindow = getSafelyMainWindow();
+
+    if (safelyMainWindow) {
+      const badge = new TaskBarBadgeWindows(safelyMainWindow, {
+        fontColor: '#000000',
+        font: '62px Microsoft Yahei',
+        color: '#000000',
+        radius: 48,
+        updateBadgeEvent: ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
+        badgeDescription: '',
+        invokeType: 'handle', // handle -> ipcRenderer.invoke,  send -> ipcRenderer.sendSync
+        max: 99,
+        fit: false,
+        useSystemAccentTheme: true,
+        additionalFunc: (count) => {
+          console.log(`Received ${count} new notifications!`);
+        },
+      });
+      console.log('TaskBarBadgeWindows init', badge);
+    }
   }
 
   ipcMain.on(ipcMessageKeys.NOTIFICATION_GET_PERMISSION, async (event) => {
@@ -147,13 +168,12 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
 
       if (process.platform === 'win32') {
         const win = getSafelyMainWindow();
-        // TODO use third-party library to set badge
-        // electron-windows-badge
         if (win) {
           if (!isNil(count) && count > 0) {
-            // document not defined
-            // const image = nativeImage.createFromDataURL(canvas.toDataURL());
-            // win.setOverlayIcon(image, count.toString());
+            // document not defined, cannot create canvas in main process
+            //    const image = nativeImage.createFromDataURL(canvas.toDataURL());
+            //    win.setOverlayIcon(image, count.toString());
+            // TaskBarBadgeWindows will handle badge count render
           } else {
             win.setOverlayIcon(null, '');
           }
