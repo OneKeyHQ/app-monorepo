@@ -71,16 +71,19 @@ function BannerItem<T extends IBannerData>({
         />
       ) : null}
       <Stack position="absolute" {...itemTitleContainerStyle}>
-        {item.title?.split('\n').map((text, index) => (
-          <SizableText
-            key={index}
-            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-            size="$headingLg"
-            {...textStyle}
-          >
-            {text}
-          </SizableText>
-        ))}
+        {
+          // TODO：Lokalise processes \n as \\n when handling translations
+          item.title?.split(/\n|\\n/).map((text, index) => (
+            <SizableText
+              key={index}
+              color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+              size="$headingLg"
+              {...textStyle}
+            >
+              {text}
+            </SizableText>
+          ))
+        }
       </Stack>
     </Stack>
   );
