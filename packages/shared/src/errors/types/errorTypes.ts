@@ -32,6 +32,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }

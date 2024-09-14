@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
@@ -23,6 +24,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.FirmwareUpdateExit,
       EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
