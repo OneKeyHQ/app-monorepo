@@ -9,13 +9,15 @@ import {
   Switch,
   Toast,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { INotificationsDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useNotificationsAtom,
   useNotificationsDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 
 interface INotificationSectionFieldItem extends PropsWithChildren {
   name?: INotificationsDevSettingsKeys;
@@ -82,6 +84,23 @@ export function NotificationDevSettings() {
       >
         <Switch size={ESwitchSize.small} />
       </NotificationSectionFieldItem>
+
+      <Button
+        onPress={async () => {
+          const res =
+            await backgroundApiProxy.serviceNotification.pingWebSocket({
+              count: 1,
+              date: new Date().toISOString(),
+            });
+          console.log('res', res);
+          Toast.success({
+            title: 'Ping Success',
+            message: JSON.stringify(res),
+          });
+        }}
+      >
+        WebSocket Ping
+      </Button>
 
       <Button
         onPress={() => {

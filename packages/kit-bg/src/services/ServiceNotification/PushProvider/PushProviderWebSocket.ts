@@ -13,8 +13,8 @@ import { getEndpointInfo } from '../../../endpoints';
 
 import { PushProviderBase } from './PushProviderBase';
 
-import type { IPushProviderBaseProps } from './PushProviderBase';
 import type { Socket } from 'socket.io-client';
+import type { IPushProviderBaseProps } from './PushProviderBase';
 
 export class PushProviderWebSocket extends PushProviderBase {
   constructor(props: IPushProviderBaseProps) {
@@ -23,6 +23,10 @@ export class PushProviderWebSocket extends PushProviderBase {
   }
 
   private socket: Socket | null = null;
+
+  async ping(payload: any) {
+    return this.socket?.timeout(3000).emitWithAck('ping', payload);
+  }
 
   async ackMessage(
     params: INotificationPushMessageAckParams,

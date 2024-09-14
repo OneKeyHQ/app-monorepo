@@ -50,9 +50,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
-import type { IDBAccount } from '../../dbs/local/types';
 import type { Socket } from 'socket.io-client';
+import type { IDBAccount } from '../../dbs/local/types';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -821,5 +821,14 @@ export default class ServiceNotification extends ServiceBase {
       '/notification/v1/message/block-tx',
       params,
     );
+  }
+
+  @backgroundMethod()
+  async pingWebSocket(params: any) {
+    const notificationProvider = await this.getNotificationProvider();
+    if (notificationProvider?.webSocketProvider) {
+      return notificationProvider.webSocketProvider.ping(params);
+    }
+    throw new Error('WebSocket provider not found');
   }
 }
