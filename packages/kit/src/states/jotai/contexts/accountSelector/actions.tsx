@@ -432,6 +432,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         othersWalletAccount: IDBAccount | undefined;
         num: number;
         autoChangeToAccountMatchedNetworkId?: string;
+        forceSelectToNetworkId?: string;
       },
     ) => {
       const {
@@ -439,6 +440,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         othersWalletAccount,
         indexedAccount,
         autoChangeToAccountMatchedNetworkId,
+        forceSelectToNetworkId,
       } = params;
       if (othersWalletAccount && indexedAccount) {
         throw new Error(
@@ -457,11 +459,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         throw new Error('confirmSelectAccount ERROR: walletId is undefined');
       }
 
-      const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
-        num,
-        account: othersWalletAccount,
-        autoChangeToAccountMatchedNetworkId,
-      });
+      const accountNetworkId =
+        forceSelectToNetworkId ||
+        this.getAutoSelectNetworkIdForAccount.call(set, {
+          num,
+          account: othersWalletAccount,
+          autoChangeToAccountMatchedNetworkId,
+        });
 
       await this.updateSelectedAccount.call(set, {
         num,

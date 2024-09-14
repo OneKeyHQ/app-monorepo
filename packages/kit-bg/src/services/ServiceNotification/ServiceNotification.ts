@@ -783,13 +783,21 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  updateNotificationSettingsAbortController: AbortController | undefined;
+
   @backgroundMethod()
   @toastIfError()
   async updateNotificationSettings(
     params: INotificationPushSettings,
   ): Promise<boolean> {
+    this.updateNotificationSettingsAbortController?.abort();
+
+    this.updateNotificationSettingsAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    await client.post('/notification/v1/config/update', params);
+    await client.post('/notification/v1/config/update', params, {
+      signal: this.updateNotificationSettingsAbortController.signal,
+    });
+
     return true;
   }
 

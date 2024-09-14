@@ -47,8 +47,13 @@ export default function NotificationsSettings() {
     prevSettings.current = result;
   }, []);
 
+  const isUpdating = useRef(false);
   const updateSettingsToServer = useDebouncedCallback(
     async (partSettings: INotificationPushSettings) => {
+      if (isUpdating.current) {
+        return;
+      }
+      isUpdating.current = true;
       let updated = false;
       try {
         updated =
@@ -58,14 +63,16 @@ export default function NotificationsSettings() {
               ...partSettings,
             },
           );
+        if (updated) {
+          await reloadSettings();
+        }
       } catch (e) {
         if (prevSettings.current) {
           setSettings(prevSettings.current);
         }
         throw e;
-      }
-      if (updated) {
-        await reloadSettings();
+      } finally {
+        isUpdating.current = false;
       }
     },
     300,
@@ -77,11 +84,14 @@ export default function NotificationsSettings() {
 
   const updateSettings = useCallback(
     async (partSettings: INotificationPushSettings) => {
-      setSettings((v) => ({
-        ...v,
-        ...partSettings,
-      }));
-      void updateSettingsToServer(partSettings);
+      setSettings((v) => {
+        const newValue = {
+          ...v,
+          ...partSettings,
+        };
+        void updateSettingsToServer(newValue);
+        return newValue;
+      });
     },
     [updateSettingsToServer],
   );

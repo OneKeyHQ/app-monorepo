@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
@@ -19,6 +20,9 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
     ].includes(err?.className)
   ) {
+    return;
+  }
+  if (axios.isCancel(error)) {
     return;
   }
   const isTriggered = err?.$$autoToastErrorTriggered;
