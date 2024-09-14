@@ -12,9 +12,9 @@
   },
   "scripts": {
     "setup:env": "cross-env-shell \"[ ! -f .env ] && cp .env.example .env || exit 0\"",
-    "clean": "python development/scripts/clean_workspace.py",
-    "postinstall": "python development/scripts/postinstall.py",
-    "copy:inject": "python development/scripts/copy_injected.py",
+    "clean": "node development/scripts/clean_workspace.js",
+    "postinstall": "node development/scripts/postinstall.js",
+    "copy:inject": "node development/scripts/copy_injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:ext": "yarn workspace @onekeyhq/ext start:v3",
     "app:ext:proxy": "yarn workspace @onekeyhq/ext start:v3:proxy",
