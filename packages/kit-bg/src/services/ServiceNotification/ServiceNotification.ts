@@ -674,7 +674,11 @@ export default class ServiceNotification extends ServiceBase {
       ackRes = res.data;
     }
 
-    defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
+    defaultLogger.notification.common.ackNotificationMessage(
+      params,
+      ackRes,
+      isWebSocketAckSuccess ? 'webSocket' : 'http',
+    );
 
     if (
       params.msgId &&
