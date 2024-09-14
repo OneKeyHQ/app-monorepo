@@ -7,7 +7,7 @@
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
     "postinstall": "yarn keytar",
-    "keytar": "bash development/build_keytar.sh",
+    "keytar": "node development/build_keytar.js",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./build && rimraf ./dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./node_modules/.cache",
     "start": "yarn dev",
