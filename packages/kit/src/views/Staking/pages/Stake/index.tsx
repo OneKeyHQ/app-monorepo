@@ -49,6 +49,7 @@ const StakePage = () => {
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: provider.name,
+          protocolLogoURI: provider.logoURI,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },

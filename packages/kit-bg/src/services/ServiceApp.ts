@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -154,7 +155,7 @@ class ServiceApp extends ServiceBase {
     } finally {
       resetUtils.endResetting();
     }
-
+    defaultLogger.setting.page.clearData({ action: 'ResetApp' });
     await timerUtils.wait(600);
 
     this.restartApp();
