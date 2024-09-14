@@ -71,13 +71,16 @@ function BannerItem<T extends IBannerData>({
         />
       ) : null}
       <Stack position="absolute" {...itemTitleContainerStyle}>
-        <SizableText
-          color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-          size="$headingLg"
-          {...textStyle}
-        >
-          {item.title ?? ''}
-        </SizableText>
+        {item.title?.split('\n').map((text, index) => (
+          <SizableText
+            key={index}
+            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+            size="$headingLg"
+            {...textStyle}
+          >
+            {text}
+          </SizableText>
+        ))}
       </Stack>
     </Stack>
   );
