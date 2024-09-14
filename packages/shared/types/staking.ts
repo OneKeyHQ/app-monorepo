@@ -18,6 +18,7 @@ export enum EEarnLabels {
 
 export type IStakingInfo = {
   protocol: string;
+  protocolLogoURI?: string;
   label: EEarnLabels;
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
