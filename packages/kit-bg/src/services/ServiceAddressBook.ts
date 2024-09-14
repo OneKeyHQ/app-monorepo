@@ -12,6 +12,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -198,6 +199,7 @@ class ServiceAddressBook extends ServiceBase {
     items.push(newObj);
     const { password } = await servicePassword.promptPasswordVerify();
     await this.setItems(items, password);
+    defaultLogger.setting.page.addAddressBook({ network: newObj.networkId });
   }
 
   @backgroundMethod()
@@ -230,6 +232,11 @@ class ServiceAddressBook extends ServiceBase {
     const items = await this.getItems();
     const data = items.filter((i) => i.id !== id);
     await this.setItems(data, password);
+    if (data.length > 0) {
+      data.forEach((o) => {
+        defaultLogger.setting.page.removeAddressBook({ network: o.networkId });
+      });
+    }
   }
 
   @backgroundMethod()
