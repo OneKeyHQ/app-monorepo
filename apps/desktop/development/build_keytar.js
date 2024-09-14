@@ -6,7 +6,14 @@ console.log('Current working directory:', process.cwd());
 console.log('Operating system:', process.platform);
 console.log('Architecture:', process.arch);
 
-const keytarPath = path.join(__dirname, '..', '..', 'node_modules', 'keytar');
+const keytarPath = path.join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'node_modules',
+  'keytar',
+);
 process.chdir(keytarPath);
 
 try {
