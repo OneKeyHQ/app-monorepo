@@ -104,7 +104,7 @@ function BasicImageCrop({
           stencilProps={{
             aspectRatio: defaultSize.width / defaultSize.height,
           }}
-          className="cropper"
+          className="onekey-img-cropper"
         />
       </Stack>
       <Dialog.Footer

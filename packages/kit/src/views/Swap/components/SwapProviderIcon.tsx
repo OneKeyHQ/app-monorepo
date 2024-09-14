@@ -18,11 +18,7 @@ export function SwapProviderIcon({
   return (
     <>
       <Image size="$10" borderRadius="$2" delayMs={1000} {...props}>
-        <Image.Source
-          source={{
-            uri: providerLogo,
-          }}
-        />
+        <Image.Source src={providerLogo} />
         <Image.Fallback
           alignItems="center"
           justifyContent="center"
