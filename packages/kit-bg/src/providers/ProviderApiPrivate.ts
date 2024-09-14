@@ -217,9 +217,10 @@ class ProviderApiPrivate extends ProviderApiBase {
     console.log('ProviderApiPrivate.detectRiskLevel', request);
     if (request.origin) {
       const securityInfo =
-        await this.backgroundApi.serviceDiscovery.checkUrlSecurity(
-          request.origin,
-        );
+        await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
+          url: request.origin,
+          from: 'script',
+        });
       return {
         securityInfo,
         isExtension: !!platformEnv.isExtension,

@@ -128,7 +128,8 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkUrlSecurity(url: string) {
+  async checkUrlSecurity(params: { url: string; from: 'app' | 'script' }) {
+    const { url } = params;
     if (await this._isUrlExistInRiskWhiteList(url)) {
       return {
         host: url,
@@ -139,7 +140,7 @@ class ServiceDiscovery extends ServiceBase {
       } as IHostSecurity;
     }
     try {
-      const result = await this._checkUrlSecurity(url);
+      const result = await this._checkUrlSecurity(params);
       return result;
     } catch (e) {
       return {
@@ -155,13 +156,14 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   _checkUrlSecurity = memoizee(
-    async (url: string) => {
+    async (params: { url: string; from: 'app' | 'script' }) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IHostSecurity }>(
         '/utility/v1/discover/check-host',
         {
           params: {
-            url,
+            url: params.url,
+            from: params.from,
           },
           timeout: 5000,
         },
