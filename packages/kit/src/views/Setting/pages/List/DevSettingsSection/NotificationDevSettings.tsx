@@ -9,6 +9,7 @@ import {
   Switch,
   Toast,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { INotificationsDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -16,8 +17,6 @@ import {
   useNotificationsAtom,
   useNotificationsDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
-import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 
 interface INotificationSectionFieldItem extends PropsWithChildren {
   name?: INotificationsDevSettingsKeys;
