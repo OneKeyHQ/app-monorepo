@@ -55,6 +55,7 @@ const settings: IVaultSettings = {
   },
 
   hideFeeInfoInHistoryList: true,
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);
