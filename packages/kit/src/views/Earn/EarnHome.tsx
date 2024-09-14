@@ -9,6 +9,7 @@ import { getColors } from 'react-native-image-colors';
 import type {
   IImageSourceProps,
   IKeyOfIcons,
+  ISizableTextProps,
   IYStackProps,
 } from '@onekeyhq/components';
 import {
@@ -57,19 +58,6 @@ interface ITokenAccount extends IEarnAccountToken {
 }
 
 const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
-
-const bannerData = [
-  {
-    'title': 'Stake in Babylon ecosystem',
-    'titleColor': '#ffffff',
-    'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-    'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
-    $gtLg: {
-      'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-      imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
-    },
-  },
-];
 
 const toTokenProviderListPage = async (
   navigation: ReturnType<typeof useAppNavigation>,
@@ -716,6 +704,29 @@ function BasicEarnHome() {
     }
   }, [account, indexedAccount?.id, navigation]);
 
+  const bannerData = useMemo(
+    () => [
+      {
+        'title': intl.formatMessage({
+          id: ETranslations.earn_stake_in_babylon_ecosystem,
+        }),
+        'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
+        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
+        titleTextProps: {
+          color: '$textInverseLight',
+          size: '$headingMd',
+          numberOfLines: 2,
+          maxWidth: 140,
+        } as ISizableTextProps,
+        $gtLg: {
+          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
+          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
+        },
+      },
+    ],
+    [intl],
+  );
+
   return (
     <Page scrollEnabled fullPage>
       <TabPageHeader
@@ -736,6 +747,9 @@ function BasicEarnHome() {
             <Overview isFetchingAccounts={!!isFetchingAccounts} />
             <YStack
               minHeight="$36"
+              $md={{
+                minHeight: '$28',
+              }}
               borderRadius="$3"
               width="100%"
               borderCurve="continuous"
@@ -745,9 +759,19 @@ function BasicEarnHome() {
             >
               <Banner
                 height="$36"
+                $md={{
+                  height: '$28',
+                }}
                 data={bannerData}
                 onItemPress={onBannerPress}
                 isLoading={false}
+                itemTitleContainerStyle={{
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  left: 20,
+                  justifyContent: 'center',
+                }}
               />
             </YStack>
           </YStack>
