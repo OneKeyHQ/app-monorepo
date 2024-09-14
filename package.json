@@ -11,9 +11,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
-    "postinstall": "bash development/scripts/postinstall.sh",
-    "copy:inject": "bash development/scripts/copy-injected.sh",
+    "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
+    "postinstall": "node development/scripts/postinstall.js",
+    "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:ext": "yarn workspace @onekeyhq/ext start:v3",
     "app:ext:proxy": "yarn workspace @onekeyhq/ext start:v3:proxy",
@@ -34,7 +34,7 @@
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
     "icon:build": "yarn workspace @onekeyhq/components icon:build",
     "fetch:locale": "yarn workspace @onekeyhq/shared fetch:locale",
-    "clean": "yarn workspaces foreach -A  -p run clean && ./development/scripts/clean_workspace.sh",
+    "clean": "yarn workspaces foreach -A  -p run clean && node ./development/scripts/clean_workspace.js",
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "_tsc": "node ./development/lint/ts",
     "reinstall": "yarn clean && yarn install",
