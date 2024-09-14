@@ -61,6 +61,7 @@ const settings: IVaultSettings = {
 
   cannotSendToSelf: true,
   hasFrozenBalance: true,
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);

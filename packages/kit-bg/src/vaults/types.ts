@@ -232,6 +232,7 @@ export type IVaultSettings = {
   stakingConfig?: IStakingConfig;
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
+  isNativeTokenContractAddressEmpty?: boolean;
 };
 
 export type IVaultFactoryOptions = {

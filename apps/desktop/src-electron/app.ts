@@ -39,6 +39,7 @@ import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 
 // https://github.com/sindresorhus/electron-context-menu
@@ -535,6 +536,10 @@ function createMainWindow() {
       module,
       desktop,
     };
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_GET_BUNDLE_INFO, (event) => {
+    event.returnValue = parseContentPList();
   });
 
   ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {

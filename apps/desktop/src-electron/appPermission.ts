@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
+import { getMacAppId } from './libs/utils';
 
 function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
   ipcMain.on(
@@ -16,11 +17,7 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
       const platform = os.type();
       if (platform === 'Darwin') {
         if (prefType === 'notification') {
-          // const appId = 'com.google.Chrome';
-          let appId = ''; // TODO how to get appId on production
-          if (process.env.NODE_ENV !== 'production') {
-            appId = 'com.github.Electron';
-          }
+          const appId = getMacAppId();
           void shell.openExternal(
             `x-apple.systempreferences:com.apple.preference.notifications?id=${appId}`,
           );

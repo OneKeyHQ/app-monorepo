@@ -126,6 +126,7 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: true,
 
   preCheckDappTxFeeInfoRequired: true,
+  isNativeTokenContractAddressEmpty: true,
 
   stakingConfig: {
     [getNetworkIdsMap().btc]: {

@@ -4,7 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
+import type {
+  IImageSourceProps,
+  IKeyOfIcons,
+  IPageNavigationProp,
+} from '@onekeyhq/components';
 import {
   Button,
   Icon,
@@ -51,7 +55,7 @@ interface IProtocolFeeInfo {
   name: string;
   fee: number;
   color: string;
-  icon: string;
+  icon: IImageSourceProps['source'];
   maxFee: number;
 }
 
@@ -208,16 +212,22 @@ const SwapProviderSelectModal = () => {
       {
         maxFee: 0.875,
         name: 'metamask',
+        icon: {
+          uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
+        },
         fee: 0.875,
         color: '#F5841F',
-        icon: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
+        url: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
       },
       {
         maxFee: 0.875,
         name: 'zerion',
         fee: 0.8,
         color: '#2461ED',
-        icon: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
+
+        icon: {
+          uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
+        },
       },
       {
         maxFee: 0.875,
@@ -235,7 +245,7 @@ const SwapProviderSelectModal = () => {
     (item: IProtocolFeeInfo) => (
       <XStack gap="$3" alignItems="center">
         <Stack w={20} h={20}>
-          <Image source={{ uri: item.icon }} w={16} h={16} />
+          <Image source={item.icon} w={16} h={16} />
         </Stack>
         <Stack flex={1}>
           <Stack

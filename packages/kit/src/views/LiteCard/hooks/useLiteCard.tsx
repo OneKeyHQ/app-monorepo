@@ -79,6 +79,7 @@ export default function useLiteCard() {
         await createSetMnemonicConnection();
       });
       await createLiteInfoConnection();
+      defaultLogger.setting.page.oneKeyLiteBackup({ isSuccess: true });
     },
     [
       nfc,
