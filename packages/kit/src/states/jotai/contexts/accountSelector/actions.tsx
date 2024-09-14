@@ -907,9 +907,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         indexedAccount,
         account,
+        isRemoveLastOthersAccount,
       }: {
         indexedAccount?: IDBIndexedAccount;
         account?: IDBAccount;
+        isRemoveLastOthersAccount?: boolean;
       },
     ) => {
       // TODO add home scene check
@@ -919,7 +921,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (accountUtils.isOthersAccount({ accountId: account?.id })) {
         await this.autoSelectNextAccount.call(set, {
           num: 0,
-          triggerBy: 'removeOthersAccount',
+          triggerBy: isRemoveLastOthersAccount
+            ? 'removeLastOthersAccount'
+            : undefined,
         });
       }
     },
@@ -1474,7 +1478,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneName?: EAccountSelectorSceneName;
         sceneUrl?: string;
         num: number;
-        triggerBy?: 'removeWallet' | 'removeOthersAccount';
+        triggerBy?: 'removeWallet' | 'removeLastOthersAccount';
       },
     ) => {
       console.log('accountSelector actions.autoSelectAccount >>> ', {
@@ -1666,7 +1670,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // (else if) when auto select logic not trigger, should fix focusedWallet only
         // focused A wallet, but remove B wallet, should focus back to A wallet
         triggerBy &&
-        ['removeWallet', 'removeOthersAccount'].includes(triggerBy)
+        ['removeWallet', 'removeLastOthersAccount'].includes(triggerBy)
       ) {
         const selectedAccountNew = await this.cloneSelectedAccountNew.call(
           set,
