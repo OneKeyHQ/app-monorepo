@@ -89,6 +89,7 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
     const safelyMainWindow = getSafelyMainWindow();
 
     if (safelyMainWindow) {
+      // TODO not working on Windows 11 (UTM)
       const badge = new TaskBarBadgeWindows(safelyMainWindow, {
         fontColor: '#000000',
         font: '62px Microsoft Yahei',
