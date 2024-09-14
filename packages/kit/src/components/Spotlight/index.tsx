@@ -321,6 +321,7 @@ export function Spotlight(props: {
     delayMs = 0,
   } = props;
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
+  const isPageFocused = useRouteIsFocused();
   const [isShow, setIsShow] = useState(false);
   useEffect(() => {
     setTimeout(
@@ -330,7 +331,7 @@ export function Spotlight(props: {
       isVisible ? delayMs : 0,
     );
   }, [delayMs, isVisible]);
-  const visible = isFirstVisit && isShow;
+  const visible = isPageFocused && isFirstVisit && isShow;
 
   return (
     <SpotlightView
