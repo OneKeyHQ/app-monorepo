@@ -54,6 +54,7 @@ const settings: IVaultSettings = {
   },
 
   hideBlockExplorer: true,
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);

@@ -49,6 +49,7 @@ const settings: IVaultSettings = {
   },
   minTransferAmount: '5.46',
   defaultFeePresetIndex: 1,
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);

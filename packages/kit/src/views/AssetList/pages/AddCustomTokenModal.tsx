@@ -31,6 +31,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAddToken,
   useAddTokenForm,
@@ -113,6 +114,14 @@ function AddCustomTokenModal() {
     setIsEmptyContractState,
     checkAccountIsExist,
   });
+
+  const { result: vaultSettings } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: selectedNetworkIdValue,
+      }),
+    [selectedNetworkIdValue],
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const disabled = useMemo(() => {
@@ -266,29 +275,31 @@ function AddCustomTokenModal() {
       <Page.Body px="$5">
         <Form form={form}>
           {renderNetworkSelectorFormItem()}
-          <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.manage_token_custom_token_contract_address,
-            })}
-            rules={{
-              validate: () => {
-                if (isEmptyContract) {
-                  return intl.formatMessage({
-                    id: ETranslations.Token_manage_custom_token_address_faild,
-                  });
-                }
-              },
-            }}
-            name="contractAddress"
-          >
-            <Input
-              size="large"
-              $gtMd={{
-                size: 'medium',
+          {vaultSettings?.isNativeTokenContractAddressEmpty ? null : (
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.manage_token_custom_token_contract_address,
+              })}
+              rules={{
+                validate: () => {
+                  if (isEmptyContract) {
+                    return intl.formatMessage({
+                      id: ETranslations.Token_manage_custom_token_address_faild,
+                    });
+                  }
+                },
               }}
-              editable={!token?.isNative}
-            />
-          </Form.Field>
+              name="contractAddress"
+            >
+              <Input
+                size="large"
+                $gtMd={{
+                  size: 'medium',
+                }}
+                editable={!token?.isNative}
+              />
+            </Form.Field>
+          )}
           <Form.Field
             label={intl.formatMessage({
               id: ETranslations.manage_token_custom_token_symbol,
@@ -331,19 +342,22 @@ function AddCustomTokenModal() {
       >
         {hasExistAccount ? undefined : (
           <Stack
+            testID="add-custom-token-modal-footer"
             p="$5"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
             bg="$bgApp"
+            $md={{ height: 130 }}
           >
-            <XStack
-              gap="$2.5"
+            <Stack
+              flex={1}
               $gtMd={{
-                ml: 'auto',
+                gap: '$2.5',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}
-              justifyContent="space-between"
+              $md={{
+                gap: '$5',
+              }}
             >
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyMdMedium" color="$text">
@@ -373,7 +387,7 @@ function AddCustomTokenModal() {
                   });
                 }}
               />
-            </XStack>
+            </Stack>
           </Stack>
         )}
       </Page.Footer>

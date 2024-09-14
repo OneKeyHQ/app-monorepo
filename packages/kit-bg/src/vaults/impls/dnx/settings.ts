@@ -65,6 +65,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);
