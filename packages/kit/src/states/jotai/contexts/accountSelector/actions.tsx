@@ -1577,6 +1577,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 break;
               }
             }
+            // maybe no hd hw wallet found, reset walletId and indexedAccountId
+            if (!selectedWallet) {
+              selectedAccountNew.walletId = undefined;
+              selectedAccountNew.indexedAccountId = undefined;
+            }
           }
         }
 
