@@ -32,7 +32,7 @@ export function NotificationRegisterDaily() {
       return;
     }
     noop(locale, currencyInfo, hideValue);
-    void backgroundApiProxy.serviceNotification.updateBasicAppInfo();
+    void backgroundApiProxy.serviceNotification.updateClientBasicAppInfo();
   }, [locale, currencyInfo, hideValue]);
 
   return <></>;

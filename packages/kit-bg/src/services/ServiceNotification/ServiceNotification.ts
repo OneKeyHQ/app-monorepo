@@ -546,7 +546,7 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateBasicAppInfo() {
+  async updateClientBasicAppInfo() {
     await this.registerClient({
       client: this.pushClient,
       syncMethod: ENotificationPushSyncMethod.append,
@@ -627,33 +627,41 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
-    const settings = await settingsPersistAtom.get();
-    defaultLogger.notification.common.registerClient(
-      params,
-      null,
-      settings.instanceId,
-    );
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post<
-      IApiClientResponse<{
-        badges: number;
-        created: number;
-        removed: number;
-      }>
-    >('/notification/v1/account/register', params);
-    defaultLogger.notification.common.registerClient(
-      params,
-      result.data,
-      settings.instanceId,
-    );
+    try {
+      const settings = await settingsPersistAtom.get();
+      defaultLogger.notification.common.registerClient(
+        params,
+        null,
+        settings.instanceId,
+      );
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.post<
+        IApiClientResponse<{
+          badges: number;
+          created: number;
+          removed: number;
+        }>
+      >('/notification/v1/account/register', params);
+      defaultLogger.notification.common.registerClient(
+        params,
+        result.data,
+        settings.instanceId,
+      );
 
-    const badge = result?.data?.data?.badges;
-    if (isNumber(badge)) {
-      void this.setBadge({ count: badge });
+      const badge = result?.data?.data?.badges;
+      if (isNumber(badge)) {
+        void this.setBadge({ count: badge });
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return result.data;
+    } catch (error) {
+      await notificationsAtom.set((v) => ({
+        ...v,
+        lastRegisterTime: undefined,
+      }));
+      throw error;
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return result.data;
   }
 
   @backgroundMethod()
