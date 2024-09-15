@@ -4,6 +4,18 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
+  public onboard(params: {
+    onboardMethod:
+      | 'createWallet'
+      | 'importWallet'
+      | 'connectHWWallet'
+      | 'connect3rdPartyWallet';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public createWallet(params: { isBiometricVerificationSet: boolean }) {
     return params;
   }
