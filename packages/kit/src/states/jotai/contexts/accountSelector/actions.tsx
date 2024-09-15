@@ -462,7 +462,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         throw new Error('confirmSelectAccount ERROR: walletId is undefined');
       }
 
-      const accountNetworkId =
+      const accountNetworkId: string =
         forceSelectToNetworkId ||
         this.getAutoSelectNetworkIdForAccount.call(set, {
           num,
