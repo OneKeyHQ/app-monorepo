@@ -804,18 +804,20 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async updateNotificationSettings(
-    params: INotificationPushSettings,
-  ): Promise<boolean> {
+  async updateNotificationSettings(params: INotificationPushSettings) {
     this.updateNotificationSettingsAbortController?.abort();
 
     this.updateNotificationSettingsAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    await client.post('/notification/v1/config/update', params, {
+    const result = await client.post<
+      IApiClientResponse<INotificationPushSettings>
+    >('/notification/v1/config/update', params, {
       signal: this.updateNotificationSettingsAbortController.signal,
     });
-
-    return true;
+    if (result?.data?.data?.pushEnabled) {
+      void this.registerClientWithOverrideAllAccounts();
+    }
+    return result?.data?.data;
   }
 
   @backgroundMethod()

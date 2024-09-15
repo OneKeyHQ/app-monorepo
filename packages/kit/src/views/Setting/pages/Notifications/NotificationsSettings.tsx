@@ -40,12 +40,16 @@ export default function NotificationsSettings() {
     return backgroundApiProxy.serviceNotification.getPushClient();
   }, [devAppSettings.enabled]);
 
-  const reloadSettings = useCallback(async () => {
-    const result =
-      await backgroundApiProxy.serviceNotification.fetchNotificationSettings();
-    setSettings(result);
-    prevSettings.current = result;
-  }, []);
+  const reloadSettings = useCallback(
+    async (updated?: INotificationPushSettings) => {
+      const result =
+        updated ||
+        (await backgroundApiProxy.serviceNotification.fetchNotificationSettings());
+      setSettings(result);
+      prevSettings.current = result;
+    },
+    [],
+  );
 
   const isUpdating = useRef(false);
   const updateSettingsToServer = useDebouncedCallback(
@@ -54,7 +58,7 @@ export default function NotificationsSettings() {
         return;
       }
       isUpdating.current = true;
-      let updated = false;
+      let updated: INotificationPushSettings | undefined;
       try {
         updated =
           await backgroundApiProxy.serviceNotification.updateNotificationSettings(
@@ -63,9 +67,7 @@ export default function NotificationsSettings() {
               ...partSettings,
             },
           );
-        if (updated) {
-          await reloadSettings();
-        }
+        await reloadSettings(updated);
       } catch (e) {
         if (prevSettings.current) {
           setSettings(prevSettings.current);
