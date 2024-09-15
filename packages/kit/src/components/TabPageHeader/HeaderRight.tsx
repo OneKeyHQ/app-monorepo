@@ -29,6 +29,7 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { showNotificationPermissionsDialog } from '../PermissionsDialog';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function HeaderRight({
   sceneName,
@@ -107,6 +108,7 @@ export function HeaderRight({
                 }),
                 icon: 'LayoutRightOutline',
                 onPress: async () => {
+                  defaultLogger.account.wallet.openSidePanel();
                   await extUtils.openPanelOnActionClick(true);
                   await extUtils.openSidePanel(routeInfo);
                   window.close();
@@ -128,6 +130,7 @@ export function HeaderRight({
             }),
             icon: 'ExpandOutline',
             onPress: async () => {
+              defaultLogger.account.wallet.openExpandView();
               window.close();
               await backgroundApiProxy.serviceApp.openExtensionExpandTab(
                 routeInfo,

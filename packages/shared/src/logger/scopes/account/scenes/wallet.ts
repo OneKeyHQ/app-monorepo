@@ -1,6 +1,12 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+interface IToken {
+  network: string;
+  tokenSymbol: string;
+  tokenAddress: string;
+}
+
 export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
@@ -56,4 +62,46 @@ export class WalletScene extends BaseScene {
       backupMethod,
     };
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public scanQRCode(scanFrom: 'camera' | 'photo') {
+    return {
+      scanFrom,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public enterManageToken() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public addCustomToken(token: IToken) {
+    return token;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public removeCustomToken(token: IToken) {
+    return token;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public walletManualRefresh() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public copyAddress(params: { walletType: 'hdWallet' | 'hwWallet' }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public openSidePanel() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public openExpandView() {}
 }

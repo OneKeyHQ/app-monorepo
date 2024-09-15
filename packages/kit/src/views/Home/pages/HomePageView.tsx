@@ -30,6 +30,7 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -131,6 +132,7 @@ export function HomePageView({
 
   const onRefresh = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    defaultLogger.account.wallet.walletManualRefresh();
   }, []);
 
   const renderTabs = useCallback(
