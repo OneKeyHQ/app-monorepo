@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -29,7 +30,6 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { showNotificationPermissionsDialog } from '../PermissionsDialog';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function HeaderRight({
   sceneName,

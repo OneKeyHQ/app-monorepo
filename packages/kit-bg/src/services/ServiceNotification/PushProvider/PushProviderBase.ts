@@ -11,5 +11,6 @@ export class PushProviderBase {
   }
 
   eventEmitter: NotificationEventEmitter;
+
   instanceId: string;
 }

@@ -294,7 +294,12 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, activeAccount?.network?.id, universalSearchActions],
+    [
+      navigation,
+      activeAccount?.network?.id,
+      searchStatus,
+      universalSearchActions,
+    ],
   );
 
   const renderResult = useCallback(() => {
