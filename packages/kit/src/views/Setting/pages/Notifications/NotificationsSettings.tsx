@@ -24,9 +24,9 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -175,7 +175,7 @@ export default function NotificationsSettings() {
           </>
         )}
 
-        {/* {devAppSettings?.enabled && platformEnv.isDev ? (
+        {devAppSettings?.enabled && platformEnv.isDev ? (
           <Stack px="$5">
             <Button onPress={showNotificationPermissionsDialog}>
               通知权限
@@ -199,7 +199,7 @@ export default function NotificationsSettings() {
               WebSocket: {pushClient?.socketId?.slice(0, 8)}...
             </SizableText>
           </Stack>
-        ) : null} */}
+        ) : null}
 
         <Stack
           gap="$8"
