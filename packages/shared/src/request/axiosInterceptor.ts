@@ -93,7 +93,7 @@ axios.interceptors.response.use(
       statusCode: response.status,
       requestId: config.headers[HEADER_REQUEST_ID_KEY],
       responseCode: data.code,
-      errorMessage: data.code !== 0 ? data.message : '',
+      responseErrorMessage: data.code !== 0 ? data.message : '',
     });
     return response;
   },

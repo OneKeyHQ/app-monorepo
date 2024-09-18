@@ -20,7 +20,7 @@ export class NetworkScene extends BaseScene {
     statusCode,
     requestId,
     responseCode = 0,
-    errorMessage,
+    responseErrorMessage,
   }: {
     requestType: string;
     method: string;
@@ -28,11 +28,13 @@ export class NetworkScene extends BaseScene {
     statusCode: number;
     requestId?: string;
     responseCode?: number;
-    errorMessage?: string;
+    responseErrorMessage?: string;
   }) {
     return `${requestType}:${method}:${path}:${statusCode}, requestId: ${
       requestId || ''
-    }, responseCode: ${responseCode}, errorMessage: ${errorMessage || ''}`;
+    }, responseCode: ${responseCode}, errorMessage: ${
+      responseErrorMessage || ''
+    }`;
   }
 
   @LogToLocal({ level: 'debug' })
