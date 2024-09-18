@@ -132,9 +132,11 @@ function NotificationList() {
   useEffect(() => {
     if (!firstTimeGuideOpened && !isFirstTimeGuideOpened.current) {
       // showNotificationPermissionsDialog();
-      navigation.pushModal(EModalRoutes.NotificationsModal, {
-        screen: EModalNotificationsRoutes.NotificationIntroduction,
-      });
+      setTimeout(() => {
+        navigation.pushModal(EModalRoutes.NotificationsModal, {
+          screen: EModalNotificationsRoutes.NotificationIntroduction,
+        });
+      }, 600);
       isFirstTimeGuideOpened.current = true;
       setNotificationsData((v) => ({
         ...v,

@@ -59,6 +59,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     }
     this.jpushProvider = new PushProviderJPush({
       eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
     });
   }
 

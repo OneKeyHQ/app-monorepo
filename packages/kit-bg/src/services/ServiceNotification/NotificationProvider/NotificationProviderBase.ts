@@ -17,6 +17,7 @@ import { PushProviderWebSocket } from '../PushProvider/PushProviderWebSocket';
 export type INotificationProviderBaseOptions = {
   disabledWebSocket?: boolean;
   disabledJPush?: boolean;
+  instanceId: string;
 };
 export default abstract class NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {
@@ -35,6 +36,7 @@ export default abstract class NotificationProviderBase {
     }
     this.webSocketProvider = new PushProviderWebSocket({
       eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
     });
   }
 
@@ -54,11 +56,6 @@ export default abstract class NotificationProviderBase {
   // StateActiveContainer, JPush, Ext, Electron
   abstract setBadge(params: INotificationSetBadgeParams): Promise<void>;
   // TODO getBadgeCount
-
-  async clearBadge() {
-    await this.setBadge({ count: null });
-    defaultLogger.notification.common.clearBadge();
-  }
 
   abstract showAndFocusApp(): Promise<void>;
 

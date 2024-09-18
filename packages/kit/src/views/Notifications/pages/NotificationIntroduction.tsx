@@ -21,7 +21,6 @@ import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
-
 import NotificationIntroIllustration from '../components/NotificationIntroIllustration';
 
 function NotificationIntroduction() {
@@ -78,7 +77,7 @@ function NotificationIntroduction() {
         </Stack>
         <NotificationIntroIllustration />
         {/* Mac tutorials */}
-        {platformEnv.isDesktopMac ? (
+        {!platformEnv.isDesktopMac ? (
           <YStack
             gap="$2"
             w="100%"
