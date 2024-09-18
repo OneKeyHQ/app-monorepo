@@ -188,6 +188,7 @@ export type INotificationPushMessageExtras = {
   msgId: string; // TODO obsoleted, use params.msgId instead
   topic: ENotificationPushTopicTypes.accountActivity;
   image?: string;
+  // params is a json string on Android
   params: {
     msgId: string; // msgId
     accountAddress: string;
