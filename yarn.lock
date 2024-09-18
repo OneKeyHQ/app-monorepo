@@ -6818,7 +6818,7 @@ __metadata:
     react-native: "npm:0.73.7"
     react-native-ble-manager: "npm:^10.0.2"
     react-native-bundle-visualizer: "npm:^3.1.3"
-    react-native-camera-kit: "npm:14.0.0-beta2"
+    react-native-camera-kit: "npm:14.0.0-beta15"
     react-native-canvas: "npm:^0.1.39"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
@@ -27121,7 +27121,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.14.2, lodash@npm:^4.17.11, lodash@npm:^4.17.13, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4":
+"lodash@npm:^4.17.11, lodash@npm:^4.17.13, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: 10/c08619c038846ea6ac754abd6dd29d2568aa705feb69339e836dfa8d8b09abbb2f859371e86863eda41848221f9af43714491467b5b0299122431e202bb0c532
@@ -31576,15 +31576,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-camera-kit@npm:14.0.0-beta2":
-  version: 14.0.0-beta2
-  resolution: "react-native-camera-kit@npm:14.0.0-beta2"
-  dependencies:
-    lodash: "npm:^4.14.2"
+"react-native-camera-kit@npm:14.0.0-beta15":
+  version: 14.0.0-beta15
+  resolution: "react-native-camera-kit@npm:14.0.0-beta15"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/6affc42ddaa955a86c4c5a01b8dd7851368731b16aea849a27298eaf242b8b77a1f364ee0b31968e756683091e25c02c44cd2bc91455124b4bc28ea30c4d13b8
+  checksum: 10/1c9e437f3c7d6efab5a5cf12532764ba03b1768c38f9d2dabcbd1e9740fbeb5e6c036d49004dce21adcd57bac73d8864c3eefe5ee3335998f01b9e206f835a92
   languageName: node
   linkType: hard
 
