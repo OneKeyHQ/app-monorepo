@@ -12,7 +12,7 @@ export type IEncodedTxKaspa = {
   hasMaxSend: boolean;
   // TODO IFeeInfoUnit
   feeInfo?: {
-    price: string;
+    price: string; // feerate
     limit: string;
   };
 };
