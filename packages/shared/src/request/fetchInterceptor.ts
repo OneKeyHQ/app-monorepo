@@ -84,7 +84,7 @@ const newFetch = async function (
       .then((res) => {
         defaultLogger.app.network.end({
           requestType: 'fetch',
-          method: options.method as string,
+          method: options?.method as string,
           path: url,
           statusCode: res.status,
           requestId,
@@ -95,7 +95,7 @@ const newFetch = async function (
         if (e) {
           defaultLogger.app.network.error({
             requestType: 'fetch',
-            method: options.method as string,
+            method: options?.method as string,
             path: url,
             statusCode:
               typeof e === 'object' && 'code' in e ? (e.code as number) : -1,
