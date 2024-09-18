@@ -106,6 +106,15 @@ target 'OneKeyWallet' do
       end
     end
     installer.pods_project.targets.each do |target|
+      # https://github.com/mockingbot/react-native-zip-archive/issues/307
+      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator' 
+      if target.name == 'RNZipArchive'
+        target.source_build_phase.files.each do |file|
+          if file.settings && file.settings['COMPILER_FLAGS']
+              file.settings['COMPILER_FLAGS'] = ''
+          end
+        end
+      end
       target.build_configurations.each do |config|
         config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
         if config.name == 'Debug'
