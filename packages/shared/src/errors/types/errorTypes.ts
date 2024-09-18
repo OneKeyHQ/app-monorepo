@@ -21,6 +21,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
+  AxiosAbortCancelError = 'AxiosAbortCancelError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
@@ -31,6 +32,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }

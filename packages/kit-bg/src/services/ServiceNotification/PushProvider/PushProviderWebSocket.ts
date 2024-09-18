@@ -24,6 +24,10 @@ export class PushProviderWebSocket extends PushProviderBase {
 
   private socket: Socket | null = null;
 
+  async ping(payload: any) {
+    return this.socket?.timeout(3000).emitWithAck('ping', payload);
+  }
+
   async ackMessage(
     params: INotificationPushMessageAckParams,
   ): Promise<boolean> {

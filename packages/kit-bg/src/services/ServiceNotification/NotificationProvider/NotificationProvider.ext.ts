@@ -4,6 +4,7 @@ import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INotificationPermissionDetail,
@@ -20,7 +21,6 @@ import {
 import NotificationProviderBase from './NotificationProviderBase';
 
 import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
-import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {

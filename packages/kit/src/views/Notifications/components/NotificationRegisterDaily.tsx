@@ -32,11 +32,7 @@ export function NotificationRegisterDaily() {
       return;
     }
     noop(locale, currencyInfo, hideValue);
-    void backgroundApiProxy.serviceNotification.registerClientWithAppendAccounts(
-      {
-        dbAccounts: [],
-      },
-    );
+    void backgroundApiProxy.serviceNotification.updateClientBasicAppInfo();
   }, [locale, currencyInfo, hideValue]);
 
   return <></>;
