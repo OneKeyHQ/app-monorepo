@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { Banner, Skeleton, Stack } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
@@ -19,7 +20,19 @@ export function DashboardBanner({
   isLoading: boolean | undefined;
 }) {
   const data = useMemo(
-    () => banners.map((i) => ({ ...i, imgUrl: i.src, title: i.title || '' })),
+    () =>
+      banners.map((i) => ({
+        ...i,
+        imgUrl: i.src,
+        title: i.title || '',
+        titleTextProps: {
+          maxWidth: '$96',
+          size: '$headingLg',
+          $gtMd: {
+            size: '$heading2xl',
+          },
+        } as ISizableTextProps,
+      })),
     [banners],
   );
   return (
@@ -33,6 +46,17 @@ export function DashboardBanner({
       }}
       $gtLg={{
         height: 404,
+      }}
+      itemTitleContainerStyle={{
+        bottom: 0,
+        right: 0,
+        left: 0,
+        px: '$10',
+        py: '$8',
+        $gtMd: {
+          px: '$14',
+          py: '$10',
+        },
       }}
       emptyComponent={
         <Stack p="$5">

@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia } from 'tamagui';
+import { useMedia, useProps, useStyle } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,25 +10,97 @@ import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
-import type { IStackStyle } from '../../primitives';
+import type {
+  IImageSourceProps,
+  ISizableTextProps,
+  IStackStyle,
+} from '../../primitives';
 
-export function Banner<
-  T extends {
-    title: string;
-    imgUrl: string;
-    theme?: 'dark' | 'light' | string;
-    bannerId: string;
-  },
->({
+export interface IBannerData {
+  title?: string;
+  titleTextProps?: ISizableTextProps;
+  imgUrl?: string;
+  theme?: 'dark' | 'light' | string;
+  bannerId?: string;
+  imgSource?: IImageSourceProps['source'];
+  imgResizeMode?: IImageSourceProps['resizeMode'];
+  $gtMd?: IBannerData;
+  $gtLg?: IBannerData;
+}
+
+function BannerItem<T extends IBannerData>({
+  itemContainerStyle,
+  itemTitleContainerStyle,
+  onPress,
+  item: rawItem,
+}: {
+  onPress: (item: T) => void;
+  item: T;
+  itemContainerStyle?: IStackStyle;
+  itemTitleContainerStyle?: IStackStyle;
+}) {
+  const item = useProps(rawItem, {
+    resolveValues: 'value',
+  }) as T;
+  const textStyle = useStyle(item.titleTextProps || {}, {
+    resolveValues: 'auto',
+  });
+  const onItemPress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
+  return (
+    <Stack
+      tag="section"
+      flex={1}
+      position="relative"
+      userSelect="none"
+      onPress={onItemPress}
+      {...itemContainerStyle}
+    >
+      {item.imgUrl ? (
+        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
+      ) : null}
+
+      {item.imgSource ? (
+        <Image
+          flex={1}
+          borderRadius="$3"
+          bg="$bgStrong"
+          source={item.imgSource}
+          resizeMode={item.imgResizeMode}
+        />
+      ) : null}
+      <Stack position="absolute" {...itemTitleContainerStyle}>
+        {
+          // TODO：Lokalise processes \n as \\n when handling translations
+          item.title?.split(/\n|\\n/).map((text, index) => (
+            <SizableText
+              key={index}
+              color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+              size="$headingLg"
+              {...textStyle}
+            >
+              {text}
+            </SizableText>
+          ))
+        }
+      </Stack>
+    </Stack>
+  );
+}
+
+export function Banner<T extends IBannerData>({
   data,
   onItemPress,
   isLoading,
   emptyComponent,
   itemContainerStyle,
+  itemTitleContainerStyle,
   ...props
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
@@ -38,41 +110,14 @@ export function Banner<
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
-      <Stack
-        tag="section"
-        flex={1}
-        position="relative"
-        userSelect="none"
-        onPress={() => onItemPress(item)}
-        {...itemContainerStyle}
-      >
-        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
-        <Stack
-          position="absolute"
-          bottom={0}
-          right={0}
-          left={0}
-          px="$10"
-          py="$8"
-          $gtMd={{
-            px: '$14',
-            py: '$10',
-          }}
-        >
-          <SizableText
-            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-            size="$headingLg"
-            $gtMd={{
-              size: '$heading2xl',
-            }}
-            maxWidth="$96"
-          >
-            {item.title ?? ''}
-          </SizableText>
-        </Stack>
-      </Stack>
+      <BannerItem
+        onPress={onItemPress}
+        item={item}
+        itemContainerStyle={itemContainerStyle}
+        itemTitleContainerStyle={itemTitleContainerStyle}
+      />
     ),
-    [itemContainerStyle, onItemPress],
+    [itemContainerStyle, itemTitleContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(

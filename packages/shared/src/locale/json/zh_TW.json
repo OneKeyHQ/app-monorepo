@@ -407,7 +407,7 @@
   "earn.select_for_early_withdrawal_desc": "在到期前取消質押。",
   "earn.stake": "質押",
   "earn.stake_and_earn": "質押並賺取",
-  "earn.stake_in_babylon_ecosystem": "參與 Babylon 生態系質押",
+  "earn.stake_in_babylon_ecosystem": "參與 Babylon \\n生態系質押",
   "earn.stake_release_period": "質押解除時間",
   "earn.stake_release_period_desc": "在提交贖回請求後，您將獲得一個 NFT 憑證來領取資金，約需要 1-4 天的時間後即可領取。",
   "earn.stake_through_onekey_earn_points": "透過 OneKey 進行質押，並在官方網站上獲得相同的積分",
