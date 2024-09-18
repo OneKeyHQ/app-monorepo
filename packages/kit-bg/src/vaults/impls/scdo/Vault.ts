@@ -210,6 +210,8 @@ export default class Vault extends VaultBase {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxScdo;
     if (params.nonceInfo) {
       encodedTx.AccountNonce = params.nonceInfo.nonce;
+    } else {
+      encodedTx.AccountNonce += 1;
     }
     if (params.feeInfo) {
       encodedTx.GasLimit = params.feeInfo.gas?.gasLimit

@@ -52,6 +52,7 @@ const settings: IVaultSettings = {
   hideAmountInputOnFirstEntry: true,
   hideBlockExplorer: true,
   ignoreUpdateNativeAmount: true,
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);

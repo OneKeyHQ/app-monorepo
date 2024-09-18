@@ -207,16 +207,12 @@ const AssetProtocolListContent = ({
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
+                ? `APR ${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
                 : null
             }
-            secondary={
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {`TVL ${currencySymbol}${formatNumber(
-                  Number(item.provider.totalFiatValue),
-                )}`}
-              </SizableText>
-            }
+            secondary={`TVL ${currencySymbol}${formatNumber(
+              Number(item.provider.totalFiatValue),
+            )}`}
           />
         </ListItem>
       )}

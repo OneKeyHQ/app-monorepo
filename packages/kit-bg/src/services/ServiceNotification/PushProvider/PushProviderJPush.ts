@@ -108,20 +108,20 @@ export class PushProviderJPush extends PushProviderBase {
   }) {
     const { notificationEventType } = notification;
     let extraParams = notification?.extras?.params;
-    if (notification?.extras && notification?.extras?.params) {
-      if (
-        isString(notification?.extras?.params) &&
-        platformEnv.isNativeAndroid
-      ) {
+    if (notification?.extras && extraParams) {
+      if (isString(extraParams) && platformEnv.isNativeAndroid) {
         try {
-          extraParams = JSON.parse(notification?.extras?.params);
+          extraParams = JSON.parse(extraParams);
+          if (notification.extras) {
+            notification.extras.params = extraParams as any;
+          }
         } catch (error) {
           //
         }
       }
     }
     const msgId =
-      notification?.extras?.params?.msgId ||
+      extraParams?.msgId ||
       notification?.extras?.msgId ||
       notification.messageID;
     const payload: INotificationPushMessageInfo = {

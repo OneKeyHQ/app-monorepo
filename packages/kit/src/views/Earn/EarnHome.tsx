@@ -6,7 +6,12 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
 
-import type { IKeyOfIcons, IYStackProps } from '@onekeyhq/components';
+import type {
+  IImageSourceProps,
+  IKeyOfIcons,
+  ISizableTextProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Banner,
@@ -53,49 +58,7 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const testBannerData = [
-  {
-    'hrefType': 'internal',
-    'href':
-      'https://asset.onekey-asset.com/portal/803ff853ecdd7808b35fdf6f837ae1af514aad56/static/shop-hero-animation-poster-8e1206b59d2201dfaa8cd72a8134179f.jpg',
-    'rank': 3,
-    'takeEffect': {
-      'start': 1_609_914_358_330,
-      'end': 1_845_358_687_300,
-      'platform': [],
-      'deleted': false,
-    },
-    'useSystemBrowser': true,
-    'theme': 'light',
-    'bannerId': '8f9dcfef-1dad-4aff-bc10-f32a47a0aece',
-    'title': 'Lorem do minim dolore excepteur veniam Lorem id dolor.',
-    'imgUrl':
-      'https://dev.onekey-asset.com/dashboard/banner/upload_1706683116708.0.6327129942895648.0.jpeg',
-  },
-  {
-    'hrefType': 'internal',
-    'href': 'https://www.onekey.so/zh_CN/',
-    'rank': 2,
-    'takeEffect': {
-      'versionGreaterThan': {
-        'major': 3,
-        'minor': 100,
-        'patch': 91,
-      },
-      'start': 1_709_535_771_451,
-      'end': 1_741_752_171_000,
-      'platform': [],
-      'remark': 'rrrrrr',
-      'deleted': false,
-    },
-    'useSystemBrowser': false,
-    'theme': 'light',
-    'title': 'onekey test',
-    'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-    'imgUrl':
-      'https://dev.onekey-asset.com/dashboard/banner/upload_1710134618176.0.8362196640872233.0.png',
-  },
-];
+const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
 
 const toTokenProviderListPage = async (
   navigation: ReturnType<typeof useAppNavigation>,
@@ -158,6 +121,7 @@ function RecommendedItem({
   token,
   ...rest
 }: { token?: ITokenAccount } & IYStackProps) {
+  const intl = useIntl();
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const [decorationColor, setDecorationColor] = useState<string | null>(null);
@@ -242,10 +206,17 @@ function RecommendedItem({
         </SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {token.apr}
+        {buildAprText(token.apr)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Available: 0.05 symbol
+        {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
+
+        <NumberSizeableText
+          formatter="balance"
+          formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
+        >
+          {token.balanceParsed}
+        </NumberSizeableText>
       </SizableText>
     </YStack>
   );
@@ -619,7 +590,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={apr}
+                  primary={buildAprText(apr)}
                 />
               </ListItem>
             ),
@@ -633,7 +604,7 @@ function AvailableAssets() {
 
 function BasicEarnHome() {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const media = useMedia();
@@ -717,6 +688,47 @@ function BasicEarnHome() {
       }),
     },
   ];
+
+  const navigation = useAppNavigation();
+
+  const onBannerPress = useCallback(async () => {
+    if (account) {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetails,
+        params: {
+          accountId: account?.id ?? '',
+          networkId: 'btc--0',
+          indexedAccountId: indexedAccount?.id,
+          symbol: 'BTC',
+          provider: 'babylon',
+        },
+      });
+    }
+  }, [account, indexedAccount?.id, navigation]);
+
+  const bannerData = useMemo(
+    () => [
+      {
+        'title': intl.formatMessage({
+          id: ETranslations.earn_stake_in_babylon_ecosystem,
+        }),
+        'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
+        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
+        titleTextProps: {
+          color: '$textInverseLight',
+          size: '$headingMd',
+          numberOfLines: 2,
+          maxWidth: 140,
+        } as ISizableTextProps,
+        $gtLg: {
+          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
+          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
+        },
+      },
+    ],
+    [intl],
+  );
+
   return (
     <Page scrollEnabled fullPage>
       <TabPageHeader
@@ -737,6 +749,9 @@ function BasicEarnHome() {
             <Overview isFetchingAccounts={!!isFetchingAccounts} />
             <YStack
               minHeight="$36"
+              $md={{
+                minHeight: '$28',
+              }}
               borderRadius="$3"
               width="100%"
               borderCurve="continuous"
@@ -746,9 +761,19 @@ function BasicEarnHome() {
             >
               <Banner
                 height="$36"
-                data={testBannerData}
-                onItemPress={(item) => console.log(item)}
+                $md={{
+                  height: '$28',
+                }}
+                data={bannerData}
+                onItemPress={onBannerPress}
                 isLoading={false}
+                itemTitleContainerStyle={{
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  left: 20,
+                  justifyContent: 'center',
+                }}
               />
             </YStack>
           </YStack>
