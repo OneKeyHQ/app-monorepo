@@ -89,8 +89,11 @@ export function decodeTransferPayload(payload: string):
       ['address', 'uint256'],
       `0x${payload.slice(TransferMethod.length)}`,
     );
+    const addressBytes = bufferUtils.hexToBytes(
+      hexUtils.stripHexPrefix(address),
+    );
     return {
-      address,
+      address: (address as string).replace(/^0x/, `${addressBytes[0]}S`),
       amount: new BigNumber((amount as BigNumber).toString()).toFixed(),
     };
   } catch (error) {
