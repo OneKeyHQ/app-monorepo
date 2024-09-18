@@ -213,7 +213,7 @@ export function HeaderRight({
     }
 
     // notifications is not supported on web currently
-    if (!platformEnv.isWeb) {
+    if (platformEnv.isWeb) {
       notificationsButton = null;
     }
 

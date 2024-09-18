@@ -2,13 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
   Divider,
-  LinearGradient,
   Page,
   SizableText,
   Spinner,
@@ -18,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDevSettingsPersistAtom,
@@ -29,8 +28,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import NotificationIntroIllustration from '../../../Notifications/components/NotificationIntroIllustration';
+import NotificationsHelpCenterInstruction from '../../components/NotificationsHelpCenterInstruction';
+import NotificationsTestButton from '../../components/NotificationsTestButton';
 
 export default function NotificationsSettings() {
   const intl = useIntl();
@@ -170,13 +169,39 @@ export default function NotificationsSettings() {
           />
           <Switch value />
         </ListItem> */}
+                <Divider m="$5" />
+                <ListItem>
+                  <ListItem.Text
+                    flex={1}
+                    gap="$2"
+                    primary={intl.formatMessage({
+                      id: ETranslations.notifications_settings_helper_title,
+                    })}
+                    secondary={
+                      <>
+                        <SizableText
+                          maxWidth="$96"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.notifications_settings_helper_desc,
+                          })}
+                        </SizableText>
+                        <NotificationsHelpCenterInstruction />
+                      </>
+                    }
+                  />
+                  <NotificationsTestButton />
+                </ListItem>
               </>
             ) : null}
           </>
         )}
 
         {devAppSettings?.enabled && platformEnv.isDev ? (
-          <Stack px="$5">
+          <Stack p="$5" m="$5" borderRadius="$3" gap="$2" bg="$bgSubdued">
+            <SizableText>Dev tools</SizableText>
             <Button onPress={showNotificationPermissionsDialog}>
               通知权限
             </Button>
@@ -200,57 +225,6 @@ export default function NotificationsSettings() {
             </SizableText>
           </Stack>
         ) : null}
-
-        <Stack
-          gap="$8"
-          px="$5"
-          mt="$5"
-          pt="$8"
-          borderTopWidth={StyleSheet.hairlineWidth}
-          borderColor="$border"
-        >
-          <LinearGradient
-            zIndex={0}
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h="$10"
-            colors={['$neutral3', '$transparent']}
-            $platform-native={{
-              display: 'none',
-            }}
-          />
-          <Stack
-            zIndex={1}
-            gap="$2"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: '$10',
-            }}
-          >
-            <Stack
-              gap="$2"
-              $gtMd={{
-                flex: 1,
-              }}
-            >
-              <SizableText size="$bodyMdMedium">
-                Enable push notifications
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Enable notifications for OneKey in your device settings for
-                faster, easier alerts. Tap the button below to test permissions,
-                or visit our Help Center if issues arise.
-              </SizableText>
-            </Stack>
-            <Button size="small" alignSelf="flex-start">
-              Test push notifications
-            </Button>
-          </Stack>
-          <NotificationIntroIllustration />
-        </Stack>
       </Page.Body>
     </Page>
   );
