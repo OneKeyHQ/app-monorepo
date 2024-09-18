@@ -17,7 +17,7 @@ export class Analytics {
   private request: AxiosInstance | null = null;
 
   private basicInfo = {} as {
-    screenName: string;
+    pageName: string;
   };
 
   private deviceInfo: Record<string, any> | null = null;
@@ -45,6 +45,9 @@ export class Analytics {
   }
 
   trackEvent(eventName: string, eventProps?: Record<string, any>) {
+    if (eventProps?.pageName) {
+      this.basicInfo.pageName = eventProps.pageName;
+    }
     if (!this.instanceId || !this.baseURL) {
       this.cacheEvents.push([eventName, eventProps]);
     } else {
@@ -59,7 +62,7 @@ export class Analytics {
       this.deviceInfo.appBuildNumber = platformEnv.buildNumber;
       this.deviceInfo.appVersion = platformEnv.version;
     }
-    this.deviceInfo.screenName = this.basicInfo.screenName;
+    this.deviceInfo.pageName = this.basicInfo.pageName;
     return this.deviceInfo;
   }
 

@@ -21,6 +21,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -181,6 +182,7 @@ function HomeOverviewContainer() {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
   const isLoading =

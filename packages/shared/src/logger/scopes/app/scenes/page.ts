@@ -11,4 +11,8 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public appStart() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public navigationToggle() {}
 }

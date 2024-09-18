@@ -10,6 +10,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 
 import { useWatchListAction } from './wachListHooks';
 
@@ -17,11 +19,13 @@ function BasicMarketStar({
   coingeckoId,
   size,
   tabIndex,
+  from,
   ...props
 }: {
   tabIndex?: number;
   size?: IIconButtonProps['size'];
   coingeckoId: string;
+  from: EWatchlistFrom;
 } & IStackProps) {
   const intl = useIntl();
   const actions = useWatchListAction();
@@ -67,11 +71,19 @@ function BasicMarketStar({
   const handlePress = useCallback(() => {
     if (checked) {
       actions.removeFormWatchList(coingeckoId);
+      defaultLogger.market.token.removeFromWatchlist({
+        tokenSymbol: coingeckoId,
+        removeWatchlistFrom: from,
+      });
     } else {
       actions.addIntoWatchList(coingeckoId);
+      defaultLogger.market.token.addToWatchList({
+        tokenSymbol: coingeckoId,
+        addWatchlistFrom: from,
+      });
     }
     setIsChecked(!checked);
-  }, [actions, coingeckoId, checked]);
+  }, [checked, actions, coingeckoId, from]);
 
   return (
     <IconButton

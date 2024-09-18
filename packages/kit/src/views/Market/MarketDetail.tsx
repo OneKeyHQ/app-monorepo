@@ -20,6 +20,7 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
@@ -92,7 +93,12 @@ function TokenDetailHeader({
             tokenSymbol={symbol}
             lastUpdated={lastUpdated}
           />
-          <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
+          <MarketStar
+            coingeckoId={coinGeckoId}
+            mr="$-2"
+            size="medium"
+            from={EWatchlistFrom.details}
+          />
         </XStack>
         <PriceChangePercentage pt="$0.5" width="100%">
           {performance.priceChangePercentage24h}

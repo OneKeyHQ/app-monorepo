@@ -14,9 +14,6 @@ function BasicMarketMore({
 }: { coingeckoId: string } & IStackProps) {
   const intl = useIntl();
   const actions = useWatchListAction();
-  const handleRemove = useCallback(() => {
-    actions.removeFormWatchList(coingeckoId);
-  }, [actions, coingeckoId]);
   const MoveToTop = useCallback(() => {
     actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
@@ -24,14 +21,6 @@ function BasicMarketMore({
     () => [
       {
         items: [
-          // {
-          //   destructive: true,
-          //   icon: 'DeleteOutline',
-          //   label: intl.formatMessage({
-          //     id: ETranslations.market_remove_from_watchlist,
-          //   }),
-          //   onPress: handleRemove,
-          // },
           {
             icon: 'ArrowTopOutline',
             label: intl.formatMessage({ id: ETranslations.market_move_to_top }),

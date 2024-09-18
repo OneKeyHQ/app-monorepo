@@ -15,6 +15,7 @@ import {
   useUniversalSearchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EUniversalSearchType,
@@ -68,6 +69,10 @@ export function RecentSearched({
           setTimeout(() => {
             navigation.push(ETabMarketRoutes.MarketDetail, {
               token: item.id,
+            });
+            defaultLogger.market.token.searchToken({
+              tokenSymbol: item.id,
+              from: 'recentSearch',
             });
           }, 80);
           break;
