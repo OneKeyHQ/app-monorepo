@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { MotiView } from 'moti';
 import { getTokenValue } from 'tamagui';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../../hocs/Provider/hooks/useProviderSideBarValue';
@@ -21,6 +22,7 @@ function HeaderCollapseButton({
 
   const onPressCall = useCallback(() => {
     setIsCollapse?.(!isCollapse);
+    defaultLogger.app.page.navigationToggle();
   }, [isCollapse, setIsCollapse]);
 
   const paddingLeft = getTokenValue(
