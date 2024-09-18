@@ -407,7 +407,7 @@
   "earn.select_for_early_withdrawal_desc": "在到期前取消质押。",
   "earn.stake": "质押",
   "earn.stake_and_earn": "质押并赚取",
-  "earn.stake_in_babylon_ecosystem": "参与 Babylon 生态系质押",
+  "earn.stake_in_babylon_ecosystem": "参与 Babylon \\n生态系质押",
   "earn.stake_release_period": "质押解除时间",
   "earn.stake_release_period_desc": "在提交赎回请求后，您将获得一个 NFT 凭证来领取资金，约需要 1-4 天的时间后即可领取。",
   "earn.stake_through_onekey_earn_points": "通过 OneKey 进行质押，并在官方网站上获得相同的积分",
