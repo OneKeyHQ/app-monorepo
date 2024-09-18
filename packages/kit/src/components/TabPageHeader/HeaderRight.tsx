@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -107,6 +108,7 @@ export function HeaderRight({
                 }),
                 icon: 'LayoutRightOutline',
                 onPress: async () => {
+                  defaultLogger.account.wallet.openSidePanel();
                   await extUtils.openPanelOnActionClick(true);
                   await extUtils.openSidePanel(routeInfo);
                   window.close();
@@ -128,6 +130,7 @@ export function HeaderRight({
             }),
             icon: 'ExpandOutline',
             onPress: async () => {
+              defaultLogger.account.wallet.openExpandView();
               window.close();
               await backgroundApiProxy.serviceApp.openExtensionExpandTab(
                 routeInfo,
