@@ -19,6 +19,7 @@ import {
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EScanQrCodeModalPages,
@@ -209,6 +210,7 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
+      defaultLogger.account.wallet.scanQRCode('photo');
     }
   }, [callback, intl]);
 
@@ -217,6 +219,7 @@ export default function ScanQrCodeModal() {
       if (isPickedImage.current) {
         return {};
       }
+      defaultLogger.account.wallet.scanQRCode('camera');
       return callback(value);
     },
     [callback],

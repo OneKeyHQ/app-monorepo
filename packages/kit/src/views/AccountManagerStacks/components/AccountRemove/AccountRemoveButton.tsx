@@ -8,9 +8,11 @@ import { WalletOptionItem } from '../../pages/AccountSelectorStack/WalletDetails
 import { showAccountRemoveDialog } from '../AccountEdit/AccountRemoveButton';
 
 export function AccountRemoveButton({
+  accountsCount,
   indexedAccount,
   account,
 }: {
+  accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
 }) {
@@ -21,6 +23,7 @@ export function AccountRemoveButton({
       label="Remove"
       onPress={() => {
         showAccountRemoveDialog({
+          accountsCount,
           config,
           title: 'Remove Account 1',
           description: 'This account will be removed.',
