@@ -29,8 +29,9 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
           );
         }
       } else if (platform === 'Windows_NT') {
-        void shell.openExternal('ms-settings:notifications');
-
+        if (prefType === 'notification') {
+          void shell.openExternal('ms-settings:notifications');
+        }
         // ref https://docs.microsoft.com/en-us/windows/uwp/launch-resume/launch-settings-app
         if (prefType === 'camera') {
           void shell.openExternal('ms-settings:privacy-webcam');

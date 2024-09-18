@@ -6,6 +6,7 @@ import {
   systemPreferences,
 } from 'electron';
 import logger from 'electron-log';
+import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -85,6 +86,27 @@ async function getElectronNotificationPermission() {
 function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_NAME);
+    const safelyMainWindow = getSafelyMainWindow();
+
+    if (safelyMainWindow) {
+      // TODO not working on Windows 11 (UTM)
+      const badge = new TaskBarBadgeWindows(safelyMainWindow, {
+        fontColor: '#000000',
+        font: '62px Microsoft Yahei',
+        color: '#000000',
+        radius: 48,
+        updateBadgeEvent: ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
+        badgeDescription: '',
+        invokeType: 'handle', // handle -> ipcRenderer.invoke,  send -> ipcRenderer.sendSync
+        max: 99,
+        fit: false,
+        useSystemAccentTheme: true,
+        additionalFunc: (count) => {
+          console.log(`Received ${count} new notifications!`);
+        },
+      });
+      console.log('TaskBarBadgeWindows init', badge);
+    }
   }
 
   ipcMain.on(ipcMessageKeys.NOTIFICATION_GET_PERMISSION, async (event) => {
@@ -149,25 +171,10 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
         const win = getSafelyMainWindow();
         if (win) {
           if (!isNil(count) && count > 0) {
-            // 创建一个带有数字的覆盖图标
-            const canvas = document.createElement('canvas');
-            canvas.height = 140;
-            canvas.width = 140;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              return;
-            }
-            ctx.fillStyle = 'red';
-            ctx.beginPath();
-            ctx.ellipse(70, 70, 70, 70, 0, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.textAlign = 'center';
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 80px Arial';
-            ctx.fillText(count.toString(), 70, 98);
-
-            const image = nativeImage.createFromDataURL(canvas.toDataURL());
-            win.setOverlayIcon(image, count.toString());
+            // document not defined, cannot create canvas in main process
+            //    const image = nativeImage.createFromDataURL(canvas.toDataURL());
+            //    win.setOverlayIcon(image, count.toString());
+            // TaskBarBadgeWindows will handle badge count render
           } else {
             win.setOverlayIcon(null, '');
           }

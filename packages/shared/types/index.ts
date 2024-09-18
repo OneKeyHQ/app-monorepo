@@ -80,6 +80,12 @@ export enum EAccountSelectorSceneName {
   addressInput = 'addressInput', // test Gallery AddressInput test
 }
 
+export enum EAccountSelectorAutoSelectTriggerBy {
+  removeWallet = 'removeWallet',
+  removeLastOthersAccount = 'removeLastOthersAccount',
+  removeAccount = 'removeAccount',
+}
+
 export type INotPromise<T> = T extends Promise<any> ? never : T;
 
 export enum EHomeTab {

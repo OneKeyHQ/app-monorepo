@@ -58,6 +58,7 @@ export class CommonScene extends BaseScene {
   ackNotificationMessage(
     params: INotificationPushMessageAckParams,
     apiResult: any,
+    ackBy: 'webSocket' | 'http' | 'unknown',
   ) {
     return [
       {
@@ -66,6 +67,7 @@ export class CommonScene extends BaseScene {
         title: params.remotePushMessageInfo?.title,
         content: params.remotePushMessageInfo?.content,
       },
+      ackBy,
       devOnlyData(apiResult),
     ];
   }

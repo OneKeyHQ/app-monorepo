@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Dialog, Toast } from '@onekeyhq/components';
+import { ActionList, Dialog } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -19,9 +19,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 export function AccountRemoveDialog({
   indexedAccount,
   account,
+  accountsCount,
 }: {
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
+  accountsCount: number;
 }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -38,6 +40,7 @@ export function AccountRemoveDialog({
           await actions.current.removeAccount({
             indexedAccount,
             account,
+            isRemoveLastOthersAccount: accountsCount <= 1,
           });
           // Toast.success({
           //   title: intl.formatMessage({
@@ -56,6 +59,7 @@ export function AccountRemoveDialog({
 
 export function showAccountRemoveDialog({
   title,
+  accountsCount,
   description,
   config,
   indexedAccount,
@@ -63,6 +67,7 @@ export function showAccountRemoveDialog({
 }: {
   title: string;
   description: string;
+  accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   config: IAccountSelectorContextData | undefined;
@@ -75,6 +80,7 @@ export function showAccountRemoveDialog({
     renderContent: config ? (
       <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
         <AccountRemoveDialog
+          accountsCount={accountsCount}
           account={account}
           indexedAccount={indexedAccount}
         />
@@ -85,11 +91,13 @@ export function showAccountRemoveDialog({
 
 export function AccountRemoveButton({
   name,
+  accountsCount,
   indexedAccount,
   account,
   onClose,
 }: {
   name: string;
+  accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose?: () => void;
@@ -124,6 +132,7 @@ export function AccountRemoveButton({
       onClose={onClose}
       onPress={async () => {
         showAccountRemoveDialog({
+          accountsCount,
           config,
           title: intl.formatMessage(
             { id: ETranslations.global_remove_account_name },
