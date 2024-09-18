@@ -74,14 +74,40 @@ const newFetch = async function (
     });
   }
 
-  defaultLogger.app.network.call('fetch', options.method, url, requestId);
+  defaultLogger.app.network.start('fetch', options.method, url, requestId);
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
     fetchOrigin
       // @ts-ignore
       .call(this, resource, options, ...others)
-      .then((res) => res.clone())
+      .then((res) => {
+        defaultLogger.app.network.end({
+          requestType: 'fetch',
+          method: options.method as string,
+          path: url,
+          statusCode: res.status,
+          requestId,
+        });
+        return res.clone();
+      })
+      .catch((e: unknown) => {
+        if (e) {
+          defaultLogger.app.network.error({
+            requestType: 'fetch',
+            method: options.method as string,
+            path: url,
+            statusCode:
+              typeof e === 'object' && 'code' in e ? (e.code as number) : -1,
+            errorMessage:
+              typeof e === 'object' && 'message' in e
+                ? (e.message as string)
+                : String(e),
+            requestId,
+          });
+        }
+        throw e;
+      })
   );
 };
 console.log('fetchInterceptor.ts', fetch);
