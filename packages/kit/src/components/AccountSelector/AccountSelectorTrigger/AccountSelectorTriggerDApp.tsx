@@ -1,5 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   SizableText,
@@ -11,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
@@ -196,10 +199,17 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
   const media = useMedia();
+  const intl = useIntl();
 
   const handlePress = useCallback(async () => {
     showAccountSelector();
   }, [showAccountSelector]);
+
+  const accountName = account?.name
+    ? account.name
+    : intl.formatMessage({
+        id: ETranslations.wallet_no_address,
+      });
 
   return (
     <XStack
@@ -235,7 +245,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
               {wallet?.name}
             </SizableText>
             <SizableText size="$bodyMdMedium" numberOfLines={1}>
-              {account?.name}
+              {accountName}
             </SizableText>
           </View>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
