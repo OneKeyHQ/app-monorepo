@@ -1,0 +1,228 @@
+diff --git a/node_modules/expo-camera/build/useWebQRScanner.js b/node_modules/expo-camera/build/useWebQRScanner.js
+index ee60ebd..6c62b38 100644
+--- a/node_modules/expo-camera/build/useWebQRScanner.js
++++ b/node_modules/expo-camera/build/useWebQRScanner.js
+@@ -1,36 +1,37 @@
+ import * as React from 'react';
++import { scanImageData } from 'zbar.wasm';
+ import { captureImageData } from './WebCameraUtils';
+-const qrWorkerMethod = ({ data, width, height }) => {
+-    // eslint-disable-next-line no-undef
+-    const decoded = self.jsQR(data, width, height, {
+-        inversionAttempts: 'attemptBoth',
+-    });
+-    let parsed;
+-    try {
+-        parsed = JSON.parse(decoded);
+-    }
+-    catch {
+-        parsed = decoded;
+-    }
+-    if (parsed?.data) {
+-        const nativeEvent = {
+-            type: 'qr',
+-            data: parsed.data,
+-            cornerPoints: [],
+-            bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+-        };
+-        if (parsed.location) {
+-            nativeEvent.cornerPoints = [
+-                parsed.location.topLeftCorner,
+-                parsed.location.bottomLeftCorner,
+-                parsed.location.topRightCorner,
+-                parsed.location.bottomRightCorner,
+-            ];
+-        }
+-        return nativeEvent;
+-    }
+-    return parsed;
+-};
++// const qrWorkerMethod = ({ data, width, height }) => {
++//     // eslint-disable-next-line no-undef
++//     const decoded = self.jsQR(data, width, height, {
++//         inversionAttempts: 'attemptBoth',
++//     });
++//     let parsed;
++//     try {
++//         parsed = JSON.parse(decoded);
++//     }
++//     catch {
++//         parsed = decoded;
++//     }
++//     if (parsed?.data) {
++//         const nativeEvent = {
++//             type: 'qr',
++//             data: parsed.data,
++//             cornerPoints: [],
++//             bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
++//         };
++//         if (parsed.location) {
++//             nativeEvent.cornerPoints = [
++//                 parsed.location.topLeftCorner,
++//                 parsed.location.bottomLeftCorner,
++//                 parsed.location.topRightCorner,
++//                 parsed.location.bottomRightCorner,
++//             ];
++//         }
++//         return nativeEvent;
++//     }
++//     return parsed;
++// };
+ const createWorkerAsyncFunction = (fn, deps) => {
+     const stringifiedFn = [
+         `self.func = ${fn.toString()};`,
+@@ -54,9 +55,9 @@ const createWorkerAsyncFunction = (fn, deps) => {
+         });
+     };
+ };
+-const decode = createWorkerAsyncFunction(qrWorkerMethod, [
+-    'https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js',
+-]);
++// const decode = createWorkerAsyncFunction(qrWorkerMethod, [
++//     'https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js',
++// ]);
+ export function useWebQRScanner(video, { isEnabled, captureOptions, interval, onScanned, onError, }) {
+     const isRunning = React.useRef(false);
+     const timeout = React.useRef(undefined);
+@@ -69,11 +70,21 @@ export function useWebQRScanner(video, { isEnabled, captureOptions, interval, on
+         try {
+             const data = captureImageData(video.current, captureOptions);
+             if (data) {
+-                const nativeEvent = await decode(data);
+-                if (nativeEvent?.data) {
+-                    onScanned({
+-                        nativeEvent,
+-                    });
++                // const nativeEvent = await decode(data);
++                // if (nativeEvent?.data) {
++                //     onScanned({
++                //         nativeEvent,
++                //     });
++                // }
++                const [res] = await scanImageData(data);
++                if (res) {
++                  onScanned({
++                    nativeEvent: {
++                      type: res.typeName,
++                      data: res.decode(),
++                      cornerPoints: res.points,
++                    }
++                  });
+                 }
+             }
+         }
+diff --git a/node_modules/expo-camera/src/useWebQRScanner.ts b/node_modules/expo-camera/src/useWebQRScanner.ts
+index d29a2d9..fa41a78 100644
+--- a/node_modules/expo-camera/src/useWebQRScanner.ts
++++ b/node_modules/expo-camera/src/useWebQRScanner.ts
+@@ -1,40 +1,40 @@
+ import * as React from 'react';
+-
++import { scanImageData } from 'zbar.wasm';
+ import { BarCodeScanningResult, CameraPictureOptions, MountErrorListener } from './Camera.types';
+ import { captureImageData } from './WebCameraUtils';
+ 
+-const qrWorkerMethod = ({ data, width, height }: ImageData): any => {
+-  // eslint-disable-next-line no-undef
+-  const decoded = (self as any).jsQR(data, width, height, {
+-    inversionAttempts: 'attemptBoth',
+-  });
+-
+-  let parsed;
+-  try {
+-    parsed = JSON.parse(decoded);
+-  } catch {
+-    parsed = decoded;
+-  }
+-
+-  if (parsed?.data) {
+-    const nativeEvent: BarCodeScanningResult = {
+-      type: 'qr',
+-      data: parsed.data,
+-      cornerPoints: [],
+-      bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+-    };
+-    if (parsed.location) {
+-      nativeEvent.cornerPoints = [
+-        parsed.location.topLeftCorner,
+-        parsed.location.bottomLeftCorner,
+-        parsed.location.topRightCorner,
+-        parsed.location.bottomRightCorner,
+-      ];
+-    }
+-    return nativeEvent;
+-  }
+-  return parsed;
+-};
++// const qrWorkerMethod = ({ data, width, height }: ImageData): any => {
++//   // eslint-disable-next-line no-undef
++//   const decoded = (self as any).jsQR(data, width, height, {
++//     inversionAttempts: 'attemptBoth',
++//   });
++
++//   let parsed;
++//   try {
++//     parsed = JSON.parse(decoded);
++//   } catch {
++//     parsed = decoded;
++//   }
++
++//   if (parsed?.data) {
++//     const nativeEvent: BarCodeScanningResult = {
++//       type: 'qr',
++//       data: parsed.data,
++//       cornerPoints: [],
++//       bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
++//     };
++//     if (parsed.location) {
++//       nativeEvent.cornerPoints = [
++//         parsed.location.topLeftCorner,
++//         parsed.location.bottomLeftCorner,
++//         parsed.location.topRightCorner,
++//         parsed.location.bottomRightCorner,
++//       ];
++//     }
++//     return nativeEvent;
++//   }
++//   return parsed;
++// };
+ 
+ const createWorkerAsyncFunction = <T extends (data: any) => any>(fn: T, deps: string[]) => {
+   const stringifiedFn = [
+@@ -68,9 +68,9 @@ const createWorkerAsyncFunction = <T extends (data: any) => any>(fn: T, deps: st
+   };
+ };
+ 
+-const decode = createWorkerAsyncFunction(qrWorkerMethod, [
+-  'https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js',
+-]);
++// const decode = createWorkerAsyncFunction(qrWorkerMethod, [
++//   'https://cdn.jsdelivr.net/npm/jsqr@1.2.0/dist/jsQR.min.js',
++// ]);
+ 
+ export function useWebQRScanner(
+   video: React.MutableRefObject<HTMLVideoElement | null>,
+@@ -101,10 +101,20 @@ export function useWebQRScanner(
+       const data = captureImageData(video.current, captureOptions);
+ 
+       if (data) {
+-        const nativeEvent: BarCodeScanningResult | any = await decode(data);
+-        if (nativeEvent?.data) {
++      //   const nativeEvent: BarCodeScanningResult | any = await decode(data);
++      //   if (nativeEvent?.data) {
++      //     onScanned({
++      //       nativeEvent,
++      //     });
++      //   }
++        const [res] = await scanImageData(data);
++        if (res) {
+           onScanned({
+-            nativeEvent,
++            nativeEvent: {
++              type: res.typeName,
++              data: res.decode(),
++              cornerPoints: res.points,
++            }
+           });
+         }
+       }
