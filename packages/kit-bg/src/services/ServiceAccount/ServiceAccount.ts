@@ -151,31 +151,6 @@ class ServiceAccount extends ServiceBase {
     // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
       if (await tonValidateMnemonic(realMnemonicFixed.split(' '))) {
-        console.log('Ton mnemonic: ', realMnemonicFixed);
-        const keyPair = await tonMnemonicToKeyPair(
-          realMnemonicFixed.split(' '),
-        );
-        console.log(
-          'Ton keyPair Public: ',
-          bufferUtils.bytesToHex(keyPair.publicKey),
-        );
-        console.log(
-          'Ton keyPair Public2: ',
-          bufferUtils.bytesToHex(keyPair.secretKey.slice(32)),
-        );
-        console.log(
-          'Ton keyPair Private: ',
-          bufferUtils.bytesToHex(keyPair.secretKey),
-        );
-        console.log(
-          'Ton keyPair Private1: ',
-          bufferUtils.bytesToHex(keyPair.secretKey.slice(0, 32)),
-        );
-        const addr = await genAddressFromPublicKey(
-          bufferUtils.bytesToHex(keyPair.publicKey),
-          'v4R2',
-        );
-        console.log('Ton address: ', addr.nonBounceAddress);
         return Promise.resolve({
           mnemonic: realMnemonicFixed,
           mnemonicType: EMnemonicType.TON,

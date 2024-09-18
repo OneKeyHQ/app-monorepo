@@ -82,7 +82,8 @@ function FinalizeWalletSetupPage({
           await withPromptPasswordVerify({
             run: async () => {
               if (mnemonicType === EMnemonicType.TON) {
-                console.log('======>>>>>>Should Create TON Wallet');
+                // **** TON mnemonic case
+                // Create TON imported account when mnemonicType is TON
                 await actions.current.createTonImportedWallet({ mnemonic });
                 setCurrentStep(EFinalizeWalletSetupSteps.Ready);
                 return;
