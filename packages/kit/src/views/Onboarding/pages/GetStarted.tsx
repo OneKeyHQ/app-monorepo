@@ -27,6 +27,7 @@ import {
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -124,18 +125,24 @@ export function GetStarted({
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
   };
 
   const handleImportWalletPress = async () => {
     navigation.push(EOnboardingPages.ImportWalletOptions);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'importWallet' });
   };
 
   const handleConnectHardwareWallet = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
   const handleConnectWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectWalletSelectNetworks);
+    defaultLogger.account.wallet.onboard({
+      onboardMethod: 'connect3rdPartyWallet',
+    });
   };
 
   const handleTrackAnyAddressPress = async () => {

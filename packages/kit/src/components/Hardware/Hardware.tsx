@@ -346,6 +346,8 @@ export function EnterPhase({
   }>();
   const media = useMedia();
   const intl = useIntl();
+  const [secureEntry1, setSecureEntry1] = useState(true);
+  const [secureEntry2, setSecureEntry2] = useState(true);
 
   return (
     <Stack>
@@ -388,10 +390,18 @@ export function EnterPhase({
           }}
         >
           <Input
-            secureTextEntry
+            secureTextEntry={secureEntry1}
             placeholder={intl.formatMessage({
               id: ETranslations.global_enter_passphrase,
             })}
+            addOns={[
+              {
+                iconName: secureEntry1 ? 'EyeOutline' : 'EyeOffOutline',
+                onPress: () => {
+                  setSecureEntry1(!secureEntry1);
+                },
+              },
+            ]}
             {...(media.md && {
               size: 'large',
             })}
@@ -405,10 +415,18 @@ export function EnterPhase({
             })}
           >
             <Input
-              secureTextEntry
+              secureTextEntry={secureEntry2}
               placeholder={intl.formatMessage({
                 id: ETranslations.form_confirm_passphrase_placeholder,
               })}
+              addOns={[
+                {
+                  iconName: secureEntry2 ? 'EyeOutline' : 'EyeOffOutline',
+                  onPress: () => {
+                    setSecureEntry2(!secureEntry2);
+                  },
+                },
+              ]}
               {...(media.md && {
                 size: 'large',
               })}

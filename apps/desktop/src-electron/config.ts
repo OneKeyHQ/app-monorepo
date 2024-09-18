@@ -90,4 +90,5 @@ export const ipcMessageKeys = {
   NOTIFICATION_SHOW: 'notification/show',
   NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
   NOTIFICATION_SET_BADGE: 'notification/setBadge',
+  NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
 };
