@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Image,
   NumberSizeableText,
   Page,
   SizableText,
@@ -16,7 +17,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,6 +36,8 @@ type IApproveBaseStakeProps = {
     spenderAddress: string;
     token: IToken;
   };
+
+  providerLabel?: string;
 
   currentAllowance?: string;
   apr?: string;
@@ -65,6 +67,8 @@ export const ApproveBaseStake = ({
   providerLogo,
   onConfirm,
   approveTarget,
+
+  providerLabel,
 
   showEstReceive,
   estReceiveToken,
@@ -311,11 +315,19 @@ export const ApproveBaseStake = ({
           ) : null}
           {providerName && providerLogo ? (
             <ListItem
-              title={intl.formatMessage({ id: ETranslations.global_protocol })}
+              title={
+                providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })
+              }
               titleProps={fieldTitleProps}
             >
               <XStack gap="$2" alignItems="center">
-                <Token size="xs" tokenImageUri={providerLogo} />
+                <Image
+                  width="$5"
+                  height="$5"
+                  src={providerLogo}
+                  borderRadius="$2"
+                />
                 <SizableText size="$bodyLgMedium">{providerName}</SizableText>
               </XStack>
             </ListItem>

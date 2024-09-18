@@ -14,6 +14,7 @@ import type {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { ApproveBaseStake } from '../../components/ApproveBaseStake';
+import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
@@ -60,6 +61,8 @@ const ApproveBaseStakePage = () => {
     [provider],
   );
 
+  const providerLabel = useProviderLabel(provider.name);
+
   return (
     <Page>
       <Page.Header
@@ -80,6 +83,7 @@ const ApproveBaseStakePage = () => {
           currentAllowance={currentAllowance}
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}
+          providerLabel={providerLabel}
           showEstReceive={showEstReceive}
           estReceiveToken={details.rewardToken}
           estReceiveTokenRate={provider.lidoStTokenRate}
