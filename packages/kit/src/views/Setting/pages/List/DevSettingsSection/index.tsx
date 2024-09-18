@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { I18nManager } from 'react-native';
 
 import {
   Dialog,
@@ -129,6 +130,11 @@ export const DevSettingsSection = () => {
     });
   }, []);
 
+  const forceIntoRTL = useCallback(() => {
+    I18nManager.forceRTL(!I18nManager.isRTL);
+    backgroundApiProxy.serviceApp.restartApp();
+  }, []);
+
   if (!devSettings.enabled) {
     return null;
   }
@@ -204,6 +210,17 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionPressItem
+        title="force RTL"
+        subtitle="强制启用 RTL 布局"
+        drillIn={false}
+      >
+        <Switch
+          onChange={forceIntoRTL}
+          size={ESwitchSize.small}
+          value={I18nManager.isRTL}
+        />
+      </SectionPressItem>
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="开发者悬浮窗"

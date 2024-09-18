@@ -9,7 +9,7 @@ import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyle, Tokens } from '@tamagui/web/types/types';
-import type { StyleProp, ViewStyle } from 'react-native';
+import { I18nManager, type StyleProp, type ViewStyle } from 'react-native';
 
 type IListViewRef<T> = FlashList<T>;
 
@@ -98,6 +98,7 @@ function BaseListView<T>(
         data={data}
         renderItem={renderItem}
         estimatedItemSize={itemSize}
+        disableAutoLayout={I18nManager.isRTL}
         {...restProps}
       />
     </OptimizationView>

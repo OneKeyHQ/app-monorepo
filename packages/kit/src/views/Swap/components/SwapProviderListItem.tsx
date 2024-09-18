@@ -3,7 +3,7 @@ import { memo, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { I18nManager, StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -423,7 +423,11 @@ const SwapProviderListItem = ({
                 }}
               >
                 <Icon
-                  name="ChevronRightSmallOutline"
+                  name={
+                    I18nManager.isRTL
+                      ? 'ChevronLeftSmallOutline'
+                      : 'ChevronRightSmallOutline'
+                  }
                   size="$5"
                   color="$iconSubdued"
                 />

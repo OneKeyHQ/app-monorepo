@@ -31,10 +31,27 @@ dirs.forEach((dir) => {
 
 const typesTemplate = `
 /* eslint-disable */
+  import { I18nManager } from "react-native";
 
   const icons = {
     ${items
-      .map((item) => `${item.symbol}: () => import('./react/${item.path}')`)
+      .map((item) => {
+        if (item.symbol.includes('Left')) {
+          const rightSymbol = item.symbol.replace('Left', 'Right');
+          const rightItem = items.find((i) => i.symbol === rightSymbol);
+          if (rightItem) {
+            return `${item.symbol}: () => I18nManager.isRTL ? import('./react/${rightItem.path}') : import('./react/${item.path}')`;
+          }
+        }
+        if (item.symbol.includes('Right')) {
+          const leftSymbol = item.symbol.replace('Right', 'Left');
+          const leftItem = items.find((i) => i.symbol === leftSymbol);
+          if (leftItem) {
+            return `${item.symbol}: () => I18nManager.isRTL ? import('./react/${leftItem.path}') : import('./react/${item.path}')`;
+          }
+        }
+        return `${item.symbol}: () => import('./react/${item.path}')`;
+      })
       .join(',')}
   }
   export type IKeyOfIcons = keyof typeof icons;
