@@ -1,14 +1,14 @@
 import { keyBy, merge } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ILocalNFTs {
-  data: Record<string, IAccountNFT>; // <networkId_tokenIdOnNetwork, token>
+  list: Record<string, IAccountNFT[]>; // <networkId_accountAddress/xpub, nfts>
 }
 
 export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
@@ -24,46 +24,43 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
     nfts,
   }: {
     networkId: string;
-    tokens: IToken[];
+    accountAddress?: string;
+    xpub?: string;
+    nfts: IAccountNFT[];
   }) {
-    const tokenMap = keyBy(
-      tokens.map((token) => ({
-        ...token,
-        '$key': accountUtils.buildLocalTokenId({
-          networkId,
-          tokenIdOnNetwork: token.address,
-        }),
-      })),
-      '$key',
-    );
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
+    const key = buildAccountLocalAssetsKey({
+      networkId,
+      accountAddress,
+      xpub,
+    });
+
     await this.setRawData(({ rawData }) => ({
-      data: merge({}, rawData?.data, tokenMap),
+      list: merge({}, rawData?.list, {
+        [key]: nfts,
+      }),
     }));
   }
 
   @backgroundMethod()
-  async getToken({
+  async getAccountNFTs({
     networkId,
-    tokenIdOnNetwork,
+    accountAddress,
+    xpub,
   }: {
     networkId: string;
-    tokenIdOnNetwork: string;
+    accountAddress?: string;
+    xpub?: string;
   }) {
-    const tokenId = accountUtils.buildLocalTokenId({
+    const key = buildAccountLocalAssetsKey({
       networkId,
-      tokenIdOnNetwork,
+      accountAddress,
+      xpub,
     });
-    const tokenMap = (await this.getRawData())?.data;
-    if (tokenMap) {
-      const token = tokenMap[tokenId];
-      if (token) {
-        return token;
-      }
-    }
-  }
 
-  @backgroundMethod()
-  async clearTokens() {
-    await this.setRawData({ data: {} });
+    return (await this.getRawData())?.list?.[key] || [];
   }
 }

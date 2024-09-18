@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { uniqBy } from 'lodash';
+import { isEmpty, uniqBy } from 'lodash';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -61,6 +61,7 @@ function NFTListContainer(props: ITabPageProps) {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         accountId: account.id,
         networkId: network.id,
+        saveToLocal: true,
       });
 
       setNftListState({
@@ -106,6 +107,7 @@ function NFTListContainer(props: ITabPageProps) {
         isManualRefresh: isAllNetworkManualRefresh.current,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
+        saveToLocal: true,
       });
       if (
         !allNetworkDataInit &&
@@ -156,6 +158,31 @@ function NFTListContainer(props: ITabPageProps) {
 
   const handleClearAllNetworkData = useCallback(() => setNftList([]), []);
 
+  const handleAllNetworkCacheRequests = useCallback(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
+        {
+          accountId,
+          networkId,
+        },
+      );
+      setNftList((prev) => [...prev, ...localNFTs]);
+      if (!isEmpty(localNFTs)) {
+        setNftListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+      return localNFTs;
+    },
+    [],
+  );
   const {
     run: runAllNetworkRequests,
     result: allNetworksResult,
@@ -165,6 +192,7 @@ function NFTListContainer(props: ITabPageProps) {
     network,
     wallet,
     allNetworkRequests: handleAllNetworkRequests,
+    allNetworkCacheRequests: handleAllNetworkCacheRequests,
     clearAllNetworkData: handleClearAllNetworkData,
     isNFTRequests: true,
     onStarted: handleAllNetworkRequestsStarted,
@@ -193,16 +221,35 @@ function NFTListContainer(props: ITabPageProps) {
   }, [allNetworksResult]);
 
   useEffect(() => {
-    if (account?.id && network?.id && wallet?.id) {
-      setNftListState({
-        initialized: false,
-        isRefreshing: true,
-      });
+    const initNFTsState = async (accountId: string, networkId: string) => {
+      const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
+        {
+          accountId,
+          networkId,
+        },
+      );
+
+      if (isEmpty(localNFTs)) {
+        setNftListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+      } else {
+        setNftList(localNFTs);
+        setNftListState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
       updateSearchKey('');
       void backgroundApiProxy.serviceNFT.updateCurrentAccount({
-        networkId: network.id,
-        accountId: account.id,
+        networkId,
+        accountId,
       });
+    };
+    if (account?.id && network?.id && wallet?.id) {
+      void initNFTsState(account.id, network.id);
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
@@ -213,14 +260,14 @@ function NFTListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
-    if (isEmptyAccount) {
+    if (network?.isAllNetworks && isEmptyAccount) {
       setNftList([]);
       setNftListState({
         initialized: true,
         isRefreshing: false,
       });
     }
-  }, [isEmptyAccount]);
+  }, [isEmptyAccount, network?.isAllNetworks]);
 
   useEffect(() => {
     const refresh = () => {

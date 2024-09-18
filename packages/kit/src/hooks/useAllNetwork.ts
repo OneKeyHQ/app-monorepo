@@ -56,6 +56,13 @@ function useAllNetworkRequests<T>(params: {
     networkId: string;
     allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
+  allNetworkCacheRequests?: ({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) => Promise<any>;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
@@ -84,6 +91,7 @@ function useAllNetworkRequests<T>(params: {
     network,
     wallet,
     allNetworkRequests,
+    allNetworkCacheRequests,
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
@@ -140,6 +148,27 @@ function useAllNetworkRequests<T>(params: {
       }
 
       setIsEmptyAccount(false);
+
+      if (!allNetworkDataInit.current) {
+        try {
+          const cachedData = await Promise.all(
+            Array.from(accountsInfo).map((networkDataString) => {
+              const { accountId, networkId } = networkDataString;
+              return allNetworkCacheRequests?.({
+                accountId,
+                networkId,
+              });
+            }),
+          );
+
+          if (cachedData && !isEmpty(cachedData)) {
+            allNetworkDataInit.current = true;
+          }
+        } catch (e) {
+          console.error(e);
+          // pass
+        }
+      }
 
       onStarted?.({
         accountId: account.id,
@@ -270,8 +299,8 @@ function useAllNetworkRequests<T>(params: {
       onStarted,
       onFinished,
       clearAllNetworkData,
+      allNetworkCacheRequests,
       allNetworkRequests,
-      // interval,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,

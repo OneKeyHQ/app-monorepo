@@ -31,6 +31,7 @@ import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import { OneKeyInternalError } from '../errors';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -378,6 +379,22 @@ function buildLocalHistoryId(params: {
   const { networkId, txid, accountAddress, xpub } = params;
   const historyId = `${networkId}_${txid}_${xpub || accountAddress}`;
   return historyId;
+}
+
+export function buildAccountLocalAssetsKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({
@@ -741,4 +758,5 @@ export default {
   findIndexFromTemplate,
   removePathLastSegment,
   buildHiddenWalletName,
+  buildAccountLocalAssetsKey,
 };

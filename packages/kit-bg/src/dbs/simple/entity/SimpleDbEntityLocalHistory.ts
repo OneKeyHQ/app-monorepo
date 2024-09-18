@@ -2,12 +2,12 @@ import { assign, isEmpty, isNil, merge, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { buildLocalHistoryKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 
 export interface ILocalHistory {
   pendingTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
@@ -35,7 +35,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     const rawData = await this.getRawData();
 
@@ -107,7 +107,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     const rawData = await this.getRawData();
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
 
@@ -153,7 +153,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     if (isEmpty(pendingTxs) && isEmpty(confirmedTxs)) return;
     const now = Date.now();
@@ -215,7 +215,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     const rawData = await this.getRawData();
 
@@ -278,7 +278,11 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     let accountsPendingTxs = params.flatMap(
       ({ networkId, accountAddress, xpub }) => {
-        const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+        const key = buildAccountLocalAssetsKey({
+          networkId,
+          accountAddress,
+          xpub,
+        });
         return pendingTxs?.[key] ?? [];
       },
     );
@@ -303,7 +307,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     let accountPendingTxs = (await this.getRawData())?.pendingTxs[key] ?? [];
 
@@ -328,7 +332,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     let accountConfirmedTxs =
       (await this.getRawData())?.confirmedTxs[key] || [];
@@ -360,7 +364,11 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     let accountsConfirmedTxs = params.flatMap(
       ({ networkId, accountAddress, xpub }) => {
-        const key = buildLocalHistoryKey({ networkId, accountAddress, xpub });
+        const key = buildAccountLocalAssetsKey({
+          networkId,
+          accountAddress,
+          xpub,
+        });
         return confirmedTxs?.[key] ?? [];
       },
     );
