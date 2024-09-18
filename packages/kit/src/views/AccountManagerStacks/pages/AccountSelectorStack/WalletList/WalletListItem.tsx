@@ -114,7 +114,9 @@ export function WalletListItem({
         onPress,
         onLongPress,
       }}
-    />
+    >
+      {basicComponentContent}
+    </Pressable>
   ) : (
     basicComponentContent
   );
