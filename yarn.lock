@@ -6506,6 +6506,7 @@ __metadata:
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
     electron-root-path: "npm:^1.1.0"
+    electron-taskbar-badge: "npm:1.1.2"
     eslint: "npm:^8.25.0"
     eslint-config-airbnb: "npm:^19.0.4"
     eslint-config-airbnb-typescript: "npm:^17.0.0"
@@ -19640,6 +19641,13 @@ __metadata:
     conf: "npm:^10.2.0"
     type-fest: "npm:^2.17.0"
   checksum: 10/bb29f12e5649b2d163b503f99a11e43782df5de8dc0d6a0b8950bdb5250a932b90f6a671d59dc1bd982102be0f3d58f348bd4732cfa4a7769a8270b525e97121
+  languageName: node
+  linkType: hard
+
+"electron-taskbar-badge@npm:1.1.2":
+  version: 1.1.2
+  resolution: "electron-taskbar-badge@npm:1.1.2"
+  checksum: 10/97caafc8d7d7089471c111818a33dfc7d9d772feec6f9c5f1ac02f309f96ce18dded931f3a40e2932b1571183d99b3807a5b6c93e433279bc437ba76512719ec
   languageName: node
   linkType: hard
 
