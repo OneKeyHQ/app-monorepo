@@ -6,7 +6,10 @@ import { Button, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerForDapp } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountSelectorContextDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorContextDataAtom,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -44,6 +47,8 @@ export function WalletDetailsHeader({
         walletId: wallet?.id,
       })
     : false;
+  const { selectedAccount } = useSelectedAccount({ num: num ?? 0 });
+
   return (
     <ListItem
       testID="account-selector-header"
@@ -85,7 +90,12 @@ export function WalletDetailsHeader({
       !isNil(num) &&
       accountSelectorContextData?.sceneName ===
         EAccountSelectorSceneName.discover ? (
-        <DeriveTypeSelectorTriggerForDapp num={num} />
+        <DeriveTypeSelectorTriggerForDapp
+          num={num}
+          focusedWalletId={
+            !isNil(num) ? selectedAccount.focusedWallet : undefined
+          }
+        />
       ) : null}
     </ListItem>
   );
