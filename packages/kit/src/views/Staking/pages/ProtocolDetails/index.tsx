@@ -186,7 +186,11 @@ const ProtocolDetailsPage = () => {
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_symbol },
-          { 'symbol': symbol },
+          {
+            'symbol': networkUtils.isBTCNetwork(networkId)
+              ? `${symbol} (Taproot)`
+              : symbol,
+          },
         )}
       />
       <Page.Body px="$5" pb="$5" gap="$8">
