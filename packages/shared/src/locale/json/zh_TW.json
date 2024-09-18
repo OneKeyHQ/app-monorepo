@@ -1617,7 +1617,7 @@
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
   "swap_history.pending_history": "待成交的交易紀錄",
-  "swap_history.pending_history_content": "將清除本地歷史記錄中的所有待成交的交易數據，但不會影響區塊鏈上此交易的狀態",
+  "swap_history.pending_history_content": "將清除本地歷史記錄中的待成交的交易數據，但不會影響區塊鏈上此交易的狀態",
   "swap_history.pending_history_title": "清除待成交的交易記錄",
   "swap_history.status_canceled": "已取消",
   "swap_history.status_cancelling": "取消中",

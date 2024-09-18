@@ -140,6 +140,7 @@ const SwapHistoryListModal = () => {
     )
       return;
     Dialog.show({
+      icon: 'BroomOutline',
       description: intl.formatMessage({
         id: ETranslations.swap_history_pending_history_content,
       }),
