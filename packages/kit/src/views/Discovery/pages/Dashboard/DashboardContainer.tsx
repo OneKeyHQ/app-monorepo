@@ -26,7 +26,7 @@ function Dashboard() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header headerRight={headerRight} />
       <Page.Body>
         <DashboardContent />
