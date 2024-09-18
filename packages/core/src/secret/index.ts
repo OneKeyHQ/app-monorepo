@@ -43,7 +43,13 @@ export * from './curves';
 export * from './encryptors/aes256';
 export * from './encryptors/rsa';
 export * from './hash';
+export * from './ton-mnemonic';
 export { ecc };
+
+export enum EMnemonicType {
+  BIP39 = 'bip39',
+  TON = 'ton',
+}
 
 const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase

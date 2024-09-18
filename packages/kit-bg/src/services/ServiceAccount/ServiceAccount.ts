@@ -1,7 +1,9 @@
 import { isEmpty, isNil } from 'lodash';
 
+import { genAddressFromPublicKey } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
+  EMnemonicType,
   decodeSensitiveText,
   decryptRevealableSeed,
   encryptImportedCredential,
@@ -9,6 +11,8 @@ import {
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
+  tonMnemonicToKeyPair,
+  tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -48,6 +52,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
@@ -134,7 +139,10 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateMnemonic(mnemonic: string): Promise<string> {
+  async validateMnemonic(mnemonic: string): Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }> {
     ensureSensitiveTextEncoded(mnemonic);
     const realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,
@@ -142,15 +150,43 @@ class ServiceAccount extends ServiceBase {
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
     // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
+      if (await tonValidateMnemonic(realMnemonicFixed.split(' '))) {
+        console.log('Ton mnemonic: ', realMnemonicFixed);
+        const keyPair = await tonMnemonicToKeyPair(
+          realMnemonicFixed.split(' '),
+        );
+        console.log(
+          'Ton keyPair Public: ',
+          bufferUtils.bytesToHex(keyPair.publicKey),
+        );
+        console.log(
+          'Ton keyPair Public2: ',
+          bufferUtils.bytesToHex(keyPair.secretKey.slice(32)),
+        );
+        console.log(
+          'Ton keyPair Private: ',
+          bufferUtils.bytesToHex(keyPair.secretKey),
+        );
+        console.log(
+          'Ton keyPair Private1: ',
+          bufferUtils.bytesToHex(keyPair.secretKey.slice(0, 32)),
+        );
+        const addr = await genAddressFromPublicKey(
+          bufferUtils.bytesToHex(keyPair.publicKey),
+          'v4R2',
+        );
+        console.log('Ton address: ', addr.nonBounceAddress);
+        return Promise.resolve({
+          mnemonic: realMnemonicFixed,
+          mnemonicType: EMnemonicType.TON,
+        });
+      }
       throw new InvalidMnemonic();
     }
-    return Promise.resolve(realMnemonicFixed);
-  }
-
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
+    return Promise.resolve({
+      mnemonic: realMnemonicFixed,
+      mnemonicType: EMnemonicType.BIP39,
+    });
   }
 
   @backgroundMethod()
@@ -1748,7 +1784,12 @@ class ServiceAccount extends ServiceBase {
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
-    const realMnemonic = await this.validateMnemonic(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType === EMnemonicType.TON) {
+      throw new Error('TON mnemonic is not supported');
+    }
 
     let walletHash: string | undefined;
     if (walletHashBuilder) {

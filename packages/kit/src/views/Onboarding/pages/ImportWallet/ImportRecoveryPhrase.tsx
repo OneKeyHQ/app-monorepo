@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -16,9 +17,10 @@ export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
-    (mnemonic: string) => {
+    (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-        mnemonic,
+        mnemonic: params.mnemonic,
+        mnemonicType: params.mnemonicType,
       });
       defaultLogger.account.wallet.importWallet({ importMethod: 'mnemonic' });
     },
