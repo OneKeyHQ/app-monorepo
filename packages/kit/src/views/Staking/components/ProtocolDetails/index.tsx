@@ -291,6 +291,17 @@ function Portfolio({
           ) : null}
         </XStack>
         <YStack gap="$3">
+          {pendingActive && Number(pendingActive) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={pendingActive}
+              tooltip={pendingActiveTooltip}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_pending_activation,
+              })}
+            />
+          ) : null}
           {active && Number(active) ? (
             <PortfolioItem
               tokenImageUri={token.logoURI}
@@ -319,17 +330,6 @@ function Portfolio({
                     )
                   : undefined
               }
-            />
-          ) : null}
-          {pendingActive && Number(pendingActive) ? (
-            <PortfolioItem
-              tokenImageUri={token.logoURI}
-              tokenSymbol={token.symbol}
-              amount={pendingActive}
-              tooltip={pendingActiveTooltip}
-              statusText={intl.formatMessage({
-                id: ETranslations.earn_pending_activation,
-              })}
             />
           ) : null}
           {claimable && Number(claimable) > 0 ? (
