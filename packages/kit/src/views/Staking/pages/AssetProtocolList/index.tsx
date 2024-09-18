@@ -23,6 +23,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
@@ -165,6 +166,10 @@ const AssetProtocolListContent = ({
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
     ({ item }: { item: IStakeProtocolListItem }) => {
+      defaultLogger.staking.page.selectProvider({
+        network: item.network.networkId,
+        stakeProvider: item.provider.name,
+      });
       appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
         accountId,
         networkId: item.network.networkId,
@@ -202,16 +207,12 @@ const AssetProtocolListContent = ({
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
+                ? `APR ${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
                 : null
             }
-            secondary={
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {`TVL ${currencySymbol}${formatNumber(
-                  Number(item.provider.totalFiatValue),
-                )}`}
-              </SizableText>
-            }
+            secondary={`TVL ${currencySymbol}${formatNumber(
+              Number(item.provider.totalFiatValue),
+            )}`}
           />
         </ListItem>
       )}

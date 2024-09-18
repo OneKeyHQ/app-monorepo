@@ -49,6 +49,7 @@ const StakePage = () => {
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: provider.name,
+          protocolLogoURI: provider.logoURI,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
@@ -95,7 +96,7 @@ const StakePage = () => {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_stake_token },

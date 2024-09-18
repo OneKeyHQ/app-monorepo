@@ -555,7 +555,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                       placeholder={intl.formatMessage({
                         id: ETranslations.global_search_account_selector,
                       })}
-                      defaultValue=""
+                      defaultValue={searchText}
                       onChangeText={handleSearch}
                     />
                   </Stack>

@@ -221,6 +221,7 @@ function AccountEditButtonView({
             <>
               <Divider mx="$2" my="$1" />
               <AccountRemoveButton
+                accountsCount={accountsCount}
                 name={name}
                 indexedAccount={indexedAccount}
                 account={account}
@@ -232,6 +233,7 @@ function AccountEditButtonView({
       );
     },
     [
+      accountsCount,
       account,
       config,
       firstAccount,
