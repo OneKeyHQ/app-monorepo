@@ -320,9 +320,11 @@ export function QRCode({
       <Stack
         {...(isAnimatedCode
           ? {
-              p: '$2',
+              width: props.size + 10,
+              height: props.size + 10,
               bg: '$bgApp',
-              alignSelf: 'flex-start',
+              jc: 'center',
+              ai: 'center',
             }
           : {})}
       >

@@ -235,9 +235,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
           },
         }}
       >
-        {intl.formatMessage({
-          id: ETranslations.onboarding_install_onekey_bridge_help_text,
-        })}
+        {ETranslations.onboarding_install_onekey_bridge_help_text}
       </Dialog.RichDescription>
     </Stack>
   );
