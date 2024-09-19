@@ -366,6 +366,7 @@ export const UniversalStake = ({
                 </SizableText>
                 <Popover
                   title={intl.formatMessage({ id: ETranslations.earn_term })}
+                  placement="bottom-start"
                   renderTrigger={
                     <IconButton
                       iconColor="$iconSubdued"
