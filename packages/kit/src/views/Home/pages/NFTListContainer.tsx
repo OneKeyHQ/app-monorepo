@@ -230,6 +230,10 @@ function NFTListContainer(props: ITabPageProps) {
 
   useEffect(() => {
     const initNFTsState = async (accountId: string, networkId: string) => {
+      setNftListState({
+        initialized: false,
+        isRefreshing: true,
+      });
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
           accountId,
@@ -237,12 +241,7 @@ function NFTListContainer(props: ITabPageProps) {
         },
       );
 
-      if (isEmpty(localNFTs)) {
-        setNftListState({
-          initialized: false,
-          isRefreshing: true,
-        });
-      } else {
+      if (!isEmpty(localNFTs)) {
         setNftList(localNFTs);
         setNftListState({
           initialized: true,

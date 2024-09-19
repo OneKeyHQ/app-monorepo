@@ -123,7 +123,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     }
 
     const mergedConfirmedTxs = assign({}, rawData?.confirmedTxs, {
-      [key]: finalConfirmedTxs,
+      [key]: finalConfirmedTxs.slice(0, 50),
     });
 
     const pendingTxs = rawData?.pendingTxs || {};
@@ -190,7 +190,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       ...(rawData ?? {}),
       pendingTxs: assign({}, rawData?.pendingTxs, { [key]: finalPendingTxs }),
       confirmedTxs: assign({}, rawData?.confirmedTxs, {
-        [key]: finalConfirmedTxs,
+        [key]: finalConfirmedTxs.slice(0, 50),
       }),
     });
   }
