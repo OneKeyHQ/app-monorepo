@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,7 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
-  Spinner,
+  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INotificationPushMessageListItem } from '@onekeyhq/shared/types/notification';
 
@@ -123,7 +124,26 @@ function NotificationList() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
-  const [{ lastReceivedTime }] = useNotificationsAtom();
+  const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
+    useNotificationsAtom();
+
+  const isFirstTimeGuideOpened = useRef(false);
+
+  useEffect(() => {
+    if (!firstTimeGuideOpened && !isFirstTimeGuideOpened.current) {
+      // showNotificationPermissionsDialog();
+      setTimeout(() => {
+        navigation.pushModal(EModalRoutes.NotificationsModal, {
+          screen: EModalNotificationsRoutes.NotificationIntroduction,
+        });
+      }, 600);
+      isFirstTimeGuideOpened.current = true;
+      setNotificationsData((v) => ({
+        ...v,
+        firstTimeGuideOpened: true,
+      }));
+    }
+  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
 
   const { result = [], isLoading } = usePromiseResult(
     async () => {
@@ -135,6 +155,7 @@ function NotificationList() {
     [lastReceivedTime],
     {
       watchLoading: true,
+      checkIsFocused: false,
     },
   );
   return (
@@ -143,16 +164,32 @@ function NotificationList() {
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
         headerRight={renderHeaderRight}
       />
-      <Page.Body>
+      <Page.Body pb="$5">
         {isLoading && !result?.length ? (
-          <Stack pt={240} justifyContent="center" alignItems="center">
-            <Spinner size="large" />
+          <Stack gap="$1.5" px="$5">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Stack key={index} gap="$1" py="$2">
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$16" />
+                </Stack>
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$48" />
+                </Stack>
+              </Stack>
+            ))}
           </Stack>
         ) : (
           <>
             {!result?.length ? (
               <Empty
-                title={intl.formatMessage({ id: ETranslations.global_no_data })}
+                pt={170}
+                icon="BellOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.notifications_empty_title,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.notifications_empty_desc,
+                })}
               />
             ) : null}
             {result.map((item, index) => (
