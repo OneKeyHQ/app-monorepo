@@ -549,7 +549,7 @@ function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
         networkId: networkId ?? '',
       });
     },
-    [updateAccountOverviewState, updateTokenListState],
+    [],
   );
 
   const handleAllNetworkCacheRequests = useCallback(
