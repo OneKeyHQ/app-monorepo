@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -256,6 +256,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
 }
 
 export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+  const intl = useIntl();
   const {
     activeAccount: { account, network },
     showAccountSelector,
@@ -265,11 +266,22 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
     showAccountSelector();
   }, [showAccountSelector]);
 
+  const [showNoAddress, setShowNoAddress] = useState(false);
+
   const addressText = accountUtils.shortenAddress({
     address: account?.address || '',
   });
 
-  if (!addressText) {
+  useEffect(() => {
+    if (!addressText) {
+      const timer = setTimeout(() => {
+        setShowNoAddress(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [addressText]);
+
+  if (!addressText && !showNoAddress) {
     return <Skeleton width={153} height="$5" />;
   }
 
@@ -298,7 +310,12 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
     >
       <Token size="xs" tokenImageUri={network?.logoURI} />
       <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-        {addressText}
+        {addressText ||
+          (showNoAddress
+            ? intl.formatMessage({
+                id: ETranslations.wallet_no_address,
+              })
+            : '')}
       </SizableText>
       <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
     </XStack>
