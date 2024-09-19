@@ -18,6 +18,10 @@ import {
 } from './encryptors/aes256';
 import { hash160 } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
+import {
+  tonMnemonicToRevealableSeed,
+  tonRevealEntropyToMnemonic,
+} from './ton-mnemonic';
 
 import type {
   IBip32ExtendedKey,
@@ -568,6 +572,37 @@ export async function generateRootFingerprintHexAsync(
   return hash160(publicKey).slice(0, 4).toString('hex');
 }
 
+function revealableSeedFromTonMnemonic(
+  mnemonic: string,
+  password: string,
+): IBip39RevealableSeedEncryptHex {
+  const rs: IBip39RevealableSeed = tonMnemonicToRevealableSeed(mnemonic);
+  return encryptRevealableSeed({
+    rs,
+    password,
+  });
+}
+
+function tonMnemonicFromEntropy(
+  hdCredential: IBip39RevealableSeedEncryptHex,
+  password: string,
+): string {
+  defaultLogger.account.secretPerf.decryptHdCredential();
+  const rs: IBip39RevealableSeed = decryptRevealableSeed({
+    password,
+    rs: hdCredential,
+  });
+  defaultLogger.account.secretPerf.decryptHdCredentialDone();
+
+  defaultLogger.account.secretPerf.revealEntropyToMnemonic();
+  const r = tonRevealEntropyToMnemonic(
+    bufferUtils.toBuffer(rs.entropyWithLangPrefixed),
+  );
+  defaultLogger.account.secretPerf.revealEntropyToMnemonicDone();
+
+  return r;
+}
+
 export {
   batchGetPrivateKeys,
   batchGetPublicKeys,
@@ -587,6 +622,8 @@ export {
   N,
   publicFromPrivate,
   revealableSeedFromMnemonic,
+  revealableSeedFromTonMnemonic,
+  tonMnemonicFromEntropy,
   sign,
   uncompressPublicKey,
   verify,

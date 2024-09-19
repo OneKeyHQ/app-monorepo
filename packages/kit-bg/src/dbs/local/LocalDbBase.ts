@@ -5,7 +5,10 @@ import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
 
-import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decryptImportedCredential,
   decryptRevealableSeed,
@@ -2340,6 +2343,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
       walletId,
       accounts,
+    });
+  }
+
+  async saveTonMnemonic({
+    accountId,
+    rs,
+  }: {
+    accountId: string;
+    rs: IBip39RevealableSeedEncryptHex;
+  }) {
+    if (!accountUtils.isImportedAccount({ accountId })) {
+      throw new Error('saveTonMnemonic ERROR: Not a imported account');
+    }
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [
+          {
+            id: accountUtils.buildTonMnemonicCredentialId({ accountId }),
+            credential: rs,
+          },
+        ],
+      });
     });
   }
 

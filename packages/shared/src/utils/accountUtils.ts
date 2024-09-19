@@ -690,6 +690,10 @@ function buildHiddenWalletName({
   return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
 }
 
+function buildTonMnemonicCredentialId({ accountId }: { accountId: string }) {
+  return `${accountId}--ton_credential`;
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -741,4 +745,5 @@ export default {
   findIndexFromTemplate,
   removePathLastSegment,
   buildHiddenWalletName,
+  buildTonMnemonicCredentialId,
 };

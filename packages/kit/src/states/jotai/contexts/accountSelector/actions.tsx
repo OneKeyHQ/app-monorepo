@@ -933,6 +933,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
 
       const accountId = r?.accounts?.[0]?.id;
+      await serviceAccount.saveTonMnemonic({ accountId, mnemonic });
       void this.updateSelectedAccountForSingletonAccount.call(set, {
         num: 0,
         networkId: getNetworkIdsMap().ton,
