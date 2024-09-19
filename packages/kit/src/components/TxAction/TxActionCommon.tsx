@@ -110,7 +110,6 @@ function TxActionCommonTitle({
       <SizableText
         numberOfLines={1}
         size="$bodyLgMedium"
-        textTransform="capitalize"
         {...(tableLayout && {
           size: '$bodyMdMedium',
         })}
