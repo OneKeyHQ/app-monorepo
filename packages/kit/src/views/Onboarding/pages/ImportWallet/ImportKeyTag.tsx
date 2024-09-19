@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
+import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -62,9 +63,9 @@ export function ImportKeyTag() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
-    (mnemonic: string) => {
+    (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-        mnemonic,
+        mnemonic: params.mnemonic,
       });
 
       defaultLogger.account.wallet.importWallet({
