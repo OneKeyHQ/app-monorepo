@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "アプリ内で直接通知を受け取るだけでなく、OneKeyはシステムプッシュ通知もサポートしています。",
   "notifications.settings_helper_title": "プッシュ通知",
   "notifications.test_action_desc": "「テスト」をクリックしてプレビューしてください。ヘルプが必要な場合は、<tag>ヘルプセンター</tag>をご覧ください。",
+  "notifications.test_message_desc": "リアルタイムのアカウント更新、セキュリティアラート、その他重要な情報を受け取ることができます。",
+  "notifications.test_message_title": "プッシュ通知の準備ができました！",
   "notifications.windows_notifications_permission_desc": "アプリや他の送信者からの通知を受け取る",
   "onboarding.activate_device": "あなたのデバイスを有効化する",
   "onboarding.activate_device_all_set": "全てセット完了！",

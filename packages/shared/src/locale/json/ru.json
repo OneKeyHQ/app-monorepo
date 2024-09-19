@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "Помимо получения уведомлений непосредственно в приложении, OneKey также поддерживает системные push-уведомления.",
   "notifications.settings_helper_title": "Пуш-уведомления",
   "notifications.test_action_desc": "Нажмите \"Тест\", чтобы предварительно просмотреть. Если вам нужна помощь, посетите <tag>центр помощи</tag>.",
+  "notifications.test_message_desc": "Вы будете получать обновления по счету в режиме реального времени, уведомления о безопасности и другую важную информацию.",
+  "notifications.test_message_title": "Push-уведомления готовы!",
   "notifications.windows_notifications_permission_desc": "Получайте уведомления от приложений и других отправителей",
   "onboarding.activate_device": "Активируйте ваше устройство",
   "onboarding.activate_device_all_set": "Все готово!",
