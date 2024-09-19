@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
+  Image,
   SizableText,
   Skeleton,
   View,
@@ -288,8 +289,8 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
   return (
     <XStack
       alignItems="center"
-      px="$1.5"
-      mx="$-1.5"
+      pl="$1"
+      ml="$-1"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',
@@ -307,9 +308,22 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
         event.stopPropagation();
         void handlePress();
       }}
+      userSelect="none"
     >
-      <Token size="xs" tokenImageUri={network?.logoURI} />
-      <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
+      <Image
+        width="$4"
+        height="$4"
+        borderRadius="$full"
+        source={{
+          uri: network?.logoURI,
+        }}
+      />
+      <SizableText
+        pl="$1.5"
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+      >
         {addressText ||
           (showNoAddress
             ? intl.formatMessage({
@@ -317,7 +331,7 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
               })
             : '')}
       </SizableText>
-      <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
+      <Icon size="$5" color="$iconSubdued" name="ChevronDownSmallOutline" />
     </XStack>
   );
 }
