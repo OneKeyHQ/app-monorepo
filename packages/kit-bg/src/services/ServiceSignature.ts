@@ -340,33 +340,35 @@ class ServiceSignature extends ServiceBase {
       (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
     );
     if (transferAction && transferAction.assetTransfer) {
-      const assetTransfer = transferAction.assetTransfer;
-      let tokenSent = assetTransfer.sends[0];
-      if (assetTransfer.sends.length > 1) {
-        const nonNativeToken = assetTransfer.sends.find((o) => !o.isNative);
-        if (nonNativeToken) {
-          tokenSent = nonNativeToken;
+      const tokens = transferAction.assetTransfer.sends;
+      if (tokens.length > 0) {
+        let tokenSent = tokens[0];
+        if (tokens.length > 1) {
+          const nonNativeToken = tokens.find((o) => !o.isNative);
+          if (nonNativeToken) {
+            tokenSent = nonNativeToken;
+          }
+        }
+        if (tokenSent) {
+          await this.addSignedTransaction({
+            networkId,
+            address,
+            title,
+            hash: signedTx.txid,
+            data: {
+              type: ETransactionType.SEND,
+              amount: tokenSent.amount,
+              token: {
+                name: tokenSent.name,
+                symbol: tokenSent.symbol,
+                address: tokenSent.tokenIdOnNetwork,
+                logoURI: tokenSent.icon,
+              },
+            },
+          });
+          return;
         }
       }
-      if (tokenSent) {
-        await this.addSignedTransaction({
-          networkId,
-          address,
-          title,
-          hash: signedTx.txid,
-          data: {
-            type: ETransactionType.SEND,
-            amount: tokenSent.amount,
-            token: {
-              name: tokenSent.name,
-              symbol: tokenSent.symbol,
-              address: tokenSent.tokenIdOnNetwork,
-              logoURI: tokenSent.icon,
-            },
-          },
-        });
-      }
-      return;
     }
     await this.addSignedTransaction({
       networkId,
