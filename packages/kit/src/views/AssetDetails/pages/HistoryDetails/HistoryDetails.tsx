@@ -518,7 +518,7 @@ function HistoryDetails() {
 
   const historyDetailsTitle = useMemo(() => {
     if (!historyTx) {
-      return '--';
+      return '';
     }
     const { decodedTx } = historyTx;
     const label = historyTx.decodedTx.payload?.label;
