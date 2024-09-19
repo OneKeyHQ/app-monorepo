@@ -77,7 +77,10 @@ const stakingConfig: IStakingConfig = {
             ...commonStakeConfigs.ETH,
             claimWithAmount: true,
           },
-          MATIC: commonStakeConfigs.MATIC,
+          MATIC: {
+            ...commonStakeConfigs.MATIC,
+            claimWithTx: true,
+          },
         },
       },
     },
