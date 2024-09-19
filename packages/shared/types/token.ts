@@ -49,6 +49,7 @@ export type IFetchAccountTokensParams = {
 
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
+  saveToLocal?: boolean;
 };
 
 export type ITokenData = {
