@@ -13,7 +13,7 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
-import { Theme } from 'tamagui';
+import { getTokenValue } from 'tamagui';
 
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 
@@ -108,8 +108,8 @@ function BasicQRCode({
 }: IBasicQRCodeProps) {
   const logoBackgroundColor = useThemeValue(logoBGColor);
   const href = (logo as ImageURISource)?.uri ?? logo;
-  const primaryColor = useThemeValue('text');
-  const secondaryColor = useThemeValue('bgApp');
+  const primaryColor = getTokenValue('$textLight', 'color');
+  const secondaryColor = getTokenValue('$bgAppLight', 'color');
 
   const result = useMemo(() => {
     const matrix = generateMatrix(value, ecl);
