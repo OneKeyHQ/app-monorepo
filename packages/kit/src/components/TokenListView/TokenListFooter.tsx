@@ -1,18 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Divider, Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
+import {
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useSearchKeyAtom,
@@ -30,7 +42,15 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveType, deriveInfo },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      isOthersWallet,
+      indexedAccount,
+      deriveType,
+      deriveInfo,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -89,6 +109,52 @@ function TokenListFooter(props: IProps) {
     wallet,
   ]);
 
+  const handleOnPressManageToken = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenManagerModal,
+      params: {
+        walletId: wallet?.id ?? '',
+        isOthersWallet,
+        indexedAccountId: indexedAccount?.id,
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        deriveType,
+      },
+    });
+  }, [
+    navigation,
+    wallet?.id,
+    isOthersWallet,
+    indexedAccount?.id,
+    network?.id,
+    account?.id,
+    deriveType,
+  ]);
+
+  const { result: hiddenTokenCount, run: refreshHiddenTokenCount } =
+    usePromiseResult(async () => {
+      const isAllNetwork = networkUtils.isAllNetwork({
+        networkId: network?.id,
+      });
+      const hiddenTokens =
+        await backgroundApiProxy.serviceCustomToken.getHiddenTokens({
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+          allNetworkAccountId: isAllNetwork ? account?.id : undefined,
+        });
+      return hiddenTokens.length ?? 0;
+    }, [account?.id, network?.id]);
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refreshHiddenTokenCount);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RefreshTokenList,
+        refreshHiddenTokenCount,
+      );
+    };
+  }, [refreshHiddenTokenCount]);
+
   return (
     <Stack>
       {!isSearchMode && smallBalanceTokens.length > 0 ? (
@@ -120,6 +186,38 @@ function TokenListFooter(props: IProps) {
           >
             {smallBalanceTokensFiatValue}
           </NumberSizeableText>
+        </ListItem>
+      ) : null}
+      {!isSearchMode ? (
+        <ListItem onPress={handleOnPressManageToken} userSelect="none">
+          <Stack
+            p={tableLayout ? '$1' : '$1.5'}
+            borderRadius="$full"
+            bg="$bgStrong"
+          >
+            <Icon
+              name="SliderHorOutline"
+              color="$iconSubdued"
+              size={tableLayout ? '$6' : '$7'}
+            />
+          </Stack>
+          <ListItem.Text
+            flex={1}
+            primary={intl.formatMessage(
+              {
+                id: ETranslations.Token_manage_hidden_token,
+              },
+              {
+                num: hiddenTokenCount ?? 0,
+              },
+            )}
+            {...(tableLayout && {
+              primaryTextProps: { size: '$bodyMdMedium' },
+            })}
+          />
+          <SizableText size={tableLayout ? '$bodyMd' : '$bodyLgMedium'}>
+            Manage
+          </SizableText>
         </ListItem>
       ) : null}
     </Stack>

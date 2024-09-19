@@ -3,7 +3,7 @@ import { isNil } from 'lodash';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { buildLocalHistoryKey } from '@onekeyhq/shared/src/utils/historyUtils';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
@@ -164,7 +164,7 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
               },
             };
 
-            const key = buildLocalHistoryKey({
+            const key = buildAccountLocalAssetsKey({
               networkId: v4decodedTx.networkId,
               accountAddress: v4Account.address,
               xpub: (v4Account as IV4DBUtxoAccount).xpub,

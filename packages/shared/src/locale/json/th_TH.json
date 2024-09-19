@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "นอกจากการรับการแจ้งเตือนโดยตรงในแอปแล้ว OneKey ยังรองรับการแจ้งเตือนผ่านระบบด้วย",
   "notifications.settings_helper_title": "การแจ้งเตือนผ่านทาง Push",
   "notifications.test_action_desc": "คลิกที่ \"ทดสอบ\" เพื่อดูตัวอย่าง หากต้องการความช่วยเหลือ กรุณาเยี่ยมชม <tag>ศูนย์ช่วยเหลือ</tag>",
+  "notifications.test_message_desc": "คุณจะได้รับการอัปเดตบัญชีแบบเรียลไทม์ การแจ้งเตือนด้านความปลอดภัย และข้อมูลสำคัญอื่นๆ",
+  "notifications.test_message_title": "การแจ้งเตือนแบบพุชพร้อมแล้ว!",
   "notifications.windows_notifications_permission_desc": "รับการแจ้งเตือนจากแอปและผู้ส่งอื่น ๆ",
   "onboarding.activate_device": "เปิดใช้งานอุปกรณ์ของคุณ",
   "onboarding.activate_device_all_set": "ทั้งหมดพร้อมแล้ว!",
