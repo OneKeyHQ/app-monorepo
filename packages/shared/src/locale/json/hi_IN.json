@@ -353,7 +353,7 @@
   "earn.min_staking": "न्यून. स्टेकिंग",
   "earn.min_total_staking": "न्यून. कुल स्टेकिंग",
   "earn.minimum_amount": "न्यूनतम राशि {number} है।",
-  "earn.minimum_claim_tooltip": "न्यूनतम दावे की राशि {number} {symbol} है।",
+  "earn.minimum_claim_tooltip": "न्यूनतम इनाम दावा {number} {symbol} है, लेकिन प्रत्येक स्टेकिंग या निकासी अनुरोध के साथ आपके वॉलेट में इनाम बिना किसी सीमा के दावा किया जाएगा।",
   "earn.minimum_staking_alert": "न्यूनतम स्टेकिंग राशि {number} {symbol} है।",
   "earn.minimum_total_staking_alert": "न्यूनतम कुल दांव राशि {number} {symbol} से ऊपर होनी चाहिए।",
   "earn.minimum_withdrawal_alert": "न्यूनतम निकासी राशि {number} {symbol} है।",

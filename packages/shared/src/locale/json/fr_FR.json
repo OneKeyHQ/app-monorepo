@@ -353,7 +353,7 @@
   "earn.min_staking": "Mise min.",
   "earn.min_total_staking": "Mise min. totale",
   "earn.minimum_amount": "Le montant minimum est {number}.",
-  "earn.minimum_claim_tooltip": "Le montant minimum de la réclamation est de {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "La récompense minimale à réclamer est de {number} {symbol}, mais les récompenses seront versées dans votre portefeuille à chaque demande de staking ou de retrait, sans limites.",
   "earn.minimum_staking_alert": "Le montant minimum pour le staking est de {number} {symbol}.",
   "earn.minimum_total_staking_alert": "Le montant total minimum de mise doit être supérieur à {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "Le montant minimum de retrait est de {number} {symbol}.",

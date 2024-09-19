@@ -353,7 +353,7 @@
   "earn.min_staking": "Puntata min.",
   "earn.min_total_staking": "Puntata min. totale",
   "earn.minimum_amount": "L'importo minimo è {number}.",
-  "earn.minimum_claim_tooltip": "L'importo minimo della richiesta è {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "Il minimo importo per richiedere la ricompensa è {number} {symbol}, ma le ricompense verranno accreditate nel tuo portafoglio ad ogni richiesta di staking o prelievo, senza limiti.",
   "earn.minimum_staking_alert": "L'importo minimo per lo staking è {number} {symbol}.",
   "earn.minimum_total_staking_alert": "L'importo totale minimo della puntata deve essere superiore a {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "L'importo minimo di prelievo è {number} {symbol}.",

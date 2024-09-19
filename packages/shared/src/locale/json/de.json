@@ -353,7 +353,7 @@
   "earn.min_staking": "Min. Staking",
   "earn.min_total_staking": "Min. Gesamt-Staking",
   "earn.minimum_amount": "Der Mindestbetrag beträgt {number}.",
-  "earn.minimum_claim_tooltip": "Der Mindestanspruchsbetrag beträgt {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "Der Mindestbetrag für die Belohnungsanforderung beträgt {number} {symbol}, aber Belohnungen werden bei jeder Staking- oder Abhebungsanforderung ohne Begrenzung auf Ihr Wallet überwiesen.",
   "earn.minimum_staking_alert": "Der Mindesteinsatz beträgt {number} {symbol}.",
   "earn.minimum_total_staking_alert": "Der Mindestgesamteinsatzbetrag muss über {number} {symbol} liegen.",
   "earn.minimum_withdrawal_alert": "Der Mindestauszahlungsbetrag beträgt {number} {symbol}.",

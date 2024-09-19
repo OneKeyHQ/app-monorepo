@@ -27,6 +27,7 @@ type IProtocolDetailsProps = {
     | undefined;
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
+  onClaimReward?: () => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   onCreateAddress: () => void;
@@ -41,6 +42,7 @@ export function ProtocolDetails({
   earnAccount,
   details,
   onClaim,
+  onClaimReward,
   onWithdraw,
   onPortfolioDetails,
   onCreateAddress,
@@ -62,6 +64,7 @@ export function ProtocolDetails({
           <PortfolioSection
             details={details}
             onClaim={onClaim}
+            onClaimReward={onClaimReward}
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
           />

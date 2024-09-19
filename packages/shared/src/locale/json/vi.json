@@ -353,7 +353,7 @@
   "earn.min_staking": "Khoản stake tối thiểu",
   "earn.min_total_staking": "Khoản stake tối thiểu tổng",
   "earn.minimum_amount": "Số tiền tối thiểu là {number}.",
-  "earn.minimum_claim_tooltip": "Số tiền yêu cầu tối thiểu là {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "Phần thưởng tối thiểu để yêu cầu là {number} {symbol}, nhưng phần thưởng sẽ được chuyển vào ví của bạn với mỗi yêu cầu staking hoặc rút tiền, không giới hạn.",
   "earn.minimum_staking_alert": "Số tiền cược tối thiểu là {number} {symbol}.",
   "earn.minimum_total_staking_alert": "Tổng số tiền đặt cược tối thiểu phải lớn hơn {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "Số tiền rút tối thiểu là {number} {symbol}.",

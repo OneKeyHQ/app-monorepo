@@ -353,7 +353,7 @@
   "earn.min_staking": "Мин. стейкинг",
   "earn.min_total_staking": "Мин. общий стейкинг",
   "earn.minimum_amount": "Минимальная сумма составляет {number}.",
-  "earn.minimum_claim_tooltip": "Минимальная сумма заявки составляет {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "Минимальная сумма для получения вознаграждения составляет {number} {symbol}, но вознаграждения будут зачисляться на ваш кошелек при каждом запросе на стейкинг или вывод средств, без ограничений.",
   "earn.minimum_staking_alert": "Минимальная сумма ставки составляет {number} {symbol}.",
   "earn.minimum_total_staking_alert": "Минимальная общая сумма ставки должна превышать {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "Минимальная сумма для вывода составляет {number} {symbol}.",

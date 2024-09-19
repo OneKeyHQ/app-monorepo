@@ -353,7 +353,7 @@
   "earn.min_staking": "최소 스테이킹",
   "earn.min_total_staking": "최소 총 스테이킹",
   "earn.minimum_amount": "최소 금액은 {number}입니다.",
-  "earn.minimum_claim_tooltip": "최소 청구 금액은 {number} {symbol}입니다.",
+  "earn.minimum_claim_tooltip": "최소 보상 청구 금액은 {number} {symbol}이지만, 보상은 제한 없이 각 스테이킹 또는 출금 요청 시 지갑으로 청구됩니다.",
   "earn.minimum_staking_alert": "최소 스테이킹 금액은 {number} {symbol}입니다.",
   "earn.minimum_total_staking_alert": "최소 총 스테이킹 금액은 {number} {symbol} 보다 커야 합니다.",
   "earn.minimum_withdrawal_alert": "최소 인출 금액은 {number} {symbol}입니다.",

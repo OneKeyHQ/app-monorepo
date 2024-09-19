@@ -353,7 +353,7 @@
   "earn.min_staking": "Staking mín.",
   "earn.min_total_staking": "Staking mín. total",
   "earn.minimum_amount": "O valor mínimo é {number}.",
-  "earn.minimum_claim_tooltip": "O valor mínimo para reivindicação é {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "O valor mínimo para reivindicar a recompensa é {number} {symbol}, mas as recompensas serão reivindicadas para sua carteira a cada solicitação de staking ou retirada, sem limites.",
   "earn.minimum_staking_alert": "O valor mínimo para staking é {number} {symbol}.",
   "earn.minimum_total_staking_alert": "O valor total mínimo de aposta deve ser superior a {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "O valor mínimo para saque é {number} {symbol}.",

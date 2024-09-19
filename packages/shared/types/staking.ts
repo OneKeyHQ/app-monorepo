@@ -176,6 +176,7 @@ export type IStakeProtocolDetails = {
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;
+  rewards?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
   token: {

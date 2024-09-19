@@ -353,7 +353,7 @@
   "earn.min_staking": "Min. staking",
   "earn.min_total_staking": "Min. total staking",
   "earn.minimum_amount": "The minimum amount is {number}.",
-  "earn.minimum_claim_tooltip": "The minimum claim amount is {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "The minimum reward claim is {number} {symbol}, but rewards will be claimed to your wallet with each staking or withdrawal request, without limits.",
   "earn.minimum_staking_alert": "The minimum staking amount is {number} {symbol}.",
   "earn.minimum_total_staking_alert": "The minimum total staking amount must be above {number} {symbol}.",
   "earn.minimum_withdrawal_alert": "The minimum withdrawal amount is {number} {symbol}.",

@@ -353,7 +353,7 @@
   "earn.min_staking": "ন্যূন. স্টেকিং",
   "earn.min_total_staking": "মিন. মোট স্টেকিং",
   "earn.minimum_amount": "ন্যূনতম পরিমাণ {number}।",
-  "earn.minimum_claim_tooltip": "ন্যূনতম দাবির পরিমাণ {number} {symbol}।",
+  "earn.minimum_claim_tooltip": "ন্যূনতম পুরস্কার দাবি হল {number} {symbol}, তবে প্রতিটি স্টেকিং বা উত্তোলনের অনুরোধের সাথে আপনার ওয়ালেটে সীমাহীনভাবে পুরস্কার দাবি করা হবে।",
   "earn.minimum_staking_alert": "ন্যূনতম স্টেকিং পরিমাণ {number} {symbol}।",
   "earn.minimum_total_staking_alert": "ন্যূনতম মোট শেয়ারের পরিমাণ অবশ্যই {number} {symbol} এর উপরে হতে হবে।",
   "earn.minimum_withdrawal_alert": "ন্যূনতম উত্তোলন পরিমাণ {number} {symbol}।",

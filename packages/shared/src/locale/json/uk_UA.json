@@ -353,7 +353,7 @@
   "earn.min_staking": "Мін. ставка",
   "earn.min_total_staking": "Мін. загальний стейкінг",
   "earn.minimum_amount": "Мінімальна сума становить {number}.",
-  "earn.minimum_claim_tooltip": "Мінімальна сума вимоги становить {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "Мінімальна сума для отримання винагороди становить {number} {symbol}, але винагороди будуть зараховані на ваш гаманець з кожним запитом на стейкінг або зняття коштів, без обмежень.",
   "earn.minimum_staking_alert": "Мінімальна сума ставки становить {number} {symbol}.",
   "earn.minimum_total_staking_alert": "Мінімальна загальна сума ставки має бути вище {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "Мінімальна сума виведення становить {number} {symbol}.",

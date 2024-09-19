@@ -353,7 +353,7 @@
   "earn.min_staking": "最小質押",
   "earn.min_total_staking": "最低總質押",
   "earn.minimum_amount": "最低數量為 {number}。",
-  "earn.minimum_claim_tooltip": "最低領取金額為 {number} {symbol}。",
+  "earn.minimum_claim_tooltip": "最小收益領取金額為 {number} {symbol}，但每次質押或請求贖回時，收益將自動轉入您的錢包，無需限制。",
   "earn.minimum_staking_alert": "最小質押金額是 {number} {symbol}。",
   "earn.minimum_total_staking_alert": "最低總質押金額必須高於 {number} {symbol} 。",
   "earn.minimum_withdrawal_alert": "最低贖回金額為 {number} {symbol}。",

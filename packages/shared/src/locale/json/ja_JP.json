@@ -353,7 +353,7 @@
   "earn.min_staking": "最小ステーキング",
   "earn.min_total_staking": "最低総ステーキング",
   "earn.minimum_amount": "最小金額は{number}です。",
-  "earn.minimum_claim_tooltip": "最小請求額は{number} {symbol}です。",
+  "earn.minimum_claim_tooltip": "最小報酬請求額は{number}{symbol}ですが、報酬はステーキングまたは引き出しのリクエストごとに制限なくウォレットに請求されます。",
   "earn.minimum_staking_alert": "最小ステーキング量は{number} {symbol}です。",
   "earn.minimum_total_staking_alert": "最低合計賭け金額は{number} {symbol}以上である必要があります。",
   "earn.minimum_withdrawal_alert": "最小引き出し額は{number} {symbol}です。",

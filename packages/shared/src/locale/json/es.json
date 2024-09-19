@@ -353,7 +353,7 @@
   "earn.min_staking": "Apuesta mín.",
   "earn.min_total_staking": "Apuesta mín. total",
   "earn.minimum_amount": "El monto mínimo es {number}.",
-  "earn.minimum_claim_tooltip": "El monto mínimo de reclamo es {number} {symbol}.",
+  "earn.minimum_claim_tooltip": "La recompensa mínima para reclamar es de {number} {symbol}, pero las recompensas se reclamarán en tu billetera con cada solicitud de staking o retiro, sin límites.",
   "earn.minimum_staking_alert": "La cantidad mínima para apostar es {number} {symbol}.",
   "earn.minimum_total_staking_alert": "El monto mínimo total de apuesta debe ser superior a {number} {symbol} .",
   "earn.minimum_withdrawal_alert": "El monto mínimo de retiro es {number} {symbol}.",
