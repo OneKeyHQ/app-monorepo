@@ -142,6 +142,8 @@ function BaseInput(
     value,
     displayAsMaskWhenEmptyValue,
     onPaste,
+    onChangeText,
+    keyboardType,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -165,13 +167,13 @@ function BaseInput(
           iconName: 'XCircleOutline',
           onPress: () => {
             inputRef?.current?.clear();
-            inputProps?.onChangeText?.('');
+            onChangeText?.('');
           },
         },
       ];
     }
     return addOnsInProps;
-  }, [allowClear, addOnsInProps, inputProps]);
+  }, [allowClear, inputProps?.value, addOnsInProps, onChangeText]);
 
   useEffect(() => {
     if (!platformEnv.isNative && inputRef.current && onPaste) {
@@ -229,6 +231,13 @@ function BaseInput(
     [onFocus, selectTextOnFocus, scrollToView],
   );
 
+  const onNumberPadChangeText = useCallback(
+    (text: string) => {
+      onChangeText?.(text.replace(',', '.'));
+    },
+    [onChangeText],
+  );
+
   return (
     <Group
       orientation="horizontal"
@@ -262,6 +271,7 @@ function BaseInput(
         <TMInput
           unstyled
           ref={inputRef}
+          keyboardType={keyboardType}
           flex={1}
           // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
@@ -293,6 +303,11 @@ function BaseInput(
           editable={editable}
           {...readOnlyStyle}
           {...props}
+          onChangeText={
+            platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
+              ? onNumberPadChangeText
+              : onChangeText
+          }
         />
       </Group.Item>
 
