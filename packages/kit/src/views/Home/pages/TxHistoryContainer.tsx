@@ -30,6 +30,7 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { isEmpty } from 'lodash';
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -127,13 +128,30 @@ function TxHistoryListContainer(props: ITabPageProps) {
   );
 
   useEffect(() => {
-    if (account?.id && network?.id && wallet?.id) {
+    const initHistoryState = async (accountId: string, networkId: string) => {
       setHistoryState({
         initialized: false,
         isRefreshing: true,
       });
+      const accountHistoryTxs =
+        await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
+          accountId,
+          networkId,
+        });
+
+      if (!isEmpty(accountHistoryTxs)) {
+        setHistoryData(accountHistoryTxs);
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
       updateSearchKey('');
       refreshAllNetworksHistory.current = false;
+    };
+    if (account?.id && network?.id && wallet?.id) {
+      void initHistoryState(account.id, network.id);
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 

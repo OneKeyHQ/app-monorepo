@@ -459,10 +459,9 @@ const SwapTokenSelectPage = () => {
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
         />
-        {currentNetworkPopularTokens.length > 0 &&
-          !searchKeywordDebounce ? (
-            <Divider mt="$2" />
-          ) : null}
+        {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
+          <Divider mt="$2" />
+        ) : null}
         <YStack flex={1}>
           <ListView
             ref={listViewRef}

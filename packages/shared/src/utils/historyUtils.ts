@@ -174,22 +174,6 @@ export function getHistoryTxDetailInfo({
   };
 }
 
-export function buildLocalHistoryKey({
-  networkId,
-  accountAddress,
-  xpub,
-}: {
-  networkId: string;
-  accountAddress?: string;
-  xpub?: string;
-}) {
-  if (!accountAddress && !xpub) {
-    throw new OneKeyInternalError('accountAddress or xpub is required');
-  }
-
-  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
-}
-
 // sort history
 export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
   return txs.sort(

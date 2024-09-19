@@ -47,6 +47,7 @@ export type IFetchAccountNFTsParams = {
 
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
+  saveToLocal?: boolean;
 };
 
 export type IFetchAccountNFTsResp = {

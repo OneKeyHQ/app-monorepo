@@ -14,6 +14,7 @@ import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
+import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
@@ -74,4 +75,6 @@ export class SimpleDb {
   accountValue = new SimpleDbEntityAccountValue();
 
   legacyWalletNames = new SimpleDbEntityLegacyWalletNames();
+
+  localNFTs = new SimpleDbEntityLocalNFTs();
 }

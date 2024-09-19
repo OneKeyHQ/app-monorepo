@@ -149,6 +149,8 @@ function TxHistoryListView(props: IProps) {
     );
   }
 
+  console.log('sections', sections);
+
   return (
     <SectionList
       {...(listViewProps as any)}

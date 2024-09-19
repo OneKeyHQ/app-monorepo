@@ -206,6 +206,7 @@ class ServiceSetting extends ServiceBase {
     if (values.tokenAndNFT) {
       // clear token and nft
       await this.backgroundApi.simpleDb.localTokens.clearRawData();
+      await this.backgroundApi.simpleDb.localNFTs.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history

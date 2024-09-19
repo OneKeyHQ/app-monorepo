@@ -73,10 +73,6 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      updateAccountOverviewState({
-        initialized: false,
-        isRefreshing: true,
-      });
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
