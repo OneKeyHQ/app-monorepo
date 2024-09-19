@@ -151,10 +151,10 @@ class ServiceAccount extends ServiceBase {
     // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
       if (await tonValidateMnemonic(realMnemonicFixed.split(' '))) {
-        return Promise.resolve({
+        return {
           mnemonic: realMnemonicFixed,
           mnemonicType: EMnemonicType.TON,
-        });
+        };
       }
       throw new InvalidMnemonic();
     }
