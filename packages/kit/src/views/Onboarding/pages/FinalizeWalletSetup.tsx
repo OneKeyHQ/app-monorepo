@@ -11,6 +11,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
+import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -46,6 +47,7 @@ function FinalizeWalletSetupPage({
   const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
+  const mnemonicType = route?.params?.mnemonicType;
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
@@ -79,6 +81,14 @@ function FinalizeWalletSetupPage({
         if (mnemonic && !created.current) {
           await withPromptPasswordVerify({
             run: async () => {
+              if (mnemonicType === EMnemonicType.TON) {
+                // **** TON mnemonic case
+                // Create TON imported account when mnemonicType is TON
+                await actions.current.createTonImportedWallet({ mnemonic });
+                setCurrentStep(EFinalizeWalletSetupSteps.Ready);
+                return;
+              }
+
               await actions.current.createHDWallet({
                 mnemonic,
               });
@@ -95,7 +105,7 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, mnemonic, navigation]);
+  }, [actions, mnemonic, mnemonicType, navigation]);
 
   useEffect(() => {
     const fn = (

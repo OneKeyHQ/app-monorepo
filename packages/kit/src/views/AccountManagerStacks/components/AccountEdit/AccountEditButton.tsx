@@ -104,11 +104,22 @@ function AccountEditButtonView({
             exportType: 'publicKey',
           },
         );
+
+      const mnemonicTypes =
+        await backgroundApiProxy.serviceAccount.getNetworkSupportedExportKeyTypes(
+          {
+            accountId: account?.id,
+            networkId: account?.createAtNetwork,
+            exportType: 'mnemonic',
+          },
+        );
+
       return {
         showExportPrivateKey: isWatchingAccount
           ? false
           : Boolean(privateKeyTypes?.length),
         showExportPublicKey: Boolean(publicKeyTypes?.length),
+        showExportMnemonic: Boolean(mnemonicTypes?.length),
       };
     }
 
@@ -208,6 +219,20 @@ function AccountEditButtonView({
                 id: ETranslations.global_public_key_export,
               })}
               exportType="publicKey"
+            />
+          ) : null}
+          {exportKeysVisible?.showExportMnemonic ? (
+            <AccountExportPrivateKeyButton
+              testID={`popover-export-mnemonic-key-${name}`}
+              icon="Shield2CheckOutline"
+              accountName={name}
+              indexedAccount={indexedAccount}
+              account={account}
+              onClose={handleActionListClose}
+              label={intl.formatMessage({
+                id: ETranslations.global_backup_recovery_phrase,
+              })}
+              exportType="mnemonic"
             />
           ) : null}
           <AccountMoveToTopButton

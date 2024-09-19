@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PhaseInputArea } from '@onekeyhq/kit/src/views/Onboarding/components/PhaseInputArea';
 import { Tutorials } from '@onekeyhq/kit/src/views/Onboarding/components/Tutorials';
@@ -14,9 +15,9 @@ export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
-    (mnemonic: string) => {
+    (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       navigation.push(EModalKeyTagRoutes.BackupDotMap, {
-        encodedText: mnemonic,
+        encodedText: params.mnemonic,
         title: '',
       });
     },

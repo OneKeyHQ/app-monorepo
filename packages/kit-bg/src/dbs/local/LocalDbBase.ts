@@ -5,7 +5,10 @@ import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
 
-import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decryptImportedCredential,
   decryptRevealableSeed,
@@ -318,15 +321,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: ELocalDBStoreNames.Credential,
       updater: (credential) => {
         if (credential.id.startsWith('imported')) {
-          const importedCredential: ICoreImportedCredential =
-            decryptImportedCredential({
-              credential: credential.credential,
+          // Ton mnemonic credential
+          if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+            const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
+              rs: credential.credential,
               password: oldPassword,
             });
-          credential.credential = encryptImportedCredential({
-            credential: importedCredential,
-            password: newPassword,
-          });
+            credential.credential = encryptRevealableSeed({
+              rs: revealableSeed,
+              password: newPassword,
+            });
+          } else {
+            const importedCredential: ICoreImportedCredential =
+              decryptImportedCredential({
+                credential: credential.credential,
+                password: oldPassword,
+              });
+            credential.credential = encryptImportedCredential({
+              credential: importedCredential,
+              password: newPassword,
+            });
+          }
         } else {
           const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
             rs: credential.credential,
@@ -2340,6 +2355,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
       walletId,
       accounts,
+    });
+  }
+
+  async saveTonImportedAccountMnemonic({
+    accountId,
+    rs,
+  }: {
+    accountId: string;
+    rs: IBip39RevealableSeedEncryptHex;
+  }) {
+    if (!accountUtils.isImportedAccount({ accountId })) {
+      throw new Error('saveTonMnemonic ERROR: Not a imported account');
+    }
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [
+          {
+            id: accountUtils.buildTonMnemonicCredentialId({ accountId }),
+            credential: rs,
+          },
+        ],
+      });
     });
   }
 

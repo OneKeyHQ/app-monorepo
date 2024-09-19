@@ -1,3 +1,4 @@
+import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
@@ -23,7 +24,7 @@ export type IExportAccountSecretKeysRouteParams = {
   account?: IDBAccount;
   accountName?: string;
   title?: string;
-  exportType: 'privateKey' | 'publicKey';
+  exportType: IExportKeyType;
 };
 export type IAccountManagerStacksParamList = {
   [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams &
