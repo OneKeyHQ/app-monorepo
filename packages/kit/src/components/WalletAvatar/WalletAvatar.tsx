@@ -76,14 +76,14 @@ export function WalletAvatar({
       {!isNil(badge) ? (
         <Stack
           position="absolute"
-          h="$3.5"
-          px="$px"
+          h="$4"
+          px="$0.5"
           justifyContent="center"
           bottom={-2}
           right={-1}
           bg="$bgSubdued"
           borderRadius="$full"
-          zIndex="$1"
+          zIndex={999_999}
         >
           <SizableText size="$bodySm" textAlign="center">
             {badge}
