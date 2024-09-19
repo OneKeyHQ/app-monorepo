@@ -44,6 +44,7 @@ import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const ITEM_HEIGHT = 32;
+const TIMESTAMP_DIFF_MULTIPLIER = 2;
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
@@ -269,9 +270,11 @@ function DesktopCustomTabBar() {
             : fromSectionData?.[fromItemIndex + 1]?.timestamp;
         const isPinnedDiff = fromItem.isPinned ? 1 : -1;
         if (!beforeTimestamp && afterTimestamp) {
-          fromItem.timestamp = afterTimestamp + isPinnedDiff * -2;
+          fromItem.timestamp =
+            afterTimestamp + isPinnedDiff * -TIMESTAMP_DIFF_MULTIPLIER;
         } else if (!afterTimestamp && beforeTimestamp) {
-          fromItem.timestamp = beforeTimestamp + isPinnedDiff * 2;
+          fromItem.timestamp =
+            beforeTimestamp + isPinnedDiff * TIMESTAMP_DIFF_MULTIPLIER;
         } else if (beforeTimestamp && afterTimestamp) {
           fromItem.timestamp = Math.round(
             (beforeTimestamp + afterTimestamp) / 2,
