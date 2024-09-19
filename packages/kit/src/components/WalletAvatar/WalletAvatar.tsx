@@ -83,7 +83,7 @@ export function WalletAvatar({
           right={-1}
           bg="$bgSubdued"
           borderRadius="$full"
-          zIndex={999_999}
+          zIndex="$1"
         >
           <SizableText size="$bodySm" textAlign="center">
             {badge}
