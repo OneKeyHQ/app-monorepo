@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import imageUtils from './imageUtils';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
@@ -8,15 +10,21 @@ const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
   mini: true,
 };
 
+const defaultT1Infomation: {
+  width: number;
+  height: number;
+  supports: Array<'png' | 'jpeg'>;
+} = { width: 128, height: 64, supports: ['png', 'jpeg'] };
+
 const deviceModelInformation: Partial<
   Record<
     IDeviceType,
     { width: number; height: number; supports: Array<'png' | 'jpeg'> }
   >
 > = {
-  classic: { width: 128, height: 64, supports: ['png', 'jpeg'] },
-  classic1s: { width: 128, height: 64, supports: ['png', 'jpeg'] },
-  mini: { width: 128, height: 64, supports: ['png', 'jpeg'] },
+  classic: { ...defaultT1Infomation },
+  classic1s: { ...defaultT1Infomation },
+  mini: { ...defaultT1Infomation },
 };
 
 const range = (length: number) => [...Array(length).keys()];
@@ -35,6 +43,10 @@ function dataUrlToImage(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
+function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
+  return HAS_MONOCHROME_SCREEN[deviceModelInternal] ?? false;
+}
+
 function imageToCanvas(
   image: HTMLImageElement,
   deviceModelInternal: IDeviceType,
@@ -44,7 +56,9 @@ function imageToCanvas(
       `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
     );
   }
-  const { width, height } = deviceModelInformation[deviceModelInternal];
+  const { width, height } = deviceModelInformation[deviceModelInternal] || {
+    ...defaultT1Infomation,
+  };
 
   const canvas = document.createElement('canvas');
   canvas.height = height;
@@ -67,7 +81,9 @@ function bitmap(imageData: ImageData, deviceModelInternal: IDeviceType) {
       `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
     );
   }
-  const { width, height } = deviceModelInformation[deviceModelInternal];
+  const { width, height } = deviceModelInformation[deviceModelInternal] || {
+    ...defaultT1Infomation,
+  };
 
   const homescreen = range(height)
     .map((j) =>
@@ -91,6 +107,11 @@ function bitmap(imageData: ImageData, deviceModelInternal: IDeviceType) {
     .map((charCode) => charCode.toString(16))
     .map((chr) => (chr.length < 2 ? `0${chr}` : chr))
     .join('');
+
+  // if image is all white or all black, return empty string
+  if (/^f+$/.test(hex) || /^0+$/.test(hex)) {
+    return '';
+  }
 
   return hex;
 }
@@ -148,15 +169,18 @@ function bitmap(imageData: ImageData, deviceModelInternal: IDeviceType) {
 // };
 
 async function imagePathToHex(
-  base64Uri: string,
+  base64OrUri: string,
   deviceModelInternal: IDeviceType,
 ): Promise<string> {
-  // convert base64 to blob
-  const base64 = base64Uri.replace(/^data:image\/\w+;base64,/, '');
-  const buffer = Buffer.from(base64, 'base64');
+  const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);
+  if (!base64) {
+    throw new Error('imagePathToHex ERROR: base64 is null');
+  }
 
   // image can be loaded to device without modifications -> it is in original quality
   if (!HAS_MONOCHROME_SCREEN[deviceModelInternal]) {
+    // convert base64 to blob
+    const buffer = Buffer.from(base64, 'base64');
     return buffer.toString('hex');
   }
 
@@ -165,12 +189,11 @@ async function imagePathToHex(
    */
   //   const blob = await response.blob();
   //   const blobUrl = URL.createObjectURL(blob);
-
-  const element = await dataUrlToImage(base64Uri);
-
+  const element = await dataUrlToImage(base64);
   const { canvas, ctx } = imageToCanvas(element, deviceModelInternal);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+  // **** T2, T3 model
   //   if (
   //     [DeviceModelInternal.T2B1, DeviceModelInternal.T3B1].includes(
   //       deviceModelInternal,
@@ -179,10 +202,12 @@ async function imagePathToHex(
   //     return toig(imageData, deviceModelInternal);
   //   }
 
+  // **** T1 model
   // DeviceModelInternal.T1B1
   return bitmap(imageData, deviceModelInternal);
 }
 
 export default {
   imagePathToHex,
+  isMonochromeScreen,
 };

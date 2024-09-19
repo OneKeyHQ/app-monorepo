@@ -28,6 +28,7 @@ import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -193,6 +194,7 @@ export default function HardwareHomeScreenModal({
     let canUpload = false;
     if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
       dataList = hardwareHomeScreenData.classicMini;
+      canUpload = false;
     }
     if (['touch'].includes(deviceType)) {
       dataList = hardwareHomeScreenData.touch;
@@ -247,8 +249,11 @@ export default function HardwareHomeScreenModal({
     const originW = data?.width;
     const originH = data?.height;
 
+    const imgBase64: string = data.data;
+    // imgBase64 = await imageUtils.convertToBlackAndWhite(imgBase64, data.mime);
+
     const img = await imageUtils.resizeImage({
-      uri: data.data,
+      uri: imgBase64,
 
       width: result?.config.size?.width,
       height: result?.config.size?.height,
@@ -257,7 +262,7 @@ export default function HardwareHomeScreenModal({
       originH,
     });
     const imgThumb = await imageUtils.resizeImage({
-      uri: data.data,
+      uri: imgBase64,
 
       width: result?.config.thumbnailSize?.width ?? result?.config.size?.width,
       height:
@@ -274,7 +279,7 @@ export default function HardwareHomeScreenModal({
 
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
     const uploadItem: IHardwareHomeScreenData = {
-      uri: data.data,
+      uri: imgBase64, // base64 data uri
       hex: img?.hex,
       thumbnailHex: imgThumb?.hex,
       name,
@@ -367,10 +372,26 @@ export default function HardwareHomeScreenModal({
               return;
             }
             setIsLoading(true);
+
+            let customHex = '';
+            if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
+              const imgUri =
+                (await imageUtils.getBase64FromRequiredImageSource(
+                  selectedItem?.source,
+                )) ||
+                selectedItem?.uri ||
+                '';
+              console.log('imgUri >>>>>>>>>>>>>>>>>. ', imgUri, selectedItem);
+              customHex = await deviceHomeScreenUtils.imagePathToHex(
+                imgUri,
+                device.deviceType,
+              );
+            }
+
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
               imgName: selectedItem.name,
-              imgHex: selectedItem.hex || '',
+              imgHex: customHex || selectedItem.hex || '',
               thumbnailHex: selectedItem.thumbnailHex || '',
               isUserUpload: selectedItem.isUserUpload,
             });
