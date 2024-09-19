@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -19,6 +20,7 @@ type IProfitInfoProps = {
   earningsIn24h?: string;
   rewardTokens?: string;
   updateFrequency?: string;
+  earnPoints?: boolean;
 };
 
 function ProfitInfo({
@@ -26,6 +28,7 @@ function ProfitInfo({
   earningsIn24h,
   rewardTokens,
   updateFrequency,
+  earnPoints,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -39,54 +42,67 @@ function ProfitInfo({
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_profit })}
       </SizableText>
-      <XStack flexWrap="wrap" m="$-5" p="$2">
-        {apr && Number(apr) > 0 ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_rewards_percentage,
-            })}
-          >
-            <SizableText size="$bodyLgMedium" color="$textSuccess">
-              {`${apr}% ${intl.formatMessage({
-                id: ETranslations.global_apr,
-              })}`}
-            </SizableText>
-          </GridItem>
-        ) : null}
-        {earningsIn24h && Number(earningsIn24h) > 0 ? (
-          <GridItem
-            title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
-            tooltip={intl.formatMessage({
-              id: ETranslations.earn_24h_earnings_tooltip,
-            })}
-          >
-            <NumberSizeableText
-              formatter="value"
-              color="$textSuccess"
-              size="$bodyLgMedium"
-              formatterOptions={{ currency: symbol }}
+      {earnPoints ? (
+        <Alert
+          title={intl.formatMessage({ id: ETranslations.earn_earn_points })}
+          description={intl.formatMessage({
+            id: ETranslations.earn_earn_points_desc,
+          })}
+        />
+      ) : (
+        <XStack flexWrap="wrap" m="$-5" p="$2">
+          {apr && Number(apr) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_rewards_percentage,
+              })}
             >
-              {earningsIn24h}
-            </NumberSizeableText>
-          </GridItem>
-        ) : null}
-        {rewardTokens ? (
-          <GridItem
-            title={intl.formatMessage({ id: ETranslations.earn_reward_tokens })}
-          >
-            {rewardTokens}
-          </GridItem>
-        ) : null}
-        {updateFrequency ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_update_frequency,
-            })}
-          >
-            {updateFrequency}
-          </GridItem>
-        ) : null}
-      </XStack>
+              <SizableText size="$bodyLgMedium" color="$textSuccess">
+                {`${apr}% ${intl.formatMessage({
+                  id: ETranslations.global_apr,
+                })}`}
+              </SizableText>
+            </GridItem>
+          ) : null}
+          {earningsIn24h && Number(earningsIn24h) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_24h_earnings,
+              })}
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_24h_earnings_tooltip,
+              })}
+            >
+              <NumberSizeableText
+                formatter="value"
+                color="$textSuccess"
+                size="$bodyLgMedium"
+                formatterOptions={{ currency: symbol }}
+              >
+                {earningsIn24h}
+              </NumberSizeableText>
+            </GridItem>
+          ) : null}
+          {rewardTokens ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_reward_tokens,
+              })}
+            >
+              {rewardTokens}
+            </GridItem>
+          ) : null}
+          {updateFrequency ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_update_frequency,
+              })}
+            >
+              {updateFrequency}
+            </GridItem>
+          ) : null}
+        </XStack>
+      )}
     </YStack>
   );
 }
