@@ -1805,7 +1805,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveTonMnemonic({
+  async saveTonImportedAccountMnemonic({
     mnemonic,
     accountId,
   }: {
@@ -1833,7 +1833,7 @@ class ServiceAccount extends ServiceBase {
     if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
       throw new InvalidMnemonic();
     }
-    await localDb.saveTonMnemonic({ accountId, rs });
+    await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
   }
 
   @backgroundMethod()

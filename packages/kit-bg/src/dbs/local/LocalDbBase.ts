@@ -2358,7 +2358,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async saveTonMnemonic({
+  async saveTonImportedAccountMnemonic({
     accountId,
     rs,
   }: {
