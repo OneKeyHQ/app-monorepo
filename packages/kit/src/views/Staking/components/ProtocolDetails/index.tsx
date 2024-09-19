@@ -10,7 +10,7 @@ import { NoAddressWarning } from './NoAddressWarning';
 import { PortfolioSection } from './PortfolioSection';
 import { ProfitSection } from './ProfitSection';
 import { ProviderSection } from './ProviderSection';
-import { StakedValueSection } from './StakeValueSection';
+import { StakedValueSection } from './StakedValueSection';
 
 type IProtocolDetailsProps = {
   accountId: string;
