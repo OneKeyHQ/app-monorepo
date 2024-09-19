@@ -88,7 +88,9 @@ function NotificationIntroduction() {
         }}
         {...(shouldShowCancelButton && {
           onCancelText: intl.formatMessage({ id: ETranslations.global_done }),
-          onCancel: () => console.log('clicked'),
+          onCancel: (close) => {
+            void close();
+          },
         })}
       />
     </Page>

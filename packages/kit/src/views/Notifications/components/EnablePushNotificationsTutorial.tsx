@@ -38,59 +38,18 @@ function SharedWrapper({ children, ...rest }: IYStackProps) {
   );
 }
 
-function EnablePushNotificationsTutorial() {
+function PlatformNotification({
+  icon,
+  titleId,
+  descriptionId,
+}: {
+  icon: React.ReactNode;
+  titleId: ETranslations;
+  descriptionId: ETranslations;
+}) {
   const intl = useIntl();
 
-  if (platformEnv.isDesktopMac) {
-    return (
-      <SharedWrapper>
-        <XStack
-          alignItems="center"
-          gap="$2"
-          p="$2"
-          bg="$bg"
-          outlineColor="$neutral3"
-          outlineWidth={1}
-          outlineStyle="solid"
-          borderRadius="$2"
-          elevation={10}
-        >
-          <Image
-            source={require('@onekeyhq/kit/assets/logo-decorated.png')}
-            w="$8"
-            h="$8"
-          />
-          <Stack flex={1}>
-            <Heading size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.notifications_mac_permission_title,
-              })}
-            </Heading>
-            <SizableText size="$bodySm" color="$textSubdued">
-              OneKey
-            </SizableText>
-          </Stack>
-          <Switch value size="small" bg="$bgInfoStrong" />
-        </XStack>
-        <SizableText size="$bodySm" color="$textInfo" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.notifications_intro_mac_desc,
-          })}
-        </SizableText>
-        <Icon
-          name="HandDrawRightDownArrowIllus"
-          color="$bgInfoStrong"
-          position="absolute"
-          bottom="$-10"
-          right={-56}
-          w="$10"
-          h="$24"
-        />
-      </SharedWrapper>
-    );
-  }
-
-  if (platformEnv.isDesktopWin) {
+  return (
     <SharedWrapper>
       <XStack
         alignItems="center"
@@ -103,11 +62,11 @@ function EnablePushNotificationsTutorial() {
         borderRadius="$2"
         elevation={10}
       >
-        <Icon name="BellOutline" />
+        {icon}
         <Stack flex={1}>
           <Heading size="$bodyMd">
             {intl.formatMessage({
-              id: ETranslations.global_notifications,
+              id: titleId,
             })}
           </Heading>
           <SizableText size="$bodySm" color="$textSubdued">
@@ -118,7 +77,7 @@ function EnablePushNotificationsTutorial() {
       </XStack>
       <SizableText size="$bodySm" color="$textInfo" textAlign="center">
         {intl.formatMessage({
-          id: ETranslations.notifications_windows_notifications_permission_desc,
+          id: descriptionId,
         })}
       </SizableText>
       <Icon
@@ -130,7 +89,37 @@ function EnablePushNotificationsTutorial() {
         w="$10"
         h="$24"
       />
-    </SharedWrapper>;
+    </SharedWrapper>
+  );
+}
+
+function EnablePushNotificationsTutorial() {
+  if (platformEnv.isDesktopMac) {
+    return (
+      <PlatformNotification
+        icon={
+          <Image
+            source={require('@onekeyhq/kit/assets/logo-decorated.png')}
+            w="$8"
+            h="$8"
+          />
+        }
+        titleId={ETranslations.notifications_mac_permission_title}
+        descriptionId={ETranslations.notifications_intro_mac_desc}
+      />
+    );
+  }
+
+  if (platformEnv.isDesktopWin) {
+    return (
+      <PlatformNotification
+        icon={<Icon name="BellOutline" />}
+        titleId={ETranslations.global_notifications}
+        descriptionId={
+          ETranslations.notifications_windows_notifications_permission_desc
+        }
+      />
+    );
   }
 
   if (platformEnv.isExtension) {
