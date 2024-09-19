@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -256,50 +254,48 @@ export const PortfolioSection = ({
   onPortfolioDetails?: () => void;
 }) => {
   const intl = useIntl();
-  const props = useMemo<IPortfolioInfoProps | undefined>(() => {
-    if (!details) {
-      return undefined;
-    }
-    let pendingActiveTooltip: string | undefined;
-    if (
-      details.provider.name.toLowerCase() === 'everstake' &&
-      details.token.info.name.toLowerCase() === 'eth'
-    ) {
-      pendingActiveTooltip = intl.formatMessage({
-        id: ETranslations.earn_pending_activation_tooltip_eth,
-      });
-    } else if (details.pendingActivatePeriod) {
-      pendingActiveTooltip = intl.formatMessage(
-        {
-          id: ETranslations.earn_pending_activation_tooltip,
-        },
-        { number: details.pendingActivatePeriod },
-      );
-    }
-    const portfolio: IPortfolioInfoProps = {
-      pendingInactive: details.pendingInactive,
-      pendingInactivePeriod: details.unstakingPeriod
-        ? String(details.unstakingPeriod)
-        : undefined,
-      pendingActive: details.pendingActive,
-      pendingActiveTooltip,
-      claimable: details.claimable,
-      active: details.active,
-      minClaimableNum: details.provider.minClaimableAmount,
-      babylonOverflow:
-        Number(details?.active) > 0 && Number(details.overflow) > 0
-          ? details.overflow
-          : undefined,
-      token: details.token.info,
-    };
-    return portfolio;
-  }, [details, intl]);
 
-  if (!props) return null;
+  if (!details) {
+    return null;
+  }
+
+  let pendingActiveTooltip: string | undefined;
+  if (
+    details.provider.name.toLowerCase() === 'everstake' &&
+    details.token.info.name.toLowerCase() === 'eth'
+  ) {
+    pendingActiveTooltip = intl.formatMessage({
+      id: ETranslations.earn_pending_activation_tooltip_eth,
+    });
+  } else if (details.pendingActivatePeriod) {
+    pendingActiveTooltip = intl.formatMessage(
+      {
+        id: ETranslations.earn_pending_activation_tooltip,
+      },
+      { number: details.pendingActivatePeriod },
+    );
+  }
+
+  const portfolio: IPortfolioInfoProps = {
+    pendingInactive: details.pendingInactive,
+    pendingInactivePeriod: details.unstakingPeriod
+      ? String(details.unstakingPeriod)
+      : undefined,
+    pendingActive: details.pendingActive,
+    pendingActiveTooltip,
+    claimable: details.claimable,
+    active: details.active,
+    minClaimableNum: details.provider.minClaimableAmount,
+    babylonOverflow:
+      Number(details?.active) > 0 && Number(details.overflow) > 0
+        ? details.overflow
+        : undefined,
+    token: details.token.info,
+  };
 
   return (
     <PortfolioInfo
-      {...props}
+      {...portfolio}
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
       onWithdraw={onWithdraw}
