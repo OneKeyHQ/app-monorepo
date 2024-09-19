@@ -28,7 +28,7 @@ axios.interceptors.request.use(async (config) => {
     const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
 
     if (!isOneKeyDomain) {
-      defaultLogger.app.network.call('axios', config.method, config.url);
+      defaultLogger.app.network.start('axios', config.method, config.url);
       return config;
     }
   } catch (e) {
@@ -40,7 +40,7 @@ axios.interceptors.request.use(async (config) => {
     config.headers[key] = val;
   });
 
-  defaultLogger.app.network.call(
+  defaultLogger.app.network.start(
     'axios',
     config.method,
     config.url,
@@ -55,7 +55,17 @@ axios.interceptors.response.use(
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
-      if (!isOneKeyDomain) return response;
+      defaultLogger.app.network.end({
+        requestType: 'axios',
+        method: config.method as string,
+        path: config.url as string,
+        statusCode: response.status,
+        requestId: config.headers[HEADER_REQUEST_ID_KEY],
+        responseCode: response.data.code,
+      });
+      if (!isOneKeyDomain) {
+        return response;
+      }
     } catch (e) {
       return response;
     }
@@ -76,13 +86,32 @@ axios.interceptors.response.use(
         requestId: `RequestId: ${config.headers[requestIdKey] as string}`,
       });
     }
+    defaultLogger.app.network.end({
+      requestType: 'axios',
+      method: config.method as string,
+      path: config.url as string,
+      statusCode: response.status,
+      requestId: config.headers[HEADER_REQUEST_ID_KEY],
+      responseCode: data.code,
+      responseErrorMessage: data.code !== 0 ? data.message : '',
+    });
     return response;
   },
   async (error) => {
     const { response } = error;
     if (response?.status && response?.config) {
+      const config = response.config;
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({
-        config: response.config,
+        config,
+      });
+      defaultLogger.app.network.error({
+        requestType: 'axios',
+        method: config.method as string,
+        path: config.url as string,
+        statusCode: response?.status,
+        requestId: config.headers[HEADER_REQUEST_ID_KEY],
+        responseCode: response?.data?.code,
+        errorMessage: response?.data?.message,
       });
       if (isOneKeyDomain && Number(response.status) === 403) {
         const title = appLocale.intl.formatMessage({
