@@ -139,7 +139,7 @@ export function HomePageView({
         disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
-        initialScrollIndex={2}
+        initialScrollIndex={0}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}

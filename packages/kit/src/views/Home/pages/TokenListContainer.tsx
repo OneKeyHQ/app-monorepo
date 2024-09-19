@@ -926,15 +926,16 @@ function TokenListContainer(props: ITabPageProps) {
         networkId,
         accountId,
       });
+      updateTokenListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+      updateAccountOverviewState({
+        isRefreshing: true,
+        initialized: false,
+      });
+
       if (networkId === networkIdsMap.onekeyall) {
-        updateAccountOverviewState({
-          isRefreshing: true,
-          initialized: false,
-        });
-        updateTokenListState({
-          initialized: false,
-          isRefreshing: true,
-        });
         return;
       }
 
@@ -959,14 +960,6 @@ function TokenListContainer(props: ITabPageProps) {
       ) {
         if (networkId !== networkIdsMap.onekeyall) {
           handleClearAllNetworkData();
-          updateTokenListState({
-            initialized: false,
-            isRefreshing: true,
-          });
-          updateAccountOverviewState({
-            isRefreshing: true,
-            initialized: false,
-          });
         }
       } else {
         updateAccountWorth({
