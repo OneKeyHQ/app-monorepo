@@ -182,8 +182,9 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         } else {
           const { getHomeScreenHex } = await CoreSDKLoader();
           const deviceType = device.deviceType;
+          const internalHex = getHomeScreenHex(deviceType, imgName);
           // eslint-disable-next-line no-param-reassign
-          imgHex = imgHex || getHomeScreenHex(deviceType, imgName);
+          imgHex = imgHex || internalHex;
           if (!imgHex) {
             // empty string will clear the home screen(classic,mini)
             // throw new Error('Invalid home screen hex');

@@ -2,6 +2,12 @@
 /* eslint-disable react/no-unstable-nested-components */
 
 import { Button, Dialog, SizableText, Stack } from '@onekeyhq/components';
+import type { IHardwareUiPayload } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EHardwareUiStateAction,
+  hardwareUiStateAtom,
+  hardwareUiStateCompletedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ConfirmOnDeviceToast,
   confirmByPin,
@@ -11,18 +17,14 @@ import {
   confirmPhraseOnDevice,
   confirmPinOnDevice,
 } from '@onekeyhq/kit/src/components/Hardware';
-import {
-  EHardwareUiStateAction,
-  hardwareUiStateAtom,
-  hardwareUiStateCompletedAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IHardwareUiPayload } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
+
+// https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg
 
 const HardwareActionTest = () => {
   const generateAction = async (
@@ -272,6 +274,17 @@ const HardwareGallery = () => (
               }
             >
               Test Hardware Action Dialog & Toast from Dialog
+            </Button>
+            <Button
+              onPress={async () => {
+                const hex = await deviceHomeScreenUtils.imagePathToHex(
+                  'https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg',
+                  'classic',
+                );
+                console.log(hex);
+              }}
+            >
+              Test HomeScreen imagePathToHex
             </Button>
           </Stack>
         ),

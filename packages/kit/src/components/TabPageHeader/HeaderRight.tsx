@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -86,6 +86,7 @@ export function HeaderRight({
     };
     const layoutExtView = (
       <ActionList
+        key="layoutExtView"
         title={intl.formatMessage({
           id: ETranslations.global_layout,
         })}
@@ -144,7 +145,7 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    let notificationsButton: React.ReactNode = (
+    let notificationsButton: ReactNode | null = (
       <Stack key="notifications">
         <HeaderIconButton
           title={intl.formatMessage({

@@ -789,11 +789,34 @@ class ServiceHardware extends ServiceBase {
       await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
     let names = getHomeScreenDefaultList(device.featuresInfo || ({} as any));
-    if (['classic', 'mini', 'classic1s'].includes(device.deviceType)) {
+    const isT1Model = ['classic', 'mini', 'classic1s'].includes(
+      device.deviceType,
+    );
+    if (isT1Model) {
       // genesis.png is trezor brand image
       names = names.filter((name) => name !== 'genesis');
+      names = [
+        'blank',
+        'original',
+        'bitcoin_shade',
+        'bitcoin_full',
+        'ethereum',
+        'bitcoin_b',
+        'doge',
+        'coffee',
+        'carlos',
+        'einstein',
+        'anonymous',
+        'piggy',
+        'nyancat',
+        'dogs',
+        'pacman',
+        'tetris',
+        'tothemoon',
+        'xrc',
+      ];
     }
-    const size = getHomeScreenSize({
+    let size = getHomeScreenSize({
       deviceType: device.deviceType,
       homeScreenType,
       thumbnail: false,
@@ -803,6 +826,12 @@ class ServiceHardware extends ServiceBase {
       homeScreenType,
       thumbnail: true,
     });
+    if (!size && isT1Model) {
+      size = {
+        width: 128,
+        height: 64,
+      };
+    }
     return { names, size, thumbnailSize };
   }
 
