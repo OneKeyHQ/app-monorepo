@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import {
@@ -32,7 +33,6 @@ import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
-import BigNumber from 'bignumber.js';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {

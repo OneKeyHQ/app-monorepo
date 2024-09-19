@@ -1,6 +1,7 @@
 import { keyBy, merge } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
@@ -11,7 +12,6 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 export interface ILocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>

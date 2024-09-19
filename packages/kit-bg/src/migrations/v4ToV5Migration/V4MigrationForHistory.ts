@@ -3,6 +3,7 @@ import { isNil } from 'lodash';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
@@ -12,7 +13,6 @@ import migrationUtil from './v4MigrationUtils';
 
 import type { IV4DBAccount, IV4DBUtxoAccount } from './v4local/v4localDBTypes';
 import type { IV4EncodedTx, IV4EncodedTxBtc, IV4HistoryTx } from './v4types';
-import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 
 export class V4MigrationForHistory extends V4MigrationManagerBase {
   async getV4Account({ accountId }: { accountId: string }) {

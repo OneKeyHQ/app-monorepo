@@ -63,7 +63,7 @@ import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenLi
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer({ showWalletActions = false }: ITabPageProps) {
+function TokenListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 

@@ -27,11 +27,12 @@ import {
 } from '../engine/engineConsts';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { OneKeyInternalError } from '../errors';
+
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import { OneKeyInternalError } from '../errors';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*

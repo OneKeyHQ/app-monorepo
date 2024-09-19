@@ -2,12 +2,12 @@ import { assign, isEmpty, isNil, merge, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 
 export interface ILocalHistory {
   pendingTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
