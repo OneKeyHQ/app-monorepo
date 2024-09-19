@@ -94,6 +94,8 @@ const AssetProtocolIntroButton = ({
   const intl = useIntl();
   const onPress = useCallback(() => {
     Dialog.show({
+      icon: 'InfoCircleOutline',
+      title: intl.formatMessage({ id: ETranslations.earn_staking_methods }),
       renderContent: <AssetProtocolContent providerTypes={providerTypes} />,
       showConfirmButton: false,
       onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
