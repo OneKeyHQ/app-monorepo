@@ -10,7 +10,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -132,7 +131,6 @@ export function HomePageView({
 
   const onRefresh = useCallback(() => {
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-    defaultLogger.account.wallet.walletManualRefresh();
   }, []);
 
   const renderTabs = useCallback(
@@ -141,7 +139,7 @@ export function HomePageView({
         disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
-        initialScrollIndex={1}
+        initialScrollIndex={0}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}

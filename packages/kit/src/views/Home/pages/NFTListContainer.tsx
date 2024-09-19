@@ -172,17 +172,24 @@ function NFTListContainer(props: ITabPageProps) {
           networkId,
         },
       );
-      setNftList((prev) => [...prev, ...localNFTs]);
-      if (!isEmpty(localNFTs)) {
-        setNftListState({
-          initialized: true,
-          isRefreshing: false,
-        });
+      if (isEmpty(localNFTs)) {
+        return null;
       }
       return localNFTs;
     },
     [],
   );
+
+  const handleAllNetworkCacheData = useCallback((data: IAccountNFT[][]) => {
+    const allNFTs = data.flat();
+    if (!isEmpty(allNFTs)) {
+      setNftList(allNFTs);
+      setNftListState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+  }, []);
   const {
     run: runAllNetworkRequests,
     result: allNetworksResult,
@@ -193,6 +200,7 @@ function NFTListContainer(props: ITabPageProps) {
     wallet,
     allNetworkRequests: handleAllNetworkRequests,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheData: handleAllNetworkCacheData,
     clearAllNetworkData: handleClearAllNetworkData,
     isNFTRequests: true,
     onStarted: handleAllNetworkRequestsStarted,

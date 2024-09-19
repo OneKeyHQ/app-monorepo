@@ -63,6 +63,7 @@ function useAllNetworkRequests<T>(params: {
     accountId: string;
     networkId: string;
   }) => Promise<any>;
+  allNetworkCacheData?: (data: any) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
@@ -92,6 +93,7 @@ function useAllNetworkRequests<T>(params: {
     wallet,
     allNetworkRequests,
     allNetworkCacheRequests,
+    allNetworkCacheData,
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
@@ -149,32 +151,34 @@ function useAllNetworkRequests<T>(params: {
 
       setIsEmptyAccount(false);
 
+      onStarted?.({
+        accountId: account.id,
+        networkId: network.id,
+      });
+
       if (!allNetworkDataInit.current) {
         try {
-          const cachedData = await Promise.all(
-            Array.from(accountsInfo).map((networkDataString) => {
-              const { accountId, networkId } = networkDataString;
-              return allNetworkCacheRequests?.({
-                accountId,
-                networkId,
-              });
-            }),
-          );
+          const cachedData = (
+            await Promise.all(
+              Array.from(accountsInfo).map((networkDataString) => {
+                const { accountId, networkId } = networkDataString;
+                return allNetworkCacheRequests?.({
+                  accountId,
+                  networkId,
+                });
+              }),
+            )
+          ).filter(Boolean);
 
           if (cachedData && !isEmpty(cachedData)) {
             allNetworkDataInit.current = true;
+            allNetworkCacheData?.(cachedData);
           }
         } catch (e) {
           console.error(e);
           // pass
         }
       }
-
-      onStarted?.({
-        accountId: account.id,
-        networkId: network.id,
-        allNetworkDataInit: allNetworkDataInit.current,
-      });
 
       currentRequestsUUID.current = requestsUUID;
       console.log(
@@ -300,6 +304,7 @@ function useAllNetworkRequests<T>(params: {
       onFinished,
       clearAllNetworkData,
       allNetworkCacheRequests,
+      allNetworkCacheData,
       allNetworkRequests,
     ],
     {
