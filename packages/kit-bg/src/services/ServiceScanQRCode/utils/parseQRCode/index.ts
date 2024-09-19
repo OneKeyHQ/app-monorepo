@@ -1,3 +1,5 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { PARSE_HANDLERS, PARSE_HANDLER_NAMES } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
@@ -44,5 +46,12 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
       urlResult ?? { type: EQRCodeHandlerType.UNKNOWN, data: value };
     result = { ...itemResult, raw: value };
   }
+  if (
+    !options?.qrWalletScene &&
+    result.type !== EQRCodeHandlerType.ANIMATION_CODE
+  ) {
+    defaultLogger.scanQrCode.parseQrCode.parsedQrCode(JSON.stringify(result));
+  }
+
   return result;
 };
