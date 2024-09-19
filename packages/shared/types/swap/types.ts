@@ -58,6 +58,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
+  isAllNetworks?: boolean;
 }
 
 export interface ISwapTokenBase {
