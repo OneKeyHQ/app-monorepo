@@ -97,11 +97,31 @@ import type {
   IDBWalletIdSingleton,
   IDBWalletNextIdKeys,
   IDBWalletNextIds,
+  IDBWalletType,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+const getOrderByWalletType = (walletType: IDBWalletType): number => {
+  switch (walletType) {
+    case WALLET_TYPE_HW:
+      return 1;
+    case WALLET_TYPE_QR:
+      return 2;
+    case WALLET_TYPE_HD:
+      return 3;
+    case WALLET_TYPE_IMPORTED:
+      return 4;
+    case WALLET_TYPE_EXTERNAL:
+      return 5;
+    case WALLET_TYPE_WATCHING:
+      return 6;
+    default:
+      return 0;
+  }
+};
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -2066,7 +2086,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ).filter(Boolean);
 
       if (!isEmpty(info)) {
-        const result = [];
+        const result: {
+          walletName: string;
+          accountName: string;
+          accountId: string;
+          order: number;
+        }[] = [];
         const wallets = map(info, 'wallets');
         const items = Object.entries(merge({}, wallets[0], wallets[1]));
         for (const item of items) {
@@ -2080,17 +2105,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               account = await this.getAccount({ accountId });
             }
             if (wallet && account) {
+              const order = getOrderByWalletType(wallet.type);
               result.push({
                 walletName: wallet.name,
                 accountName: account.name,
                 accountId: account.id,
+                order,
               });
             }
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error);
           }
         }
-        return result;
+        const resultSorted = [...result].sort((a, b) => a.order - b.order);
+        console.log('getAccountNameFromAddress', { resultSorted, result });
+        return resultSorted;
       }
       return [];
     } catch (error) {
