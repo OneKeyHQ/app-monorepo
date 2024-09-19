@@ -3,13 +3,13 @@ import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import { I18nManager, type StyleProp, type ViewStyle } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
 import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyle, Tokens } from '@tamagui/web/types/types';
-import { I18nManager, type StyleProp, type ViewStyle } from 'react-native';
 
 type IListViewRef<T> = FlashList<T>;
 
