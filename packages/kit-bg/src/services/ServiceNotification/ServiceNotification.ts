@@ -50,9 +50,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
-import type { IDBAccount } from '../../dbs/local/types';
 import type { Socket } from 'socket.io-client';
+import type { IDBAccount } from '../../dbs/local/types';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -314,8 +314,14 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async getPermission(): Promise<INotificationPermissionDetail> {
-    const result = await (await this.getNotificationProvider()).getPermission();
+    const result = await this.getPermissionWithoutLog();
     defaultLogger.notification.common.getPermission(result);
+    return result;
+  }
+
+  @backgroundMethod()
+  async getPermissionWithoutLog(): Promise<INotificationPermissionDetail> {
+    const result = await (await this.getNotificationProvider()).getPermission();
     return result;
   }
 
@@ -328,6 +334,7 @@ export default class ServiceNotification extends ServiceBase {
   @toastIfError()
   async enableNotificationPermissions() {
     let permission = await this.requestPermission();
+    await timerUtils.wait(600);
     if (permission.permission === ENotificationPermission.granted) {
       return permission;
     }

@@ -7,6 +7,13 @@ const NotificationList = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Notifications/pages/NotificationList'),
 );
 
+const NotificationIntroduction = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Notifications/pages/NotificationIntroduction'
+    ),
+);
+
 export const ModalNotificationsRouter: IModalFlowNavigatorConfig<
   EModalNotificationsRoutes,
   IModalNotificationsParamList
@@ -14,5 +21,10 @@ export const ModalNotificationsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalNotificationsRoutes.NotificationList,
     component: NotificationList,
+  },
+
+  {
+    name: EModalNotificationsRoutes.NotificationIntroduction,
+    component: NotificationIntroduction,
   },
 ];

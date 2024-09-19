@@ -977,6 +977,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.global_network,
+              })}
+              renderContent={network?.name || '--'}
+              compact
+            />
             {new BigNumber(txInfo?.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -1045,10 +1052,11 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
     renderFeeInfo,
+    network?.name,
+    network?.id,
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
-    network?.id,
   ]);
 
   return (

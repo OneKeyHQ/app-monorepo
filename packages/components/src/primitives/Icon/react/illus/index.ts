@@ -33,6 +33,7 @@ export { default as FetchAi } from './FetchAi';
 export { default as Filecoin } from './Filecoin';
 export { default as Gas } from './Gas';
 export { default as GnosisChain } from './GnosisChain';
+export { default as HandDrawRightDownArrow } from './HandDrawRightDownArrow';
 export { default as HardwareAboutDeviceBg } from './HardwareAboutDeviceBg';
 export { default as HuobiEcoChain } from './HuobiEcoChain';
 export { default as ImageBroken } from './ImageBroken';

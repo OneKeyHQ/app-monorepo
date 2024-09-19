@@ -70,6 +70,8 @@ const icons = {
   FilecoinIllus: () => import("./react/illus/Filecoin"),
   GasIllus: () => import("./react/illus/Gas"),
   GnosisChainIllus: () => import("./react/illus/GnosisChain"),
+  HandDrawRightDownArrowIllus: () =>
+    import("./react/illus/HandDrawRightDownArrow"),
   HardwareAboutDeviceBgIllus: () =>
     import("./react/illus/HardwareAboutDeviceBg"),
   HuobiEcoChainIllus: () => import("./react/illus/HuobiEcoChain"),
