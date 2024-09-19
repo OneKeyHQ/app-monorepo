@@ -154,6 +154,10 @@ const NotificationsListItem = () => {
     navigation.push(EModalSettingRoutes.SettingNotifications);
   }, [navigation]);
 
+  if (platformEnv.isWeb) {
+    return null;
+  }
+
   return (
     <ListItem
       icon="BellOutline"

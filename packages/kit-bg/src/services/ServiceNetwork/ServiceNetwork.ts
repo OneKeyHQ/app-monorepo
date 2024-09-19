@@ -591,7 +591,7 @@ class ServiceNetwork extends ServiceBase {
   async getSupportExportAccountKeyNetworks({
     exportType,
   }: {
-    exportType: 'privateKey' | 'publicKey';
+    exportType: 'privateKey' | 'publicKey' | 'mnemonic';
   }): Promise<
     {
       network: IServerNetwork;

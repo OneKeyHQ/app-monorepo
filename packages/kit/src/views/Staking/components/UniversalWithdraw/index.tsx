@@ -339,6 +339,7 @@ export const UniversalWithdraw = ({
                 title={intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
+                placement="bottom-start"
                 renderTrigger={
                   <IconButton
                     iconColor="$iconSubdued"
