@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "অ্যাপে সরাসরি বিজ্ঞপ্তি পাওয়ার পাশাপাশি, OneKey সিস্টেম পুশ বিজ্ঞপ্তিও সমর্থন করে।",
   "notifications.settings_helper_title": "পুশ বিজ্ঞপ্তি",
   "notifications.test_action_desc": "\"টেস্ট\" ক্লিক করুন প্রিভিউ দেখার জন্য। সাহায্যের জন্য, <tag>সাহায্য কেন্দ্রে</tag> যান।",
+  "notifications.test_message_desc": "আপনি রিয়েল-টাইম অ্যাকাউন্ট আপডেট, নিরাপত্তা সতর্কতা এবং আরও গুরুত্বপূর্ণ তথ্য পাবেন।",
+  "notifications.test_message_title": "পুশ নোটিফিকেশনগুলি প্রস্তুত!",
   "notifications.windows_notifications_permission_desc": "অ্যাপ এবং অন্যান্য প্রেরকদের কাছ থেকে বিজ্ঞপ্তিগুলি পান",
   "onboarding.activate_device": "আপনার ডিভাইস সক্রিয় করুন",
   "onboarding.activate_device_all_set": "সব প্রস্তুত!",
