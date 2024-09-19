@@ -194,7 +194,7 @@ export default function HardwareHomeScreenModal({
     let canUpload = false;
     if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
       dataList = hardwareHomeScreenData.classicMini;
-      canUpload = false;
+      canUpload = true;
     }
     if (['touch'].includes(deviceType)) {
       dataList = hardwareHomeScreenData.touch;
@@ -249,8 +249,11 @@ export default function HardwareHomeScreenModal({
     const originW = data?.width;
     const originH = data?.height;
 
+    const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+      device.deviceType,
+    );
+
     const imgBase64: string = data.data;
-    // imgBase64 = await imageUtils.convertToBlackAndWhite(imgBase64, data.mime);
 
     const img = await imageUtils.resizeImage({
       uri: imgBase64,
@@ -260,6 +263,7 @@ export default function HardwareHomeScreenModal({
 
       originW,
       originH,
+      isMonochrome,
     });
     const imgThumb = await imageUtils.resizeImage({
       uri: imgBase64,
@@ -270,6 +274,7 @@ export default function HardwareHomeScreenModal({
 
       originW,
       originH,
+      isMonochrome,
     });
 
     // setResizedImagePreview({
@@ -279,7 +284,7 @@ export default function HardwareHomeScreenModal({
 
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
     const uploadItem: IHardwareHomeScreenData = {
-      uri: imgBase64, // base64 data uri
+      uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
       hex: img?.hex,
       thumbnailHex: imgThumb?.hex,
       name,
@@ -288,7 +293,7 @@ export default function HardwareHomeScreenModal({
     setUploadItems([...uploadItems, uploadItem]);
     setSelectedItem(uploadItem);
     uploadedHomeScreenCache.saveCache(device?.id, uploadItem);
-  }, [result?.config, uploadItems, device?.id]);
+  }, [result?.config, device.deviceType, device?.id, uploadItems]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>

@@ -31,14 +31,88 @@ function getOriginX(
   return originX;
 }
 
+function isBase64Uri(uri: string): boolean {
+  return /^data:image\/\w+;base64,/.test(uri);
+}
+
+function prefixBase64Uri(base64: string, mime: string): string {
+  if (!base64) {
+    return base64;
+  }
+  if (isBase64Uri(base64)) {
+    return base64;
+  }
+  return `data:${mime || 'image/jpeg'};base64,${base64}`;
+}
+
+function stripBase64UriPrefix(base64Uri: string): string {
+  return base64Uri.replace(/^data:image\/\w+;base64,/, '');
+}
+
+function convertToBlackAndWhiteImageBase64(
+  colorImageBase64: string,
+  mime: string,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('ctx is null'));
+        return;
+      }
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      let whiteCount = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (avg > 128) {
+          whiteCount += 4;
+        }
+        const bw = avg > 128 ? 255 : 0;
+        // const bw = avg > 128 ? 0 : 255;
+        data[i] = bw;
+        data[i + 1] = bw;
+        data[i + 2] = bw;
+      }
+
+      // reverse color, not working
+      if (whiteCount > data.length / 2) {
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = 255 - data[i];
+          data[i + 1] = 255 - data[i + 1];
+          data[i + 2] = 255 - data[i + 2];
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      const bwImageBase64 = canvas.toDataURL(mime || 'image/jpeg');
+      resolve(bwImageBase64);
+    };
+
+    img.onerror = reject;
+    img.src = prefixBase64Uri(colorImageBase64, mime || 'image/jpeg');
+  });
+}
+
 async function resizeImage(params: {
   uri: string;
   width: number;
   height: number;
   originW: number;
   originH: number;
+  isMonochrome?: boolean;
 }) {
-  const { uri, width, height, originW, originH } = params;
+  const { uri, width, height, originW, originH, isMonochrome } = params;
   if (!uri) return;
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
@@ -67,50 +141,18 @@ async function resizeImage(params: {
     base64: true,
   });
 
+  if (isMonochrome && imageResult?.base64) {
+    let bwBase64 = await convertToBlackAndWhiteImageBase64(
+      imageResult.base64,
+      'image/png', // image/jpeg will cause more noise on the image
+    );
+    bwBase64 = stripBase64UriPrefix(bwBase64);
+    imageResult.base64 = bwBase64;
+  }
+
   const buffer = Buffer.from(imageResult.base64 ?? '', 'base64');
   const hex = bufferUtils.bytesToHex(buffer);
   return { ...imageResult, hex };
-}
-
-function convertToBlackAndWhite(
-  colorImageBase64: string,
-  mime: string,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('ctx is null'));
-        return;
-      }
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      ctx.drawImage(img, 0, 0);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-        const bw = avg > 128 ? 255 : 0;
-        // const bw = avg > 128 ? 0 : 255;
-        data[i] = bw;
-        data[i + 1] = bw;
-        data[i + 2] = bw;
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-
-      const bwImageBase64 = canvas.toDataURL(mime || 'image/jpeg');
-      resolve(bwImageBase64);
-    };
-
-    img.onerror = reject;
-    img.src = colorImageBase64;
-  });
 }
 
 async function getBase64FromImageUriNative(
@@ -127,7 +169,7 @@ async function getBase64FromImageUriNative(
     const base64 = await RNReadAsStringAsync(uri, {
       encoding: 'base64',
     });
-    return `data:image/jpeg;base64,${base64}`;
+    return prefixBase64Uri(base64, 'image/jpeg');
   } catch (error) {
     return undefined;
   }
@@ -161,7 +203,7 @@ async function getBase64FromImageUri(
     return undefined;
   }
 
-  if (/^data:image\/\w+;base64,/.test(uri)) {
+  if (isBase64Uri(uri)) {
     return uri;
   }
 
@@ -200,7 +242,8 @@ async function getBase64FromRequiredImageSource(
 
 export default {
   resizeImage,
-  convertToBlackAndWhite,
+  prefixBase64Uri,
+  convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,

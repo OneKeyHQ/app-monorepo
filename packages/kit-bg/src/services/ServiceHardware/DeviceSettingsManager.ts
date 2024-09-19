@@ -8,6 +8,7 @@ import {
   CoreSDKLoader,
   generateConnectSrc,
 } from '@onekeyhq/shared/src/hardware/instance';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
@@ -166,7 +167,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        if (isUserUpload) {
+        const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+          device.deviceType,
+        );
+        // pro touch upload image
+        if (isUserUpload && !isMonochrome) {
           const hardwareSDK = await this.getSDKInstance();
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
