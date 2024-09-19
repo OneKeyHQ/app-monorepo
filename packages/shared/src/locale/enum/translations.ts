@@ -1284,6 +1284,8 @@
   notifications_settings_helper_desc = 'notifications.settings_helper_desc',
   notifications_settings_helper_title = 'notifications.settings_helper_title',
   notifications_test_action_desc = 'notifications.test_action_desc',
+  notifications_test_message_desc = 'notifications.test_message_desc',
+  notifications_test_message_title = 'notifications.test_message_title',
   notifications_windows_notifications_permission_desc = 'notifications.windows_notifications_permission_desc',
   onboarding_activate_device = 'onboarding.activate_device',
   onboarding_activate_device_all_set = 'onboarding.activate_device_all_set',
