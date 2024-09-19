@@ -27,6 +27,8 @@ import {
 } from '../engine/engineConsts';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { OneKeyInternalError } from '../errors';
+
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
@@ -378,6 +380,22 @@ function buildLocalHistoryId(params: {
   const { networkId, txid, accountAddress, xpub } = params;
   const historyId = `${networkId}_${txid}_${xpub || accountAddress}`;
   return historyId;
+}
+
+export function buildAccountLocalAssetsKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({
@@ -749,6 +767,7 @@ export default {
   findIndexFromTemplate,
   removePathLastSegment,
   buildHiddenWalletName,
+  buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
 };
