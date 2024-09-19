@@ -1,4 +1,5 @@
-import { ReactNode, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
