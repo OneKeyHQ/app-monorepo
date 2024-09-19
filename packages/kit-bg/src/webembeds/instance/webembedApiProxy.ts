@@ -9,6 +9,7 @@ import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 import type { IWebembedApi, IWebembedApiKeys } from './IWebembedApi';
 import type { IBackgroundApiWebembedCallMessage } from '../../apis/IBackgroundApi';
 import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
+import type WebEmbedApiHomeScreen from '../WebEmbedApiHomeScreen';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
 
@@ -69,6 +70,9 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   secret: WebEmbedApiSecret =
     this._createProxyModule<IWebembedApiKeys>('secret');
+
+  homeScreen: WebEmbedApiHomeScreen =
+    this._createProxyModule<IWebembedApiKeys>('homeScreen');
 }
 
 const webembedApiProxy = new WebembedApiProxy();

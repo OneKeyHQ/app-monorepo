@@ -381,7 +381,11 @@ export default function HardwareHomeScreenModal({
                 )) ||
                 selectedItem?.uri ||
                 '';
-              console.log('imgUri >>>>>>>>>>>>>>>>>. ', imgUri, selectedItem);
+              console.log(
+                'imgUri >>>>>>>>>>>>>>>>>++++++++>>> ',
+                imgUri,
+                selectedItem,
+              );
               customHex = await deviceHomeScreenUtils.imagePathToHex(
                 imgUri,
                 device.deviceType,

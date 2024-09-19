@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import platformEnv from '../platformEnv';
+
 import imageUtils from './imageUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -170,15 +172,22 @@ function bitmap(imageData: ImageData, deviceModelInternal: IDeviceType) {
 
 async function imagePathToHex(
   base64OrUri: string,
-  deviceModelInternal: IDeviceType,
+  deviceType: IDeviceType,
 ): Promise<string> {
   const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);
   if (!base64) {
     throw new Error('imagePathToHex ERROR: base64 is null');
   }
 
+  if (platformEnv.isNative) {
+    return global.$webembedApiProxy.homeScreen.imagePathToHex(
+      base64,
+      deviceType,
+    );
+  }
+
   // image can be loaded to device without modifications -> it is in original quality
-  if (!HAS_MONOCHROME_SCREEN[deviceModelInternal]) {
+  if (!HAS_MONOCHROME_SCREEN[deviceType]) {
     // convert base64 to blob
     const buffer = Buffer.from(base64, 'base64');
     return buffer.toString('hex');
@@ -190,7 +199,7 @@ async function imagePathToHex(
   //   const blob = await response.blob();
   //   const blobUrl = URL.createObjectURL(blob);
   const element = await dataUrlToImage(base64);
-  const { canvas, ctx } = imageToCanvas(element, deviceModelInternal);
+  const { canvas, ctx } = imageToCanvas(element, deviceType);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   // **** T2, T3 model
@@ -204,7 +213,7 @@ async function imagePathToHex(
 
   // **** T1 model
   // DeviceModelInternal.T1B1
-  return bitmap(imageData, deviceModelInternal);
+  return bitmap(imageData, deviceType);
 }
 
 export default {
