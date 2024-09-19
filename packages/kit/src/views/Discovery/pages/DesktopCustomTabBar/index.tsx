@@ -269,9 +269,9 @@ function DesktopCustomTabBar() {
             : fromSectionData?.[fromItemIndex + 1]?.timestamp;
         const isPinnedDiff = fromItem.isPinned ? 1 : -1;
         if (!beforeTimestamp && afterTimestamp) {
-          fromItem.timestamp = afterTimestamp + isPinnedDiff * -1;
+          fromItem.timestamp = afterTimestamp + isPinnedDiff * -2;
         } else if (!afterTimestamp && beforeTimestamp) {
-          fromItem.timestamp = beforeTimestamp + isPinnedDiff * 1;
+          fromItem.timestamp = beforeTimestamp + isPinnedDiff * 2;
         } else if (beforeTimestamp && afterTimestamp) {
           fromItem.timestamp = Math.round(
             (beforeTimestamp + afterTimestamp) / 2,
