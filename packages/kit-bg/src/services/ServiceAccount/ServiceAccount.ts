@@ -158,10 +158,10 @@ class ServiceAccount extends ServiceBase {
       }
       throw new InvalidMnemonic();
     }
-    return Promise.resolve({
+    return {
       mnemonic: realMnemonicFixed,
       mnemonicType: EMnemonicType.BIP39,
-    });
+    };
   }
 
   @backgroundMethod()
