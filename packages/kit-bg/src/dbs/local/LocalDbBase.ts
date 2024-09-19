@@ -321,15 +321,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: ELocalDBStoreNames.Credential,
       updater: (credential) => {
         if (credential.id.startsWith('imported')) {
-          const importedCredential: ICoreImportedCredential =
-            decryptImportedCredential({
-              credential: credential.credential,
+          // Ton mnemonic credential
+          if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+            const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
+              rs: credential.credential,
               password: oldPassword,
             });
-          credential.credential = encryptImportedCredential({
-            credential: importedCredential,
-            password: newPassword,
-          });
+            credential.credential = encryptRevealableSeed({
+              rs: revealableSeed,
+              password: newPassword,
+            });
+          } else {
+            const importedCredential: ICoreImportedCredential =
+              decryptImportedCredential({
+                credential: credential.credential,
+                password: oldPassword,
+              });
+            credential.credential = encryptImportedCredential({
+              credential: importedCredential,
+              password: newPassword,
+            });
+          }
         } else {
           const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
             rs: credential.credential,
