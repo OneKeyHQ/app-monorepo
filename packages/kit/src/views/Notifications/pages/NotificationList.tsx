@@ -164,7 +164,7 @@ function NotificationList() {
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
         headerRight={renderHeaderRight}
       />
-      <Page.Body>
+      <Page.Body pb="$5">
         {isLoading && !result?.length ? (
           <Stack gap="$1.5" px="$5">
             {Array.from({ length: 3 }).map((_, index) => (
