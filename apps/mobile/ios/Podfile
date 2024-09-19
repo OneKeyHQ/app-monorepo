@@ -126,6 +126,17 @@ target 'OneKeyWallet' do
     end
   end
 
+  # https://github.com/teslamotors/react-native-camera-kit/issues/578
+  pre_install do |installer|
+    installer.pod_targets.each do |pod|
+      if pod.name.eql?('ReactNativeCameraKit')
+        def pod.build_type
+          Pod::BuildType.static_library
+        end
+      end
+    end
+  end
+
   post_integrate do |installer|
     begin
       expo_patch_react_imports!(installer)

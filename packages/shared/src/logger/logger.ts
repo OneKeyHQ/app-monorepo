@@ -6,6 +6,7 @@ import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
+import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -47,6 +48,8 @@ export class DefaultLogger {
   fiatCrypto = new FiatCryptoScope();
 
   notification = new NotificationScope();
+
+  market = new MarketScope();
 }
 
 const defaultLogger = new DefaultLogger();

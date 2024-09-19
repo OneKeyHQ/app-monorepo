@@ -29,6 +29,7 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { capitalizeString } from '../../utils/utils';
 
 type IHistoryItemProps = {
   item: IStakeHistory;
@@ -43,7 +44,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
       src: token?.logoURI,
     }}
     title={item.title}
-    subtitle={provider}
+    subtitle={provider ? capitalizeString(provider) : undefined}
   >
     <YStack>
       {item.amount && Number(item.amount) > 0 ? (

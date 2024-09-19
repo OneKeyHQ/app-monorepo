@@ -9,6 +9,7 @@ interface ISectionPressItem {
   subtitle?: IListItemProps['subtitle'];
   onPress?: () => void;
   copyable?: boolean;
+  drillIn?: boolean;
 }
 
 export function SectionPressItem({

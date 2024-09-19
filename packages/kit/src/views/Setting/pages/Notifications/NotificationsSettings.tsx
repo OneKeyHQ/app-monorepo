@@ -47,16 +47,25 @@ export default function NotificationsSettings() {
     return backgroundApiProxy.serviceNotification.getPushClient();
   }, [devAppSettings.enabled]);
 
-  const reloadSettings = useCallback(async () => {
-    const result =
-      await backgroundApiProxy.serviceNotification.fetchNotificationSettings();
-    setSettings(result);
-    prevSettings.current = result;
-  }, []);
+  const reloadSettings = useCallback(
+    async (updated?: INotificationPushSettings) => {
+      const result =
+        updated ||
+        (await backgroundApiProxy.serviceNotification.fetchNotificationSettings());
+      setSettings(result);
+      prevSettings.current = result;
+    },
+    [],
+  );
 
+  const isUpdating = useRef(false);
   const updateSettingsToServer = useDebouncedCallback(
     async (partSettings: INotificationPushSettings) => {
-      let updated = false;
+      if (isUpdating.current) {
+        return;
+      }
+      isUpdating.current = true;
+      let updated: INotificationPushSettings | undefined;
       try {
         updated =
           await backgroundApiProxy.serviceNotification.updateNotificationSettings(
@@ -65,14 +74,14 @@ export default function NotificationsSettings() {
               ...partSettings,
             },
           );
+        await reloadSettings(updated);
       } catch (e) {
         if (prevSettings.current) {
           setSettings(prevSettings.current);
         }
         throw e;
-      }
-      if (updated) {
-        await reloadSettings();
+      } finally {
+        isUpdating.current = false;
       }
     },
     300,
@@ -84,11 +93,14 @@ export default function NotificationsSettings() {
 
   const updateSettings = useCallback(
     async (partSettings: INotificationPushSettings) => {
-      setSettings((v) => ({
-        ...v,
-        ...partSettings,
-      }));
-      void updateSettingsToServer(partSettings);
+      setSettings((v) => {
+        const newValue = {
+          ...v,
+          ...partSettings,
+        };
+        void updateSettingsToServer(newValue);
+        return newValue;
+      });
     },
     [updateSettingsToServer],
   );

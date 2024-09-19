@@ -553,6 +553,15 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateClientBasicAppInfo() {
+    await this.registerClient({
+      client: this.pushClient,
+      syncMethod: ENotificationPushSyncMethod.append,
+      syncAccounts: [],
+    });
+  }
+
+  @backgroundMethod()
   registerClientWithOverrideAllAccounts() {
     return this._registerClientWithOverrideAllAccountsDebounced();
   }
@@ -625,33 +634,41 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
-    const settings = await settingsPersistAtom.get();
-    defaultLogger.notification.common.registerClient(
-      params,
-      null,
-      settings.instanceId,
-    );
-    const client = await this.getClient(EServiceEndpointEnum.Notification);
-    const result = await client.post<
-      IApiClientResponse<{
-        badges: number;
-        created: number;
-        removed: number;
-      }>
-    >('/notification/v1/account/register', params);
-    defaultLogger.notification.common.registerClient(
-      params,
-      result.data,
-      settings.instanceId,
-    );
+    try {
+      const settings = await settingsPersistAtom.get();
+      defaultLogger.notification.common.registerClient(
+        params,
+        null,
+        settings.instanceId,
+      );
+      const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const result = await client.post<
+        IApiClientResponse<{
+          badges: number;
+          created: number;
+          removed: number;
+        }>
+      >('/notification/v1/account/register', params);
+      defaultLogger.notification.common.registerClient(
+        params,
+        result.data,
+        settings.instanceId,
+      );
 
-    const badge = result?.data?.data?.badges;
-    if (isNumber(badge)) {
-      void this.setBadge({ count: badge });
+      const badge = result?.data?.data?.badges;
+      if (isNumber(badge)) {
+        void this.setBadge({ count: badge });
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return result.data;
+    } catch (error) {
+      await notificationsAtom.set((v) => ({
+        ...v,
+        lastRegisterTime: undefined,
+      }));
+      throw error;
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return result.data;
   }
 
   @backgroundMethod()
@@ -681,7 +698,11 @@ export default class ServiceNotification extends ServiceBase {
       ackRes = res.data;
     }
 
-    defaultLogger.notification.common.ackNotificationMessage(params, ackRes);
+    defaultLogger.notification.common.ackNotificationMessage(
+      params,
+      ackRes,
+      isWebSocketAckSuccess ? 'webSocket' : 'http',
+    );
 
     if (
       params.msgId &&
@@ -786,14 +807,24 @@ export default class ServiceNotification extends ServiceBase {
     return result?.data?.data;
   }
 
+  updateNotificationSettingsAbortController: AbortController | undefined;
+
   @backgroundMethod()
   @toastIfError()
-  async updateNotificationSettings(
-    params: INotificationPushSettings,
-  ): Promise<boolean> {
+  async updateNotificationSettings(params: INotificationPushSettings) {
+    this.updateNotificationSettingsAbortController?.abort();
+
+    this.updateNotificationSettingsAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    await client.post('/notification/v1/config/update', params);
-    return true;
+    const result = await client.post<
+      IApiClientResponse<INotificationPushSettings>
+    >('/notification/v1/config/update', params, {
+      signal: this.updateNotificationSettingsAbortController.signal,
+    });
+    if (result?.data?.data?.pushEnabled) {
+      void this.registerClientWithOverrideAllAccounts();
+    }
+    return result?.data?.data;
   }
 
   @backgroundMethod()
@@ -816,5 +847,14 @@ export default class ServiceNotification extends ServiceBase {
       '/notification/v1/message/block-tx',
       params,
     );
+  }
+
+  @backgroundMethod()
+  async pingWebSocket(params: any) {
+    const notificationProvider = await this.getNotificationProvider();
+    if (notificationProvider?.webSocketProvider) {
+      return notificationProvider.webSocketProvider.ping(params);
+    }
+    throw new Error('WebSocket provider not found');
   }
 }
