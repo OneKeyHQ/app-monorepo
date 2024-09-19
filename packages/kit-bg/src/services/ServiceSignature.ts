@@ -341,22 +341,31 @@ class ServiceSignature extends ServiceBase {
     );
     if (transferAction && transferAction.assetTransfer) {
       const assetTransfer = transferAction.assetTransfer;
-      await this.addSignedTransaction({
-        networkId,
-        address,
-        title,
-        hash: signedTx.txid,
-        data: {
-          type: ETransactionType.SEND,
-          amount: assetTransfer.sends[0].amount,
-          token: {
-            name: assetTransfer.sends[0].name,
-            symbol: assetTransfer.sends[0].symbol,
-            address: assetTransfer.sends[0].tokenIdOnNetwork,
-            logoURI: assetTransfer.sends[0].icon,
+      let tokenSent = assetTransfer.sends[0];
+      if (assetTransfer.sends.length > 1) {
+        const nonNativeToken = assetTransfer.sends.find((o) => !o.isNative);
+        if (nonNativeToken) {
+          tokenSent = nonNativeToken;
+        }
+      }
+      if (tokenSent) {
+        await this.addSignedTransaction({
+          networkId,
+          address,
+          title,
+          hash: signedTx.txid,
+          data: {
+            type: ETransactionType.SEND,
+            amount: tokenSent.amount,
+            token: {
+              name: tokenSent.name,
+              symbol: tokenSent.symbol,
+              address: tokenSent.tokenIdOnNetwork,
+              logoURI: tokenSent.icon,
+            },
           },
-        },
-      });
+        });
+      }
       return;
     }
     await this.addSignedTransaction({
