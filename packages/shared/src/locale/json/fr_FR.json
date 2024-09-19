@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "En plus de recevoir des notifications directement dans l'application, OneKey prend également en charge les notifications push système.",
   "notifications.settings_helper_title": "Notifications push",
   "notifications.test_action_desc": "Cliquez sur \"Test\" pour un aperçu. Pour de l'aide, visitez le <tag>centre d'aide</tag>.",
+  "notifications.test_message_desc": "Vous recevrez des mises à jour de compte en temps réel, des alertes de sécurité et d'autres informations importantes.",
+  "notifications.test_message_title": "Les notifications push sont prêtes !",
   "notifications.windows_notifications_permission_desc": "Recevez des notifications d'applications et d'autres expéditeurs",
   "onboarding.activate_device": "Activez votre appareil",
   "onboarding.activate_device_all_set": "Tout est prêt !",

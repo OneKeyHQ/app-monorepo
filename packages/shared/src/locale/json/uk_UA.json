@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "Окрім отримання сповіщень безпосередньо в додатку, OneKey також підтримує системні push-сповіщення.",
   "notifications.settings_helper_title": "Пуш-сповіщення",
   "notifications.test_action_desc": "Натисніть \"Тест\", щоб переглянути. Для допомоги відвідайте <tag>центр допомоги</tag>.",
+  "notifications.test_message_desc": "Ви будете отримувати оновлення рахунку в режимі реального часу, сповіщення про безпеку та іншу важливу інформацію.",
+  "notifications.test_message_title": "Сповіщення готові!",
   "notifications.windows_notifications_permission_desc": "Отримуйте сповіщення від додатків та інших відправників",
   "onboarding.activate_device": "Активуйте свій пристрій",
   "onboarding.activate_device_all_set": "Все готово!",

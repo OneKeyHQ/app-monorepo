@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "앱 내에서 직접 알림을 받는 것 외에도, OneKey는 시스템 푸시 알림을 지원합니다.",
   "notifications.settings_helper_title": "푸시 알림",
   "notifications.test_action_desc": "\"테스트\"를 클릭하여 미리보기를 확인하세요. 도움이 필요하시면 <tag>도움말 센터</tag>를 방문하세요.",
+  "notifications.test_message_desc": "실시간 계정 업데이트, 보안 경고 및 기타 중요한 정보를 받게 됩니다.",
+  "notifications.test_message_title": "푸시 알림이 준비되었습니다!",
   "notifications.windows_notifications_permission_desc": "앱 및 기타 발신자로부터 알림 받기",
   "onboarding.activate_device": "장치를 활성화하세요",
   "onboarding.activate_device_all_set": "모두 준비되었습니다!",

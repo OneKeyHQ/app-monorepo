@@ -1279,6 +1279,8 @@
   "notifications.settings_helper_desc": "एप्लिकेशन में सीधे अधिसूचनाएं प्राप्त करने के अलावा, OneKey सिस्टम पुश अधिसूचनाओं का भी समर्थन करता है।",
   "notifications.settings_helper_title": "पुश नोटिफिकेशन",
   "notifications.test_action_desc": "\"टेस्ट\" पर क्लिक करें और पूर्वावलोकन करें। मदद के लिए, <tag>हेल्प सेंटर</tag> पर जाएं।",
+  "notifications.test_message_desc": "आपको वास्तविक समय में खाता अपडेट, सुरक्षा अलर्ट और अन्य महत्वपूर्ण जानकारी प्राप्त होगी।",
+  "notifications.test_message_title": "पुश नोटिफिकेशन तैयार हैं!",
   "notifications.windows_notifications_permission_desc": "ऐप्स और अन्य प्रेषकों से अधिसूचनाएं प्राप्त करें",
   "onboarding.activate_device": "अपने उपकरण को सक्रिय करें",
   "onboarding.activate_device_all_set": "सब तैयार!",

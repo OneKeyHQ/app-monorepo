@@ -13,6 +13,7 @@ import {
   Skeleton,
   Stack,
   XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   useNotificationsAtom,
@@ -122,6 +123,7 @@ function NotificationItem({
 
 function NotificationList() {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
@@ -159,12 +161,12 @@ function NotificationList() {
     },
   );
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
         headerRight={renderHeaderRight}
       />
-      <Page.Body pb="$5">
+      <Page.Body pb={bottom || '$5'}>
         {isLoading && !result?.length ? (
           <Stack gap="$1.5" px="$5">
             {Array.from({ length: 3 }).map((_, index) => (
