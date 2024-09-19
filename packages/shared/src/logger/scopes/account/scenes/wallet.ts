@@ -65,14 +65,6 @@ export class WalletScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public scanQRCode(scanFrom: 'camera' | 'photo') {
-    return {
-      scanFrom,
-    };
-  }
-
-  @LogToServer()
-  @LogToLocal()
   public enterManageToken() {}
 
   @LogToServer()
