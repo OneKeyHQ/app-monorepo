@@ -26,7 +26,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -119,6 +118,8 @@ export default class Vault extends VaultBase {
     // validate tx size
     let txn = toTransaction(encodedTx);
     const { mass, txSize } = txn.getMassAndSize();
+    encodedTx.feeInfo.limit = mass.toString();
+    encodedTx.mass = mass;
 
     if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
       encodedTx = await this.prepareAndBuildTx({
@@ -129,14 +130,16 @@ export default class Vault extends VaultBase {
       });
       txn = toTransaction(encodedTx);
       const massAndSize = txn.getMassAndSize();
-
       if (
         massAndSize.mass > MAX_ORPHAN_TX_MASS ||
         massAndSize.txSize > MAX_BLOCK_SIZE
       ) {
         throw new OneKeyInternalError('Transaction size is too large');
       }
+      encodedTx.feeInfo.limit = massAndSize.mass.toString();
+      encodedTx.mass = massAndSize.mass;
     }
+
     return encodedTx;
   }
 
@@ -314,7 +317,10 @@ export default class Vault extends VaultBase {
 
       return {
         ...params.unsignedTx,
-        encodedTx: newEncodedTx,
+        encodedTx: {
+          ...newEncodedTx,
+          mass,
+        },
       };
     }
     return {

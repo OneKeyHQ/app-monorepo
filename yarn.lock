@@ -6069,9 +6069,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/kaspa-core-lib@npm:^1.0.0-alpha.5":
-  version: 1.0.0-alpha.5
-  resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.0-alpha.5"
+"@onekeyfe/kaspa-core-lib@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.1"
   dependencies:
     "@noble/hashes": "npm:1.1.5"
     "@noble/secp256k1": "npm:1.7.1"
@@ -6082,7 +6082,7 @@ __metadata:
     inherits: "npm:=2.0.1"
     lodash: "npm:^4.17.20"
     url: "npm:*"
-  checksum: 10/2ab34f050c8a594d70119712ef2695359fed3e98adab31dac54ecd674d02959599b073681b224582d51ce24bd338885955329dd61a3ca81fa82dc7b288be48f9
+  checksum: 10/9d66f2220469503a17313c4e169d235f414dcb65093acf1ec47925d44ca3c1149ac681d5d5f72235c48788f971658abb9bd94a0861316c64806ed09d2964bcfc
   languageName: node
   linkType: hard
 
@@ -6631,7 +6631,7 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.0"
-    "@onekeyfe/kaspa-core-lib": "npm:^1.0.0-alpha.5"
+    "@onekeyfe/kaspa-core-lib": "npm:^1.0.1"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"
