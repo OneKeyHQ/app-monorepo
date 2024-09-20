@@ -11,8 +11,12 @@ function NotificationsTestButton({ ...rest }: IButtonProps) {
     <Button
       onPress={() => {
         void backgroundApiProxy.serviceNotification.showNotification({
-          title: 'test message',
-          description: 'This is a test message',
+          title: intl.formatMessage({
+            id: ETranslations.notifications_test_message_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.notifications_test_message_desc,
+          }),
         });
       }}
       {...rest}

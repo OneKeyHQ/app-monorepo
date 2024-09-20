@@ -210,8 +210,9 @@ function RecommendedItem({
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
-
         <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
           formatter="balance"
           formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
         >

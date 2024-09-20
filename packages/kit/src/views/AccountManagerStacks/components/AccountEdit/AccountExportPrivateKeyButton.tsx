@@ -28,7 +28,7 @@ export function AccountExportPrivateKeyButton({
   accountName?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
-  onClose?: () => void;
+  onClose: () => void;
   icon: IKeyOfIcons;
   label: string;
   exportType: IExportKeyType;
