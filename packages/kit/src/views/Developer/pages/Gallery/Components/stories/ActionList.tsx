@@ -282,18 +282,6 @@ const ActionListGallery = () => (
                         }, 1000);
                       }),
                   },
-                  {
-                    label: 'async action(success)',
-                    icon: 'PlaceholderOutline',
-                    shortcutKeys: [shortcutsKeys.CmdOrCtrl, 'j'],
-                    onPress: () =>
-                      new Promise((resolve) => {
-                        setTimeout(() => {
-                          alert('success');
-                          resolve(true);
-                        }, 1000);
-                      }),
-                  },
                 ],
               },
             ]}
