@@ -30,13 +30,13 @@ import {
   useBackHandler,
   useMedia,
 } from '@onekeyhq/components';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useDeferredPromise } from '../../hooks/useDeferredPromise';
-import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View as NativeView } from 'react-native';
@@ -75,7 +75,6 @@ function SpotlightContent({
 }) {
   const intl = useIntl();
 
-  const IsFocused = useRouteIsFocused();
   const { gtMd } = useMedia();
   const [props, setProps] = useState(initProps);
   const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
@@ -161,7 +160,7 @@ function SpotlightContent({
   const handleBackPress = useCallback(() => true, []);
   useBackHandler(handleBackPress);
 
-  if (visible && isRendered && IsFocused)
+  if (visible && isRendered)
     return (
       <Stack
         animation="quick"
@@ -313,25 +312,26 @@ export function Spotlight(props: {
   children: ReactNode;
 }) {
   const {
-    isVisible = true,
+    isVisible,
     tourName,
     message,
     children,
     containerProps,
     delayMs = 0,
   } = props;
+  const [isLocked] = useAppIsLockedAtom();
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
-  const isPageFocused = useRouteIsFocused();
   const [isShow, setIsShow] = useState(false);
   useEffect(() => {
-    setTimeout(
+    const timerId = setTimeout(
       () => {
-        setIsShow(isVisible);
+        setIsShow(!!isVisible);
       },
       isVisible ? delayMs : 0,
     );
+    return () => clearTimeout(timerId);
   }, [delayMs, isVisible]);
-  const visible = isPageFocused && isFirstVisit && isShow;
+  const visible = isFirstVisit && isShow && !isLocked;
 
   return (
     <SpotlightView

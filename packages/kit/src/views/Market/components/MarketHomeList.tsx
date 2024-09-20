@@ -933,9 +933,9 @@ function BasicMarketHomeList({
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
           TableEmptyComponent={
-            platformEnv.isNativeAndroid ? (
+            platformEnv.isNativeAndroid ? null : (
               <ListEmptyComponent columns={columns} />
-            ) : null
+            )
           }
         />
       </YStack>

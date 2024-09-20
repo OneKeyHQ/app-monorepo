@@ -29,7 +29,7 @@ export interface IActionListItemProps {
   iconProps?: IIconProps;
   label: string;
   destructive?: boolean;
-  onPress?: () => void | Promise<boolean | void>;
+  onPress?: (close: () => void) => void | Promise<boolean | void>;
   disabled?: boolean;
   testID?: string;
 }
@@ -44,13 +44,13 @@ export function ActionListItem({
   onClose,
   testID,
 }: IActionListItemProps & {
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       event.stopPropagation();
-      const result = await onPress?.();
-      if (result || result === undefined) {
+      await onPress?.(onClose);
+      if (!onPress?.length) {
         onClose?.();
       }
     },

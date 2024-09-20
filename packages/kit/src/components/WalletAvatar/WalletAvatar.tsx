@@ -76,8 +76,8 @@ export function WalletAvatar({
       {!isNil(badge) ? (
         <Stack
           position="absolute"
-          h="$3.5"
-          px="$px"
+          h="$4"
+          px="$0.5"
           justifyContent="center"
           bottom={-2}
           right={-1}
