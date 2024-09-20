@@ -1,8 +1,10 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import { XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
@@ -24,6 +26,7 @@ const SwapNetworkToggleGroup = ({
   onMoreNetwork,
 }: ISwapNetworkToggleGroupProps) => {
   const { width } = useWindowDimensions();
+  const intl = useIntl();
   const isWiderScreen = width > 380;
   const filteredNetworks = useMemo(
     () => (isWiderScreen ? networks : networks.slice(0, 4)),
@@ -36,7 +39,9 @@ const SwapNetworkToggleGroup = ({
           key={network.networkId}
           networkImageUri={network.logoURI}
           tooltipContent={
-            network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'
+            network.isAllNetworks
+              ? intl.formatMessage({ id: ETranslations.global_all_networks })
+              : network.name
           }
           isSelected={network?.networkId === selectedNetwork?.networkId}
           onPress={() => {
