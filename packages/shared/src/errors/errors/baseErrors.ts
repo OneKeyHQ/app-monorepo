@@ -57,6 +57,9 @@ export class OneKeyError<
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
     let requestId: string | undefined;
+    let className: EOneKeyErrorClassNames | undefined;
+    let name: string | undefined;
+
     if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
         message: msg,
@@ -67,6 +70,8 @@ export class OneKeyError<
         autoToast,
         requestId,
         payload: hardwareErrorPayload,
+        className,
+        name,
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
@@ -93,6 +98,12 @@ export class OneKeyError<
     }
     this.autoToast = autoToast;
     this.requestId = requestId;
+    if (className) {
+      this.className = className;
+    }
+    if (name) {
+      this.name = name;
+    }
   }
 
   // for jest only: this is not stable, do not use it. may be different in compressed code

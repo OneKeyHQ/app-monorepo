@@ -22,6 +22,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
   AxiosAbortCancelError = 'AxiosAbortCancelError',
+  AxiosNetworkError = 'AxiosNetworkError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
