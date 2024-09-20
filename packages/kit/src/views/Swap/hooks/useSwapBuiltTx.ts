@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { EPageType, usePageType } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
@@ -39,7 +40,6 @@ import {
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
-import { EPageType, usePageType } from '@onekeyhq/components';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -475,6 +475,7 @@ export function useSwapBuildTx() {
     isFirstTimeSwap,
     setSettings,
     setSwapShouldRefreshQuote,
+    pageType,
   ]);
 
   return { buildTx, wrappedTx, approveTx };
