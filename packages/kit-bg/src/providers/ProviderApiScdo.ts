@@ -32,8 +32,9 @@ class ProviderApiScdo extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const accounts = await this.scdo_getAccounts({
-        origin,
+        origin: dAppOrigin,
         scope: this.providerName,
       });
       const result = {

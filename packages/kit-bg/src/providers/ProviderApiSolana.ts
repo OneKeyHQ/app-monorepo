@@ -50,11 +50,12 @@ class ProviderApiSolana extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
           accounts: await this._getConnectedAccountsPublicKey({
-            origin,
+            origin: dAppOrigin,
             scope: this.providerName,
           }),
         },

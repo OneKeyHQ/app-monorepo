@@ -87,9 +87,13 @@ class ProviderApiConflux extends ProviderApiBase {
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_accountsChanged',
-        params: await this.cfx_accounts({ origin, scope: this.providerName }),
+        params: await this.cfx_accounts({
+          origin: dAppOrigin,
+          scope: this.providerName,
+        }),
       };
       return result;
     };
@@ -98,12 +102,16 @@ class ProviderApiConflux extends ProviderApiBase {
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_chainChanged',
         params: {
-          chainId: await this.cfx_chainId({ origin, scope: this.providerName }),
+          chainId: await this.cfx_chainId({
+            origin: dAppOrigin,
+            scope: this.providerName,
+          }),
           networkId: await this.cfx_netVersion({
-            origin,
+            origin: dAppOrigin,
             scope: this.providerName,
           }),
         },

@@ -37,9 +37,10 @@ class ProviderApiSui extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_accountChanged',
-        params: await this.sui_accounts({ origin }),
+        params: await this.sui_accounts({ origin: dAppOrigin }),
       };
       return result;
     };

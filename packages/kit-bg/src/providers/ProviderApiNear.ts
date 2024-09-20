@@ -26,8 +26,9 @@ class ProviderApiNear extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const params = await this.near_accounts({
-        origin,
+        origin: dAppOrigin,
         scope: this.providerName,
       });
       const result = {
@@ -41,8 +42,9 @@ class ProviderApiNear extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const params = await this.near_network({
-        origin,
+        origin: dAppOrigin,
         scope: this.providerName,
       });
       const result = {

@@ -42,7 +42,11 @@ class ProviderApiAlph extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin, scope: this.providerName });
+      const dAppOrigin = origin || info.targetOrigin;
+      const params = await this.account({
+        origin: dAppOrigin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountChanged',
         params,

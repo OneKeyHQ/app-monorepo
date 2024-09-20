@@ -52,8 +52,9 @@ class ProviderApiBtc extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const params = await this.getAccounts({
-        origin,
+        origin: dAppOrigin,
         scope: this.providerName,
       });
       const result = {
@@ -69,8 +70,9 @@ class ProviderApiBtc extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const params = await this.getNetwork({
-        origin,
+        origin: dAppOrigin,
         scope: this.providerName,
       });
       const result = {

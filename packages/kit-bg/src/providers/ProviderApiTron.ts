@@ -46,9 +46,13 @@ class ProviderApiTron extends ProviderApiBase {
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_accountsChanged',
-        params: await this.tron_accounts({ origin, scope: this.providerName }),
+        params: await this.tron_accounts({
+          origin: dAppOrigin,
+          scope: this.providerName,
+        }),
       };
       return result;
     };
@@ -57,15 +61,16 @@ class ProviderApiTron extends ProviderApiBase {
 
   notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_nodesChanged',
         params: {
           nodes: await this.tron_nodes({
-            origin,
+            origin: dAppOrigin,
             scope: this.providerName,
           }),
           chainId: await this.tron_chainId({
-            origin,
+            origin: dAppOrigin,
             scope: this.providerName,
           }),
         },

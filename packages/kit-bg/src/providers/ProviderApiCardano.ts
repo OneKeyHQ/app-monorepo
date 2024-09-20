@@ -28,11 +28,12 @@ class ProviderApiCardano extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const dAppOrigin = origin || info.targetOrigin;
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
           accounts: await this.cardano_accounts({
-            origin,
+            origin: dAppOrigin,
             scope: this.providerName,
           }),
         },

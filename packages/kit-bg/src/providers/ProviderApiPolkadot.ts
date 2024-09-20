@@ -63,7 +63,11 @@ class ProviderApiPolkadot extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin, scope: 'polkadot' });
+      const dAppOrigin = origin || info.targetOrigin;
+      const params = await this.account({
+        origin: dAppOrigin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
@@ -75,7 +79,8 @@ class ProviderApiPolkadot extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
-      const account = await this.account({ origin });
+      const dAppOrigin = origin || info.targetOrigin;
+      const account = await this.account({ origin: dAppOrigin });
       const networkId = account?.networkId;
       const result = {
         // TODO do not emit events to EVM Dapps, injected provider check scope
