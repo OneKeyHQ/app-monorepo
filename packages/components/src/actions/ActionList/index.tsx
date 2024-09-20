@@ -9,7 +9,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Shortcut } from '../Shortcut';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import {
@@ -21,6 +20,7 @@ import {
   YStack,
 } from '../../primitives';
 import { Popover } from '../Popover';
+import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
