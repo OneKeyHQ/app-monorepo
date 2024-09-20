@@ -53,6 +53,12 @@ function convertToBlackAndWhiteImageBase64(
   colorImageBase64: string,
   mime: string,
 ): Promise<string> {
+  if (platformEnv.isNative) {
+    return global.$webembedApiProxy.homeScreen.convertToBlackAndWhiteImageBase64(
+      colorImageBase64,
+      mime,
+    );
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
