@@ -160,11 +160,11 @@ const SecureQRToastBase = ({
         </XStack>
       </Stack>
       <XStack gap="$2.5">
-        <Button variant="secondary" onPress={handleCancel} flex={1}>
+        <Button variant="secondary" onPressIn={handleCancel} flex={1}>
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
         {showConfirmButton ? (
-          <Button variant="primary" onPress={handleConfirm} flex={1}>
+          <Button variant="primary" onPressIn={handleConfirm} flex={1}>
             {onConfirmText ||
               intl.formatMessage({
                 id: ETranslations.global_next,
