@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { EPageType, usePageType } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
@@ -60,7 +61,7 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
-
+  const pageType = usePageType();
   const syncRecentTokenPairs = useCallback(
     async ({
       swapFromToken,
@@ -436,6 +437,7 @@ export function useSwapBuildTx() {
             feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(selectQuote?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
           });
           setSettings((prev) => ({
             ...prev,
@@ -473,6 +475,7 @@ export function useSwapBuildTx() {
     isFirstTimeSwap,
     setSettings,
     setSwapShouldRefreshQuote,
+    pageType,
   ]);
 
   return { buildTx, wrappedTx, approveTx };
