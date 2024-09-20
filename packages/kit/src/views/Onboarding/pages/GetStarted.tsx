@@ -134,9 +134,8 @@ export function GetStarted({
   };
 
   const handleConnectHardwareWallet = async () => {
-    alert(1);
-  //   navigation.push(EOnboardingPages.ConnectYourDevice);
-  //   defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
+    navigation.push(EOnboardingPages.ConnectYourDevice);
+    defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
   };
 
   const handleConnectWalletPress = async () => {
