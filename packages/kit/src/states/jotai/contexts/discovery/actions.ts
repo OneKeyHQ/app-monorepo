@@ -221,37 +221,48 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
   });
 
-  closeWebTab = contextAtomMethod((get, set, tabId: string) => {
-    delete webviewRefs[tabId];
-    const { tabs } = get(webTabsAtom());
-    const activeTabId = get(activeTabIdAtom());
-    const targetIndex = tabs.findIndex((t) => t.id === tabId);
-    if (targetIndex !== -1) {
-      const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
-      tabs.splice(targetIndex, 1);
+  closeWebTab = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: { tabId: string; entry: 'Menu' | 'ShortCut' | 'BlockView' },
+    ) => {
+      const { tabId, entry } = payload;
+      delete webviewRefs[tabId];
+      const { tabs } = get(webTabsAtom());
+      const activeTabId = get(activeTabIdAtom());
+      const targetIndex = tabs.findIndex((t) => t.id === tabId);
+      if (targetIndex !== -1) {
+        const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
+        tabs.splice(targetIndex, 1);
 
-      if (isClosingActiveTab) {
-        let newActiveTabIndex = targetIndex - 1;
-        // If the first tab is closed and there are other tabs
-        if (newActiveTabIndex < 0 && tabs.length > 0) {
-          newActiveTabIndex = 0;
-        }
+        if (isClosingActiveTab) {
+          let newActiveTabIndex = targetIndex - 1;
+          // If the first tab is closed and there are other tabs
+          if (newActiveTabIndex < 0 && tabs.length > 0) {
+            newActiveTabIndex = 0;
+          }
 
-        if (newActiveTabIndex >= 0) {
-          const newActiveTab = tabs[newActiveTabIndex];
-          newActiveTab.isActive = true;
-          this.setCurrentWebTab.call(set, newActiveTab.id);
+          if (newActiveTabIndex >= 0) {
+            const newActiveTab = tabs[newActiveTabIndex];
+            newActiveTab.isActive = true;
+            this.setCurrentWebTab.call(set, newActiveTab.id);
+          }
         }
       }
-    }
-    loggerForEmptyData([...tabs], 'closeWebTab');
-    this.buildWebTabs.call(set, { data: [...tabs] });
-  });
+      loggerForEmptyData([...tabs], 'closeWebTab');
+      this.buildWebTabs.call(set, { data: [...tabs] });
+      defaultLogger.discovery.browser.closeTab({
+        closeMethod: entry,
+      });
+    },
+  );
 
   closeAllWebTabs = contextAtomMethod((get, set) => {
     const { tabs } = get(webTabsAtom());
     const activeTabId = get(activeTabIdAtom());
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
+    const tabsToClose = tabs.filter((tab) => !tab.isPinned);
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);
@@ -263,16 +274,35 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
     loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
+
+    defaultLogger.discovery.browser.clearTabs({
+      clearTabsAmount: tabsToClose.length,
+    });
   });
 
   setPinnedTab = contextAtomMethod(
-    (_, set, payload: { id: string; pinned: boolean }) => {
+    (get, set, payload: { id: string; pinned: boolean }) => {
       this.setWebTabData.call(set, {
         id: payload.id,
         isPinned: payload.pinned,
         timestamp: Date.now(),
       });
       this.setTabs.call(set);
+
+      // track pinned tab
+      const currentTab = this.getWebTabById.call(set, payload.id);
+      const newTabs = get(webTabsAtom())?.tabs;
+      const pinnedTabsAmount = newTabs.filter((tab) => tab.isPinned).length;
+      const trackParams = {
+        dappName: currentTab.title ?? '',
+        dappDomain: currentTab.url ?? '',
+        pinnedTabsAmount,
+      };
+      if (payload.pinned) {
+        defaultLogger.discovery.browser.pinTab(trackParams);
+      } else {
+        defaultLogger.discovery.browser.unpinTab(trackParams);
+      }
     },
   );
 
@@ -328,7 +358,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-
       const bookmarks = await this.getBookmarkData.call(set);
 
       // Filter out any bookmarks that have the same URL as the new one
@@ -340,16 +369,29 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       this.buildBookmarkData.call(set, { data: updatedBookmarks });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
+
+      defaultLogger.discovery.browser.addBookmark({
+        dappName: payload.title,
+        dappDomain: payload.url,
+      });
     },
   );
 
   removeBrowserBookmark = contextAtomMethod(async (_, set, payload: string) => {
     const bookmarks = await this.getBookmarkData.call(set);
+    const removedBookmark = bookmarks.find(
+      (bookmark) => bookmark.url === payload,
+    );
     const updatedBookmarks = bookmarks.filter(
       (bookmark) => bookmark.url !== payload,
     );
     this.buildBookmarkData.call(set, { data: updatedBookmarks });
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
+
+    defaultLogger.discovery.browser.removeBookmark({
+      dappName: removedBookmark?.title || '',
+      dappDomain: payload,
+    });
   });
 
   modifyBrowserBookmark = contextAtomMethod(
@@ -514,7 +556,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         if (maybeDeepLink) {
           if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
             setTimeout(() => {
-              this.closeWebTab.call(set, tabId);
+              this.closeWebTab.call(set, { tabId, entry: 'Menu' });
             }, 1000);
           }
         }

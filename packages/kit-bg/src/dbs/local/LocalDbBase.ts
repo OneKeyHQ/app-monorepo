@@ -2408,6 +2408,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             credential: rs,
           },
         ],
+        skipIfExists: true,
       });
     });
   }
