@@ -36,6 +36,7 @@ export type IStakeProviderInfo = {
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
+  minUnstakeAmount?: number;
   minClaimableAmount?: string;
   isNative?: string;
   nextLaunchLeft?: string;
@@ -196,7 +197,6 @@ export type IStakeProtocolDetails = {
   earnHistoryEnable?: boolean;
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
-  minUnstakeAmount?: number;
   overflow?: string;
 };
 
