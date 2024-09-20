@@ -282,7 +282,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setPinnedTab = contextAtomMethod(
     (get, set, payload: { id: string; pinned: boolean }) => {
-      console.log('=====>>>>>SetPinnedTab: ', payload);
       this.setWebTabData.call(set, {
         id: payload.id,
         isPinned: payload.pinned,
