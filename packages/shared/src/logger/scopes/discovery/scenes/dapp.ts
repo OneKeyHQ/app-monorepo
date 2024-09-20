@@ -51,4 +51,18 @@ export class DappScene extends BaseScene {
   public dappRequest(params: { request: IJsBridgeMessagePayload }) {
     return params;
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public disconnect(params: {
+    dappDomain: string;
+    disconnectType: 'Injected' | 'WalletConnect';
+    disconnectFrom:
+      | 'Browser'
+      | 'SettingModal'
+      | 'ExtPanel'
+      | 'ExtFloatingTrigger';
+  }) {
+    return params;
+  }
 }
