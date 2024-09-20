@@ -9,7 +9,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Shortcut } from '../..';
+import { Shortcut } from '../Shortcut';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import {
