@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
@@ -26,6 +27,7 @@ import {
 import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import {
@@ -124,6 +126,22 @@ const ProtocolDetailsPage = () => {
     });
   }, [handleClaim, result, earnAccount, networkId, symbol, provider]);
 
+  const handleClaimOperation = useUniversalClaim({ accountId, networkId });
+
+  const onClaimReward = useCallback(async () => {
+    if (!result) return;
+    await handleClaimOperation({
+      symbol: result.token.info.symbol,
+      provider: result.provider.name,
+      stakingInfo: {
+        label: EEarnLabels.Claim,
+        protocol: result.provider.name,
+        send: { token: result.token.info, amount: result.rewards ?? '0' },
+        tags: [buildLocalTxStatusSyncId(result)],
+      },
+    });
+  }, [result, handleClaimOperation]);
+
   const onPortfolioDetails = useMemo(
     () =>
       networkUtils.isBTCNetwork(networkId) && earnAccount?.accountId
@@ -207,6 +225,7 @@ const ProtocolDetailsPage = () => {
             earnAccount={earnAccount}
             details={result}
             onClaim={onClaim}
+            onClaimReward={onClaimReward}
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
             onCreateAddress={onCreateAddress}

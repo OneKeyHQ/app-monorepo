@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -118,36 +116,33 @@ export const ProviderSection = ({
 }: {
   details?: IStakeProtocolDetails;
 }) => {
-  const props = useMemo(() => {
-    const providerProps: IProviderInfoProps = {};
-    if (!details) return null;
-    if (details.provider) {
-      providerProps.validator = {
-        name: details.provider.name,
-        link: details.provider.website,
-        isProtocol: details.provider.name.toLowerCase() !== 'everstake',
+  if (!details) return null;
+  const providerProps: IProviderInfoProps = {};
+  if (details.provider) {
+    providerProps.validator = {
+      name: details.provider.name,
+      link: details.provider.website,
+      isProtocol: details.provider.name.toLowerCase() !== 'everstake',
+    };
+    if (details.provider.minStakeAmount) {
+      providerProps.minOrMaxStaking = {
+        minValue: Number(details.provider.minStakeAmount),
+        maxValue: Number(details.provider.maxStakeAmount),
+        token: details.token.info.symbol,
       };
-      if (details.provider.minStakeAmount) {
-        providerProps.minOrMaxStaking = {
-          minValue: Number(details.provider.minStakeAmount),
-          maxValue: Number(details.provider.maxStakeAmount),
-          token: details.token.info.symbol,
-        };
-      }
-      if (details.provider.nextLaunchLeft) {
-        providerProps.untilNextLaunch = {
-          value: Number(details.provider.nextLaunchLeft),
-          token: details.token.info.symbol,
-        };
-      }
     }
-    if (details.network) {
-      providerProps.network = details.network;
+    if (details.provider.nextLaunchLeft) {
+      providerProps.untilNextLaunch = {
+        value: Number(details.provider.nextLaunchLeft),
+        token: details.token.info.symbol,
+      };
     }
-    return providerProps;
-  }, [details]);
-  if (!props) {
+  }
+  if (details.network) {
+    providerProps.network = details.network;
+  }
+  if (Object.keys(providerProps).length === 0) {
     return null;
   }
-  return <ProviderInfo {...props} />;
+  return <ProviderInfo {...providerProps} />;
 };

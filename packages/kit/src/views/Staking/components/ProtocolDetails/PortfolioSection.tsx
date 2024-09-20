@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -24,10 +24,11 @@ type IPortfolioItemProps = {
   tokenSymbol: string;
   amount: string;
   statusText: string;
-  onPress?: () => void;
+  onPress?: () => Promise<void> | void;
   buttonText?: string;
   tooltip?: string;
   disabled?: boolean;
+  useLoading?: boolean;
 };
 
 const PortfolioItem = ({
@@ -39,54 +40,71 @@ const PortfolioItem = ({
   buttonText,
   tooltip,
   disabled,
-}: IPortfolioItemProps) => (
-  <XStack alignItems="center" justifyContent="space-between">
-    <XStack alignItems="center" gap="$1.5">
-      <Token size="sm" tokenImageUri={tokenImageUri} />
-      <NumberSizeableText
-        size="$bodyLgMedium"
-        formatter="balance"
-        formatterOptions={{ tokenSymbol }}
-      >
-        {amount}
-      </NumberSizeableText>
-      <XStack gap="$1" ai="center">
-        <SizableText size="$bodyLg">{statusText}</SizableText>
+  useLoading,
+}: IPortfolioItemProps) => {
+  const [loading, setLoading] = useState(false);
+  const handlePress = useCallback(async () => {
+    try {
+      if (useLoading) {
+        setLoading(true);
+      }
+      await onPress?.();
+    } finally {
+      if (useLoading) {
+        setLoading(false);
+      }
+    }
+  }, [onPress, useLoading]);
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <XStack alignItems="center" gap="$1.5">
+        <Token size="sm" tokenImageUri={tokenImageUri} />
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          formatterOptions={{ tokenSymbol }}
+        >
+          {amount}
+        </NumberSizeableText>
+        <XStack gap="$1" ai="center">
+          <SizableText size="$bodyLg">{statusText}</SizableText>
+        </XStack>
+        {tooltip ? (
+          <Popover
+            placement="bottom"
+            title={statusText}
+            renderTrigger={
+              <IconButton
+                iconColor="$iconSubdued"
+                size="small"
+                icon="InfoCircleOutline"
+                variant="tertiary"
+              />
+            }
+            renderContent={
+              <Stack p="$5">
+                <SizableText>{tooltip}</SizableText>
+              </Stack>
+            }
+          />
+        ) : null}
       </XStack>
-      {tooltip ? (
-        <Popover
-          placement="bottom"
-          title={statusText}
-          renderTrigger={
-            <IconButton
-              iconColor="$iconSubdued"
-              size="small"
-              icon="InfoCircleOutline"
-              variant="tertiary"
-            />
-          }
-          renderContent={
-            <Stack p="$5">
-              <SizableText>{tooltip}</SizableText>
-            </Stack>
-          }
-        />
+      {buttonText && onPress ? (
+        <XStack>
+          <Button
+            size="small"
+            disabled={disabled}
+            variant="primary"
+            onPress={handlePress}
+            loading={loading}
+          >
+            {buttonText}
+          </Button>
+        </XStack>
       ) : null}
     </XStack>
-    {buttonText && onPress ? (
-      <XStack>
-        <Button
-          size="small"
-          disabled={disabled}
-          variant="primary"
-          onPress={onPress}
-        >
-          {buttonText}
-        </Button>
-      </XStack>
-    ) : null}
-  </XStack>
-);
+  );
+};
 
 type IPortfolioInfoProps = {
   token: IToken;
@@ -96,10 +114,12 @@ type IPortfolioInfoProps = {
   pendingActive?: string;
   pendingActiveTooltip?: string;
   claimable?: string;
+  rewards?: string;
   minClaimableNum?: string;
   babylonOverflow?: string;
 
   onClaim?: () => void;
+  onClaimReward?: () => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 };
@@ -112,10 +132,13 @@ function PortfolioInfo({
   pendingActive,
   pendingActiveTooltip,
   claimable,
+  rewards,
   minClaimableNum,
 
   babylonOverflow,
+
   onClaim,
+  onClaimReward,
   onWithdraw,
   onPortfolioDetails,
 }: IPortfolioInfoProps) {
@@ -128,9 +151,7 @@ function PortfolioInfo({
     Number(active) > 0
   ) {
     const isLessThanMinClaimable = Boolean(
-      minClaimableNum &&
-        claimable &&
-        Number(claimable) < Number(minClaimableNum),
+      minClaimableNum && rewards && Number(rewards) < Number(minClaimableNum),
     );
     return (
       <YStack gap="$6">
@@ -202,6 +223,21 @@ function PortfolioInfo({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+            />
+          ) : null}
+          {rewards && Number(rewards) > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={rewards}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_rewards,
+              })}
+              onPress={onClaimReward}
+              useLoading
+              buttonText={intl.formatMessage({
+                id: ETranslations.earn_claim,
+              })}
               tooltip={
                 isLessThanMinClaimable
                   ? intl.formatMessage(
@@ -247,62 +283,64 @@ function PortfolioInfo({
 export const PortfolioSection = ({
   details,
   onClaim,
+  onClaimReward,
   onWithdraw,
   onPortfolioDetails,
 }: {
   details?: IStakeProtocolDetails;
   onClaim?: () => void;
+  onClaimReward?: () => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 }) => {
   const intl = useIntl();
-  const props = useMemo<IPortfolioInfoProps | undefined>(() => {
-    if (!details) {
-      return undefined;
-    }
-    let pendingActiveTooltip: string | undefined;
-    if (
-      details.provider.name.toLowerCase() === 'everstake' &&
-      details.token.info.name.toLowerCase() === 'eth'
-    ) {
-      pendingActiveTooltip = intl.formatMessage({
-        id: ETranslations.earn_pending_activation_tooltip_eth,
-      });
-    } else if (details.pendingActivatePeriod) {
-      pendingActiveTooltip = intl.formatMessage(
-        {
-          id: ETranslations.earn_pending_activation_tooltip,
-        },
-        { number: details.pendingActivatePeriod },
-      );
-    }
-    const portfolio: IPortfolioInfoProps = {
-      pendingInactive: details.pendingInactive,
-      pendingInactivePeriod: details.unstakingPeriod
-        ? String(details.unstakingPeriod)
-        : undefined,
-      pendingActive: details.pendingActive,
-      pendingActiveTooltip,
-      claimable: details.claimable,
-      active: details.active,
-      minClaimableNum: details.provider.minClaimableAmount,
-      babylonOverflow:
-        Number(details?.active) > 0 && Number(details.overflow) > 0
-          ? details.overflow
-          : undefined,
-      token: details.token.info,
-    };
-    return portfolio;
-  }, [details, intl]);
 
-  if (!props) return null;
+  if (!details) {
+    return null;
+  }
+
+  let pendingActiveTooltip: string | undefined;
+  if (
+    details.provider.name.toLowerCase() === 'everstake' &&
+    details.token.info.name.toLowerCase() === 'eth'
+  ) {
+    pendingActiveTooltip = intl.formatMessage({
+      id: ETranslations.earn_pending_activation_tooltip_eth,
+    });
+  } else if (details.pendingActivatePeriod) {
+    pendingActiveTooltip = intl.formatMessage(
+      {
+        id: ETranslations.earn_pending_activation_tooltip,
+      },
+      { number: details.pendingActivatePeriod },
+    );
+  }
+
+  const portfolio: IPortfolioInfoProps = {
+    pendingInactive: details.pendingInactive,
+    pendingInactivePeriod: details.unstakingPeriod
+      ? String(details.unstakingPeriod)
+      : undefined,
+    pendingActive: details.pendingActive,
+    pendingActiveTooltip,
+    claimable: details.claimable,
+    rewards: details.rewards,
+    active: details.active,
+    minClaimableNum: details.provider.minClaimableAmount,
+    babylonOverflow:
+      Number(details?.active) > 0 && Number(details.overflow) > 0
+        ? details.overflow
+        : undefined,
+    token: details.token.info,
+  };
 
   return (
     <PortfolioInfo
-      {...props}
+      {...portfolio}
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
       onWithdraw={onWithdraw}
+      onClaimReward={onClaimReward}
     />
   );
 };
