@@ -70,7 +70,7 @@ const SecureQRToastBase = ({
           title={show ? 'Collapse' : 'Expand'}
           variant="tertiary"
           size="small"
-          onPress={toggleShowState}
+          onPressIn={toggleShowState}
           icon={show ? 'MinimizeOutline' : 'ExpandOutline'}
         />
       </XStack>
