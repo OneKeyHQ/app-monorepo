@@ -6,4 +6,12 @@ export class ComponentScene extends BaseScene {
   public renderPortalFailed(funcName: string, containerName: string) {
     return `${funcName} Can not find target PortalContainer named: ${containerName}`;
   }
+
+  @LogToLocal()
+  public logDialogShowKeyboardEvent(e: any) {
+    return JSON.stringify(e);
+  }
+
+  @LogToLocal()
+  public logDialogDismissKeyboardEvent() {}
 }
