@@ -102,6 +102,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
   };
 };
 
+const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = () => {
   const { bottom } = useSafeAreaInsets();
   const keyboardHeightValue = useSharedValue(0);
@@ -112,7 +113,7 @@ const useSafeKeyboardAnimationStyle = () => {
   useKeyboardEvent({
     keyboardWillShow: (e) => {
       const height = e.endCoordinates.height;
-      const keyboardHeight = height < 0 ? 330 : height;
+      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
       keyboardHeightValue.value = keyboardHeight - bottom;
     },
     keyboardWillHide: () => {
