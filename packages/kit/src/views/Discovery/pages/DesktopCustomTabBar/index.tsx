@@ -114,7 +114,7 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab(id);
+      void closeWebTab({ tabId: id, entry: 'Menu' });
     },
     [closeWebTab],
   );
@@ -136,6 +136,7 @@ function DesktopCustomTabBar() {
         await backgroundApiProxy.serviceDApp.disconnectWebsite({
           origin,
           storageType: 'injectedProvider',
+          entry: 'Browser',
         });
         setTimeout(() => run(), 200);
       }
@@ -148,16 +149,6 @@ function DesktopCustomTabBar() {
       setCurrentWebTab('');
     }
   });
-
-  useEffect(() => {
-    const listener = () => {
-      closeAllWebTabs();
-    };
-    appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
-    return () => {
-      appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
-    };
-  }, [closeAllWebTabs]);
 
   // For risk detection
   useEffect(() => {
