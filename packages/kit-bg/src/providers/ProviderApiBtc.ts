@@ -689,11 +689,15 @@ class ProviderApiBtc extends ProviderApiBase {
   public async getBTCTipHeight(request: IJsBridgeMessagePayload) {
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { networkId } = {} } = accountsInfo[0];
-    return this._getBlockHeightMemo(networkId);
+    return this._getBlockHeightMemo({
+      networkId,
+      origin: request.origin ?? '',
+    });
   }
 
   private _getBlockHeightMemo = memoizee(
-    async (networkId?: string) => {
+    async (params: { networkId?: string; origin: string }) => {
+      const { networkId, origin } = params;
       if (!networkId) return undefined;
       const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
         networkId,
@@ -703,6 +707,7 @@ class ProviderApiBtc extends ProviderApiBase {
           url: '/api/v2',
         },
         skipParseResponse: true,
+        origin,
       });
       // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

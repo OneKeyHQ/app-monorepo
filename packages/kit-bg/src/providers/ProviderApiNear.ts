@@ -66,6 +66,7 @@ class ProviderApiNear extends ProviderApiBase {
     const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
       networkId: networkId ?? '',
       request: rpcRequest,
+      origin: request.origin ?? '',
     });
 
     return result;

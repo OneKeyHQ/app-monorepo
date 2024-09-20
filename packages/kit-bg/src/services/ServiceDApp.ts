@@ -1055,10 +1055,12 @@ class ServiceDApp extends ServiceBase {
     networkId,
     request,
     skipParseResponse,
+    origin,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
     skipParseResponse?: boolean;
+    origin: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -1077,6 +1079,7 @@ class ServiceDApp extends ServiceBase {
           params: request.id ? request : { ...request, id: 0 },
         },
       ],
+      origin,
     });
 
     const data = results.data.data.data;
