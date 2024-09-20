@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Button, Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,

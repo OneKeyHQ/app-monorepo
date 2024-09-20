@@ -42,7 +42,7 @@ function TokenListHeader({
   const [searchKey] = useSearchKeyAtom();
 
   return (
-    <Stack testID="Wallet-Token-List-Header" bg="$bgApp">
+    <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
         searchProps={{
           placeholder: intl.formatMessage({
