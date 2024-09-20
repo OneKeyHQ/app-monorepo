@@ -861,7 +861,7 @@
   "global.import_private_key": "Import private key",
   "global.import_recovery_phrase": "Import recovery phrase",
   "global.import_ton": "Importing TON wallet",
-  "global.import_ton_desc": "This wallet uses the TON network for recovery phrases, supports only TON assets, and exists as a private key account, so sub-accounts can't be added.",
+  "global.import_ton_desc": "This wallet uses the TON network for backup recovery phrases, supports only TON assets, and exists as a private key account, so sub-accounts can't be added.",
   "global.import_wallet": "Import wallet",
   "global.info": "Info",
   "global.inputs": "Inputs",

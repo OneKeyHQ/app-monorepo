@@ -861,7 +861,7 @@
   "global.import_private_key": "导入私钥",
   "global.import_recovery_phrase": "导入助记词",
   "global.import_ton": "导入 TON 钱包",
-  "global.import_ton_desc": "此钱包使用 TON 网络进行助记词，仅支持 TON 资产，并作为私钥账户存在，因此无法添加子账户。",
+  "global.import_ton_desc": "此钱包使用 TON 网络来备份助记词，仅支持 TON 资产，并作为私钥账户存在，因此无法添加子账户。",
   "global.import_wallet": "导入钱包",
   "global.info": "信息",
   "global.inputs": "输入",

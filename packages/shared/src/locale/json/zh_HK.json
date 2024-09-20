@@ -861,7 +861,7 @@
   "global.import_private_key": "導入私鑰",
   "global.import_recovery_phrase": "導入助記詞",
   "global.import_ton": "導入 TON 錢包",
-  "global.import_ton_desc": "此錢包使用 TON 網絡進行助記詞，只支持 TON 資產，並以私鑰賬戶的形式存在，因此無法添加子賬戶。",
+  "global.import_ton_desc": "此錢包使用 TON 網絡來備份助記詞，只支持 TON 資產，並以私鑰賬戶的形式存在，因此無法添加子賬戶。",
   "global.import_wallet": "導入錢包",
   "global.info": "資訊",
   "global.inputs": "輸入",
