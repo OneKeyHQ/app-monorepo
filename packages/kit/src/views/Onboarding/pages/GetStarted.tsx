@@ -395,7 +395,7 @@ export const useToOnBoardingPage = () => {
             },
           });
         } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
+          navigation[isFullModal ? 'pushModal' : 'pushModal'](
             EModalRoutes.OnboardingModal,
             {
               screen: EOnboardingPages.GetStarted,
