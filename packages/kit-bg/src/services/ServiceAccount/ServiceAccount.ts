@@ -1,6 +1,5 @@
 import { isEmpty, isNil } from 'lodash';
 
-import { genAddressFromPublicKey } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
@@ -13,8 +12,6 @@ import {
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
   tonMnemonicFromEntropy,
-  tonMnemonicToKeyPair,
-  tonRevealEntropyToMnemonic,
   tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
