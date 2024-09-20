@@ -29,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -275,6 +276,7 @@ function DesktopCustomTabBar() {
       reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTabs([...pinnedTabs, ...unpinnedTabs]);
+      defaultLogger.discovery.browser.tabDragSorting();
     },
     [setTabs, setResult, sections],
   );
