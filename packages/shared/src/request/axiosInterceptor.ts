@@ -133,7 +133,7 @@ axios.interceptors.response.use(
       error &&
       error instanceof AxiosError &&
       error.message === 'Network Error' &&
-      error.code === 'ERR_NETWORK' &&
+      error.code === AxiosError.ERR_NETWORK &&
       error.name === 'AxiosError'
     ) {
       const title = appLocale.intl.formatMessage({
