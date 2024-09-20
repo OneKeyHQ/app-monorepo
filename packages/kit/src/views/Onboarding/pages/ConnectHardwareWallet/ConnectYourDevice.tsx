@@ -1158,7 +1158,11 @@ function ConnectByUSBOrBLE({
   );
 }
 
-export function ConnectYourDevicePage() {
+export function ConnectYourDevicePage({
+  toOneKeyHardwareWalletPage,
+}: {
+  toOneKeyHardwareWalletPage: () => void;
+}) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const route =
@@ -1256,7 +1260,9 @@ export function ConnectYourDevice() {
           sceneName: EAccountSelectorSceneName.home, // TODO read from router
         }}
       >
-        <ConnectYourDevicePage />
+        <ConnectYourDevicePage
+          toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
+        />
       </AccountSelectorProviderMirror>
     </Page>
   );
