@@ -692,6 +692,14 @@ export default class Vault extends VaultBase {
           swapInfo: unsignedTx.swapInfo,
         }),
       ];
+    } else if (unsignedTx.stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      actions = [
+        await this.buildInternalStakingAction({
+          stakingInfo: unsignedTx.stakingInfo,
+          accountAddress,
+        }),
+      ];
     } else {
       actions = await this._decodeNativeTxActions({
         nativeTx,
