@@ -23,16 +23,17 @@ function TronAttributes({
     const netFee = txDetails?.receipt?.netFee;
     const netFeeCost = txDetails?.receipt?.netFeeCost;
 
-    if (!isNil(netUsage)) {
-      return netUsage;
-    }
-
     if (
       !isNil(netFee) &&
       !isNil(netFeeCost) &&
+      new BigNumber(netFee).isGreaterThan(0) &&
       new BigNumber(netFeeCost).isGreaterThan(0)
     ) {
       return new BigNumber(netFee).div(netFeeCost).toFixed();
+    }
+
+    if (!isNil(netUsage)) {
+      return netUsage;
     }
 
     return '0';
