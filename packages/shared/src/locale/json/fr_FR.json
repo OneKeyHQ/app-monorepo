@@ -1166,7 +1166,7 @@
   "manage_token.custom_token_decimal": "Décimal",
   "manage_token.custom_token_symbol": "Symbole",
   "manage_token.custom_token_title": "Jeton personnalisé",
-  "manage_token.empty_msg": "Vous ne trouvez pas le jeton ? Essayez de cliquer sur le bouton ci-dessous pour ajouter",
+  "manage_token.empty_msg": "Impossible de trouver le jeton ?",
   "manage_token.native_token_cannot_removed": "Le jeton natif ne peut pas être supprimé",
   "manage_token.native_token_cant_remove": "Le jeton natif ne peut pas être supprimé",
   "manage_token.popular_token": "Token commun",

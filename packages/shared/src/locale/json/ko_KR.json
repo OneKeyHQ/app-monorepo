@@ -1166,7 +1166,7 @@
   "manage_token.custom_token_decimal": "십진수",
   "manage_token.custom_token_symbol": "심볼",
   "manage_token.custom_token_title": "사용자 정의 토큰",
-  "manage_token.empty_msg": "토큰을 찾을 수 없나요? 아래 버튼을 클릭하여 추가해 보세요",
+  "manage_token.empty_msg": "토큰을 찾을 수 없습니까?",
   "manage_token.native_token_cannot_removed": "네이티브 토큰을 제거할 수 없습니다.",
   "manage_token.native_token_cant_remove": "네이티브 토큰은 제거할 수 없습니다",
   "manage_token.popular_token": "일반 토큰",
