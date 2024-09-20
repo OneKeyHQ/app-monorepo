@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { forEach } from 'lodash';
 
-import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
@@ -127,6 +128,23 @@ axios.interceptors.response.use(
           requestId: description,
         });
       }
+    }
+    if (
+      error &&
+      error instanceof AxiosError &&
+      error.message === 'Network Error' &&
+      error.code === AxiosError.ERR_NETWORK &&
+      error.name === 'AxiosError'
+    ) {
+      const title = appLocale.intl.formatMessage({
+        id: ETranslations.global_network_error,
+      });
+      throw new OneKeyError({
+        name: error.name,
+        message: title,
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+        key: ETranslations.global_network_error,
+      });
     }
     throw error;
   },
