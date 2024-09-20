@@ -317,17 +317,13 @@ export function QRCode({
     return null;
   }
   return (
-    <Theme name={isAnimatedCode ? 'light' : undefined}>
+    <Theme name="light">
       <Stack
-        {...(isAnimatedCode
-          ? {
-              width: props.size + 10,
-              height: props.size + 10,
-              bg: '$bgApp',
-              jc: 'center',
-              ai: 'center',
-            }
-          : {})}
+        width={props.size + 10}
+        height={props.size + 10}
+        bg="$bgApp"
+        jc="center"
+        ai="center"
       >
         <BasicQRCode value={partValue} drawType={drawType} {...props} />
       </Stack>
