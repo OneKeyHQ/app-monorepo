@@ -40,6 +40,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -920,7 +921,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         mnemonic,
       );
       const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
-      const privateHex = bufferUtils.bytesToHex(keyPair.secretKey.slice(0, 32));
+      const secretKeyUint8Array = platformEnv.isNative
+        ? new Uint8Array(Object.values(keyPair.secretKey))
+        : keyPair.secretKey;
+      const privateHex = bufferUtils.bytesToHex(
+        secretKeyUint8Array.slice(0, 32),
+      );
       const input = await servicePassword.encodeSensitiveText({
         text: privateHex,
       });

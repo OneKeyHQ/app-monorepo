@@ -147,6 +147,10 @@ function AccountEditButtonView({
       basicHeight += 44;
     }
 
+    if (exportKeysVisible?.showExportMnemonic) {
+      basicHeight += 44;
+    }
+
     if (
       firstIndexedAccount?.id !== indexedAccount?.id ||
       firstAccount?.id !== account?.id

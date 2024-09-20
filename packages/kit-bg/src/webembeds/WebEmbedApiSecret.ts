@@ -10,6 +10,8 @@ import {
   generateRootFingerprintHexAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
+  tonMnemonicToKeyPairFn,
+  tonValidateMnemonicFn,
 } from '@onekeyhq/core/src/secret';
 
 class WebEmbedApiSecret {
@@ -45,6 +47,21 @@ class WebEmbedApiSecret {
     params: IGenerateRootFingerprintHexAsyncParams,
   ): Promise<string> {
     return generateRootFingerprintHexAsync(params);
+  }
+
+  async tonValidateMnemonic(
+    mnemonicArray: string[],
+    password?: string,
+    wordlist?: string[],
+  ): Promise<boolean> {
+    return tonValidateMnemonicFn(mnemonicArray, password, wordlist);
+  }
+
+  async tonMnemonicToKeyPair(
+    mnemonicArray: string[],
+    password?: string,
+  ): Promise<ReturnType<typeof tonMnemonicToKeyPairFn>> {
+    return tonMnemonicToKeyPairFn(mnemonicArray, password);
   }
 }
 
