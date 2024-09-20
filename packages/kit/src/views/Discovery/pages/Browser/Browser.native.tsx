@@ -82,13 +82,16 @@ function MobileBrowser() {
   }, []);
 
   const closeCurrentWebTab = useCallback(
-    async () => (activeTabId ? closeWebTab(activeTabId) : Promise.resolve()),
+    async () =>
+      activeTabId
+        ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
+        : Promise.resolve(),
     [activeTabId, closeWebTab],
   );
 
   const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
     if (activeTabId) {
-      closeWebTab(activeTabId);
+      closeWebTab({ tabId: activeTabId, entry: 'Menu' });
       setCurrentWebTab(null);
     }
     return Promise.resolve();

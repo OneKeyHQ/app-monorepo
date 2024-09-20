@@ -191,7 +191,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
       <BlockAccessView
         urlValidateState={urlValidateState}
         onCloseTab={() => {
-          closeWebTab(id);
+          closeWebTab({ tabId: id, entry: 'BlockView' });
           setCurrentWebTab(null);
           navigation.switchTab(ETabRoutes.Discovery);
         }}

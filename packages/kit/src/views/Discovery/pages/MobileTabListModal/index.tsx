@@ -181,7 +181,7 @@ function MobileTabListModal() {
   const handleCloseTab = useCallback(
     (id: string) => {
       triggerCloseTab.current = true;
-      void closeWebTab(id);
+      void closeWebTab({ tabId: id, entry: 'Menu' });
     },
     [closeWebTab],
   );

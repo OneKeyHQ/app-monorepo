@@ -71,7 +71,7 @@ export const useShortcuts = () => {
         }
         if (data === EBrowserShortcutEvents.CloseTab) {
           if (activeTabId) {
-            closeWebTab(activeTabId);
+            closeWebTab({ tabId: activeTabId, entry: 'ShortCut' });
           }
           return;
         }

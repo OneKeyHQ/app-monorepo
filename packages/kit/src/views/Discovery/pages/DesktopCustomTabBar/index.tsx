@@ -29,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -114,7 +115,7 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab(id);
+      void closeWebTab({ tabId: id, entry: 'Menu' });
     },
     [closeWebTab],
   );
@@ -136,6 +137,7 @@ function DesktopCustomTabBar() {
         await backgroundApiProxy.serviceDApp.disconnectWebsite({
           origin,
           storageType: 'injectedProvider',
+          entry: 'Browser',
         });
         setTimeout(() => run(), 200);
       }
@@ -148,16 +150,6 @@ function DesktopCustomTabBar() {
       setCurrentWebTab('');
     }
   });
-
-  useEffect(() => {
-    const listener = () => {
-      closeAllWebTabs();
-    };
-    appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
-    return () => {
-      appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
-    };
-  }, [closeAllWebTabs]);
 
   // For risk detection
   useEffect(() => {
@@ -284,6 +276,7 @@ function DesktopCustomTabBar() {
       reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTabs([...pinnedTabs, ...unpinnedTabs]);
+      defaultLogger.discovery.browser.tabDragSorting();
     },
     [setTabs, setResult, sections],
   );
