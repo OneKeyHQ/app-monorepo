@@ -39,6 +39,7 @@ import {
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
+import { EPageType, usePageType } from '@onekeyhq/components';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -60,7 +61,7 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
-
+  const pageType = usePageType();
   const syncRecentTokenPairs = useCallback(
     async ({
       swapFromToken,
@@ -436,6 +437,7 @@ export function useSwapBuildTx() {
             feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(selectQuote?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
           });
           setSettings((prev) => ({
             ...prev,
