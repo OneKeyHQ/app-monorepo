@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -12,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
@@ -35,6 +35,11 @@ function StakedValueInfo({
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
   const media = useMedia();
+  const [
+    {
+      currencyInfo: { symbol: currency },
+    },
+  ] = useSettingsPersistAtom();
   return (
     <YStack gap="$6">
       <YStack gap="$2">
@@ -47,7 +52,7 @@ function StakedValueInfo({
             size="$heading4xl"
             color={value === 0 ? '$textDisabled' : '$text'}
             formatter="value"
-            formatterOptions={{ currency: '$' }}
+            formatterOptions={{ currency }}
           >
             {value || 0}
           </NumberSizeableText>
@@ -112,19 +117,15 @@ export const StakedValueSection = ({
   stakeButtonProps?: ComponentProps<typeof Button>;
   withdrawButtonProps?: ComponentProps<typeof Button>;
 }) => {
-  const props = useMemo<IStakedValueInfoProps | null>(() => {
-    if (!details) {
-      return null;
-    }
-    const data: IStakedValueInfoProps = {
-      value: Number(details.stakedFiatValue),
-      stakedNumber: Number(details.staked),
-      availableNumber: Number(details.available),
-      tokenSymbol: details.token.info.symbol,
-    };
-    return data;
-  }, [details]);
-  if (!props) return null;
+  if (!details) {
+    return null;
+  }
+  const props: IStakedValueInfoProps = {
+    value: Number(details.stakedFiatValue),
+    stakedNumber: Number(details.staked),
+    availableNumber: Number(details.available),
+    tokenSymbol: details.token.info.symbol,
+  };
   return (
     <StakedValueInfo
       {...props}
