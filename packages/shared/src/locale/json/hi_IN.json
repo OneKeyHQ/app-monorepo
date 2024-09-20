@@ -1166,7 +1166,7 @@
   "manage_token.custom_token_decimal": "दशमलव",
   "manage_token.custom_token_symbol": "प्रतीक",
   "manage_token.custom_token_title": "कस्टम टोकन",
-  "manage_token.empty_msg": "टोकन नहीं मिल रहा है? नीचे दिए गए बटन पर क्लिक करके जोड़ने की कोशिश करें",
+  "manage_token.empty_msg": "टोकन नहीं मिल रहा है?",
   "manage_token.native_token_cannot_removed": "मूल टोकन हटाया नहीं जा सकता",
   "manage_token.native_token_cant_remove": "मूल टोकन को हटाया नहीं जा सकता",
   "manage_token.popular_token": "सामान्य टोकन",

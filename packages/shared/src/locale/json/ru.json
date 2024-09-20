@@ -1166,7 +1166,7 @@
   "manage_token.custom_token_decimal": "Десятичный",
   "manage_token.custom_token_symbol": "Символ",
   "manage_token.custom_token_title": "Пользовательский токен",
-  "manage_token.empty_msg": "Не можете найти токен? Попробуйте нажать кнопку ниже, чтобы добавить",
+  "manage_token.empty_msg": "Не удается найти токен?",
   "manage_token.native_token_cannot_removed": "Собственный токен не может быть удален",
   "manage_token.native_token_cant_remove": "Нативный токен не может быть удален",
   "manage_token.popular_token": "Общий токен",

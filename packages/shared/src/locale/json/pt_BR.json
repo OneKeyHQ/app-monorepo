@@ -1166,7 +1166,7 @@
   "manage_token.custom_token_decimal": "Decimal",
   "manage_token.custom_token_symbol": "Símbolo",
   "manage_token.custom_token_title": "Token personalizado",
-  "manage_token.empty_msg": "Não consegue encontrar o token? Tente clicar no botão abaixo para adicionar",
+  "manage_token.empty_msg": "Não consegue encontrar o token?",
   "manage_token.native_token_cannot_removed": "O token nativo não pode ser removido",
   "manage_token.native_token_cant_remove": "O token nativo não pode ser removido",
   "manage_token.popular_token": "Token comum",
