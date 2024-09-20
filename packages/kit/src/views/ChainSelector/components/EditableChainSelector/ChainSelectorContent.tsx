@@ -21,6 +21,7 @@ import {
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
@@ -353,6 +354,9 @@ export const EditableChainSelectorContent = ({
               }
               setSearchText(text.trim());
             }}
+            {...(!platformEnv.isNative && {
+              autoFocus: true,
+            })}
           />
         </Stack>
         <Stack flex={1}>
