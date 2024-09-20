@@ -230,7 +230,9 @@ function PortfolioInfo({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={rewards}
-              statusText="Rewards"
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_rewards,
+              })}
               onPress={onClaimReward}
               useLoading
               buttonText={intl.formatMessage({
