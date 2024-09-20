@@ -22,6 +22,7 @@ import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/share
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -36,6 +37,8 @@ type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       currency?: string;
+      tokenSymbol?: string;
+      formatter?: keyof typeof NUMBER_FORMATTER;
       moreComponent?: React.ReactNode;
     };
     balanceProps?: {
@@ -132,8 +135,11 @@ export function AmountInput({
     return (
       <>
         <NumberSizeableText
-          formatter="value"
-          formatterOptions={{ currency: valueProps.currency ?? '$' }}
+          formatter={valueProps.formatter ?? 'value'}
+          formatterOptions={{
+            currency: valueProps.currency,
+            tokenSymbol: valueProps.tokenSymbol,
+          }}
           size="$bodyMd"
           color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"

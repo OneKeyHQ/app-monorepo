@@ -12,12 +12,12 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
-type ISolutions = {
+type ISolution = {
   question: string;
   answer: string;
-}[];
+};
 
-function FaqInfo({ solutions }: { solutions: ISolutions }) {
+function FaqInfo({ solutions }: { solutions: ISolution[] }) {
   const intl = useIntl();
   return (
     <YStack gap="$6">

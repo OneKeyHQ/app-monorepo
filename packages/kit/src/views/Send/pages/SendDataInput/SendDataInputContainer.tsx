@@ -707,9 +707,9 @@ function SendDataInputContainer() {
             },
           }}
           valueProps={{
-            value: isUseFiat
-              ? `${linkedAmount.amount} ${tokenSymbol}`
-              : `${currencySymbol}${linkedAmount.amount}`,
+            currency: isUseFiat ? undefined : currencySymbol,
+            tokenSymbol: isUseFiat ? tokenSymbol : undefined,
+            value: linkedAmount.originalAmount,
             onPress: handleOnChangeAmountMode,
           }}
           inputProps={{
@@ -761,7 +761,8 @@ function SendDataInputContainer() {
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      linkedAmount.amount,
+      // linkedAmount.amount,
+      linkedAmount.originalAmount,
       maxBalance,
       maxBalanceFiat,
       network?.logoURI,

@@ -54,6 +54,7 @@ export type IStakeProviderInfo = {
   maxStakeBlocks?: number;
   unbondingTime?: number;
   stakingCap?: string;
+  earnPoints?: boolean;
 };
 
 export type IStakeBaseParams = {
@@ -175,6 +176,7 @@ export type IStakeProtocolDetails = {
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;
+  rewards?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
   token: {
