@@ -91,6 +91,7 @@ function DAppConnectExtensionFloatingTrigger() {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
         origin: result?.origin ?? '',
         storageType: result?.connectedAccountsInfo?.[0].storageType,
+        entry: 'ExtFloatingTrigger',
       });
       void refreshConnectionInfo();
     }

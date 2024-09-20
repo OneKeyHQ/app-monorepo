@@ -36,7 +36,6 @@ export enum EAppEventBusNames {
   AddDBAccountsToWallet = 'AddDBAccountsToWallet',
   RenameDBAccounts = 'RenameDBAccounts',
   CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
-  CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
@@ -103,7 +102,6 @@ export interface IAppEventBusPayload {
     accounts: IDBAccount[];
   };
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
-  [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
   [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
