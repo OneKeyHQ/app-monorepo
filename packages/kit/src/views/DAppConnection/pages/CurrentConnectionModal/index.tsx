@@ -94,6 +94,7 @@ function CurrentConnectionModal() {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
         origin,
         storageType: accountsInfo?.[0].storageType,
+        entry: 'ExtPanel',
       });
       navigation.pop();
     }
