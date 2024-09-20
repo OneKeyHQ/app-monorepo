@@ -28,6 +28,8 @@ export const HELP_CENTER_URL = 'https://help.onekey.so/hc';
 export const LITE_CARD_URL =
   'https://onekey.so/products/onekey-lite-hardware-wallet/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';
+export const NOTIFICATIONS_HELP_CENTER_URL =
+  'https://help.onekey.so/hc/articles/10780082728335-What-to-do-if-the-app-doesn-t-receive-notifications';
 export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
