@@ -297,9 +297,20 @@ export const Toast = {
         </ShowCustom>,
       ),
     };
+    const close = async (extra?: { flag?: string }, times = 0) => {
+      if (times > 10) {
+        return;
+      }
+      if (!instanceRef?.current) {
+        setTimeout(() => {
+          void close(extra, times + 1);
+        }, 10);
+        return Promise.resolve();
+      }
+      return instanceRef?.current?.close(extra);
+    };
     const r: IToastShowResult = {
-      close: async (extra?: { flag?: string }) =>
-        instanceRef?.current?.close(extra),
+      close,
     };
     return r;
   },
