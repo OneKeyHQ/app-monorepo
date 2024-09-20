@@ -84,7 +84,7 @@ function NotificationItem({
   const [readedMap] = useNotificationsReadedAtom();
   return (
     <ListItem
-      gap="$1"
+      gap="$0.5"
       flexDirection="column"
       alignItems="stretch"
       userSelect="none"
@@ -93,23 +93,18 @@ function NotificationItem({
       }}
       {...rest}
     >
-      <XStack alignItems="baseline" gap="$3">
+      <XStack alignItems="baseline" gap="$3" pr="$1.5">
         <SizableText flex={1} size="$headingSm" numberOfLines={1}>
           {title}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
           {formatDistanceToNow(new Date(createdAt))}
         </SizableText>
-      </XStack>
-      <XStack>
-        <XStack flex={1}>
-          <SizableText size="$bodyMd" flex={1} maxWidth="$96">
-            {content}
-          </SizableText>
-        </XStack>
         {!readed && !!badge && !readedMap?.[msgId] ? (
           <Stack
-            m="$1.5"
+            position="absolute"
+            top="$1.5"
+            right="$-2"
             borderRadius="$full"
             bg="$bgCriticalStrong"
             w="$2"
@@ -117,6 +112,9 @@ function NotificationItem({
           />
         ) : null}
       </XStack>
+      <SizableText size="$bodyMd" flex={1} maxWidth="$96">
+        {content}
+      </SizableText>
     </ListItem>
   );
 }
@@ -199,7 +197,7 @@ function NotificationList() {
                 key={index}
                 item={item}
                 {...(index !== 0 && {
-                  mt: '$1.5',
+                  mt: '$2.5',
                 })}
                 onPress={() => {
                   void notificationsUtils.navigateToNotificationDetail({

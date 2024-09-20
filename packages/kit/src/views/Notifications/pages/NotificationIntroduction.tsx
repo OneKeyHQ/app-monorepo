@@ -33,7 +33,9 @@ function NotificationIntroduction() {
   }, []);
 
   const shouldShowCancelButton =
-    !canAutoCloseWhenGranted || platformEnv.isNativeAndroid;
+    !canAutoCloseWhenGranted ||
+    platformEnv.isNativeAndroid ||
+    platformEnv.isExtension;
 
   const checkShouldClose = useCallback(
     (permission: INotificationPermissionDetail) =>
@@ -78,19 +80,23 @@ function NotificationIntroduction() {
       </Page.Body>
 
       <Page.Footer
-        confirmButtonProps={{
-          loading: confirmLoading,
-        }}
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_enable })}
-        onConfirm={async (close) => {
-          try {
-            setConfirmLoading(true);
-            await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
-          } finally {
-            setConfirmLoading(false);
-            isEnablePermissionCalled.current = true;
-          }
-        }}
+        {...(!platformEnv.isExtension && {
+          confirmButtonProps: {
+            loading: confirmLoading,
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_enable,
+          }),
+          onConfirm: async (close) => {
+            try {
+              setConfirmLoading(true);
+              await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
+            } finally {
+              setConfirmLoading(false);
+              isEnablePermissionCalled.current = true;
+            }
+          },
+        })}
         {...(shouldShowCancelButton && {
           onCancelText: intl.formatMessage({ id: ETranslations.global_done }),
           onCancel: (close) => {

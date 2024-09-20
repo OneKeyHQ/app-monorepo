@@ -37,6 +37,7 @@ export function HeaderRight({
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -187,7 +188,7 @@ export function HeaderRight({
                   />
                 ) : (
                   <SizableText color="$textOnColor" size="$bodySm">
-                    {badge}
+                    {badge && badge > 99 ? '99+' : badge}
                   </SizableText>
                 )}
               </Stack>
