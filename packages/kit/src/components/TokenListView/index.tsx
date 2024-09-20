@@ -154,7 +154,7 @@ function TokenListView(props: IProps) {
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}
-      extraData={listViewProps?.data?.length}
+      extraData={listViewProps?.data}
       data={filteredTokens}
       ListHeaderComponent={
         withHeader ? (
