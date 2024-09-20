@@ -315,7 +315,11 @@ const SwapTokenSelectPage = () => {
               <ActionList
                 title={tokenItem.tokenSymbol ?? ''}
                 renderTrigger={
-                  <IconButton variant="tertiary" icon="DotVerSolid" disabled={rawItem.isNative} />
+                  <IconButton
+                    variant="tertiary"
+                    icon="DotVerSolid"
+                    disabled={rawItem.isNative}
+                  />
                 }
                 items={[
                   {
@@ -427,10 +431,9 @@ const SwapTokenSelectPage = () => {
           </SizableText>
           <XStack>
             <SizableText size="$bodyMd">
-              {currentSelectNetwork?.name ??
-                currentSelectNetwork?.symbol ??
-                currentSelectNetwork?.shortcode ??
-                'Unknown'}
+              {currentSelectNetwork?.isAllNetworks
+                ? intl.formatMessage({ id: ETranslations.global_all_networks })
+                : currentSelectNetwork?.name}
             </SizableText>
           </XStack>
         </XStack>
@@ -456,7 +459,9 @@ const SwapTokenSelectPage = () => {
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
         />
-        <Divider mt="$2" />
+        {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
+          <Divider mt="$2" />
+        ) : null}
         <YStack flex={1}>
           <ListView
             ref={listViewRef}

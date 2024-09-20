@@ -1,8 +1,9 @@
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 
-import type { IScanCameraProps } from './types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
 

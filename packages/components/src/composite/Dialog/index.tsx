@@ -446,9 +446,20 @@ function dialogShow({
       ? renderToContainer(portalContainer, element)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
+  const close = async (extra?: { flag?: string }, times = 0) => {
+    if (times > 10) {
+      return;
+    }
+    if (!instanceRef?.current) {
+      setTimeout(() => {
+        void close(extra, times + 1);
+      }, 10);
+      return Promise.resolve();
+    }
+    return instanceRef?.current?.close(extra);
+  };
   return {
-    close: async (extra?: { flag?: string }) =>
-      instanceRef?.current?.close(extra),
+    close,
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
