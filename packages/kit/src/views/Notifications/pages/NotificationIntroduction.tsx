@@ -22,13 +22,18 @@ function NotificationIntroduction() {
   const navigation = useAppNavigation();
 
   const canAutoCloseWhenGranted = useMemo(() => {
-    if (platformEnv.isNativeIOS || platformEnv.isExtension) {
+    if (
+      platformEnv.isNativeIOS ||
+      platformEnv.isExtension ||
+      platformEnv.isNativeAndroid
+    ) {
       return true;
     }
     return false;
   }, []);
 
-  const shouldShowCancelButton = !canAutoCloseWhenGranted;
+  const shouldShowCancelButton =
+    !canAutoCloseWhenGranted || platformEnv.isNativeAndroid;
 
   const checkShouldClose = useCallback(
     (permission: INotificationPermissionDetail) =>
@@ -80,10 +85,10 @@ function NotificationIntroduction() {
         onConfirm={async (close) => {
           try {
             setConfirmLoading(true);
-            isEnablePermissionCalled.current = true;
             await backgroundApiProxy.serviceNotification.enableNotificationPermissions();
           } finally {
             setConfirmLoading(false);
+            isEnablePermissionCalled.current = true;
           }
         }}
         {...(shouldShowCancelButton && {
