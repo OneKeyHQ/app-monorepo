@@ -1171,10 +1171,77 @@ export function ConnectYourDevicePage() {
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
+  return (
+    <Page.Body>
+      <Stack px="$5" pt="$2" pb="$4">
+        <SegmentControl
+          fullWidth
+          value={tabValue}
+          onChange={(v) => setTabValue(v as any)}
+          options={[
+            {
+              label: platformEnv.isNative
+                ? intl.formatMessage({ id: ETranslations.global_bluetooth })
+                : 'USB',
+              value: EConnectDeviceChannel.usbOrBle,
+            },
+            {
+              label: intl.formatMessage({ id: ETranslations.global_qr_code }),
+              value: EConnectDeviceChannel.qr,
+            },
+          ]}
+        />
+      </Stack>
+      <Divider />
+
+      {tabValue === EConnectDeviceChannel.usbOrBle ? (
+        <ConnectByUSBOrBLE
+          toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
+        />
+      ) : null}
+
+      {tabValue === EConnectDeviceChannel.qr ? (
+        <ConnectByQrCodeComingSoon />
+      ) : null}
+
+      {/* buy link */}
+      <XStack
+        px="$5"
+        py="$0.5"
+        mt="auto"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            // eslint-disable-next-line spellcheck/spell-checker
+            id: ETranslations.global_onekey_prompt_dont_have_yet,
+          })}
+        </SizableText>
+        <Anchor
+          display="flex"
+          color="$textInteractive"
+          hoverStyle={{
+            color: '$textInteractiveHover',
+          }}
+          href="https://bit.ly/3YsKilK"
+          target="_blank"
+          size="$bodyMdMedium"
+          p="$2"
+        >
+          {intl.formatMessage({ id: ETranslations.global_buy_one })}
+        </Anchor>
+      </XStack>
+    </Page.Body>
+  );
+}
+
+export function ConnectYourDevice() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
   const toOneKeyHardwareWalletPage = useCallback(() => {
     navigation.push(EOnboardingPages.OneKeyHardwareWallet);
   }, [navigation]);
-
   return (
     <Page>
       <Page.Header
@@ -1183,81 +1250,15 @@ export function ConnectYourDevicePage() {
         })}
         headerRight={() => headerRight(toOneKeyHardwareWalletPage)}
       />
-      <Page.Body>
-        <Stack px="$5" pt="$2" pb="$4">
-          <SegmentControl
-            fullWidth
-            value={tabValue}
-            onChange={(v) => setTabValue(v as any)}
-            options={[
-              {
-                label: platformEnv.isNative
-                  ? intl.formatMessage({ id: ETranslations.global_bluetooth })
-                  : 'USB',
-                value: EConnectDeviceChannel.usbOrBle,
-              },
-              {
-                label: intl.formatMessage({ id: ETranslations.global_qr_code }),
-                value: EConnectDeviceChannel.qr,
-              },
-            ]}
-          />
-        </Stack>
-        <Divider />
-
-        {tabValue === EConnectDeviceChannel.usbOrBle ? (
-          <ConnectByUSBOrBLE
-            toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
-          />
-        ) : null}
-
-        {tabValue === EConnectDeviceChannel.qr ? (
-          <ConnectByQrCodeComingSoon />
-        ) : null}
-
-        {/* buy link */}
-        <XStack
-          px="$5"
-          py="$0.5"
-          mt="auto"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
-              id: ETranslations.global_onekey_prompt_dont_have_yet,
-            })}
-          </SizableText>
-          <Anchor
-            display="flex"
-            color="$textInteractive"
-            hoverStyle={{
-              color: '$textInteractiveHover',
-            }}
-            href="https://bit.ly/3YsKilK"
-            target="_blank"
-            size="$bodyMdMedium"
-            p="$2"
-          >
-            {intl.formatMessage({ id: ETranslations.global_buy_one })}
-          </Anchor>
-        </XStack>
-      </Page.Body>
+      <AccountSelectorProviderMirror
+        enabledNum={[0]}
+        config={{
+          sceneName: EAccountSelectorSceneName.home, // TODO read from router
+        }}
+      >
+        <ConnectYourDevicePage />
+      </AccountSelectorProviderMirror>
     </Page>
-  );
-}
-
-export function ConnectYourDevice() {
-  return (
-    <AccountSelectorProviderMirror
-      enabledNum={[0]}
-      config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read from router
-      }}
-    >
-      <ConnectYourDevicePage />
-    </AccountSelectorProviderMirror>
   );
 }
 export default ConnectYourDevice;
