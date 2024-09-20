@@ -6,8 +6,10 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
-import type { IStakingInfo } from '../../types/staking';
+import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import type { ISwapTxInfo } from '../../types/swap/types';
+import { appLocale } from '../locale/appLocale';
+import { ETranslations } from '../locale';
 
 export function buildTxActionDirection({
   from,
@@ -162,4 +164,33 @@ export function getTxnType({
   }
 
   return 'unknown';
+}
+
+export function getStakingActionLabel({
+  stakingInfo,
+}: {
+  stakingInfo: IStakingInfo;
+}) {
+  switch (stakingInfo.label) {
+    case EEarnLabels.Claim:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.earn_claim,
+      });
+    case EEarnLabels.Stake:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.earn_stake,
+      });
+    case EEarnLabels.Redeem:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.earn_redeem,
+      });
+    case EEarnLabels.Withdraw:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_withdraw,
+      });
+    default:
+      return appLocale.intl.formatMessage({
+        id: ETranslations.global_unknown,
+      });
+  }
 }

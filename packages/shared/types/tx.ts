@@ -174,6 +174,8 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
     name: string;
     icon: string;
   };
+  internalStakingLabel?: string;
+  isInternalStaking?: boolean;
   isInternalSwap?: boolean;
   swapReceivedAddress?: string;
   swapReceivedNetworkId?: string;
