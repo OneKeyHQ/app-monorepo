@@ -205,7 +205,7 @@ export default class Vault extends VaultBase {
     const { unsignedTx, transferPayload } = params;
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
-    const { swapInfo } = unsignedTx;
+    const { swapInfo, stakingInfo } = unsignedTx;
 
     const [network, accountAddress, nativeTx] = await Promise.all([
       this.getNetwork(),
@@ -228,6 +228,13 @@ export default class Vault extends VaultBase {
         swapInfo,
         swapData: encodedTx.data,
         swapToAddress: encodedTx.to,
+      });
+    } else if (stakingInfo) {
+      action = await this.buildInternalStakingAction({
+        stakingInfo,
+        accountAddress,
+        stakingData: encodedTx.data,
+        stakingToAddress: encodedTx.to,
       });
     } else {
       if (encodedTx.value) {

@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { isEmpty } from 'lodash';
+
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,7 +32,6 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
-import { isEmpty } from 'lodash';
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
