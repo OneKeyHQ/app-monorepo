@@ -1,12 +1,14 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import { Page } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
@@ -21,6 +23,9 @@ export function ImportRecoveryPhrase() {
     (params: { mnemonic: string; mnemonicType: EMnemonicType }) => {
       if (params.mnemonicType === EMnemonicType.TON) {
         // **** TON mnemonic case - Show dialog
+        if (platformEnv.isNative) {
+          Keyboard.dismiss();
+        }
         showTonMnemonicDialog({
           onConfirm: () => {
             navigation.push(EOnboardingPages.FinalizeWalletSetup, {
