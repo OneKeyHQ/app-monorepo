@@ -137,8 +137,7 @@ function TokenListView(props: IProps) {
   if (
     (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
     (!isTokenSelector && searchTokenState.isSearching) ||
-    (!tokenListState.initialized && tokenListState.isRefreshing) ||
-    (platformEnv.isNativeAndroid && isInRequest)
+    (!tokenListState.initialized && tokenListState.isRefreshing)
   ) {
     return (
       <NestedScrollView style={{ flex: 1 }}>
@@ -155,6 +154,7 @@ function TokenListView(props: IProps) {
       estimatedItemSize={tableLayout ? 48 : 60}
       ref={listViewRef}
       onLayout={onLayout}
+      extraData={listViewProps?.data?.length}
       data={filteredTokens}
       ListHeaderComponent={
         withHeader ? (
