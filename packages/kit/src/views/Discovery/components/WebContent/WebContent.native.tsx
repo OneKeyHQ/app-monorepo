@@ -203,7 +203,7 @@ function WebContent({
         <BlockAccessView
           urlValidateState={urlValidateState}
           onCloseTab={() => {
-            closeWebTab(id);
+            closeWebTab({ tabId: id, entry: 'BlockView' });
             setCurrentWebTab(null);
           }}
           // onContinue={() => {
