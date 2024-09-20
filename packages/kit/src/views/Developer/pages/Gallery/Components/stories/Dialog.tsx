@@ -910,6 +910,29 @@ const DialogGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'open & close test',
+        element: (
+          <YStack gap="$4">
+            <Button
+              onPress={async () => {
+                const d = Dialog.show({
+                  title: 'Lorem ipsum',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+                // working, should wait Dialog open animation done
+                await timerUtils.wait(10);
+                await d.close();
+              }}
+            >
+              ShowAndClose
+            </Button>
+          </YStack>
+        ),
+      },
     ]}
   />
 );

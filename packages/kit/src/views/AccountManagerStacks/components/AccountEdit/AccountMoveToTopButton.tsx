@@ -19,7 +19,7 @@ export function AccountMoveToTopButton({
   firstIndexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   firstAccount?: IDBAccount;
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const intl = useIntl();
   if (
