@@ -32,7 +32,8 @@ type IBasicQRCodeProps = {
   logo?: ImageProps['source'];
   logoSvg?: IIconProps['name'];
   logoSvgColor?: IIconProps['color'];
-  logoBackgroundColor?: IThemeColorKeys;
+  // Use RGB color, please avoid using colors that are close to black.
+  logoBackgroundColor?: string;
   logoMargin?: number;
   logoSize?: number;
   value: string;
@@ -94,7 +95,7 @@ function BasicQRCode({
   ecl = 'H',
   logo,
   logoSvg,
-  logoBackgroundColor: logoBGColor = 'bgApp',
+  logoBackgroundColor: logoBGColor,
   logoSvgColor = '$text',
   logoMargin = 5,
   logoSize = 62,
@@ -106,11 +107,10 @@ function BasicQRCode({
   gradientDirection = ['0%', '0%', '100%', '100%'],
   linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
 }: IBasicQRCodeProps) {
-  const logoBackgroundColor = useThemeValue(logoBGColor);
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = getTokenValue('$textLight', 'color');
   const secondaryColor = getTokenValue('$bgAppLight', 'color');
-
+  const logoBackgroundColor = logoBGColor || secondaryColor;
   const result = useMemo(() => {
     const matrix = generateMatrix(value, ecl);
     if (drawType === 'dot') {
@@ -277,6 +277,7 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   valueUr?: IAirGapUrJson;
   interval?: number;
 }
+
 export function QRCode({
   value,
   valueUr,
@@ -316,17 +317,13 @@ export function QRCode({
     return null;
   }
   return (
-    <Theme name={isAnimatedCode ? 'light' : undefined}>
+    <Theme name="light">
       <Stack
-        {...(isAnimatedCode
-          ? {
-              width: props.size + 10,
-              height: props.size + 10,
-              bg: '$bgApp',
-              jc: 'center',
-              ai: 'center',
-            }
-          : {})}
+        width={props.size + 10}
+        height={props.size + 10}
+        bg="$bgApp"
+        jc="center"
+        ai="center"
       >
         <BasicQRCode value={partValue} drawType={drawType} {...props} />
       </Stack>
