@@ -279,7 +279,6 @@ function HistoryDetails() {
 
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
-
   const nativeToken = usePromiseResult(
     () =>
       backgroundApiProxy.serviceToken.getNativeToken({
@@ -291,6 +290,7 @@ function HistoryDetails() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (!accountAddress) return;
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
