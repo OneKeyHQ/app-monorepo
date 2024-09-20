@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -112,17 +110,15 @@ export const ProfitSection = ({
 }: {
   details?: IStakeProtocolDetails;
 }) => {
-  const props = useMemo(() => {
-    if (!details) {
-      return null;
-    }
-    return {
-      apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
-      earningsIn24h: details.earnings24h,
-      rewardTokens: details.rewardToken,
-      updateFrequency: details.updateFrequency,
-    };
-  }, [details]);
-  if (!props) return null;
+  if (!details) {
+    return null;
+  }
+  const props: IProfitInfoProps = {
+    apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
+    earningsIn24h: details.earnings24h,
+    rewardTokens: details.rewardToken,
+    updateFrequency: details.updateFrequency,
+    earnPoints: details.provider.earnPoints,
+  };
   return <ProfitInfo {...props} />;
 };

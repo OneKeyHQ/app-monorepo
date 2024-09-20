@@ -340,14 +340,8 @@ class ServiceSignature extends ServiceBase {
       (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
     );
     if (transferAction && transferAction.assetTransfer) {
-      const assetTransfer = transferAction.assetTransfer;
-      let tokenSent = assetTransfer.sends[0];
-      if (assetTransfer.sends.length > 1) {
-        const nonNativeToken = assetTransfer.sends.find((o) => !o.isNative);
-        if (nonNativeToken) {
-          tokenSent = nonNativeToken;
-        }
-      }
+      const tokens = transferAction.assetTransfer.sends;
+      const tokenSent = tokens.find((token) => !token.isNative) || tokens[0];
       if (tokenSent) {
         await this.addSignedTransaction({
           networkId,
@@ -365,8 +359,8 @@ class ServiceSignature extends ServiceBase {
             },
           },
         });
+        return;
       }
-      return;
     }
     await this.addSignedTransaction({
       networkId,

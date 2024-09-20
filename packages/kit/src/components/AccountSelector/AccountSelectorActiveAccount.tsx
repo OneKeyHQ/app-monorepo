@@ -53,6 +53,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
 
   return (
     <Spotlight
+      delayMs={150}
       isVisible={isFocus ? !platformEnv.isE2E : undefined}
       message={intl.formatMessage({
         id: ETranslations.spotlight_enable_network_message,
