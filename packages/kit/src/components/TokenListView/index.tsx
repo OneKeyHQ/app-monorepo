@@ -156,18 +156,6 @@ function TokenListView(props: IProps) {
       ref={listViewRef}
       onLayout={onLayout}
       data={filteredTokens}
-      ListHeaderComponent={
-        withHeader ? (
-          <TokenListHeader
-            filteredTokens={filteredTokens}
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-            {...(tokens.length > 0 && {
-              tableLayout,
-            })}
-          />
-        ) : null
-      }
       ListEmptyComponent={
         searchKey ? (
           <EmptySearch
@@ -209,6 +197,19 @@ function TokenListView(props: IProps) {
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </Stack>
       }
+      {...(withHeader && {
+        ListHeaderComponent: (
+          <TokenListHeader
+            filteredTokens={filteredTokens}
+            onManageToken={onManageToken}
+            manageTokenEnabled={manageTokenEnabled}
+            {...(tokens.length > 0 && {
+              tableLayout,
+            })}
+          />
+        ),
+        stickyHeaderIndices: [0],
+      })}
     />
   );
 }
