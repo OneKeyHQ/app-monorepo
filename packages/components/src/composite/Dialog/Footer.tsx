@@ -15,7 +15,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -112,13 +111,11 @@ const useSafeKeyboardAnimationStyle = () => {
 
   useKeyboardEvent({
     keyboardWillShow: (e) => {
-      defaultLogger.app.component.logDialogShowKeyboardEvent(e);
       const height = e.endCoordinates.height;
       const keyboardHeight = height < 0 ? 330 : height;
       keyboardHeightValue.value = keyboardHeight - bottom;
     },
     keyboardWillHide: () => {
-      defaultLogger.app.component.logDialogDismissKeyboardEvent();
       keyboardHeightValue.value = 0;
     },
   });
