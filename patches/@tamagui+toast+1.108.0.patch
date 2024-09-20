@@ -1,0 +1,18 @@
+diff --git a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+index b296038..67fde04 100644
+--- a/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
++++ b/node_modules/@tamagui/toast/dist/cjs/ToastImpl.native.js
+@@ -382,6 +382,13 @@ function isHTMLElement(node) {
+ }
+ var GESTURE_GRANT_THRESHOLD = 10, shouldGrantGestureMove = function(dir, param) {
+   var dx = param.dx, dy = param.dy;
++  // Fixed an issue where button could not be clicked in toast on android
++  if ((dir === "horizontal" || dir === "left" || dir === "right") && dx === 0) {
++    return false;
++  }
++  if((dir === "vertical" || dir === "up" || dir === "down") && dy === 0) {
++    return false;
++  }
+   return (dir === "horizontal" || dir === "left") && dx < -GESTURE_GRANT_THRESHOLD || (dir === "horizontal" || dir === "right") && dx > GESTURE_GRANT_THRESHOLD || (dir === "vertical" || dir === "up") && dy > -GESTURE_GRANT_THRESHOLD || (dir === "vertical" || dir === "down") && dy < GESTURE_GRANT_THRESHOLD;
+ }, getGestureDistance = function(dir, param) {
+   var dx = param.dx, dy = param.dy, y = 0, x = 0;
