@@ -19,6 +19,7 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceSetting.fetchReviewControl(),
       this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
       this.backgroundApi.serviceNotification.init(),
+      this.backgroundApi.tonConnect.init(),
     ]);
     // wait for local messages to be loaded
     void this.backgroundApi.serviceContextMenu.init();

@@ -119,7 +119,7 @@ class ProviderApiTon extends ProviderApiBase {
   @providerApiMethod()
   public async getDeviceInfo(request: IJsBridgeMessagePayload) {
     return {
-      appName: 'OneKey',
+      appName: 'tonkeeper', // TODO: OneKey
       appVersion: platformEnv.version,
       maxProtocolVersion: 4,
       features: [

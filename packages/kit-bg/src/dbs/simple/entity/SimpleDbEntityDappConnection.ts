@@ -16,6 +16,8 @@ export interface IDappConnectionData {
     injectedProvider: Record<string, IConnectionItem>;
     // Storage space for WalletConnect connections.
     walletConnect: Record<string, IConnectionItem>;
+    // Storage space for TON Connect connections.
+    tonConnect: Record<string, IConnectionItem>;
   };
 }
 
@@ -76,6 +78,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     replaceExistAccount = true,
     storageType,
     walletConnectTopic,
+    tonConnectClientId,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
@@ -83,11 +86,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     imageURL?: string;
     replaceExistAccount?: boolean;
     walletConnectTopic?: string;
+    tonConnectClientId?: string;
   }) {
     await this.setRawData(({ rawData }) => {
       let data: IDappConnectionData['data'] = {
         injectedProvider: {},
         walletConnect: {},
+        tonConnect: {},
       };
 
       if (rawData?.data && typeof rawData.data === 'object') {
@@ -95,6 +100,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         // Ensure that both `injectedProvider` and `walletConnect` keys exist.
         data.injectedProvider = data.injectedProvider || {};
         data.walletConnect = data.walletConnect || {};
+        data.tonConnect = data.tonConnect || {};
       }
 
       const storage = data[storageType];
@@ -108,6 +114,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           networkImplMap: {},
           addressMap: {},
           walletConnectTopic,
+          tonConnectClientId,
           updatedAt: Date.now(),
         };
       } else {
@@ -120,6 +127,8 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           addressMap: { ...connectionItem.addressMap },
           walletConnectTopic:
             walletConnectTopic || connectionItem.walletConnectTopic,
+          tonConnectClientId:
+            tonConnectClientId || connectionItem.tonConnectClientId,
           updatedAt: Date.now(),
         };
       }
@@ -189,6 +198,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           data: {
             injectedProvider: {},
             walletConnect: {},
+            tonConnect: {},
           },
         };
       }
@@ -285,7 +295,8 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     const rawData = await this.getRawData();
     const map =
       rawData?.data?.injectedProvider?.[sceneUrl]?.connectionMap ||
-      rawData?.data?.walletConnect?.[sceneUrl]?.connectionMap;
+      rawData?.data?.walletConnect?.[sceneUrl]?.connectionMap ||
+      rawData?.data?.tonConnect?.[sceneUrl]?.connectionMap;
     return map;
   }
 
@@ -297,6 +308,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           data: {
             injectedProvider: {},
             walletConnect: {},
+            tonConnect: {},
           },
         };
       }

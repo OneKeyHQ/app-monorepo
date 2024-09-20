@@ -6,6 +6,7 @@ import ethereum from './ethereum';
 import marketDetail from './marketDetail';
 import migrate from './migrate';
 import solana from './solana';
+import tonConnect from './tonConnect';
 import urlAccount from './urlAccount';
 import walletconnect from './walletconnect';
 
@@ -14,6 +15,7 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.ethereum]: ethereum,
   [EQRCodeHandlerNames.solana]: solana,
   [EQRCodeHandlerNames.walletconnect]: walletconnect,
+  [EQRCodeHandlerNames.tonConnect]: tonConnect,
   [EQRCodeHandlerNames.migrate]: migrate,
   [EQRCodeHandlerNames.animation]: animation,
   [EQRCodeHandlerNames.urlAccount]: urlAccount,
@@ -26,6 +28,7 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.ethereum,
     EQRCodeHandlerNames.solana,
     EQRCodeHandlerNames.walletconnect,
+    EQRCodeHandlerNames.tonConnect,
     EQRCodeHandlerNames.migrate,
     EQRCodeHandlerNames.animation,
     EQRCodeHandlerNames.urlAccount,

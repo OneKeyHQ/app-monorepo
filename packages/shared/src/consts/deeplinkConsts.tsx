@@ -2,6 +2,8 @@ export const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 export const ONEKEY_APP_DEEP_LINK = `${ONEKEY_APP_DEEP_LINK_NAME}://`; // onekey:// will open onekey legacy
 export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
+export const TON_CONNECT_DEEP_LINK_NAME = 'tc';
+export const TON_CONNECT_DEEP_LINK = `${TON_CONNECT_DEEP_LINK_NAME}://`;
 
 export enum EOneKeyDeepLinkPath {
   url_account = 'url_account',

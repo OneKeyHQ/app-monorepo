@@ -55,12 +55,6 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
-  useEffect(() => {
-    if (tab?.url) {
-      console.log('tab.url: ===>: ', tab.url);
-    }
-  }, [tab?.url]);
-
   const origin = tab?.url ? new URL(tab.url).origin : null;
   const { result: hasConnectedAccount, run: refreshConnectState } =
     usePromiseResult(async () => {
@@ -239,6 +233,22 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
+
+  useEffect(() => {
+    if (tab?.url) {
+      if (/^tc:\/\//.test(tab.url)) {
+        const params = new URL(tab.url).searchParams;
+        void backgroundApiProxy.tonConnect.connect({
+          v: params.get('v') ?? '',
+          id: params.get('id') ?? '',
+          r: JSON.parse(params.get('r') ?? '{}'),
+          ret: params.get('ret') ?? '',
+        });
+        closeWebTab(id);
+      }
+    }
+  }, [closeWebTab, id, tab?.url]);
+
   return (
     <Stack
       flexDirection="row"

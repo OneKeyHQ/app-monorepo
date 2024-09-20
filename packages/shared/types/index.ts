@@ -10,6 +10,7 @@ export type IDappSourceInfo = {
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
   isWalletConnectRequest: boolean;
+  tonConnectClientId?: string;
 };
 
 export enum ENetworkStatus {

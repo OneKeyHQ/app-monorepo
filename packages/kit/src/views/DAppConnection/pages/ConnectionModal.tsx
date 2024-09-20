@@ -138,6 +138,9 @@ function ConnectionModal() {
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
+      const storageType = $sourceInfo.tonConnectClientId
+        ? 'tonConnect'
+        : 'injectedProvider';
       if (connectedAccountInfo?.existConnectedAccount) {
         if (!isNumber(connectedAccountInfo?.num)) {
           dappApprove.reject();
@@ -153,14 +156,15 @@ function ConnectionModal() {
         await serviceDApp.updateConnectionSession({
           origin: $sourceInfo?.origin,
           updatedAccountInfo: accountInfo,
-          storageType: 'injectedProvider',
+          storageType,
           accountSelectorNum: connectedAccountInfo.num,
         });
       } else {
         await serviceDApp.saveConnectionSession({
           origin: $sourceInfo?.origin,
           accountsInfo: [accountInfo],
-          storageType: 'injectedProvider',
+          storageType,
+          tonConnectClientId: $sourceInfo.tonConnectClientId,
         });
       }
       await dappApprove.resolve({
