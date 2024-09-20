@@ -7,9 +7,10 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { EEarnLabels, type IStakingInfo } from '../../types/staking';
-import type { ISwapTxInfo } from '../../types/swap/types';
-import { appLocale } from '../locale/appLocale';
 import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
+
+import type { ISwapTxInfo } from '../../types/swap/types';
 
 export function buildTxActionDirection({
   from,
