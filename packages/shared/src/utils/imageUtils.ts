@@ -84,6 +84,8 @@ function convertToBlackAndWhiteImageBase64(
 
       let whiteCount = 0;
 
+      // TODO optimize this
+      // https://github.com/trezor/homescreen-editor/blob/gh-pages/js/main.js#L234
       for (let i = 0; i < data.length; i += 4) {
         const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
         if (avg > 128) {
@@ -96,7 +98,7 @@ function convertToBlackAndWhiteImageBase64(
         data[i + 2] = bw;
       }
 
-      // reverse color, not working
+      // reverse color if white part is more than half
       if (whiteCount > data.length / 2) {
         for (let i = 0; i < data.length; i += 4) {
           data[i] = 255 - data[i];
