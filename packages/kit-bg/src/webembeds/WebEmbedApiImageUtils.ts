@@ -3,12 +3,13 @@ import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-class WebEmbedApiHomeScreen {
-  async imagePathToHex(base64OrUri: string, deviceModelInternal: IDeviceType) {
-    return deviceHomeScreenUtils.imagePathToHex(
-      base64OrUri,
-      deviceModelInternal,
-    );
+class WebEmbedApiImageUtils {
+  async base64ImageToBitmap(params: {
+    base64: string;
+    width: number;
+    height: number;
+  }): Promise<string> {
+    return imageUtils.base64ImageToBitmap(params);
   }
 
   convertToBlackAndWhiteImageBase64(
@@ -19,4 +20,4 @@ class WebEmbedApiHomeScreen {
   }
 }
 
-export default WebEmbedApiHomeScreen;
+export default WebEmbedApiImageUtils;

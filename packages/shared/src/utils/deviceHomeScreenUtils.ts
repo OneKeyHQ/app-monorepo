@@ -29,93 +29,8 @@ const deviceModelInformation: Partial<
   mini: { ...defaultT1Infomation },
 };
 
-const range = (length: number) => [...Array(length).keys()];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const toGrayscale = (red: number, green: number, blue: number): number =>
-  Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
-
-function dataUrlToImage(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-
-    image.onload = () => resolve(image);
-    image.onerror = (e) => reject(e);
-    image.src = dataUrl;
-  });
-}
-
 function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
   return HAS_MONOCHROME_SCREEN[deviceModelInternal] ?? false;
-}
-
-function imageToCanvas(
-  image: HTMLImageElement,
-  deviceModelInternal: IDeviceType,
-) {
-  if (!deviceModelInformation[deviceModelInternal]) {
-    throw new Error(
-      `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
-    );
-  }
-  const { width, height } = deviceModelInformation[deviceModelInternal] || {
-    ...defaultT1Infomation,
-  };
-
-  const canvas = document.createElement('canvas');
-  canvas.height = height;
-  canvas.width = width;
-
-  const ctx = canvas.getContext('2d');
-  if (ctx == null) {
-    throw new Error('2D context is null');
-  }
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(image, 0, 0);
-
-  return { canvas, ctx };
-}
-
-function bitmap(imageData: ImageData, deviceModelInternal: IDeviceType) {
-  if (!deviceModelInformation[deviceModelInternal]) {
-    throw new Error(
-      `imageToCanvas ERROR: Device model not supported: ${deviceModelInternal}`,
-    );
-  }
-  const { width, height } = deviceModelInformation[deviceModelInternal] || {
-    ...defaultT1Infomation,
-  };
-
-  const homescreen = range(height)
-    .map((j) =>
-      range(width / 8)
-        .map((i) => {
-          const bytestr = range(8)
-            .map((k) => (j * width + i * 8 + k) * 4)
-            .map((index) => (imageData.data[index] === 0 ? '0' : '1'))
-            .join('');
-
-          return String.fromCharCode(parseInt(bytestr, 2));
-        })
-        .join(''),
-    )
-    .join('');
-  const hex = homescreen
-    .split('')
-    .map((letter) => letter.charCodeAt(0))
-    // eslint-disable-next-line no-bitwise
-    .map((charCode) => charCode & 0xff)
-    .map((charCode) => charCode.toString(16))
-    .map((chr) => (chr.length < 2 ? `0${chr}` : chr))
-    .join('');
-
-  // if image is all white or all black, return empty string
-  if (/^f+$/.test(hex) || /^0+$/.test(hex)) {
-    return '';
-  }
-
-  return hex;
 }
 
 // const toig = (imageData: ImageData, deviceModelInternal: IDeviceType) => {
@@ -174,16 +89,18 @@ async function imagePathToHex(
   base64OrUri: string,
   deviceType: IDeviceType,
 ): Promise<string> {
+  if (!deviceModelInformation[deviceType]) {
+    throw new Error(
+      `imageToCanvas ERROR: Device model not supported: ${deviceType}`,
+    );
+  }
+  const { width, height } = deviceModelInformation[deviceType] || {
+    ...defaultT1Infomation,
+  };
+
   const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);
   if (!base64) {
     throw new Error('imagePathToHex ERROR: base64 is null');
-  }
-
-  if (platformEnv.isNative) {
-    return global.$webembedApiProxy.homeScreen.imagePathToHex(
-      base64,
-      deviceType,
-    );
   }
 
   // image can be loaded to device without modifications -> it is in original quality
@@ -198,9 +115,6 @@ async function imagePathToHex(
    */
   //   const blob = await response.blob();
   //   const blobUrl = URL.createObjectURL(blob);
-  const element = await dataUrlToImage(base64);
-  const { canvas, ctx } = imageToCanvas(element, deviceType);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   // **** T2, T3 model
   //   if (
@@ -213,7 +127,11 @@ async function imagePathToHex(
 
   // **** T1 model
   // DeviceModelInternal.T1B1
-  return bitmap(imageData, deviceType);
+  return imageUtils.base64ImageToBitmap({
+    base64,
+    width,
+    height,
+  });
 }
 
 export default {

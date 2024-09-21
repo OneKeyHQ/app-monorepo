@@ -17,6 +17,12 @@ import type {
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
 
+const range = (length: number) => [...Array(length).keys()];
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const toGrayscale = (red: number, green: number, blue: number): number =>
+  Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
+
 function getOriginX(
   originW: number,
   originH: number,
@@ -54,7 +60,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.homeScreen.convertToBlackAndWhiteImageBase64(
+    return global.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -246,6 +252,103 @@ async function getBase64FromRequiredImageSource(
   return getBase64FromImageUri(uri);
 }
 
+function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = (e) => reject(e);
+    image.src = dataUrl;
+  });
+}
+
+function htmlImageToCanvas({
+  image,
+  width,
+  height,
+}: {
+  image: HTMLImageElement;
+  width: number;
+  height: number;
+}) {
+  const canvas = document.createElement('canvas');
+  canvas.height = height;
+  canvas.width = width;
+
+  const ctx = canvas.getContext('2d');
+  if (ctx == null) {
+    throw new Error('2D context is null');
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0);
+
+  return { canvas, ctx };
+}
+
+function canvasImageDataToBitmap({
+  imageData,
+  width,
+  height,
+}: {
+  imageData: ImageData;
+  width: number;
+  height: number;
+}) {
+  const homescreen = range(height)
+    .map((j) =>
+      range(width / 8)
+        .map((i) => {
+          const bytestr = range(8)
+            .map((k) => (j * width + i * 8 + k) * 4)
+            .map((index) => (imageData.data[index] === 0 ? '0' : '1'))
+            .join('');
+
+          return String.fromCharCode(parseInt(bytestr, 2));
+        })
+        .join(''),
+    )
+    .join('');
+  const hex = homescreen
+    .split('')
+    .map((letter) => letter.charCodeAt(0))
+    // eslint-disable-next-line no-bitwise
+    .map((charCode) => charCode & 0xff)
+    .map((charCode) => charCode.toString(16))
+    .map((chr) => (chr.length < 2 ? `0${chr}` : chr))
+    .join('');
+
+  // if image is all white or all black, return empty string
+  if (/^f+$/.test(hex) || /^0+$/.test(hex)) {
+    return '';
+  }
+
+  return hex;
+}
+
+async function base64ImageToBitmap({
+  base64,
+  width,
+  height,
+}: {
+  base64: string;
+  width: number;
+  height: number;
+}): Promise<string> {
+  if (platformEnv.isNative) {
+    return global.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+      base64,
+      width,
+      height,
+    });
+  }
+
+  const image = await buildHtmlImage(base64);
+  const { canvas, ctx } = htmlImageToCanvas({ image, width, height });
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return canvasImageDataToBitmap({ imageData, width, height });
+}
+
 export default {
   resizeImage,
   prefixBase64Uri,
@@ -253,4 +356,5 @@ export default {
   getUriFromRequiredImageSource,
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
+  base64ImageToBitmap,
 };

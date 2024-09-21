@@ -1,12 +1,12 @@
 import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
-import type WebEmbedApiHomeScreen from '../WebEmbedApiHomeScreen';
+import type WebEmbedApiImageUtils from '../WebEmbedApiImageUtils';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
 
 export type IWebembedApi = {
   chainAdaLegacy: WebEmbedApiChainAdaLegacy;
   test: WebEmbedApiTest;
-  homeScreen: WebEmbedApiHomeScreen;
+  imageUtils: WebEmbedApiImageUtils;
   secret: WebEmbedApiSecret;
   isSDKReady(): Promise<boolean>;
 };
