@@ -5,10 +5,10 @@ import platformEnv from '../../platformEnv';
 import type { IUtilsType } from './types';
 
 const consoleFunc = (msg: string) => {
-  // if (platformEnv.isDev) {
-  //   // eslint-disable-next-line no-console
-  //   console.log(msg);
-  // }
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(msg);
+  }
   logger.info(msg);
 };
 
