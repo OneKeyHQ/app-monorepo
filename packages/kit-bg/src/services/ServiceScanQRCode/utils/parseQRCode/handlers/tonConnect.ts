@@ -17,7 +17,7 @@ const tonConnect: IQRCodeHandler<ITonConnectValue> = async (value, options) => {
       id,
       v: urlValue.data.urlParamList.v,
       ret: urlValue.data.urlParamList.ret,
-      r: JSON.parse(r),
+      r,
     };
     return {
       type: EQRCodeHandlerType.TON_CONNECT,

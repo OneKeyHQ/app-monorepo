@@ -72,10 +72,7 @@ export interface IWalletConnectValue extends IBaseValue {
 export interface ITonConnectValue extends IBaseValue {
   v: string;
   id: string;
-  r: {
-    manifestUrl: string;
-    items: { name: 'ton_addr' | 'ton_proof'; payload?: string }[];
-  };
+  r: string;
   ret: string;
 }
 export interface IUrlAccountValue extends IBaseValue {

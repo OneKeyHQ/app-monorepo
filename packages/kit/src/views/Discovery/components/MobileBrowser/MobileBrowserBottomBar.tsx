@@ -242,7 +242,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
         void backgroundApiProxy.tonConnect.connect({
           v: params.get('v') ?? '',
           id: params.get('id') ?? '',
-          r: JSON.parse(params.get('r') ?? '{}'),
+          r: params.get('r') ?? '',
           ret: params.get('ret') ?? '',
         });
         closeWebTab({

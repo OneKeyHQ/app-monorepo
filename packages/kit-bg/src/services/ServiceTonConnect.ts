@@ -300,12 +300,21 @@ class ServiceTonConnect extends ServiceBase {
     console.log('tonConnect sendMsg: ', res, msg);
   }
 
+  private urlSafeDecode(urlEncoded: string) {
+    try {
+      return decodeURIComponent(urlEncoded.replace(/\+/g, '%20'));
+    } catch (e) {
+      return urlEncoded;
+    }
+  }
+
   @backgroundMethod()
   public async connect(params: ITonConnectValue) {
-    const {
-      r: { manifestUrl, items },
-      id,
-    } = params;
+    const { r, id } = params;
+    const { manifestUrl, items } = JSON.parse(this.urlSafeDecode(r)) as {
+      manifestUrl: string;
+      items: { name: 'ton_addr' | 'ton_proof'; payload?: string }[];
+    };
     if (!manifestUrl) {
       await this.sendMsg({
         msg: JSON.stringify({
@@ -349,7 +358,7 @@ class ServiceTonConnect extends ServiceBase {
       if (item.name === 'ton_addr') {
         const connectedAccount = await this.provider
           .connect(request, [])
-          .catch(async (e) => {
+          .catch(async () => {
             await this.sendMsg({
               msg: JSON.stringify({
                 event: 'connect_error',
