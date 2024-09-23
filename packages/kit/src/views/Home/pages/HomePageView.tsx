@@ -140,6 +140,7 @@ export function HomePageView({
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
         initialScrollIndex={0}
+        initialHeaderHeight={220}
         contentItemWidth={CONTENT_ITEM_WIDTH}
         contentWidth={screenWidth}
         showsVerticalScrollIndicator={false}

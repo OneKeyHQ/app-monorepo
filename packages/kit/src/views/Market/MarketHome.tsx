@@ -153,7 +153,6 @@ function MarketHome() {
       return (
         <Tab
           disableRefresh
-          initialHeaderHeight={0}
           data={tabConfig}
           onSelectedPageIndex={handleSelectedPageIndex}
         />
