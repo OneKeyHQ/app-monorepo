@@ -193,7 +193,7 @@ export default function ScanQrCodeModal() {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
+      const uri = result?.assets?.[0]?.uri;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
@@ -210,7 +210,10 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
-      defaultLogger.account.wallet.scanQRCode('photo');
+      defaultLogger.scanQrCode.readQrCode.readFromLibrary(
+        JSON.stringify(result),
+        data,
+      );
     }
   }, [callback, intl]);
 
@@ -219,7 +222,7 @@ export default function ScanQrCodeModal() {
       if (isPickedImage.current) {
         return {};
       }
-      defaultLogger.account.wallet.scanQRCode('camera');
+      defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       return callback(value);
     },
     [callback],

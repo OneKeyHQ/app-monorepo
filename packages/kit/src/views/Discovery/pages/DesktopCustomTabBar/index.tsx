@@ -29,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -44,6 +45,7 @@ import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const ITEM_HEIGHT = 32;
+const TIMESTAMP_DIFF_MULTIPLIER = 2;
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
@@ -113,7 +115,7 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab(id);
+      void closeWebTab({ tabId: id, entry: 'Menu' });
     },
     [closeWebTab],
   );
@@ -135,6 +137,7 @@ function DesktopCustomTabBar() {
         await backgroundApiProxy.serviceDApp.disconnectWebsite({
           origin,
           storageType: 'injectedProvider',
+          entry: 'Browser',
         });
         setTimeout(() => run(), 200);
       }
@@ -147,16 +150,6 @@ function DesktopCustomTabBar() {
       setCurrentWebTab('');
     }
   });
-
-  useEffect(() => {
-    const listener = () => {
-      closeAllWebTabs();
-    };
-    appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
-    return () => {
-      appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
-    };
-  }, [closeAllWebTabs]);
 
   // For risk detection
   useEffect(() => {
@@ -269,9 +262,11 @@ function DesktopCustomTabBar() {
             : fromSectionData?.[fromItemIndex + 1]?.timestamp;
         const isPinnedDiff = fromItem.isPinned ? 1 : -1;
         if (!beforeTimestamp && afterTimestamp) {
-          fromItem.timestamp = afterTimestamp + isPinnedDiff * -1;
+          fromItem.timestamp =
+            afterTimestamp + isPinnedDiff * -TIMESTAMP_DIFF_MULTIPLIER;
         } else if (!afterTimestamp && beforeTimestamp) {
-          fromItem.timestamp = beforeTimestamp + isPinnedDiff * 1;
+          fromItem.timestamp =
+            beforeTimestamp + isPinnedDiff * TIMESTAMP_DIFF_MULTIPLIER;
         } else if (beforeTimestamp && afterTimestamp) {
           fromItem.timestamp = Math.round(
             (beforeTimestamp + afterTimestamp) / 2,
@@ -281,6 +276,7 @@ function DesktopCustomTabBar() {
       reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTabs([...pinnedTabs, ...unpinnedTabs]);
+      defaultLogger.discovery.browser.tabDragSorting();
     },
     [setTabs, setResult, sections],
   );

@@ -5,6 +5,7 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
+import { tonMnemonicToKeyPair } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -39,6 +40,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
@@ -50,6 +52,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -901,6 +904,52 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         },
       }),
+  );
+
+  createTonImportedWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        mnemonic,
+      }: {
+        mnemonic: string;
+      },
+    ) => {
+      const { servicePassword } = backgroundApiProxy;
+      const { mnemonic: realMnemonic } = await serviceAccount.validateMnemonic(
+        mnemonic,
+      );
+      const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
+      const secretKeyUint8Array = platformEnv.isNative
+        ? new Uint8Array(Object.values(keyPair.secretKey))
+        : keyPair.secretKey;
+      const privateHex = bufferUtils.bytesToHex(
+        secretKeyUint8Array.slice(0, 32),
+      );
+      const input = await servicePassword.encodeSensitiveText({
+        text: privateHex,
+      });
+      const r = await serviceAccount.addImportedAccount({
+        input,
+        deriveType: 'default',
+        networkId: getNetworkIdsMap().ton,
+        name: '',
+        shouldCheckDuplicateName: true,
+      });
+
+      const accountId = r?.accounts?.[0]?.id;
+      await serviceAccount.saveTonImportedAccountMnemonic({
+        accountId,
+        mnemonic,
+      });
+      void this.updateSelectedAccountForSingletonAccount.call(set, {
+        num: 0,
+        networkId: getNetworkIdsMap().ton,
+        walletId: WALLET_TYPE_IMPORTED,
+        othersWalletAccountId: accountId,
+      });
+    },
   );
 
   removeAccount = contextAtomMethod(
@@ -1759,6 +1808,7 @@ export function useAccountSelectorActions() {
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const createQrWallet = actions.createQrWallet.use();
+  const createTonImportedWallet = actions.createTonImportedWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
@@ -1791,6 +1841,7 @@ export function useAccountSelectorActions() {
     createHWHiddenWallet,
     createHWWalletWithHidden,
     createQrWallet,
+    createTonImportedWallet,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,

@@ -137,8 +137,7 @@ function TokenListView(props: IProps) {
   if (
     (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
     (!isTokenSelector && searchTokenState.isSearching) ||
-    (!tokenListState.initialized && tokenListState.isRefreshing) ||
-    (platformEnv.isNativeAndroid && isInRequest)
+    (!tokenListState.initialized && tokenListState.isRefreshing)
   ) {
     return (
       <NestedScrollView style={{ flex: 1 }}>

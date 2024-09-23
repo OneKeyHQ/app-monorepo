@@ -279,7 +279,6 @@ function HistoryDetails() {
 
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
-
   const nativeToken = usePromiseResult(
     () =>
       backgroundApiProxy.serviceToken.getNativeToken({
@@ -291,6 +290,7 @@ function HistoryDetails() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (!accountAddress) return;
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
         networkId,
@@ -518,7 +518,7 @@ function HistoryDetails() {
 
   const historyDetailsTitle = useMemo(() => {
     if (!historyTx) {
-      return '--';
+      return '';
     }
     const { decodedTx } = historyTx;
     const label = historyTx.decodedTx.payload?.label;
@@ -977,6 +977,13 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.global_network,
+              })}
+              renderContent={network?.name || '--'}
+              compact
+            />
             {new BigNumber(txInfo?.blockHeight ?? 0).isGreaterThan(0) ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -1045,10 +1052,11 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
     renderFeeInfo,
+    network?.name,
+    network?.id,
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
-    network?.id,
   ]);
 
   return (

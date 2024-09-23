@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
+import { isEmpty } from 'lodash';
+
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -127,13 +129,30 @@ function TxHistoryListContainer(props: ITabPageProps) {
   );
 
   useEffect(() => {
-    if (account?.id && network?.id && wallet?.id) {
+    const initHistoryState = async (accountId: string, networkId: string) => {
       setHistoryState({
         initialized: false,
         isRefreshing: true,
       });
+      const accountHistoryTxs =
+        await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
+          accountId,
+          networkId,
+        });
+
+      if (!isEmpty(accountHistoryTxs)) {
+        setHistoryData(accountHistoryTxs);
+        setHistoryState({
+          initialized: true,
+          isRefreshing: false,
+        });
+      }
+
       updateSearchKey('');
       refreshAllNetworksHistory.current = false;
+    };
+    if (account?.id && network?.id && wallet?.id) {
+      void initHistoryState(account.id, network.id);
     }
   }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 

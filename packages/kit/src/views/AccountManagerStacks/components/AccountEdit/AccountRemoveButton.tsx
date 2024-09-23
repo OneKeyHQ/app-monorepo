@@ -100,7 +100,7 @@ export function AccountRemoveButton({
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();

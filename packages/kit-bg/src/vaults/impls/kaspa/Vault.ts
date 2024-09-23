@@ -4,6 +4,7 @@ import { isEmpty } from 'lodash';
 import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   CONFIRMATION_COUNT,
+  DEFAULT_FEE_RATE,
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
@@ -25,7 +26,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -92,7 +92,8 @@ export default class Vault extends VaultBase {
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxKaspa> {
-    const { transfersInfo } = params;
+    const { transfersInfo, specifiedFeeRate } = params;
+
     if (!transfersInfo || isEmpty(transfersInfo)) {
       throw new OneKeyInternalError('transfersInfo is required');
     }
@@ -111,17 +112,21 @@ export default class Vault extends VaultBase {
     let encodedTx = await this.prepareAndBuildTx({
       confirmUtxos,
       transferInfo,
+      specifiedFeeRate,
     });
 
     // validate tx size
     let txn = toTransaction(encodedTx);
     const { mass, txSize } = txn.getMassAndSize();
+    encodedTx.feeInfo.limit = mass.toString();
+    encodedTx.mass = mass;
 
     if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
       encodedTx = await this.prepareAndBuildTx({
         confirmUtxos,
         transferInfo,
         priority: { satoshis: true },
+        specifiedFeeRate,
       });
       txn = toTransaction(encodedTx);
       const massAndSize = txn.getMassAndSize();
@@ -131,7 +136,10 @@ export default class Vault extends VaultBase {
       ) {
         throw new OneKeyInternalError('Transaction size is too large');
       }
+      encodedTx.feeInfo.limit = massAndSize.mass.toString();
+      encodedTx.mass = massAndSize.mass;
     }
+
     return encodedTx;
   }
 
@@ -294,6 +302,27 @@ export default class Vault extends VaultBase {
     }
     const mass = new BigNumber(gasLimit).toNumber();
     const newFeeInfo = { price: gasPrice, limit: mass.toString() };
+
+    if (feeInfo) {
+      const network = await this.getNetwork();
+
+      const specifiedFeeRate = new BigNumber(gasPrice)
+        .shiftedBy(network.feeMeta.decimals)
+        .toFixed();
+
+      const newEncodedTx = await this.buildEncodedTx({
+        transfersInfo: unsignedTx.transfersInfo,
+        specifiedFeeRate,
+      });
+
+      return {
+        ...params.unsignedTx,
+        encodedTx: {
+          ...newEncodedTx,
+          mass,
+        },
+      };
+    }
     return {
       ...params.unsignedTx,
       encodedTx: {
@@ -445,10 +474,12 @@ export default class Vault extends VaultBase {
     confirmUtxos,
     amountValue,
     priority,
+    feeRate,
   }: {
     confirmUtxos: IKaspaUnspentOutputInfo[];
     amountValue: string;
     priority?: { satoshis: boolean };
+    feeRate: string;
   }) {
     let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
@@ -471,9 +502,10 @@ export default class Vault extends VaultBase {
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
         .lte(new BigNumber(amountValue).plus(DUST_AMOUNT))
     ) {
+      const fee = new BigNumber(mass).multipliedBy(feeRate).toFixed();
       const newSelectUtxo = selectUTXOs(
         confirmUtxos,
-        new BigNumber(amountValue).plus(mass).plus(DUST_AMOUNT),
+        new BigNumber(amountValue).plus(fee).plus(DUST_AMOUNT),
       );
       utxoIds = newSelectUtxo.utxoIds;
       utxos = newSelectUtxo.utxos;
@@ -493,10 +525,12 @@ export default class Vault extends VaultBase {
     confirmUtxos,
     transferInfo,
     priority,
+    specifiedFeeRate,
   }: {
     confirmUtxos: IKaspaUnspentOutputInfo[];
     transferInfo: ITransferInfo;
     priority?: { satoshis: boolean };
+    specifiedFeeRate?: string;
   }) {
     const network = await this.getNetwork();
     const { to, amount } = transferInfo;
@@ -507,15 +541,13 @@ export default class Vault extends VaultBase {
     if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
       throw new OneKeyInternalError('Amount is too small');
     }
+    const feeRate = specifiedFeeRate ?? DEFAULT_FEE_RATE.toString();
 
     const { utxoIds, utxos, limit, hasMaxSend } = this._coinSelect({
       confirmUtxos,
       amountValue,
       priority,
-    });
-    const feeRate = chainValueUtils.convertChainValueToGwei({
-      network,
-      value: '1',
+      feeRate,
     });
 
     return {

@@ -2,6 +2,7 @@ import { isEmpty, isNil } from 'lodash';
 
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
+  EMnemonicType,
   decodeSensitiveText,
   decryptRevealableSeed,
   encryptImportedCredential,
@@ -9,9 +10,15 @@ import {
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
+  revealableSeedFromTonMnemonic,
+  tonMnemonicFromEntropy,
+  tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
-import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import type {
+  EAddressEncodings,
+  IExportKeyType,
+} from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -48,6 +55,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
@@ -134,7 +142,10 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateMnemonic(mnemonic: string): Promise<string> {
+  async validateMnemonic(mnemonic: string): Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }> {
     ensureSensitiveTextEncoded(mnemonic);
     const realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,
@@ -142,15 +153,18 @@ class ServiceAccount extends ServiceBase {
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
     // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
+      if (await tonValidateMnemonic(realMnemonicFixed.split(' '))) {
+        return {
+          mnemonic: realMnemonicFixed,
+          mnemonicType: EMnemonicType.TON,
+        };
+      }
       throw new InvalidMnemonic();
     }
-    return Promise.resolve(realMnemonicFixed);
-  }
-
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
+    return {
+      mnemonic: realMnemonicFixed,
+      mnemonicType: EMnemonicType.BIP39,
+    };
   }
 
   @backgroundMethod()
@@ -612,9 +626,11 @@ class ServiceAccount extends ServiceBase {
   async getNetworkSupportedExportKeyTypes({
     networkId,
     exportType,
+    accountId,
   }: {
     networkId: string;
-    exportType: 'privateKey' | 'publicKey';
+    exportType: IExportKeyType;
+    accountId?: string;
   }) {
     const settings = await getVaultSettings({ networkId });
     let keyTypes: ECoreApiExportedSecretKeyType[] | undefined;
@@ -634,6 +650,18 @@ class ServiceAccount extends ServiceBase {
         ].includes(item),
       );
     }
+    if (exportType === 'mnemonic') {
+      if (accountId) {
+        const hasMnemonic = await this.hasTonImportedAccountMnemonic({
+          accountId,
+        });
+        if (hasMnemonic) {
+          keyTypes = settings.supportExportedSecretKeys?.filter((item) =>
+            [ECoreApiExportedSecretKeyType.mnemonic].includes(item),
+          );
+        }
+      }
+    }
     return keyTypes;
   }
 
@@ -651,7 +679,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
-    exportType: 'privateKey' | 'publicKey';
+    exportType: IExportKeyType;
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
@@ -1748,7 +1776,12 @@ class ServiceAccount extends ServiceBase {
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
-    const realMnemonic = await this.validateMnemonic(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType === EMnemonicType.TON) {
+      throw new Error('TON mnemonic is not supported');
+    }
 
     let walletHash: string | undefined;
     if (walletHashBuilder) {
@@ -1766,6 +1799,38 @@ class ServiceAccount extends ServiceBase {
     }
 
     return this.createHDWalletWithRs({ rs, password, name, walletHash });
+  }
+
+  @backgroundMethod()
+  async saveTonImportedAccountMnemonic({
+    mnemonic,
+    accountId,
+  }: {
+    mnemonic: string;
+    accountId: string;
+  }) {
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
+    ensureSensitiveTextEncoded(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType !== EMnemonicType.TON) {
+      throw new Error('saveTonMnemonic ERROR: Not a TON mnemonic');
+    }
+    let rs: IBip39RevealableSeedEncryptHex | undefined;
+    try {
+      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+    } catch {
+      throw new InvalidMnemonic();
+    }
+
+    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+      throw new InvalidMnemonic();
+    }
+    await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
   }
 
   @backgroundMethod()
@@ -1984,6 +2049,44 @@ class ServiceAccount extends ServiceBase {
       text: mnemonic,
     });
     return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async getTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
+    if (!accountUtils.isImportedAccount({ accountId })) {
+      throw new Error(
+        'getTonImportedAccountMnemonic ERROR: Not a Ton Imported account',
+      );
+    }
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.Security,
+      });
+    const credential = await localDb.getCredential(
+      accountUtils.buildTonMnemonicCredentialId({
+        accountId,
+      }),
+    );
+    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
+    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
+    try {
+      const credential = await localDb.getCredential(
+        accountUtils.buildTonMnemonicCredentialId({
+          accountId,
+        }),
+      );
+      return !!credential;
+    } catch {
+      return false;
+    }
   }
 
   @backgroundMethod()

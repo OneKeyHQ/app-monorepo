@@ -314,21 +314,12 @@ function ReceiveToken() {
           p="$4"
         >
           <Stack position="relative">
-            <QRCode value={account.address} size={240} />
-            <Stack
-              position="absolute"
-              width="100%"
-              height="100%"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <Stack p={5} borderRadius="$full" overflow="hidden" bg="$bgApp">
-                <Token
-                  size="lg"
-                  tokenImageUri={token?.logoURI || network.logoURI}
-                />
-              </Stack>
-            </Stack>
+            <QRCode
+              value={account.address}
+              size={240}
+              logo={{ uri: token?.logoURI || network.logoURI }}
+              logoSize={40}
+            />
           </Stack>
 
           {!isShowQRCode ? (

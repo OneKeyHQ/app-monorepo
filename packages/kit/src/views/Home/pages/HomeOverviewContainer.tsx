@@ -73,10 +73,6 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      updateAccountOverviewState({
-        initialized: false,
-        isRefreshing: true,
-      });
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
@@ -324,6 +320,9 @@ function HomeOverviewContainer() {
           variant="tertiary"
           size="small"
           iconAfter="InfoCircleOutline"
+          px="$1"
+          py="$0.5"
+          mx="$-1"
         >
           {intl.formatMessage({
             id: vaultSettings.resourceKey,

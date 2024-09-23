@@ -191,7 +191,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     // a workaround to fix this issue
     //  that remove page includes Popover from screen before closing popover
     setTimeout(() => {
-      closeWebTab(id);
+      closeWebTab({ tabId: id, entry: 'Menu' });
       setCurrentWebTab(null);
     });
   }, [closeWebTab, setCurrentWebTab, id]);
@@ -227,6 +227,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     await backgroundApiProxy.serviceDApp.disconnectWebsite({
       origin,
       storageType: 'injectedProvider',
+      entry: 'Browser',
     });
     void refreshConnectState();
   }, [origin, refreshConnectState]);

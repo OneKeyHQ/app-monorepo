@@ -452,10 +452,12 @@ class ServiceDApp extends ServiceBase {
     origin,
     storageType,
     beforeConnect = false,
+    entry,
   }: {
     origin: string;
     storageType: IConnectionStorageType;
     beforeConnect?: boolean;
+    entry?: 'Browser' | 'SettingModal' | 'ExtPanel' | 'ExtFloatingTrigger';
   }) {
     const { simpleDb, serviceWalletConnect } = this.backgroundApi;
     // disconnect walletConnect
@@ -479,6 +481,14 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
     if (!beforeConnect) {
       await this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(origin);
+    }
+    if (entry) {
+      defaultLogger.discovery.dapp.disconnect({
+        dappDomain: origin,
+        disconnectType:
+          storageType === 'walletConnect' ? 'WalletConnect' : 'Injected',
+        disconnectFrom: entry,
+      });
     }
   }
 
@@ -1073,10 +1083,12 @@ class ServiceDApp extends ServiceBase {
     networkId,
     request,
     skipParseResponse,
+    origin,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
     skipParseResponse?: boolean;
+    origin: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -1095,6 +1107,7 @@ class ServiceDApp extends ServiceBase {
           params: request.id ? request : { ...request, id: 0 },
         },
       ],
+      origin,
     });
 
     const data = results.data.data.data;

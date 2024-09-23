@@ -1,6 +1,8 @@
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { Camera } from 'expo-camera';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
@@ -27,6 +29,7 @@ export function ScanCamera({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
       }}
+      responsiveOrientationWhenOrientationLocked={platformEnv.isNativeIOSPad}
       {...rest}
     >
       {children}

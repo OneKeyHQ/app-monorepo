@@ -1,9 +1,10 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Icon,
+  Image,
   SizableText,
   Skeleton,
   View,
@@ -256,6 +257,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
 }
 
 export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
+  const intl = useIntl();
   const {
     activeAccount: { account, network },
     showAccountSelector,
@@ -265,19 +267,30 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
     showAccountSelector();
   }, [showAccountSelector]);
 
+  const [showNoAddress, setShowNoAddress] = useState(false);
+
   const addressText = accountUtils.shortenAddress({
     address: account?.address || '',
   });
 
-  if (!addressText) {
+  useEffect(() => {
+    if (!addressText) {
+      const timer = setTimeout(() => {
+        setShowNoAddress(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [addressText]);
+
+  if (!addressText && !showNoAddress) {
     return <Skeleton width={153} height="$5" />;
   }
 
   return (
     <XStack
       alignItems="center"
-      px="$1.5"
-      mx="$-1.5"
+      pl="$1"
+      ml="$-1"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',
@@ -295,12 +308,30 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
         event.stopPropagation();
         void handlePress();
       }}
+      userSelect="none"
     >
-      <Token size="xs" tokenImageUri={network?.logoURI} />
-      <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-        {addressText}
+      <Image
+        width="$4"
+        height="$4"
+        borderRadius="$full"
+        source={{
+          uri: network?.logoURI,
+        }}
+      />
+      <SizableText
+        pl="$1.5"
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+      >
+        {addressText ||
+          (showNoAddress
+            ? intl.formatMessage({
+                id: ETranslations.wallet_no_address,
+              })
+            : '')}
       </SizableText>
-      <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
+      <Icon size="$5" color="$iconSubdued" name="ChevronDownSmallOutline" />
     </XStack>
   );
 }

@@ -51,6 +51,7 @@ export const {
     symbol: dangerAllNetworkRepresent.symbol,
     logoURI: dangerAllNetworkRepresent.logoURI,
     shortcode: dangerAllNetworkRepresent.shortcode,
+    isAllNetworks: true,
   };
   return [allNetwork, ...networks];
 });
