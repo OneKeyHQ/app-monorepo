@@ -1,6 +1,7 @@
 import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
+import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -8,6 +9,7 @@ import {
   CoreSDKLoader,
   generateConnectSrc,
 } from '@onekeyhq/shared/src/hardware/instance';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
@@ -37,7 +39,7 @@ export type ISetDeviceLabelParams = { walletId: string; label: string };
 export type ISetDeviceHomeScreenParams = {
   // TODO use IHardwareHomeScreenData
   dbDeviceId: string;
-  imgName: string;
+  imgName: IHardwareHomeScreenName;
   imgHex: string;
   thumbnailHex: string;
   isUserUpload?: boolean;
@@ -166,7 +168,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        if (isUserUpload) {
+        const isMonochrome = deviceHomeScreenUtils.isMonochromeScreen(
+          device.deviceType,
+        );
+        // pro touch upload image
+        if (isUserUpload && !isMonochrome) {
           const hardwareSDK = await this.getSDKInstance();
           const uploadResParams: DeviceUploadResourceParams = {
             resType: ResourceType.WallPaper,
@@ -182,8 +188,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         } else {
           const { getHomeScreenHex } = await CoreSDKLoader();
           const deviceType = device.deviceType;
+          const internalHex = getHomeScreenHex(deviceType, imgName);
           // eslint-disable-next-line no-param-reassign
-          imgHex = imgHex || getHomeScreenHex(deviceType, imgName);
+          imgHex = imgHex || internalHex;
+          if (imgName === 'blank') {
+            // eslint-disable-next-line no-param-reassign
+            imgHex = '';
+          }
           if (!imgHex) {
             // empty string will clear the home screen(classic,mini)
             // throw new Error('Invalid home screen hex');
