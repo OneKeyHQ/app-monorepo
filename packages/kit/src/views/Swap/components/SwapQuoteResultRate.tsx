@@ -100,7 +100,7 @@ const SwapQuoteResultRate = ({
     );
   }, [fromToken, intl, isReverse, onOpenResult, rate, rateIsExit, toToken]);
   return (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack alignItems="center" gap="$5">
       {isLoading ? (
         <Stack py="$0.5">
           <Skeleton h="$4" w="$32" />
@@ -109,9 +109,11 @@ const SwapQuoteResultRate = ({
         rateContent
       )}
 
-      <XStack alignItems="center" userSelect="none" gap="$1">
+      <XStack alignItems="center" userSelect="none" gap="$1" flex={1}>
         {!providerIcon || !fromToken || !toToken || !onOpenResult ? null : (
           <XStack
+            flex={1}
+            justifyContent="flex-end"
             animation="quick"
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
@@ -126,10 +128,7 @@ const SwapQuoteResultRate = ({
               numberOfLines={1}
               size="$bodyMdMedium"
               ml="$1"
-              maxWidth={80}
-              $gtMd={{
-                maxWidth: 130,
-              }}
+
             >
               {providerName ?? ''}
             </SizableText>
