@@ -55,7 +55,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
@@ -804,24 +803,66 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     keyType: ECoreApiExportedSecretKeyType;
   }): Promise<string | undefined> {
+    const buildResult = async (account: IDBAccount | undefined) => {
+      if (!account) {
+        throw new Error('exportAccountPublicKey ERROR: account not found');
+      }
+      let publicKey: string | undefined;
+      if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
+        publicKey = account?.pub;
+      }
+      if (keyType === ECoreApiExportedSecretKeyType.xpub) {
+        publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
+      }
+      if (!publicKey) {
+        throw new Error('publicKey not found');
+      }
+      return publicKey;
+    };
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const account = await this.getAccount({ accountId, networkId });
-    let publicKey: string | undefined;
-    if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
-      publicKey = account.pub;
+    const account: IDBAccount | undefined = await this.getAccount({
+      accountId,
+      networkId,
+    });
+    if (accountUtils.isHwOrQrAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const indexedAccountId = account.indexedAccountId;
+      const { deriveType } =
+        await this.backgroundApi.serviceNetwork.getDeriveTypeByDBAccount({
+          networkId,
+          account,
+        });
+      const { prepareParams, deviceParams } =
+        await this.getPrepareHDOrHWAccountsParams({
+          walletId,
+          networkId,
+          indexedAccountId,
+          deriveType,
+          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
+        });
+      const vault = await vaultFactory.getWalletOnlyVault({
+        networkId,
+        walletId,
+      });
+
+      return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const accounts = await vault.keyring.prepareAccounts(prepareParams);
+          return buildResult(accounts?.[0]);
+        },
+        {
+          deviceParams,
+          skipDeviceCancelAtFirst: true,
+          debugMethodName: 'exportAccountPublicKey.prepareAccounts',
+        },
+      );
     }
-    if (keyType === ECoreApiExportedSecretKeyType.xpub) {
-      publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
-    }
-    if (!publicKey) {
-      throw new Error('publicKey not found');
-    }
-    return publicKey;
+    return buildResult(account);
   }
 
   @backgroundMethod()

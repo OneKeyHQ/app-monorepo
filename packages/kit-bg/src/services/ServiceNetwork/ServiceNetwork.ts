@@ -263,6 +263,22 @@ class ServiceNetwork extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
+  async getDeriveTypeByDBAccount({
+    networkId,
+    account,
+  }: {
+    networkId: string;
+    account: IDBAccount;
+  }) {
+    const { template } = account;
+    const deriveTypeData = await this.getDeriveTypeByTemplate({
+      networkId,
+      template,
+    });
+    return deriveTypeData;
+  }
+
   async getDeriveTemplateByPath({
     networkId,
     path,
