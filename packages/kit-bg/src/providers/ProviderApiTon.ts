@@ -56,6 +56,9 @@ class ProviderApiTon extends ProviderApiBase {
       } catch {
         // ignore
       }
+      if (!params) {
+        void this.backgroundApi.tonConnect.notifyDisconnect(info.targetOrigin);
+      }
       const result = {
         method: 'wallet_events_accountChanged',
         params,

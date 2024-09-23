@@ -8,7 +8,6 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import ServiceBase from './ServiceBase';
@@ -17,16 +16,7 @@ import type { ITonConnectValue } from './ServiceScanQRCode/utils/parseQRCode/typ
 import type ProviderApiTon from '../providers/ProviderApiTon';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
-interface ITonConnectLocalData {
-  lastEventId?: string;
-  keyPair?: {
-    privateKey: string;
-    publicKey: string;
-  };
-}
-
 const TON_CONNECT_HTTP_BRIDGE = 'https://bridge.tonapi.io/bridge';
-const TON_CONNECT_STORAGE_KEY = 'tonConnect';
 
 let isListened = false;
 
@@ -55,19 +45,17 @@ class ServiceTonConnect extends ServiceBase {
   }
 
   private async getKeyPair() {
-    const localData = await this.loadLocalData();
-    if (localData.keyPair) {
+    const localData = await this.backgroundApi.simpleDb.tonConnect.getKeyPair();
+    if (localData) {
       return {
-        privateKey: bufferUtils.hexToBytes(localData.keyPair.privateKey),
-        publicKey: bufferUtils.hexToBytes(localData.keyPair.publicKey),
+        privateKey: bufferUtils.hexToBytes(localData.privateKey),
+        publicKey: bufferUtils.hexToBytes(localData.publicKey),
       };
     }
     const pair = nacl.box.keyPair();
-    await this.saveLocalData({
-      keyPair: {
-        privateKey: bufferUtils.bytesToHex(pair.secretKey),
-        publicKey: bufferUtils.bytesToHex(pair.publicKey),
-      },
+    await this.backgroundApi.simpleDb.tonConnect.setKeyPair({
+      privateKey: bufferUtils.bytesToHex(pair.secretKey),
+      publicKey: bufferUtils.bytesToHex(pair.publicKey),
     });
     return {
       privateKey: pair.secretKey,
@@ -76,11 +64,12 @@ class ServiceTonConnect extends ServiceBase {
   }
 
   private async listen() {
-    const localData = await this.loadLocalData();
+    const localLastEventId =
+      await this.backgroundApi.simpleDb.tonConnect.getLastEventId();
     const clientId = await this.getClientId();
     console.log('tonConnect listen EventSource', clientId);
     const url = `${TON_CONNECT_HTTP_BRIDGE}/events?client_id=${clientId}&last_event_id=${
-      localData.lastEventId || ''
+      localLastEventId || ''
     }`;
     const onMessage = async (event: {
       data: string | null;
@@ -107,9 +96,9 @@ class ServiceTonConnect extends ServiceBase {
         msg: Buffer.from(msg).toString(),
         fromClientId: data.from,
       });
-      await this.saveLocalData({
-        lastEventId: event.lastEventId || '',
-      });
+      await this.backgroundApi.simpleDb.tonConnect.setLastEventId(
+        event.lastEventId || '',
+      );
     };
     const onError = (event: any) => {
       console.log('tonConnect EventSource error: ', event);
@@ -253,29 +242,6 @@ class ServiceTonConnect extends ServiceBase {
     return bufferUtils.bytesToHex(this.publicKey);
   }
 
-  private async saveLocalData(data: ITonConnectLocalData) {
-    const localData = await appStorage.getItem(TON_CONNECT_STORAGE_KEY);
-    let localDataObj: ITonConnectLocalData = {};
-    if (localData) {
-      localDataObj = JSON.parse(localData) as ITonConnectLocalData;
-    }
-    await appStorage.setItem(
-      TON_CONNECT_STORAGE_KEY,
-      JSON.stringify({
-        ...localDataObj,
-        ...data,
-      }),
-    );
-  }
-
-  private async loadLocalData() {
-    const localData = await appStorage.getItem(TON_CONNECT_STORAGE_KEY);
-    if (localData) {
-      return JSON.parse(localData) as ITonConnectLocalData;
-    }
-    return {};
-  }
-
   private async sendMsg({
     msg,
     toClientId,
@@ -377,6 +343,10 @@ class ServiceTonConnect extends ServiceBase {
           name: 'ton_addr',
           ...connectedAccount,
         });
+        await this.backgroundApi.simpleDb.tonConnect.setOriginClientId({
+          origin,
+          clientId: id,
+        });
       } else if (item.name === 'ton_proof') {
         const proof = await this.provider.signProof(request, {
           payload: item.payload as string,
@@ -410,6 +380,25 @@ class ServiceTonConnect extends ServiceBase {
       origin,
       storageType: 'tonConnect',
     });
+  }
+
+  @backgroundMethod()
+  public async notifyDisconnect(origin: string) {
+    const clientIds =
+      await this.backgroundApi.simpleDb.tonConnect.getOriginClientIds(origin);
+    if (clientIds.length > 0) {
+      for (const clientId of clientIds) {
+        await this.sendMsg({
+          msg: JSON.stringify({
+            event: 'disconnect',
+            id: Date.now(),
+            payload: {},
+          }),
+          toClientId: clientId,
+        });
+        await this.backgroundApi.simpleDb.tonConnect.removeOrigin(origin);
+      }
+    }
   }
 }
 

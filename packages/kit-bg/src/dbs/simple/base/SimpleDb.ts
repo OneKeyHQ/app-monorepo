@@ -22,6 +22,7 @@ import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import { SimpleDbEntityTonConnect } from '../entity/SimpleDbEntityTonConnect';
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 
@@ -77,4 +78,6 @@ export class SimpleDb {
   legacyWalletNames = new SimpleDbEntityLegacyWalletNames();
 
   localNFTs = new SimpleDbEntityLocalNFTs();
+
+  tonConnect = new SimpleDbEntityTonConnect();
 }
