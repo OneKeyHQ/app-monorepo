@@ -1,7 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
 
-import platformEnv from '../platformEnv';
-
 import imageUtils from './imageUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -12,7 +10,28 @@ const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
   mini: true,
 };
 
-const defaultT1Infomation: {
+export const T1_HOME_SCREEN_DEFAULT_IMAGES = [
+  'blank',
+  'original',
+  'bitcoin_shade',
+  'bitcoin_full',
+  'ethereum',
+  'bitcoin_b',
+  'doge',
+  'coffee',
+  'carlos',
+  'einstein',
+  'anonymous',
+  'piggy',
+  'nyancat',
+  'dogs',
+  'pacman',
+  'tetris',
+  'tothemoon',
+  'xrc',
+];
+
+export const DEFAULT_T1_HOME_SCREEN_INFOMATION: {
   width: number;
   height: number;
   supports: Array<'png' | 'jpeg'>;
@@ -24,9 +43,9 @@ const deviceModelInformation: Partial<
     { width: number; height: number; supports: Array<'png' | 'jpeg'> }
   >
 > = {
-  classic: { ...defaultT1Infomation },
-  classic1s: { ...defaultT1Infomation },
-  mini: { ...defaultT1Infomation },
+  classic: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
+  classic1s: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
+  mini: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
 };
 
 function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
@@ -95,7 +114,7 @@ async function imagePathToHex(
     );
   }
   const { width, height } = deviceModelInformation[deviceType] || {
-    ...defaultT1Infomation,
+    ...DEFAULT_T1_HOME_SCREEN_INFOMATION,
   };
 
   const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);

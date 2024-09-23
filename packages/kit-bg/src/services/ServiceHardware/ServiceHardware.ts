@@ -24,6 +24,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import deviceHomeScreenUtils, {
+  DEFAULT_T1_HOME_SCREEN_INFOMATION,
+  T1_HOME_SCREEN_DEFAULT_IMAGES,
+} from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -789,32 +793,15 @@ class ServiceHardware extends ServiceBase {
       await CoreSDKLoader();
     const device = await localDb.getDevice(checkIsDefined(dbDeviceId));
     let names = getHomeScreenDefaultList(device.featuresInfo || ({} as any));
-    const isT1Model = ['classic', 'mini', 'classic1s'].includes(
+
+    const isT1Model = deviceHomeScreenUtils.isMonochromeScreen(
       device.deviceType,
     );
+
     if (isT1Model) {
       // genesis.png is trezor brand image
       names = names.filter((name) => name !== 'genesis');
-      names = [
-        'blank',
-        'original',
-        'bitcoin_shade',
-        'bitcoin_full',
-        'ethereum',
-        'bitcoin_b',
-        'doge',
-        'coffee',
-        'carlos',
-        'einstein',
-        'anonymous',
-        'piggy',
-        'nyancat',
-        'dogs',
-        'pacman',
-        'tetris',
-        'tothemoon',
-        'xrc',
-      ];
+      names = T1_HOME_SCREEN_DEFAULT_IMAGES;
     }
     let size = getHomeScreenSize({
       deviceType: device.deviceType,
@@ -827,10 +814,7 @@ class ServiceHardware extends ServiceBase {
       thumbnail: true,
     });
     if (!size && isT1Model) {
-      size = {
-        width: 128,
-        height: 64,
-      };
+      size = DEFAULT_T1_HOME_SCREEN_INFOMATION;
     }
     return { names, size, thumbnailSize };
   }

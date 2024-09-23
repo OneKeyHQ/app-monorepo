@@ -1,7 +1,34 @@
 import type { IImageSourcePropType } from '@onekeyhq/components/src/primitives/Image/type';
 
+export type IHardwareHomeScreenName =
+  | 'blank'
+  | 'original'
+  | 'bitcoin_shade'
+  | 'bitcoin_full'
+  | 'ethereum'
+  | 'bitcoin_b'
+  | 'doge'
+  | 'coffee'
+  | 'carlos'
+  | 'einstein'
+  | 'anonymous'
+  | 'piggy'
+  | 'nyancat'
+  | 'dogs'
+  | 'tetris'
+  | 'pacman'
+  | 'tothemoon'
+  | 'xrc'
+  | 'wallpaper-1'
+  | 'wallpaper-2'
+  | 'wallpaper-3'
+  | 'wallpaper-4'
+  | 'wallpaper-5'
+  | 'wallpaper-6'
+  | 'wallpaper-7';
+
 export type IHardwareHomeScreenData = {
-  name: string;
+  name: IHardwareHomeScreenName;
   source?: IImageSourcePropType; // image source by require('')
   uri?: string; // image base64 by upload & crop
   hex?: string; // image hex by resize
@@ -9,9 +36,10 @@ export type IHardwareHomeScreenData = {
   isUserUpload?: boolean;
 };
 
-export type IHardwareHomeScreenDataMap = {
-  [name: string]: IHardwareHomeScreenData;
-};
+export type IHardwareHomeScreenDataMap = Record<
+  IHardwareHomeScreenName,
+  IHardwareHomeScreenData
+>;
 
 const classicMini: IHardwareHomeScreenData[] = [
   {

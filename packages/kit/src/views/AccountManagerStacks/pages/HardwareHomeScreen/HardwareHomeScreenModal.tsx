@@ -282,7 +282,7 @@ export default function HardwareHomeScreenModal({
     //   base64ThumbnailImg: imgThumb?.uri,
     // });
 
-    const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
+    const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}` as any;
     const uploadItem: IHardwareHomeScreenData = {
       uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
       hex: img?.hex,

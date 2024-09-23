@@ -1,6 +1,7 @@
 import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
+import type { IHardwareHomeScreenName } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/HardwareHomeScreen/hardwareHomeScreenData';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { FirmwareVersionTooLow } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -38,7 +39,7 @@ export type ISetDeviceLabelParams = { walletId: string; label: string };
 export type ISetDeviceHomeScreenParams = {
   // TODO use IHardwareHomeScreenData
   dbDeviceId: string;
-  imgName: string;
+  imgName: IHardwareHomeScreenName;
   imgHex: string;
   thumbnailHex: string;
   isUserUpload?: boolean;
