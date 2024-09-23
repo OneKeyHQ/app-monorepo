@@ -506,9 +506,8 @@ export function useSwapTokenList(
               swapAddressInfo?.accountInfo?.dbAccount?.id
           : undefined,
       );
-    } else {
-      void tokenListFetchAction(tokenFetchParams);
     }
+    void tokenListFetchAction(tokenFetchParams);
   }, [
     swapAddressInfo?.accountInfo?.account?.id,
     swapAddressInfo?.accountInfo?.dbAccount?.id,
