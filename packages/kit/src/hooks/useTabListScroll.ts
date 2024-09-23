@@ -39,8 +39,14 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const onLayout = useCallback(() => {
     const scrollView = scrollViewRef?.current as unknown as HTMLElement;
     let prevListScrollTop = 0;
+    // When using scaling settings in Windows, the element height and scroll distance may be floating-point numbers, which can lead to errors in calculations.
+    //  Therefore, use a method where the absolute value is less than 1 to eliminate the error.
     const isNearBottom = () =>
-      scrollView.scrollTop + scrollView.clientHeight >= scrollView.scrollHeight;
+      Math.abs(
+        scrollView.scrollTop +
+          scrollView.clientHeight -
+          scrollView.scrollHeight,
+      ) < 1;
 
     const onListViewScroll = () => {
       const listView = getListView();
