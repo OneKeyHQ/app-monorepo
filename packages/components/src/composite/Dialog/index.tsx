@@ -16,6 +16,7 @@ import {
 import { useIntl } from 'react-intl';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -390,6 +391,7 @@ function dialogShow({
     ref: React.RefObject<IDialogInstance> | undefined;
   }) => JSX.Element;
 }): IDialogInstance {
+  dismissKeyboard();
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
 
