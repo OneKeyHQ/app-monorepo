@@ -245,7 +245,10 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           r: JSON.parse(params.get('r') ?? '{}'),
           ret: params.get('ret') ?? '',
         });
-        closeWebTab(id);
+        closeWebTab({
+          tabId: id,
+          entry: 'BlockView',
+        });
       }
     }
   }, [closeWebTab, id, tab?.url]);
