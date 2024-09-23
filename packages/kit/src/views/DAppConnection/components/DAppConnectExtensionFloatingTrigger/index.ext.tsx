@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import {
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -90,6 +91,7 @@ function DAppConnectExtensionFloatingTrigger() {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
         origin: result?.origin ?? '',
         storageType: result?.connectedAccountsInfo?.[0].storageType,
+        entry: 'ExtFloatingTrigger',
       });
       void refreshConnectionInfo();
     }
@@ -98,7 +100,11 @@ function DAppConnectExtensionFloatingTrigger() {
   const renderAccountTrigger = useCallback(() => {
     if (result?.connectedAccountsInfo?.length === 1) {
       if (hideAccountSelectorTrigger) {
-        return <Skeleton width={153} height="$5" />;
+        return (
+          <Stack py="$1" w="$16">
+            <Skeleton height="$3" />
+          </Stack>
+        );
       }
       return (
         <AccountSelectorProviderMirror
@@ -121,16 +127,14 @@ function DAppConnectExtensionFloatingTrigger() {
             {} as Record<number, { networkIds: string[] }>,
           )}
         >
-          <XStack minHeight="$5">
-            <SingleAccountAddressSelectorTrigger
-              origin={result?.origin ?? ''}
-              num={result?.connectedAccountsInfo?.[0]?.num}
-              account={result?.connectedAccountsInfo?.[0]}
-              afterChangeAccount={() => {
-                void refreshConnectionInfo();
-              }}
-            />
-          </XStack>
+          <SingleAccountAddressSelectorTrigger
+            origin={result?.origin ?? ''}
+            num={result?.connectedAccountsInfo?.[0]?.num}
+            account={result?.connectedAccountsInfo?.[0]}
+            afterChangeAccount={() => {
+              void refreshConnectionInfo();
+            }}
+          />
         </AccountSelectorProviderMirror>
       );
     }
@@ -180,33 +184,29 @@ function DAppConnectExtensionFloatingTrigger() {
   }
 
   return (
-    <>
-      {shouldSwitchAccount ? (
-        <Stack
-          position="absolute"
-          bottom="$16"
-          right="0"
-          left="0"
-          h="$9"
-          w="100%"
-          bg="$bgApp"
-          borderTopWidth="$px"
-          borderBottomWidth="0"
-          borderLeftWidth="0"
-          borderRightWidth="0"
-          borderColor="$borderInfoSubdued"
-        >
+    <YStack
+      position="absolute"
+      bottom="0"
+      right="0"
+      left="0"
+      bg="$bgApp"
+      borderTopWidth="$px"
+      borderColor="$borderSubdued"
+    >
+      <HeightTransition>
+        {shouldSwitchAccount ? (
           <XStack
             py="$2"
-            px="$5"
+            mx={22}
+            borderBottomWidth="$px"
+            borderBottomColor="$neutral3"
             justifyContent="space-between"
             gap="$2"
-            bg="$bgInfoSubdued"
           >
             <SizableText size="$bodyMdMedium">{switchProcessText}</SizableText>
             <XStack gap="$3">
               <IconButton
-                icon="CornerDownRightOutline"
+                icon="CheckLargeOutline"
                 size="small"
                 variant="tertiary"
                 onPress={onSwitchAccount}
@@ -220,71 +220,69 @@ function DAppConnectExtensionFloatingTrigger() {
               />
             </XStack>
           </XStack>
-        </Stack>
-      ) : null}
-      <Stack
-        position="absolute"
-        bottom="0"
-        right="0"
-        left="0"
-        h="$16"
-        w="100%"
+        ) : null}
+      </HeightTransition>
+
+      <XStack
+        group
+        alignItems="center"
+        gap="$3"
         py="$3"
         px="$5"
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
-        bg="$bgApp"
-        borderTopWidth="$px"
-        borderBottomWidth="0"
-        borderLeftWidth="0"
-        borderRightWidth="0"
-        borderColor={shouldSwitchAccount ? '$borderInfoSubdued' : '$border'}
         onPress={handlePressFloatingButton}
+        userSelect="none"
       >
-        <XStack alignItems="center" gap="$3">
-          <Stack position="relative">
-            <Image size="$9" borderRadius="$2">
-              <Image.Source
-                src={result?.faviconUrl || result?.originFaviconUrl}
-              />
-              <Image.Fallback>
-                <Icon size="$10" name="GlobusOutline" />
-              </Image.Fallback>
-              <Image.Loading>
-                <Skeleton width="100%" height="100%" />
-              </Image.Loading>
-            </Image>
-            <Stack
-              position="absolute"
-              bottom={-2}
-              right={-2}
-              justifyContent="center"
-              alignItems="center"
-              w="$3"
-              h="$3"
-              borderRadius="$full"
-              bg="$bg"
-              zIndex="$1"
-            >
-              <Stack w="$2" h="$2" bg="$iconSuccess" borderRadius="$full" />
-            </Stack>
+        <Stack
+          animation="quick"
+          $group-hover={{
+            scale: 1.1,
+          }}
+        >
+          <Image
+            size="$9"
+            borderRadius="$2"
+            borderColor="$border"
+            borderWidth="$px"
+          >
+            <Image.Source
+              src={result?.faviconUrl || result?.originFaviconUrl}
+            />
+            <Image.Fallback>
+              <Icon size="$10" name="GlobusOutline" />
+            </Image.Fallback>
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
+          </Image>
+          <Stack
+            position="absolute"
+            bottom={-2}
+            right={-2}
+            justifyContent="center"
+            alignItems="center"
+            w="$3"
+            h="$3"
+            borderRadius="$full"
+            bg="$bg"
+            zIndex="$1"
+          >
+            <Stack w="$2" h="$2" bg="$iconSuccess" borderRadius="$full" />
           </Stack>
-          <YStack maxWidth={276}>
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {result?.connectLabel}
-            </SizableText>
-            {renderAccountTrigger()}
-          </YStack>
-        </XStack>
+        </Stack>
+        <YStack flex={1} alignItems="flex-start">
+          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            {result?.connectLabel}
+          </SizableText>
+          {renderAccountTrigger()}
+        </YStack>
         <IconButton
           icon="BrokenLinkOutline"
           size="medium"
           variant="tertiary"
           onPress={onDisconnect}
         />
-      </Stack>
-    </>
+      </XStack>
+    </YStack>
   );
 }
 

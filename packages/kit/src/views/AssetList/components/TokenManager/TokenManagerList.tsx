@@ -17,8 +17,27 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
+
+function ListHeaderComponent({
+  onAddCustomToken,
+}: {
+  onAddCustomToken: (token?: ICustomTokenItem) => void;
+}) {
+  const intl = useIntl();
+
+  return (
+    <ListItem
+      title={intl.formatMessage({
+        id: ETranslations.manage_token_custom_token_title,
+      })}
+      drillIn
+      onPress={onAddCustomToken}
+    />
+  );
+}
 
 function ListEmptyComponent({
   onAddCustomToken,
@@ -130,6 +149,7 @@ function TokenManagerList({
   checkTokenExistInTokenList,
   searchValue,
   searchResult,
+  showListHeader = true,
 }: {
   dataSource:
     | {
@@ -149,6 +169,7 @@ function TokenManagerList({
   ) => ICustomTokenItem | undefined;
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
+  showListHeader?: boolean;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -157,6 +178,11 @@ function TokenManagerList({
   }
   return (
     <SectionList
+      ListHeaderComponent={
+        showListHeader ? (
+          <ListHeaderComponent onAddCustomToken={onAddCustomToken} />
+        ) : null
+      }
       sections={dataSource}
       estimatedItemSize={60}
       renderSectionHeader={({ section: { title, data } }) => (
@@ -181,7 +207,7 @@ function TokenManagerList({
             isAllNetworks
           />
           <YStack flex={1}>
-            <XStack gap="$2">
+            <XStack gap="$2" alignItems="center">
               <SizableText size="$bodyLgMedium" color="$text">
                 {item.symbol}
               </SizableText>
@@ -194,9 +220,15 @@ function TokenManagerList({
             </SizableText>
           </YStack>
           <ListItem.IconButton
-            disabled={!!(checkTokenExistInTokenList(item) && item.isNative)}
+            disabled={
+              !!(
+                checkTokenExistInTokenList(item) &&
+                networkUtils.isBTCNetwork(item.networkId)
+              )
+            }
             title={
-              checkTokenExistInTokenList(item) && item.isNative
+              checkTokenExistInTokenList(item) &&
+              networkUtils.isBTCNetwork(item.networkId)
                 ? intl.formatMessage({
                     id: ETranslations.manage_token_native_token_cannot_removed,
                   })
@@ -227,7 +259,7 @@ function TokenManagerList({
             searchResult={searchResult}
             onAddCustomToken={onAddCustomToken}
           />
-          {bottom ? <Stack h={bottom} /> : null}
+          <Stack h={bottom || '$3'} />
         </>
       }
       ListEmptyComponent={

@@ -18,7 +18,7 @@ export function AccountRenameButton({
   name: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;

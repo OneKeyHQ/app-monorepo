@@ -334,6 +334,19 @@ const desktopApi = {
   },
   setBadge: (params: INotificationSetBadgeParams) => {
     ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
+    // if windows
+    if (process.platform === 'win32') {
+      /* 
+      // If invokeType is set to "handle"
+      // Replace 8 with whatever number you want the badge to display
+      ipcRenderer.invoke('notificationCount', 8); 
+      */
+      // handle -> ipcRenderer.invoke
+      void ipcRenderer.invoke(
+        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
+        params.count ?? 0,
+      );
+    }
   },
   getNotificationPermission: () =>
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),

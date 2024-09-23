@@ -25,15 +25,18 @@ const ActionListDemo1 = () => (
       {
         label: 'Action2',
         icon: 'PlaceholderOutline',
-        onPress: () => {
-          console.log('action2');
+        onPress: (close) => {
+          setTimeout(() => {
+            console.log('action2');
+            close();
+          }, 3500);
         },
       },
       {
         label: 'Action3',
         icon: 'PlaceholderOutline',
         onPress: () => {
-          console.log('action2');
+          console.log('action3');
         },
         disabled: true,
       },

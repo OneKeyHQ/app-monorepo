@@ -58,63 +58,67 @@ export function WalletListItem({
   //   id: walletName as ETranslations,
   // });
 
-  const basicComponent = (
-    <Pressable
-      delayLongPress={200}
-      pointerEvents={platformEnv.isNative ? 'box-only' : 'box-none'}
-      {...(platformEnv.isNative
+  const basicComponentContent = (
+    <Stack
+      role="button"
+      alignItems="center"
+      p="$1"
+      borderRadius="$3"
+      borderCurve="continuous"
+      userSelect="none"
+      {...(selected
+        ? {
+            bg: '$bgActive',
+          }
+        : {
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+      focusable
+      focusVisibleStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      {...(!platformEnv.isNative
         ? {
             onPress,
-            onLongPress,
           }
         : undefined)}
+      {...rest}
     >
-      <Stack
-        role="button"
-        alignItems="center"
-        p="$1"
-        borderRadius="$3"
-        borderCurve="continuous"
-        userSelect="none"
-        {...(selected
-          ? {
-              bg: '$bgActive',
-            }
-          : {
-              hoverStyle: {
-                bg: '$bgHover',
-              },
-              pressStyle: {
-                bg: '$bgActive',
-              },
-            })}
-        focusable
-        focusVisibleStyle={{
-          outlineWidth: 2,
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
-        }}
-        {...(!platformEnv.isNative
-          ? {
-              onPress,
-            }
-          : undefined)}
-        {...rest}
+      {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
+      <SizableText
+        flex={1}
+        width="100%"
+        numberOfLines={1}
+        mt="$1"
+        size="$bodySm"
+        color={selected ? '$text' : '$textSubdued'}
+        textAlign="center"
       >
-        {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-        <SizableText
-          flex={1}
-          width="100%"
-          numberOfLines={1}
-          mt="$1"
-          size="$bodySm"
-          color={selected ? '$text' : '$textSubdued'}
-          textAlign="center"
-        >
-          {i18nWalletName}
-        </SizableText>
-      </Stack>
+        {i18nWalletName}
+      </SizableText>
+    </Stack>
+  );
+
+  const basicComponent = platformEnv.isNative ? (
+    <Pressable
+      delayLongPress={200}
+      pointerEvents="box-only"
+      {...{
+        onPress,
+        onLongPress,
+      }}
+    >
+      {basicComponentContent}
     </Pressable>
+  ) : (
+    basicComponentContent
   );
 
   const responsiveComponent = media.md ? (

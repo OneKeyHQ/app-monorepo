@@ -21,6 +21,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -72,10 +73,6 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      updateAccountOverviewState({
-        initialized: false,
-        isRefreshing: true,
-      });
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
@@ -181,6 +178,7 @@ function HomeOverviewContainer() {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
   const isLoading =
@@ -322,6 +320,9 @@ function HomeOverviewContainer() {
           variant="tertiary"
           size="small"
           iconAfter="InfoCircleOutline"
+          px="$1"
+          py="$0.5"
+          mx="$-1"
         >
           {intl.formatMessage({
             id: vaultSettings.resourceKey,

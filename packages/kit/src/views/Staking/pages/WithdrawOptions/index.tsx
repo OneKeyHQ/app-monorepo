@@ -88,7 +88,7 @@ const WithdrawOptions = () => {
               network={result.network}
               onPress={onPress}
               onConfirmText={intl.formatMessage({
-                id: ETranslations.global_withdraw,
+                id: ETranslations.global_continue,
               })}
               extraFields={
                 networkUtils.isBTCNetwork(networkId)

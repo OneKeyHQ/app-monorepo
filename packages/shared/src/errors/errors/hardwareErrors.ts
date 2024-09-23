@@ -129,6 +129,8 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.DeviceInterruptedFromOutside;
+
+  override className = EOneKeyErrorClassNames.HardwareUserCancelFromOutside;
 }
 
 export class UnknownMethod extends OneKeyHardwareError {

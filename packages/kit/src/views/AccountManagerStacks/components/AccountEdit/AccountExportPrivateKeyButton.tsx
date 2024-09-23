@@ -1,17 +1,17 @@
-import { useIntl } from 'react-intl';
-
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
+  EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 
 export function AccountExportPrivateKeyButton({
@@ -28,13 +28,11 @@ export function AccountExportPrivateKeyButton({
   accountName?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
-  onClose?: () => void;
+  onClose: () => void;
   icon: IKeyOfIcons;
   label: string;
-  exportType: 'privateKey' | 'publicKey';
+  exportType: IExportKeyType;
 }) {
-  const intl = useIntl();
-  const { serviceAccount } = backgroundApiProxy;
   const navigation = useAppNavigation();
 
   return (
@@ -44,6 +42,24 @@ export function AccountExportPrivateKeyButton({
       label={label}
       onClose={onClose}
       onPress={async () => {
+        if (exportType === 'mnemonic') {
+          onClose?.();
+          const { mnemonic } =
+            await backgroundApiProxy.serviceAccount.getTonImportedAccountMnemonic(
+              {
+                accountId: account?.id ?? '',
+              },
+            );
+          if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
+          navigation.pushModal(EModalRoutes.OnboardingModal, {
+            screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+            params: {
+              mnemonic,
+              isBackup: true,
+            },
+          });
+          return;
+        }
         navigation.pushModal(EModalRoutes.AccountManagerStacks, {
           screen: EAccountManagerStacksRoutes.ExportPrivateKeysPage,
           params: {

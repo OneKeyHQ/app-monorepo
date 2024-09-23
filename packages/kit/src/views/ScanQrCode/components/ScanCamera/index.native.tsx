@@ -1,4 +1,4 @@
-import { CameraScreen } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit/src';
 
 import type { IScanCameraProps } from './types';
 
@@ -16,9 +16,9 @@ export function ScanCamera({
   }
   return (
     <>
-      {/* @ts-expect-error */}
-      <CameraScreen
-        hideControls
+      <Camera
+        style={{ flex: 1 }}
+        resizeMode="cover"
         scanBarcode
         onReadCode={({ nativeEvent: { codeStringValue } }) => {
           if (typeof codeStringValue !== 'string') {

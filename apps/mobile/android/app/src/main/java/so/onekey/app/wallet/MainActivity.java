@@ -7,6 +7,7 @@ import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
+import com.facebook.react.modules.i18nmanager.I18nUtil;
 
 import expo.modules.ReactActivityDelegateWrapper;
 
@@ -18,6 +19,8 @@ public class MainActivity extends ReactActivity {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null);
+    I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
+    sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
   }
 
   /**

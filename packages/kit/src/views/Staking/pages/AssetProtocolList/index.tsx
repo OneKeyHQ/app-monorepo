@@ -94,6 +94,8 @@ const AssetProtocolIntroButton = ({
   const intl = useIntl();
   const onPress = useCallback(() => {
     Dialog.show({
+      icon: 'InfoCircleOutline',
+      title: intl.formatMessage({ id: ETranslations.earn_staking_methods }),
       renderContent: <AssetProtocolContent providerTypes={providerTypes} />,
       showConfirmButton: false,
       onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
@@ -207,16 +209,12 @@ const AssetProtocolListContent = ({
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
+                ? `APR ${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
                 : null
             }
-            secondary={
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {`TVL ${currencySymbol}${formatNumber(
-                  Number(item.provider.totalFiatValue),
-                )}`}
-              </SizableText>
-            }
+            secondary={`TVL ${currencySymbol}${formatNumber(
+              Number(item.provider.totalFiatValue),
+            )}`}
           />
         </ListItem>
       )}
