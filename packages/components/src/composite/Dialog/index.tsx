@@ -14,6 +14,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -390,6 +391,9 @@ function dialogShow({
     ref: React.RefObject<IDialogInstance> | undefined;
   }) => JSX.Element;
 }): IDialogInstance {
+  if (platformEnv.isNative) {
+    Keyboard.dismiss();
+  }
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
 

@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
-import { useWindowDimensions } from 'react-native';
+import { Keyboard, useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -266,6 +266,9 @@ export const Toast = {
     children,
     ...others
   }: IShowToasterProps): IToastShowResult => {
+    if (platformEnv.isNative) {
+      Keyboard.dismiss();
+    }
     let instanceRef: RefObject<IShowToasterInstance> | undefined =
       createRef<IShowToasterInstance>();
     let portalRef:

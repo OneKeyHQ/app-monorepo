@@ -2,7 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type GestureResponderEvent } from 'react-native';
+import { type GestureResponderEvent, Keyboard } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -279,6 +279,9 @@ const showActionList = (
     onClose?: () => void;
   },
 ) => {
+  if (platformEnv.isNative) {
+    Keyboard.dismiss();
+  }
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
     <BasicActionList
