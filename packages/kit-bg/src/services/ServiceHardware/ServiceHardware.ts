@@ -25,7 +25,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceHomeScreenUtils, {
-  DEFAULT_T1_HOME_SCREEN_INFOMATION,
+  DEFAULT_T1_HOME_SCREEN_INFORMATION,
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -799,8 +799,6 @@ class ServiceHardware extends ServiceBase {
     );
 
     if (isT1Model) {
-      // genesis.png is trezor brand image
-      names = names.filter((name) => name !== 'genesis');
       names = T1_HOME_SCREEN_DEFAULT_IMAGES;
     }
     let size = getHomeScreenSize({
@@ -814,7 +812,7 @@ class ServiceHardware extends ServiceBase {
       thumbnail: true,
     });
     if (!size && isT1Model) {
-      size = DEFAULT_T1_HOME_SCREEN_INFOMATION;
+      size = DEFAULT_T1_HOME_SCREEN_INFORMATION;
     }
     return { names, size, thumbnailSize };
   }

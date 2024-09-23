@@ -306,7 +306,7 @@ function canvasImageDataToBitmap({
             .map((index) => (imageData.data[index] === 0 ? '0' : '1'))
             .join('');
 
-          return String.fromCharCode(parseInt(bytestr, 2));
+          return String.fromCharCode(Number.parseInt(bytestr, 2));
         })
         .join(''),
     )

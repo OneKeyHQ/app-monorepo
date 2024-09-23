@@ -35,7 +35,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import hardwareHomeScreenData from './hardwareHomeScreenData';
 import uploadedHomeScreenCache from './uploadedHomeScreenCache';
 
-import type { IHardwareHomeScreenData } from './hardwareHomeScreenData';
+import type {
+  IHardwareHomeScreenData,
+  IHardwareHomeScreenName,
+} from './hardwareHomeScreenData';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
 
@@ -282,7 +285,8 @@ export default function HardwareHomeScreenModal({
     //   base64ThumbnailImg: imgThumb?.uri,
     // });
 
-    const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}` as any;
+    const name =
+      `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}` as IHardwareHomeScreenName;
     const uploadItem: IHardwareHomeScreenData = {
       uri: imageUtils.prefixBase64Uri(img?.base64 || imgBase64, 'image/jpeg'), // base64 data uri
       hex: img?.hex,
@@ -391,6 +395,9 @@ export default function HardwareHomeScreenModal({
                 imgUri,
                 selectedItem,
               );
+              if (!imgUri) {
+                throw new Error('Error imgUri not defined');
+              }
               customHex = await deviceHomeScreenUtils.imagePathToHex(
                 imgUri,
                 device.deviceType,

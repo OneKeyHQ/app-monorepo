@@ -31,7 +31,7 @@ export const T1_HOME_SCREEN_DEFAULT_IMAGES = [
   'xrc',
 ];
 
-export const DEFAULT_T1_HOME_SCREEN_INFOMATION: {
+export const DEFAULT_T1_HOME_SCREEN_INFORMATION: {
   width: number;
   height: number;
   supports: Array<'png' | 'jpeg'>;
@@ -43,9 +43,9 @@ const deviceModelInformation: Partial<
     { width: number; height: number; supports: Array<'png' | 'jpeg'> }
   >
 > = {
-  classic: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
-  classic1s: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
-  mini: { ...DEFAULT_T1_HOME_SCREEN_INFOMATION },
+  classic: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  classic1s: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  mini: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
 };
 
 function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
@@ -110,11 +110,11 @@ async function imagePathToHex(
 ): Promise<string> {
   if (!deviceModelInformation[deviceType]) {
     throw new Error(
-      `imageToCanvas ERROR: Device model not supported: ${deviceType}`,
+      `imagePathToHex ERROR: Device model not supported: ${deviceType}`,
     );
   }
   const { width, height } = deviceModelInformation[deviceType] || {
-    ...DEFAULT_T1_HOME_SCREEN_INFOMATION,
+    ...DEFAULT_T1_HOME_SCREEN_INFORMATION,
   };
 
   const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);
