@@ -110,6 +110,7 @@ export type IDesktopAPI = {
   setBadge: (params: INotificationSetBadgeParams) => void;
   getNotificationPermission: () => INotificationPermissionDetail;
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
+  openLoggerFile: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -225,6 +226,7 @@ const desktopApi = {
     },
   getBundleInfo: () =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
+  openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>

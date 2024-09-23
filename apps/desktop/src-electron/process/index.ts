@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
 import BaseProcess from './BaseProcess';
