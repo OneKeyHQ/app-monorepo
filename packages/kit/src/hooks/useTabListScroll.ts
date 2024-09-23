@@ -46,7 +46,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
         scrollView.scrollTop +
           scrollView.clientHeight -
           scrollView.scrollHeight,
-      ) < 1;
+      ) <= 1;
 
     const onListViewScroll = () => {
       const listView = getListView();
