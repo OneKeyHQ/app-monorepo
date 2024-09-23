@@ -164,7 +164,7 @@ export const UniversalClaim = ({
             }}
             inputProps={{
               placeholder: '0',
-              autoFocus: !editable,
+              autoFocus: editable,
             }}
             balanceProps={{
               value: balance,

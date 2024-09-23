@@ -8,19 +8,13 @@ export function useEarnTxLabel() {
   const intl = useIntl();
   return useCallback(
     (label: string) => {
-      if (label.toLowerCase() === 'stake') {
-        return intl.formatMessage({ id: ETranslations.earn_stake });
-      }
-      if (label.toLowerCase() === 'redeem') {
-        return intl.formatMessage({ id: ETranslations.earn_redeem });
-      }
-      if (label.toLowerCase() === 'withdraw') {
-        return intl.formatMessage({ id: ETranslations.global_withdraw });
-      }
-      if (label.toLowerCase() === 'claim') {
-        return intl.formatMessage({ id: ETranslations.earn_claim });
-      }
-      return label;
+      const labelMaps: Record<string, string> = {
+        'stake': intl.formatMessage({ id: ETranslations.earn_stake }),
+        'redeem': intl.formatMessage({ id: ETranslations.earn_redeem }),
+        'withdraw': intl.formatMessage({ id: ETranslations.global_withdraw }),
+        'claim': intl.formatMessage({ id: ETranslations.earn_claim }),
+      };
+      return labelMaps[label.toLowerCase()] ?? label;
     },
     [intl],
   );

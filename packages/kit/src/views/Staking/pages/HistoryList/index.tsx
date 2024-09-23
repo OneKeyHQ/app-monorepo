@@ -192,7 +192,7 @@ const HistoryList = () => {
           };
         });
         if (localNormalizedItems.length > 0) {
-          sections.push({
+          sections.unshift({
             title: intl.formatMessage({ id: ETranslations.global_pending }),
             data: localNormalizedItems,
             isPending: true,

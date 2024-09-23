@@ -386,7 +386,12 @@ class ServiceStaking extends ServiceBase {
       }
     }
     let items = await this._getProtocolList(listParams);
-    if (params.filter && params.networkId) {
+
+    if (
+      params.filter &&
+      params.networkId &&
+      !networkUtils.isAllNetwork({ networkId: params.networkId })
+    ) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
 
