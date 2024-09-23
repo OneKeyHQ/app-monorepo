@@ -205,6 +205,7 @@ export const UniversalWithdraw = ({
             }}
             inputProps={{
               placeholder: '0',
+              autoFocus: !editable,
             }}
             balanceProps={{
               value: balance,
