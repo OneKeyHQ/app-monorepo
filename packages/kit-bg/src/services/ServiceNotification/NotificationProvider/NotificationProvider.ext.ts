@@ -1,9 +1,10 @@
 import { isNil } from 'lodash';
 
-import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
+import { BLANK_ICON_BASE64 } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INotificationPermissionDetail,
@@ -20,7 +21,6 @@ import {
 import NotificationProviderBase from './NotificationProviderBase';
 
 import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
-import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 export default class NotificationProvider extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {
@@ -196,18 +196,38 @@ export default class NotificationProvider extends NotificationProviderBase {
     }
 
     await new Promise<string>((resolve) => {
-      chrome.notifications.create(
-        notificationId,
-        {
-          // export type TemplateType = "basic" | "image" | "list" | "progress";
-          type: 'basic',
-          iconUrl: icon || ONEKEY_LOGO_ICON_URL,
-          title,
-          message: description,
-          silent: false,
-        },
-        (id) => resolve(id),
-      );
+      const options: chrome.notifications.NotificationOptions<true> = {
+        // export type TemplateType = "basic" | "image" | "list" | "progress";
+        type: 'basic',
+        iconUrl: icon || BLANK_ICON_BASE64, // ONEKEY_LOGO_ICON_URL
+        title,
+        message: description,
+        silent: false,
+      };
+      chrome.notifications.create(notificationId, options, (id) => {
+        if (!id) {
+          const lastError = chrome.runtime.lastError;
+          if (lastError) {
+            console.error(
+              'chrome.notifications.create Error:',
+              lastError?.message,
+            );
+          }
+          chrome.notifications.create(
+            notificationId,
+            {
+              ...options,
+              // image url may be invalid, use blank icon as default
+              iconUrl: BLANK_ICON_BASE64, // ONEKEY_LOGO_ICON_URL
+            },
+            (id2) => {
+              resolve(id2);
+            },
+          );
+        } else {
+          resolve(id);
+        }
+      });
     });
 
     // TODO save cache only if payload exists

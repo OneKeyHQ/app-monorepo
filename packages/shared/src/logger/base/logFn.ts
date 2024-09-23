@@ -70,8 +70,22 @@ export const logFn = ({
         }
         break;
       case 'server':
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        global?.$analytics?.trackEvent(methodName, obj.args[0]);
+        global?.$analytics?.trackEvent(
+          methodName,
+          (obj.args as Record<string, string>[]).reduce(
+            (prev, current, index) => {
+              if (!current) {
+                return prev;
+              }
+              const value =
+                typeof current === 'object' && !Array.isArray(current)
+                  ? current
+                  : { [index]: current };
+              return { ...prev, ...value };
+            },
+            {},
+          ),
+        );
         break;
       case 'console':
       default: {

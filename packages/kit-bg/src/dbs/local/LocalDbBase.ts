@@ -5,7 +5,10 @@ import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
 
-import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decryptImportedCredential,
   decryptRevealableSeed,
@@ -94,11 +97,31 @@ import type {
   IDBWalletIdSingleton,
   IDBWalletNextIdKeys,
   IDBWalletNextIds,
+  IDBWalletType,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+const getOrderByWalletType = (walletType: IDBWalletType): number => {
+  switch (walletType) {
+    case WALLET_TYPE_HW:
+      return 1;
+    case WALLET_TYPE_QR:
+      return 2;
+    case WALLET_TYPE_HD:
+      return 3;
+    case WALLET_TYPE_IMPORTED:
+      return 4;
+    case WALLET_TYPE_EXTERNAL:
+      return 5;
+    case WALLET_TYPE_WATCHING:
+      return 6;
+    default:
+      return 0;
+  }
+};
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -318,15 +341,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: ELocalDBStoreNames.Credential,
       updater: (credential) => {
         if (credential.id.startsWith('imported')) {
-          const importedCredential: ICoreImportedCredential =
-            decryptImportedCredential({
-              credential: credential.credential,
+          // Ton mnemonic credential
+          if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
+            const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
+              rs: credential.credential,
               password: oldPassword,
             });
-          credential.credential = encryptImportedCredential({
-            credential: importedCredential,
-            password: newPassword,
-          });
+            credential.credential = encryptRevealableSeed({
+              rs: revealableSeed,
+              password: newPassword,
+            });
+          } else {
+            const importedCredential: ICoreImportedCredential =
+              decryptImportedCredential({
+                credential: credential.credential,
+                password: oldPassword,
+              });
+            credential.credential = encryptImportedCredential({
+              credential: importedCredential,
+              password: newPassword,
+            });
+          }
         } else {
           const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
             rs: credential.credential,
@@ -2051,7 +2086,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ).filter(Boolean);
 
       if (!isEmpty(info)) {
-        const result = [];
+        const result: {
+          walletName: string;
+          accountName: string;
+          accountId: string;
+          order: number;
+        }[] = [];
         const wallets = map(info, 'wallets');
         const items = Object.entries(merge({}, wallets[0], wallets[1]));
         for (const item of items) {
@@ -2065,17 +2105,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               account = await this.getAccount({ accountId });
             }
             if (wallet && account) {
+              const order = getOrderByWalletType(wallet.type);
               result.push({
                 walletName: wallet.name,
                 accountName: account.name,
                 accountId: account.id,
+                order,
               });
             }
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error);
           }
         }
-        return result;
+        const resultSorted = [...result].sort((a, b) => a.order - b.order);
+        console.log('getAccountNameFromAddress', { resultSorted, result });
+        return resultSorted;
       }
       return [];
     } catch (error) {
@@ -2340,6 +2384,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
       walletId,
       accounts,
+    });
+  }
+
+  async saveTonImportedAccountMnemonic({
+    accountId,
+    rs,
+  }: {
+    accountId: string;
+    rs: IBip39RevealableSeedEncryptHex;
+  }) {
+    if (!accountUtils.isImportedAccount({ accountId })) {
+      throw new Error('saveTonMnemonic ERROR: Not a imported account');
+    }
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [
+          {
+            id: accountUtils.buildTonMnemonicCredentialId({ accountId }),
+            credential: rs,
+          },
+        ],
+        skipIfExists: true,
+      });
     });
   }
 

@@ -3,14 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  Page,
-  SearchBar,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -154,18 +147,6 @@ function TokenManagerModal() {
     ],
   );
 
-  const headerRight = useCallback(
-    () =>
-      isSearchMode ? null : (
-        <Button variant="tertiary" onPress={() => onAddCustomToken()}>
-          {intl.formatMessage({
-            id: ETranslations.content__custom,
-          })}
-        </Button>
-      ),
-    [intl, isSearchMode, onAddCustomToken],
-  );
-
   return (
     <Page
       safeAreaEnabled={false}
@@ -179,7 +160,6 @@ function TokenManagerModal() {
         title={intl.formatMessage({
           id: ETranslations.manage_token_title,
         })}
-        headerRight={headerRight}
       />
       <Page.Body>
         <Stack px="$5" pb="$4">
@@ -207,6 +187,7 @@ function TokenManagerModal() {
           checkTokenExistInTokenList={checkTokenExistInTokenList}
           searchValue={searchValue}
           searchResult={searchResult}
+          showListHeader={!isSearchMode}
         />
       </Page.Body>
     </Page>

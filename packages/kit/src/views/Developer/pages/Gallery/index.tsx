@@ -452,6 +452,13 @@ const CurrencyGallery = LazyLoadPage(
     ),
 );
 
+const PasswordKeyboardGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordKeyboard'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -651,5 +658,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCurrency,
     component: CurrencyGallery,
+  },
+  {
+    name: EGalleryRoutes.PasswordKeyboardGallery,
+    component: PasswordKeyboardGallery,
   },
 ];

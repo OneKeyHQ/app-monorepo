@@ -10,7 +10,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
 
-import { DEFAULT_SEQNUMBER } from './constant';
+import { DEFAULT_FEE_RATE, DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';
 
 import type {
@@ -41,8 +41,12 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   const { address: to, value } = outputs[0];
 
   let sendAmount = new BigNumber(value);
+
+  const fee = new BigNumber(tx.feeInfo?.price ?? DEFAULT_FEE_RATE)
+    .multipliedBy(mass)
+    .toFixed();
   if (tx.hasMaxSend) {
-    sendAmount = sendAmount.minus(mass);
+    sendAmount = sendAmount.minus(fee);
   }
 
   if (sendAmount.isLessThan(0)) {
@@ -56,7 +60,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
     .from(inputs.map((input) => new UnspentOutput(input)))
     .to(to, sendAmount.toFixed())
     .setVersion(0)
-    .fee(mass)
+    .fee(parseInt(fee, 10))
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
     .change(from?.toString());
 

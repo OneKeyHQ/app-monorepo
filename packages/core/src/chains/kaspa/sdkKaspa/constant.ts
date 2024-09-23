@@ -9,5 +9,7 @@ export const SOMPI_PER_KASPA = 100_000_000;
 export const MAX_SOMPI = 21_000_000 * SOMPI_PER_KASPA;
 export const MINIMUM_RELAY_TRANSACTION_FEE = DEFAULT_FEE;
 
+export const DEFAULT_FEE_RATE = 1;
+
 // export const DEFAULT_SEQNUMBER = 0xffffffffffffffffn;
 export const DEFAULT_SEQNUMBER = 0;

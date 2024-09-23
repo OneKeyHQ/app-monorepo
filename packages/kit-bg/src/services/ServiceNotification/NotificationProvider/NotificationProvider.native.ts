@@ -73,13 +73,14 @@ export default class NotificationProvider extends NotificationProviderBase {
     // iOS: not working when jpush enabled, use JPush.addLocalNotificationListener instead
     // Android: working
     const sub1 = addNotificationResponseReceivedListener(async (event) => {
-      defaultLogger.notification.common.consoleLog(
-        'native addNotificationResponseReceivedListener',
-        event.actionIdentifier, // TODO notification_closed
-      );
       const data = event?.notification?.request?.content?.data as
         | IJPushNotificationLocalEvent
         | undefined;
+      defaultLogger.notification.common.consoleLog(
+        'native addNotificationResponseReceivedListener',
+        event.actionIdentifier, // TODO notification_closed
+        data?.extras,
+      );
       if (data && event.actionIdentifier === DEFAULT_ACTION_IDENTIFIER) {
         const notificationId =
           data?.extras?.params?.msgId ||

@@ -340,24 +340,27 @@ class ServiceSignature extends ServiceBase {
       (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
     );
     if (transferAction && transferAction.assetTransfer) {
-      const assetTransfer = transferAction.assetTransfer;
-      await this.addSignedTransaction({
-        networkId,
-        address,
-        title,
-        hash: signedTx.txid,
-        data: {
-          type: ETransactionType.SEND,
-          amount: assetTransfer.sends[0].amount,
-          token: {
-            name: assetTransfer.sends[0].name,
-            symbol: assetTransfer.sends[0].symbol,
-            address: assetTransfer.sends[0].tokenIdOnNetwork,
-            logoURI: assetTransfer.sends[0].icon,
+      const tokens = transferAction.assetTransfer.sends;
+      const tokenSent = tokens.find((token) => !token.isNative) || tokens[0];
+      if (tokenSent) {
+        await this.addSignedTransaction({
+          networkId,
+          address,
+          title,
+          hash: signedTx.txid,
+          data: {
+            type: ETransactionType.SEND,
+            amount: tokenSent.amount,
+            token: {
+              name: tokenSent.name,
+              symbol: tokenSent.symbol,
+              address: tokenSent.tokenIdOnNetwork,
+              logoURI: tokenSent.icon,
+            },
           },
-        },
-      });
-      return;
+        });
+        return;
+      }
     }
     await this.addSignedTransaction({
       networkId,

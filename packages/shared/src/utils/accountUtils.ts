@@ -27,6 +27,8 @@ import {
 } from '../engine/engineConsts';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { OneKeyInternalError } from '../errors';
+
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
@@ -380,6 +382,22 @@ function buildLocalHistoryId(params: {
   return historyId;
 }
 
+export function buildAccountLocalAssetsKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
+}
+
 function isAccountCompatibleWithNetwork({
   account,
   networkId,
@@ -690,6 +708,14 @@ function buildHiddenWalletName({
   return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
 }
 
+function buildTonMnemonicCredentialId({ accountId }: { accountId: string }) {
+  return `${accountId}--ton_credential`;
+}
+
+function isTonMnemonicCredentialId(credentialId: string): boolean {
+  return credentialId.endsWith('--ton_credential');
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -741,4 +767,7 @@ export default {
   findIndexFromTemplate,
   removePathLastSegment,
   buildHiddenWalletName,
+  buildAccountLocalAssetsKey,
+  buildTonMnemonicCredentialId,
+  isTonMnemonicCredentialId,
 };
