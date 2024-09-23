@@ -11,7 +11,6 @@ class BridgeProcess extends BaseProcess {
     super('bridge', 'onekeyd', {
       startupThrottleTime: 3,
     });
-    logger.info('logger file name =====> :', logger.transports.file.file);
   }
 
   async getStatus(): Promise<IStatus> {
