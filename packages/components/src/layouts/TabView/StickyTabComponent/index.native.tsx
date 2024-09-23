@@ -26,7 +26,7 @@ export const TabComponent = (
     tabContentContainerStyle,
     style,
     onRefresh: onRefreshCallBack,
-    initialHeaderHeight = 220,
+    initialHeaderHeight = 0,
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -177,17 +177,18 @@ export const TabComponent = (
       if (nativeEvent.layout.height === headerHeight) {
         return;
       }
+      if (platformEnv.isNativeAndroid && initialHeaderHeight > 0) {
+        return;
+      }
       setHeaderHeight(nativeEvent.layout.height);
     },
-    [headerHeight],
+    [headerHeight, initialHeaderHeight],
   );
   return (
     // @ts-expect-error
     <NestedTabView
       key={key}
-      headerHeight={
-        platformEnv.isNativeAndroid ? initialHeaderHeight : headerHeight
-      }
+      headerHeight={headerHeight}
       defaultIndex={initialScrollIndex}
       style={nestedTabViewStyle}
       stickyTabBar

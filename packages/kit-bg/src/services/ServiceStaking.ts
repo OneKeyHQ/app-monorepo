@@ -383,11 +383,6 @@ class ServiceStaking extends ServiceBase {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
 
-    const devSetting =
-      await this.backgroundApi.serviceDevSetting.getDevSetting();
-    const showAllStakingProviders =
-      devSetting?.settings?.showAllStakingProviders;
-
     const itemsWithEnabledStatus = await Promise.all(
       items.map(async (item) => {
         const stakingConfig = await this.getStakingConfigs({
@@ -395,8 +390,7 @@ class ServiceStaking extends ServiceBase {
           symbol: params.symbol,
           provider: item.provider.name,
         });
-        const isEnabled =
-          stakingConfig && (showAllStakingProviders || stakingConfig.enabled);
+        const isEnabled = stakingConfig?.enabled;
         return { item, isEnabled };
       }),
     );
@@ -620,17 +614,12 @@ class ServiceStaking extends ServiceBase {
       ([, providerConfig]) => providerConfig !== undefined,
     );
 
-    const devSetting =
-      await this.backgroundApi.serviceDevSetting.getDevSetting();
-    const showAllStakingProviders =
-      devSetting?.settings?.showAllStakingProviders;
-
     for (const [provider, providerConfig] of providerEntries) {
       const symbolEntry = Object.entries(providerConfig.configs).find(
         ([, config]) =>
           config &&
           config.tokenAddress.toLowerCase() === normalizedTokenAddress &&
-          (showAllStakingProviders || config.enabled),
+          config.enabled,
       );
 
       if (symbolEntry) {
