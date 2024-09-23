@@ -244,13 +244,6 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      <SectionFieldItem
-        name="showAllStakingProviders"
-        title="显示所有 Staking 提供商"
-        testID="show-all-staking-providers"
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
 
       <SectionPressItem
         title="Export Accounts Data"

@@ -2575,9 +2575,9 @@ export const presetNetworksMap = {
   sui,
   ckb,
   tatom,
-  scdo,
   alph,
   ton,
+  scdo,
 };
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
@@ -2681,8 +2681,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   algo,
   sui,
   ckb,
-  scdo,
   alph,
   ton,
+  scdo,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
