@@ -619,6 +619,13 @@ class ServiceDApp extends ServiceBase {
           storageType: 'injectedProvider',
         }))
       : [];
+    const tonConnectProviders: IConnectionItemWithStorageType[] = rawData?.data
+      ?.tonConnect
+      ? Object.values(rawData.data.tonConnect).map((i) => ({
+          ...i,
+          storageType: 'tonConnect',
+        }))
+      : [];
 
     const activeSessions = await serviceWalletConnect.getActiveSessions();
     const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
@@ -638,7 +645,11 @@ class ServiceDApp extends ServiceBase {
     }
 
     // Combine all connected lists and build availableNetworksMap
-    const allConnectedList = [...injectedProviders, ...walletConnects];
+    const allConnectedList = [
+      ...injectedProviders,
+      ...walletConnects,
+      ...tonConnectProviders,
+    ];
     for (const item of allConnectedList) {
       const networksMap: Record<string, { networkIds: string[] }> = {};
       for (const [num, accountInfo] of Object.entries(item.connectionMap)) {
