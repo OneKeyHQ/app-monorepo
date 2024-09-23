@@ -150,54 +150,65 @@ class ServiceTonConnect extends ServiceBase {
     msg: string;
     fromClientId: string;
   }) {
-    const data = JSON.parse(msg) as {
-      method: string;
-      params: string[];
-      id: string;
+    const { method, params, id } = JSON.parse(msg) as {
+      method?: string;
+      params?: string[];
+      id?: string;
     };
-    if (data.method in this.provider) {
-      const params = data.params.map((e) => JSON.parse(e) as unknown);
+    const resMsg: {
+      result?: any;
+      error?: any;
+      id?: string;
+    } = {
+      id,
+    };
+    if (method && params) {
+      const decodedParams = params.map((e) => JSON.parse(e) as unknown);
       const origin = await this.getOriginByClientId(fromClientId);
-      const request: IJsBridgeMessagePayload = {
-        scope: this.provider.providerName,
-        origin,
-        tonConnectClientId: fromClientId,
-      };
-      let res;
-      const resMsg: {
-        result?: any;
-        error?: any;
-        id: string;
-      } = {
-        id: data.id,
-      };
-      switch (data.method) {
-        case 'sendTransaction':
-          res = await this.provider
-            .sendTransaction(request, params[0] as any)
-            .catch((e) => {
-              console.error(e);
-              resMsg.error = {
-                code: 300,
-              };
-            });
-          if (res) {
-            resMsg.result = res;
-          }
-          break;
-        case 'disconnect':
-          await this.disconnect(fromClientId);
-          break;
-        default:
-          resMsg.error = {
-            code: 400,
-          };
+      if (origin) {
+        const request: IJsBridgeMessagePayload = {
+          scope: this.provider.providerName,
+          origin,
+          tonConnectClientId: fromClientId,
+        };
+        let res;
+        switch (method) {
+          case 'sendTransaction':
+            res = await this.provider
+              .sendTransaction(request, decodedParams[0] as any)
+              .catch((e) => {
+                console.error(e);
+                resMsg.error = {
+                  code: 300,
+                };
+              });
+            if (res) {
+              resMsg.result = res;
+            }
+            break;
+          case 'disconnect':
+            await this.disconnect(fromClientId);
+            break;
+          default:
+            resMsg.error = {
+              code: 400,
+            };
+        }
+      } else {
+        resMsg.error = {
+          code: 100,
+        };
       }
-      await this.sendMsg({
-        msg: JSON.stringify(resMsg),
-        toClientId: fromClientId,
-      });
+    } else {
+      resMsg.error = {
+        code: 1,
+      };
     }
+
+    await this.sendMsg({
+      msg: JSON.stringify(resMsg),
+      toClientId: fromClientId,
+    });
   }
 
   private async encrypt({
