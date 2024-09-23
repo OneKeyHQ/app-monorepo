@@ -118,7 +118,7 @@ export type IStakeHistoryParams = {
 export type IStakeHistory = {
   txHash: string;
   title: string;
-  type: string;
+  type?: string;
   amount?: string;
   timestamp: number;
   tokenAddress: string;
