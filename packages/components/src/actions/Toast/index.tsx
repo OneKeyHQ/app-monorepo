@@ -2,9 +2,10 @@ import type { RefObject } from 'react';
 import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
-import { Keyboard, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
@@ -266,9 +267,7 @@ export const Toast = {
     children,
     ...others
   }: IShowToasterProps): IToastShowResult => {
-    if (platformEnv.isNative) {
-      Keyboard.dismiss();
-    }
+    dismissKeyboard();
     let instanceRef: RefObject<IShowToasterInstance> | undefined =
       createRef<IShowToasterInstance>();
     let portalRef:
