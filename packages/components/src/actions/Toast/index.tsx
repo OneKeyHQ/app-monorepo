@@ -5,6 +5,7 @@ import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
@@ -266,6 +267,7 @@ export const Toast = {
     children,
     ...others
   }: IShowToasterProps): IToastShowResult => {
+    dismissKeyboard();
     let instanceRef: RefObject<IShowToasterInstance> | undefined =
       createRef<IShowToasterInstance>();
     let portalRef:
