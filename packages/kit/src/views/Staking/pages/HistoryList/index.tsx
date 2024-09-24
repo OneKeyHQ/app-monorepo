@@ -122,6 +122,7 @@ const HistoryContent = ({
       keyExtractor={keyExtractor}
       ListEmptyComponent={
         <Empty
+          pt="$46"
           icon="ClockTimeHistoryOutline"
           title={intl.formatMessage({
             id: ETranslations.global_no_transactions_yet,
