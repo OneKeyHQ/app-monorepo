@@ -309,6 +309,7 @@
   "earn.automatically": "自動的に",
   "earn.available_assets": "すべての資産",
   "earn.available_assets_desc": "資産をステーキングすることで保有量を増やします。",
+  "earn.banner_stake_in_babylon_ecosystem": "Babylonエコシステムでのステーキング",
   "earn.check_staking_results_overflow": "ステーキングの結果を確認してください。オーバーフローとマークされている場合は、引き出して請求する必要があります",
   "earn.claim": "請求",
   "earn.claim_assets_after_processing": "処理が完了したら、あなたの資産を請求してください",

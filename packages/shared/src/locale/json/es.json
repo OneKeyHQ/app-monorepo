@@ -309,6 +309,7 @@
   "earn.automatically": "automáticamente",
   "earn.available_assets": "Todos los activos",
   "earn.available_assets_desc": "Aumenta tus tenencias apostando activos.",
+  "earn.banner_stake_in_babylon_ecosystem": "Apostar en el ecosistema Babylon",
   "earn.check_staking_results_overflow": "Verifica tus resultados de staking. Si se marcan como exceso, necesitan ser retirados y reclamados",
   "earn.claim": "Reclamo",
   "earn.claim_assets_after_processing": "Reclama tus activos una vez que se complete el procesamiento",

@@ -713,7 +713,7 @@ function BasicEarnHome() {
     () => [
       {
         'title': intl.formatMessage({
-          id: ETranslations.earn_stake_in_babylon_ecosystem,
+          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
         }),
         'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
         'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),

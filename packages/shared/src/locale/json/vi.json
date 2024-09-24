@@ -309,6 +309,7 @@
   "earn.automatically": "tự động",
   "earn.available_assets": "Tất cả tài sản",
   "earn.available_assets_desc": "Tăng cường số lượng tài sản của bạn bằng cách đặt cược tài sản.",
+  "earn.banner_stake_in_babylon_ecosystem": "Stake trong hệ sinh thái Babylon",
   "earn.check_staking_results_overflow": "Kiểm tra kết quả staking của bạn. Nếu được đánh dấu là overflow, cần được rút và yêu cầu",
   "earn.claim": "Yêu cầu",
   "earn.claim_assets_after_processing": "Yêu cầu nhận tài sản của bạn một khi quá trình xử lý hoàn tất",

@@ -309,6 +309,7 @@
   "earn.automatically": "자동으로",
   "earn.available_assets": "모든 자산",
   "earn.available_assets_desc": "자산을 스테이킹하여 보유량을 늘리세요.",
+  "earn.banner_stake_in_babylon_ecosystem": "Babylon 생태계에서 스테이킹",
   "earn.check_staking_results_overflow": "스테이킹 결과를 확인하세요. 오버플로우로 표시된 경우, 출금하고 청구해야 합니다",
   "earn.claim": "청구",
   "earn.claim_assets_after_processing": "처리가 완료되면 자산을 청구하세요",

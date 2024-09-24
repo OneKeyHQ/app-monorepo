@@ -314,6 +314,7 @@
   earn_automatically = 'earn.automatically',
   earn_available_assets = 'earn.available_assets',
   earn_available_assets_desc = 'earn.available_assets_desc',
+  earn_banner_stake_in_babylon_ecosystem = 'earn.banner_stake_in_babylon_ecosystem',
   earn_check_staking_results_overflow = 'earn.check_staking_results_overflow',
   earn_claim = 'earn.claim',
   earn_claim_assets_after_processing = 'earn.claim_assets_after_processing',

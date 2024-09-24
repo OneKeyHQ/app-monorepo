@@ -309,6 +309,7 @@
   "earn.automatically": "automatically",
   "earn.available_assets": "All assets",
   "earn.available_assets_desc": "Increase your holdings by staking assets.",
+  "earn.banner_stake_in_babylon_ecosystem": "Stake in Babylon ecosystem",
   "earn.check_staking_results_overflow": "Check your staking results. If marked as overflow, need to be withdrawn and claimed",
   "earn.claim": "Claim",
   "earn.claim_assets_after_processing": "Claim your assets once the processing is complete",
