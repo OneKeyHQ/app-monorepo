@@ -1,13 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import {
-  IconButton,
-  SizableText,
-  Spinner,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -95,6 +89,20 @@ export function AccountSelectorAccountListItem({
   const indexedAccount = useMemo(
     () => (isOthersUniversal ? undefined : (item as IDBIndexedAccount)),
     [isOthersUniversal, item],
+  );
+
+  const isCreatingAddress = useMemo(
+    () =>
+      Boolean(
+        creatingAddressInfo?.indexedAccountId === indexedAccount?.id &&
+          creatingAddressInfo?.walletId === focusedWalletInfo?.wallet?.id,
+      ),
+    [
+      creatingAddressInfo?.indexedAccountId,
+      creatingAddressInfo?.walletId,
+      focusedWalletInfo?.wallet?.id,
+      indexedAccount?.id,
+    ],
   );
 
   const buildSubTitleInfo = useCallback((): {
@@ -338,11 +346,12 @@ export function AccountSelectorAccountListItem({
               navigation.popStack();
             }
           : undefined,
-        isLoading: Boolean(
-          creatingAddressInfo?.indexedAccountId === indexedAccount?.id &&
-            creatingAddressInfo?.walletId === focusedWalletInfo?.wallet?.id,
-        ),
+        isLoading: isCreatingAddress,
+        // TODO useMemo
         checkMark: (() => {
+          if (isCreatingAddress) {
+            return undefined;
+          }
           // show CreateAddress Button here, hide checkMark
           if (shouldShowCreateAddressButton) {
             return undefined;

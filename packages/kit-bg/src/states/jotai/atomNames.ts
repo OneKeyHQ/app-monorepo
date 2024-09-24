@@ -28,7 +28,7 @@ export enum EAtomNames {
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
-  isCreatingIndexedAccountAddressesAtom='isCreatingIndexedAccountAddressesAtom',
+  isCreatingIndexedAccountAddressesAtom = 'isCreatingIndexedAccountAddressesAtom',
   accountManualCreatingAtom = 'accountManualCreatingAtom',
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
