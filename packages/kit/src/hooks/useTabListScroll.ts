@@ -8,19 +8,10 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import { useTabScrollViewRef } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
-  const isMac = useMemo(
-    () =>
-      (
-        navigator as unknown as {
-          userAgentData: { platform: string };
-        }
-      )?.userAgentData?.platform
-        ?.toLowerCase()
-        .includes('mac'),
-    [],
-  );
+  const isMac = useMemo(() => platformEnv.isRuntimeMacOSBrowser, []);
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const listViewInstanceRef = useRef<HTMLDivElement | undefined>(undefined);
