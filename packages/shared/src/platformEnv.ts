@@ -284,7 +284,7 @@ const checkIsRuntimeMacOSBrowser = (): boolean => {
   }
   if (typeof navigator !== 'undefined') {
     if ('platform' in navigator) {
-      const platform = window.navigator.platform?.toLowerCase() ?? '';
+      const platform = navigator.platform?.toLowerCase() ?? '';
       if (platform) {
         return isMacPlatform(platform);
       }
