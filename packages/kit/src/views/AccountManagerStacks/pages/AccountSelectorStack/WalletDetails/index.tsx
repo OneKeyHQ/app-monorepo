@@ -4,25 +4,16 @@ import { isEqual, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type {
-  IButtonProps,
-  ISortableSectionListRef,
-} from '@onekeyhq/components';
+import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Icon,
-  IconButton,
-  Input,
   InputUnControlled,
   SectionList,
-  SizableText,
   Stack,
-  XStack,
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -31,7 +22,6 @@ import {
   useAccountSelectorEditModeAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
 import type {
   IDBAccount,
   IDBDevice,
@@ -39,7 +29,10 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  accountSelectorAccountsListIsLoadingAtom,
+  isCreatingIndexedAccountAddressesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -52,15 +45,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
-import { AccountAddress } from './AccountAddress';
-import { AccountValueWithSpotlight } from './AccountValue';
+import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
@@ -71,20 +62,6 @@ export interface IWalletDetailsProps {
   num: number;
   wallet?: IDBWallet;
   device?: IDBDevice | undefined;
-}
-
-function PlusButton({ onPress, loading }: IButtonProps) {
-  return (
-    <IconButton
-      borderWidth={0}
-      borderRadius="$2"
-      variant="tertiary"
-      size="medium"
-      loading={loading}
-      onPress={onPress}
-      icon="PlusSmallOutline"
-    />
-  );
 }
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
@@ -357,57 +334,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
 
   const { bottom } = useSafeAreaInsets();
 
-  const buildSubTitleInfo = useCallback(
-    (
-      item: IDBAccount | IDBIndexedAccount,
-    ): {
-      linkedNetworkId: string | undefined;
-      address: string;
-      isEmptyAddress: boolean;
-    } => {
-      let address: string | undefined;
-      let allowEmptyAddress = false;
-      if (isOthersUniversal) {
-        const account = item as IDBAccount | undefined;
-        address = account?.address;
-      } else {
-        const indexedAccount = item as IDBIndexedAccount | undefined;
-        const associateAccount = indexedAccount?.associateAccount;
-        address = associateAccount?.address;
-
-        if (
-          associateAccount?.addressDetail?.isValid &&
-          associateAccount?.addressDetail?.normalizedAddress
-        ) {
-          allowEmptyAddress = true;
-        }
-      }
-      if (
-        !address &&
-        !isOthersUniversal &&
-        linkedNetworkId &&
-        !allowEmptyAddress
-      ) {
-        // TODO custom style
-        return {
-          linkedNetworkId,
-          address: '',
-          isEmptyAddress: true,
-        };
-      }
-      return {
-        linkedNetworkId: undefined,
-        address: address
-          ? accountUtils.shortenAddress({
-              address,
-            })
-          : '',
-        isEmptyAddress: false,
-      };
-    },
-    [isOthersUniversal, linkedNetworkId],
-  );
-
   // const isEmptyData = useMemo(() => {
   //   let count = 0;
   //   sectionData?.forEach((section) => {
@@ -445,46 +371,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }
     return focusedWalletInfo?.wallet?.name || '';
   }, [focusedWalletInfo, isOthers]);
-
-  const renderAccountValue = useCallback(
-    ({
-      index,
-      accountValue,
-      subTitleInfo,
-    }: {
-      index: number;
-      accountValue:
-        | {
-            accountId: string;
-            currency: string | undefined;
-            value: string | undefined;
-          }
-        | undefined;
-      subTitleInfo: { address: string | undefined; isEmptyAddress: boolean };
-    }) => {
-      if (platformEnv.isE2E || linkNetwork) return null;
-
-      return (
-        <>
-          <AccountValueWithSpotlight
-            isOthersUniversal={isOthersUniversal}
-            index={index}
-            accountValue={accountValue}
-          />
-          {subTitleInfo.address ? (
-            <Stack
-              mx="$1.5"
-              w="$1"
-              h="$1"
-              bg="$iconSubdued"
-              borderRadius="$full"
-            />
-          ) : null}
-        </>
-      );
-    },
-    [linkNetwork, isOthersUniversal],
-  );
 
   // useCallback cause re-render when unmount, but useMemo not
   const sectionListMemo = useMemo(
@@ -583,172 +469,22 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               item: IDBIndexedAccount | IDBAccount;
               section: IAccountSelectorAccountsListSectionData;
               index: number;
-            }) => {
-              const account = isOthersUniversal
-                ? (item as IDBAccount)
-                : undefined;
-              const indexedAccount = isOthersUniversal
-                ? undefined
-                : (item as IDBIndexedAccount);
-
-              const subTitleInfo = buildSubTitleInfo(item);
-
-              // TODO performance
-              const accountValue = accountsValue?.find(
-                (i) => i.accountId === item.id,
-              );
-              const shouldShowCreateAddressButton = !!(
-                linkNetwork && subTitleInfo.isEmptyAddress
-              );
-
-              const actionButton = (() => {
-                if (editMode) {
-                  return (
-                    <>
-                      {/* TODO rename to AccountEditTrigger */}
-                      <AccountEditButton
-                        accountsCount={accountsCount}
-                        indexedAccount={indexedAccount}
-                        firstIndexedAccount={
-                          isOthersUniversal
-                            ? undefined
-                            : (section?.firstAccount as IDBIndexedAccount)
-                        }
-                        account={account}
-                        firstAccount={
-                          isOthersUniversal
-                            ? (section?.firstAccount as IDBAccount)
-                            : undefined
-                        }
-                        wallet={focusedWalletInfo?.wallet}
-                      />
-                    </>
-                  );
-                }
-                if (shouldShowCreateAddressButton) {
-                  return (
-                    <AccountSelectorCreateAddressButton
-                      num={num}
-                      selectAfterCreate
-                      account={{
-                        walletId: focusedWalletInfo?.wallet?.id,
-                        networkId: linkedNetworkId,
-                        indexedAccountId: indexedAccount?.id,
-                        deriveType: selectedAccount.deriveType,
-                      }}
-                      buttonRender={PlusButton}
-                    />
-                  );
-                }
-                return null;
-              })();
-
-              let avatarNetworkId: string | undefined;
-              if (isOthersUniversal && account) {
-                avatarNetworkId = accountUtils.getAccountCompatibleNetwork({
-                  account,
-                  networkId: linkNetwork
-                    ? selectedAccount?.networkId
-                    : account.createAtNetwork,
-                });
-              }
-              if (!avatarNetworkId && indexedAccount && linkNetwork) {
-                avatarNetworkId = selectedAccount?.networkId;
-              }
-
-              const canConfirmAccountSelectPress =
-                !editMode && !shouldShowCreateAddressButton;
-
-              return (
-                <ListItem
-                  testID={`account-item-index-${index}`}
-                  key={item.id}
-                  renderAvatar={
-                    <AccountAvatar
-                      loading={<AccountAvatar.Loading w="$10" h="$10" />}
-                      indexedAccount={indexedAccount}
-                      account={account as any}
-                      networkId={avatarNetworkId}
-                    />
-                  }
-                  renderItemText={(textProps) => (
-                    <ListItem.Text
-                      {...textProps}
-                      flex={1}
-                      primary={
-                        <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                          {item.name}
-                        </SizableText>
-                      }
-                      secondary={
-                        <XStack alignItems="center">
-                          {renderAccountValue({
-                            index,
-                            accountValue,
-                            subTitleInfo,
-                          })}
-                          <AccountAddress
-                            num={num}
-                            linkedNetworkId={subTitleInfo.linkedNetworkId}
-                            address={subTitleInfo.address}
-                            isEmptyAddress={subTitleInfo.isEmptyAddress}
-                          />
-                        </XStack>
-                      }
-                    />
-                  )}
-                  {...(!editMode && {
-                    onPress: canConfirmAccountSelectPress
-                      ? async () => {
-                          // show CreateAddress Button here, disabled confirmAccountSelect()
-                          if (shouldShowCreateAddressButton) {
-                            return;
-                          }
-                          if (isOthersUniversal) {
-                            let autoChangeToAccountMatchedNetworkId =
-                              avatarNetworkId;
-                            if (
-                              selectedAccount?.networkId &&
-                              networkUtils.isAllNetwork({
-                                networkId: selectedAccount?.networkId,
-                              })
-                            ) {
-                              autoChangeToAccountMatchedNetworkId =
-                                selectedAccount?.networkId;
-                            }
-                            await actions.current.confirmAccountSelect({
-                              num,
-                              indexedAccount: undefined,
-                              othersWalletAccount: account,
-                              autoChangeToAccountMatchedNetworkId,
-                            });
-                          } else if (focusedWalletInfo) {
-                            await actions.current.confirmAccountSelect({
-                              num,
-                              indexedAccount,
-                              othersWalletAccount: undefined,
-                              autoChangeToAccountMatchedNetworkId: undefined,
-                            });
-                          }
-                          navigation.popStack();
-                        }
-                      : undefined,
-                    checkMark: (() => {
-                      // show CreateAddress Button here, hide checkMark
-                      if (shouldShowCreateAddressButton) {
-                        return undefined;
-                      }
-                      return isOthersUniversal
-                        ? selectedAccount.othersWalletAccountId === item.id
-                        : selectedAccount.indexedAccountId === item.id;
-                    })(),
-                    userSelect: 'none',
-                  })}
-                >
-                  {actionButton}
-                </ListItem>
-              );
-            }}
+            }) => (
+              <AccountSelectorAccountListItem
+                num={num}
+                linkedNetworkId={linkedNetworkId}
+                item={item}
+                section={section}
+                index={index}
+                isOthersUniversal={isOthersUniversal}
+                selectedAccount={selectedAccount}
+                accountsValue={accountsValue}
+                linkNetwork={linkNetwork}
+                editMode={editMode}
+                accountsCount={accountsCount}
+                focusedWalletInfo={focusedWalletInfo}
+              />
+            )}
             renderSectionFooter={({
               section,
             }: {
@@ -774,15 +510,46 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                     if (!focusedWalletInfo) {
                       return;
                     }
-                    const c = await serviceAccount.addHDNextIndexedAccount({
-                      walletId: section.walletId,
-                    });
-                    console.log('addHDNextIndexedAccount>>>', c);
-                    void actions.current.updateSelectedAccountForHdOrHwAccount({
-                      num,
-                      walletId: focusedWalletInfo?.wallet?.id,
-                      indexedAccountId: c.indexedAccountId,
-                    });
+
+                    try {
+                      const focusedWallet = focusedWalletInfo?.wallet;
+                      const c = await serviceAccount.addHDNextIndexedAccount({
+                        walletId: section.walletId,
+                      });
+                      console.log('addHDNextIndexedAccount>>>', c);
+                      await actions.current.updateSelectedAccountForHdOrHwAccount(
+                        {
+                          num,
+                          walletId: focusedWallet?.id,
+                          indexedAccountId: c.indexedAccountId,
+                        },
+                      );
+                      const indexedAccount =
+                        await serviceAccount.getIndexedAccountSafe({
+                          id: c.indexedAccountId,
+                        });
+                      if (indexedAccount && focusedWallet) {
+                        const walletIdFromIndexedId =
+                          accountUtils.getWalletIdFromAccountId({
+                            accountId: indexedAccount?.id,
+                          });
+                        if (walletIdFromIndexedId === focusedWallet?.id) {
+                          await isCreatingIndexedAccountAddressesAtom.set({
+                            walletId: focusedWallet?.id,
+                            indexedAccountId: indexedAccount?.id,
+                          });
+
+                          await actions.current.addDefaultNetworkAccounts({
+                            wallet: focusedWallet,
+                            indexedAccount,
+                          });
+                        }
+                      }
+                    } finally {
+                      await isCreatingIndexedAccountAddressesAtom.set(
+                        undefined,
+                      );
+                    }
                   }}
                 >
                   <Stack
@@ -814,7 +581,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       accountsCount,
       accountsValue,
       actions,
-      buildSubTitleInfo,
       editMode,
       editable,
       focusedWalletInfo,
@@ -834,15 +600,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       linkNetwork,
       linkedNetworkId,
       listViewLayout.height,
-      navigation,
       num,
-      renderAccountValue,
       searchText,
       sectionData,
-      selectedAccount.deriveType,
-      selectedAccount.indexedAccountId,
-      selectedAccount?.networkId,
-      selectedAccount.othersWalletAccountId,
+      selectedAccount,
       serviceAccount,
     ],
   );
@@ -853,7 +614,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       accountsCount,
       accountsValue,
       actions,
-      buildSubTitleInfo,
       editMode, // toggle editMode
       editable,
       focusedWalletInfo,
@@ -888,7 +648,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
-    buildSubTitleInfo,
     editMode,
     editable,
     focusedWalletInfo,
@@ -903,19 +662,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     intl,
     isEditableRouteParams,
     isOthersUniversal,
-    // linkNetwork,
-    // linkedNetworkId,
-    // listViewLayout.height,
-    // navigation,
-    // num,
-    // onDragEnd,
-    // renderAccountValue,
-    // sectionData,
-    // selectedAccount.deriveType,
-    // selectedAccount.indexedAccountId,
-    // selectedAccount?.networkId,
-    // selectedAccount.othersWalletAccountId,
-    // serviceAccount,
   ]);
 
   return (
