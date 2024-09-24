@@ -411,6 +411,7 @@
   earn_rewards_updated_daily_steth_desc = 'earn.rewards_updated_daily_steth_desc',
   earn_rewards_updated_daily_stmatic_desc = 'earn.rewards_updated_daily_stmatic_desc',
   earn_select_a_claimable_order = 'earn.select_a_claimable_order',
+  earn_select_an_order_to_withdraw = 'earn.select_an_order_to_withdraw',
   earn_select_for_early_withdrawal = 'earn.select_for_early_withdrawal',
   earn_select_for_early_withdrawal_desc = 'earn.select_for_early_withdrawal_desc',
   earn_stake = 'earn.stake',
