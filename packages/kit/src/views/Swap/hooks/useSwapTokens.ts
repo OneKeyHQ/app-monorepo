@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -292,27 +293,64 @@ export function useSwapTokenList(
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
+  const [swapSupportAllAccounts, setSwapSupportAllAccounts] = useState<
+    IAllNetworkAccountInfo[]
+  >([]);
   const [swapNetworks] = useSwapNetworksAtom();
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
-  const tokenFetchParams = useMemo(
-    () => ({
+
+  useEffect(() => {
+    void (async () => {
+      const { swapSupportAccounts } =
+        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+          indexedAccountId: swapAddressInfo?.accountInfo?.indexedAccount?.id,
+          otherWalletTypeAccountId: !swapAddressInfo?.accountInfo
+            ?.indexedAccount?.id
+            ? swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id
+            : undefined,
+          swapSupportNetworks: swapNetworks,
+        });
+      setSwapSupportAllAccounts(swapSupportAccounts);
+    })();
+  }, [
+    swapAddressInfo?.accountInfo?.account?.id,
+    swapAddressInfo?.accountInfo?.dbAccount?.id,
+    swapAddressInfo?.accountInfo?.indexedAccount?.id,
+    swapNetworks,
+  ]);
+
+  const tokenFetchParams = useMemo(() => {
+    const findNetInfo = swapSupportAllAccounts.find(
+      (net) => net.networkId === currentNetworkId,
+    );
+    if (swapAddressInfo.networkId === currentNetworkId) {
+      return {
+        networkId: currentNetworkId,
+        keywords,
+        accountAddress: swapAddressInfo?.address,
+        accountNetworkId: swapAddressInfo?.networkId,
+        accountId: swapAddressInfo?.accountInfo?.account?.id,
+      };
+    }
+    return {
       networkId: currentNetworkId,
       keywords,
-      accountAddress: swapAddressInfo?.address,
-      accountNetworkId: swapAddressInfo?.networkId,
-      accountId: swapAddressInfo?.accountInfo?.account?.id,
-    }),
-    [
-      currentNetworkId,
-      keywords,
-      swapAddressInfo?.address,
-      swapAddressInfo?.networkId,
-      swapAddressInfo?.accountInfo?.account,
-    ],
-  );
+      accountAddress: findNetInfo?.apiAddress,
+      accountNetworkId: findNetInfo?.networkId,
+      accountId: findNetInfo?.accountId,
+    };
+  }, [
+    currentNetworkId,
+    swapAddressInfo.networkId,
+    swapAddressInfo?.address,
+    swapAddressInfo?.accountInfo?.account?.id,
+    swapSupportAllAccounts,
+    keywords,
+  ]);
 
   const swapAllNetworkTokenList = useMemo(
     () =>
@@ -457,20 +495,11 @@ export function useSwapTokenList(
 
   useEffect(() => {
     if (
-      tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
-    ) {
-      // current network is not the same as account network skip fetch
-      return;
-    }
-    if (
       tokenFetchParams.networkId &&
       !keywords &&
       networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
     ) {
       void swapLoadAllNetworkTokenList(
-        tokenFetchParams.networkId,
         swapAddressInfo?.accountInfo?.indexedAccount?.id,
         !swapAddressInfo?.accountInfo?.indexedAccount?.id
           ? swapAddressInfo?.accountInfo?.account?.id ??
@@ -490,13 +519,6 @@ export function useSwapTokenList(
   ]);
 
   useEffect(() => {
-    if (
-      tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId })
-    ) {
-      return;
-    }
     if (keywords && fuseRemoteTokensSearchRef.current) {
       setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
     } else {
