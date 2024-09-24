@@ -78,5 +78,6 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.HistoryList]: IBaseRouteParams & {
     symbol: string;
     provider: string;
+    stakeTag?: string;
   };
 };

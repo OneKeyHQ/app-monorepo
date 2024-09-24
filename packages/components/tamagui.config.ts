@@ -67,7 +67,7 @@ const font = createFont({
     headingXs: 16,
     headingSm: 20,
     headingMd: 24,
-    headingLg: 28,
+    headingLg: 24,
     headingXl: 28,
     heading2xl: 32,
     heading3xl: 36,

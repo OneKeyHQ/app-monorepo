@@ -165,7 +165,7 @@ function RecommendedItem({
   return (
     <YStack
       role="button"
-      userSelect="none"
+      flex={1}
       px="$4"
       py="$3.5"
       borderRadius="$3"
@@ -181,6 +181,7 @@ function RecommendedItem({
         scale: 0.95,
       }}
       onPress={onPress}
+      userSelect="none"
       {...rest}
     >
       <XStack gap="$3" alignItems="center">
@@ -231,7 +232,8 @@ function RecommendedContainer({
   const intl = useIntl();
   return (
     <YStack gap="$3">
-      <YStack gap="$1">
+      {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
+      <YStack gap="$1" zIndex={10}>
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_recommended })}
         </SizableText>
@@ -569,7 +571,7 @@ function AvailableAssets() {
                   flexGrow={1}
                   flexBasis={0}
                   primary={
-                    <XStack gap="$2">
+                    <XStack gap="$2" alignItems="center">
                       <SizableText size="$bodyLgMedium">{name}</SizableText>
                       <XStack gap="$1">
                         {tags.map((tag) => (
