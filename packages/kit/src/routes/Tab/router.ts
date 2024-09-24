@@ -53,8 +53,6 @@ const getDiscoverRouterConfig = (
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
-  const [devSettings] = useDevSettingsPersistAtom();
-
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
 
   const isShowMDDiscover = useMemo(
@@ -77,18 +75,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: homeRouters,
         },
-        devSettings.enabled && devSettings.settings?.showAllStakingProviders
-          ? {
-              name: ETabRoutes.Earn,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'CoinsSolid' : 'CoinsOutline',
-              translationId: ETranslations.global_earn,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/earn',
-              exact: true,
-              children: earnRouters,
-            }
-          : undefined,
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'CoinsSolid' : 'CoinsOutline',
+          translationId: ETranslations.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/earn',
+          exact: true,
+          children: earnRouters,
+        },
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
@@ -142,13 +138,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       ].filter<ITabNavigatorConfig<ETabRoutes>>(
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
-    [
-      devSettings.enabled,
-      devSettings.settings?.showAllStakingProviders,
-      isShowDesktopDiscover,
-      isShowMDDiscover,
-      params,
-    ],
+    [isShowDesktopDiscover, isShowMDDiscover, params],
   );
 };
 

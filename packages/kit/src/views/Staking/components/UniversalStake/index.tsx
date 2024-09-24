@@ -26,7 +26,9 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationList, CalculationListItem } from '../CalculationList';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
+import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -245,166 +247,172 @@ export const UniversalStake = ({
   }, [onConfirm, amountValue, details, intl]);
 
   return (
-    <YStack>
-      <Stack mx="$2" px="$3" gap="$5">
-        <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
-          <AmountInput
-            bg={isDisabled ? '$bgDisabled' : '$bgApp'}
-            hasError={isInsufficientBalance || isLessThanMinAmount}
-            value={amountValue}
-            onChange={onChangeAmountValue}
-            tokenSelectorTriggerProps={{
-              selectedTokenImageUri: tokenImageUri,
-              selectedTokenSymbol: tokenSymbol?.toUpperCase(),
-            }}
-            balanceProps={{
-              value: balance,
-              onPress: onMax,
-            }}
-            inputProps={{
-              placeholder: '0',
-            }}
-            valueProps={{
-              value: currentValue,
-              currency: currentValue ? symbol : undefined,
-            }}
-            enableMaxAmount
-          />
-          {isDisabled ? (
-            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-          ) : null}
-        </Stack>
-        <YStack gap="$1">
-          {isLessThanMinAmount ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                { id: ETranslations.earn_minimum_amount },
-                { number: minAmount, symbol: tokenSymbol },
-              )}
-            />
-          ) : null}
-          {isInsufficientBalance ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_balance,
-              })}
-            />
-          ) : null}
-          {isGreaterThanMaxAmount ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                {
-                  id: ETranslations.earn_maximum_staking_alert,
-                },
-                { number: maxAmount ?? '', symbol: tokenSymbol },
-              )}
-            />
-          ) : null}
-          {isReachBabylonCap ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage({
-                id: ETranslations.earn_reaching_staking_cap,
-              })}
-            />
-          ) : null}
-        </YStack>
+    <StakingFormWrapper>
+      <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
+        <AmountInput
+          bg={isDisabled ? '$bgDisabled' : '$bgApp'}
+          hasError={isInsufficientBalance || isLessThanMinAmount}
+          value={amountValue}
+          onChange={onChangeAmountValue}
+          tokenSelectorTriggerProps={{
+            selectedTokenImageUri: tokenImageUri,
+            selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+          }}
+          balanceProps={{
+            value: balance,
+            onPress: onMax,
+          }}
+          inputProps={{
+            placeholder: '0',
+            autoFocus: !isDisabled,
+          }}
+          valueProps={{
+            value: currentValue,
+            currency: currentValue ? symbol : undefined,
+          }}
+          enableMaxAmount
+        />
+        {isDisabled ? (
+          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+        ) : null}
       </Stack>
-      <Stack>
-        <YStack>
-          {estAnnualRewards ? (
-            <ListItem
-              title={intl.formatMessage({
+
+      {isLessThanMinAmount ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage(
+            { id: ETranslations.earn_minimum_amount },
+            { number: minAmount, symbol: tokenSymbol },
+          )}
+        />
+      ) : null}
+      {isInsufficientBalance ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_balance,
+          })}
+        />
+      ) : null}
+      {isGreaterThanMaxAmount ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage(
+            {
+              id: ETranslations.earn_maximum_staking_alert,
+            },
+            { number: maxAmount ?? '', symbol: tokenSymbol },
+          )}
+        />
+      ) : null}
+      {isReachBabylonCap ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_reaching_staking_cap,
+          })}
+        />
+      ) : null}
+      <CalculationList>
+        {estAnnualRewards ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({
                 id: ETranslations.earn_est_annual_rewards,
               })}
-              titleProps={fieldTitleProps}
-            >
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               {estAnnualRewards}
-            </ListItem>
-          ) : null}
-          {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
-              titleProps={fieldTitleProps}
-            >
-              <SizableText>
-                <NumberSizeableText
-                  formatter="balance"
-                  size="$bodyLgMedium"
-                  formatterOptions={{ tokenSymbol: estReceiveToken }}
-                >
-                  {BigNumber(amountValue)
-                    .multipliedBy(estReceiveTokenRate)
-                    .toFixed()}
-                </NumberSizeableText>
-              </SizableText>
-            </ListItem>
-          ) : null}
-          {apr && Number(apr) > 0 ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.global_apr })}
-              titleProps={fieldTitleProps}
-            >
-              <ListItem.Text
-                primary={`${apr}%`}
-                primaryTextProps={{ color: '$textSuccess' }}
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({
+                id: ETranslations.earn_est_receive,
+              })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyLgMedium"
+                formatterOptions={{ tokenSymbol: estReceiveToken }}
+              >
+                {BigNumber(amountValue)
+                  .multipliedBy(estReceiveTokenRate)
+                  .toFixed()}
+              </NumberSizeableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {apr && Number(apr) > 0 ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.global_apr })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value color="$textSuccess">
+              {`${apr}%`}
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {btcStakeTerm ? (
+          <CalculationListItem>
+            <XStack flex={1} alignItems="center" gap="$1">
+              <CalculationListItem.Label>
+                {intl.formatMessage({ id: ETranslations.earn_term })}
+              </CalculationListItem.Label>
+
+              <Popover
+                title={intl.formatMessage({ id: ETranslations.earn_term })}
+                placement="bottom-start"
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.earn_term_tooltip,
+                      })}
+                    </SizableText>
+                  </Stack>
+                }
               />
-            </ListItem>
-          ) : null}
-          {btcStakeTerm ? (
-            <ListItem>
-              <XStack flex={1} alignItems="center" gap="$1">
-                <SizableText {...fieldTitleProps}>
-                  {intl.formatMessage({ id: ETranslations.earn_term })}
-                </SizableText>
-                <Popover
-                  title={intl.formatMessage({ id: ETranslations.earn_term })}
-                  placement="bottom-start"
-                  renderTrigger={
-                    <IconButton
-                      iconColor="$iconSubdued"
-                      size="small"
-                      icon="InfoCircleOutline"
-                      variant="tertiary"
-                    />
-                  }
-                  renderContent={
-                    <Stack p="$5">
-                      <SizableText>
-                        {intl.formatMessage({
-                          id: ETranslations.earn_term_tooltip,
-                        })}
-                      </SizableText>
-                    </Stack>
-                  }
-                />
-              </XStack>
-              <ListItem.Text primary={btcStakeTerm} />
-            </ListItem>
-          ) : null}
-          {btcUnlockTime ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_unlock_time })}
-              titleProps={fieldTitleProps}
-            >
-              <ListItem.Text primary={btcUnlockTime} />
-            </ListItem>
-          ) : null}
-          {providerLogo && providerName ? (
-            <ListItem
-              title={
-                providerLabel ??
-                intl.formatMessage({ id: ETranslations.global_protocol })
-              }
-              titleProps={fieldTitleProps}
-            >
+            </XStack>
+            <CalculationListItem.Value>
+              {btcStakeTerm}
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {btcUnlockTime ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({
+                id: ETranslations.earn_unlock_time,
+              })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              {btcUnlockTime}
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {providerLogo && providerName ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               <XStack gap="$2" alignItems="center">
                 <Image
                   width="$5"
@@ -416,10 +424,10 @@ export const UniversalStake = ({
                   {capitalizeString(providerName)}
                 </SizableText>
               </XStack>
-            </ListItem>
-          ) : null}
-        </YStack>
-      </Stack>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+      </CalculationList>
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
@@ -430,6 +438,6 @@ export const UniversalStake = ({
           disabled: isDisable,
         }}
       />
-    </YStack>
+    </StakingFormWrapper>
   );
 };
