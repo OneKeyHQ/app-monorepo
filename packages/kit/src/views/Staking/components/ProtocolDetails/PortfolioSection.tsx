@@ -56,7 +56,7 @@ const PortfolioItem = ({
     }
   }, [onPress, useLoading]);
   return (
-    <XStack alignItems="center" justifyContent="space-between">
+    <XStack minHeight={30} alignItems="center" justifyContent="space-between">
       <XStack alignItems="center" gap="$1.5">
         <Token size="sm" tokenImageUri={tokenImageUri} />
         <NumberSizeableText
@@ -90,17 +90,15 @@ const PortfolioItem = ({
         ) : null}
       </XStack>
       {buttonText && onPress ? (
-        <XStack>
-          <Button
-            size="small"
-            disabled={disabled}
-            variant="primary"
-            onPress={handlePress}
-            loading={loading}
-          >
-            {buttonText}
-          </Button>
-        </XStack>
+        <Button
+          size="small"
+          disabled={disabled}
+          variant="primary"
+          onPress={handlePress}
+          loading={loading}
+        >
+          {buttonText}
+        </Button>
       ) : null}
     </XStack>
   );
