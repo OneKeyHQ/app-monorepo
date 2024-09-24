@@ -67,7 +67,6 @@ class ServiceTonConnect extends ServiceBase {
     const localLastEventId =
       await this.backgroundApi.simpleDb.tonConnect.getLastEventId();
     const clientId = await this.getClientId();
-    console.log('tonConnect listen EventSource', clientId);
     const url = `${TON_CONNECT_HTTP_BRIDGE}/events?client_id=${clientId}&last_event_id=${
       localLastEventId || ''
     }`;
@@ -75,7 +74,6 @@ class ServiceTonConnect extends ServiceBase {
       data: string | null;
       lastEventId: string | null;
     }) => {
-      console.log('tonConnect EventSource: ', event);
       if (!event.data) {
         return;
       }
@@ -88,10 +86,8 @@ class ServiceTonConnect extends ServiceBase {
         senderPublicKey: bufferUtils.hexToBytes(data.from),
       });
       if (!msg) {
-        console.error('tonConnect msg is empty');
         return;
       }
-      console.log('tonConnect msg: ', Buffer.from(msg).toString());
       await this.handleMsg({
         msg: Buffer.from(msg).toString(),
         fromClientId: data.from,
@@ -101,23 +97,17 @@ class ServiceTonConnect extends ServiceBase {
       );
     };
     const onError = (event: any) => {
-      console.log('tonConnect EventSource error: ', event);
-    };
-    const onOpen = (event: any) => {
-      console.log('tonConnect EventSource open: ', event);
+      console.error('tonConnect EventSource error: ', event);
     };
     if (platformEnv.isExtension) {
       const es = new EventSourcePolyfill(url);
       es.onmessage = onMessage;
       es.onerror = onError;
-      es.onopen = onOpen;
     } else {
       const es = new EventSource(url);
       es.addEventListener('message', onMessage);
       es.addEventListener('error', onError);
-      es.addEventListener('open', onOpen);
     }
-    console.log('tonConnect listen EventSource end');
   }
 
   private async getOriginByClientId(clientId: string) {
@@ -165,8 +155,7 @@ class ServiceTonConnect extends ServiceBase {
           case 'sendTransaction':
             res = await this.provider
               .sendTransaction(request, decodedParams[0] as any)
-              .catch((e) => {
-                console.error(e);
+              .catch(() => {
                 resMsg.error = {
                   code: 300,
                 };
@@ -262,8 +251,13 @@ class ServiceTonConnect extends ServiceBase {
           receiverPublicKey: bufferUtils.hexToBytes(toClientId),
         }),
       },
-    ).then((e) => e.json());
-    console.log('tonConnect sendMsg: ', res, msg);
+    ).then<{
+      statusCode: number;
+      message: string;
+    }>((e) => e.json());
+    if (res.statusCode !== 200) {
+      throw new OneKeyError(res.message);
+    }
   }
 
   private urlSafeDecode(urlEncoded: string) {
