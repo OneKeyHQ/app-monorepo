@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
-import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -47,8 +46,13 @@ export function useUniversalStake({
           term,
           provider,
         });
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx);
+
+      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+        networkId,
+        accountId,
+        tx: stakeTx,
+      });
+
       let useFeeInTx;
       let feeInfoEditable;
       if (networkUtils.isBTCNetwork(networkId)) {
@@ -153,8 +157,11 @@ export function useUniversalWithdraw({
             provider,
           });
       }
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
+      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+        networkId,
+        accountId,
+        tx: stakeTx,
+      });
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
@@ -219,8 +226,11 @@ export function useUniversalClaim({
           amount,
           identity,
         });
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
+      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+        networkId,
+        accountId,
+        tx: stakeTx,
+      });
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
