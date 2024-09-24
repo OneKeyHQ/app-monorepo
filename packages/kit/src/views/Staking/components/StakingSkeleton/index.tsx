@@ -1,4 +1,4 @@
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Divider, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 
 const HistorySkeletonItem = () => (
   <XStack justifyContent="space-between">
@@ -25,50 +25,60 @@ export const HistorySkeleton = () => (
 );
 
 const OverviewSkeletonItem = () => (
-  <YStack $md={{ width: '50%' }} $gtMd={{ width: '25%' }} mb="$2">
-    <Skeleton width={48} height={12} />
-    <Stack h="$1" />
-    <Skeleton width={100} height={12} />
+  <YStack $md={{ width: '50%' }} $gtMd={{ width: '25%' }} mb="$2" gap="$0.5">
+    <YStack>
+      <Skeleton.BodyMd />
+      <Skeleton.BodyLg />
+    </YStack>
   </YStack>
 );
 
 export const OverviewSkeleton = () => (
-  <Stack>
-    <YStack>
-      <Skeleton width={100} height={16} />
-      <Stack h="$4" />
-      <Skeleton width={160} height={28} />
-      <Stack h="$7" />
-      <Skeleton width={120} height={12} />
-    </YStack>
-    <YStack mt="$16">
-      <Skeleton width={60} height={12} />
-      <XStack mt="$5">
-        <YStack flex={1}>
-          <Skeleton width={48} height={12} />
-          <Stack h="$1" />
-          <Skeleton width={100} height={12} />
+  <Stack gap="$8">
+    <YStack gap="$6">
+      <YStack gap="$2">
+        <Skeleton.HeadingLg />
+        <Skeleton.Heading4Xl />
+      </YStack>
+      <YStack gap="$1.5">
+        <YStack py="$1.5">
+          <Skeleton width="100%" height={4} />
         </YStack>
-        <YStack flex={1}>
-          <Skeleton width={48} height={12} />
-          <Stack h="$1" />
-          <Skeleton width={100} height={12} />
+        <XStack justifyContent="space-between">
+          <YStack gap="$0.5">
+            <Skeleton.BodyMd />
+            <Skeleton.BodyLg />
+          </YStack>
+          <YStack alignItems="flex-end" gap="$0.5">
+            <Skeleton.BodyMd />
+            <Skeleton.BodyLg />
+          </YStack>
+        </XStack>
+      </YStack>
+    </YStack>
+    <Divider />
+    <YStack gap="$6">
+      <Skeleton.HeadingLg />
+      <XStack>
+        <YStack gap="$0.5" flex={1}>
+          <Skeleton.BodyMd />
+          <Skeleton.BodyLg />
+        </YStack>
+        <YStack gap="$0.5" flex={1}>
+          <Skeleton.BodyMd />
+          <Skeleton.BodyLg />
+        </YStack>
+        <YStack
+          gap="$0.5"
+          flex={1}
+          $md={{
+            display: 'none',
+          }}
+        >
+          <Skeleton.BodyMd />
+          <Skeleton.BodyLg />
         </YStack>
       </XStack>
     </YStack>
-    <Stack mt="$16" flexDirection="row" flexWrap="wrap">
-      <OverviewSkeletonItem />
-      <OverviewSkeletonItem />
-      <OverviewSkeletonItem />
-      <OverviewSkeletonItem />
-    </Stack>
-    <Stack mt="$16">
-      <Skeleton width={60} height={12} />
-      <YStack gap="$5" mt="$5">
-        <Skeleton width={280} height={12} />
-        <Skeleton width={280} height={12} />
-        <Skeleton width={280} height={12} />
-      </YStack>
-    </Stack>
   </Stack>
 );
