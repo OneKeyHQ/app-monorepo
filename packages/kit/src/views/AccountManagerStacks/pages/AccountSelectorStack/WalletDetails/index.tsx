@@ -52,6 +52,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
+import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
@@ -99,25 +100,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const handleSearch = useDebouncedCallback((text: string) => {
     setSearchText(text?.trim() || '');
   }, 300);
-
-  const handleImportWatchingAccount = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportAddress,
-    });
-  }, [navigation]);
-
-  const handleImportPrivatekeyAccount = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportPrivateKey,
-    });
-  }, [navigation]);
-
-  const handleAddExternalAccount = useCallback(() => {
-    console.log('handleAddExternalAccount');
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectWalletSelectNetworks,
-    });
-  }, [navigation]);
 
   const {
     result: listDataResult,
@@ -492,85 +474,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             }) =>
               // editable mode and not searching, can add account
               isEditableRouteParams && !searchText ? (
-                <ListItem
-                  testID="account-add-account"
-                  onPress={async () => {
-                    if (isOthersUniversal) {
-                      if (section.walletId === WALLET_TYPE_WATCHING) {
-                        handleImportWatchingAccount();
-                      }
-                      if (section.walletId === WALLET_TYPE_IMPORTED) {
-                        handleImportPrivatekeyAccount();
-                      }
-                      if (section.walletId === WALLET_TYPE_EXTERNAL) {
-                        handleAddExternalAccount();
-                      }
-                      return;
-                    }
-                    if (!focusedWalletInfo) {
-                      return;
-                    }
-
-                    try {
-                      const focusedWallet = focusedWalletInfo?.wallet;
-                      const c = await serviceAccount.addHDNextIndexedAccount({
-                        walletId: section.walletId,
-                      });
-                      console.log('addHDNextIndexedAccount>>>', c);
-                      await actions.current.updateSelectedAccountForHdOrHwAccount(
-                        {
-                          num,
-                          walletId: focusedWallet?.id,
-                          indexedAccountId: c.indexedAccountId,
-                        },
-                      );
-                      const indexedAccount =
-                        await serviceAccount.getIndexedAccountSafe({
-                          id: c.indexedAccountId,
-                        });
-                      if (indexedAccount && focusedWallet) {
-                        const walletIdFromIndexedId =
-                          accountUtils.getWalletIdFromAccountId({
-                            accountId: indexedAccount?.id,
-                          });
-                        if (walletIdFromIndexedId === focusedWallet?.id) {
-                          await isCreatingIndexedAccountAddressesAtom.set({
-                            walletId: focusedWallet?.id,
-                            indexedAccountId: indexedAccount?.id,
-                          });
-
-                          await actions.current.addDefaultNetworkAccounts({
-                            wallet: focusedWallet,
-                            indexedAccount,
-                          });
-                        }
-                      }
-                    } finally {
-                      await isCreatingIndexedAccountAddressesAtom.set(
-                        undefined,
-                      );
-                    }
-                  }}
-                >
-                  <Stack
-                    bg="$bgStrong"
-                    borderRadius="$2"
-                    p="$2"
-                    borderCurve="continuous"
-                  >
-                    <Icon name="PlusSmallOutline" />
-                  </Stack>
-                  {/* Add account */}
-                  <ListItem.Text
-                    userSelect="none"
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_add_account,
-                    })}
-                    primaryTextProps={{
-                      color: '$textSubdued',
-                    }}
-                  />
-                </ListItem>
+                <AccountSelectorAddAccountButton
+                  num={num}
+                  isOthersUniversal={isOthersUniversal}
+                  section={section}
+                  focusedWalletInfo={focusedWalletInfo}
+                />
               ) : null
             }
           />
@@ -580,14 +489,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     [
       accountsCount,
       accountsValue,
-      actions,
       editMode,
       editable,
       focusedWalletInfo,
       getItemLayout,
-      handleAddExternalAccount,
-      handleImportPrivatekeyAccount,
-      handleImportWatchingAccount,
       handleLayoutCacheSet,
       handleLayoutForContainer,
       handleLayoutForHeader,
@@ -604,7 +509,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       searchText,
       sectionData,
       selectedAccount,
-      serviceAccount,
     ],
   );
 
@@ -617,13 +521,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       editMode, // toggle editMode
       editable,
       focusedWalletInfo,
-      handleAddExternalAccount,
       handleLayoutForHeader,
       handleLayoutForContainer,
       handleLayoutForSectionList,
       handleLayoutCacheSet,
-      handleImportPrivatekeyAccount,
-      handleImportWatchingAccount,
       initialScrollIndex,
       intl,
       isEditableRouteParams,
@@ -651,13 +552,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     editMode,
     editable,
     focusedWalletInfo,
-    handleAddExternalAccount,
     handleLayoutForHeader,
     handleLayoutForContainer,
     handleLayoutForSectionList,
     handleLayoutCacheSet,
-    handleImportPrivatekeyAccount,
-    handleImportWatchingAccount,
     initialScrollIndex,
     intl,
     isEditableRouteParams,
