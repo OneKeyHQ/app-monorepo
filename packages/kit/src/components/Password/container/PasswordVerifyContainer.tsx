@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -13,6 +12,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -246,7 +246,7 @@ const PasswordVerifyContainer = ({
           passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
         }));
         if (platformEnv.isNativeAndroid) {
-          Keyboard.dismiss();
+          dismissKeyboard();
           await timerUtils.wait(0);
         }
         onVerifyRes(verifiedPassword);
