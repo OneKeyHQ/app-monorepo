@@ -39,8 +39,8 @@ type IUniversalWithdrawProps = {
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;
+
   minAmount?: string;
-  withdrawMinAmount?: number;
   unstakingPeriod?: number;
 
   showPayWith?: boolean;
@@ -59,7 +59,6 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
-  withdrawMinAmount,
   unstakingPeriod,
   providerLabel,
   decimals,
@@ -148,43 +147,31 @@ export const UniversalWithdraw = ({
     [amountValue, balance],
   );
 
-  const isLessThanMinAmountResp = useMemo<{
-    result: boolean;
-    value: string;
-  }>(() => {
-    const minValue = Math.max(
-      Number(withdrawMinAmount ?? 0),
-      Number(minAmount ?? 0),
-    );
-    const minAmountBN = new BigNumber(minValue);
-    const amountValueBN = new BigNumber(amountValue);
-    if (minAmountBN.gt(0) && amountValueBN.gt(0)) {
-      return {
-        result: amountValueBN.isLessThan(minAmountBN),
-        value: minAmountBN.toFixed(),
-      };
+  const isLessThanMinAmount = useMemo<boolean>(() => {
+    const minAmountBn = new BigNumber(minAmount);
+    const amountValueBn = new BigNumber(amountValue);
+    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
+      return amountValueBn.isLessThan(minAmountBn);
     }
-    return { result: false, value: minAmountBN.toFixed() };
-  }, [minAmount, amountValue, withdrawMinAmount]);
+    return false;
+  }, [minAmount, amountValue]);
 
-  const isLessThanWithdrawMinAmountWarning = useMemo<boolean>(() => {
-    if (Number(withdrawMinAmount) > 0) {
-      const withdrawMinAmountBN = new BigNumber(Number(withdrawMinAmount));
+  const remainingLessThanMinAmountWarning = useMemo<boolean>(() => {
+    if (Number(minAmount) > 0) {
+      const minAmountBN = new BigNumber(Number(minAmount));
       const amountValueBN = new BigNumber(amountValue);
       const balanceBN = new BigNumber(balance);
-      if (
-        withdrawMinAmountBN.gt(0) &&
-        amountValueBN.gt(0) &&
-        balanceBN.gte(0)
-      ) {
+      if (minAmountBN.gt(0) && amountValueBN.gt(0) && balanceBN.gte(0)) {
         return (
           amountValueBN.gt(0) &&
-          balanceBN.minus(amountValueBN).lt(withdrawMinAmountBN)
+          amountValueBN.gte(minAmountBN) &&
+          balanceBN.minus(amountValueBN).gt(0) &&
+          balanceBN.minus(amountValueBN).lt(minAmountBN)
         );
       }
     }
     return false;
-  }, [withdrawMinAmount, amountValue, balance]);
+  }, [minAmount, amountValue, balance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -195,18 +182,18 @@ export const UniversalWithdraw = ({
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmountResp.result,
-    [amountValue, isInsufficientBalance, isLessThanMinAmountResp.result],
+      isLessThanMinAmount,
+    [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
   const editable = initialAmount === undefined;
 
   return (
     <StakingFormWrapper>
-      <Stack opacity={editable ? 1 : 0.7}>
+      <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={isInsufficientBalance || isLessThanMinAmountResp.result}
+          hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
@@ -215,6 +202,7 @@ export const UniversalWithdraw = ({
           }}
           inputProps={{
             placeholder: '0',
+            autoFocus: editable,
           }}
           balanceProps={{
             value: balance,
@@ -231,25 +219,23 @@ export const UniversalWithdraw = ({
         ) : null}
       </Stack>
 
-      {isLessThanWithdrawMinAmountWarning ? (
+      {remainingLessThanMinAmountWarning ? (
         <Alert
           icon="InfoCircleOutline"
           type="warning"
           title={intl.formatMessage(
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
-            { number: withdrawMinAmount, symbol: tokenSymbol },
+            { number: minAmount, symbol: tokenSymbol },
           )}
         />
       ) : null}
-      {isLessThanMinAmountResp.result ? (
+      {isLessThanMinAmount ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
           title={intl.formatMessage(
             { id: ETranslations.earn_minimum_amount },
-            {
-              number: `${isLessThanMinAmountResp.value} ${tokenSymbol ?? ''}`,
-            },
+            { number: `${minAmount} ${tokenSymbol ?? ''}` },
           )}
         />
       ) : null}

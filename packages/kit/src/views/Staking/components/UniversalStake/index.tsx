@@ -264,6 +264,7 @@ export const UniversalStake = ({
           }}
           inputProps={{
             placeholder: '0',
+            autoFocus: !isDisabled,
           }}
           valueProps={{
             value: currentValue,

@@ -88,14 +88,29 @@ const OptionItem = ({
   return (
     <Stack px="$5" py="$2">
       <YStack
+        group
         onPress={() => onPress?.({ item })}
         borderWidth={StyleSheet.hairlineWidth}
         borderColor={active ? '$borderActive' : '$borderSubdued'}
         borderRadius="$3"
+        borderCurve="continuous"
         overflow="hidden"
-        {...listItemPressStyle}
+        userSelect="none"
       >
-        <XStack bg="$bgSubdued" px={14} py={12} jc="space-between" ai="center">
+        <XStack
+          bg="$bgSubdued"
+          $group-hover={{
+            bg: '$bgHover',
+          }}
+          $group-press={{
+            bg: '$bgActive',
+          }}
+          $group-
+          px={14}
+          py={12}
+          jc="space-between"
+          ai="center"
+        >
           <XStack>
             <Stack pr="$3">
               <Token
@@ -105,6 +120,7 @@ const OptionItem = ({
             </Stack>
             <YStack>
               <NumberSizeableText
+                size="$bodyLgMedium"
                 formatter="balance"
                 formatterOptions={{
                   tokenSymbol: token?.symbol,
