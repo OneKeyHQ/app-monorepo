@@ -111,6 +111,7 @@ export type IPlatformEnv = {
   isExtensionUiStandaloneWindow?: boolean;
 
   isRuntimeBrowser?: boolean;
+  isRuntimeMacOSBrowser?: boolean;
   isRuntimeFirefox?: boolean;
   isRuntimeChrome?: boolean;
   isRuntimeEdge?: boolean;
@@ -275,6 +276,30 @@ const checkIsRuntimeChrome = (): boolean => {
   return false;
 };
 
+const isMacPlatform = (platform: string): boolean =>
+  platform.includes('mac') || platform.includes('darwin');
+const checkIsRuntimeMacOSBrowser = (): boolean => {
+  if (!isRuntimeBrowser) {
+    return false;
+  }
+  if (typeof navigator !== 'undefined') {
+    if ('platform' in navigator) {
+      const platform = window.navigator.platform?.toLowerCase() ?? '';
+      if (platform) {
+        return isMacPlatform(platform);
+      }
+    }
+    if ('userAgentData' in navigator) {
+      const platform =
+        (
+          navigator as { userAgentData?: { platform: string } }
+        ).userAgentData?.platform.toLowerCase() ?? '';
+      return isMacPlatform(platform);
+    }
+  }
+  return false;
+};
+
 const getBrowserInfo = () => {
   const browserInfo = {
     name: 'unknown',
@@ -341,6 +366,7 @@ let isWebDappMode = false;
 const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
+const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -457,6 +483,7 @@ const platformEnv: IPlatformEnv = {
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
 
   isRuntimeBrowser,
+  isRuntimeMacOSBrowser,
   isRuntimeFirefox,
   isRuntimeChrome,
   isRuntimeEdge,
