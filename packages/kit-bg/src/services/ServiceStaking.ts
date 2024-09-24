@@ -14,6 +14,7 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
@@ -99,9 +100,15 @@ class ServiceStaking extends ServiceBase {
         accountAddress,
         xpub,
       });
+
     const stakingTxs = pendingTxs.filter(
-      (o) => o.stakingInfo && o.stakingInfo.tags.includes(stakeTag),
+      (
+        o,
+      ): o is IAccountHistoryTx &
+        Required<Pick<IAccountHistoryTx, 'stakingInfo'>> =>
+        Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
+
     return stakingTxs;
   }
 
@@ -379,7 +386,12 @@ class ServiceStaking extends ServiceBase {
       }
     }
     let items = await this._getProtocolList(listParams);
-    if (params.filter && params.networkId) {
+
+    if (
+      params.filter &&
+      params.networkId &&
+      !networkUtils.isAllNetwork({ networkId: params.networkId })
+    ) {
       items = items.filter((o) => o.network.networkId === params.networkId);
     }
 

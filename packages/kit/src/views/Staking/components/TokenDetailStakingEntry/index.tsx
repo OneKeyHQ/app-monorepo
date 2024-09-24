@@ -49,7 +49,7 @@ const StakingEntryListItemContent = ({
         borderRadius="$0"
       >
         <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-          <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+          <Icon name="CoinsOutline" color="$iconSuccess" />
         </Stack>
         <ListItem.Text
           flex={1}

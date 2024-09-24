@@ -89,7 +89,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['SOL'],
           configs: {
             'SOL': {
-              enabled: false,
+              enabled: true,
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: true,
               withdrawWithTx: true,

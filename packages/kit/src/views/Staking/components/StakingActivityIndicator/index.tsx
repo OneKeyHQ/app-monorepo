@@ -19,7 +19,7 @@ type IStakingActivityIndicatorProps = {
 const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
   const intl = useIntl();
   return (
-    <Stack cursor="pointer">
+    <Stack cursor={onPress ? 'pointer' : 'default'}>
       <Badge badgeType="info" badgeSize="lg" onPress={onPress}>
         <Stack borderRadius="$full" p={3} bg="$borderInfo">
           <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />

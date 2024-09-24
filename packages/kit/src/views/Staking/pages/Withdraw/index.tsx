@@ -99,7 +99,11 @@ const WithdrawPage = () => {
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
-          withdrawMinAmount={details.minUnstakeAmount}
+          minAmount={
+            Number(provider.minUnstakeAmount) > 0
+              ? String(provider.minUnstakeAmount)
+              : undefined
+          }
           unstakingPeriod={details.unstakingPeriod}
           providerLabel={providerLabel}
           showPayWith={showPayWith}
