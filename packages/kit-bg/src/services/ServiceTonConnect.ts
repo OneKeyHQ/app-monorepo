@@ -384,6 +384,14 @@ class ServiceTonConnect extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async disconnectAll() {
+    const origins = await this.backgroundApi.simpleDb.tonConnect.getOrigins();
+    for (const origin of origins) {
+      await this.notifyDisconnect(origin);
+    }
+  }
+
+  @backgroundMethod()
   public async notifyDisconnect(origin: string) {
     const clientIds =
       await this.backgroundApi.simpleDb.tonConnect.getOriginClientIds(origin);

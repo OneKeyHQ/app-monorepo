@@ -89,6 +89,11 @@ export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData
     return rawData?.origins?.[origin]?.accountAddress ?? '';
   }
 
+  async getOrigins() {
+    const rawData = await this.getRawData();
+    return Object.keys(rawData?.origins ?? {});
+  }
+
   removeOrigin(origin: string) {
     return this.setRawData(({ rawData }) => {
       const origins = rawData?.origins ?? {};

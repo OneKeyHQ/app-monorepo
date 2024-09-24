@@ -476,8 +476,6 @@ class ServiceDApp extends ServiceBase {
           console.error('wallet connect disconnect error: ', e);
         }
       }
-    } else if (storageType === 'tonConnect') {
-      await this.backgroundApi.simpleDb.tonConnect.removeOrigin(origin);
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
@@ -497,6 +495,7 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async disconnectAllWebsites() {
     await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
+    await this.backgroundApi.tonConnect.disconnectAll();
     await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
