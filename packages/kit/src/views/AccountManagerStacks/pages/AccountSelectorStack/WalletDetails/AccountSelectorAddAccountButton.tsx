@@ -114,6 +114,7 @@ export function AccountSelectorAddAccountButton({
         }
       } finally {
         await isCreatingIndexedAccountAddressesAtom.set(undefined);
+        navigation.popStack();
       }
     },
     300,
