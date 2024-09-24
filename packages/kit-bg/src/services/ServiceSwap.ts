@@ -3,6 +3,10 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
 import {
+  getBtcForkNetwork,
+  validateBtcAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
@@ -54,6 +58,8 @@ import {
 import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+
+import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -252,6 +258,91 @@ export default class ServiceSwap extends ServiceBase {
         return [];
       }
     }
+  }
+
+  @backgroundMethod()
+  async getSupportSwapAllAccounts({
+    indexedAccountId,
+    otherWalletTypeAccountId,
+    swapSupportNetworks,
+  }: {
+    indexedAccountId?: string;
+    otherWalletTypeAccountId?: string;
+    swapSupportNetworks: ISwapNetwork[];
+  }) {
+    const accountIdKey =
+      indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
+    let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    if (indexedAccountId || otherWalletTypeAccountId) {
+      try {
+        const allNetAccountId = indexedAccountId
+          ? (
+              await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              )
+            ).id
+          : otherWalletTypeAccountId ?? '';
+        const { accountsInfo } =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+            accountId: allNetAccountId,
+            networkId: getNetworkIdsMap().onekeyall,
+          });
+        const noBtcAccounts = accountsInfo.filter(
+          (networkDataString) =>
+            !networkUtils.isBTCNetwork(networkDataString.networkId),
+        );
+        const btcAccounts = accountsInfo.filter((networkDataString) =>
+          networkUtils.isBTCNetwork(networkDataString.networkId),
+        );
+        const btcAccountsWithMatchDeriveType = await Promise.all(
+          btcAccounts.map(async (networkData) => {
+            const globalDeriveType =
+              await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: networkData.networkId,
+                },
+              );
+            const btcNet = getBtcForkNetwork(
+              networkUtils.getNetworkImpl({
+                networkId: networkData.networkId,
+              }),
+            );
+            const addressValidate = validateBtcAddress({
+              network: btcNet,
+              address: networkData.apiAddress,
+            });
+            if (addressValidate.isValid && addressValidate.encoding) {
+              const deriveTypeRes =
+                await this.backgroundApi.serviceNetwork.getDeriveTypeByAddressEncoding(
+                  {
+                    networkId: networkData.networkId,
+                    encoding: addressValidate.encoding,
+                  },
+                );
+              if (deriveTypeRes === globalDeriveType) {
+                return networkData;
+              }
+            }
+            return null;
+          }),
+        );
+        const filteredAccounts = [
+          ...noBtcAccounts,
+          ...btcAccountsWithMatchDeriveType.filter(Boolean),
+        ];
+        swapSupportAccounts = filteredAccounts.filter((networkDataString) => {
+          const { networkId: accountNetworkId } = networkDataString;
+          return swapSupportNetworks.find(
+            (network) => network.networkId === accountNetworkId,
+          );
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return { accountIdKey, swapSupportAccounts };
   }
 
   @backgroundMethod()

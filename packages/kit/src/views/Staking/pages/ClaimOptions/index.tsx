@@ -58,6 +58,7 @@ const ClaimOptions = () => {
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: provider,
+          protocolLogoURI: details.provider.logoURI,
           send: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],
         },
