@@ -755,6 +755,21 @@ class ServiceStaking extends ServiceBase {
     });
     return resp.data.data.list;
   }
+
+  @backgroundMethod()
+  async buildEarnTx({
+    accountId,
+    networkId,
+    tx,
+  }: {
+    accountId: string;
+    networkId: string;
+    tx: IStakeTxResponse;
+  }) {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const encodedTx = await vault.buildStakeEncodedTx(tx as any);
+    return encodedTx;
+  }
 }
 
 export default ServiceStaking;
