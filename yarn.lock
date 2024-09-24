@@ -6681,12 +6681,12 @@ __metadata:
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
     cross-env: "npm:^7.0.3"
-    electron: "npm:27.0.0"
+    electron: "npm:27.3.1"
     electron-builder: "npm:24.13.3"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:^4.4.8"
-    electron-store: "npm:^8.1.0"
+    electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
@@ -19637,13 +19637,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-store@npm:^8.1.0":
-  version: 8.1.0
-  resolution: "electron-store@npm:8.1.0"
+"electron-store@npm:^8.2.0":
+  version: 8.2.0
+  resolution: "electron-store@npm:8.2.0"
   dependencies:
     conf: "npm:^10.2.0"
     type-fest: "npm:^2.17.0"
-  checksum: 10/bb29f12e5649b2d163b503f99a11e43782df5de8dc0d6a0b8950bdb5250a932b90f6a671d59dc1bd982102be0f3d58f348bd4732cfa4a7769a8270b525e97121
+  checksum: 10/8bdc30100e3dc79f778783d5a1581ee955c5b348df329a9e5ded00a12c9394820528b690ad5af5910749fb3e0d4a55c4c9b2e722bdfe6ba95b9de570d6f1e9fb
   languageName: node
   linkType: hard
 
@@ -19691,16 +19691,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:27.0.0":
-  version: 27.0.0
-  resolution: "electron@npm:27.0.0"
+"electron@npm:27.3.1":
+  version: 27.3.1
+  resolution: "electron@npm:27.3.1"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^18.11.18"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/486057738b20ec65a7ac9b30d615f94311a6b8ea900f94d1c6668c4e48bb6c9371a9131ee4349a3247031c292f97b8aa85448ec8e95b6998200a28bafe4aa6c2
+  checksum: 10/d46f43a82653dab5e115ed4201c4d5b101c60eede6e8a4045349a75409e362384d3258a7c3dc031c9a05622d66b3df557e1f304e7196b6f60360f9bc4958c132
   languageName: node
   linkType: hard
 
