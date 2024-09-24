@@ -83,6 +83,15 @@ function AccountEditButtonView({
     [account, indexedAccount, wallet?.id],
   );
 
+  const isHwOrQrAccount = useMemo(
+    () =>
+      indexedAccount &&
+      !account &&
+      wallet?.id &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+    [account, indexedAccount, wallet?.id],
+  );
+
   const getExportKeysVisible = useCallback(async () => {
     if (
       (isImportedAccount && account?.createAtNetwork) ||
@@ -130,11 +139,24 @@ function AccountEditButtonView({
       };
     }
 
+    if (isHwOrQrAccount) {
+      return {
+        showExportPrivateKey: false,
+        showExportPublicKey: true,
+      };
+    }
+
     return {
       showExportPrivateKey: false,
       showExportPublicKey: false,
     };
-  }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
+  }, [
+    account,
+    isHdAccount,
+    isHwOrQrAccount,
+    isImportedAccount,
+    isWatchingAccount,
+  ]);
 
   const estimatedContentHeight = useCallback(async () => {
     let basicHeight = 56;
