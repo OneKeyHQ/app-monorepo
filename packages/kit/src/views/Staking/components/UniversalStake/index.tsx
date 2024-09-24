@@ -168,12 +168,14 @@ export const UniversalStake = ({
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
       isLessThanMinAmount ||
+      isGreaterThanMaxAmount ||
       isReachBabylonCap
     );
   }, [
     amountValue,
     isInsufficientBalance,
     isLessThanMinAmount,
+    isGreaterThanMaxAmount,
     isReachBabylonCap,
   ]);
 
