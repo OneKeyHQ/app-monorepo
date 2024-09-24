@@ -125,7 +125,7 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
-    const { swapInfo } = unsignedTx;
+    const { swapInfo, stakingInfo } = unsignedTx;
     const { inputs, outputs, inputsToSign, psbtHex } = encodedTx;
 
     if (psbtHex && Array.isArray(inputsToSign)) {
@@ -246,6 +246,24 @@ export default class VaultBtc extends VaultBase {
         action.assetTransfer.utxoTo = originalUtxoTo;
       }
       actions = [action];
+    } else if (stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      const { send } = stakingInfo;
+      const action = await this.buildInternalStakingAction({
+        accountAddress,
+        stakingInfo,
+        stakingToAddress: utxoTo[0].address,
+      });
+      if (send && send.token.isNative) {
+        sendNativeTokenAmountBN = new BigNumber(send.amount);
+        sendNativeTokenAmountValueBN = sendNativeTokenAmountBN.shiftedBy(
+          send.token.decimals,
+        );
+      }
+      if (action.assetTransfer) {
+        action.assetTransfer.utxoFrom = utxoFrom;
+        action.assetTransfer.utxoTo = originalUtxoTo;
+      }
     } else if (nativeToken) {
       actions = [
         {

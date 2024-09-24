@@ -777,7 +777,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   h="$5"
                   source={{ uri: application.icon }}
                 />
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  textTransform="capitalize"
+                >
                   {application.name}
                 </SizableText>
               </XStack>
