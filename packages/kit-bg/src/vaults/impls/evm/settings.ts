@@ -36,13 +36,13 @@ const networkIdMap = getNetworkIdsMap();
 
 const commonStakeConfigs = {
   ETH: {
-    enabled: false,
+    enabled: true,
     tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
     displayProfit: true,
     stakingWithApprove: false,
   },
   MATIC: {
-    enabled: false,
+    enabled: true,
     tokenAddress: EthereumMatic,
     displayProfit: true,
     stakingWithApprove: true,
