@@ -304,12 +304,9 @@ const SwapTokenSelectPage = () => {
             moreComponent={
               <ActionList
                 title={tokenItem.tokenSymbol ?? ''}
+                disabled={rawItem.isNative}
                 renderTrigger={
-                  <IconButton
-                    variant="tertiary"
-                    icon="DotVerSolid"
-                    disabled={rawItem.isNative}
-                  />
+                  <IconButton variant="tertiary" icon="DotVerSolid" />
                 }
                 items={[
                   {
