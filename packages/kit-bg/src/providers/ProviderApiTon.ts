@@ -48,7 +48,7 @@ class ProviderApiTon extends ProviderApiBase {
       let params;
       try {
         if (accounts && accounts.length > 0) {
-          params = await this._getAccountResponse(
+          params = await this.getAccountResponse(
             accounts[0].account,
             accounts[0].accountInfo?.networkId ?? '',
           );
@@ -56,9 +56,9 @@ class ProviderApiTon extends ProviderApiBase {
       } catch {
         // ignore
       }
-      if (!params) {
-        void this.backgroundApi.tonConnect.notifyDisconnect(info.targetOrigin);
-      }
+      void this.backgroundApi.tonConnect.notifyAccountsChanged({
+        origin: info.targetOrigin,
+      });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
@@ -101,7 +101,7 @@ class ProviderApiTon extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       accounts = await this.getAccountsInfo(request);
     }
-    return this._getAccountResponse(
+    return this.getAccountResponse(
       accounts[0].account,
       accounts[0].accountInfo?.networkId ?? '',
     );
@@ -132,10 +132,7 @@ class ProviderApiTon extends ProviderApiBase {
     };
   }
 
-  private async _getAccountResponse(
-    account: INetworkAccount,
-    networkId: string,
-  ) {
+  public async getAccountResponse(account: INetworkAccount, networkId: string) {
     const version = getAccountVersion(account.id);
     if (!account.pub) {
       throw new Error('Invalid account');

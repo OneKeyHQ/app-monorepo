@@ -343,9 +343,10 @@ class ServiceTonConnect extends ServiceBase {
           name: 'ton_addr',
           ...connectedAccount,
         });
-        await this.backgroundApi.simpleDb.tonConnect.setOriginClientId({
+        await this.backgroundApi.simpleDb.tonConnect.setOriginInfo({
           origin,
           clientId: id,
+          accountAddress: connectedAccount.address,
         });
       } else if (item.name === 'ton_proof') {
         const proof = await this.provider.signProof(request, {
@@ -398,6 +399,69 @@ class ServiceTonConnect extends ServiceBase {
         });
         await this.backgroundApi.simpleDb.tonConnect.removeOrigin(origin);
       }
+    }
+  }
+
+  @backgroundMethod()
+  public async notifyAccountsChanged({ origin }: { origin: string }) {
+    const clientIds =
+      await this.backgroundApi.simpleDb.tonConnect.getOriginClientIds(origin);
+    if (clientIds.length === 0) {
+      return;
+    }
+    const request = {
+      scope: this.provider.providerName,
+      origin,
+      tonConnectClientId: clientIds[0],
+    };
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      await this.notifyDisconnect(origin);
+      return;
+    }
+    const device = await this.provider.getDeviceInfo({
+      origin,
+    });
+    const accountInfo = accountsInfo[0];
+    const accountResponse = await this.provider.getAccountResponse(
+      accountInfo.account,
+      accountInfo.accountInfo?.networkId ?? '',
+    );
+
+    const connectedAccountAddress =
+      await this.backgroundApi.simpleDb.tonConnect.getOriginAccountAddress(
+        origin,
+      );
+    if (accountResponse.address === connectedAccountAddress) {
+      return;
+    }
+
+    await this.backgroundApi.simpleDb.tonConnect.setOriginInfo({
+      origin,
+      accountAddress: accountResponse.address,
+    });
+
+    const msg = JSON.stringify({
+      event: 'connect',
+      id: Date.now(),
+      payload: {
+        items: [
+          {
+            name: 'ton_addr',
+            ...accountResponse,
+          },
+        ],
+        device,
+      },
+    });
+    for (const id of clientIds) {
+      await this.sendMsg({
+        msg,
+        toClientId: id,
+      });
     }
   }
 }

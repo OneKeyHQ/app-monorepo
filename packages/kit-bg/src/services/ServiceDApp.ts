@@ -476,6 +476,8 @@ class ServiceDApp extends ServiceBase {
           console.error('wallet connect disconnect error: ', e);
         }
       }
+    } else if (storageType === 'tonConnect') {
+      await this.backgroundApi.simpleDb.tonConnect.removeOrigin(origin);
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);

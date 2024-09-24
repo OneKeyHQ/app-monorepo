@@ -9,6 +9,7 @@ import {
   ONEKEY_APP_DEEP_LINK_NAME,
   ONEKEY_UNIVERSAL_LINK_HOST,
   ONEKEY_UNIVERSAL_TEST_LINK_HOST,
+  TON_CONNECT_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
@@ -168,6 +169,33 @@ async function processDeepLinkWalletConnect({
   }
 }
 
+async function processDeepLinkTonConnect({
+  url,
+  parsedUrl,
+}: IProcessDeepLinkParams) {
+  try {
+    const { queryParams, scheme } = parsedUrl;
+    if (scheme === TON_CONNECT_DEEP_LINK_NAME) {
+      if (queryParams?.id && queryParams?.r) {
+        console.log('Create tonConnect connection by DeepLink: ', url);
+        await backgroundApiProxy.tonConnect.connect({
+          id: queryParams.id as string,
+          r: queryParams.r as string,
+          v: queryParams.v as string,
+          ret: queryParams.ret as string,
+        });
+        return {
+          type: 'tonConnect',
+          url,
+          urlExtracted: url,
+        };
+      }
+    }
+  } catch (error) {
+    console.error('processDeepLinkTonConnect ERROR: ', error);
+  }
+}
+
 const processDeepLinkUrl = memoizee(
   // parameter should be flatten, as memoizee primitive=true
   async (
@@ -191,6 +219,7 @@ const processDeepLinkUrl = memoizee(
       }
       await processDeepLinkUrlAccount({ url, parsedUrl });
       await processDeepLinkWalletConnect({ url, parsedUrl });
+      await processDeepLinkTonConnect({ url, parsedUrl });
     } catch (e) {
       console.error('processDeepLinkUrl ERROR: ', e);
     }

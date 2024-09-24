@@ -9,12 +9,13 @@ export interface ITonConnectData {
   origins?: {
     [key: string]: {
       clientIds: string[];
+      accountAddress: string;
     };
   };
 }
 
 export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData> {
-  entityName = 'tonConnectItems';
+  entityName = 'tonConnect';
 
   override enableCache = false;
 
@@ -51,20 +52,25 @@ export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData
     return rawData?.lastEventId;
   }
 
-  setOriginClientId({
+  setOriginInfo({
     origin,
     clientId,
+    accountAddress,
   }: {
     origin: string;
-    clientId: string;
+    clientId?: string;
+    accountAddress?: string;
   }) {
     return this.setRawData(({ rawData }) => {
       const origins = rawData?.origins ?? {};
       if (!origins[origin]) {
-        origins[origin] = { clientIds: [] };
+        origins[origin] = { clientIds: [], accountAddress: '' };
       }
-      if (!origins[origin].clientIds.includes(clientId)) {
+      if (clientId && !origins[origin].clientIds.includes(clientId)) {
         origins[origin].clientIds.push(clientId);
+      }
+      if (accountAddress) {
+        origins[origin].accountAddress = accountAddress;
       }
       return {
         ...rawData,
@@ -76,6 +82,11 @@ export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData
   async getOriginClientIds(origin: string) {
     const rawData = await this.getRawData();
     return rawData?.origins?.[origin]?.clientIds ?? [];
+  }
+
+  async getOriginAccountAddress(origin: string) {
+    const rawData = await this.getRawData();
+    return rawData?.origins?.[origin]?.accountAddress ?? '';
   }
 
   removeOrigin(origin: string) {
