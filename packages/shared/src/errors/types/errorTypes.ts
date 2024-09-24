@@ -77,6 +77,7 @@ export interface IOneKeyError<
 
   // ---server props
   requestId?: string;
+  disableFallbackMessage?: boolean;
 }
 
 export type IOneKeyHardwareErrorPayload = {

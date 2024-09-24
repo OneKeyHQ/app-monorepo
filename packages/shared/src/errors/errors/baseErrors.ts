@@ -59,6 +59,7 @@ export class OneKeyError<
     let requestId: string | undefined;
     let className: EOneKeyErrorClassNames | undefined;
     let name: string | undefined;
+    let disableFallbackMessage: boolean | undefined;
 
     if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
@@ -72,6 +73,7 @@ export class OneKeyError<
         payload: hardwareErrorPayload,
         className,
         name,
+        disableFallbackMessage,
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
@@ -83,7 +85,11 @@ export class OneKeyError<
       // * empty string not allowed in Web3RpcError, give a fakeMessage by default
       // * can not access this.key before constructor
       msg ||
-        `Unknown Onekey Internal Error. ${[key].filter(Boolean).join(':')}`,
+        (disableFallbackMessage
+          ? ''
+          : `Unknown Onekey Internal Error. ${[key]
+              .filter(Boolean)
+              .join(':')}`),
       data,
     );
 
