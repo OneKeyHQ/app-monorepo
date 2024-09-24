@@ -23,7 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { countDecimalPlaces } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -328,7 +328,9 @@ export const ApproveBaseStake = ({
                   src={providerLogo}
                   borderRadius="$2"
                 />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
               </XStack>
             </ListItem>
           ) : null}

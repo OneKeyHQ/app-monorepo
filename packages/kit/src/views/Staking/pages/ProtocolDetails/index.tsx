@@ -167,6 +167,7 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
+        stakeTag: buildLocalTxStatusSyncId(result),
       });
     };
   }, [
