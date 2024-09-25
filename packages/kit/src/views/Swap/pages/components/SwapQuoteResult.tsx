@@ -74,6 +74,30 @@ const SwapQuoteResult = ({
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
 
+  const calculateTaxItem = useCallback(
+    (
+      tokenBuyTaxBps: BigNumber,
+      tokenSellTaxBps: BigNumber,
+      tokenInfo?: ISwapToken,
+    ) => {
+      const showTax = Math.max(
+        tokenBuyTaxBps.toNumber(),
+        tokenSellTaxBps.toNumber(),
+      );
+      const finalShowTax = new BigNumber(showTax).shiftedBy(-2).toNumber();
+      return (
+        <SwapCommonInfoItem
+          title={`${tokenInfo?.symbol ?? ''} buy/sell tax`}
+          isLoading={swapQuoteLoading}
+          valueComponent={
+            <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
+          }
+        />
+      );
+    },
+    [swapQuoteLoading],
+  );
+
   const tokenMetadataParse = useCallback(
     (
       tokenMetadata: ISwapTokenMetadata,
@@ -100,46 +124,20 @@ const SwapQuoteResult = ({
         (!buyTokenBuyTaxBps.isNaN() && !buyTokenBuyTaxBps.isZero()) ||
         (!buyTokenSellTaxBps.isNaN() && !buyTokenSellTaxBps.isZero())
       ) {
-        const buyTokenShowTax = Math.max(
-          buyTokenBuyTaxBps.toNumber(),
-          buyTokenSellTaxBps.toNumber(),
-        );
-        const finalShowTax = new BigNumber(buyTokenShowTax)
-          .shiftedBy(-2)
-          .toNumber();
-        buyTaxItem = (
-          <SwapCommonInfoItem
-            title={`${toTokenInfo?.symbol ?? ''} buy/sell tax`}
-            isLoading={swapQuoteLoading}
-            valueComponent={
-              <SizableText size="$bodyMdMedium">
-                {`${finalShowTax}%`}
-              </SizableText>
-            }
-          />
+        buyTaxItem = calculateTaxItem(
+          buyTokenBuyTaxBps,
+          buyTokenSellTaxBps,
+          toTokenInfo,
         );
       }
       if (
         (!sellTokenBuyTaxBps.isNaN() && !sellTokenBuyTaxBps.isZero()) ||
         (!sellTokenSellTaxBps.isNaN() && !sellTokenSellTaxBps.isZero())
       ) {
-        const sellTokenShowTax = Math.max(
-          sellTokenBuyTaxBps.toNumber(),
-          sellTokenSellTaxBps.toNumber(),
-        );
-        const finalShowTax = new BigNumber(sellTokenShowTax)
-          .shiftedBy(-2)
-          .toNumber();
-        sellTaxItem = (
-          <SwapCommonInfoItem
-            title={`${fromTokenInfo?.symbol ?? ''} buy/sell tax`}
-            isLoading={swapQuoteLoading}
-            valueComponent={
-              <SizableText size="$bodyMdMedium">
-                {`${finalShowTax}%`}
-              </SizableText>
-            }
-          />
+        sellTaxItem = calculateTaxItem(
+          sellTokenBuyTaxBps,
+          sellTokenSellTaxBps,
+          fromTokenInfo,
         );
       }
       return (
@@ -149,7 +147,7 @@ const SwapQuoteResult = ({
         </>
       );
     },
-    [swapQuoteLoading],
+    [calculateTaxItem],
   );
 
   const slippageHandleClick = useCallback(() => {
