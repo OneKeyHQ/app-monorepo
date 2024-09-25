@@ -18,6 +18,10 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+import windowsSecurityCredentialsUiModule, {
+  UserConsentVerificationResult,
+  UserConsentVerifierAvailability,
+} from 'windows.security.credentials.ui';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -514,18 +518,12 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
     if (isWin) {
       const result = await new Promise((resolve) => {
-        const windowsSecurityCredentialsUiModule =
-          require('windows.security.credentials.ui') as typeof import('windows.security.credentials.ui');
         windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
           (error, status) => {
             if (error) {
               resolve(true);
             } else {
-              resolve(
-                status ===
-                  windowsSecurityCredentialsUiModule
-                    .UserConsentVerifierAvailability.available,
-              );
+              resolve(status === UserConsentVerifierAvailability.available);
             }
           },
         );
@@ -577,8 +575,6 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     if (isWin) {
-      const windowsSecurityCredentialsUiModule =
-        require('windows.security.credentials.ui') as typeof import('windows.security.credentials.ui');
       windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
         msg,
         (error, status) => {
@@ -589,10 +585,7 @@ function createMainWindow() {
             });
           } else {
             event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-              success:
-                status ===
-                windowsSecurityCredentialsUiModule.UserConsentVerificationResult
-                  .verified,
+              success: status === UserConsentVerificationResult.verified,
             });
           }
         },
