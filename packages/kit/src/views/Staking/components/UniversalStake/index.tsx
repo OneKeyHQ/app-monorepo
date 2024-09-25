@@ -16,10 +16,8 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -65,8 +63,6 @@ type IUniversalStakeProps = {
 
   onConfirm?: (amount: string) => Promise<void>;
 };
-
-const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 export const UniversalStake = ({
   price,
