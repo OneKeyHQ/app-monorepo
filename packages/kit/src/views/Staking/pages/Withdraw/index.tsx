@@ -36,7 +36,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, active } = details;
+  const { token, provider, active, overflow } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -113,7 +113,9 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0).toFixed()}
+          balance={BigNumber(
+            Number(active ?? 0) + Number(overflow ?? 0),
+          ).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}

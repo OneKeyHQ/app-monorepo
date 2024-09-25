@@ -27,14 +27,10 @@ import {
 import { ProtocolDetails } from '../../components/ProtocolDetails';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { useUniversalClaim } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
-import {
-  useHandleClaim,
-  useHandleStake,
-  useHandleWithdraw,
-} from './useHandleActions';
+import { useHandleStake, useHandleWithdraw } from './useHandleActions';
+import { useHandleClaim } from './useHandleClaim';
 
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -72,7 +68,6 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
-  const handleClaim = useHandleClaim();
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
@@ -116,31 +111,31 @@ const ProtocolDetailsPage = () => {
     });
   }, [handleWithdraw, result, earnAccount, networkId, symbol, provider, run]);
 
-  const onClaim = useCallback(async () => {
-    await handleClaim({
-      details: result,
-      accountId: earnAccount?.accountId,
-      networkId,
-      symbol,
-      provider,
-    });
-  }, [handleClaim, result, earnAccount, networkId, symbol, provider]);
-
-  const handleClaimOperation = useUniversalClaim({ accountId, networkId });
-
-  const onClaimReward = useCallback(async () => {
-    if (!result) return;
-    await handleClaimOperation({
-      symbol: result.token.info.symbol,
-      provider: result.provider.name,
-      stakingInfo: {
-        label: EEarnLabels.Claim,
-        protocol: result.provider.name,
-        send: { token: result.token.info, amount: result.rewards ?? '0' },
-        tags: [buildLocalTxStatusSyncId(result)],
-      },
-    });
-  }, [result, handleClaimOperation]);
+  const handleClaim = useHandleClaim({
+    accountId: earnAccount?.accountId,
+    networkId,
+  });
+  const onClaim = useCallback(
+    async (params?: { isReward?: boolean }) => {
+      if (!result) return;
+      const { isReward } = params ?? {};
+      const amount = isReward ? result.rewards : result.claimable;
+      await handleClaim({
+        details: result,
+        isReward,
+        symbol,
+        provider,
+        stakingInfo: {
+          label: EEarnLabels.Claim,
+          protocol: result.provider.name,
+          protocolLogoURI: result.provider.logoURI,
+          send: { token: result.token.info, amount: amount ?? '0' },
+          tags: [buildLocalTxStatusSyncId(result)],
+        },
+      });
+    },
+    [handleClaim, result, symbol, provider],
+  );
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -228,7 +223,6 @@ const ProtocolDetailsPage = () => {
             earnAccount={earnAccount}
             details={result}
             onClaim={onClaim}
-            onClaimReward={onClaimReward}
             onWithdraw={onWithdraw}
             onPortfolioDetails={onPortfolioDetails}
             onCreateAddress={onCreateAddress}
