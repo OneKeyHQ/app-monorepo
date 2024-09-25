@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import nacl from 'tweetnacl';
 
@@ -18,58 +19,48 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 const TON_CONNECT_HTTP_BRIDGE = 'https://bridge.tonapi.io/bridge';
 
-let isListened = false;
+let eventSource: EventSource | EventSourcePolyfill | undefined;
 
 @backgroundClass()
 class ServiceTonConnect extends ServiceBase {
   provider: ProviderApiTon;
 
-  private publicKey?: Uint8Array;
+  private request = axios.create({
+    baseURL: TON_CONNECT_HTTP_BRIDGE,
+  });
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     this.provider = this.backgroundApi.providers.ton as ProviderApiTon;
-    void this.loadKeyPair();
   }
 
-  public init() {
-    if (!isListened) {
-      isListened = true;
+  public async init() {
+    if (!eventSource) {
+      const connections =
+        await this.backgroundApi.simpleDb.tonConnect.getAllConnections();
+      if (connections.length === 0) {
+        return;
+      }
       void this.listen();
     }
   }
 
-  private async loadKeyPair() {
-    const keyPair = await this.getKeyPair();
-    this.publicKey = keyPair.publicKey;
-  }
-
-  private async getKeyPair() {
-    const localData = await this.backgroundApi.simpleDb.tonConnect.getKeyPair();
-    if (localData) {
-      return {
-        privateKey: bufferUtils.hexToBytes(localData.privateKey),
-        publicKey: bufferUtils.hexToBytes(localData.publicKey),
-      };
-    }
+  private genClientInfo() {
     const pair = nacl.box.keyPair();
-    await this.backgroundApi.simpleDb.tonConnect.setKeyPair({
-      privateKey: bufferUtils.bytesToHex(pair.secretKey),
-      publicKey: bufferUtils.bytesToHex(pair.publicKey),
-    });
     return {
-      privateKey: pair.secretKey,
-      publicKey: pair.publicKey,
+      clientCode: bufferUtils.bytesToHex(pair.secretKey),
+      clientId: bufferUtils.bytesToHex(pair.publicKey),
     };
   }
 
   private async listen() {
-    const localLastEventId =
+    const lastEventId =
       await this.backgroundApi.simpleDb.tonConnect.getLastEventId();
-    const clientId = await this.getClientId();
-    const url = `${TON_CONNECT_HTTP_BRIDGE}/events?client_id=${clientId}&last_event_id=${
-      localLastEventId || ''
-    }`;
+    const clientIds =
+      await this.backgroundApi.simpleDb.tonConnect.getAllClientIds();
+    const url = `${TON_CONNECT_HTTP_BRIDGE}/events?client_id=${clientIds.join(
+      ',',
+    )}&last_event_id=${lastEventId}`;
     const onMessage = async (event: {
       data: string | null;
       lastEventId: string | null;
@@ -92,34 +83,27 @@ class ServiceTonConnect extends ServiceBase {
         msg: Buffer.from(msg).toString(),
         fromClientId: data.from,
       });
-      await this.backgroundApi.simpleDb.tonConnect.setLastEventId(
-        event.lastEventId || '',
-      );
+      await this.backgroundApi.simpleDb.tonConnect.setLastEventId({
+        lastEventId: event.lastEventId || '',
+      });
     };
     const onError = (event: any) => {
       console.error('tonConnect EventSource error: ', event);
     };
     if (platformEnv.isExtension) {
-      const es = new EventSourcePolyfill(url);
-      es.onmessage = onMessage;
-      es.onerror = onError;
+      eventSource = new EventSourcePolyfill(url);
+      eventSource.onmessage = onMessage;
+      eventSource.onerror = onError;
     } else {
-      const es = new EventSource(url);
-      es.addEventListener('message', onMessage);
-      es.addEventListener('error', onError);
+      eventSource = new EventSource(url);
+      eventSource.addEventListener('message', onMessage);
+      eventSource.addEventListener('error', onError);
     }
   }
 
-  private async getOriginByClientId(clientId: string) {
-    const rawData =
-      await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    if (!rawData || typeof rawData !== 'object' || !rawData.data) {
-      return undefined;
-    }
-    const tonConnectData = rawData.data.tonConnect;
-    return Object.keys(tonConnectData).find(
-      (key) => tonConnectData[key].tonConnectClientId === clientId,
-    );
+  private async reListen() {
+    eventSource?.close();
+    await this.listen();
   }
 
   private async handleMsg({
@@ -143,7 +127,9 @@ class ServiceTonConnect extends ServiceBase {
     };
     if (method && params) {
       const decodedParams = params.map((e) => JSON.parse(e) as unknown);
-      const origin = await this.getOriginByClientId(fromClientId);
+      const { origin } = await this.getConnectionInfo({
+        connectorId: fromClientId,
+      });
       if (origin) {
         const request: IJsBridgeMessagePayload = {
           scope: this.provider.providerName,
@@ -189,6 +175,17 @@ class ServiceTonConnect extends ServiceBase {
     });
   }
 
+  private async getConnectionInfo({ connectorId }: { connectorId: string }) {
+    const connection =
+      await this.backgroundApi.simpleDb.tonConnect.getConnectionInfo({
+        connectorId,
+      });
+    if (!connection) {
+      throw new OneKeyError('Connection not found');
+    }
+    return connection;
+  }
+
   private async encrypt({
     data,
     receiverPublicKey,
@@ -196,9 +193,16 @@ class ServiceTonConnect extends ServiceBase {
     data: Uint8Array;
     receiverPublicKey: Uint8Array;
   }) {
-    const pair = await this.getKeyPair();
+    const connection = await this.getConnectionInfo({
+      connectorId: bufferUtils.bytesToHex(receiverPublicKey),
+    });
     const nonce = nacl.randomBytes(24);
-    const content = nacl.box(data, nonce, receiverPublicKey, pair.privateKey);
+    const content = nacl.box(
+      data,
+      nonce,
+      receiverPublicKey,
+      bufferUtils.hexToBytes(connection.clientCode),
+    );
     return Buffer.concat([nonce, content]).toString('base64');
   }
 
@@ -212,23 +216,15 @@ class ServiceTonConnect extends ServiceBase {
     const bytes = Buffer.from(message, 'base64');
     const msgNonce = bytes.subarray(0, 24);
     const msgContent = bytes.subarray(24);
-    const pair = await this.getKeyPair();
+    const connection = await this.getConnectionInfo({
+      connectorId: bufferUtils.bytesToHex(senderPublicKey),
+    });
     return nacl.box.open(
       msgContent,
       msgNonce,
       senderPublicKey,
-      pair.privateKey,
+      bufferUtils.hexToBytes(connection.clientCode),
     );
-  }
-
-  private async getClientId() {
-    if (!this.publicKey) {
-      await this.loadKeyPair();
-      if (!this.publicKey) {
-        throw new OneKeyError('Public key not found');
-      }
-    }
-    return bufferUtils.bytesToHex(this.publicKey);
   }
 
   private async sendMsg({
@@ -238,26 +234,30 @@ class ServiceTonConnect extends ServiceBase {
     msg: string;
     toClientId: string;
   }) {
-    const clientId = await this.getClientId();
-    const res = await fetch(
-      `${TON_CONNECT_HTTP_BRIDGE}/message?client_id=${clientId}&to=${toClientId}&ttl=300`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: await this.encrypt({
-          data: Buffer.from(msg),
-          receiverPublicKey: bufferUtils.hexToBytes(toClientId),
-        }),
-      },
-    ).then<{
-      statusCode: number;
-      message: string;
-    }>((e) => e.json());
-    if (res.statusCode !== 200) {
-      throw new OneKeyError(res.message);
+    const connection = await this.getConnectionInfo({
+      connectorId: toClientId,
+    });
+    const { data } = await this.request.post<{
+      statusCode?: number;
+      message?: string;
+    }>(
+      `/message?client_id=${connection.clientId}&to=${toClientId}&ttl=300`,
+      await this.encrypt({
+        data: Buffer.from(msg),
+        receiverPublicKey: bufferUtils.hexToBytes(toClientId),
+      }),
+    );
+    if (data.statusCode !== 200) {
+      throw new OneKeyError(data.message);
     }
+    console.log(
+      'tonConnect sendMsg:',
+      msg,
+      'to:',
+      toClientId,
+      'response data:',
+      data,
+    );
   }
 
   private urlSafeDecode(urlEncoded: string) {
@@ -279,7 +279,7 @@ class ServiceTonConnect extends ServiceBase {
       await this.sendMsg({
         msg: JSON.stringify({
           event: 'connect_error',
-          id: 0,
+          id: Date.now(),
           payload: {
             code: 2,
           },
@@ -288,16 +288,16 @@ class ServiceTonConnect extends ServiceBase {
       });
       return;
     }
-    const manifest = (await fetch(manifestUrl).then((res) => res.json())) as {
+    const { data: manifest } = await this.request.get<{
       url?: string;
       name?: string;
       iconUrl?: string;
-    };
+    }>(manifestUrl);
     if (!manifest || !manifest.url || !manifest.name) {
       await this.sendMsg({
         msg: JSON.stringify({
           event: 'connect_error',
-          id: 0,
+          id: Date.now(),
           payload: {
             code: 3,
           },
@@ -322,7 +322,7 @@ class ServiceTonConnect extends ServiceBase {
             await this.sendMsg({
               msg: JSON.stringify({
                 event: 'connect_error',
-                id: 0,
+                id: Date.now(),
                 payload: {
                   code: 300,
                 },
@@ -337,11 +337,15 @@ class ServiceTonConnect extends ServiceBase {
           name: 'ton_addr',
           ...connectedAccount,
         });
-        await this.backgroundApi.simpleDb.tonConnect.setOriginInfo({
+        const newClient = this.genClientInfo();
+        await this.backgroundApi.simpleDb.tonConnect.setConnection({
           origin,
-          clientId: id,
-          accountAddress: connectedAccount.address,
+          connectorId: id,
+          connectorAddress: connectedAccount.address,
+          clientId: newClient.clientId,
+          clientCode: newClient.clientCode,
         });
+        void this.reListen();
       } else if (item.name === 'ton_proof') {
         const proof = await this.provider.signProof(request, {
           payload: item.payload as string,
@@ -367,7 +371,9 @@ class ServiceTonConnect extends ServiceBase {
   }
 
   private async disconnect(clientId: string) {
-    const origin = await this.getOriginByClientId(clientId);
+    const { origin } = await this.getConnectionInfo({
+      connectorId: clientId,
+    });
     if (!origin) {
       return;
     }
@@ -379,16 +385,28 @@ class ServiceTonConnect extends ServiceBase {
 
   @backgroundMethod()
   public async disconnectAll() {
-    const origins = await this.backgroundApi.simpleDb.tonConnect.getOrigins();
-    for (const origin of origins) {
-      await this.notifyDisconnect(origin);
+    const connections =
+      await this.backgroundApi.simpleDb.tonConnect.getAllConnections();
+    for (const connection of connections) {
+      await this.sendMsg({
+        msg: JSON.stringify({
+          event: 'disconnect',
+          id: Date.now(),
+          payload: {},
+        }),
+        toClientId: connection.connectorId,
+      });
     }
+    await this.backgroundApi.simpleDb.tonConnect.clearConnections();
   }
 
   @backgroundMethod()
   public async notifyDisconnect(origin: string) {
-    const clientIds =
-      await this.backgroundApi.simpleDb.tonConnect.getOriginClientIds(origin);
+    const clientIds = (
+      await this.backgroundApi.simpleDb.tonConnect.getConnectionsByOrigin({
+        origin,
+      })
+    ).map((item) => item.connectorId);
     if (clientIds.length > 0) {
       for (const clientId of clientIds) {
         await this.sendMsg({
@@ -399,22 +417,24 @@ class ServiceTonConnect extends ServiceBase {
           }),
           toClientId: clientId,
         });
-        await this.backgroundApi.simpleDb.tonConnect.removeOrigin(origin);
+        await this.backgroundApi.simpleDb.tonConnect.removeOrigin({ origin });
       }
     }
   }
 
   @backgroundMethod()
   public async notifyAccountsChanged({ origin }: { origin: string }) {
-    const clientIds =
-      await this.backgroundApi.simpleDb.tonConnect.getOriginClientIds(origin);
-    if (clientIds.length === 0) {
+    const connections =
+      await this.backgroundApi.simpleDb.tonConnect.getConnectionsByOrigin({
+        origin,
+      });
+    if (connections.length === 0) {
       return;
     }
     const request = {
       scope: this.provider.providerName,
       origin,
-      tonConnectClientId: clientIds[0],
+      tonConnectClientId: connections[0].connectorId,
     };
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
@@ -433,17 +453,13 @@ class ServiceTonConnect extends ServiceBase {
       accountInfo.accountInfo?.networkId ?? '',
     );
 
-    const connectedAccountAddress =
-      await this.backgroundApi.simpleDb.tonConnect.getOriginAccountAddress(
-        origin,
-      );
-    if (accountResponse.address === connectedAccountAddress) {
+    if (accountResponse.address === connections[0].connectorAddress) {
       return;
     }
 
-    await this.backgroundApi.simpleDb.tonConnect.setOriginInfo({
+    await this.backgroundApi.simpleDb.tonConnect.setConnectorAddress({
       origin,
-      accountAddress: accountResponse.address,
+      connectorAddress: accountResponse.address,
     });
 
     const msg = JSON.stringify({
@@ -459,10 +475,10 @@ class ServiceTonConnect extends ServiceBase {
         device,
       },
     });
-    for (const id of clientIds) {
+    for (const connection of connections) {
       await this.sendMsg({
         msg,
-        toClientId: id,
+        toClientId: connection.connectorId,
       });
     }
   }

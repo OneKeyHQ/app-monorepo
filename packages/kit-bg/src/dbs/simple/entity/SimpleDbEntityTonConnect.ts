@@ -2,16 +2,13 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ITonConnectData {
   lastEventId?: string;
-  keyPair?: {
-    privateKey: string;
-    publicKey: string;
-  };
-  origins?: {
-    [key: string]: {
-      clientIds: string[];
-      accountAddress: string;
-    };
-  };
+  connections?: {
+    origin: string;
+    connectorId: string;
+    connectorAddress: string;
+    clientId: string;
+    clientCode: string;
+  }[];
 }
 
 export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData> {
@@ -19,28 +16,107 @@ export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData
 
   override enableCache = false;
 
-  setKeyPair({
-    privateKey,
-    publicKey,
+  async setConnection({
+    origin,
+    connectorId,
+    connectorAddress,
+    clientId,
+    clientCode,
   }: {
-    privateKey: string;
-    publicKey: string;
+    origin: string;
+    connectorId: string;
+    connectorAddress: string;
+    clientId: string;
+    clientCode: string;
   }) {
+    return this.setRawData(({ rawData }) => {
+      const connections = rawData?.connections ?? [];
+      const index = connections.findIndex(
+        (item) => item.connectorId === connectorId,
+      );
+      if (index !== -1) {
+        const connection = connections[index];
+        connections[index] = {
+          ...connection,
+          origin,
+          connectorId,
+          connectorAddress,
+          clientId,
+          clientCode,
+        };
+        return {
+          ...rawData,
+          connections,
+        };
+      }
+      connections.push({
+        origin,
+        connectorId,
+        connectorAddress,
+        clientId,
+        clientCode,
+      });
+      return {
+        ...rawData,
+        connections,
+      };
+    });
+  }
+
+  async removeConnection({ connectorId }: { connectorId: string }) {
+    return this.setRawData(({ rawData }) => {
+      const connections = rawData?.connections?.filter(
+        (item) => item.connectorId !== connectorId,
+      );
+      return {
+        ...rawData,
+        connections,
+      };
+    });
+  }
+
+  async clearConnections() {
     return this.setRawData(({ rawData }) => ({
       ...rawData,
-      keyPair: {
-        privateKey,
-        publicKey,
-      },
+      connections: [],
     }));
   }
 
-  async getKeyPair() {
+  async getConnectionInfo({ connectorId }: { connectorId: string }) {
     const rawData = await this.getRawData();
-    return rawData?.keyPair;
+    return rawData?.connections?.find(
+      (item) => item.connectorId === connectorId,
+    );
   }
 
-  setLastEventId(lastEventId: string) {
+  async getAllConnections() {
+    const rawData = await this.getRawData();
+    return rawData?.connections || [];
+  }
+
+  async getAllClientIds() {
+    const rawData = await this.getRawData();
+    return rawData?.connections?.map((item) => item.clientId) || [];
+  }
+
+  async getConnectionsByOrigin({ origin }: { origin: string }) {
+    const rawData = await this.getRawData();
+    return rawData?.connections?.filter((item) => item.origin === origin) || [];
+  }
+
+  async removeOrigin({ origin }: { origin: string }) {
+    return this.setRawData(({ rawData }) => {
+      const connections = rawData?.connections?.filter(
+        (item) => item.origin !== origin,
+      );
+      return {
+        ...rawData,
+        connections,
+      };
+    });
+  }
+
+  setLastEventId({ lastEventId }: { lastEventId: string }) {
     return this.setRawData(({ rawData }) => ({
       ...rawData,
       lastEventId,
@@ -49,58 +125,26 @@ export class SimpleDbEntityTonConnect extends SimpleDbEntityBase<ITonConnectData
 
   async getLastEventId() {
     const rawData = await this.getRawData();
-    return rawData?.lastEventId;
+    return rawData?.lastEventId ?? '';
   }
 
-  setOriginInfo({
+  async setConnectorAddress({
     origin,
-    clientId,
-    accountAddress,
+    connectorAddress,
   }: {
     origin: string;
-    clientId?: string;
-    accountAddress?: string;
+    connectorAddress: string;
   }) {
     return this.setRawData(({ rawData }) => {
-      const origins = rawData?.origins ?? {};
-      if (!origins[origin]) {
-        origins[origin] = { clientIds: [], accountAddress: '' };
-      }
-      if (clientId && !origins[origin].clientIds.includes(clientId)) {
-        origins[origin].clientIds.push(clientId);
-      }
-      if (accountAddress) {
-        origins[origin].accountAddress = accountAddress;
-      }
+      const connections = rawData?.connections ?? [];
+      connections.forEach((item) => {
+        if (item.origin === origin) {
+          item.connectorAddress = connectorAddress;
+        }
+      });
       return {
         ...rawData,
-        origins,
-      };
-    });
-  }
-
-  async getOriginClientIds(origin: string) {
-    const rawData = await this.getRawData();
-    return rawData?.origins?.[origin]?.clientIds ?? [];
-  }
-
-  async getOriginAccountAddress(origin: string) {
-    const rawData = await this.getRawData();
-    return rawData?.origins?.[origin]?.accountAddress ?? '';
-  }
-
-  async getOrigins() {
-    const rawData = await this.getRawData();
-    return Object.keys(rawData?.origins ?? {});
-  }
-
-  removeOrigin(origin: string) {
-    return this.setRawData(({ rawData }) => {
-      const origins = rawData?.origins ?? {};
-      delete origins[origin];
-      return {
-        ...rawData,
-        origins,
+        connections,
       };
     });
   }

@@ -6,7 +6,6 @@ export enum EServiceEndpointEnum {
   Earn = 'earn',
   Notification = 'notification',
   NotificationWebSocket = 'notificationWebSocket',
-  TonConnect = 'tonConnect',
 }
 
 export type IEndpointEnv = 'test' | 'prod';

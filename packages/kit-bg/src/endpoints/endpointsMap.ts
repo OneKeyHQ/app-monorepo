@@ -37,10 +37,6 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       env: 'test',
       isWebSocket: true,
     }),
-    tonConnect: buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.TonConnect,
-      env: 'test',
-    }),
   },
   prod: {
     wallet: buildServiceEndpoint({
@@ -71,10 +67,6 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Notification,
       env: 'prod',
       isWebSocket: true,
-    }),
-    tonConnect: buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.TonConnect,
-      env: 'prod',
     }),
   },
 };
