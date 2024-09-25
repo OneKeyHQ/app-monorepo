@@ -523,7 +523,6 @@ function createMainWindow() {
             if (error) {
               resolve(true);
             } else {
-              result = !!result;
               resolve(status === UserConsentVerifierAvailability.available);
             }
           },
