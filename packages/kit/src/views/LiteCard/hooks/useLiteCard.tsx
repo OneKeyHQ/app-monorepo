@@ -73,13 +73,16 @@ export default function useLiteCard() {
               retryNFCAction: createSetMnemonicConnection,
               retryPINAction: createPINConnection,
             });
+
             showBackupSuccessDialog();
+            defaultLogger.setting.page.oneKeyLiteBackupResult({
+              isSuccess: !!newError,
+            });
           },
         );
         await createSetMnemonicConnection();
       });
       await createLiteInfoConnection();
-      defaultLogger.setting.page.oneKeyLiteBackup({ isSuccess: true });
     },
     [
       nfc,
@@ -96,6 +99,7 @@ export default function useLiteCard() {
     };
     await createPINConnection();
     const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
+      defaultLogger.setting.page.oneKeyLiteImport();
       const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(
         pin.current,
       );
@@ -116,6 +120,7 @@ export default function useLiteCard() {
         screen: EOnboardingPages.FinalizeWalletSetup,
         params: { mnemonic: mnemonicEncoded },
       });
+      defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: !!error });
     });
     await createGetMnemonicConnection();
 

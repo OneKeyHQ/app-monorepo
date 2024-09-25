@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -71,6 +71,10 @@ export function ImportKeyTag() {
       defaultLogger.account.wallet.importWallet({
         importMethod: 'keyTag',
       });
+
+      defaultLogger.setting.page.keyTagImportResult({
+        isSuccess: true,
+      });
     },
     [navigation],
   );
@@ -85,6 +89,11 @@ export function ImportKeyTag() {
     ),
     [handleConfirmPress],
   );
+
+  useEffect(() => {
+    defaultLogger.setting.page.keyTagImport();
+  }, []);
+
   return (
     <Page scrollEnabled>
       <Page.Header

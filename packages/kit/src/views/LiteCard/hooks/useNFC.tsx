@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -299,6 +300,7 @@ export default function useNFC() {
         ),
         onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
+          defaultLogger.setting.page.oneKeyLiteBackup();
           preventClose();
           callback();
         },
