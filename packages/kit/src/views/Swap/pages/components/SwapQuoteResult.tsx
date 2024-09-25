@@ -80,11 +80,8 @@ const SwapQuoteResult = ({
       tokenSellTaxBps: BigNumber,
       tokenInfo?: ISwapToken,
     ) => {
-      const showTax = Math.max(
-        tokenBuyTaxBps.toNumber(),
-        tokenSellTaxBps.toNumber(),
-      );
-      const finalShowTax = new BigNumber(showTax).shiftedBy(-2).toNumber();
+      const showTax = BigNumber.maximum(tokenBuyTaxBps, tokenSellTaxBps);
+      const finalShowTax = showTax.dividedBy(100).toNumber();
       return (
         <SwapCommonInfoItem
           title={`${tokenInfo?.symbol ?? ''} buy/sell tax`}
@@ -120,20 +117,14 @@ const SwapQuoteResult = ({
       const sellTokenSellTaxBps = new BigNumber(
         sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
       );
-      if (
-        (!buyTokenBuyTaxBps.isNaN() && !buyTokenBuyTaxBps.isZero()) ||
-        (!buyTokenSellTaxBps.isNaN() && !buyTokenSellTaxBps.isZero())
-      ) {
+      if (buyTokenBuyTaxBps.gt(0) || buyTokenSellTaxBps.gt(0)) {
         buyTaxItem = calculateTaxItem(
           buyTokenBuyTaxBps,
           buyTokenSellTaxBps,
           toTokenInfo,
         );
       }
-      if (
-        (!sellTokenBuyTaxBps.isNaN() && !sellTokenBuyTaxBps.isZero()) ||
-        (!sellTokenSellTaxBps.isNaN() && !sellTokenSellTaxBps.isZero())
-      ) {
+      if (sellTokenBuyTaxBps.gt(0) || sellTokenSellTaxBps.gt(0)) {
         sellTaxItem = calculateTaxItem(
           sellTokenBuyTaxBps,
           sellTokenSellTaxBps,

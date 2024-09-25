@@ -927,15 +927,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const sellTokenSellTaxBN = new BigNumber(
           sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
         );
-        if (
-          (!buyTokenBuyTaxBN.isNaN() && !buyTokenBuyTaxBN.isZero()) ||
-          (!buyTokenSellTaxBN.isNaN() && !buyTokenSellTaxBN.isZero())
-        ) {
-          let actionLabel = 'buy';
-          if (buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)) {
-            actionLabel = 'sell';
-          }
-          const showTax = BigNumber.max(buyTokenSellTaxBN, buyTokenBuyTaxBN);
+        if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
+          const actionLabel = buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            buyTokenSellTaxBN,
+            buyTokenBuyTaxBN,
+          );
           alertsRes = [
             ...alertsRes,
             {
@@ -946,15 +945,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             },
           ];
         }
-        if (
-          (!sellTokenBuyTaxBN.isNaN() && !sellTokenBuyTaxBN.isZero()) ||
-          (!sellTokenSellTaxBN.isNaN() && !sellTokenSellTaxBN.isZero())
-        ) {
-          let actionLabel = 'buy';
-          if (sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)) {
-            actionLabel = 'sell';
-          }
-          const showTax = BigNumber.max(sellTokenBuyTaxBN, sellTokenSellTaxBN);
+        if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
+          const actionLabel = sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            sellTokenBuyTaxBN,
+            sellTokenSellTaxBN,
+          );
           alertsRes = [
             ...alertsRes,
             {
