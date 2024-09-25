@@ -19,6 +19,7 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import windowsSecurityCredentialsUiModule, {
+  UserConsentVerificationResult,
   UserConsentVerifierAvailability,
 } from 'windows.security.credentials.ui';
 
@@ -515,9 +516,8 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
-    let result = !!systemPreferences?.canPromptTouchID?.();
-    if (!result && isWin) {
-      result = await new Promise((resolve) => {
+    if (isWin) {
+      const result = await new Promise((resolve) => {
         windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
           (error, status) => {
             if (error) {
@@ -528,8 +528,11 @@ function createMainWindow() {
           },
         );
       });
+      event.returnValue = result;
+      return;
     }
-    event.returnValue = result;
+    const result = systemPreferences?.canPromptTouchID?.();
+    event.returnValue = !!result;
   });
 
   ipcMain.on(ipcMessageKeys.APP_GET_ENV_PATH, (event) => {
@@ -571,6 +574,24 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
+    if (isWin) {
+      windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
+        msg,
+        (error, status) => {
+          if (error) {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: false,
+              error: error.message,
+            });
+          } else {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: status === UserConsentVerificationResult.verified,
+            });
+          }
+        },
+      );
+      return;
+    }
     try {
       await systemPreferences.promptTouchID(msg);
       event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
