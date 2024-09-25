@@ -51,6 +51,7 @@ export const ipcMessageKeys = {
   APP_LOCK_NOW: 'app/lockNow',
   APP_GET_ENV_PATH: 'app/getEnvPath',
   APP_GET_BUNDLE_INFO: 'app/getBundleInfo',
+  APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
 
   // Theme
   THEME_UPDATE: 'theme/update',

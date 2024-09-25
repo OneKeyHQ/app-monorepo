@@ -56,15 +56,15 @@ axios.interceptors.response.use(
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
-      defaultLogger.app.network.end({
-        requestType: 'axios',
-        method: config.method as string,
-        path: config.url as string,
-        statusCode: response.status,
-        requestId: config.headers[HEADER_REQUEST_ID_KEY],
-        responseCode: response.data.code,
-      });
       if (!isOneKeyDomain) {
+        defaultLogger.app.network.end({
+          requestType: 'axios',
+          method: config.method as string,
+          path: config.url as string,
+          statusCode: response.status,
+          requestId: config.headers[HEADER_REQUEST_ID_KEY],
+          responseCode: response.data.code,
+        });
         return response;
       }
     } catch (e) {

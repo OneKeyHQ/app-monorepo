@@ -6685,7 +6685,7 @@ __metadata:
     electron-builder: "npm:24.13.3"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
-    electron-log: "npm:^4.4.8"
+    electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
     esbuild: "npm:0.15.18"
@@ -19604,10 +19604,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-log@npm:^4.4.8":
-  version: 4.4.8
-  resolution: "electron-log@npm:4.4.8"
-  checksum: 10/9416e1d04395e93b6bfdd9db3815d81b39286e53aa58e21817021ae7dd5a7f03ff5878ad9edcaa2be3e1d0a2d966f785880e10f197abc2a68b8cb7f5719529e5
+"electron-log@npm:5.2.0":
+  version: 5.2.0
+  resolution: "electron-log@npm:5.2.0"
+  checksum: 10/92e454f69f9d625ad7c5daef1e431d6489ab07b048720a39acba2a8cb9798850a41f65b10169a7672c99e2c90e07ed3fc62ab58ce229b8f00f8bf94195b6514c
   languageName: node
   linkType: hard
 

@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 import { isFunction } from 'lodash';
 
 import type {

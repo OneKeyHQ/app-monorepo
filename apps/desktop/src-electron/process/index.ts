@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
@@ -41,7 +41,6 @@ export const restartBridge = async () => {
 };
 
 const init = async ({ mainWindow, store }: IDependencies) => {
-  logger.info('Electron main process log path: ', logger.transports.file.file);
   await launchBridge();
   if (!process.mas) {
     autoUpdateInit({ mainWindow, store });

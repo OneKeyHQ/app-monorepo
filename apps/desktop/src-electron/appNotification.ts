@@ -5,7 +5,7 @@ import {
   nativeImage,
   systemPreferences,
 } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';
 
