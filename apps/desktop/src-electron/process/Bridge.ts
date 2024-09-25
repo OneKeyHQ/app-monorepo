@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
 import BaseProcess from './BaseProcess';
@@ -11,7 +11,6 @@ class BridgeProcess extends BaseProcess {
     super('bridge', 'onekeyd', {
       startupThrottleTime: 3,
     });
-    logger.info('logger file name =====> :', logger.transports.file.file);
   }
 
   async getStatus(): Promise<IStatus> {

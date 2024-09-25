@@ -1,5 +1,5 @@
 import { safeStorage } from 'electron';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 import Store from 'electron-store';
 
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
