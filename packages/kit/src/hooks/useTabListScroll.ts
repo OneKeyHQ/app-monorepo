@@ -8,8 +8,10 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import { useTabScrollViewRef } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
+  const isMac = useMemo(() => platformEnv.isRuntimeMacOSBrowser, []);
   const scrollViewRef = useTabScrollViewRef();
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const listViewInstanceRef = useRef<HTMLDivElement | undefined>(undefined);
@@ -28,8 +30,14 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
   const onLayout = useCallback(() => {
     const scrollView = scrollViewRef?.current as unknown as HTMLElement;
     let prevListScrollTop = 0;
+    // When using scaling settings in Windows, the element height and scroll distance may be floating-point numbers, which can lead to errors in calculations.
+    //  Therefore, use a method where the absolute value is less than 1 to eliminate the error.
     const isNearBottom = () =>
-      scrollView.scrollTop + scrollView.clientHeight >= scrollView.scrollHeight;
+      Math.abs(
+        scrollView.scrollTop +
+          scrollView.clientHeight -
+          scrollView.scrollHeight,
+      ) <= 1;
 
     const onListViewScroll = () => {
       const listView = getListView();
@@ -44,6 +52,8 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
     };
 
     let prevScrollTop = 0;
+    let isListViewWheeling = false;
+    let listViewTimerId: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
       const scrollTop = scrollView.scrollTop;
       if (scrollTop < prevScrollTop) {
@@ -55,30 +65,68 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
       prevScrollTop = scrollTop;
     };
 
-    const onWheel = debounce(
+    const onScrollViewWheel = debounce(
       (event: { deltaY: number; stopPropagation: () => void }) => {
-        event.stopPropagation();
-        if (isNearBottom()) {
+        const deltaY = event.deltaY;
+        if (isListViewWheeling) {
           return;
         }
+
+        if (deltaY > 0 && isNearBottom()) {
+          const listView = getListView();
+          if (listView) {
+            listView.scrollTop += Math.min(deltaY, 40);
+          }
+        }
+      },
+      5,
+    );
+
+    const onWheel = debounce(
+      (event: { deltaY: number; stopPropagation: () => void }) => {
+        isListViewWheeling = true;
+        clearTimeout(listViewTimerId);
+        listViewTimerId = setTimeout(() => {
+          isListViewWheeling = false;
+        }, 50);
+        event.stopPropagation();
         const listView = getListView();
         const direction = event.deltaY;
-        if (listView?.scrollTop === 0 && direction < 0) {
-          scrollView.scrollTop += Math.max(direction, -40);
+        if (isNearBottom()) {
+          if (isMac) {
+            return;
+          }
+
+          if (listView?.scrollTop !== 0) {
+            return;
+          }
+        }
+        if (listView?.scrollTop === 0) {
+          if (direction < 0) {
+            scrollView.scrollTop += Math.max(direction, -40);
+          } else if (!isMac) {
+            scrollView.scrollTop += Math.min(direction, 40);
+          }
         }
       },
       5,
     );
     const listView = getListView();
     scrollView?.addEventListener('scroll', onScroll);
+    if (!isMac) {
+      scrollView?.addEventListener('wheel', onScrollViewWheel as any);
+    }
     listView?.addEventListener('scroll', onListViewScroll);
     listView?.addEventListener('wheel', onWheel as any);
     return () => {
       scrollView?.removeEventListener('scroll', onScroll);
+      if (!isMac) {
+        scrollView?.removeEventListener('wheel', onScrollViewWheel as any);
+      }
       listView?.removeEventListener('scroll', onListViewScroll);
       listView?.removeEventListener('wheel', onWheel as any);
     };
-  }, [getListView, scrollViewRef]);
+  }, [getListView, isMac, scrollViewRef]);
 
   const listViewProps = useMemo(
     () =>
