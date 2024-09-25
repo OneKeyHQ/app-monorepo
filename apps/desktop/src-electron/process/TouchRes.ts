@@ -9,7 +9,7 @@ import AdmZip from 'adm-zip';
 import Axios from 'axios';
 import { dialog, ipcMain, shell } from 'electron';
 import isDev from 'electron-is-dev';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from '../config';
 
