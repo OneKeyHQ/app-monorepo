@@ -7,11 +7,11 @@
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
     "postinstall": "yarn keytar",
-    "keytar": "bash development/build_keytar.sh",
+    "keytar": "node development/build_keytar.js",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./build && rimraf ./dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./node_modules/.cache",
     "start": "yarn dev",
-    "dev": "yarn keytar && npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
+    "dev": "yarn keytar && npx concurrently \"yarn dev:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 webpack serve",
     "build:main": "rimraf ./dist && cross-env NODE_ENV=production node scripts/build.js",
