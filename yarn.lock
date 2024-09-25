@@ -6489,6 +6489,7 @@ __metadata:
     cheerio: "npm:^1.0.0-rc.12"
     copy-webpack-plugin: "npm:^6.0.2"
     cross-env: "npm:^7.0.3"
+    cross-env-shell: "npm:^7.0.3"
     crypto-browserify: "npm:^3.12.0"
     css-loader: "npm:^6.8.1"
     date-fns: "npm:^2.30.0"
@@ -18154,6 +18155,15 @@ __metadata:
     loose-envify: "npm:^1.3.1"
     object-assign: "npm:^4.1.1"
   checksum: 10/e845cb275c6b59c1fc4c4037e3d5caf4f42a258ef21f5cd9c86cd7ef476f933998f5c363a9e4b36970f682c30b122637d41474742abc85d8b931aef8041da8a3
+  languageName: node
+  linkType: hard
+
+"cross-env-shell@npm:^7.0.3":
+  version: 7.0.3
+  resolution: "cross-env-shell@npm:7.0.3"
+  bin:
+    cross-env-shell: wrapper.sh
+  checksum: 10/3989ea13b255eb6474004c51ccde9c9f2ad19e71f21e80be2ce00ab54917329bf28e11f82be5ef50e2dd5268d2184b6bb21367f0a82adbdee220ab6246bef321
   languageName: node
   linkType: hard
 
