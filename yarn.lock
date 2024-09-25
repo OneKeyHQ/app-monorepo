@@ -6695,7 +6695,7 @@ __metadata:
     node-fetch: "npm:^2.6.7"
     rimraf: "npm:^3"
     webpack: "npm:5.90.3"
-    windows.security.credentials.ui: "git+https://github.com/huhuanming/windows.security.credentials.ui#367fcae89f16974738ae6cce23d2458491219d50"
+    windows.security.credentials.ui: "git+https://github.com/huhuanming/windows.security.credentials.ui#91c3534a1b520ea1a78319e63ba2d84b19c37e78"
   languageName: unknown
   linkType: soft
 
@@ -38231,12 +38231,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"windows.security.credentials.ui@git+https://github.com/huhuanming/windows.security.credentials.ui#367fcae89f16974738ae6cce23d2458491219d50":
+"windows.security.credentials.ui@git+https://github.com/huhuanming/windows.security.credentials.ui#91c3534a1b520ea1a78319e63ba2d84b19c37e78":
   version: 0.1.7
-  resolution: "windows.security.credentials.ui@https://github.com/huhuanming/windows.security.credentials.ui.git#commit=367fcae89f16974738ae6cce23d2458491219d50"
+  resolution: "windows.security.credentials.ui@https://github.com/huhuanming/windows.security.credentials.ui.git#commit=91c3534a1b520ea1a78319e63ba2d84b19c37e78"
   dependencies:
     nan: "npm:latest"
-  checksum: 10/129b53e391067f6809c3a180a208db9ba18d7a79ebb47e6ee7a8165d24c0c3cb233cb632fecee0504c86c3a98e3f818ddabe2f077c7dc0c95ca6f1b65f81ff0f
+  checksum: 10/d6c487953945337dd3f432222e5320b2ae6ad8b3e10d3246b261a11fd84e427297cd22a72b61ffcea36179fd5944b42b10a4aa4bdb01aa87e63844fb467a4e20
   languageName: node
   linkType: hard
 
