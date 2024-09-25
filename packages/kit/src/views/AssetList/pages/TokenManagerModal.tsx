@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
 import type {
@@ -76,6 +77,10 @@ function TokenManagerModal() {
     return sectionTokens;
   }, [isSearchMode, searchResult, sectionTokens]);
 
+  useEffect(() => {
+    defaultLogger.account.wallet.enterManageToken();
+  }, []);
+
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
     (token?: ICustomTokenItem) => {
@@ -123,6 +128,11 @@ function TokenManagerModal() {
           networkId: token.networkId ?? networkId,
           allNetworkAccountId: isAllNetwork ? accountId : undefined,
         },
+      });
+      defaultLogger.account.wallet.removeCustomToken({
+        network: token.networkId || '',
+        tokenSymbol: token.symbol,
+        tokenAddress: token.address,
       });
       isEditRef.current = true;
       setTimeout(() => {
