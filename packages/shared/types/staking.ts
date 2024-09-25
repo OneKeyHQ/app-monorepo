@@ -331,3 +331,5 @@ export interface IEarnFAQListItem {
   answer: string;
 }
 export type IEarnFAQList = IEarnFAQListItem[];
+
+export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';

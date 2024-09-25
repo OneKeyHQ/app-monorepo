@@ -95,6 +95,15 @@ const StakePage = () => {
     [provider],
   );
 
+  const estimateGasProps = useMemo(
+    () => ({
+      networkId,
+      provider: provider.name,
+      symbol: tokenInfo.symbol,
+    }),
+    [networkId, provider.name, tokenInfo.symbol],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -126,6 +135,7 @@ const StakePage = () => {
           estReceiveTokenRate={provider.lidoStTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
+          estimateGasProps={estimateGasProps}
         />
       </Page.Body>
     </Page>

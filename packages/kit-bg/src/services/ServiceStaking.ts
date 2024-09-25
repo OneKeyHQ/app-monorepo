@@ -23,6 +23,7 @@ import type {
   IClaimableListResponse,
   IEarnAccountResponse,
   IEarnAccountTokenResponse,
+  IEarnEstimateAction,
   IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
@@ -770,6 +771,30 @@ class ServiceStaking extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildStakeEncodedTx(tx as any);
     return encodedTx;
+  }
+
+  @backgroundMethod()
+  async estimateFee(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    action: IEarnEstimateAction;
+    amount: string;
+  }) {
+    const { symbol, ...rest } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        coverFeeDays?: string;
+        feeFiatValue: string;
+      };
+    }>(`/earn/v1/estimate-fee`, {
+      params: {
+        symbol: symbol.toUpperCase(),
+        ...rest,
+      },
+    });
+    return resp.data.data;
   }
 }
 

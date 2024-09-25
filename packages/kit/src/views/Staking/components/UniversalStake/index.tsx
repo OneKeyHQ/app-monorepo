@@ -29,6 +29,8 @@ import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
+import { EstimateNetworkFee } from './EstimateNetworkFee';
+
 type IUniversalStakeProps = {
   price: string;
   balance: string;
@@ -61,6 +63,12 @@ type IUniversalStakeProps = {
   isReachBabylonCap?: boolean;
   isDisabled?: boolean;
 
+  estimateGasProps?: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+  };
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -83,6 +91,7 @@ export const UniversalStake = ({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
+  estimateGasProps,
   isDisabled,
   maxAmount,
   onConfirm,
@@ -175,26 +184,20 @@ export const UniversalStake = ({
     isReachBabylonCap,
   ]);
 
-  const estAnnualRewards = useMemo(() => {
+  const estAnnualRewardsState = useMemo(() => {
     if (Number(amountValue) > 0 && Number(apr) > 0) {
       const amountBN = BigNumber(amountValue)
         .multipliedBy(apr ?? 0)
         .dividedBy(100);
-      return (
-        <ValuePriceListItem
-          amount={amountBN.toFixed()}
-          tokenSymbol={tokenSymbol ?? ''}
-          fiatSymbol={symbol}
-          fiatValue={
-            Number(price) > 0
-              ? amountBN.multipliedBy(price).toFixed()
-              : undefined
-          }
-        />
-      );
+      return {
+        amount: amountBN.toFixed(),
+        fiatValue:
+          Number(price) > 0
+            ? amountBN.multipliedBy(price).toFixed()
+            : undefined,
+      };
     }
-    return null;
-  }, [amountValue, apr, price, symbol, tokenSymbol]);
+  }, [amountValue, apr, price]);
 
   const btcStakeTerm = useMemo(() => {
     if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
@@ -325,7 +328,7 @@ export const UniversalStake = ({
         />
       ) : null}
       <CalculationList>
-        {estAnnualRewards ? (
+        {estAnnualRewardsState ? (
           <CalculationListItem>
             <CalculationListItem.Label>
               {intl.formatMessage({
@@ -333,7 +336,12 @@ export const UniversalStake = ({
               })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              {estAnnualRewards}
+              <ValuePriceListItem
+                tokenSymbol={tokenSymbol ?? ''}
+                fiatSymbol={symbol}
+                amount={estAnnualRewardsState.amount}
+                fiatValue={estAnnualRewardsState.fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -433,6 +441,13 @@ export const UniversalStake = ({
               </XStack>
             </CalculationListItem.Value>
           </CalculationListItem>
+        ) : null}
+        {estimateGasProps ? (
+          <EstimateNetworkFee
+            action="stake"
+            annualRewardFiatValue={estAnnualRewardsState?.fiatValue}
+            {...estimateGasProps}
+          />
         ) : null}
       </CalculationList>
       <Page.Footer
