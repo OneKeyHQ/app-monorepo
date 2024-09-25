@@ -277,7 +277,7 @@ const checkIsRuntimeChrome = (): boolean => {
 };
 
 const isMacPlatform = (platform: string): boolean =>
-  platform.includes('mac') || platform.includes('darwin');
+  platform ? platform.includes('mac') || platform.includes('darwin') : false;
 const checkIsRuntimeMacOSBrowser = (): boolean => {
   if (!isRuntimeBrowser) {
     return false;
