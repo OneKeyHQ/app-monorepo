@@ -110,7 +110,7 @@ export default function NotificationsSettings() {
   }, [reloadSettings]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled skipLoading>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />

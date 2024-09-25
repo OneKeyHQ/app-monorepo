@@ -79,6 +79,7 @@ function StakeTypeBadge({
       borderCurve="continuous"
       px="$2"
       py="$0.5"
+      my="$0.5"
     >
       <SizableText size="$bodySmMedium" color={color}>
         {label}
@@ -128,33 +129,6 @@ const ProviderTypeBadge = ({
   return <StakeTypeBadge stakeType={stakeType} label={label} />;
 };
 
-const ProviderStakingBadge = ({ isStaking }: { isStaking?: boolean }) => {
-  const intl = useIntl();
-  if (!isStaking) return null;
-  return (
-    <StakeTypeBadge
-      stakeType="default"
-      label={intl.formatMessage({ id: ETranslations.earn_currently_staking })}
-    />
-  );
-};
-
-const ProviderBadges = ({
-  provider,
-}: {
-  provider?: IStakeProtocolListItem['provider'];
-}) => {
-  if (provider?.type || provider?.isStaking) {
-    return (
-      <XStack flexWrap="wrap" gap="$1">
-        <ProviderTypeBadge type={provider.type} />
-        <ProviderStakingBadge isStaking={provider.isStaking} />
-      </XStack>
-    );
-  }
-  return null;
-};
-
 const AssetProtocolListContent = ({
   items,
 }: {
@@ -164,6 +138,7 @@ const AssetProtocolListContent = ({
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
+  const intl = useIntl();
   const { accountId, indexedAccountId, symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
@@ -202,8 +177,21 @@ const AssetProtocolListContent = ({
           />
           <ListItem.Text
             flex={1}
-            primary={capitalizeString(item.provider.name)}
-            secondary={<ProviderBadges provider={item.provider} />}
+            primary={
+              <XStack gap="$1.5" ai="center">
+                <SizableText>
+                  {capitalizeString(item.provider.name)}
+                </SizableText>
+                <ProviderTypeBadge type={item.provider.type} />
+              </XStack>
+            }
+            secondary={`TVL ${currencySymbol}${formatNumber(
+              Number(item.provider.totalFiatValue),
+            )}`}
+            secondaryTextProps={{
+              color: '$textSubdued',
+              size: '$bodyMd',
+            }}
           />
           <ListItem.Text
             align="right"
@@ -212,9 +200,17 @@ const AssetProtocolListContent = ({
                 ? `APR ${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
                 : null
             }
-            secondary={`TVL ${currencySymbol}${formatNumber(
-              Number(item.provider.totalFiatValue),
-            )}`}
+            secondary={
+              item.provider.isStaking
+                ? intl.formatMessage({
+                    id: ETranslations.earn_currently_staking,
+                  })
+                : ' '
+            }
+            secondaryTextProps={{
+              color: '$textInfo',
+              size: '$bodyMd',
+            }}
           />
         </ListItem>
       )}
@@ -273,7 +269,16 @@ const AssetProtocolList = () => {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.provider_title })}
+        title={intl.formatMessage(
+          {
+            id: symbol
+              ? ETranslations.earn_symbol_staking_provider
+              : ETranslations.provider_title,
+          },
+          {
+            symbol,
+          },
+        )}
         headerRight={headerRight}
       />
       <Page.Body>
