@@ -18,6 +18,9 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+import windowsSecurityCredentialsUiModule, {
+  UserConsentVerifierAvailability,
+} from 'windows.security.credentials.ui';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -511,9 +514,23 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, (event) => {
-    const result = systemPreferences?.canPromptTouchID?.();
-    event.returnValue = !!result;
+  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
+    let result = !!systemPreferences?.canPromptTouchID?.();
+    if (!result && isWin) {
+      result = await new Promise((resolve) => {
+        windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
+          (error, status) => {
+            if (error) {
+              resolve(true);
+            } else {
+              result = !!result;
+              resolve(status === UserConsentVerifierAvailability.available);
+            }
+          },
+        );
+      });
+    }
+    event.returnValue = result;
   });
 
   ipcMain.on(ipcMessageKeys.APP_GET_ENV_PATH, (event) => {

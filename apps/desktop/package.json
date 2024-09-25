@@ -40,7 +40,8 @@
     "electron-store": "^8.2.0",
     "electron-updater": "6.1.8",
     "keytar": "^7.9.0",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "windows.security.credentials.ui": "git+https://github.com/huhuanming/windows.security.credentials.ui#08c7c97410b0fce97cc6aeb2f50d599db6034fcd"
   },
   "devDependencies": {
     "@electron/notarize": "^2.3.0",
