@@ -61,6 +61,7 @@ function BasicTrigger(
         <Stack ref={ref} onLayout={onLayout} onPress={handlePressWithStatus}>
           {cloneElement(child, {
             onPress: handlePressWithStatus,
+            disabled,
             ...props,
           } as IButtonProps)}
         </Stack>
