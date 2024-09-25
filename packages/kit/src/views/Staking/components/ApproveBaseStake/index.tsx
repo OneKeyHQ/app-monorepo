@@ -10,20 +10,19 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
-  Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { countDecimalPlaces } from '../../utils/utils';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationList, CalculationListItem } from '../CalculationList';
+import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -52,8 +51,6 @@ type IApproveBaseStakeProps = {
   providerLogo?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
-
-const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 export const ApproveBaseStake = ({
   price,
@@ -227,68 +224,66 @@ export const ApproveBaseStake = ({
   }, [amountValue, apr, price, symbol, token.symbol]);
 
   return (
-    <YStack>
-      <Stack mx="$2" px="$3" gap="$5">
-        <AmountInput
-          hasError={isInsufficientBalance || isLessThanMinAmount}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: token.logoURI,
-            selectedTokenSymbol: token.symbol.toUpperCase(),
-          }}
-          balanceProps={{
-            value: balance,
-            onPress: onMax,
-          }}
-          inputProps={{
-            placeholder: '0',
-          }}
-          valueProps={{
-            value: currentValue,
-            currency: currentValue ? symbol : undefined,
-          }}
-          enableMaxAmount
+    <StakingFormWrapper>
+      <AmountInput
+        hasError={isInsufficientBalance || isLessThanMinAmount}
+        value={amountValue}
+        onChange={onChangeAmountValue}
+        tokenSelectorTriggerProps={{
+          selectedTokenImageUri: token.logoURI,
+          selectedTokenSymbol: token.symbol.toUpperCase(),
+        }}
+        balanceProps={{
+          value: balance,
+          onPress: onMax,
+        }}
+        inputProps={{
+          placeholder: '0',
+        }}
+        valueProps={{
+          value: currentValue,
+          currency: currentValue ? symbol : undefined,
+        }}
+        enableMaxAmount
+      />
+      {isLessThanMinAmount ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage(
+            { id: ETranslations.earn_minimum_amount },
+            { number: `${minAmount} ${token.symbol}` },
+          )}
         />
-        <YStack>
-          {isLessThanMinAmount ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${token.symbol}` },
-              )}
-            />
-          ) : null}
-          {isInsufficientBalance ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_balance,
-              })}
-            />
-          ) : null}
-        </YStack>
-      </Stack>
-      <Stack>
-        <YStack>
-          {estAnnualRewards ? (
-            <ListItem
-              title={intl.formatMessage({
+      ) : null}
+      {isInsufficientBalance ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_balance,
+          })}
+        />
+      ) : null}
+      <CalculationList>
+        {estAnnualRewards ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({
                 id: ETranslations.earn_est_annual_rewards,
               })}
-              titleProps={fieldTitleProps}
-            >
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               {estAnnualRewards}
-            </ListItem>
-          ) : null}
-          {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
-              titleProps={fieldTitleProps}
-            >
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_est_receive })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               <SizableText>
                 <NumberSizeableText
                   formatter="balance"
@@ -300,27 +295,24 @@ export const ApproveBaseStake = ({
                     .toFixed()}
                 </NumberSizeableText>
               </SizableText>
-            </ListItem>
-          ) : null}
-          {apr && Number(apr) > 0 ? (
-            <ListItem
-              title={intl.formatMessage({ id: ETranslations.global_apr })}
-              titleProps={fieldTitleProps}
-            >
-              <ListItem.Text
-                primary={`${apr}%`}
-                primaryTextProps={{ color: '$textSuccess' }}
-              />
-            </ListItem>
-          ) : null}
-          {providerName && providerLogo ? (
-            <ListItem
-              title={
-                providerLabel ??
-                intl.formatMessage({ id: ETranslations.global_protocol })
-              }
-              titleProps={fieldTitleProps}
-            >
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {apr && Number(apr) > 0 ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.global_apr })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value color="$textSuccess">{`${apr}%`}</CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {providerName && providerLogo ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               <XStack gap="$2" alignItems="center">
                 <Image
                   width="$5"
@@ -328,12 +320,14 @@ export const ApproveBaseStake = ({
                   src={providerLogo}
                   borderRadius="$2"
                 />
-                <SizableText size="$bodyLgMedium">{providerName}</SizableText>
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
               </XStack>
-            </ListItem>
-          ) : null}
-        </YStack>
-      </Stack>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+      </CalculationList>
       <Page.Footer
         onConfirmText={onConfirmText}
         confirmButtonProps={{
@@ -342,6 +336,6 @@ export const ApproveBaseStake = ({
           disabled: isDisable,
         }}
       />
-    </YStack>
+    </StakingFormWrapper>
   );
 };

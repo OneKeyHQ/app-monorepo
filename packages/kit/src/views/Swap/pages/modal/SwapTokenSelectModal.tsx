@@ -38,7 +38,6 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -206,22 +205,13 @@ const SwapTokenSelectPage = () => {
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
 
-  const onSelectCurrentNetwork = useCallback(
-    (network: ISwapNetwork) => {
-      setCurrentSelectNetwork(network);
-      if (network.networkId !== getNetworkIdsMap().onekeyall) {
-        void updateSelectedAccountNetwork({
-          num: type === ESwapDirectionType.FROM ? 0 : 1,
-          networkId: network.networkId,
-        });
-      }
-      listViewRef.current?.scrollToOffset({
-        offset: 0,
-        animated: false,
-      });
-    },
-    [type, updateSelectedAccountNetwork],
-  );
+  const onSelectCurrentNetwork = useCallback((network: ISwapNetwork) => {
+    setCurrentSelectNetwork(network);
+    listViewRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  }, []);
 
   const sameTokenDisabled = useCallback(
     (token: ISwapToken) =>
@@ -314,12 +304,9 @@ const SwapTokenSelectPage = () => {
             moreComponent={
               <ActionList
                 title={tokenItem.tokenSymbol ?? ''}
+                disabled={rawItem.isNative}
                 renderTrigger={
-                  <IconButton
-                    variant="tertiary"
-                    icon="DotVerSolid"
-                    disabled={rawItem.isNative}
-                  />
+                  <IconButton variant="tertiary" icon="DotVerSolid" />
                 }
                 items={[
                   {

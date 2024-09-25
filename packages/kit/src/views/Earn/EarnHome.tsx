@@ -22,6 +22,7 @@ import {
   NumberSizeableText,
   Page,
   Popover,
+  ScrollView,
   SizableText,
   Skeleton,
   XStack,
@@ -165,7 +166,7 @@ function RecommendedItem({
   return (
     <YStack
       role="button"
-      userSelect="none"
+      flex={1}
       px="$4"
       py="$3.5"
       borderRadius="$3"
@@ -181,6 +182,7 @@ function RecommendedItem({
         scale: 0.95,
       }}
       onPress={onPress}
+      userSelect="none"
       {...rest}
     >
       <XStack gap="$3" alignItems="center">
@@ -231,7 +233,8 @@ function RecommendedContainer({
   const intl = useIntl();
   return (
     <YStack gap="$3">
-      <YStack gap="$1">
+      {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
+      <YStack gap="$1" zIndex={10}>
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.earn_recommended })}
         </SizableText>
@@ -569,7 +572,7 @@ function AvailableAssets() {
                   flexGrow={1}
                   flexBasis={0}
                   primary={
-                    <XStack gap="$2">
+                    <XStack gap="$2" alignItems="center">
                       <SizableText size="$bodyLgMedium">{name}</SizableText>
                       <XStack gap="$1">
                         {tags.map((tag) => (
@@ -711,7 +714,7 @@ function BasicEarnHome() {
     () => [
       {
         'title': intl.formatMessage({
-          id: ETranslations.earn_stake_in_babylon_ecosystem,
+          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
         }),
         'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
         'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
@@ -731,114 +734,116 @@ function BasicEarnHome() {
   );
 
   return (
-    <Page scrollEnabled fullPage>
+    <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         showHeaderRight={false}
       />
-      <Page.Body py="$5">
-        {/* container */}
-        <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
-          {/* overview and banner */}
-          <YStack
-            px="$5"
-            gap="$8"
-            $gtLg={{
-              flexDirection: 'row',
-            }}
-          >
-            <Overview isFetchingAccounts={!!isFetchingAccounts} />
+      <Page.Body>
+        <ScrollView contentContainerStyle={{ py: '$5' }}>
+          {/* container */}
+          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
+            {/* overview and banner */}
             <YStack
-              minHeight="$36"
-              $md={{
-                minHeight: '$28',
-              }}
-              borderRadius="$3"
-              width="100%"
-              borderCurve="continuous"
-              $gtLg={{
-                w: EARN_RIGHT_PANEL_WIDTH,
-              }}
-            >
-              <Banner
-                height="$36"
-                $md={{
-                  height: '$28',
-                }}
-                data={bannerData}
-                onItemPress={onBannerPress}
-                isLoading={false}
-                itemTitleContainerStyle={{
-                  top: 0,
-                  bottom: 0,
-                  right: 0,
-                  left: 20,
-                  justifyContent: 'center',
-                }}
-              />
-            </YStack>
-          </YStack>
-          {/* Recommended, available assets and introduction */}
-          <YStack
-            px="$5"
-            gap="$8"
-            $gtLg={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-            }}
-          >
-            <YStack
-              pt="$3.5"
+              px="$5"
               gap="$8"
               $gtLg={{
-                flex: 1,
+                flexDirection: 'row',
               }}
             >
-              <Recommended isFetchingAccounts={!!isFetchingAccounts} />
-              <AvailableAssets />
-            </YStack>
-            {media.gtLg ? (
+              <Overview isFetchingAccounts={!!isFetchingAccounts} />
               <YStack
-                gap="$6"
-                p="$4"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$transparent"
+                minHeight="$36"
+                $md={{
+                  minHeight: '$28',
+                }}
                 borderRadius="$3"
+                width="100%"
                 borderCurve="continuous"
-                bg="$bgSubdued"
-                $gtMd={{
+                $gtLg={{
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >
-                <SizableText size="$headingSm">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_feature_list_title,
-                  })}
-                </SizableText>
-                {INTRODUCTION_ITEMS.map((item, index) => (
-                  <YStack key={index} gap="$3" alignItems="flex-start">
-                    <YStack
-                      p="$2"
-                      bg="$bgStrong"
-                      borderRadius="$3"
-                      borderCurve="continuous"
-                    >
-                      <Icon name={item.icon} color="$iconSubdued" />
-                    </YStack>
-                    <YStack gap="$1.5">
-                      <SizableText size="$bodyMdMedium">
-                        {item.title}
-                      </SizableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {item.description}
-                      </SizableText>
-                    </YStack>
-                  </YStack>
-                ))}
+                <Banner
+                  height="$36"
+                  $md={{
+                    height: '$28',
+                  }}
+                  data={bannerData}
+                  onItemPress={onBannerPress}
+                  isLoading={false}
+                  itemTitleContainerStyle={{
+                    top: 0,
+                    bottom: 0,
+                    right: 0,
+                    left: 20,
+                    justifyContent: 'center',
+                  }}
+                />
               </YStack>
-            ) : null}
+            </YStack>
+            {/* Recommended, available assets and introduction */}
+            <YStack
+              px="$5"
+              gap="$8"
+              $gtLg={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+              }}
+            >
+              <YStack
+                pt="$3.5"
+                gap="$8"
+                $gtLg={{
+                  flex: 1,
+                }}
+              >
+                <Recommended isFetchingAccounts={!!isFetchingAccounts} />
+                <AvailableAssets />
+              </YStack>
+              {media.gtLg ? (
+                <YStack
+                  gap="$6"
+                  p="$4"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="$transparent"
+                  borderRadius="$3"
+                  borderCurve="continuous"
+                  bg="$bgSubdued"
+                  $gtMd={{
+                    w: EARN_RIGHT_PANEL_WIDTH,
+                  }}
+                >
+                  <SizableText size="$headingSm">
+                    {intl.formatMessage({
+                      id: ETranslations.earn_feature_list_title,
+                    })}
+                  </SizableText>
+                  {INTRODUCTION_ITEMS.map((item, index) => (
+                    <YStack key={index} gap="$3" alignItems="flex-start">
+                      <YStack
+                        p="$2"
+                        bg="$bgStrong"
+                        borderRadius="$3"
+                        borderCurve="continuous"
+                      >
+                        <Icon name={item.icon} color="$iconSubdued" />
+                      </YStack>
+                      <YStack gap="$1.5">
+                        <SizableText size="$bodyMdMedium">
+                          {item.title}
+                        </SizableText>
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {item.description}
+                        </SizableText>
+                      </YStack>
+                    </YStack>
+                  ))}
+                </YStack>
+              ) : null}
+            </YStack>
           </YStack>
-        </YStack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );
