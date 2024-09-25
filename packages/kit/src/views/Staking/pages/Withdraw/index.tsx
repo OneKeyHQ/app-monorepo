@@ -82,6 +82,13 @@ const WithdrawPage = () => {
     [provider],
   );
 
+  const hideReceived = useMemo<boolean>(
+    () =>
+      provider.name.toLowerCase() === 'everstake' &&
+      tokenInfo.symbol.toLowerCase() === 'apt',
+    [provider, tokenInfo.symbol],
+  );
+
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
@@ -104,6 +111,7 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
+          hideReceived={hideReceived}
           decimals={details.token.info.decimals}
           balance={BigNumber(active ?? 0).toFixed()}
           initialAmount={initialAmount}

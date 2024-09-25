@@ -93,7 +93,11 @@ const EstimateNetworkFeeListItem = ({
           id: ETranslations.global_est_network_fee,
         })}
       </CalculationListItem.Label>
-      <XStack alignItems="center" mr={onPress ? -6 : undefined}>
+      <XStack
+        alignItems="center"
+        cursor={onPress ? 'pointer' : undefined}
+        mr={onPress ? -6 : undefined}
+      >
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="value"

@@ -50,6 +50,8 @@ type IUniversalWithdrawProps = {
   payWithToken?: string;
   payWithTokenRate?: string;
 
+  hideReceived?: boolean;
+
   estimateFeeResp?: IEarnEstimateFeeResp;
 
   onConfirm?: (amount: string) => Promise<void>;
@@ -72,6 +74,7 @@ export const UniversalWithdraw = ({
   payWithToken,
   payWithTokenRate = '1',
 
+  hideReceived,
   estimateFeeResp,
 
   onConfirm,
@@ -260,7 +263,7 @@ export const UniversalWithdraw = ({
         />
       ) : null}
       <CalculationList>
-        {amountValue ? (
+        {amountValue && !hideReceived ? (
           <CalculationListItem>
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
