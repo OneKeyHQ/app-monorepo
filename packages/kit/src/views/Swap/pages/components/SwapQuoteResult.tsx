@@ -20,6 +20,7 @@ import {
   useSwapSlippagePercentageAtom,
   useSwapSlippagePercentageCustomValueAtom,
   useSwapSlippagePercentageModeAtom,
+  useSwapTokenMetadataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,6 +56,7 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
@@ -269,9 +271,9 @@ const SwapQuoteResult = ({
                   }
                 />
               ) : null}
-              {quoteResult?.tokenMetadata
+              {swapTokenMetadata?.swapTokenMetadata
                 ? tokenMetadataParse(
-                    quoteResult?.tokenMetadata,
+                    swapTokenMetadata?.swapTokenMetadata,
                     fromToken,
                     toToken,
                   )
