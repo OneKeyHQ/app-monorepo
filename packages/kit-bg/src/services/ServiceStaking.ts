@@ -24,6 +24,7 @@ import type {
   IEarnAccountResponse,
   IEarnAccountTokenResponse,
   IEarnEstimateAction,
+  IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
   IGetPortfolioParams,
@@ -784,10 +785,7 @@ class ServiceStaking extends ServiceBase {
     const { symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
-      data: {
-        coverFeeDays?: string;
-        feeFiatValue: string;
-      };
+      data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
       params: {
         symbol: symbol.toUpperCase(),

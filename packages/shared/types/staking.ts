@@ -333,3 +333,8 @@ export interface IEarnFAQListItem {
 export type IEarnFAQList = IEarnFAQListItem[];
 
 export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
+
+export type IEarnEstimateFeeResp = {
+  coverFeeDays?: string;
+  feeFiatValue: string;
+};
