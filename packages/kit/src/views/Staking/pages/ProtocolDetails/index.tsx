@@ -195,9 +195,11 @@ const ProtocolDetailsPage = () => {
   const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
       onPress: onWithdraw,
-      disabled: !earnAccount?.accountAddress || !(Number(result?.active) > 0),
+      disabled:
+        !earnAccount?.accountAddress ||
+        !(Number(result?.active) > 0 || Number(result?.overflow) > 0),
     }),
-    [onWithdraw, earnAccount?.accountAddress, result?.active],
+    [onWithdraw, earnAccount?.accountAddress, result?.active, result?.overflow],
   );
 
   return (
