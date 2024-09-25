@@ -223,11 +223,20 @@ export const UniversalStake = ({
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
     Dialog.show({
+      renderIcon: (
+        <Image width="$14" height="$14" src={details.token.info.logoURI} />
+      ),
+      title: intl.formatMessage(
+        { id: ETranslations.earn_provider_asset_staking },
+        {
+          'provider': capitalizeString(details.provider.name.toLowerCase()),
+          'asset': details.token.info.symbol.toLowerCase(),
+        },
+      ),
       renderContent: (
         <StakeShouldUnderstand
           provider={details.provider.name.toLowerCase()}
           symbol={details.token.info.symbol.toLowerCase()}
-          logoURI={details.token.info.logoURI}
           apr={details.provider.apr}
           updateFrequency={details.updateFrequency}
           unstakingPeriod={details.unstakingPeriod}

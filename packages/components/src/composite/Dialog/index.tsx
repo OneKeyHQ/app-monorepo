@@ -289,6 +289,7 @@ function BaseDialogContainer(
     tone,
     description,
     icon,
+    renderIcon,
     showExitButton,
     ...props
   }: IDialogContainerProps,
@@ -342,6 +343,7 @@ function BaseDialogContainer(
     tone,
     description,
     icon,
+    renderIcon,
     showExitButton,
   });
 
@@ -353,9 +355,10 @@ function BaseDialogContainer(
       tone,
       description,
       icon,
+      renderIcon,
       showExitButton,
     }));
-  }, [description, icon, showExitButton, title, tone]);
+  }, [description, icon, renderIcon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
     [headerProps],
