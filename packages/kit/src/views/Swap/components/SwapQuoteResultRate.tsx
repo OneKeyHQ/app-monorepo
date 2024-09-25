@@ -124,12 +124,7 @@ const SwapQuoteResultRate = ({
               h="$5"
               borderRadius="$1"
             />
-            <SizableText
-              numberOfLines={1}
-              size="$bodyMdMedium"
-              ml="$1"
-
-            >
+            <SizableText numberOfLines={1} size="$bodyMdMedium" ml="$1">
               {providerName ?? ''}
             </SizableText>
           </XStack>

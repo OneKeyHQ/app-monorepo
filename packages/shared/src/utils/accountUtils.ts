@@ -129,6 +129,12 @@ function isHwAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwWallet({ walletId });
 }
+
+function isHwOrQrAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isHwOrQrWallet({ walletId });
+}
+
 const URL_ACCOUNT_ID = `${WALLET_TYPE_WATCHING}--global-url-account`;
 function isUrlAccountFn({ accountId }: { accountId: string | undefined }) {
   return accountId === URL_ACCOUNT_ID;
@@ -743,6 +749,7 @@ export default {
   isHdAccount,
   isHwAccount,
   isQrAccount,
+  isHwOrQrAccount,
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,

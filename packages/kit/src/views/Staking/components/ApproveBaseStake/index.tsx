@@ -20,9 +20,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
+import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import StakingFormWrapper from '../StakingFormWrapper';
-import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
