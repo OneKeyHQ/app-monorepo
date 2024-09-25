@@ -209,6 +209,18 @@ export interface IQuoteRoutePath {
   part?: number;
   subRoutes?: IQuoteRouteDataInfo[][];
 }
+
+export interface ISwapTokenMetadata {
+  buyToken: {
+    buyTaxBps: string;
+    sellTaxBps: string;
+  };
+  sellToken: {
+    buyTaxBps: string;
+    sellTaxBps: string;
+  };
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   info: IFetchQuoteInfo;
@@ -235,6 +247,7 @@ export interface IFetchQuoteResult {
   protocolNoRouterInfo?: string;
   supportUrl?: string;
   isAntiMEV?: boolean;
+  tokenMetadata?: ISwapTokenMetadata;
 }
 
 export interface IAllowanceResult {
