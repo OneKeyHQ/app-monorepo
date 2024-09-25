@@ -12,7 +12,6 @@ import {
   NumberSizeableText,
   Page,
   SectionList,
-  SizableText,
   Skeleton,
   Stack,
   XStack,

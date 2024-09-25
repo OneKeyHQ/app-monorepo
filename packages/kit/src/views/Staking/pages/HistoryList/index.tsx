@@ -52,6 +52,7 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
+          color={item.direction === 'receive' ? '$textSuccess' : undefined}
           formatterOptions={{
             tokenSymbol: token?.symbol,
             showPlusMinusSigns: true,

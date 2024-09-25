@@ -23,7 +23,7 @@ export const useBabylonStatusMap = () => {
         id: ETranslations.earn_withdrawal_requested,
       }),
       'overflow': intl.formatMessage({ id: ETranslations.earn_overflow }),
-      'claimable': intl.formatMessage({ id: ETranslations.earn_claim }),
+      'claimable': intl.formatMessage({ id: ETranslations.earn_claimable }),
       'claimed': intl.formatMessage({ id: ETranslations.earn_claimed }),
     }),
     [intl],

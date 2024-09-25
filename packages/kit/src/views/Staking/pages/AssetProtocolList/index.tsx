@@ -197,7 +197,7 @@ const AssetProtocolListContent = ({
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `APR ${BigNumber(item.provider.apr ?? 0).toFixed(2)}%`
+                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}% APR`
                 : null
             }
             secondary={

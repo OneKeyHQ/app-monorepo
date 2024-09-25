@@ -477,21 +477,22 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       </XStack>
 
       {/* details button */}
-      <Button
-        disabled={isFetchingAccounts}
-        onPress={onPress}
-        variant="tertiary"
-        iconAfter="ChevronRightOutline"
-        position="absolute"
-        top={0}
-        right={0}
-        $gtLg={{
-          right: '$8',
-          top: '$8',
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.global_details })}
-      </Button>
+      {isFetchingAccounts ? null : (
+        <Button
+          onPress={onPress}
+          variant="tertiary"
+          iconAfter="ChevronRightOutline"
+          position="absolute"
+          top={0}
+          right={0}
+          $gtLg={{
+            right: '$8',
+            top: '$8',
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_details })}
+        </Button>
+      )}
     </YStack>
   );
 }
@@ -613,7 +614,7 @@ function BasicEarnHome() {
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
-  const { isLoading: isFetchingAccounts } = usePromiseResult(
+  const { isLoading: isFetchingAccounts, result } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         account?.id,
@@ -651,6 +652,7 @@ function BasicEarnHome() {
       } else {
         await fetchAndUpdateAction();
       }
+      return { loaded: true };
     },
     [actions, account?.id, network?.id],
     {
@@ -751,7 +753,11 @@ function BasicEarnHome() {
                 flexDirection: 'row',
               }}
             >
-              <Overview isFetchingAccounts={!!isFetchingAccounts} />
+              <Overview
+                isFetchingAccounts={Boolean(
+                  result === undefined || !!isFetchingAccounts,
+                )}
+              />
               <YStack
                 minHeight="$36"
                 $md={{
