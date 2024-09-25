@@ -521,7 +521,7 @@ function createMainWindow() {
         windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
           (error, status) => {
             if (error) {
-              resolve(true);
+              resolve(false);
             } else {
               resolve(status === UserConsentVerifierAvailability.available);
             }
