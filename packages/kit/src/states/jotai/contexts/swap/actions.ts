@@ -913,6 +913,60 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      if (quoteResult?.tokenMetadata) {
+        const { buyToken, sellToken } = quoteResult.tokenMetadata;
+        const buyTokenBuyTaxBN = new BigNumber(
+          buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
+        );
+        const buyTokenSellTaxBN = new BigNumber(
+          buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
+        );
+        const sellTokenBuyTaxBN = new BigNumber(
+          sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
+        );
+        const sellTokenSellTaxBN = new BigNumber(
+          sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
+        );
+        if (
+          (!buyTokenBuyTaxBN.isNaN() && !buyTokenBuyTaxBN.isZero()) ||
+          (!buyTokenSellTaxBN.isNaN() && !buyTokenSellTaxBN.isZero())
+        ) {
+          let actionLabel = 'buy';
+          if (buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)) {
+            actionLabel = 'sell';
+          }
+          const showTax = BigNumber.max(buyTokenSellTaxBN, buyTokenBuyTaxBN);
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.shiftedBy(-2).toNumber()}% ${
+                toToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+        if (
+          (!sellTokenBuyTaxBN.isNaN() && !sellTokenBuyTaxBN.isZero()) ||
+          (!sellTokenSellTaxBN.isNaN() && !sellTokenSellTaxBN.isZero())
+        ) {
+          let actionLabel = 'buy';
+          if (sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)) {
+            actionLabel = 'sell';
+          }
+          const showTax = BigNumber.max(sellTokenBuyTaxBN, sellTokenSellTaxBN);
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.shiftedBy(-2).toNumber()}% ${
+                fromToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+      }
+
       set(swapAlertsAtom(), {
         states: alertsRes,
         quoteId: quoteResult?.quoteId ?? '',
