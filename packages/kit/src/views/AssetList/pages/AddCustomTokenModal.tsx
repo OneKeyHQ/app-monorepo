@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
@@ -190,6 +191,11 @@ function AddCustomTokenModal() {
         });
         await backgroundApiProxy.serviceCustomToken.addCustomToken({
           token: tokenInfo,
+        });
+        defaultLogger.account.wallet.addCustomToken({
+          network: tokenInfo.networkId,
+          tokenSymbol: tokenInfo.symbol,
+          tokenAddress: tokenInfo.address,
         });
       } finally {
         setIsLoading(false);
