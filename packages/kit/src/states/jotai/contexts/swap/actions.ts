@@ -939,7 +939,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `${showTax.shiftedBy(-2).toNumber()}% ${
+              message: `${showTax.dividedBy(100).toNumber()}% ${
                 toToken?.symbol ?? ''
               } ${actionLabel} tax`,
               alertLevel: ESwapAlertLevel.WARNING,
@@ -958,7 +958,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `${showTax.shiftedBy(-2).toNumber()}% ${
+              message: `${showTax.dividedBy(100).toNumber()}% ${
                 fromToken?.symbol ?? ''
               } ${actionLabel} tax`,
               alertLevel: ESwapAlertLevel.WARNING,
