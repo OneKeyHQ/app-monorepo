@@ -53,8 +53,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
 
     let prevScrollTop = 0;
     let isListViewWheeling = false;
-    const listViewTimerId: ReturnType<typeof setTimeout> | undefined =
-      undefined;
+    let listViewTimerId: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
       const scrollTop = scrollView.scrollTop;
       if (scrollTop < prevScrollTop) {
@@ -87,7 +86,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
       (event: { deltaY: number; stopPropagation: () => void }) => {
         isListViewWheeling = true;
         clearTimeout(listViewTimerId);
-        setTimeout(() => {
+        listViewTimerId = setTimeout(() => {
           isListViewWheeling = false;
         }, 50);
         event.stopPropagation();
