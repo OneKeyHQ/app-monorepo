@@ -283,19 +283,13 @@ const checkIsRuntimeMacOSBrowser = (): boolean => {
     return false;
   }
   if (typeof navigator !== 'undefined') {
-    if ('platform' in navigator) {
-      const platform = navigator.platform?.toLowerCase() ?? '';
-      if (platform) {
-        return isMacPlatform(platform);
-      }
-    }
-    if ('userAgentData' in navigator) {
-      const platform =
-        (
-          navigator as { userAgentData?: { platform: string } }
-        ).userAgentData?.platform.toLowerCase() ?? '';
-      return isMacPlatform(platform);
-    }
+    const platform =
+      navigator.platform?.toLowerCase() ||
+      (
+        navigator as { userAgentData?: { platform: string } }
+      ).userAgentData?.platform?.toLowerCase() ||
+      '';
+    return isMacPlatform(platform);
   }
   return false;
 };
