@@ -913,6 +913,58 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      if (quoteResult?.tokenMetadata) {
+        const { buyToken, sellToken } = quoteResult.tokenMetadata;
+        const buyTokenBuyTaxBN = new BigNumber(
+          buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
+        );
+        const buyTokenSellTaxBN = new BigNumber(
+          buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
+        );
+        const sellTokenBuyTaxBN = new BigNumber(
+          sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
+        );
+        const sellTokenSellTaxBN = new BigNumber(
+          sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
+        );
+        if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
+          const actionLabel = buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            buyTokenSellTaxBN,
+            buyTokenBuyTaxBN,
+          );
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.dividedBy(100).toNumber()}% ${
+                toToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+        if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
+          const actionLabel = sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            sellTokenBuyTaxBN,
+            sellTokenSellTaxBN,
+          );
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.dividedBy(100).toNumber()}% ${
+                fromToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+      }
+
       set(swapAlertsAtom(), {
         states: alertsRes,
         quoteId: quoteResult?.quoteId ?? '',
