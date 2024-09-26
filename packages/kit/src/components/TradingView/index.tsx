@@ -3,9 +3,10 @@ import { useMemo } from 'react';
 import { usePropsAndStyle } from '@tamagui/core';
 
 import { type IStackStyle, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useLocaleVariant } from '../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import WebView from '../WebView';
 
 interface IBaseTradingViewProps {
@@ -18,7 +19,8 @@ const babelUrl = 'https://s.tradingview.com/widgetembed';
 export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { symbol } = restProps as IBaseTradingViewProps;
-  const [settings] = useSettingsPersistAtom();
+  const theme = useThemeVariant();
+  const locale = useLocaleVariant();
   const url = useMemo(
     () =>
       `${babelUrl}?${new URLSearchParams({
@@ -26,9 +28,10 @@ export function TradingView(props: ITradingViewProps) {
         overrides: JSON.stringify({}),
         enabled_features: JSON.stringify([]),
         disabled_features: JSON.stringify([]),
-        locale: settings.locale,
+        locale,
+        theme,
       }).toString()}#{"symbol":"BINANCE:${symbol}USD"}`,
-    [settings.locale, symbol],
+    [locale, symbol, theme],
   );
   return platformEnv.isNative ? (
     <Stack style={style as any}>

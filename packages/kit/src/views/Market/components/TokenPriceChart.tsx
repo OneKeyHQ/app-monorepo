@@ -109,7 +109,12 @@ function TradingViewChart({ symbol, defer }: IChartProps) {
     return null;
   }
   return (
-    <TradingView symbol={symbol} $gtMd={{ h: 330 }} h={353} width="100%" />
+    <TradingView
+      symbol={symbol}
+      $gtMd={{ h: 330 }}
+      $md={{ px: '$4' }}
+      h={353}
+    />
   );
 }
 
