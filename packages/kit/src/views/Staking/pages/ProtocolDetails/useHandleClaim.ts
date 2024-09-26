@@ -50,6 +50,7 @@ export const useHandleClaim = ({
       }
       if (isReward) {
         await handleUniversalClaim({
+          amount: details.rewards ?? '0',
           symbol,
           provider,
           stakingInfo,
@@ -80,7 +81,7 @@ export const useHandleClaim = ({
         return;
       }
       await handleUniversalClaim({
-        amount: details.claimable,
+        amount: details.claimable ?? '0',
         symbol,
         provider,
         stakingInfo,

@@ -9,6 +9,7 @@ import {
   NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -65,6 +66,89 @@ export const useShowStakeEstimateGasAlert = () => {
               {estFiatValue}
             </NumberSizeableText>
           </XStack>
+        ),
+        onConfirm,
+      });
+    },
+    [intl, fiatSymbol],
+  );
+};
+
+export const useShowClaimEstimateGasAlert = () => {
+  const intl = useIntl();
+  const [
+    {
+      currencyInfo: { symbol: fiatSymbol },
+    },
+  ] = useSettingsPersistAtom();
+  return useCallback(
+    ({
+      claimTokenFiatValue,
+      estFiatValue,
+      onConfirm,
+    }: {
+      estFiatValue: string;
+      claimTokenFiatValue: string;
+      onConfirm?: () => void;
+    }) => {
+      const lossValue = BigNumber(claimTokenFiatValue)
+        .minus(estFiatValue)
+        .absoluteValue()
+        .toFixed();
+      const description = intl.formatMessage(
+        {
+          id: ETranslations.earn_transaction_loss_when_claim,
+        },
+        {
+          number: (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="value"
+              color="$textCaution"
+              formatterOptions={{ currency: fiatSymbol }}
+            >
+              {lossValue}
+            </NumberSizeableText>
+          ),
+        },
+      ) as string;
+      Dialog.show({
+        title: intl.formatMessage({ id: ETranslations.earn_transaction_loss }),
+        icon: 'InfoCircleOutline',
+        description,
+        renderContent: (
+          <YStack>
+            <XStack>
+              <SizableText size="$bodyLg" mr="$1">
+                {intl.formatMessage({
+                  id: ETranslations.global_est_network_fee,
+                })}
+                :
+              </SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="value"
+                formatterOptions={{ currency: fiatSymbol }}
+              >
+                {estFiatValue}
+              </NumberSizeableText>
+            </XStack>
+            <XStack>
+              <SizableText size="$bodyLg" mr="$1">
+                {intl.formatMessage({
+                  id: ETranslations.earn_reward_value,
+                })}
+                :
+              </SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="value"
+                formatterOptions={{ currency: fiatSymbol }}
+              >
+                {claimTokenFiatValue}
+              </NumberSizeableText>
+            </XStack>
+          </YStack>
         ),
         onConfirm,
       });
