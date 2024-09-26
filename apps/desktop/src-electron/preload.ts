@@ -173,7 +173,7 @@ const getChannel = () => {
   return channel;
 };
 
-const desktopApi = {
+const desktopApi = Object.freeze({
   getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
@@ -354,7 +354,7 @@ const desktopApi = {
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-};
+});
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
