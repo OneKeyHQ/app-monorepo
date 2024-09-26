@@ -1,4 +1,3 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
@@ -34,10 +33,23 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   ) {
     return;
   }
+  let shouldMuteToast = false;
+  if (
+    err?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+    !err?.message
+  ) {
+    shouldMuteToast = true;
+  }
   const isTriggered = err?.$$autoToastErrorTriggered;
   const isSameError = lastToastErrorInstance === err;
   // TODO log error to file if developer mode on
-  if (err && err?.autoToast && !isTriggered && !isSameError) {
+  if (
+    err &&
+    err?.autoToast &&
+    !isTriggered &&
+    !isSameError &&
+    !shouldMuteToast
+  ) {
     err.$$autoToastErrorTriggered = true;
     lastToastErrorInstance = err;
     appEventBus.emit(EAppEventBusNames.ShowToast, {

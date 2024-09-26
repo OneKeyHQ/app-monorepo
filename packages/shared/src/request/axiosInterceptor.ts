@@ -73,6 +73,10 @@ axios.interceptors.response.use(
 
     const data = response.data as IOneKeyAPIBaseResponse;
 
+    // test code
+    // data.code = 4485;
+    // data.message = 'hhhh';
+
     if (data.code !== 0) {
       const requestIdKey = HEADER_REQUEST_ID_KEY;
       if (platformEnv.isDev) {
@@ -81,6 +85,7 @@ axios.interceptors.response.use(
 
       throw new OneKeyServerApiError({
         autoToast: true,
+        disableFallbackMessage: true,
         message: data.message,
         code: data.code,
         data,
