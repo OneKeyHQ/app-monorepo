@@ -1930,6 +1930,7 @@ const icons = {
   WhisperSolid: () => import("./react/solid/Whisper"),
   WifiSolid: () => import("./react/solid/Wifi"),
   WindSolid: () => import("./react/solid/Wind"),
+  WindowsHelloSolid: () => import("./react/solid/WindowsHello"),
   WorldSolid: () => import("./react/solid/World"),
   WreathSolid: () => import("./react/solid/Wreath"),
   XBackspaceSolid: () => import("./react/solid/XBackspace"),
