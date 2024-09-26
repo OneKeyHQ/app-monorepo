@@ -7,30 +7,12 @@ import {
   formatDuration as fnsFormatDuration,
   parseISO,
 } from 'date-fns';
-import { enUS, ja, ko, zhCN, zhHK } from 'date-fns/locale';
 
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { parseToDateFnsLocale } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { useLocaleVariant } from './useLocaleVariant';
 
 import type { Duration } from 'date-fns';
-
-const parseLocal = (localeSymbol: ILocaleSymbol) => {
-  switch (localeSymbol) {
-    case 'zh-CN':
-      return zhCN;
-    case 'en-US':
-      return enUS;
-    case 'zh-HK':
-      return zhHK;
-    case 'ja-JP':
-      return ja;
-    case 'ko-KR':
-      return ko;
-    default:
-      return enUS;
-  }
-};
 
 export type IFormatDateOptions = {
   hideTheYear?: boolean;
@@ -60,7 +42,7 @@ export default function useFormatDate() {
 
       try {
         return fnsFormat(parsedDate, _format ?? 'PPp', {
-          locale: parseLocal(locale),
+          locale: parseToDateFnsLocale(locale),
         });
       } catch (error) {
         return '-';
@@ -133,7 +115,7 @@ export default function useFormatDate() {
   const formatDistanceStrict = useCallback(
     (date: Date | number, baseDate: Date | number) =>
       fnsFormatDistanceStrict(date, baseDate, {
-        locale: parseLocal(locale),
+        locale: parseToDateFnsLocale(locale),
       }) ?? '',
     [locale],
   );
@@ -142,7 +124,7 @@ export default function useFormatDate() {
     (date: Date | number) =>
       fnsFormatDistanceToNow(date, {
         addSuffix: true,
-        locale: parseLocal(locale),
+        locale: parseToDateFnsLocale(locale),
       }) ?? '',
     [locale],
   );
@@ -150,7 +132,7 @@ export default function useFormatDate() {
   const formatDuration = useCallback(
     (duration: Duration) =>
       fnsFormatDuration(duration, {
-        locale: parseLocal(locale),
+        locale: parseToDateFnsLocale(locale),
       }) ?? '',
     [locale],
   );

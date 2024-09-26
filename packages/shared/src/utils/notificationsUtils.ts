@@ -73,6 +73,7 @@ async function navigateToNotificationDetail({
         accountAddress,
         transactionHash,
         notificationId,
+        checkIsFocused: false,
       };
     }
   }

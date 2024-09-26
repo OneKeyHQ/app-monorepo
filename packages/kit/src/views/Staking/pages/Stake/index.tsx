@@ -3,8 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -95,6 +97,17 @@ const StakePage = () => {
     [provider],
   );
 
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: provider.name,
+      symbol: tokenInfo.symbol,
+      action: 'stake',
+      amount: '1',
+    });
+    return resp;
+  }, [networkId, provider.name, tokenInfo.symbol]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -126,6 +139,7 @@ const StakePage = () => {
           estReceiveTokenRate={provider.lidoStTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
+          estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>
     </Page>

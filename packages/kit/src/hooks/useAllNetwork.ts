@@ -59,11 +59,23 @@ function useAllNetworkRequests<T>(params: {
   allNetworkCacheRequests?: ({
     accountId,
     networkId,
+    accountAddress,
+    xpub,
   }: {
     accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
   }) => Promise<any>;
-  allNetworkCacheData?: (data: any) => void;
+  allNetworkCacheData?: ({
+    data,
+    accountId,
+    networkId,
+  }: {
+    data: any;
+    accountId: string;
+    networkId: string;
+  }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
@@ -161,10 +173,13 @@ function useAllNetworkRequests<T>(params: {
           const cachedData = (
             await Promise.all(
               Array.from(accountsInfo).map((networkDataString) => {
-                const { accountId, networkId } = networkDataString;
+                const { accountId, networkId, accountXpub, apiAddress } =
+                  networkDataString;
                 return allNetworkCacheRequests?.({
                   accountId,
                   networkId,
+                  xpub: accountXpub,
+                  accountAddress: apiAddress,
                 });
               }),
             )
@@ -172,7 +187,11 @@ function useAllNetworkRequests<T>(params: {
 
           if (cachedData && !isEmpty(cachedData)) {
             allNetworkDataInit.current = true;
-            allNetworkCacheData?.(cachedData);
+            allNetworkCacheData?.({
+              data: cachedData,
+              accountId: account.id,
+              networkId: network.id,
+            });
           }
         } catch (e) {
           console.error(e);
