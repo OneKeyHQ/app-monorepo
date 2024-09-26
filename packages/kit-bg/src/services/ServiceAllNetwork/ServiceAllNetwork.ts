@@ -128,6 +128,7 @@ class ServiceAllNetwork extends ServiceBase {
     return dbAccounts;
   }
 
+
   @backgroundMethod()
   async getAllNetworkAccounts(
     params: IAllNetworkAccountsParams,
