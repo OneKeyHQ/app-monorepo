@@ -41,6 +41,7 @@ export type IModalAssetDetailsParamList = {
     notificationId?: string;
     historyTx: IAccountHistoryTx | undefined;
     isAllNetworks?: boolean;
+    checkIsFocused?: boolean;
   };
   [EModalAssetDetailRoutes.UTXODetails]: {
     accountId: string;

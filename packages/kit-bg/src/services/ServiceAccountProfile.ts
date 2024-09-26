@@ -1,5 +1,6 @@
 import qs from 'querystring';
 
+import BigNumber from 'bignumber.js';
 import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
@@ -446,6 +447,36 @@ class ServiceAccountProfile extends ServiceBase {
     await activeAccountValueAtom.set(params);
 
     await simpleDb.accountValue.updateAccountValue(params);
+  }
+
+  @backgroundMethod()
+  async updateAccountValueForSingleNetwork(params: {
+    accountId: string;
+    value: string;
+    currency: string;
+  }) {
+    const accountsValue = await simpleDb.accountValue.getAccountsValue({
+      accounts: [{ accountId: params.accountId }],
+    });
+    const currentAccountValue = accountsValue?.[0];
+    if (currentAccountValue?.accountId !== params.accountId) {
+      return;
+    }
+    if (
+      currentAccountValue?.currency &&
+      params.currency &&
+      currentAccountValue?.currency !== params.currency
+    ) {
+      return;
+    }
+    if (
+      currentAccountValue?.value &&
+      params.value &&
+      new BigNumber(params.value).lte(currentAccountValue.value)
+    ) {
+      return;
+    }
+    await this.updateAccountValue(params);
   }
 
   // Get wallet type

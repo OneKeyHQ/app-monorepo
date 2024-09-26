@@ -29,6 +29,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public passphraseState?: string;
 
+  public firstEvmAddress?: string;
+
   public hash?: string;
 
   public xfp?: string;
@@ -55,6 +57,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: 'string?',
       isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
+      firstEvmAddress: 'string?',
       hash: 'string?',
       xfp: 'string?',
       airGapAccountsInfoRaw: 'string?',
@@ -77,6 +80,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,
+      firstEvmAddress: this.firstEvmAddress,
       hash: this.hash,
       xfp: this.xfp,
       airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,

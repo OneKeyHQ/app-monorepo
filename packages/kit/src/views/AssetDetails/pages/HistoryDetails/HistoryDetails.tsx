@@ -264,6 +264,7 @@ function HistoryDetails() {
     notificationId,
     historyTx: historyTxParam,
     isAllNetworks,
+    checkIsFocused = true,
   } = route.params;
 
   const historyInit = useRef(false);
@@ -287,6 +288,8 @@ function HistoryDetails() {
       }),
     [accountId, networkId],
   ).result;
+
+  console.log('txid changed', txid);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -331,6 +334,7 @@ function HistoryDetails() {
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      checkIsFocused,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         (!historyInit.current ||

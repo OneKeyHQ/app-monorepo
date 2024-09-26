@@ -25,6 +25,20 @@ export const {
 });
 
 export const {
+  target: indexedAccountAddressCreationStateAtom,
+  use: useIndexedAccountAddressCreationStateAtom,
+} = globalAtom<
+  | {
+      walletId: IDBWalletId | undefined;
+      indexedAccountId: string | undefined;
+    }
+  | undefined
+>({
+  name: EAtomNames.indexedAccountAddressCreationStateAtom,
+  initialValue: undefined,
+});
+
+export const {
   target: accountManualCreatingAtom,
   use: useAccountManualCreatingAtom,
 } = globalAtom<IAccountManualCreatingAtom>({
