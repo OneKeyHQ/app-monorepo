@@ -18,7 +18,8 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
-const realtimeBaselUrl = 'https://s.tradingview.com/widgetembed';
+const realtimeBaselUrl =
+  'https://www.tradingview-widget.com/embed-widget/advanced-chart';
 const overviewBaseUrl =
   'https://s.tradingview.com/embed-widget/symbol-overview';
 
