@@ -46,6 +46,7 @@ import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 
 logger.initialize();
+logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
