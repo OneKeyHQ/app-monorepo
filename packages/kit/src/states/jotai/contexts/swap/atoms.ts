@@ -21,6 +21,7 @@ import type {
   ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenCatch,
+  ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -274,6 +275,19 @@ export const {
   }
   return undefined;
 });
+
+export const { atom: swapTokenMetadataAtom, use: useSwapTokenMetadataAtom } =
+  contextAtomComputed<{
+    swapTokenMetadata?: ISwapTokenMetadata;
+  }>((get) => {
+    const quoteList = get(swapQuoteListAtom());
+    const swapTokenMetadata = quoteList.find(
+      (item) => item.tokenMetadata,
+    )?.tokenMetadata;
+    return {
+      swapTokenMetadata,
+    };
+  });
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);

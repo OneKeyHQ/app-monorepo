@@ -74,6 +74,7 @@ import {
   swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
+  swapTokenMetadataAtom,
 } from './atoms';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -699,6 +700,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const networks = get(swapNetworks());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
+      const tokenMetadata = get(swapTokenMetadataAtom());
       const quoteResultList = get(swapQuoteListAtom());
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -913,8 +915,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      if (quoteResult?.tokenMetadata) {
-        const { buyToken, sellToken } = quoteResult.tokenMetadata;
+      if (tokenMetadata?.swapTokenMetadata) {
+        const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
         const buyTokenBuyTaxBN = new BigNumber(
           buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
         );
