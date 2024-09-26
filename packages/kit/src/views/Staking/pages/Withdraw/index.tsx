@@ -4,8 +4,10 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -34,7 +36,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, active } = details;
+  const { token, provider, active, overflow } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -80,6 +82,24 @@ const WithdrawPage = () => {
     [provider],
   );
 
+  const hideReceived = useMemo<boolean>(
+    () =>
+      provider.name.toLowerCase() === 'everstake' &&
+      tokenInfo.symbol.toLowerCase() === 'apt',
+    [provider, tokenInfo.symbol],
+  );
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: provider.name,
+      symbol: tokenInfo.symbol,
+      action: 'unstake',
+      amount: '1',
+    });
+    return resp;
+  }, [networkId, provider.name, tokenInfo.symbol]);
+
   return (
     <Page>
       <Page.Header
@@ -91,8 +111,11 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
+          hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0).toFixed()}
+          balance={BigNumber(
+            Number(active ?? 0) + Number(overflow ?? 0),
+          ).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
@@ -109,6 +132,7 @@ const WithdrawPage = () => {
           showPayWith={showPayWith}
           payWithToken={details.rewardToken}
           payWithTokenRate={provider.lidoStTokenRate}
+          estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>
     </Page>
