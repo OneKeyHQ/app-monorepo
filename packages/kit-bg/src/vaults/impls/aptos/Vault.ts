@@ -513,9 +513,14 @@ export default class VaultAptos extends VaultBase {
 
     const account = await this.getAccount();
     const invalidSigBytes = new Uint8Array(64);
+    let pubkey = account.pub;
+    if (!pubkey) {
+      const accountOnChain = await this.client.getAccount(account.address);
+      pubkey = accountOnChain.authentication_key;
+    }
     const { rawTx: rawSignTx } = await buildSignedTx(
       newRawTx,
-      account.pub ?? '',
+      pubkey,
       bufferUtils.bytesToHex(invalidSigBytes),
     );
 
