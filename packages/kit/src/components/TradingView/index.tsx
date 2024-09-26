@@ -44,16 +44,12 @@ export function TradingView(props: ITradingViewProps) {
     () =>
       mode === 'realtime'
         ? `${realtimeBaselUrl}?${new URLSearchParams({
-            hideideas: '1',
-            interval: 'D',
-            enable_publishing: 'false',
-            allow_symbol_change: 'true',
-            overrides: JSON.stringify({}),
-            enabled_features: JSON.stringify([]),
-            disabled_features: JSON.stringify([]),
+            locale,
+          }).toString()}#${JSON.stringify({
+            symbol: `BINANCE:${chartSymbol}`,
             locale,
             theme,
-          }).toString()}#{"symbol":"BINANCE:${chartSymbol}"}`
+          })}`
         : `${overviewBaseUrl}?${new URLSearchParams({
             locale,
           }).toString()}#${JSON.stringify({
