@@ -33,7 +33,10 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { COINTYPE_DNX } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_DNX,
+  COINTYPE_ETH,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
@@ -859,6 +862,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  buildIndexedAccountIdHash({
+    firstEvmAddress,
+    index,
+    indexedAccountId,
+  }: {
+    firstEvmAddress: string | undefined;
+    index: number | undefined;
+    indexedAccountId: string;
+    // dbDevice: IDBDevice | undefined;
+  }) {
+    // const hashContent = dbDevice
+    //   ? `${dbDevice?.connectId}.${dbDevice?.deviceId}.${dbDevice?.deviceType}.${
+    //       dbWallet?.passphraseState || ''
+    //     }.${index}`
+    //   : indexedAccountId;
+    const hashContent =
+      firstEvmAddress && !isNil(index)
+        ? `${firstEvmAddress}--${index.toString()}`
+        : indexedAccountId;
+    const hashBuffer = sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
+    let idHash = bufferUtils.bytesToHex(hashBuffer);
+    idHash = idHash.slice(-42);
+    checkIsDefined(idHash);
+    return idHash;
+  }
+
   async txAddIndexedAccount({
     tx,
     walletId,
@@ -883,13 +912,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
       });
     }
+    const [dbWallet] = await this.txGetWallet({ tx, walletId });
     let dbDevice: IDBDevice | undefined;
-    let dbWallet: IDBWallet | undefined;
     if (
       accountUtils.isHwWallet({ walletId }) ||
       accountUtils.isQrWallet({ walletId })
     ) {
-      [dbWallet] = await this.txGetWallet({ tx, walletId });
       const deviceId = dbWallet.associatedDevice;
       if (deviceId) {
         const [device] = await this.txGetRecordById({
@@ -905,22 +933,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId,
         index,
       });
-      const hashBuffer = sha256(
-        bufferUtils.toBuffer(
-          dbDevice
-            ? `${dbDevice.connectId}.${dbDevice.deviceId}.${
-                dbDevice.deviceType
-              }.${dbWallet?.passphraseState || ''}.${index}`
-            : indexedAccountId,
-          'utf-8',
-        ),
-      );
-      let idHash = bufferUtils.bytesToHex(hashBuffer);
-      idHash = idHash.slice(-42);
-      checkIsDefined(idHash);
-      return {
+
+      const r: IDBIndexedAccount = {
         id: indexedAccountId,
-        idHash,
+        idHash: this.buildIndexedAccountIdHash({
+          firstEvmAddress: dbWallet?.firstEvmAddress,
+          indexedAccountId,
+          index,
+        }),
         walletId,
         index,
         name:
@@ -929,6 +949,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             pathIndex: index,
           }),
       };
+      return r;
     });
     console.log('txAddIndexedAccount txAddRecords', records);
     await this.txAddRecords({
@@ -2246,6 +2267,38 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     await db.withTransaction(async (tx) => {
+      const firstAccount: IDBAccount | undefined = accounts?.[0];
+      if (
+        firstAccount &&
+        firstAccount?.pathIndex === 0 &&
+        firstAccount?.address &&
+        firstAccount?.coinType === COINTYPE_ETH &&
+        firstAccount?.indexedAccountId
+      ) {
+        const firstEvmAddress = firstAccount.address.toLowerCase();
+        await this.txUpdateWallet({
+          tx,
+          walletId,
+          updater: (w) => {
+            w.firstEvmAddress = firstEvmAddress;
+            return w;
+          },
+        });
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [firstAccount.indexedAccountId],
+          updater: (item) => {
+            item.idHash = this.buildIndexedAccountIdHash({
+              firstEvmAddress,
+              indexedAccountId: item.id,
+              index: firstAccount.pathIndex,
+            });
+            return item;
+          },
+        });
+      }
+
       const ids = accounts.map((item) => item.id);
       let { records: existsAccounts = [] } = await db.txGetAllRecords({
         tx,
