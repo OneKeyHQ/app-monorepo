@@ -13,7 +13,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { isCreatingIndexedAccountAddressesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { indexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -101,7 +101,7 @@ export function AccountSelectorAddAccountButton({
             accountId: indexedAccount?.id,
           });
           if (walletIdFromIndexedId === focusedWallet?.id) {
-            await isCreatingIndexedAccountAddressesAtom.set({
+            await indexedAccountAddressCreationStateAtom.set({
               walletId: focusedWallet?.id,
               indexedAccountId: indexedAccount?.id,
             });
@@ -113,7 +113,7 @@ export function AccountSelectorAddAccountButton({
           }
         }
       } finally {
-        await isCreatingIndexedAccountAddressesAtom.set(undefined);
+        await indexedAccountAddressCreationStateAtom.set(undefined);
         navigation.popStack();
       }
     },

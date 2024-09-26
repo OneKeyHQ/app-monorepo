@@ -17,7 +17,7 @@ import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { useIsCreatingIndexedAccountAddressesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useIndexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -80,7 +80,7 @@ export function AccountSelectorAccountListItem({
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
 
-  const [creatingAddressInfo] = useIsCreatingIndexedAccountAddressesAtom();
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
 
   const account = useMemo(
     () => (isOthersUniversal ? (item as IDBAccount) : undefined),
@@ -94,12 +94,12 @@ export function AccountSelectorAccountListItem({
   const isCreatingAddress = useMemo(
     () =>
       Boolean(
-        creatingAddressInfo?.indexedAccountId === indexedAccount?.id &&
-          creatingAddressInfo?.walletId === focusedWalletInfo?.wallet?.id,
+        addressCreationState?.indexedAccountId === indexedAccount?.id &&
+          addressCreationState?.walletId === focusedWalletInfo?.wallet?.id,
       ),
     [
-      creatingAddressInfo?.indexedAccountId,
-      creatingAddressInfo?.walletId,
+      addressCreationState?.indexedAccountId,
+      addressCreationState?.walletId,
       focusedWalletInfo?.wallet?.id,
       indexedAccount?.id,
     ],

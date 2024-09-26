@@ -31,7 +31,7 @@ import type {
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
   accountSelectorAccountsListIsLoadingAtom,
-  isCreatingIndexedAccountAddressesAtom,
+  indexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
