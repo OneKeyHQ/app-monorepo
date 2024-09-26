@@ -23,7 +23,7 @@ export function ErrorToastContainer() {
       let toastId = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
-      toastId = toastId || message;
+      toastId = toastId || (p.title ? p.title : message);
       const actions = isRequestIdMessage(message) ? (
         <Button
           size="small"
