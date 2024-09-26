@@ -31,7 +31,11 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchTokenListParams,
+  IFetchTokenListResponse,
+  IToken,
+} from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -86,6 +90,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientEvm } from './sdkEvm/ClientEvm';
+import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -1121,5 +1126,20 @@ export default class Vault extends VaultBase {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  // RPC Client
+  async getRpcClient() {
+    const url = 'https://core.public.infstones.com'; // Core
+    const provider = new EvmApiProvider({ url });
+    return provider;
+  }
+
+  override async fetchTokenListByRpc(
+    params: IFetchTokenListParams,
+  ): Promise<IFetchTokenListResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.listAccountToken(params);
+    return resp;
   }
 }

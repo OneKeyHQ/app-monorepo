@@ -3,15 +3,9 @@ import BigNumber from 'bignumber.js';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type { IRpcClientInfo } from '@onekeyhq/shared/types/customRpc';
 
-export class ClientEvm {
-  readonly rpc: JsonRPCRequest;
-
-  constructor(url: string) {
-    this.rpc = new JsonRPCRequest(url);
-  }
-
+export class ClientEvm extends JsonRPCRequest {
   async getInfo(): Promise<IRpcClientInfo> {
-    const latestBlock: any = await this.rpc.call('eth_blockNumber');
+    const latestBlock: any = await this.call('eth_blockNumber');
     const bestBlockNumber = new BigNumber(latestBlock)?.toNumber();
     const isReady =
       !new BigNumber(bestBlockNumber).isNaN() && bestBlockNumber > 0;
@@ -22,12 +16,12 @@ export class ClientEvm {
   async getChainId(): Promise<{
     chainId: number;
   }> {
-    const chainIdHex: any = await this.rpc.call('eth_chainId');
+    const chainIdHex: any = await this.call('eth_chainId');
     const chainId = new BigNumber(chainIdHex)?.toNumber();
     return { chainId };
   }
 
   async broadcastTransaction(rawTx: string): Promise<string> {
-    return this.rpc.call('eth_sendRawTransaction', [rawTx]);
+    return this.call('eth_sendRawTransaction', [rawTx]);
   }
 }

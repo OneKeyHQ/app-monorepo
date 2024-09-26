@@ -44,6 +44,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
@@ -63,11 +64,13 @@ import type {
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
-import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
+  IFetchAccountTokensResp,
   IFetchTokenDetailItem,
+  IFetchTokenListParams,
+  IFetchTokenListResponse,
 } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
@@ -1046,5 +1049,39 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Staking
   buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
     return Promise.resolve(params as IEncodedTx);
+  }
+
+  // Api Request
+  async fetchTokenList(
+    params: IFetchTokenListParams,
+  ): Promise<IFetchTokenListResponse> {
+    const useRpc = true;
+    if (useRpc) {
+      return this.fetchTokenListByRpc(params);
+    }
+    return this.fetchTokenListByApi(params);
+  }
+
+  async fetchTokenListByApi(
+    params: IFetchTokenListParams,
+  ): Promise<IFetchTokenListResponse> {
+    const { serviceToken, serviceAccountProfile } = this.backgroundApi;
+    const { requestApiParams, flag, signal, accountId } = params;
+    const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: IFetchAccountTokensResp;
+    }>(`/wallet/v1/account/token/list?flag=${flag || ''}`, requestApiParams, {
+      signal,
+      headers: await serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      }),
+    });
+    return resp;
+  }
+
+  async fetchTokenListByRpc(
+    params: IFetchTokenListParams,
+  ): Promise<IFetchTokenListResponse> {
+    throw new NotImplemented();
   }
 }
