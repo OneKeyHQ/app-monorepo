@@ -556,48 +556,23 @@ function TokenListContainer(props: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      xpub,
+      accountAddress,
     }: {
       accountId: string;
       networkId: string;
+      xpub?: string;
+      accountAddress: string;
     }) => {
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId,
           networkId,
+          accountAddress,
+          xpub,
         });
 
-      const mergeDeriveAssetsEnabled = (
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        })
-      ).mergeDeriveAssetsEnabled;
-
-      const { tokenListMap, tokenList, smallBalanceTokenList, riskyTokenList } =
-        localTokens;
-
-      refreshTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
-
-      refreshSmallBalanceTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
-
-      refreshRiskyTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
-
-      refreshAllTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: mergeDeriveAssetsEnabled,
-      });
+      const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
 
       if (
         isEmpty(tokenList) &&
@@ -609,16 +584,15 @@ function TokenListContainer(props: ITabPageProps) {
 
       return localTokens;
     },
-    [
-      refreshAllTokenListMap,
-      refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenListMap,
-      refreshTokenListMap,
-    ],
+    [],
   );
 
   const handleAllNetworkCacheData = useCallback(
-    (
+    ({
+      data,
+      accountId,
+      networkId,
+    }: {
       data: {
         tokenList: IAccountToken[];
         smallBalanceTokenList: IAccountToken[];
@@ -627,8 +601,10 @@ function TokenListContainer(props: ITabPageProps) {
           [key: string]: ITokenFiat;
         };
         tokenListValue: string;
-      }[],
-    ) => {
+      }[];
+      accountId: string;
+      networkId: string;
+    }) => {
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
       let tokenListMap: {
@@ -644,8 +620,27 @@ function TokenListContainer(props: ITabPageProps) {
         };
         tokenListValue = tokenListValue.plus(item.tokenListValue ?? 0);
       });
+
+      refreshTokenListMap({
+        tokens: tokenListMap,
+        merge: true,
+        mergeDerive: true,
+      });
+
+      refreshRiskyTokenListMap({
+        tokens: tokenListMap,
+        merge: true,
+        mergeDerive: true,
+      });
+
+      refreshAllTokenListMap({
+        tokens: tokenListMap,
+        merge: true,
+        mergeDerive: true,
+      });
+
       refreshTokenList({
-        keys: 'local-all',
+        keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
         merge: true,
         map: tokenListMap,
@@ -654,7 +649,7 @@ function TokenListContainer(props: ITabPageProps) {
       });
 
       refreshRiskyTokenList({
-        keys: 'local-all',
+        keys: `${accountId}_${networkId}_local_all`,
         riskyTokens: riskyTokenList,
         merge: true,
         map: tokenListMap,
@@ -662,7 +657,7 @@ function TokenListContainer(props: ITabPageProps) {
       });
 
       refreshAllTokenList({
-        keys: 'local-all',
+        keys: `${accountId}_${networkId}_local_all`,
         tokens: [...tokenList, ...riskyTokenList],
         map: tokenListMap,
         merge: true,
@@ -688,8 +683,11 @@ function TokenListContainer(props: ITabPageProps) {
     [
       account?.id,
       refreshAllTokenList,
+      refreshAllTokenListMap,
       refreshRiskyTokenList,
+      refreshRiskyTokenListMap,
       refreshTokenList,
+      refreshTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
@@ -926,16 +924,16 @@ function TokenListContainer(props: ITabPageProps) {
         networkId,
         accountId,
       });
-      updateTokenListState({
-        initialized: false,
-        isRefreshing: true,
-      });
-      updateAccountOverviewState({
-        isRefreshing: true,
-        initialized: false,
-      });
 
       if (networkId === networkIdsMap.onekeyall) {
+        updateTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        updateAccountOverviewState({
+          initialized: false,
+          isRefreshing: true,
+        });
         return;
       }
 
@@ -958,10 +956,50 @@ function TokenListContainer(props: ITabPageProps) {
         isEmpty(smallBalanceTokenList) &&
         isEmpty(riskyTokenList)
       ) {
+        updateTokenListState({
+          initialized: false,
+          isRefreshing: true,
+        });
+        updateAccountOverviewState({
+          initialized: false,
+          isRefreshing: true,
+        });
         if (networkId !== networkIdsMap.onekeyall) {
           handleClearAllNetworkData();
         }
       } else {
+        refreshTokenList({
+          tokens: tokenList,
+          keys: `${accountId}_${networkId}_local`,
+        });
+        refreshTokenListMap({
+          tokens: tokenListMap,
+        });
+
+        refreshSmallBalanceTokenList({
+          smallBalanceTokens: smallBalanceTokenList,
+          keys: `${accountId}_${networkId}_local`,
+        });
+        refreshSmallBalanceTokenListMap({
+          tokens: tokenListMap,
+        });
+
+        refreshRiskyTokenList({
+          riskyTokens: riskyTokenList,
+          keys: `${accountId}_${networkId}_local`,
+        });
+        refreshRiskyTokenListMap({
+          tokens: tokenListMap,
+        });
+
+        refreshAllTokenList({
+          keys: `${accountId}_${networkId}_local`,
+          tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
+        });
+        refreshAllTokenListMap({
+          tokens: tokenListMap,
+        });
+
         updateAccountWorth({
           accountId,
           initialized: true,
@@ -972,38 +1010,6 @@ function TokenListContainer(props: ITabPageProps) {
         updateAccountOverviewState({
           isRefreshing: false,
           initialized: true,
-        });
-
-        refreshTokenList({
-          tokens: tokenList,
-          keys: 'local',
-        });
-        refreshTokenListMap({
-          tokens: tokenListMap,
-        });
-
-        refreshSmallBalanceTokenList({
-          smallBalanceTokens: smallBalanceTokenList,
-          keys: 'local',
-        });
-        refreshSmallBalanceTokenListMap({
-          tokens: tokenListMap,
-        });
-
-        refreshRiskyTokenList({
-          riskyTokens: riskyTokenList,
-          keys: 'local',
-        });
-        refreshRiskyTokenListMap({
-          tokens: tokenListMap,
-        });
-
-        refreshAllTokenList({
-          keys: 'local',
-          tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
-        });
-        refreshAllTokenListMap({
-          tokens: tokenListMap,
         });
 
         updateTokenListState({
