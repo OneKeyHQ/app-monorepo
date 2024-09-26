@@ -215,6 +215,9 @@ const desktopApi = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
   changeTheme: (theme: string) =>
     ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  testBindingNode: (params: Record<string, string>) => {
+    ipcRenderer.send(ipcMessageKeys.APP_TEST_BINDING, params);
+  },
   changeLanguage: (lang: string) => {
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
   },

@@ -555,6 +555,18 @@ function createMainWindow() {
     safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
+  ipcMain.on(
+    ipcMessageKeys.APP_TEST_BINDING,
+    (event, params: Record<string, string>) => {
+      console.log('APP_TEST_BINDING', params);
+      const { path: bindingPath, functionName, props } = params;
+      // eslint-disable-next-line import/no-dynamic-require
+      const n = require(bindingPath);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      console.log(n[functionName](...props));
+    },
+  );
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     try {
       await systemPreferences.promptTouchID(msg);
@@ -610,6 +622,10 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_OPEN_LOGGER_FILE, () => {
+    void shell.openPath(path.dirname(logger.transports.file.getFile().path));
   });
 
   ipcMain.on(ipcMessageKeys.APP_OPEN_LOGGER_FILE, () => {

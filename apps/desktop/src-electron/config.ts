@@ -52,6 +52,7 @@ export const ipcMessageKeys = {
   APP_GET_ENV_PATH: 'app/getEnvPath',
   APP_GET_BUNDLE_INFO: 'app/getBundleInfo',
   APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
+  APP_TEST_BINDING: 'app/testBinding',
 
   // Theme
   THEME_UPDATE: 'theme/update',
