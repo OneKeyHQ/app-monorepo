@@ -6,6 +6,7 @@ export interface IDeviceInfo {
   osVersion?: string;
   screenWidth?: number;
   screenHeight?: number;
+  arch?: string;
 }
 
 export type IGetDeviceInfo = () => Promise<IDeviceInfo>;
