@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 
 import isDev from 'electron-is-dev';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import type { ChildProcess } from 'child_process';
 

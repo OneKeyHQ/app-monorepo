@@ -9,6 +9,7 @@ import {
   Dialog,
   Divider,
   NumberSizeableText,
+  SizableText,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -22,10 +23,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ESwapSlippageSegmentKey,
-  type IFetchQuoteResult,
-  type ISwapSlippageSegmentItem,
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuoteResult,
+  ISwapSlippageSegmentItem,
+  ISwapToken,
+  ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -69,6 +72,73 @@ const SwapQuoteResult = ({
       void close({ flag: 'save' });
     },
     [setSwapSlippageCustomValue, setSwapSlippageMode],
+  );
+
+  const calculateTaxItem = useCallback(
+    (
+      tokenBuyTaxBps: BigNumber,
+      tokenSellTaxBps: BigNumber,
+      tokenInfo?: ISwapToken,
+    ) => {
+      const showTax = BigNumber.maximum(tokenBuyTaxBps, tokenSellTaxBps);
+      const finalShowTax = showTax.dividedBy(100).toNumber();
+      return (
+        <SwapCommonInfoItem
+          title={`${tokenInfo?.symbol ?? ''} buy/sell tax`}
+          isLoading={swapQuoteLoading}
+          valueComponent={
+            <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
+          }
+        />
+      );
+    },
+    [swapQuoteLoading],
+  );
+
+  const tokenMetadataParse = useCallback(
+    (
+      tokenMetadata: ISwapTokenMetadata,
+      fromTokenInfo?: ISwapToken,
+      toTokenInfo?: ISwapToken,
+    ) => {
+      const buyToken = tokenMetadata?.buyToken;
+      const sellToken = tokenMetadata?.sellToken;
+      let buyTaxItem = null;
+      let sellTaxItem = null;
+      const buyTokenBuyTaxBps = new BigNumber(
+        buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
+      );
+      const buyTokenSellTaxBps = new BigNumber(
+        buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
+      );
+      const sellTokenBuyTaxBps = new BigNumber(
+        sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
+      );
+      const sellTokenSellTaxBps = new BigNumber(
+        sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
+      );
+      if (buyTokenBuyTaxBps.gt(0) || buyTokenSellTaxBps.gt(0)) {
+        buyTaxItem = calculateTaxItem(
+          buyTokenBuyTaxBps,
+          buyTokenSellTaxBps,
+          toTokenInfo,
+        );
+      }
+      if (sellTokenBuyTaxBps.gt(0) || sellTokenSellTaxBps.gt(0)) {
+        sellTaxItem = calculateTaxItem(
+          sellTokenBuyTaxBps,
+          sellTokenSellTaxBps,
+          fromTokenInfo,
+        );
+      }
+      return (
+        <>
+          {sellTaxItem}
+          {buyTaxItem}
+        </>
+      );
+    },
+    [calculateTaxItem],
   );
 
   const slippageHandleClick = useCallback(() => {
@@ -199,6 +269,13 @@ const SwapQuoteResult = ({
                   }
                 />
               ) : null}
+              {quoteResult?.tokenMetadata
+                ? tokenMetadataParse(
+                    quoteResult?.tokenMetadata,
+                    fromToken,
+                    toToken,
+                  )
+                : null}
             </Accordion.Content>
           </Accordion.HeightAnimator>
         </Accordion.Item>

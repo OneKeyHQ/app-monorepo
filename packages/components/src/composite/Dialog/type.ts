@@ -53,6 +53,7 @@ export type IDialogHeaderProps = PropsWithChildren<{
   description?: string;
   showExitButton?: boolean;
   tone?: 'default' | 'destructive' | 'warning' | 'success';
+  renderIcon?: ReactElement;
 }>;
 
 export interface IDialogHeaderContextType {
@@ -64,6 +65,7 @@ interface IBasicDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   icon?: IKeyOfIcons;
+  renderIcon?: ReactElement;
   title?: string;
   description?: string;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */

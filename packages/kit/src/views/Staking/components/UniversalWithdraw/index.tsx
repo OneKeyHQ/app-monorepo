@@ -82,13 +82,16 @@ export const UniversalWithdraw = ({
 
   const onPress = useCallback(async () => {
     Dialog.show({
+      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
+      title: intl.formatMessage(
+        { id: ETranslations.earn_provider_asset_withdrawal },
+        {
+          'provider': capitalizeString(providerName ?? ''),
+          'asset': tokenSymbol?.toUpperCase() ?? '',
+        },
+      ),
       renderContent: (
-        <WithdrawShouldUnderstand
-          provider={providerName ?? ''}
-          logoURI={tokenImageUri ?? ''}
-          symbol={tokenSymbol ?? ''}
-          withdrawalPeriod={unstakingPeriod ?? 3}
-        />
+        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
       ),
       onConfirm: async (inst) => {
         try {
