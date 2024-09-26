@@ -116,8 +116,7 @@ type IPortfolioInfoProps = {
   minClaimableNum?: string;
   babylonOverflow?: string;
 
-  onClaim?: () => void;
-  onClaimReward?: () => void;
+  onClaim?: (params?: { isReward?: boolean }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 };
@@ -136,7 +135,6 @@ function PortfolioInfo({
   babylonOverflow,
 
   onClaim,
-  onClaimReward,
   onWithdraw,
   onPortfolioDetails,
 }: IPortfolioInfoProps) {
@@ -217,6 +215,7 @@ function PortfolioInfo({
               statusText={intl.formatMessage({
                 id: ETranslations.earn_claimable,
               })}
+              useLoading
               onPress={onClaim}
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
@@ -231,7 +230,7 @@ function PortfolioInfo({
               statusText={intl.formatMessage({
                 id: ETranslations.earn_rewards,
               })}
-              onPress={onClaimReward}
+              onPress={() => onClaim?.({ isReward: true })}
               useLoading
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
@@ -281,13 +280,11 @@ function PortfolioInfo({
 export const PortfolioSection = ({
   details,
   onClaim,
-  onClaimReward,
   onWithdraw,
   onPortfolioDetails,
 }: {
   details?: IStakeProtocolDetails;
-  onClaim?: () => void;
-  onClaimReward?: () => void;
+  onClaim?: (params?: { isReward?: boolean }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 }) => {
@@ -338,7 +335,6 @@ export const PortfolioSection = ({
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
       onWithdraw={onWithdraw}
-      onClaimReward={onClaimReward}
     />
   );
 };

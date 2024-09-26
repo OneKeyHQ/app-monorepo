@@ -53,6 +53,7 @@ const ClaimOptions = () => {
     async ({ item }) => {
       await handleClaim({
         identity: item.id,
+        amount: item.amount,
         symbol: details.token.info.symbol,
         provider,
         stakingInfo: {

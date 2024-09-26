@@ -11,17 +11,17 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationList, CalculationListItem } from '../CalculationList';
+import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
-
-const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 type IUniversalClaimProps = {
   balance: string;
@@ -36,6 +36,9 @@ type IUniversalClaimProps = {
   rate?: string;
   minAmount?: string;
   decimals?: number;
+
+  estimateFeeResp?: IEarnEstimateFeeResp;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -51,6 +54,7 @@ export const UniversalClaim = ({
   minAmount = '0',
   rate = '1',
   decimals,
+  estimateFeeResp,
   onConfirm,
 }: PropsWithChildren<IUniversalClaimProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
@@ -150,89 +154,90 @@ export const UniversalClaim = ({
   const editable = initialAmount === undefined;
 
   return (
-    <YStack>
-      <Stack mx="$2" px="$3" gap="$5">
-        <Stack position="relative" opacity={editable ? 1 : 0.7}>
-          <AmountInput
-            bg={editable ? '$bgApp' : '$bgDisabled'}
-            hasError={isInsufficientBalance || isLessThanMinAmount}
-            value={amountValue}
-            onChange={onChangeAmountValue}
-            tokenSelectorTriggerProps={{
-              selectedTokenImageUri: tokenImageUri,
-              selectedTokenSymbol: tokenSymbol,
-            }}
-            inputProps={{
-              placeholder: '0',
-              autoFocus: editable,
-            }}
-            balanceProps={{
-              value: balance,
-              onPress: onMax,
-            }}
-            valueProps={{
-              value: currentValue,
-              currency: currentValue ? symbol : undefined,
-            }}
-          />
-          {!editable ? (
-            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-          ) : null}
-        </Stack>
-
-        <YStack gap="$1">
-          {isLessThanMinAmount ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                { id: ETranslations.earn_minimum_amount },
-                { number: `${minAmount} ${tokenSymbol ?? ''}` },
-              )}
-            />
-          ) : null}
-          {isInsufficientBalance ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_claimable_balance,
-              })}
-            />
-          ) : null}
-        </YStack>
+    <StakingFormWrapper>
+      <Stack position="relative" opacity={editable ? 1 : 0.7}>
+        <AmountInput
+          bg={editable ? '$bgApp' : '$bgDisabled'}
+          hasError={isInsufficientBalance || isLessThanMinAmount}
+          value={amountValue}
+          onChange={onChangeAmountValue}
+          tokenSelectorTriggerProps={{
+            selectedTokenImageUri: tokenImageUri,
+            selectedTokenSymbol: tokenSymbol,
+          }}
+          inputProps={{
+            placeholder: '0',
+            autoFocus: editable,
+          }}
+          balanceProps={{
+            value: balance,
+            onPress: onMax,
+          }}
+          valueProps={{
+            value: currentValue,
+            currency: currentValue ? symbol : undefined,
+          }}
+        />
+        {!editable ? (
+          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+        ) : null}
       </Stack>
-      <YStack>
+      {isLessThanMinAmount ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage(
+            { id: ETranslations.earn_minimum_amount },
+            { number: `${minAmount} ${tokenSymbol ?? ''}` },
+          )}
+        />
+      ) : null}
+      {isInsufficientBalance ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_claimable_balance,
+          })}
+        />
+      ) : null}
+      <CalculationList>
         {receiving ? (
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.earn_receive })}
-            titleProps={fieldTitleProps}
-          >
-            {receiving}
-          </ListItem>
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_receive })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>{receiving}</CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
-          <ListItem
-            title={
-              providerLabel ??
-              intl.formatMessage({ id: ETranslations.global_protocol })
-            }
-            titleProps={fieldTitleProps}
-          >
-            <XStack gap="$2" alignItems="center">
-              <Image
-                width="$5"
-                height="$5"
-                src={providerLogo}
-                borderRadius="$2"
-              />
-              <SizableText size="$bodyLgMedium">
-                {capitalizeString(providerName)}
-              </SizableText>
-            </XStack>
-          </ListItem>
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {providerLabel ??
+                intl.formatMessage({ id: ETranslations.global_protocol })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <XStack gap="$2" alignItems="center">
+                <Image
+                  width="$5"
+                  height="$5"
+                  src={providerLogo}
+                  borderRadius="$2"
+                />
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
+              </XStack>
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
-      </YStack>
+        {estimateFeeResp ? (
+          <EstimateNetworkFee
+            estimateFeeResp={estimateFeeResp}
+            isVisible={Number(amountValue) > 0}
+          />
+        ) : null}
+      </CalculationList>
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.earn_claim,
@@ -243,6 +248,6 @@ export const UniversalClaim = ({
           disabled: isDisable,
         }}
       />
-    </YStack>
+    </StakingFormWrapper>
   );
 };

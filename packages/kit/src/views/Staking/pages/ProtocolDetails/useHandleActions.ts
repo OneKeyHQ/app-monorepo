@@ -5,56 +5,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
-export const useHandleClaim = () => {
-  const appNavigation = useAppNavigation();
-  return useCallback(
-    async ({
-      details,
-      accountId,
-      networkId,
-      symbol,
-      provider,
-      onSuccess,
-    }: {
-      details?: IStakeProtocolDetails;
-      accountId?: string;
-      networkId: string;
-      symbol: string;
-      provider: string;
-      onSuccess?: () => void;
-    }) => {
-      if (!details || !accountId) return;
-      const stakingConfig =
-        await backgroundApiProxy.serviceStaking.getStakingConfigs({
-          networkId,
-          symbol,
-          provider,
-        });
-      if (!stakingConfig) {
-        throw new Error('Staking config not found');
-      }
-      if (stakingConfig.claimWithTx) {
-        appNavigation.push(EModalStakingRoutes.ClaimOptions, {
-          accountId,
-          networkId,
-          details,
-          symbol,
-          provider,
-        });
-        return;
-      }
-      appNavigation.push(EModalStakingRoutes.Claim, {
-        accountId,
-        networkId,
-        details,
-        onSuccess,
-        amount: stakingConfig.claimWithAmount ? details.claimable : undefined,
-      });
-    },
-    [appNavigation],
-  );
-};
-
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
