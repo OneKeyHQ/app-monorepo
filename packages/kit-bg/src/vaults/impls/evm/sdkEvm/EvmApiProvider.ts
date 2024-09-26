@@ -6,15 +6,14 @@ import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
 } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-import type { IFetchTokenListApiParams } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchServerTokenListApiParams,
+  IServerAccountTokenItem,
+  IServerTokenListQuery,
+} from '@onekeyhq/shared/types/serverToken';
 
 import { BaseApiProvider } from './BaseApiProvider';
-import { getRpcResultOrThrow, parseTokenItem, safeNumberString } from './utils';
-
-import type {
-  IAccountTokenItemWithInfo,
-  IListTokenQuery,
-} from './BaseApiProvider';
+import { parseTokenItem, safeNumberString } from './utils';
 
 export enum EVMMethodIds {
   // eslint-disable-next-line spellcheck/spell-checker
@@ -44,8 +43,8 @@ export const compareList = [
 
 class EvmApiProvider extends BaseApiProvider {
   override async listAccountTokenFromRpc(
-    params: IFetchTokenListApiParams,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    params: IFetchServerTokenListApiParams,
+  ): Promise<IServerAccountTokenItem[]> {
     console.log('listAccountTokenFromRpc: ======>>>>>>1: ', params);
     const { accountAddress } = params;
     const chainTokens = await this.getChainTokens({
@@ -80,7 +79,7 @@ class EvmApiProvider extends BaseApiProvider {
       requests as IJsonRpcBatchParams,
     );
     console.log('listAccountTokenFromRpc: ======>>>>>>6 balances: ', balances);
-    const list = tokens.map((token, i) => {
+    const list = tokens.map<IServerAccountTokenItem>((token, i) => {
       let balance = new B(0);
       try {
         balance = new B(balances[i]);
@@ -114,8 +113,8 @@ class EvmApiProvider extends BaseApiProvider {
   }
 
   override async getChainTokensFromRpc(
-    params: IListTokenQuery,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
     console.log('getChainTokensFromRpc: ======>>>>>>1: ', params);
     const nativeToken = await this.getNativeToken();
     const filteredContractList = uniq(params.contractList).filter(Boolean);
@@ -187,7 +186,7 @@ class EvmApiProvider extends BaseApiProvider {
 
     console.log('getChainTokensFromRpc: ======>>>>>>4 tokensMap: ', tokensMap);
 
-    const r = (params.contractList ?? []).map((a) => {
+    const result = (params.contractList ?? []).map((a) => {
       if (a === this.nativeTokenAddress) {
         return nativeToken;
       }
@@ -196,8 +195,8 @@ class EvmApiProvider extends BaseApiProvider {
       }
       return parseTokenItem(tokensMap[a]);
     });
-    console.log('getChainTokensFromRpc: ======>>>>>>5 result: ', r);
-    return r as IAccountTokenItemWithInfo[];
+    console.log('getChainTokensFromRpc: ======>>>>>>5 result: ', result);
+    return result as IServerAccountTokenItem[];
   }
 }
 

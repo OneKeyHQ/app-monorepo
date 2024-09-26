@@ -1,67 +1,27 @@
-import { keyBy, uniqBy } from 'lodash';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import BigNumber from 'bignumber.js';
+import { md5 } from 'js-md5';
+import { isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
+  IFetchServerTokenListApiParams,
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+  IServerAccountTokenItem,
+  IServerFiatTokenInfo,
+  IServerTokenItemWithInfo,
+  IServerTokenListQuery,
+} from '@onekeyhq/shared/types/serverToken';
+import type {
   IAccountToken,
-  IFetchTokenListApiParams,
-  IFetchTokenListParams,
-  IFetchTokenListResponse,
+  ITokenData,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import { parseTokenItem } from './utils';
-
-type IFiatAmount = string;
-type IAmountUnit = string;
-type IAmount = string;
-type IFloat = number;
-type IAddress = string;
-type IInteger = number;
-
-interface IPriceItem {
-  price: IFiatAmount;
-  price24h: IFloat;
-}
-
-interface ITokenInfo {
-  name?: string;
-  symbol?: string;
-  address: IAddress;
-  sendAddress?: IAddress;
-  decimals: IInteger;
-  totalSupply?: IAmountUnit;
-  logoURI?: string;
-  isNative: boolean;
-  riskLevel?: number | null;
-  uniqueKey?: string;
-  adaName?: string;
-  networkId?: string;
-}
-
-export interface ITokenItemWithInfo extends IPriceItem {
-  info?: ITokenInfo;
-}
-
-export interface IAccountTokenItemWithInfo extends ITokenItemWithInfo {
-  fiatValue: IFiatAmount;
-  balance: IAmountUnit;
-  balanceParsed: IAmount;
-  frozenBalance?: string;
-  frozenBalanceParsed?: string;
-  frozenBalanceFiatValue?: IFiatAmount;
-  availableBalance?: string;
-  availableBalanceParsed?: string;
-  availableBalanceFiatValue?: IFiatAmount;
-}
-
-export interface IListTokenQuery {
-  networkId: string;
-  contractList?: string[];
-  keywords?: string;
-  tokenRiskLevels?: number[];
-  limit?: number;
-  onlyPricedSymbol?: boolean;
-}
 
 class BaseApiProvider {
   public client: JsonRPCRequest;
@@ -82,7 +42,7 @@ class BaseApiProvider {
     return address.toLowerCase();
   }
 
-  public async getNativeToken() {
+  public async getNativeToken(): Promise<IServerAccountTokenItem> {
     // const [token]: ITokenItemWithInfo = await this.getChainTokensFromDB({
     //   networkId: this.networkId,
     //   contractList: [this.nativeTokenAddress],
@@ -101,22 +61,21 @@ class BaseApiProvider {
         uniqueKey: this.nativeTokenAddress,
         networkId: this.networkId,
       },
-      price: undefined,
-      price24h: undefined,
-      balance: undefined,
-      balanceParsed: undefined,
-      fiatValue: undefined,
+      price: '',
+      price24h: 0,
+      balance: '',
+      balanceParsed: '',
+      fiatValue: '',
     };
   }
 
   async listAccountToken(
-    params: IFetchTokenListParams,
-  ): Promise<IFetchTokenListResponse> {
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
     console.log('=====> args: ', params);
     const arg = params.requestApiParams;
     const hiddenTokenSet = new Set(arg.hiddenTokens ?? []);
 
-    // wallet -> onchain
     arg.accountAddress = this.normalizeAddress(arg.accountAddress);
     arg.contractList =
       arg.contractList?.map((n) => this.normalizeAddress(n)) ?? [];
@@ -125,15 +84,94 @@ class BaseApiProvider {
       params.requestApiParams,
     );
     console.log('=====>REPLY: ', reply);
-    return {} as IFetchTokenListResponse;
+    const sortedAccountTokenArray = orderBy(
+      reply,
+      [(item) => item.info?.isNative, (item) => +(item.fiatValue ?? 0)],
+      ['desc', 'desc'],
+    ).filter((n) => !hiddenTokenSet.has(n.info?.address ?? ''));
+
+    const tokenArray: IServerAccountTokenItem[] = [];
+    const smallTokenArray: IServerAccountTokenItem[] = [];
+    const riskTokenArray: IServerAccountTokenItem[] = [];
+
+    sortedAccountTokenArray.reverse().forEach((accountToken) => {
+      tokenArray.unshift(accountToken);
+    });
+
+    const tokens = this.__parseAccountTokenArray(arg, tokenArray);
+    const riskTokens = this.__parseAccountTokenArray(arg, riskTokenArray);
+    const smallBalanceTokens = this.__parseAccountTokenArray(
+      arg,
+      smallTokenArray,
+    );
+
+    return {
+      data: {
+        data: {
+          tokens,
+          riskTokens,
+          smallBalanceTokens,
+        },
+      },
+    };
   }
 
-  listAccountTokenWithBalance(params: IFetchTokenListApiParams) {
+  __parseAccountTokenArray(
+    { networkId, xpub, accountAddress }: IFetchServerTokenListApiParams,
+    accountTokenArray: IServerAccountTokenItem[],
+  ): ITokenData {
+    let fiatValue = BigNumber(0);
+    const map: Record<string, ITokenFiat> = {};
+    const data: IAccountToken[] = [];
+
+    accountTokenArray.forEach((accountToken) => {
+      if (!isNaN(Number(accountToken.fiatValue))) {
+        fiatValue = fiatValue.plus(accountToken.fiatValue);
+      }
+      const key = `${networkId}_${xpub ?? accountAddress}_${
+        accountToken.info?.uniqueKey ?? accountToken?.info?.address ?? ''
+      }`;
+
+      map[key] = {
+        price: 0,
+        price24h: 0,
+        balance: accountToken.balance,
+        balanceParsed: accountToken.balanceParsed,
+        fiatValue: '',
+      };
+
+      data.push({
+        $key: key,
+        ...omit(accountToken?.info, 'uniqueKey'),
+      } as IAccountToken);
+    });
+
+    return {
+      map,
+      data: orderBy(
+        data,
+        [
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          (item) => map?.[item.$key]?.order ?? 9999,
+          (item) => item.isNative,
+          (item) => +(map?.[item.$key]?.fiatValue ?? 0),
+        ],
+        ['asc', 'desc', 'desc'],
+      ),
+      keys: md5(
+        `${networkId}__${isEmpty(map) ? '' : Object.keys(map).join(',')}`,
+      ),
+      fiatValue: undefined,
+    };
+  }
+
+  listAccountTokenWithBalance(params: IFetchServerTokenListApiParams) {
     const accountTokens = this.listAccountTokenFromThirdParty(params);
     return accountTokens;
   }
 
-  async listAccountTokenFromThirdParty(params: IFetchTokenListApiParams) {
+  async listAccountTokenFromThirdParty(params: IFetchServerTokenListApiParams) {
     const rpcAccountTokens = await this.listAccountTokenFromRpc(params);
     const tokens = uniqBy(rpcAccountTokens, (t) => t?.info?.address).filter(
       Boolean,
@@ -147,8 +185,8 @@ class BaseApiProvider {
       },
       keyBy(
         rpcAccountTokens.filter(Boolean),
-        (t: IAccountTokenItemWithInfo) => t?.info?.address,
-      ) as Record<string, IAccountTokenItemWithInfo>,
+        (t: IServerAccountTokenItem) => t?.info?.address,
+      ) as Record<string, IServerAccountTokenItem>,
     );
 
     console.log(
@@ -158,7 +196,7 @@ class BaseApiProvider {
     // fill with db token meta
     const chainTokensMap = keyBy(
       chainTokens,
-      (t: IAccountTokenItemWithInfo) => t?.info?.address as string,
+      (t: IServerAccountTokenItem) => t?.info?.address as string,
     );
 
     return tokens.map((t) => {
@@ -182,15 +220,15 @@ class BaseApiProvider {
   }
 
   listAccountTokenFromRpc(
-    params: IFetchTokenListApiParams,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    _params: IFetchServerTokenListApiParams,
+  ): Promise<IServerAccountTokenItem[]> {
     throw new NotImplemented();
   }
 
   public async getChainTokens(
-    params: IListTokenQuery,
-    extraTokensMap?: Record<string, ITokenItemWithInfo>,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    params: IServerTokenListQuery,
+    extraTokensMap?: Record<string, IServerTokenItemWithInfo>,
+  ): Promise<IServerAccountTokenItem[]> {
     const { contractList = [], keywords } = params;
     if (keywords === 'string') {
       console.log('search token case');
@@ -203,7 +241,7 @@ class BaseApiProvider {
         return t;
       }
       return (extraTokensMap?.[contractList[i]] ??
-        null) as IAccountTokenItemWithInfo;
+        null) as IServerAccountTokenItem;
     });
     const missedTokenContracts = contractList.filter((_, i) => !tokens[i]);
 
@@ -230,7 +268,7 @@ class BaseApiProvider {
 
     const chainTokensMap = keyBy(
       chainTokens,
-      (t: IAccountTokenItemWithInfo) => t?.info?.address,
+      (t: IServerAccountTokenItem) => t?.info?.address,
     );
     return tokens.map((t, i) => {
       if (t) {
@@ -241,18 +279,15 @@ class BaseApiProvider {
         return token;
       }
       return null;
-    }) as IAccountTokenItemWithInfo[];
+    }) as IServerAccountTokenItem[];
   }
 
   async getChainTokensFromDB(
-    params: IListTokenQuery,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
     const { contractList = [] } = params;
-    const res = [] as IAccountTokenItemWithInfo[];
-    const tokensMap = keyBy(
-      res,
-      (r: IAccountTokenItemWithInfo) => r.info?.address,
-    );
+    const res = [] as IServerFiatTokenInfo[];
+    const tokensMap = keyBy(res, (r) => r.info?.address ?? '');
 
     return contractList.map((c) => {
       const token = tokensMap[c];
@@ -260,12 +295,12 @@ class BaseApiProvider {
         return null;
       }
       return parseTokenItem(token);
-    }) as IAccountTokenItemWithInfo[];
+    }) as IServerAccountTokenItem[];
   }
 
   async getChainTokensFromRpc(
-    params: IListTokenQuery,
-  ): Promise<IAccountTokenItemWithInfo[]> {
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
     throw new NotImplemented();
   }
 }

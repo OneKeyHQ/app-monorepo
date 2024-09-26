@@ -61,6 +61,10 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+} from '@onekeyhq/shared/types/serverToken';
+import type {
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -69,8 +73,6 @@ import type {
   IAccountToken,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
-  IFetchTokenListParams,
-  IFetchTokenListResponse,
 } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
@@ -1053,8 +1055,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // Api Request
   async fetchTokenList(
-    params: IFetchTokenListParams,
-  ): Promise<IFetchTokenListResponse> {
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
     const useRpc = true;
     if (useRpc) {
       return this.fetchTokenListByRpc(params);
@@ -1063,8 +1065,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async fetchTokenListByApi(
-    params: IFetchTokenListParams,
-  ): Promise<IFetchTokenListResponse> {
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
     const { serviceToken, serviceAccountProfile } = this.backgroundApi;
     const { requestApiParams, flag, signal, accountId } = params;
     const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
@@ -1080,8 +1082,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async fetchTokenListByRpc(
-    params: IFetchTokenListParams,
-  ): Promise<IFetchTokenListResponse> {
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
     throw new NotImplemented();
   }
 }

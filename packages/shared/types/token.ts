@@ -92,30 +92,3 @@ export type IFetchTokenDetailResp = IAccountToken[];
 export type IFetchTokenDetailItem = {
   info: IToken;
 } & ITokenFiat;
-
-export type IFetchTokenListParams = {
-  accountId: string;
-  requestApiParams: IFetchTokenListApiParams;
-  flag?: string;
-  signal?: AbortSignal;
-};
-
-export type IFetchTokenListApiParams = {
-  networkId: string;
-  cursor?: string;
-  limit?: number;
-  hideSmallBalanceTokens?: boolean;
-  hideRiskTokens?: boolean;
-  contractList?: string[];
-  hiddenTokens?: string[];
-  accountAddress: string;
-  xpub?: string;
-  isAllNetwork?: boolean;
-  isForceRefresh?: boolean;
-};
-
-export type IFetchTokenListResponse = {
-  data: {
-    data: IFetchAccountTokensResp;
-  };
-};
