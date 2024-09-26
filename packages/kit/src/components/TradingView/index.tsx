@@ -16,7 +16,9 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
-const babelUrl = 'https://s.tradingview.com/widgetembed';
+const realtimeBaselUrl = 'https://s.tradingview.com/widgetembed';
+const overviewBaseUrl = 'https://s.tradingview.com/embed-widget/symbol-overview';
+
 export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { symbol, mode } = restProps as IBaseTradingViewProps;
@@ -32,7 +34,7 @@ export function TradingView(props: ITradingViewProps) {
   const url = useMemo(
     () =>
       mode === 'realtime'
-        ? `${babelUrl}?${new URLSearchParams({
+        ? `${realtimeBaselUrl}?${new URLSearchParams({
             hideideas: '1',
             interval: 'D',
             enable_publishing: 'false',
@@ -43,18 +45,38 @@ export function TradingView(props: ITradingViewProps) {
             locale,
             theme,
           }).toString()}#{"symbol":"BINANCE:${chartSymbol}"}`
-        : `${babelUrl}/market-overview?${new URLSearchParams({
-            hideideas: '1',
-            interval: 'D',
-            enable_publishing: 'false',
-            allow_symbol_change: 'true',
-            overrides: JSON.stringify({}),
-            enabled_features: JSON.stringify([]),
-            disabled_features: JSON.stringify([]),
+        : `${overviewBaseUrl}?${new URLSearchParams({
             locale,
-            theme,
-          }).toString()}#{"symbol":"BINANCE:${chartSymbol}"}`,
-    [chartSymbol, locale, mode, theme],
+          }).toString()}#${JSON.stringify({
+            'symbols': [[`COINBASE:${symbol}USD|1D`]],
+            'chartOnly': true,
+            'colorTheme': theme,
+            'autosize': true,
+            'showVolume': false,
+            'showMA': false,
+            'hideDateRanges': false,
+            'hideMarketStatus': false,
+            'hideSymbolLogo': false,
+            'scalePosition': 'right',
+            'scaleMode': 'Normal',
+            'changeMode': 'price-and-percent',
+            'chartType': 'area',
+            'maLineColor': '#2962FF',
+            'maLineWidth': 1,
+            'maLength': 9,
+            'headerFontSize': 'medium',
+            'lineWidth': 2,
+            'lineType': 0,
+            'dateRanges': [
+              '1d|1',
+              '1m|30',
+              '3m|60',
+              '12m|1D',
+              '60m|1W',
+              'all|1M',
+            ],
+          })}`,
+    [chartSymbol, locale, mode, symbol, theme],
   );
   return platformEnv.isNative ? (
     <Stack style={style as any}>
