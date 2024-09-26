@@ -130,10 +130,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
 
   useEffect(() => {
     const initHistoryState = async (accountId: string, networkId: string) => {
-      setHistoryState({
-        initialized: false,
-        isRefreshing: true,
-      });
       const accountHistoryTxs =
         await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
           accountId,
@@ -145,6 +141,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
         setHistoryState({
           initialized: true,
           isRefreshing: false,
+        });
+      } else {
+        setHistoryState({
+          initialized: false,
+          isRefreshing: true,
         });
       }
 

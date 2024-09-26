@@ -1,4 +1,4 @@
-import type { IToken } from './token';
+import type { IToken, ITokenData } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -331,3 +331,18 @@ export interface IEarnFAQListItem {
   answer: string;
 }
 export type IEarnFAQList = IEarnFAQListItem[];
+
+export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
+
+export type IEarnEstimateFeeResp = {
+  coverFeeDays?: string;
+  feeFiatValue: string;
+  token: {
+    balance: string;
+    balanceParsed: string;
+    fiatValue: string;
+    price: string;
+    price24h: string;
+    info: IToken;
+  };
+};
