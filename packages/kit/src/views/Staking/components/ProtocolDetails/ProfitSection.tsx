@@ -18,6 +18,7 @@ type IProfitInfoProps = {
   earningsIn24h?: string;
   rewardTokens?: string;
   updateFrequency?: string;
+  unstakingPeriod?: number;
   earnPoints?: boolean;
 };
 
@@ -26,6 +27,7 @@ function ProfitInfo({
   earningsIn24h,
   rewardTokens,
   updateFrequency,
+  unstakingPeriod,
   earnPoints,
 }: IProfitInfoProps) {
   const intl = useIntl();
@@ -99,6 +101,18 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
+          {unstakingPeriod ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_unstaking_period,
+              })}
+            >
+              {intl.formatMessage(
+                { id: ETranslations.earn_up_to_number_days },
+                { number: unstakingPeriod },
+              )}
+            </GridItem>
+          ) : null}
         </XStack>
       )}
     </YStack>
@@ -117,8 +131,9 @@ export const ProfitSection = ({
     apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
     earningsIn24h: details.earnings24h,
     rewardTokens: details.rewardToken,
-    updateFrequency: details.updateFrequency,
+    // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
+    unstakingPeriod: details.unstakingPeriod,
   };
   return <ProfitInfo {...props} />;
 };
