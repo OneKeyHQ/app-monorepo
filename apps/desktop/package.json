@@ -41,7 +41,7 @@
     "electron-updater": "6.1.8",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "windows.security.credentials.ui": "git+https://github.com/huhuanming/windows.security.credentials.ui#91c3534a1b520ea1a78319e63ba2d84b19c37e78"
+    "windows.security.credentials.ui": "git+https://github.com/huhuanming/windows.security.credentials.ui#d381b185b3e1eb7388f81971d443dc80a7ae0fc0"
   },
   "devDependencies": {
     "@electron/notarize": "^2.3.0",
