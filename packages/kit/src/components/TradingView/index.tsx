@@ -73,7 +73,6 @@ export function TradingView(props: ITradingViewProps) {
             'maLineColor': '#2962FF',
             'maLineWidth': 1,
             'maLength': 9,
-            'headerFontSize': 'medium',
             'lineWidth': 2,
             'lineType': 0,
             'dateRanges': [
