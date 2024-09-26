@@ -17,7 +17,7 @@ import { getDefaultLocale } from '../locale/getDefaultLocale';
 
 import type { Duration } from 'date-fns';
 
-const parseLocal = (localeSymbol: ILocaleSymbol) => {
+export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
   let locale = localeSymbol;
   if (localeSymbol === 'system') {
     locale = getDefaultLocale();
@@ -54,7 +54,7 @@ export function formatDateFns(date: Date | string, _format?: string) {
   }
   try {
     return fnsFormat(parsedDate, _format ?? 'PPp', {
-      locale: parseLocal(locale),
+      locale: parseToDateFnsLocale(locale),
     });
   } catch (error) {
     return '-';
@@ -127,7 +127,7 @@ export function formatDistanceStrict(
 ) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceStrict(date, baseDate, {
-    locale: parseLocal(locale),
+    locale: parseToDateFnsLocale(locale),
   });
 
   return distance ?? '';
@@ -137,7 +137,7 @@ export function formatDistanceToNow(date: Date | number) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceToNow(date, {
     addSuffix: true,
-    locale: parseLocal(locale),
+    locale: parseToDateFnsLocale(locale),
   });
 
   return distance ?? '';
@@ -146,7 +146,7 @@ export function formatDistanceToNow(date: Date | number) {
 export function formatDuration(duration: Duration) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDuration(duration, {
-    locale: parseLocal(locale),
+    locale: parseToDateFnsLocale(locale),
   });
 
   return distance ?? '';
