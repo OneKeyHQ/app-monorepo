@@ -4,23 +4,25 @@ import { useIntl } from 'react-intl';
 
 import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { TradingView } from '../../../components/TradingView';
 
 import { PriceChart } from './Chart';
 
 import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
-function BasicTokenPriceChart({
-  coinGeckoId,
-  defer,
-}: {
+interface IChartProps {
   coinGeckoId: string;
+  symbol?: string;
   defer: IDeferredPromise<unknown>;
-}) {
+}
+
+function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +98,27 @@ function BasicTokenPriceChart({
         </Stack>
       )}
     </YStack>
+  );
+}
+
+function TradingViewChart({ symbol, defer }: IChartProps) {
+  useEffect(() => {
+    defer.resolve(null);
+  }, [defer]);
+  if (!symbol) {
+    return null;
+  }
+  return (
+    <TradingView symbol={symbol} $gtMd={{ h: 330 }} h={353} width="100%" />
+  );
+}
+
+function BasicTokenPriceChart({ coinGeckoId, defer, symbol }: IChartProps) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  return devSettings.enabled && devSettings.settings?.showTradingView ? (
+    <TradingViewChart coinGeckoId={coinGeckoId} defer={defer} symbol={symbol} />
+  ) : (
+    <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
   );
 }
 
