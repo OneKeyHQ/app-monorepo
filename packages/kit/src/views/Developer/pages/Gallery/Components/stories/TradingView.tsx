@@ -19,7 +19,7 @@ const TradingViewGallery = () => (
     elements={[
       {
         title: '默认状态',
-        element: <TradingView symbol="ETH" h={400} w="100%" />,
+        element: <TradingView mode="realtime" symbol="ETH" h={400} w="100%" />,
       },
     ]}
   />
