@@ -14,6 +14,10 @@ const MarketDetail = LazyLoadPage(
   () => import('../../../views/Market/MarketDetail'),
 );
 
+const MarketRealtimeTradingView = LazyLoadPage(
+  () => import('../../../views/Market/MarketRealtimeTradingView'),
+);
+
 export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -24,5 +28,10 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetail,
     component: MarketDetail,
     rewrite: '/tokens/:token',
+  },
+  {
+    name: ETabMarketRoutes.MarketRealTimeTradingView,
+    component: MarketRealtimeTradingView,
+    rewrite: '/tokens/realtime/:token',
   },
 ];
