@@ -21,7 +21,7 @@ import logger from 'electron-log/main';
 import windowsSecurityCredentialsUiModule, {
   UserConsentVerificationResult,
   UserConsentVerifierAvailability,
-} from 'windows.security.credentials.ui';
+} from 'electron-windows-security';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,

@@ -6688,6 +6688,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
+    electron-windows-security: "npm:0.0.1"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -6695,7 +6696,6 @@ __metadata:
     node-fetch: "npm:^2.6.7"
     rimraf: "npm:^3"
     webpack: "npm:5.90.3"
-    windows.security.credentials.ui: "git+https://github.com/huhuanming/windows.security.credentials.ui#373763ab6577977687d72bde7af8aabf3220f98a"
   languageName: unknown
   linkType: soft
 
@@ -19692,6 +19692,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-windows-security@npm:0.0.1":
+  version: 0.0.1
+  resolution: "electron-windows-security@npm:0.0.1"
+  dependencies:
+    nan: "npm:2.20.0"
+  checksum: 10/eba085b13c3bd8da33d0bab4cc5884582a1a68eb756a87af38415ed13782e88b0ab0097ea9e274324f792d5ab0b753b73d95aeac1ca3ee6f41dc22fb353d22e0
+  languageName: node
+  linkType: hard
+
 "electron@npm:27.3.1":
   version: 27.3.1
   resolution: "electron@npm:27.3.1"
@@ -28667,21 +28676,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nan@npm:2.20.0":
+  version: 2.20.0
+  resolution: "nan@npm:2.20.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/5f16e4c9953075d9920229c703c1d781c0b74118ce3d9e926b448a4eef92b7d8be5ac6adc748a13a5fafb594436cbfe63250e3471aefdd78e3a0cd14603b9ba7
+  languageName: node
+  linkType: hard
+
 "nan@npm:^2.13.2, nan@npm:^2.14.0, nan@npm:^2.2.1":
   version: 2.18.0
   resolution: "nan@npm:2.18.0"
   dependencies:
     node-gyp: "npm:latest"
   checksum: 10/5520e22c64e2b5b495b1d765d6334c989b848bbe1502fec89c5857cabcc7f9f0474563377259e7574bff1c8a041d3b90e9ffa1f5e15502ffddee7b2550cc26a0
-  languageName: node
-  linkType: hard
-
-"nan@npm:latest":
-  version: 2.20.0
-  resolution: "nan@npm:2.20.0"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: 10/5f16e4c9953075d9920229c703c1d781c0b74118ce3d9e926b448a4eef92b7d8be5ac6adc748a13a5fafb594436cbfe63250e3471aefdd78e3a0cd14603b9ba7
   languageName: node
   linkType: hard
 
@@ -38228,15 +38237,6 @@ __metadata:
   version: 2.0.1
   resolution: "wildcard@npm:2.0.1"
   checksum: 10/e0c60a12a219e4b12065d1199802d81c27b841ed6ad6d9d28240980c73ceec6f856771d575af367cbec2982d9ae7838759168b551776577f155044f5a5ba843c
-  languageName: node
-  linkType: hard
-
-"windows.security.credentials.ui@git+https://github.com/huhuanming/windows.security.credentials.ui#373763ab6577977687d72bde7af8aabf3220f98a":
-  version: 0.1.7
-  resolution: "windows.security.credentials.ui@https://github.com/huhuanming/windows.security.credentials.ui.git#commit=373763ab6577977687d72bde7af8aabf3220f98a"
-  dependencies:
-    nan: "npm:latest"
-  checksum: 10/9d5efafce3e403cd36915a9bc89bbccc13b8b63dcd41d8262aa91bb3f597a987148b95f4f87cfdcee683b4f3e9c20112b95fb11c5337ca1650de4a2b01f1bd97
   languageName: node
   linkType: hard
 
