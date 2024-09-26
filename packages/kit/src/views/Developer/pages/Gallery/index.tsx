@@ -459,6 +459,13 @@ const PasswordKeyboardGallery = LazyLoadPage(
     ),
 );
 
+const TradingViewGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TradingView'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -660,7 +667,11 @@ export const galleryScreenList: {
     component: CurrencyGallery,
   },
   {
-    name: EGalleryRoutes.PasswordKeyboardGallery,
+    name: EGalleryRoutes.ComponentPasswordKeyboardGallery,
     component: PasswordKeyboardGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentTradingViewGallery,
+    component: TradingViewGallery,
   },
 ];
