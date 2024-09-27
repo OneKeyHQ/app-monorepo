@@ -429,7 +429,6 @@ index 0000000..e95b895
 +
 +#pragma GCC diagnostic pop
 +
-
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/PasteWatcher.java b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/textinput/PasteWatcher.java
 new file mode 100644
 index 0000000..3fb9ea1
@@ -658,7 +657,6 @@ index 0000000..376ccda
 +     return eventData;
 +   }
 + }
-
 diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp
 index 88ae3f3..7439eeb 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp
