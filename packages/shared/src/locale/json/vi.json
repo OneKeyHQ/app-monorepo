@@ -682,6 +682,8 @@
   "form__approve_str": "Phê duyệt {amount} {symbol}",
   "form__priority_fee": "Phí Ưu Tiên",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Thiết lập Windows Hello thất bại",
   "global.404_message": "Xin lỗi, đã có lỗi xảy ra!",
   "global.Note": "Ghi chú",
   "global.about": "Về",

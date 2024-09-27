@@ -682,6 +682,8 @@
   "form__approve_str": "Підтвердити {amount} {symbol}",
   "form__priority_fee": "Приоритетний збір",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Не вдалося налаштувати Windows Hello",
   "global.404_message": "Вибачте, щось пішло не так!",
   "global.Note": "Примітка",
   "global.about": "Про",
