@@ -51,6 +51,13 @@ class BaseApiProvider {
     return address.toLowerCase();
   }
 
+  public async validateTokenAddress(params: {
+    networkId: string;
+    address: string;
+  }): Promise<string> {
+    throw new NotImplemented();
+  }
+
   public async getNativeToken(): Promise<IServerAccountTokenItem> {
     const [token] = await this.getChainTokensFromDB({
       networkId: this.networkId,
@@ -241,8 +248,7 @@ class BaseApiProvider {
   ): Promise<IServerAccountTokenItem[]> {
     const { contractList = [], keywords } = params;
     if (keywords === 'string') {
-      console.log('search token case');
-      throw new NotImplemented();
+      return this.searchChainTokens(params);
     }
     console.log('getChainTokens: ======>>>>>> getChainTokensFromDB: ', params);
     let tokens = await this.getChainTokensFromDB(params);
@@ -320,6 +326,68 @@ class BaseApiProvider {
     throw new NotImplemented();
   }
 
+  async searchChainTokens(
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
+    const { keywords } = params;
+    if (!keywords) {
+      return [];
+    }
+    const dbTokens = await this.searchChainTokensFromDB(params);
+    if (
+      dbTokens?.find(
+        (t) =>
+          keywords?.localeCompare(t?.info?.address ?? '', undefined, {
+            sensitivity: 'base',
+          }) === 0,
+      )
+    ) {
+      return dbTokens;
+    }
+    const rpcTokenInfo = await this.searchChainTokensFromRpc(params);
+    if (rpcTokenInfo?.length) {
+      dbTokens.push(...rpcTokenInfo);
+    }
+    return dbTokens;
+  }
+
+  async searchChainTokensFromDB(
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
+    const { keywords } = params;
+    if (!keywords) {
+      return [];
+    }
+    const res = await this.backgroundApi.simpleDb.localTokens.searchTokens({
+      keywords,
+    });
+    return res.map((r) => parseTokenItem(r) as IServerAccountTokenItem);
+  }
+
+  public async searchChainTokensFromRpc(
+    params: IServerTokenListQuery,
+  ): Promise<IServerAccountTokenItem[]> {
+    const { keywords } = params;
+    if (!keywords) {
+      return [];
+    }
+    const tokenAddress = await this.validateTokenAddress({
+      networkId: params.networkId,
+      address: keywords,
+    }).catch(() => null);
+    if (!tokenAddress) {
+      return [];
+    }
+    const rpcTokenInfo = await this.getChainTokensFromRpc({
+      networkId: params.networkId,
+      contractList: [tokenAddress],
+    });
+    if (!rpcTokenInfo?.[0]?.info) {
+      return [];
+    }
+    return rpcTokenInfo;
+  }
+
   async queryAccountToken(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
@@ -333,7 +401,11 @@ class BaseApiProvider {
         contractList: params.contractList,
       });
     } else {
-      reply = [];
+      reply = await this.getChainTokens({
+        networkId: params.networkId,
+        contractList: params.contractList,
+        keywords: params.keywords,
+      });
     }
 
     const result = reply

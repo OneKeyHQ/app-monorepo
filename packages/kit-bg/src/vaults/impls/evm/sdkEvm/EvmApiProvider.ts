@@ -2,6 +2,7 @@ import B from 'bignumber.js';
 import { defaultAbiCoder } from 'ethers/lib/utils';
 import { isNil, keyBy, uniq } from 'lodash';
 
+import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
@@ -42,6 +43,19 @@ export const compareList = [
 ];
 
 class EvmApiProvider extends BaseApiProvider {
+  public override async validateTokenAddress(params: {
+    networkId: string;
+    address: string;
+  }): Promise<string> {
+    const { isValid, normalizedAddress } = await validateEvmAddress(
+      params.address,
+    );
+    if (!isValid) {
+      throw new Error('Invalid address');
+    }
+    return normalizedAddress;
+  }
+
   override async listAccountTokenFromRpc(
     params: IFetchServerTokenListApiParams,
   ): Promise<IServerAccountTokenItem[]> {

@@ -88,6 +88,7 @@ export interface IFetchServerTokenDetailParams {
   contractList: string[];
   withCheckInscription?: boolean;
   withFrozenBalance?: boolean;
+  keywords?: string;
 }
 
 export interface IFetchServerTokenDetailResponse {
