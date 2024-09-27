@@ -293,7 +293,6 @@ function BasicPhaseInput(
 
   const handlePaste = useCallback(
     (event: IPasteEventParams) => {
-      console.log('event--', event.nativeEvent);
       const item = event.nativeEvent?.items?.[0];
       if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
         onPasteMnemonic(item?.data, index);
