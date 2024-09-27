@@ -15,7 +15,7 @@ import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
-const NetworkSelectorTriggerIcon = ({
+const InterNetworkIcon = ({
   network,
   isLoading,
 }: {
@@ -32,7 +32,7 @@ const NetworkSelectorTriggerIcon = ({
   return <Icon size="$5" name="QuestionmarkOutline" color="$iconSubdued" />;
 };
 
-const NetworkSelectorTriggerName = ({
+const InterNetworkName = ({
   network,
   isLoading,
 }: {
@@ -92,8 +92,8 @@ export const NetworkSelectorTriggerDappConnectionCmp = ({
     userSelect="none"
     {...rest}
   >
-    <NetworkSelectorTriggerIcon network={network} isLoading={isLoading} />
-    <NetworkSelectorTriggerName network={network} isLoading={isLoading} />
+    <InterNetworkIcon network={network} isLoading={isLoading} />
+    <InterNetworkName network={network} isLoading={isLoading} />
     {triggerDisabled ? null : (
       <Icon
         ml="$-2"

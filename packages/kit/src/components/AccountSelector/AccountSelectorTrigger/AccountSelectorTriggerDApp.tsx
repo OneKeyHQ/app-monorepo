@@ -28,7 +28,7 @@ import {
   useMockAccountSelectorLoading,
 } from '../hooks/useAccountSelectorTrigger';
 
-const AccountSelectorTriggerAvatar = ({
+const InterAccountAvatar = ({
   isLoading,
   account,
   indexedAccount,
@@ -53,7 +53,7 @@ const AccountSelectorTriggerAvatar = ({
   return <Icon size="$8" name="XSquareOutline" color="$iconSubdued" />;
 };
 
-const AccountSelectorTriggerWalletAndAccountName = ({
+const InterWalletAndAccountName = ({
   isLoading,
   accountName,
   walletName,
@@ -88,7 +88,7 @@ const AccountSelectorTriggerWalletAndAccountName = ({
   );
 };
 
-const AccountSelectorTriggerAddressText = ({
+const InterAddressText = ({
   isLoading,
   addressText,
 }: {
@@ -182,21 +182,18 @@ export const AccountSelectorTriggerDappConnectionCmp = ({
       disabled={triggerDisabled}
       {...rest}
     >
-      <AccountSelectorTriggerAvatar
+      <InterAccountAvatar
         isLoading={isLoading}
         account={account}
         indexedAccount={indexedAccount}
       />
       <YStack flex={1}>
-        <AccountSelectorTriggerWalletAndAccountName
+        <InterWalletAndAccountName
           isLoading={isLoading}
           walletName={walletName}
           accountName={accountName}
         />
-        <AccountSelectorTriggerAddressText
-          isLoading={isLoading}
-          addressText={addressText}
-        />
+        <InterAddressText isLoading={isLoading} addressText={addressText} />
       </YStack>
       {triggerDisabled ? null : (
         <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" size="$5" />
