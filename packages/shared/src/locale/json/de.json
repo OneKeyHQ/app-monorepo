@@ -682,6 +682,8 @@
   "form__approve_str": "Genehmigen Sie {amount} {symbol}",
   "form__priority_fee": "Prioritätsgebühr",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Windows Hello-Fehler festlegen",
   "global.404_message": "Entschuldigung, etwas ist schief gelaufen!",
   "global.Note": "Hinweis",
   "global.about": "Über",

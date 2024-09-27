@@ -687,6 +687,8 @@
   form__approve_str = 'form__approve_str',
   form__priority_fee = 'form__priority_fee',
   form__sats__units = 'form__sats__units',
+  global_windows_hello = 'global.windows_hello',
+  global_windows_hello_set_error = 'global.windows_hello_set_error',
   global_404_message = 'global.404_message',
   global_Note = 'global.Note',
   global_about = 'global.about',

@@ -768,6 +768,7 @@ export { default as Webcam } from './Webcam';
 export { default as Whisper } from './Whisper';
 export { default as Wifi } from './Wifi';
 export { default as Wind } from './Wind';
+export { default as WindowsHello } from './WindowsHello';
 export { default as World } from './World';
 export { default as Wreath } from './Wreath';
 export { default as XBackspace } from './XBackspace';

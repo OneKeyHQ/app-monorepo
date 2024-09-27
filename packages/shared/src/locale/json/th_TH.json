@@ -682,6 +682,8 @@
   "form__approve_str": "อนุมัติ {amount} {symbol}",
   "form__priority_fee": "ค่าธรรมเนียมลำดับความสำคัญ",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "ตั้งค่า Windows Hello ล้มเหลว",
   "global.404_message": "ขออภัย, มีบางอย่างผิดพลาด!",
   "global.Note": "หมายเหตุ",
   "global.about": "เกี่ยวกับ",

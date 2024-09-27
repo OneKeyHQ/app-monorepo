@@ -682,6 +682,8 @@
   "form__approve_str": "授权 {amount} {symbol}",
   "form__priority_fee": "矿工小费",
   "form__sats__units": "聪",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "设置 Windows Hello 失败",
   "global.404_message": "对不起，出了点问题！",
   "global.Note": "备注",
   "global.about": "关于",

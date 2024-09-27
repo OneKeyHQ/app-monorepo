@@ -682,6 +682,8 @@
   "form__approve_str": "{amount} {symbol} 승인",
   "form__priority_fee": "우선 순위 요금",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Windows Hello 설정 실패",
   "global.404_message": "죄송합니다, 문제가 발생했습니다!",
   "global.Note": "노트",
   "global.about": "소개",

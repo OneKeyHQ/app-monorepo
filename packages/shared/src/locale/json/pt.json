@@ -682,6 +682,8 @@
   "form__approve_str": "Aprovar {amount} {symbol}",
   "form__priority_fee": "Taxa de Prioridade",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Configurar falha do Windows Hello",
   "global.404_message": "Desculpe, algo deu errado!",
   "global.Note": "Nota",
   "global.about": "Sobre",
