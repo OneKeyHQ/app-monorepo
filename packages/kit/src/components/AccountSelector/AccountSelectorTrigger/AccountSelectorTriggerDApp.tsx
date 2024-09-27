@@ -14,7 +14,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -126,8 +125,13 @@ export const AccountSelectorTriggerDappConnectionCmp = ({
   triggerDisabled?: boolean;
   handlePress?: () => void;
 } & ComponentProps<typeof XStack>) => {
-  const accountName = account?.name ? account.name : 'No Account';
-  const walletName = wallet?.name ? wallet.name : 'No Wallet';
+  const intl = useIntl();
+  const accountName = account?.name
+    ? account.name
+    : intl.formatMessage({ id: ETranslations.no_account });
+  const walletName = wallet?.name
+    ? wallet.name
+    : intl.formatMessage({ id: ETranslations.global_no_wallet });
 
   let addressText = '';
   if (account?.address) {
@@ -137,7 +141,7 @@ export const AccountSelectorTriggerDappConnectionCmp = ({
   } else if (!account?.address && account?.addressDetail.isValid) {
     addressText = '';
   } else {
-    addressText = 'No Address';
+    addressText = intl.formatMessage({ id: ETranslations.wallet_no_address });
   }
 
   return (

@@ -72,7 +72,7 @@ const WalletAccountListItem = ({
     return { network, account, wallet, indexedAccount };
   }, [networkId, accountId]);
   return (
-    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+    <YStack gap="$2">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
@@ -83,11 +83,13 @@ const WalletAccountListItem = ({
         borderWidth={StyleSheet.hairlineWidth}
         separator={<Divider />}
         disabled
+        overflow="hidden"
       >
         <YGroup.Item>
           <NetworkSelectorTriggerDappConnectionCmp
             isLoading={isLoading}
             network={result?.network}
+            triggerDisabled
           />
         </YGroup.Item>
         <YGroup.Item>
@@ -96,6 +98,7 @@ const WalletAccountListItem = ({
             account={result?.account}
             wallet={result?.wallet}
             indexedAccount={result?.indexedAccount}
+            triggerDisabled
           />
         </YGroup.Item>
       </YGroup>
@@ -106,14 +109,19 @@ const WalletAccountListItem = ({
 function SignMessageModal() {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { $sourceInfo, unsignedMessage, accountId, networkId, fromWallet } =
-    useDappQuery<{
-      unsignedMessage: IUnsignedMessage;
-      accountId: string;
-      networkId: string;
-      indexedAccountId: string;
-      fromWallet?: boolean;
-    }>();
+  const {
+    $sourceInfo,
+    unsignedMessage,
+    accountId,
+    networkId,
+    walletInternalSign,
+  } = useDappQuery<{
+    unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
+    indexedAccountId: string;
+    walletInternalSign?: boolean;
+  }>();
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -226,7 +234,7 @@ function SignMessageModal() {
             urlSecurityInfo={urlSecurityInfo}
             isRiskSignMethod={isRiskSignMethod}
           >
-            {fromWallet ? (
+            {walletInternalSign ? (
               <WalletAccountListItem
                 accountId={accountId}
                 networkId={networkId}

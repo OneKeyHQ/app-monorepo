@@ -136,7 +136,7 @@ export function useUniversalWithdraw({
               message,
               payload: [account.address, message],
             },
-            fromWallet: true,
+            walletInternalSign: true,
           })) as string;
 
         stakeTx =
