@@ -112,7 +112,7 @@ function DesktopCustomTabBarItem({
             onPress: () => {
               void onDisconnect(tab?.url);
             },
-            testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+            testID: `action-list-item-disconnect`,
           },
           {
             label: intl.formatMessage({

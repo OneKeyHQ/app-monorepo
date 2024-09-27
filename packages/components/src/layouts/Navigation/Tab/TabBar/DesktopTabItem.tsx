@@ -46,13 +46,9 @@ export function DesktopTabItem(
     openActionList?.current?.();
   }, []);
   useEffect(() => {
-    const stackValue = stackRef?.current;
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const stackValue = stackRef?.current as HTMLElement;
     stackValue?.addEventListener('contextmenu', onOpenContextMenu);
     return () => {
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
     };
   }, [onOpenContextMenu]);

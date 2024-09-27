@@ -304,7 +304,7 @@ function MobileTabListModal() {
                 onPress: () => {
                   void handleDisconnect(tab.url);
                 },
-                testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+                testID: `action-list-item-disconnect`,
               },
               {
                 label: intl.formatMessage({

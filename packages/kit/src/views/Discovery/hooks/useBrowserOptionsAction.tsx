@@ -31,7 +31,7 @@ function useBrowserOptionsAction() {
   const { setWebTabData, setTabs } = useBrowserTabActions().current;
 
   const handleRenameTab = useCallback(
-    async (item: IWebTab) =>
+    (item: IWebTab) =>
       new Promise((resolve) => {
         Dialog.confirm({
           title: intl.formatMessage({
