@@ -129,7 +129,7 @@ const ProtocolDetailsPage = () => {
           label: EEarnLabels.Claim,
           protocol: result.provider.name,
           protocolLogoURI: result.provider.logoURI,
-          send: { token: result.token.info, amount: amount ?? '0' },
+          receive: { token: result.token.info, amount: amount ?? '0' },
           tags: [buildLocalTxStatusSyncId(result)],
         },
       });
