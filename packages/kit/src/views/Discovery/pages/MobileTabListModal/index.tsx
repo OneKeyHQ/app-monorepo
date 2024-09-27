@@ -12,8 +12,11 @@ import {
   Page,
   Stack,
   Toast,
+  useClipboard,
 } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserBookmarkAction,
@@ -140,7 +143,8 @@ function MobileTabListModal() {
     [pinnedData, activeTabId],
   );
 
-  const { handleShareUrl } = useBrowserOptionsAction();
+  const { handleShareUrl, handleRenameTab } = useBrowserOptionsAction();
+  const { copyText } = useClipboard();
 
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
@@ -167,6 +171,15 @@ function MobileTabListModal() {
     },
     [handleShareUrl],
   );
+  const handleDisconnect = useCallback(async (url: string) => {
+    const origin = url ? new URL(url).origin : null;
+    if (!origin) return;
+    await backgroundApiProxy.serviceDApp.disconnectWebsite({
+      origin,
+      storageType: 'injectedProvider',
+      entry: 'Browser',
+    });
+  }, []);
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
       void setPinnedTab({ id, pinned });
@@ -206,7 +219,16 @@ function MobileTabListModal() {
   }, [disabledAddedNewTab, navigation, intl]);
 
   const showTabOptions = useCallback(
-    (tab: IWebTab, id: string) => {
+    async (tab: IWebTab, id: string) => {
+      const origin = tab?.url ? new URL(tab.url).origin : null;
+      let hasConnectedAccount = false;
+      if (origin) {
+        const connectedAccounts =
+          await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+            origin,
+          );
+        hasConnectedAccount = (connectedAccounts ?? []).length > 0;
+      }
       ActionList.show({
         title: intl.formatMessage({ id: ETranslations.explore_options }),
         sections: [
@@ -240,33 +262,73 @@ function MobileTabListModal() {
                 testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
               },
               {
-                label: intl.formatMessage({ id: ETranslations.explore_share }),
-                icon: 'ShareOutline',
-                onPress: () => handleShare(tab.url),
-                testID: 'action-list-item-share',
+                label: intl.formatMessage({
+                  id: ETranslations.explore_rename,
+                }),
+                icon: 'PencilOutline',
+                onPress: () => {
+                  void handleRenameTab(tab);
+                },
+                testID: `action-list-item-rename`,
               },
-            ],
+            ].filter(Boolean) as IActionListItemProps[],
           },
           {
             items: [
               {
                 label: intl.formatMessage({
-                  id: tab.isPinned
-                    ? ETranslations.explore_close_pin_tab
-                    : ETranslations.explore_close_tab,
+                  id: ETranslations.global_copy_url,
+                }),
+                icon: 'LinkOutline',
+                onPress: () => {
+                  // onCopyUrl();
+                  copyText(tab.url);
+                },
+                testID: `action-list-item-copy`,
+              },
+              {
+                label: intl.formatMessage({ id: ETranslations.explore_share }),
+                icon: 'ShareOutline',
+                onPress: () => handleShare(tab.url),
+                testID: 'action-list-item-share',
+              },
+            ].filter(Boolean) as IActionListItemProps[],
+          },
+          {
+            items: [
+              hasConnectedAccount && {
+                label: intl.formatMessage({
+                  id: ETranslations.explore_disconnect,
+                }),
+                icon: 'BrokenLinkOutline',
+                onPress: () => {
+                  void handleDisconnect(tab.url);
+                },
+                testID: `action-list-item-disconnect`,
+              },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.explore_close_tab,
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
-                testID: `action-list-item-close-${
-                  tab.isPinned ? 'close-pin-tab' : 'close-tab'
-                }`,
+                testID: `action-list-item-close-close-tab`,
               },
-            ],
+            ].filter(Boolean) as IActionListItemProps[],
           },
         ],
       });
     },
-    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab, intl],
+    [
+      handleBookmarkPress,
+      handlePinnedPress,
+      handleShare,
+      handleRenameTab,
+      handleDisconnect,
+      handleCloseTab,
+      copyText,
+      intl,
+    ],
   );
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
@@ -281,7 +343,7 @@ function MobileTabListModal() {
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
-          showTabOptions(tab, id);
+          void showTabOptions(tab, id);
         }}
       />
     ),
@@ -299,7 +361,7 @@ function MobileTabListModal() {
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
-          showTabOptions(tab, id);
+          void showTabOptions(tab, id);
         }}
       />
     ),
