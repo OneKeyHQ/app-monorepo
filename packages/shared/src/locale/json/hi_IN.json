@@ -682,6 +682,8 @@
   "form__approve_str": "{amount} {symbol} को मंजूरी दें",
   "form__priority_fee": "प्राथमिकता शुल्क",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Windows Hello सेट करें विफल",
   "global.404_message": "क्षमा करें, कुछ गलत हो गया!",
   "global.Note": "नोट",
   "global.about": "बारे में",

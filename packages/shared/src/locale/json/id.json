@@ -682,6 +682,8 @@
   "form__approve_str": "Menyetujui {amount} {symbol}",
   "form__priority_fee": "Biaya Prioritas",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Gagal mengatur Windows Hello",
   "global.404_message": "Maaf, ada yang salah!",
   "global.Note": "Catatan",
   "global.about": "Tentang",

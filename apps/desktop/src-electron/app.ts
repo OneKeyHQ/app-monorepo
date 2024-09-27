@@ -18,6 +18,10 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+import windowsSecurityCredentialsUiModule, {
+  UserConsentVerificationResult,
+  UserConsentVerifierAvailability,
+} from 'electron-windows-security';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -512,7 +516,22 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, (event) => {
+  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
+    if (isWin) {
+      const result = await new Promise((resolve) => {
+        windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
+          (error, status) => {
+            if (error) {
+              resolve(false);
+            } else {
+              resolve(status === UserConsentVerifierAvailability.available);
+            }
+          },
+        );
+      });
+      event.returnValue = result;
+      return;
+    }
     const result = systemPreferences?.canPromptTouchID?.();
     event.returnValue = !!result;
   });
@@ -556,6 +575,24 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
+    if (isWin) {
+      windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
+        msg,
+        (error, status) => {
+          if (error) {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: false,
+              error: error.message,
+            });
+          } else {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: status === UserConsentVerificationResult.verified,
+            });
+          }
+        },
+      );
+      return;
+    }
     try {
       await systemPreferences.promptTouchID(msg);
       event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });

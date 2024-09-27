@@ -682,6 +682,8 @@
   "form__approve_str": "{amount} {symbol} অনুমোদন করুন",
   "form__priority_fee": "অগ্রাধিকার ফি",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Windows Hello সেট করুন ব্যর্থ",
   "global.404_message": "দুঃখিত, কিছু ভুল হয়েছে!",
   "global.Note": "নোট",
   "global.about": "সম্পর্কে",

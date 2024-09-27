@@ -682,6 +682,8 @@
   "form__approve_str": "Одобрить {amount} {symbol}",
   "form__priority_fee": "Приоритетная плата",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Ошибка настройки Windows Hello",
   "global.404_message": "Извините, что-то пошло не так!",
   "global.Note": "Примечание",
   "global.about": "О нас",

@@ -682,6 +682,8 @@
   "form__approve_str": "{amount} {symbol}を承認する",
   "form__priority_fee": "優先料金",
   "form__sats__units": "sats",
+  "global.windows_hello": "Windows Hello",
+  "global.windows_hello_set_error": "Windows Hello の設定に失敗しました",
   "global.404_message": "申し訳ありません、何か問題が発生しました！",
   "global.Note": "注意",
   "global.about": "約",
