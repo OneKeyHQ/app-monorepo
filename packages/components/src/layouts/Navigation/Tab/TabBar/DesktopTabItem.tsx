@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef } from 'react';
+
 import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import {
@@ -11,7 +13,7 @@ import {
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
 
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
-import type { AvatarImage, GetProps } from 'tamagui';
+import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
 
 export interface IDesktopTabItemProps {
   icon?: IKeyOfIcons;
@@ -36,8 +38,26 @@ export function DesktopTabItem(
     showAvatar = false,
     ...rest
   } = props;
+
+  const stackRef = useRef<TamaguiElement>(null);
+  const openActionList = useRef<() => void | undefined>();
+  const onOpenContextMenu = useCallback((e: Event) => {
+    e.preventDefault();
+    openActionList?.current?.();
+  }, []);
+  useEffect(() => {
+    const stackValue = stackRef?.current;
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    stackValue?.addEventListener('contextmenu', onOpenContextMenu);
+    return () => {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
+    };
+  }, [onOpenContextMenu]);
   return (
-    <YStack testID={rest.testID}>
+    <YStack testID={rest.testID} ref={stackRef}>
       <XStack
         alignItems="center"
         py="$1.5"
@@ -118,6 +138,10 @@ export function DesktopTabItem(
               ) : null
             }
             sections={actionList}
+            renderItems={({ handleActionListOpen }) => {
+              openActionList.current = handleActionListOpen;
+              return undefined;
+            }}
           />
         ) : null}
       </XStack>
