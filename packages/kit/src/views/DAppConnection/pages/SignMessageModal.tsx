@@ -1,17 +1,27 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Page } from '@onekeyhq/components';
+import {
+  Divider,
+  Page,
+  SizableText,
+  YGroup,
+  YStack,
+} from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
   validateTypedSignMessageDataV1,
   validateTypedSignMessageDataV3V4,
 } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -20,10 +30,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
-} from '../components/DAppAccountList';
+import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
   DAppRequestFooter,
@@ -33,16 +40,79 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
+const WalletAccountListItem = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const intl = useIntl();
+  const { result, isLoading } = usePromiseResult(async () => {
+    const [network, account, wallet] = await Promise.all([
+      backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      }),
+      backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      }),
+      backgroundApiProxy.serviceAccount.getWallet({
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+      }),
+    ]);
+    let indexedAccount: IDBIndexedAccount | undefined;
+    if (account.indexedAccountId) {
+      indexedAccount =
+        await backgroundApiProxy.serviceAccount.getIndexedAccount({
+          id: account.indexedAccountId,
+        });
+    }
+
+    return { network, account, wallet, indexedAccount };
+  }, [networkId, accountId]);
+  return (
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({ id: ETranslations.global_accounts })}
+      </SizableText>
+      <YGroup
+        bg="$bg"
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        separator={<Divider />}
+        disabled
+      >
+        <YGroup.Item>
+          <NetworkSelectorTriggerDappConnectionCmp
+            isLoading={isLoading}
+            network={result?.network}
+          />
+        </YGroup.Item>
+        <YGroup.Item>
+          <AccountSelectorTriggerDappConnectionCmp
+            isLoading={isLoading}
+            account={result?.account}
+            wallet={result?.wallet}
+            indexedAccount={result?.indexedAccount}
+          />
+        </YGroup.Item>
+      </YGroup>
+    </YStack>
+  );
+};
+
 function SignMessageModal() {
   const intl = useIntl();
   const [isLoading, setIsLoading] = useState(false);
-  const { $sourceInfo, unsignedMessage, accountId, networkId, sceneName } =
+  const { $sourceInfo, unsignedMessage, accountId, networkId, fromWallet } =
     useDappQuery<{
       unsignedMessage: IUnsignedMessage;
       accountId: string;
       networkId: string;
       indexedAccountId: string;
-      sceneName: EAccountSelectorSceneName;
+      fromWallet?: boolean;
     }>();
 
   const dappApprove = useDappApproveAction({
@@ -156,8 +226,11 @@ function SignMessageModal() {
             urlSecurityInfo={urlSecurityInfo}
             isRiskSignMethod={isRiskSignMethod}
           >
-            {sceneName === EAccountSelectorSceneName.home ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+            {fromWallet ? (
+              <WalletAccountListItem
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}
