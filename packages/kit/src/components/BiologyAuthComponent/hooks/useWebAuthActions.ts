@@ -8,6 +8,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 export const useWebAuthActions = () => {
   const intl = useIntl();
@@ -49,8 +52,14 @@ export const useWebAuthActions = () => {
   }, [credId]);
 
   const checkWebAuth = useCallback(async () => {
-    const cred = await verifiedWebAuth(credId);
-    return cred?.id === credId;
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      await extUtils.openStandaloneWindow({
+        routes: [ERootRoutes.Main],
+      });
+    } else {
+      const cred = await verifiedWebAuth(credId);
+      return cred?.id === credId;
+    }
   }, [credId]);
 
   return { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth };
