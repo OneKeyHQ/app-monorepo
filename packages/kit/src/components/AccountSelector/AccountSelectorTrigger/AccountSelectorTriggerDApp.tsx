@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -13,15 +14,193 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorTrigger,
   useMockAccountSelectorLoading,
 } from '../hooks/useAccountSelectorTrigger';
+
+const InterAccountAvatar = ({
+  isLoading,
+  account,
+  indexedAccount,
+}: {
+  isLoading?: boolean;
+  account?: INetworkAccount;
+  indexedAccount?: IDBIndexedAccount;
+}) => {
+  if (isLoading) {
+    return <Skeleton w="$8" h="$8" />;
+  }
+  if (account?.address || account?.addressDetail.isValid) {
+    return (
+      <AccountAvatar
+        size="$8"
+        borderRadius="$2"
+        account={account}
+        indexedAccount={indexedAccount}
+      />
+    );
+  }
+  return <Icon size="$8" name="XSquareOutline" color="$iconSubdued" />;
+};
+
+const InterWalletAndAccountName = ({
+  isLoading,
+  accountName,
+  walletName,
+}: {
+  isLoading?: boolean;
+  accountName: string;
+  walletName: string;
+}) => {
+  if (isLoading) {
+    return (
+      <XStack alignItems="center" h="$5">
+        <Skeleton w={118} h={14} />
+      </XStack>
+    );
+  }
+  return (
+    <XStack>
+      <XStack maxWidth="$40">
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {walletName}
+        </SizableText>
+      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        /
+      </SizableText>
+      <XStack maxWidth="$40">
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          {accountName}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+};
+
+const InterAddressText = ({
+  isLoading,
+  addressText,
+}: {
+  isLoading?: boolean;
+  addressText: string;
+}) => {
+  if (isLoading) {
+    return (
+      <XStack alignItems="center" h="$5">
+        <Skeleton w={196} h={14} />
+      </XStack>
+    );
+  }
+  return (
+    <SizableText flex={1} size="$bodyMdMedium" numberOfLines={1} color="$text">
+      {addressText}
+    </SizableText>
+  );
+};
+
+export const AccountSelectorTriggerDappConnectionCmp = ({
+  isLoading,
+  wallet,
+  account,
+  indexedAccount,
+  triggerDisabled,
+  handlePress,
+  ...rest
+}: {
+  wallet?: IDBWallet;
+  account?: INetworkAccount;
+  indexedAccount?: IDBIndexedAccount;
+  isLoading?: boolean;
+  triggerDisabled?: boolean;
+  handlePress?: () => void;
+} & ComponentProps<typeof XStack>) => {
+  const intl = useIntl();
+  const accountName = account?.name
+    ? account.name
+    : intl.formatMessage({ id: ETranslations.no_account });
+  const walletName = wallet?.name
+    ? wallet.name
+    : intl.formatMessage({ id: ETranslations.global_no_wallet });
+
+  let addressText = '';
+  if (account?.address) {
+    addressText = accountUtils.shortenAddress({
+      address: account.address || '',
+    });
+  } else if (!account?.address && account?.addressDetail.isValid) {
+    addressText = '';
+  } else {
+    addressText = intl.formatMessage({ id: ETranslations.wallet_no_address });
+  }
+
+  return (
+    <XStack
+      flex={1}
+      py="$2"
+      px="$3"
+      gap="$2"
+      bg="$bgApp"
+      alignItems="center"
+      userSelect="none"
+      hoverStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              bg: '$bgHover',
+            }
+      }
+      pressStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              bg: '$bgActive',
+            }
+      }
+      focusable={!triggerDisabled}
+      focusVisibleStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+            }
+      }
+      borderCurve="continuous"
+      onPress={handlePress}
+      disabled={triggerDisabled}
+      {...rest}
+    >
+      <InterAccountAvatar
+        isLoading={isLoading}
+        account={account}
+        indexedAccount={indexedAccount}
+      />
+      <YStack flex={1}>
+        <InterWalletAndAccountName
+          isLoading={isLoading}
+          walletName={walletName}
+          accountName={accountName}
+        />
+        <InterAddressText isLoading={isLoading} addressText={addressText} />
+      </YStack>
+      {triggerDisabled ? null : (
+        <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" size="$5" />
+      )}
+    </XStack>
+  );
+};
 
 export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
@@ -62,133 +241,16 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
     }, []);
 
-    let addressText = '';
-    if (account?.address) {
-      addressText = accountUtils.shortenAddress({
-        address: account.address || '',
-      });
-    } else if (!account?.address && account?.addressDetail.isValid) {
-      addressText = '';
-    } else {
-      addressText = 'No Address';
-    }
-
-    const accountName = account?.name ? account.name : 'No Account';
-    const walletName = wallet?.name ? wallet.name : 'No Wallet';
-
-    const renderAvatar = useCallback(() => {
-      if (isLoading) {
-        return <Skeleton w="$8" h="$8" />;
-      }
-      if (account?.address || account?.addressDetail.isValid) {
-        return (
-          <AccountAvatar
-            size="$8"
-            borderRadius="$2"
-            account={account}
-            indexedAccount={indexedAccount}
-          />
-        );
-      }
-      return <Icon size="$8" name="XSquareOutline" color="$iconSubdued" />;
-    }, [isLoading, account, indexedAccount]);
-
-    const renderWalletAndAccountName = useCallback(() => {
-      if (isLoading) {
-        return (
-          <XStack alignItems="center" h="$5">
-            <Skeleton w={118} h={14} />
-          </XStack>
-        );
-      }
-      return (
-        <XStack>
-          <XStack maxWidth="$40">
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {walletName}
-            </SizableText>
-          </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            /
-          </SizableText>
-          <XStack maxWidth="$40">
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {accountName}
-            </SizableText>
-          </XStack>
-        </XStack>
-      );
-    }, [isLoading, accountName, walletName]);
-    const renderAddressText = useCallback(() => {
-      if (isLoading) {
-        return (
-          <XStack alignItems="center" h="$5">
-            <Skeleton w={196} h={14} />
-          </XStack>
-        );
-      }
-      return (
-        <SizableText
-          flex={1}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          color="$text"
-        >
-          {addressText}
-        </SizableText>
-      );
-    }, [isLoading, addressText]);
     return (
-      <XStack
-        flex={1}
-        py="$2"
-        px="$3"
-        gap="$2"
-        bg="$bgApp"
-        alignItems="center"
-        userSelect="none"
-        hoverStyle={
-          triggerDisabled
-            ? undefined
-            : {
-                bg: '$bgHover',
-              }
-        }
-        pressStyle={
-          triggerDisabled
-            ? undefined
-            : {
-                bg: '$bgActive',
-              }
-        }
-        focusable={!triggerDisabled}
-        focusVisibleStyle={
-          triggerDisabled
-            ? undefined
-            : {
-                outlineWidth: 2,
-                outlineColor: '$focusRing',
-                outlineStyle: 'solid',
-              }
-        }
-        borderCurve="continuous"
-        onPress={handlePress}
-        disabled={triggerDisabled}
+      <AccountSelectorTriggerDappConnectionCmp
+        account={account}
+        wallet={wallet}
+        indexedAccount={indexedAccount}
+        isLoading={isLoading}
+        triggerDisabled={triggerDisabled}
+        handlePress={handlePress}
         {...rest}
-      >
-        {renderAvatar()}
-        <YStack flex={1}>
-          {renderWalletAndAccountName()}
-          {renderAddressText()}
-        </YStack>
-        {triggerDisabled ? null : (
-          <Icon
-            name="ChevronGrabberVerOutline"
-            color="$iconSubdued"
-            size="$5"
-          />
-        )}
-      </XStack>
+      />
     );
   },
 );

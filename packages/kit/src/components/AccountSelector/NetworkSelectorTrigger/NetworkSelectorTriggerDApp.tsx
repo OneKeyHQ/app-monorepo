@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import {
@@ -7,11 +8,102 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
+
+const InterNetworkIcon = ({
+  network,
+  isLoading,
+}: {
+  network?: IServerNetwork;
+  isLoading?: boolean;
+}) => {
+  if (isLoading) {
+    return <Skeleton w="$5" h="$5" />;
+  }
+  if (network?.logoURI) {
+    return <NetworkAvatar networkId={network?.id} size="$5" />;
+  }
+
+  return <Icon size="$5" name="QuestionmarkOutline" color="$iconSubdued" />;
+};
+
+const InterNetworkName = ({
+  network,
+  isLoading,
+}: {
+  network?: IServerNetwork;
+  isLoading?: boolean;
+}) => {
+  if (isLoading) {
+    return <Skeleton w="$14" h="$5" />;
+  }
+  return <SizableText size="$bodyMd">{network?.name}</SizableText>;
+};
+
+export const NetworkSelectorTriggerDappConnectionCmp = ({
+  network,
+  isLoading,
+  triggerDisabled,
+  handlePress,
+  ...rest
+}: {
+  network?: IServerNetwork;
+  isLoading?: boolean;
+  triggerDisabled?: boolean;
+  handlePress?: () => void;
+} & ComponentProps<typeof XStack>) => (
+  <XStack
+    alignItems="center"
+    onPress={handlePress}
+    h="$10"
+    px="$3"
+    hoverStyle={
+      triggerDisabled
+        ? undefined
+        : {
+            bg: '$bgHover',
+          }
+    }
+    pressStyle={
+      triggerDisabled
+        ? undefined
+        : {
+            bg: '$bgActive',
+          }
+    }
+    focusable={!triggerDisabled}
+    focusVisibleStyle={
+      triggerDisabled
+        ? undefined
+        : {
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineStyle: 'solid',
+          }
+    }
+    borderCurve="continuous"
+    disabled={triggerDisabled}
+    gap="$2"
+    userSelect="none"
+    {...rest}
+  >
+    <InterNetworkIcon network={network} isLoading={isLoading} />
+    <InterNetworkName network={network} isLoading={isLoading} />
+    {triggerDisabled ? null : (
+      <Icon
+        ml="$-2"
+        name="ChevronDownSmallOutline"
+        color="$iconSubdued"
+        size="$5"
+      />
+    )}
+  </XStack>
+);
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
@@ -38,71 +130,13 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
     showChainSelector();
   }, [beforeShowTrigger, showChainSelector]);
 
-  const renderNetworkIcon = useCallback(() => {
-    if (isLoading) {
-      return <Skeleton w="$5" h="$5" />;
-    }
-    if (network?.logoURI) {
-      return <NetworkAvatar networkId={network?.id} size="$5" />;
-    }
-
-    return <Icon size="$5" name="QuestionmarkOutline" color="$iconSubdued" />;
-  }, [isLoading, network?.logoURI, network?.id]);
-
-  const renderNetworkName = useCallback(() => {
-    if (isLoading) {
-      return <Skeleton w="$14" h="$5" />;
-    }
-    return <SizableText size="$bodyMd">{network?.name}</SizableText>;
-  }, [isLoading, network?.name]);
-
   return (
-    <XStack
-      alignItems="center"
-      onPress={handlePress}
-      h="$10"
-      px="$3"
-      hoverStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              bg: '$bgHover',
-            }
-      }
-      pressStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              bg: '$bgActive',
-            }
-      }
-      focusable={!triggerDisabled}
-      focusVisibleStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }
-      }
-      borderCurve="continuous"
-      disabled={triggerDisabled}
-      gap="$2"
-      userSelect="none"
-      {...rest}
-    >
-      {renderNetworkIcon()}
-      {renderNetworkName()}
-      {triggerDisabled ? null : (
-        <Icon
-          ml="$-2"
-          name="ChevronDownSmallOutline"
-          color="$iconSubdued"
-          size="$5"
-        />
-      )}
-    </XStack>
+    <NetworkSelectorTriggerDappConnectionCmp
+      handlePress={handlePress}
+      network={network}
+      isLoading={isLoading}
+      triggerDisabled={triggerDisabled}
+    />
   );
 });
 

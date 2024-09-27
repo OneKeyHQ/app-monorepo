@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IStakeTxResponse,
@@ -137,7 +136,7 @@ export function useUniversalWithdraw({
               message,
               payload: [account.address, message],
             },
-            sceneName: EAccountSelectorSceneName.home,
+            walletInternalSign: true,
           })) as string;
 
         stakeTx =
