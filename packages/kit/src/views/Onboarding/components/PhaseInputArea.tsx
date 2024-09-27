@@ -22,10 +22,12 @@ import type {
   IElement,
   IInputProps,
   IPageFooterProps,
+  IPasteEventParams,
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import {
   Button,
+  EPasteEventPayloadItemType,
   Form,
   HeightTransition,
   Icon,
@@ -255,16 +257,11 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (onPasteMnemonic(v, index)) {
-        onInputChange('');
-        onChange?.('');
-        return;
-      }
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [index, onChange, onInputChange, onPasteMnemonic],
+    [onChange, onInputChange],
   );
 
   const handleOpenChange = useCallback(
@@ -283,6 +280,7 @@ function BasicPhaseInput(
       preventDefault: () => void;
       stopPropagation: () => void;
     }) => {
+      console.log(e)
       if (suggestionsRef.current && e.keyCode > 48 && e.keyCode < 58) {
         const suggestionIndex = e.keyCode - 48;
         updateInputValue(suggestionsRef.current[suggestionIndex - 1]);
@@ -291,6 +289,17 @@ function BasicPhaseInput(
       }
     },
     [suggestionsRef, updateInputValue],
+  );
+
+  const handlePaste = useCallback(
+    (event: IPasteEventParams) => {
+      console.log('event--', event.nativeEvent);
+      const item = event.nativeEvent?.items?.[0];
+      if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
+        onPasteMnemonic(item?.data, index);
+      }
+    },
+    [index, onPasteMnemonic],
   );
 
   const handleKeyPress = useCallback(
@@ -351,6 +360,7 @@ function BasicPhaseInput(
       <Input
         {...inputProps}
         secureTextEntry={platformEnv.isNativeAndroid}
+        onPaste={handlePaste}
         keyboardType={
           platformEnv.isNativeAndroid ? 'visible-password' : 'ascii-capable'
         }

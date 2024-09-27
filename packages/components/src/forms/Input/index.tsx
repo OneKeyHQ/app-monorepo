@@ -40,6 +40,16 @@ import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
+export enum EPasteEventPayloadItemType {
+  TextPlain = 'text/plain',
+}
+
+export type IPasteEventPayloadItem = {
+  data?: string;
+  type?: EPasteEventPayloadItemType;
+};
+export type IPasteEventPayload = IPasteEventPayloadItem[];
+export type IPasteEventParams = { nativeEvent: { items?: IPasteEventPayload } };
 export type IInputProps = {
   displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
@@ -50,7 +60,7 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
   containerProps?: IGroupProps;
-  onPaste?: () => void;
+  onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
     /** Web only */
