@@ -100,6 +100,13 @@ const WithdrawPage = () => {
     return resp;
   }, [networkId, provider.name, tokenInfo.symbol]);
 
+  const unstakingPeriod = useMemo(() => {
+    if (details.provider.unstakingTime) {
+      return Math.ceil(details.provider.unstakingTime / (24 * 60 * 60));
+    }
+    return details.unstakingPeriod; // day
+  }, [details]);
+
   return (
     <Page>
       <Page.Header
@@ -127,7 +134,7 @@ const WithdrawPage = () => {
               ? String(provider.minUnstakeAmount)
               : undefined
           }
-          unstakingPeriod={details.unstakingPeriod}
+          unstakingPeriod={unstakingPeriod}
           providerLabel={providerLabel}
           showPayWith={showPayWith}
           payWithToken={details.rewardToken}

@@ -3,8 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -38,6 +40,7 @@ const ApproveBaseStakePage = () => {
         stakingInfo: {
           label: EEarnLabels.Unknown,
           protocol: provider.name,
+          protocolLogoURI: provider.logoURI,
           send: { token: token.info, amount },
           tags: [actionTag],
         },
@@ -62,6 +65,17 @@ const ApproveBaseStakePage = () => {
   );
 
   const providerLabel = useProviderLabel(provider.name);
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: provider.name,
+      symbol: token.info.symbol,
+      action: 'stake',
+      amount: '1',
+    });
+    return resp;
+  }, [networkId, provider.name, token.info.symbol]);
 
   return (
     <Page>
@@ -93,6 +107,7 @@ const ApproveBaseStakePage = () => {
             spenderAddress: details.approveTarget ?? '',
             token: token.info,
           }}
+          estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>
     </Page>
