@@ -193,6 +193,7 @@ const SwapQuoteResult = ({
             bg="$transparent"
             p="$0"
             cursor="pointer"
+            disabled={!quoteResult?.info.provider || swapQuoteLoading}
           >
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
@@ -203,7 +204,7 @@ const SwapQuoteResult = ({
                 providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
                 onOpenResult={
-                  quoteResult?.info.provider
+                  quoteResult?.info.provider && !swapQuoteLoading
                     ? () => setOpenResult(!openResult)
                     : undefined
                 }
