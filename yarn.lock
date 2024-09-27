@@ -6688,6 +6688,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
+    electron-windows-security: "npm:0.0.2"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -19691,6 +19692,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-windows-security@npm:0.0.2":
+  version: 0.0.2
+  resolution: "electron-windows-security@npm:0.0.2"
+  dependencies:
+    nan: "npm:2.20.0"
+  checksum: 10/bfd18d054932f3ba79b007a19c3d68e80715d01b354f15e9faff1ab54960d084f00198b344bfcc9c1cffdc06cb3d6b2eab513483f1376c22b51f0f40a47937f5
+  languageName: node
+  linkType: hard
+
 "electron@npm:27.3.1":
   version: 27.3.1
   resolution: "electron@npm:27.3.1"
@@ -28663,6 +28673,15 @@ __metadata:
     object-assign: "npm:^4.0.1"
     thenify-all: "npm:^1.0.0"
   checksum: 10/8427de0ece99a07e9faed3c0c6778820d7543e3776f9a84d22cf0ec0a8eb65f6e9aee9c9d353ff9a105ff62d33a9463c6ca638974cc652ee8140cd1e35951c87
+  languageName: node
+  linkType: hard
+
+"nan@npm:2.20.0":
+  version: 2.20.0
+  resolution: "nan@npm:2.20.0"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/5f16e4c9953075d9920229c703c1d781c0b74118ce3d9e926b448a4eef92b7d8be5ac6adc748a13a5fafb594436cbfe63250e3471aefdd78e3a0cd14603b9ba7
   languageName: node
   linkType: hard
 
