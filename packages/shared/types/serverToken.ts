@@ -81,14 +81,16 @@ export type IFetchServerTokenListResponse = {
 };
 
 export interface IFetchServerTokenDetailParams {
-  accountId: string;
+  accountId?: string;
+  walletId?: string;
   networkId: string;
-  accountAddress: string;
+  accountAddress?: string;
   xpub?: string;
-  contractList: string[];
+  contractList?: string[];
   withCheckInscription?: boolean;
   withFrozenBalance?: boolean;
   keywords?: string;
+  signal?: AbortSignal;
 }
 
 export interface IFetchServerTokenDetailResponse {

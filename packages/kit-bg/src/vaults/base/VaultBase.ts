@@ -291,6 +291,43 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IMeasureRpcStatusResult> {
     throw new NotImplemented();
   }
+
+  async fetchTokenDetails(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const useRpc = true;
+    if (useRpc) {
+      return this.fetchTokenDetailsByRpc(params);
+    }
+    return this.fetchTokenDetailsByApi(params);
+  }
+
+  async fetchTokenDetailsByApi(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const client = await this.backgroundApi.serviceToken.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      omit(params, ['walletId', 'accountId', 'signal']),
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+            walletId: params.walletId,
+          }),
+        signal: params.signal ?? undefined,
+      },
+    );
+    return resp;
+  }
+
+  async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    throw new NotImplemented();
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -1086,41 +1123,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    throw new NotImplemented();
-  }
-
-  async fetchTokenDetails(
-    params: IFetchServerTokenDetailParams,
-  ): Promise<IFetchServerTokenDetailResponse> {
-    const useRpc = true;
-    if (useRpc) {
-      return this.fetchTokenDetailsByRpc(params);
-    }
-    return this.fetchTokenDetailsByApi(params);
-  }
-
-  async fetchTokenDetailsByApi(
-    params: IFetchServerTokenDetailParams,
-  ): Promise<IFetchServerTokenDetailResponse> {
-    const client = await this.backgroundApi.serviceToken.getClient(
-      EServiceEndpointEnum.Wallet,
-    );
-    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      omit(params, ['accountId']),
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId: params.accountId,
-          }),
-      },
-    );
-    return resp;
-  }
-
-  async fetchTokenDetailsByRpc(
-    params: IFetchServerTokenDetailParams,
-  ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
 }

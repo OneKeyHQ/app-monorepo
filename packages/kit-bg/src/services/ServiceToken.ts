@@ -299,24 +299,16 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async searchTokens(params: ISearchTokensParams) {
     const { accountId, networkId, contractList, keywords } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._searchTokensControllers.push(controller);
-    const resp = await client.post<{ data: ISearchTokenItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        contractList,
-        keywords,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-        signal: controller.signal,
-      },
-    );
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const resp = await vault.fetchTokenDetails({
+      accountId,
+      networkId,
+      contractList,
+      keywords,
+      signal: controller.signal,
+    });
 
     return resp.data.data.map((item) => ({
       ...item.info,

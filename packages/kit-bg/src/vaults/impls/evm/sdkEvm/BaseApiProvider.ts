@@ -247,7 +247,7 @@ class BaseApiProvider {
     extraTokensMap?: Record<string, IServerTokenItemWithInfo>,
   ): Promise<IServerAccountTokenItem[]> {
     const { contractList = [], keywords } = params;
-    if (keywords === 'string') {
+    if (typeof keywords === 'string') {
       return this.searchChainTokens(params);
     }
     console.log('getChainTokens: ======>>>>>> getChainTokensFromDB: ', params);
@@ -392,18 +392,21 @@ class BaseApiProvider {
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     let reply: IServerAccountTokenItem[] = [];
+    const contractList = params.contractList?.map((n) =>
+      this.normalizeAddress(n),
+    );
     const hasAccount = params.accountAddress || params.xpub;
-    if (hasAccount && params.contractList.length) {
+    if (hasAccount && params.contractList?.length) {
       reply = await this.listAccountTokenWithBalance({
         networkId: params.networkId,
-        accountAddress: params.accountAddress,
+        accountAddress: params.accountAddress ?? '',
         xpub: params.xpub,
-        contractList: params.contractList,
+        contractList,
       });
     } else {
       reply = await this.getChainTokens({
         networkId: params.networkId,
-        contractList: params.contractList,
+        contractList,
         keywords: params.keywords,
       });
     }
