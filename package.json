@@ -62,7 +62,7 @@
     "@onekeyfe/cross-inpage-provider-types": "2.1.9",
     "@onekeyfe/extension-bridge-hosted": "2.1.9",
     "@onekeyfe/hd-ble-sdk": "1.0.11",
-    "@onekeyfe/hd-core": "^1.0.11",
+    "@onekeyfe/hd-core": "1.0.11",
     "@onekeyfe/hd-shared": "1.0.11",
     "@onekeyfe/hd-transport": "1.0.11",
     "@onekeyfe/hd-web-sdk": "1.0.11",
