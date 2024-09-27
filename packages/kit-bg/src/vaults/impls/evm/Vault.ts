@@ -29,7 +29,11 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateGasParams,
+  IFeeInfoUnit,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type {
   IFetchServerTokenDetailParams,
@@ -1154,6 +1158,14 @@ export default class Vault extends VaultBase {
   ): Promise<IFetchServerTokenDetailResponse> {
     const provider = await this.getRpcClient();
     const resp = await provider.queryAccountToken(params);
+    return resp;
+  }
+
+  override async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.fetchEstimateFeeInfo(params);
     return resp;
   }
 }

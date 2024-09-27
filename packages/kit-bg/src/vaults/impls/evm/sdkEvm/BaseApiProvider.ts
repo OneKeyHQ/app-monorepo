@@ -8,6 +8,10 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
+  IEstimateGasParams,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
+import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
   IFetchServerTokenListApiParams,
@@ -429,6 +433,40 @@ class BaseApiProvider {
         data: result as unknown as IFetchTokenDetailItem[],
       },
     };
+  }
+
+  async fetchEstimateFeeInfo(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    if (typeof params.encodedTx === 'object') {
+      if (
+        'from' in params.encodedTx &&
+        typeof params.encodedTx.from === 'string'
+      ) {
+        params.encodedTx.from = this.normalizeAddress(params.encodedTx.from);
+      }
+      if ('to' in params.encodedTx && typeof params.encodedTx.to === 'string') {
+        params.encodedTx.to = this.normalizeAddress(params.encodedTx.to);
+      }
+    }
+    const estimateFeeInfo = await this.estimateFee(params);
+    return {
+      data: {
+        data: {
+          ...estimateFeeInfo,
+          nativeTokenPrice: {
+            price: 0,
+            price24h: 0,
+          },
+        },
+      },
+    };
+  }
+
+  async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse['data']['data']> {
+    throw new NotImplemented();
   }
 }
 

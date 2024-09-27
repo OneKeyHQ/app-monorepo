@@ -1132,7 +1132,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
-    const useRpc = false;
+    const useRpc = true;
     if (useRpc) {
       return this.estimateFeeByRpc(params);
     }
