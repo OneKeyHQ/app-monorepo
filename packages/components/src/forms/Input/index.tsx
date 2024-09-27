@@ -50,11 +50,6 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
   containerProps?: IGroupProps;
-  // not support on Native
-  // https://github.com/facebook/react-native/pull/45425
-  // About to add to React-Native.
-  //
-  // https://github.com/Expensify/App/pull/47203/files#diff-9bdb475c2552cf81e4b3cdf2496ef5f779fd501613ac89c1252538b008722abc
   onPaste?: () => void;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
@@ -303,6 +298,7 @@ function BaseInput(
           editable={editable}
           {...readOnlyStyle}
           {...props}
+          onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
             platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
               ? onNumberPadChangeText
