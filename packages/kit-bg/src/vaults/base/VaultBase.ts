@@ -47,7 +47,10 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
+  IEstimateGasParams,
+  IEstimateGasResp,
   IFeeInfoUnit,
+  IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -1123,6 +1126,42 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
+    throw new NotImplemented();
+  }
+
+  async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const useRpc = false;
+    if (useRpc) {
+      return this.estimateFeeByRpc(params);
+    }
+    return this.estimateFeeByApi(params);
+  }
+
+  async estimateFeeByApi(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const { accountId, ...rest } = params;
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IEstimateGasResp }>(
+      '/wallet/v1/account/estimate-fee',
+      rest,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp;
+  }
+
+  async estimateFeeByRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
     throw new NotImplemented();
   }
 }

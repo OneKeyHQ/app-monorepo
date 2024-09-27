@@ -31,22 +31,14 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
-    const { accountId, ...rest } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
-    const resp = await client.post<{ data: IEstimateGasResp }>(
-      '/wallet/v1/account/estimate-fee',
-      rest,
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
+    const vault = await vaultFactory.getVault({
+      networkId: params.networkId,
+      accountId: params.accountId,
+    });
+    const resp = await vault.estimateFee(params);
 
     this._estimateFeeController = null;
 

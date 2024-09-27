@@ -111,6 +111,12 @@ export type IEstimateGasResp = {
   };
 };
 
+export type IServerEstimateFeeResponse = {
+  data: {
+    data: IEstimateGasResp; 
+  }
+}
+
 export type IFeeSelectorItem = {
   label: string;
   icon: string;
