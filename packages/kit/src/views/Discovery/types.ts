@@ -96,6 +96,7 @@ export interface IMobileBottomOptionsProps {
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
   onShare: () => void;
+  onCopyUrl: () => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
