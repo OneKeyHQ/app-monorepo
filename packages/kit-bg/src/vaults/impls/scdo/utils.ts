@@ -93,7 +93,9 @@ export function decodeTransferPayload(payload: string):
       hexUtils.stripHexPrefix(address),
     );
     return {
-      address: (address as string).replace(/^0x/, `${addressBytes[0]}S`),
+      address: (address as string)
+        .toLowerCase()
+        .replace(/^0x/, `${addressBytes[0]}S`),
       amount: new BigNumber((amount as BigNumber).toString()).toFixed(),
     };
   } catch (error) {

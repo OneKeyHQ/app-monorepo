@@ -56,15 +56,15 @@ axios.interceptors.response.use(
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
-      defaultLogger.app.network.end({
-        requestType: 'axios',
-        method: config.method as string,
-        path: config.url as string,
-        statusCode: response.status,
-        requestId: config.headers[HEADER_REQUEST_ID_KEY],
-        responseCode: response.data.code,
-      });
       if (!isOneKeyDomain) {
+        defaultLogger.app.network.end({
+          requestType: 'axios',
+          method: config.method as string,
+          path: config.url as string,
+          statusCode: response.status,
+          requestId: config.headers[HEADER_REQUEST_ID_KEY],
+          responseCode: response.data.code,
+        });
         return response;
       }
     } catch (e) {
@@ -72,6 +72,10 @@ axios.interceptors.response.use(
     }
 
     const data = response.data as IOneKeyAPIBaseResponse;
+
+    // test code
+    // data.code = 4485;
+    // data.message = 'hhhh';
 
     if (data.code !== 0) {
       const requestIdKey = HEADER_REQUEST_ID_KEY;
@@ -81,6 +85,7 @@ axios.interceptors.response.use(
 
       throw new OneKeyServerApiError({
         autoToast: true,
+        disableFallbackMessage: true,
         message: data.message,
         code: data.code,
         data,

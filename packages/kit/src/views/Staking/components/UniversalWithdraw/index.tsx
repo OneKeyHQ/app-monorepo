@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -19,10 +20,12 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
+import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
 
 type IUniversalWithdrawProps = {
@@ -47,6 +50,10 @@ type IUniversalWithdrawProps = {
   payWithToken?: string;
   payWithTokenRate?: string;
 
+  hideReceived?: boolean;
+
+  estimateFeeResp?: IEarnEstimateFeeResp;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -67,6 +74,9 @@ export const UniversalWithdraw = ({
   payWithToken,
   payWithTokenRate = '1',
 
+  hideReceived,
+  estimateFeeResp,
+
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
@@ -81,14 +91,18 @@ export const UniversalWithdraw = ({
   const intl = useIntl();
 
   const onPress = useCallback(async () => {
+    Keyboard.dismiss();
     Dialog.show({
+      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
+      title: intl.formatMessage(
+        { id: ETranslations.earn_provider_asset_withdrawal },
+        {
+          'provider': capitalizeString(providerName ?? ''),
+          'asset': tokenSymbol?.toUpperCase() ?? '',
+        },
+      ),
       renderContent: (
-        <WithdrawShouldUnderstand
-          provider={providerName ?? ''}
-          logoURI={tokenImageUri ?? ''}
-          symbol={tokenSymbol ?? ''}
-          withdrawalPeriod={unstakingPeriod ?? 3}
-        />
+        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
       ),
       onConfirm: async (inst) => {
         try {
@@ -249,7 +263,7 @@ export const UniversalWithdraw = ({
         />
       ) : null}
       <CalculationList>
-        {amountValue ? (
+        {amountValue && !hideReceived ? (
           <CalculationListItem>
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
@@ -348,6 +362,12 @@ export const UniversalWithdraw = ({
               )}
             </CalculationListItem.Value>
           </CalculationListItem>
+        ) : null}
+        {estimateFeeResp ? (
+          <EstimateNetworkFee
+            estimateFeeResp={estimateFeeResp}
+            isVisible={Number(amountValue) > 0}
+          />
         ) : null}
       </CalculationList>
 

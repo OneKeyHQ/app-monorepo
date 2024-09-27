@@ -7,7 +7,7 @@
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
     "postinstall": "yarn keytar",
-    "keytar": "bash development/build_keytar.sh",
+    "keytar": "node development/build_keytar.js",
     "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./build && rimraf ./dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf ./node_modules/.cache",
     "start": "yarn dev",
@@ -36,7 +36,7 @@
     "adm-zip": "^0.5.10",
     "electron-context-menu": "^3.5.0",
     "electron-is-dev": "^2.0.0",
-    "electron-log": "^4.4.8",
+    "electron-log": "5.2.0",
     "electron-store": "^8.2.0",
     "electron-updater": "6.1.8",
     "keytar": "^7.9.0",

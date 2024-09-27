@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
-import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
@@ -18,7 +17,7 @@ import {
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -41,6 +40,9 @@ import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
+
+logger.initialize();
+logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
@@ -608,6 +610,10 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_OPEN_LOGGER_FILE, () => {
+    void shell.openPath(path.dirname(logger.transports.file.getFile().path));
   });
 
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {

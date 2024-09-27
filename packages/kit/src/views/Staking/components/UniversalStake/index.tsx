@@ -16,18 +16,24 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnEstimateFeeResp,
+  IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
+import {
+  EstimateNetworkFee,
+  calcDaysSpent,
+  useShowStakeEstimateGasAlert,
+} from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -63,10 +69,10 @@ type IUniversalStakeProps = {
   isReachBabylonCap?: boolean;
   isDisabled?: boolean;
 
+  estimateFeeResp?: IEarnEstimateFeeResp;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
-
-const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
 export const UniversalStake = ({
   price,
@@ -87,11 +93,13 @@ export const UniversalStake = ({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
+  estimateFeeResp,
   isDisabled,
   maxAmount,
   onConfirm,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
+  const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -168,35 +176,31 @@ export const UniversalStake = ({
       amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
       isLessThanMinAmount ||
+      isGreaterThanMaxAmount ||
       isReachBabylonCap
     );
   }, [
     amountValue,
     isInsufficientBalance,
     isLessThanMinAmount,
+    isGreaterThanMaxAmount,
     isReachBabylonCap,
   ]);
 
-  const estAnnualRewards = useMemo(() => {
+  const estAnnualRewardsState = useMemo(() => {
     if (Number(amountValue) > 0 && Number(apr) > 0) {
       const amountBN = BigNumber(amountValue)
         .multipliedBy(apr ?? 0)
         .dividedBy(100);
-      return (
-        <ValuePriceListItem
-          amount={amountBN.toFixed()}
-          tokenSymbol={tokenSymbol ?? ''}
-          fiatSymbol={symbol}
-          fiatValue={
-            Number(price) > 0
-              ? amountBN.multipliedBy(price).toFixed()
-              : undefined
-          }
-        />
-      );
+      return {
+        amount: amountBN.toFixed(),
+        fiatValue:
+          Number(price) > 0
+            ? amountBN.multipliedBy(price).toFixed()
+            : undefined,
+      };
     }
-    return null;
-  }, [amountValue, apr, price, symbol, tokenSymbol]);
+  }, [amountValue, apr, price]);
 
   const btcStakeTerm = useMemo(() => {
     if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
@@ -218,33 +222,76 @@ export const UniversalStake = ({
     return null;
   }, [minStakeTerm]);
 
+  const daysSpent = useMemo(() => {
+    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
+      return calcDaysSpent(
+        estAnnualRewardsState?.fiatValue,
+        estimateFeeResp.feeFiatValue,
+      );
+    }
+  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
-    Dialog.show({
-      renderContent: (
-        <StakeShouldUnderstand
-          provider={details.provider.name.toLowerCase()}
-          symbol={details.token.info.symbol.toLowerCase()}
-          logoURI={details.token.info.logoURI}
-          apr={details.provider.apr}
-          updateFrequency={details.updateFrequency}
-          unstakingPeriod={details.unstakingPeriod}
-          receiveSymbol={details.rewardToken}
-        />
-      ),
-      onConfirm: async (inst) => {
-        try {
-          setLoading(true);
-          await inst.close();
-          await onConfirm?.(amountValue);
-        } finally {
-          setLoading(false);
-        }
-      },
-      onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
-      showCancelButton: false,
-    });
-  }, [onConfirm, amountValue, details, intl]);
+    const showDialog = () => {
+      Dialog.show({
+        renderIcon: (
+          <Image width="$14" height="$14" src={details.token.info.logoURI} />
+        ),
+        title: intl.formatMessage(
+          { id: ETranslations.earn_provider_asset_staking },
+          {
+            'provider': capitalizeString(details.provider.name.toLowerCase()),
+            'asset': details.token.info.symbol.toUpperCase(),
+          },
+        ),
+        renderContent: (
+          <StakeShouldUnderstand
+            provider={details.provider.name.toLowerCase()}
+            symbol={details.token.info.symbol.toLowerCase()}
+            apr={details.provider.apr}
+            updateFrequency={details.updateFrequency}
+            unstakingPeriod={details.unstakingPeriod}
+            receiveSymbol={details.rewardToken}
+          />
+        ),
+        onConfirm: async (inst) => {
+          try {
+            setLoading(true);
+            await inst.close();
+            await onConfirm?.(amountValue);
+          } finally {
+            setLoading(false);
+          }
+        },
+        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+        showCancelButton: false,
+      });
+    };
+    if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
+      const daySpent = calcDaysSpent(
+        estAnnualRewardsState.fiatValue,
+        estimateFeeResp.feeFiatValue,
+      );
+      if (daySpent && daySpent > 5) {
+        showEstimateGasAlert({
+          daysConsumed: daySpent,
+          estFiatValue: estimateFeeResp.feeFiatValue,
+          onConfirm: showDialog,
+        });
+        return;
+      }
+    }
+    showDialog();
+  }, [
+    onConfirm,
+    amountValue,
+    details,
+    intl,
+    estAnnualRewardsState?.fiatValue,
+    estimateFeeResp,
+    showEstimateGasAlert,
+  ]);
 
   return (
     <StakingFormWrapper>
@@ -318,7 +365,7 @@ export const UniversalStake = ({
         />
       ) : null}
       <CalculationList>
-        {estAnnualRewards ? (
+        {estAnnualRewardsState ? (
           <CalculationListItem>
             <CalculationListItem.Label>
               {intl.formatMessage({
@@ -326,7 +373,12 @@ export const UniversalStake = ({
               })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              {estAnnualRewards}
+              <ValuePriceListItem
+                tokenSymbol={tokenSymbol ?? ''}
+                fiatSymbol={symbol}
+                amount={estAnnualRewardsState.amount}
+                fiatValue={estAnnualRewardsState.fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -426,6 +478,18 @@ export const UniversalStake = ({
               </XStack>
             </CalculationListItem.Value>
           </CalculationListItem>
+        ) : null}
+        {estimateFeeResp ? (
+          <EstimateNetworkFee
+            estimateFeeResp={estimateFeeResp}
+            isVisible={!!estAnnualRewardsState?.fiatValue}
+            onPress={() => {
+              showEstimateGasAlert({
+                daysConsumed: daysSpent,
+                estFiatValue: estimateFeeResp.feeFiatValue,
+              });
+            }}
+          />
         ) : null}
       </CalculationList>
       <Page.Footer
