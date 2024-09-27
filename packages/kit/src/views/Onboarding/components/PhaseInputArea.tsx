@@ -280,7 +280,6 @@ function BasicPhaseInput(
       preventDefault: () => void;
       stopPropagation: () => void;
     }) => {
-      console.log(e)
       if (suggestionsRef.current && e.keyCode > 48 && e.keyCode < 58) {
         const suggestionIndex = e.keyCode - 48;
         updateInputValue(suggestionsRef.current[suggestionIndex - 1]);
