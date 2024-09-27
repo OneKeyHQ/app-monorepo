@@ -1,4 +1,4 @@
-import type { IFetchAccountTokensResp } from './token';
+import type { IFetchAccountTokensResp, IFetchTokenDetailItem } from './token';
 
 type IFiatAmount = string;
 type IAmountUnit = string;
@@ -79,3 +79,19 @@ export type IFetchServerTokenListResponse = {
     data: IFetchAccountTokensResp;
   };
 };
+
+export interface IFetchServerTokenDetailParams {
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
+  xpub?: string;
+  contractList: string[];
+  withCheckInscription?: boolean;
+  withFrozenBalance?: boolean;
+}
+
+export interface IFetchServerTokenDetailResponse {
+  data: {
+    data: IFetchTokenDetailItem[];
+  };
+}

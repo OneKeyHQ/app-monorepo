@@ -77,6 +77,30 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
   }
 
   @backgroundMethod()
+  async getTokens({
+    networkId,
+    tokenIdOnNetworkList,
+  }: {
+    networkId: string;
+    tokenIdOnNetworkList: string[];
+  }) {
+    const tokenMap = (await this.getRawData())?.data;
+    if (!tokenMap) {
+      return [];
+    }
+
+    return tokenIdOnNetworkList
+      .map((tokenIdOnNetwork) => {
+        const tokenId = accountUtils.buildLocalTokenId({
+          networkId,
+          tokenIdOnNetwork,
+        });
+        return tokenMap[tokenId];
+      })
+      .filter((token): token is IToken => !!token);
+  }
+
+  @backgroundMethod()
   async updateAccountTokenList({
     networkId,
     accountAddress,

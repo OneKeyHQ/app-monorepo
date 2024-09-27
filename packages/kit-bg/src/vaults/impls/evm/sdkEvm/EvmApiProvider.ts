@@ -73,12 +73,13 @@ class EvmApiProvider extends BaseApiProvider {
       }
       return ['eth_getBalance', [accountAddress, 'latest']];
     });
-    console.log('listAccountTokenFromRpc: ======>>>>>> requests: ', requests);
 
+    console.log('listAccountTokenFromRpc: ======>>>>>> requests: ', requests);
     const balances = await this.client.batchCall<string[]>(
       requests as IJsonRpcBatchParams,
     );
     console.log('listAccountTokenFromRpc: ======>>>>>>6 balances: ', balances);
+
     const list = tokens.map<IServerAccountTokenItem>((token, i) => {
       let balance = new B(0);
       try {
@@ -115,7 +116,6 @@ class EvmApiProvider extends BaseApiProvider {
   override async getChainTokensFromRpc(
     params: IServerTokenListQuery,
   ): Promise<IServerAccountTokenItem[]> {
-    console.log('getChainTokensFromRpc: ======>>>>>>1: ', params);
     const nativeToken = await this.getNativeToken();
     const filteredContractList = uniq(params.contractList).filter(Boolean);
     const payloads = filteredContractList.map((t) =>
@@ -132,13 +132,11 @@ class EvmApiProvider extends BaseApiProvider {
     );
 
     console.log('getChainTokensFromRpc: ======>>>>>>2 payloads: ', payloads);
-
     const infos = await this.client.batchChunkCall<string>(
       payloads as Array<Array<[string, IJsonRpcParams]>>,
     );
     console.log('getChainTokensFromRpc: ======>>>>>>3 infos: ', infos);
     const tokens = infos.map((item, idx) => {
-      // TODO: cache result
       const address = this.normalizeAddress(filteredContractList[idx]);
       const [name = '', symbol = '', decimals] = item.map((result, i) => {
         const { type } = compareList[i];
@@ -148,7 +146,6 @@ class EvmApiProvider extends BaseApiProvider {
           return undefined;
         }
         try {
-          console.log('====>>>>decode: ', type, bytesData);
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return defaultAbiCoder.decode([type], bytesData)[0];
         } catch (error) {

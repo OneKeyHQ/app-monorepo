@@ -2,7 +2,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, omit } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
@@ -61,6 +61,8 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
@@ -1084,6 +1086,41 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenListByRpc(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
+    throw new NotImplemented();
+  }
+
+  async fetchTokenDetails(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const useRpc = true;
+    if (useRpc) {
+      return this.fetchTokenDetailsByRpc(params);
+    }
+    return this.fetchTokenDetailsByApi(params);
+  }
+
+  async fetchTokenDetailsByApi(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const client = await this.backgroundApi.serviceToken.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      omit(params, ['accountId']),
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+      },
+    );
+    return resp;
+  }
+
+  async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
 }

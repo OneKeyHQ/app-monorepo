@@ -32,10 +32,12 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type {
-  IFetchTokenListParams,
-  IFetchTokenListResponse,
-  IToken,
-} from '@onekeyhq/shared/types/token';
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+} from '@onekeyhq/shared/types/serverToken';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -1131,15 +1133,27 @@ export default class Vault extends VaultBase {
   // RPC Client
   async getRpcClient() {
     const url = 'https://core.public.infstones.com'; // Core
-    const provider = new EvmApiProvider({ url });
+    const provider = new EvmApiProvider({
+      url,
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+    });
     return provider;
   }
 
   override async fetchTokenListByRpc(
-    params: IFetchTokenListParams,
-  ): Promise<IFetchTokenListResponse> {
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
     const provider = await this.getRpcClient();
     const resp = await provider.listAccountToken(params);
+    return resp;
+  }
+
+  override async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.queryAccountToken(params);
     return resp;
   }
 }

@@ -1,6 +1,7 @@
 import B from 'bignumber.js';
 
 import type { IServerFiatTokenInfo } from '@onekeyhq/shared/types/serverToken';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 // export interface IJsonRpcResponse<T = unknown> {
 //   id?: string | number;
@@ -20,7 +21,7 @@ export function safeNumberString(n: string | B | number, fallback?: string) {
 }
 
 export const nativeTokenUniqueKey = 'native';
-export function parseTokenItem(token: IServerFiatTokenInfo) {
+export function parseTokenItem(token: IServerFiatTokenInfo | IToken) {
   const res = {
     balance: token.balance,
     balanceParsed: safeNumberString(token?.balanceParsed ?? ''),

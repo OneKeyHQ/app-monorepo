@@ -277,28 +277,18 @@ class ServiceToken extends ServiceBase {
       return [];
     }
 
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        accountAddress,
-        xpub,
-        contractList,
-        withCheckInscription,
-        withFrozenBalance,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
+    });
+    const resp = await vault.fetchTokenDetails({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      contractList,
+      withCheckInscription,
+      withFrozenBalance,
     });
 
     return vault.fillTokensDetails({

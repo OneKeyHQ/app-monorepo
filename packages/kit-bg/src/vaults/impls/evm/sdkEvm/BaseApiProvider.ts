@@ -4,19 +4,22 @@ import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
   IFetchServerTokenListApiParams,
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
   IServerAccountTokenItem,
-  IServerFiatTokenInfo,
   IServerTokenItemWithInfo,
   IServerTokenListQuery,
 } from '@onekeyhq/shared/types/serverToken';
 import type {
   IAccountToken,
+  IFetchTokenDetailItem,
   ITokenData,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
@@ -24,6 +27,8 @@ import type {
 import { parseTokenItem } from './utils';
 
 class BaseApiProvider {
+  backgroundApi: IBackgroundApi;
+
   public client: JsonRPCRequest;
 
   public networkId = '';
@@ -33,9 +38,13 @@ class BaseApiProvider {
   constructor(
     public option: {
       url: string;
+      networkId: string;
+      backgroundApi: IBackgroundApi;
     },
   ) {
+    this.backgroundApi = option.backgroundApi;
     this.client = new JsonRPCRequest(option.url);
+    this.networkId = option.networkId;
   }
 
   public normalizeAddress(address: string) {
@@ -43,20 +52,26 @@ class BaseApiProvider {
   }
 
   public async getNativeToken(): Promise<IServerAccountTokenItem> {
-    // const [token]: ITokenItemWithInfo = await this.getChainTokensFromDB({
-    //   networkId: this.networkId,
-    //   contractList: [this.nativeTokenAddress],
-    // });
+    const [token] = await this.getChainTokensFromDB({
+      networkId: this.networkId,
+      contractList: [this.nativeTokenAddress],
+    });
+    if (!token) {
+      throw new Error('getNativeToken failed');
+    }
+    if (!token?.info?.decimals) {
+      throw new Error('getNativeToken decimals failed');
+    }
     return {
       info: {
-        name: 'Core',
-        symbol: 'Core',
+        name: token?.info?.name,
+        symbol: token?.info?.symbol,
         address: this.nativeTokenAddress,
         sendAddress: undefined,
         logoURI: '',
         totalSupply: undefined,
         isNative: true,
-        decimals: 18,
+        decimals: token?.info?.decimals,
         riskLevel: 1,
         uniqueKey: this.nativeTokenAddress,
         networkId: this.networkId,
@@ -177,7 +192,6 @@ class BaseApiProvider {
       Boolean,
     );
 
-    console.log('===> listAccountTokenFromThirdParty tokens: ', tokens);
     const chainTokens = await this.getChainTokens(
       {
         networkId: this.networkId,
@@ -189,10 +203,6 @@ class BaseApiProvider {
       ) as Record<string, IServerAccountTokenItem>,
     );
 
-    console.log(
-      'listAccountTokenFromThirdParty: ======>>>>>> tokens: ',
-      tokens,
-    );
     // fill with db token meta
     const chainTokensMap = keyBy(
       chainTokens,
@@ -236,6 +246,10 @@ class BaseApiProvider {
     }
     console.log('getChainTokens: ======>>>>>> getChainTokensFromDB: ', params);
     let tokens = await this.getChainTokensFromDB(params);
+    console.log(
+      'getChainTokens: ======>>>>>> getChainTokensFromDB Result: ',
+      tokens,
+    );
     tokens = tokens.map((t, i) => {
       if (t) {
         return t;
@@ -259,7 +273,6 @@ class BaseApiProvider {
     });
 
     if (chainTokens?.length) {
-      // TODO: save token to db
       // this.fillInfoToChainRpcTokens({
       //   networkId: params.networkId,
       //   chainTokens,
@@ -285,9 +298,12 @@ class BaseApiProvider {
   async getChainTokensFromDB(
     params: IServerTokenListQuery,
   ): Promise<IServerAccountTokenItem[]> {
-    const { contractList = [] } = params;
-    const res = [] as IServerFiatTokenInfo[];
-    const tokensMap = keyBy(res, (r) => r.info?.address ?? '');
+    const { contractList = [], networkId } = params;
+    const res = await this.backgroundApi.simpleDb.localTokens.getTokens({
+      networkId,
+      tokenIdOnNetworkList: contractList,
+    });
+    const tokensMap = keyBy(res, (r) => r.address);
 
     return contractList.map((c) => {
       const token = tokensMap[c];
@@ -302,6 +318,42 @@ class BaseApiProvider {
     params: IServerTokenListQuery,
   ): Promise<IServerAccountTokenItem[]> {
     throw new NotImplemented();
+  }
+
+  async queryAccountToken(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    let reply: IServerAccountTokenItem[] = [];
+    const hasAccount = params.accountAddress || params.xpub;
+    if (hasAccount && params.contractList.length) {
+      reply = await this.listAccountTokenWithBalance({
+        networkId: params.networkId,
+        accountAddress: params.accountAddress,
+        xpub: params.xpub,
+        contractList: params.contractList,
+      });
+    } else {
+      reply = [];
+    }
+
+    const result = reply
+      .map((t) => {
+        if (!t) {
+          return null;
+        }
+        t.price = '0';
+        t.fiatValue = '0';
+        t.availableBalanceFiatValue = '0';
+        t.frozenBalanceFiatValue = '0';
+        return t;
+      })
+      .filter(Boolean);
+
+    return {
+      data: {
+        data: result as unknown as IFetchTokenDetailItem[],
+      },
+    };
   }
 }
 
