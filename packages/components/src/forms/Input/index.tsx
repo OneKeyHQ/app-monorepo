@@ -62,7 +62,7 @@ export type IInputProps = {
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
-} & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
+} & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
     /** Web only */
@@ -182,10 +182,45 @@ function BaseInput(
 
   useEffect(() => {
     if (!platformEnv.isNative && inputRef.current && onPaste) {
+      const handleWebPaste = (event: {
+        type: 'paste';
+        clipboardData: {
+          items: DataTransferItem[];
+        };
+      }) => {
+        if (event.type === 'paste') {
+          const clipboardData = event.clipboardData;
+          if (clipboardData && clipboardData.items.length > 0) {
+            const items: IPasteEventPayload = [];
+            const promises: Promise<void>[] = [];
+
+            for (let i = 0; i < clipboardData.items.length; i += 1) {
+              const item = clipboardData.items[i];
+              if (item.kind === 'string') {
+                promises.push(
+                  new Promise<void>((resolve) => {
+                    item.getAsString((pastedText) => {
+                      items.push({
+                        data: pastedText,
+                        type: EPasteEventPayloadItemType.TextPlain,
+                      });
+                      resolve();
+                    });
+                  }),
+                );
+              }
+            }
+
+            void Promise.all(promises).then(() => {
+              onPaste({ nativeEvent: { items } });
+            });
+          }
+        }
+      };
       const inputElement = inputRef.current as unknown as HTMLInputElement;
-      inputElement.addEventListener('paste', onPaste);
+      inputElement.addEventListener('paste', handleWebPaste as any);
       return () => {
-        inputElement.removeEventListener('paste', onPaste);
+        inputElement.removeEventListener('paste', handleWebPaste as any);
       };
     }
   }, [onPaste]);

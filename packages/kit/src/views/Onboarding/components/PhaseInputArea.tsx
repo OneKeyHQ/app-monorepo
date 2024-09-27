@@ -344,6 +344,7 @@ function BasicPhaseInput(
       pr: '$0',
       justifyContent: 'center',
     },
+    onPaste: handlePaste,
     error: isShowError,
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
@@ -358,7 +359,6 @@ function BasicPhaseInput(
       <Input
         {...inputProps}
         secureTextEntry={platformEnv.isNativeAndroid}
-        onPaste={handlePaste}
         keyboardType={
           platformEnv.isNativeAndroid ? 'visible-password' : 'ascii-capable'
         }
