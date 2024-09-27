@@ -42,14 +42,14 @@ const WebAuthSwitchContainer = ({
           !credId &&
           checked
         ) {
-          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              ERootRoutes.Modal,
-              EModalRoutes.SettingModal,
-              EModalSettingRoutes.SettingListModal,
-            ],
-            params: { flag: 'webAuthRegistration' },
-          });
+          // void backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          //   routes: [
+          //     ERootRoutes.Modal,
+          //     EModalRoutes.SettingModal,
+          //     EModalSettingRoutes.SettingListModal,
+          //   ],
+          //   params: { flag: 'webAuthRegistration' },
+          // });
           return;
         }
         if (!skipRegistration) {
