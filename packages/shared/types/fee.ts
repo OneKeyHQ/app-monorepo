@@ -113,9 +113,9 @@ export type IEstimateGasResp = {
 
 export type IServerEstimateFeeResponse = {
   data: {
-    data: IEstimateGasResp; 
-  }
-}
+    data: IEstimateGasResp;
+  };
+};
 
 export type IFeeSelectorItem = {
   label: string;
@@ -124,3 +124,33 @@ export type IFeeSelectorItem = {
   feeInfo: IFeeInfoUnit;
   type: EFeeType;
 };
+
+export interface IServerGasPriceParams {
+  networkId: string;
+}
+
+export interface IServerGasPriceResponse {
+  isEIP1559?: boolean;
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+  feeUTXO?: IFeeUTXO[];
+}
+
+export interface IServerGasFeeParams {
+  networkId: string;
+  encodedTx: IEncodedTx;
+}
+
+export interface IServerGasFeeResponse {
+  baseFee?: string;
+}
+
+export interface IServerGasLimitParams {
+  networkId: string;
+  encodedTx: IEncodedTx;
+}
+
+export interface IServerGasLimitResponse {
+  gasLimit: string;
+  estimateGasLimit?: string;
+}

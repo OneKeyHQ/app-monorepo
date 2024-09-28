@@ -1165,7 +1165,7 @@ export default class Vault extends VaultBase {
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
     const provider = await this.getRpcClient();
-    const resp = await provider.fetchEstimateFeeInfo(params);
+    const resp = await provider.estimateFee(params);
     return resp;
   }
 }

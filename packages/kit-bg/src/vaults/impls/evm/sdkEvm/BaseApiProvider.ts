@@ -10,6 +10,12 @@ import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
+  IServerGasFeeParams,
+  IServerGasFeeResponse,
+  IServerGasLimitParams,
+  IServerGasLimitResponse,
+  IServerGasPriceParams,
+  IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenDetailParams,
@@ -435,7 +441,7 @@ class BaseApiProvider {
     };
   }
 
-  async fetchEstimateFeeInfo(
+  async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
     if (typeof params.encodedTx === 'object') {
@@ -449,7 +455,7 @@ class BaseApiProvider {
         params.encodedTx.to = this.normalizeAddress(params.encodedTx.to);
       }
     }
-    const estimateFeeInfo = await this.estimateFee(params);
+    const estimateFeeInfo = await this.estimateFeeFromRpc(params);
     return {
       data: {
         data: {
@@ -463,7 +469,23 @@ class BaseApiProvider {
     };
   }
 
-  async estimateFee(
+  async getGasPrice(
+    params: IServerGasPriceParams,
+  ): Promise<IServerGasPriceResponse> {
+    throw new NotImplemented();
+  }
+
+  async getGasFee(params: IServerGasFeeParams): Promise<IServerGasFeeResponse> {
+    throw new NotImplemented();
+  }
+
+  async getGasLimit(
+    params: IServerGasLimitParams,
+  ): Promise<IServerGasLimitResponse> {
+    throw new NotImplemented();
+  }
+
+  async estimateFeeFromRpc(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse['data']['data']> {
     throw new NotImplemented();

@@ -1,12 +1,18 @@
 import B from 'bignumber.js';
 import { defaultAbiCoder } from 'ethers/lib/utils';
-import { isNil, keyBy, uniq } from 'lodash';
+import { isNil, keyBy, orderBy, uniq } from 'lodash';
 
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
 } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import type {
+  IEstimateGasParams,
+  IEstimateGasResp,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenListApiParams,
   IServerAccountTokenItem,
@@ -208,6 +214,80 @@ class EvmApiProvider extends BaseApiProvider {
     });
     console.log('getChainTokensFromRpc: ======>>>>>>5 result: ', result);
     return result as IServerAccountTokenItem[];
+  }
+
+  override async estimateFeeFromRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse['data']['data']> {
+    const [network, [nativeToken], gasPriceInfo, gasFeeInfo] =
+      await Promise.all([
+        this.backgroundApi.serviceNetwork.getNetwork({
+          networkId: params.networkId,
+        }),
+        this.getChainTokens({
+          networkId: params.networkId,
+          contractList: [this.nativeTokenAddress],
+        }),
+        this.getGasPrice(params),
+        this.getGasFee({
+          networkId: params.networkId,
+          encodedTx: params.encodedTx ?? ({} as IEncodedTx),
+        }),
+      ]);
+
+    if (!gasFeeInfo.baseFee) {
+      throw new Error('baseFee is undefined');
+    }
+
+    const res = {
+      nativeSymbol: nativeToken.info?.symbol,
+      nativeDecimals: nativeToken.info?.decimals,
+      nativeTokenPrice: {
+        price: nativeToken.price,
+        price24h: nativeToken.price24h,
+      },
+      feeSymbol: network.feeMeta?.symbol,
+      feeDecimals: network.feeMeta?.decimals,
+      baseFee: new B(gasFeeInfo.baseFee)
+        .shiftedBy(-network.feeMeta.decimals)
+        .toString(),
+      isEIP1559: gasPriceInfo.isEIP1559,
+      gas: gasPriceInfo.gas,
+      gasEIP1559: gasPriceInfo.gasEIP1559,
+      feeUTXO: gasPriceInfo.feeUTXO,
+      feeTron: undefined,
+    };
+
+    if (params.encodedTx) {
+      const gasLimitInfo = await this.getGasLimit({
+        networkId: params.networkId,
+        encodedTx: params.encodedTx ?? {},
+      });
+
+      res.gas = res.gas?.map((item) => ({
+        gasPrice: item.gasPrice,
+        gasLimitForDisplay: String(gasLimitInfo.estimateGasLimit),
+        gasLimit: String(gasLimitInfo.gasLimit),
+      }));
+
+      res.gas = orderBy(res.gas, [(n) => n.gasPrice], 'asc');
+
+      res.gasEIP1559 = res.gasEIP1559?.map((item) => ({
+        baseFeePerGas: item.baseFeePerGas,
+        maxFeePerGas: item.maxFeePerGas,
+        maxPriorityFeePerGas: item.maxPriorityFeePerGas,
+        gasLimitForDisplay: String(gasLimitInfo.estimateGasLimit),
+        gasLimit: String(gasLimitInfo.gasLimit),
+      }));
+
+      res.gasEIP1559 = orderBy(
+        res.gasEIP1559,
+        [(n) => n.maxPriorityFeePerGas],
+        'asc',
+      );
+    }
+
+    return res as unknown as IEstimateGasResp;
   }
 }
 
