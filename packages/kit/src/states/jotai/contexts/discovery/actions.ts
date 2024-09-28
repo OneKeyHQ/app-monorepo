@@ -204,10 +204,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             if (!value) {
               return;
             }
-            if (
-              !payload?.hasCustomizedTitle &&
-              tabToModify?.hasCustomizedTitle
-            ) {
+            if (!payload?.hasCustomTitle && tabToModify?.hasCustomTitle) {
               return;
             }
           }

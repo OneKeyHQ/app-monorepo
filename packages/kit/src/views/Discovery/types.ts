@@ -73,7 +73,7 @@ export interface IWebTab {
   url: string;
   isActive?: boolean;
   title?: string;
-  hasCustomizedTitle?: boolean;
+  hasCustomTitle?: boolean;
   favicon?: string;
   thumbnail?: string;
   isBookmark?: boolean;
