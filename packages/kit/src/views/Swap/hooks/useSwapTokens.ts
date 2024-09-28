@@ -217,12 +217,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      const recentTokenPairs =
-        await backgroundApiProxy.simpleDb.swapConfigs.getRecentTokenPairs();
-      setInAppNotificationAtom((prev) => ({
-        ...prev,
-        swapRecentTokenPairs: recentTokenPairs,
-      }));
+      await backgroundApiProxy.serviceSwap.swapRecentTokenSync();
     })();
   }, [setInAppNotificationAtom]);
 
