@@ -49,19 +49,7 @@ function useBrowserOptionsAction() {
                   required: {
                     value: true,
                     message: intl.formatMessage({
-                      id: ETranslations.explore_enter_bookmark_name,
-                    }),
-                  },
-                  minLength: {
-                    value: 1,
-                    message: intl.formatMessage({
-                      id: ETranslations.explore_bookmark_at_least,
-                    }),
-                  },
-                  maxLength: {
-                    value: 24,
-                    message: intl.formatMessage({
-                      id: ETranslations.explore_bookmark_exceed,
+                      id: ETranslations.global_name,
                     }),
                   },
                 }}
@@ -73,7 +61,11 @@ function useBrowserOptionsAction() {
           onConfirm: (dialogInstance) => {
             const form = dialogInstance.getForm()?.getValues();
             if (form?.name) {
-              setWebTabData({ ...item, title: form.name });
+              setWebTabData({
+                ...item,
+                title: form.name,
+                isCustomizedTitle: true,
+              });
               setTabs();
             }
             Toast.success({

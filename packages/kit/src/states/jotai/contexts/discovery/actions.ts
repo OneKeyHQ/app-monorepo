@@ -204,6 +204,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             if (!value) {
               return;
             }
+            if (!payload?.isCustomizedTitle && tabToModify?.isCustomizedTitle) {
+              return;
+            }
           }
           // @ts-expect-error
           tabToModify[key] = value;
