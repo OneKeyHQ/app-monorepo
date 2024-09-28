@@ -64,7 +64,7 @@ function useBrowserOptionsAction() {
               setWebTabData({
                 ...item,
                 title: form.name,
-                isCustomizedTitle: true,
+                hasCustomizedTitle: true,
               });
               setTabs();
             }
