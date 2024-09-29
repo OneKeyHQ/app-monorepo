@@ -343,10 +343,7 @@ function BaseInput(
           editable={editable}
           {...readOnlyStyle}
           {...props}
-          // onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
-          onPaste={() => {
-            alert('onPaste');
-          }}
+          onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
           onChangeText={
             platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
               ? onNumberPadChangeText
