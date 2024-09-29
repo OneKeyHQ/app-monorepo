@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
 import { IconButton } from '../../actions/IconButton';
@@ -15,9 +16,11 @@ export const DialogHeaderContext = createContext<IDialogHeaderContextType>(
 export function DialogIcon({
   icon,
   tone,
+  renderIcon,
 }: {
   icon: IDialogHeaderProps['icon'];
   tone?: IDialogHeaderProps['tone'];
+  renderIcon?: IDialogHeaderProps['renderIcon'];
 }) {
   const colors: {
     iconWrapperBg: ColorTokens;
@@ -50,6 +53,13 @@ export function DialogIcon({
       }
     }
   }, [tone]);
+  if (renderIcon) {
+    return (
+      <Stack alignSelf="flex-start" mb="$5">
+        {renderIcon}
+      </Stack>
+    );
+  }
   return icon ? (
     <Stack
       alignSelf="flex-start"
@@ -88,14 +98,14 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
     showExitButton = true,
     tone,
     children,
+    renderIcon,
   } = headerProps;
-
   return (
     <Stack p="$5" pr="$16">
       {children || (
         <>
           {/* leading icon */}
-          <DialogIcon icon={icon} tone={tone} />
+          <DialogIcon icon={icon} tone={tone} renderIcon={renderIcon} />
           {/* title and description */}
           {title || description ? (
             <>

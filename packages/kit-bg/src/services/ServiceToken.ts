@@ -454,8 +454,19 @@ class ServiceToken extends ServiceBase {
   public async getAccountLocalTokens(params: {
     accountId: string;
     networkId: string;
+    accountAddress?: string;
+    xpub?: string;
   }) {
     const { accountId, networkId } = params;
+
+    if (params.accountAddress || params.xpub) {
+      return this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
+        networkId,
+        accountAddress: params.accountAddress,
+        xpub: params.xpub,
+      });
+    }
+
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,

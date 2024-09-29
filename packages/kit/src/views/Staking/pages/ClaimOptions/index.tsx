@@ -53,13 +53,14 @@ const ClaimOptions = () => {
     async ({ item }) => {
       await handleClaim({
         identity: item.id,
+        amount: item.amount,
         symbol: details.token.info.symbol,
         provider,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: provider,
           protocolLogoURI: details.provider.logoURI,
-          send: { token: details.token.info, amount: item.amount },
+          receive: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],
         },
         onSuccess: () => {

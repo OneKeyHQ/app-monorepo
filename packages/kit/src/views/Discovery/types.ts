@@ -73,6 +73,7 @@ export interface IWebTab {
   url: string;
   isActive?: boolean;
   title?: string;
+  hasCustomTitle?: boolean;
   favicon?: string;
   thumbnail?: string;
   isBookmark?: boolean;
@@ -96,6 +97,7 @@ export interface IMobileBottomOptionsProps {
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
   onShare: () => void;
+  onCopyUrl: () => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;

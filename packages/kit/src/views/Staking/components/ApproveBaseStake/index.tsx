@@ -17,12 +17,18 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { CalculationList, CalculationListItem } from '../CalculationList';
-import StakingFormWrapper from '../StakingFormWrapper';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationList, CalculationListItem } from '../CalculationList';
+import {
+  EstimateNetworkFee,
+  calcDaysSpent,
+  useShowStakeEstimateGasAlert,
+} from '../EstimateNetworkFee';
+import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -47,6 +53,8 @@ type IApproveBaseStakeProps = {
   estReceiveToken?: string;
   estReceiveTokenRate?: string;
 
+  estimateFeeResp?: IEarnEstimateFeeResp;
+
   providerName?: string;
   providerLogo?: string;
   onConfirm?: (amount: string) => Promise<void>;
@@ -66,12 +74,13 @@ export const ApproveBaseStake = ({
   approveTarget,
 
   providerLabel,
-
+  estimateFeeResp,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
 }: PropsWithChildren<IApproveBaseStakeProps>) => {
   const intl = useIntl();
+  const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
@@ -191,37 +200,65 @@ export const ApproveBaseStake = ({
     });
   }, [amountValue, approveTarget, navigationToSendConfirm, trackAllowance]);
 
-  const onSubmit = useCallback(async () => {
-    setLoading(true);
-    try {
-      await onConfirm?.(amountValue);
-    } finally {
-      setLoading(false);
-    }
-  }, [onConfirm, amountValue]);
-
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
-  const estAnnualRewards = useMemo(() => {
-    if (Number(amountValue) > 0 && apr && Number(apr) > 0) {
-      const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
-      return (
-        <ValuePriceListItem
-          tokenSymbol={token.symbol}
-          amount={amountBN.toFixed()}
-          fiatSymbol={symbol}
-          fiatValue={
-            Number(price) > 0
-              ? amountBN.multipliedBy(price).toFixed()
-              : undefined
-          }
-        />
+  const estAnnualRewardsState = useMemo(() => {
+    if (Number(amountValue) > 0 && Number(apr) > 0) {
+      const amountBN = BigNumber(amountValue)
+        .multipliedBy(apr ?? 0)
+        .dividedBy(100);
+      return {
+        amount: amountBN.toFixed(),
+        fiatValue:
+          Number(price) > 0
+            ? amountBN.multipliedBy(price).toFixed()
+            : undefined,
+      };
+    }
+  }, [amountValue, apr, price]);
+
+  const daysSpent = useMemo(() => {
+    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
+      return calcDaysSpent(
+        estAnnualRewardsState?.fiatValue,
+        estimateFeeResp.feeFiatValue,
       );
     }
-    return null;
-  }, [amountValue, apr, price, symbol, token.symbol]);
+  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+
+  const onSubmit = useCallback(async () => {
+    const submitFn = async () => {
+      setLoading(true);
+      try {
+        await onConfirm?.(amountValue);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
+      const daySpent = calcDaysSpent(
+        estAnnualRewardsState.fiatValue,
+        estimateFeeResp.feeFiatValue,
+      );
+      if (daySpent && daySpent > 5) {
+        showEstimateGasAlert({
+          daysConsumed: daySpent,
+          estFiatValue: estimateFeeResp.feeFiatValue,
+          onConfirm: submitFn,
+        });
+        return;
+      }
+    }
+    await submitFn();
+  }, [
+    onConfirm,
+    amountValue,
+    estAnnualRewardsState,
+    estimateFeeResp,
+    showEstimateGasAlert,
+  ]);
 
   return (
     <StakingFormWrapper>
@@ -266,7 +303,7 @@ export const ApproveBaseStake = ({
         />
       ) : null}
       <CalculationList>
-        {estAnnualRewards ? (
+        {estAnnualRewardsState ? (
           <CalculationListItem>
             <CalculationListItem.Label>
               {intl.formatMessage({
@@ -274,7 +311,12 @@ export const ApproveBaseStake = ({
               })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              {estAnnualRewards}
+              <ValuePriceListItem
+                tokenSymbol={token.symbol}
+                fiatSymbol={symbol}
+                amount={estAnnualRewardsState.amount}
+                fiatValue={estAnnualRewardsState.fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -326,6 +368,18 @@ export const ApproveBaseStake = ({
               </XStack>
             </CalculationListItem.Value>
           </CalculationListItem>
+        ) : null}
+        {estimateFeeResp ? (
+          <EstimateNetworkFee
+            estimateFeeResp={estimateFeeResp}
+            isVisible={!!estAnnualRewardsState?.fiatValue}
+            onPress={() => {
+              showEstimateGasAlert({
+                daysConsumed: daysSpent,
+                estFiatValue: estimateFeeResp.feeFiatValue,
+              });
+            }}
+          />
         ) : null}
       </CalculationList>
       <Page.Footer

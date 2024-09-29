@@ -1,3 +1,4 @@
+import { StackActions } from '@react-navigation/native';
 import { isNil } from 'lodash';
 
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -72,6 +73,7 @@ async function navigateToNotificationDetail({
         accountAddress,
         transactionHash,
         notificationId,
+        checkIsFocused: false,
       };
     }
   }
@@ -113,11 +115,11 @@ async function navigateToNotificationDetail({
         params,
       });
     } else {
-      // navigate\pushModal\pushFullModal
-      global.$navigationRef.current?.navigate(
+      const pushAction = StackActions.push(
         modalParams.screen,
         modalParams.params,
       );
+      global.$navigationRef.current?.dispatch(pushAction);
     }
   }
 }

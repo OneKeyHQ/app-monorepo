@@ -110,6 +110,7 @@ export type IDesktopAPI = {
   setBadge: (params: INotificationSetBadgeParams) => void;
   getNotificationPermission: () => INotificationPermissionDetail;
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
+  openLoggerFile: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -172,7 +173,7 @@ const getChannel = () => {
   return channel;
 };
 
-const desktopApi = {
+const desktopApi = Object.freeze({
   getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
@@ -225,6 +226,7 @@ const desktopApi = {
     },
   getBundleInfo: () =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
+  openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
@@ -352,7 +354,7 @@ const desktopApi = {
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-};
+});
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
