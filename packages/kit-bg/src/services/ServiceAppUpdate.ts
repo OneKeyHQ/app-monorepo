@@ -174,8 +174,6 @@ class ServiceAppUpdate extends ServiceBase {
     ) {
       errorText =
         ETranslations.update_installation_package_possibly_compromised;
-    } else if (errorText.includes('Insufficient disk space')) {
-      errorText = ETranslations.earn_insufficient_staked_balance;
     }
     void appUpdatePersistAtom.set((prev) => ({
       ...prev,
