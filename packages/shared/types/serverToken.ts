@@ -72,6 +72,7 @@ export type IFetchServerTokenListApiParams = {
   xpub?: string;
   isAllNetwork?: boolean;
   isForceRefresh?: boolean;
+  onlyReturnSpecificTokens?: boolean;
 };
 
 export type IFetchServerTokenListResponse = {

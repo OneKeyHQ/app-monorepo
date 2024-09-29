@@ -226,24 +226,34 @@ class BaseApiProvider {
       (t: IServerAccountTokenItem) => t?.info?.address as string,
     );
 
-    return tokens.map((t) => {
-      if (t.info?.address === undefined || t.info?.address === null) {
-        return t;
-      }
-      const token = chainTokensMap[t.info?.address];
-      if (token) {
-        t.info.logoURI = token.info?.logoURI || t.info?.logoURI;
-        t.info.name = token.info?.name;
-        t.info.symbol = token.info?.symbol;
-        t.price = token.price ?? t.price;
-        t.price24h = token.price24h;
-        if (t.info && typeof token.info?.decimals === 'number') {
-          t.info.decimals = token.info.decimals;
+    return tokens
+      .filter((t) => {
+        if (params.onlyReturnSpecificTokens) {
+          if (t.info?.address === undefined || t.info?.address === null) {
+            return false;
+          }
+          return params.contractList?.includes(t.info.address);
         }
-      }
+        return true;
+      })
+      .map((t) => {
+        if (t.info?.address === undefined || t.info?.address === null) {
+          return t;
+        }
+        const token = chainTokensMap[t.info?.address];
+        if (token) {
+          t.info.logoURI = token.info?.logoURI || t.info?.logoURI;
+          t.info.name = token.info?.name;
+          t.info.symbol = token.info?.symbol;
+          t.price = token.price ?? t.price;
+          t.price24h = token.price24h;
+          if (t.info && typeof token.info?.decimals === 'number') {
+            t.info.decimals = token.info.decimals;
+          }
+        }
 
-      return t;
-    });
+        return t;
+      });
   }
 
   listAccountTokenFromRpc(
@@ -412,6 +422,7 @@ class BaseApiProvider {
         accountAddress: params.accountAddress ?? '',
         xpub: params.xpub,
         contractList,
+        onlyReturnSpecificTokens: true,
       });
     } else {
       reply = await this.getChainTokens({
