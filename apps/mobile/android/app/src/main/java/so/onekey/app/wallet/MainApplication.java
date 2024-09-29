@@ -18,6 +18,7 @@ import com.facebook.soloader.SoLoader;
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
+import so.onekey.app.wallet.pasteinput.PasteInputModulePackage;
 
 import java.util.List;
 
@@ -32,13 +33,12 @@ public class MainApplication extends Application implements ReactApplication {
 
       @Override
       protected List<ReactPackage> getPackages() {
-        @SuppressWarnings("UnnecessaryLocalVariable")
-
         List<ReactPackage> packages = new PackageList(this).getPackages();
         // Packages that cannot be autolinked yet can be added manually here, for example:
         // packages.add(new MyReactNativePackage());
           packages.add(new BundleModulePackage(mReactNativeHost));
           packages.add(new AutoUpdateModulePackage(mReactNativeHost));
+          packages.add(new PasteInputModulePackage(mReactNativeHost));
         return packages;
       }
 

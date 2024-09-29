@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { InteractionManager } from 'react-native';
+import { InteractionManager, requireNativeComponent } from 'react-native';
 import {
   Group,
   Input as TMInput,
@@ -39,6 +39,8 @@ import type {
 import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
+
+const RCTMyCustomView = requireNativeComponent('AndroidPasteTextInput');
 
 export enum EPasteEventPayloadItemType {
   TextPlain = 'text/plain',
@@ -308,7 +310,7 @@ function BaseInput(
 
       {/* input */}
       <Group.Item>
-        <TMInput
+        <RCTMyCustomView
           unstyled
           ref={inputRef}
           keyboardType={keyboardType}
@@ -343,7 +345,10 @@ function BaseInput(
           editable={editable}
           {...readOnlyStyle}
           {...props}
-          onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
+          // onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
+          onPaste={() => {
+            alert('onPaste');
+          }}
           onChangeText={
             platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
               ? onNumberPadChangeText
@@ -452,7 +457,7 @@ function BaseInputUnControlled(
       },
   );
   return (
-    <Input
+    <RCTMyCustomView
       ref={inputRef}
       {...inputProps}
       value={internalValue}
