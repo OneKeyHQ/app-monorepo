@@ -15,7 +15,6 @@ jobs:
         node-version: [20.x]
 
     steps:
-
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
