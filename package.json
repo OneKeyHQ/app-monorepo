@@ -93,6 +93,7 @@
     "electron-root-path": "^1.1.0",
     "electron-taskbar-badge": "1.1.2",
     "eslint": "^8.25.0",
+    "ethersV6": "npm:ethers@^6.11.1",
     "event-source-polyfill": "^1.0.31",
     "expiry-map": "^2.0.0",
     "expo": "50.0.20",

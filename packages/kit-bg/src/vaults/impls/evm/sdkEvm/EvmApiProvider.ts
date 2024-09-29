@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import B from 'bignumber.js';
-import { ethers } from 'ethers';
 import { defaultAbiCoder } from 'ethers/lib/utils';
+import { ethers } from 'ethersV6';
 import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
@@ -414,14 +414,13 @@ class EvmApiProvider extends BaseApiProvider {
 
   protected async getL1Fee(params: IServerGasFeeParams): Promise<IAmountUnit> {
     const encodedTx = params.encodedTx as IEncodedTxEvm;
-    // @ts-expect-error
     const unsignedTx = ethers.Transaction.from({
       // type: encodedTx.type,
       to: encodedTx.to,
       data: encodedTx.data,
       value: encodedTx.value,
       gasLimit: encodedTx.gasLimit,
-      nonce: encodedTx.nonce ?? 1, // all >0 have the same effect
+      nonce: Number(encodedTx.nonce ?? 1), // all >0 have the same effect
       chainId: encodedTx.chainId ?? 1, // all >0 have the same effect
       gasPrice: encodedTx.gasPrice ?? 1e9, // value to keep size for unsignedSerialized length
       maxFeePerGas: encodedTx.maxFeePerGas ?? 1e9, // value to keep size for unsignedSerialized length

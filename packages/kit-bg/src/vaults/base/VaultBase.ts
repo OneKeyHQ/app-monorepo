@@ -119,6 +119,8 @@ import type {
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type { MessageDescriptor } from 'react-intl';
 
+const useRpc = true;
+
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
@@ -298,7 +300,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async fetchTokenDetails(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
-    const useRpc = true;
     if (useRpc) {
       return this.fetchTokenDetailsByRpc(params);
     }
@@ -1099,7 +1100,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenList(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    const useRpc = true;
     if (useRpc) {
       return this.fetchTokenListByRpc(params);
     }
@@ -1132,7 +1132,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
-    const useRpc = true;
     if (useRpc) {
       return this.estimateFeeByRpc(params);
     }
