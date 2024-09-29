@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 /* eslint max-classes-per-file: "off" */
 
+import qs from 'querystring';
+
 import BigNumber from 'bignumber.js';
-import { isEmpty, omit } from 'lodash';
+import { isEmpty, isNil, omit, omitBy } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
@@ -64,6 +66,8 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
   IFetchServerTokenListParams,
@@ -1097,6 +1101,49 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // Api Request
+  async fetchAccountDetails(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    if (useRpc) {
+      return this.fetchAccountDetailsByRpc(params);
+    }
+    return this.fetchAccountDetailsByApi(params);
+  }
+
+  async fetchAccountDetailsByApi(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const queryParams = {
+      ...omit(params, ['accountId', 'signal']),
+    };
+
+    const client = await this.backgroundApi.serviceAccountProfile.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.get<{
+      data: IFetchAccountDetailsResp;
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+        signal: params.signal,
+      },
+    );
+
+    return resp;
+  }
+
+  async fetchAccountDetailsByRpc(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    throw new NotImplemented();
+  }
+
   async fetchTokenList(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {

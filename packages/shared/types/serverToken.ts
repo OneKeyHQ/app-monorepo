@@ -1,3 +1,7 @@
+import type {
+  IFetchAccountDetailsParams,
+  IFetchAccountDetailsResp,
+} from './address';
 import type { IFetchAccountTokensResp, IFetchTokenDetailItem } from './token';
 
 type IFiatAmount = string;
@@ -97,5 +101,17 @@ export interface IFetchServerTokenDetailParams {
 export interface IFetchServerTokenDetailResponse {
   data: {
     data: IFetchTokenDetailItem[];
+  };
+}
+
+export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {
+  accountAddress: string;
+  xpub?: string;
+  signal?: AbortSignal;
+};
+
+export interface IFetchServerAccountDetailsResponse {
+  data: {
+    data: IFetchAccountDetailsResp;
   };
 }
