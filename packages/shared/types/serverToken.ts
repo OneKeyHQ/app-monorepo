@@ -1,7 +1,7 @@
 import type { IFetchAccountTokensResp, IFetchTokenDetailItem } from './token';
 
 type IFiatAmount = string;
-type IAmountUnit = string;
+export type IAmountUnit = string;
 type IAmount = string;
 type IFloat = number;
 type IAddress = string;

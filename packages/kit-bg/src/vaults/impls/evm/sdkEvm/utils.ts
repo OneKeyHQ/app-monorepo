@@ -1,4 +1,5 @@
 import B from 'bignumber.js';
+import { Contract } from 'js-conflux-sdk';
 
 import type { IServerFiatTokenInfo } from '@onekeyhq/shared/types/serverToken';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -47,3 +48,41 @@ export function parseTokenItem(token: IServerFiatTokenInfo | IToken) {
 
   return res;
 }
+
+export type IMethodTransaction = {
+  data: string;
+  method: {
+    decodeOutputs: <T>(hex: string) => T;
+  };
+};
+export class Interface {
+  constructor(abi: string[]) {
+    const contract = new Contract({ abi }, undefined);
+
+    // @ts-ignore
+    // eslint-disable-next-line no-constructor-return
+    return new Proxy(contract, {
+      get(target: Contract, p: string | symbol, receiver: any): any {
+        return Reflect.get(target, p, receiver);
+      },
+    });
+  }
+
+  [method: string]: (...args: any[]) => IMethodTransaction;
+}
+
+export const INTERFACE = new Interface([
+  'function name() public view returns (string)',
+  'function symbol() public view returns (string)',
+  'function decimals() public view returns (uint8)',
+  'function totalSupply() public view returns (uint256)',
+  'function supportsInterface(bytes4 interfaceID) external view returns (bool)',
+  'function balanceOf(address _owner) external view returns (uint256)',
+  'function allowance(address _owner, address _spender) public view returns (uint256)',
+  'function getL1Fee(bytes) view returns (uint256)',
+  // MultiCall3
+  'function getEthBalance(address addr) view returns (uint256 balance)',
+  'function aggregate(tuple(address target, bytes callData)[] calls) payable returns (uint256 blockNumber, bytes[] returnData)',
+  'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)',
+  'function aggregate3Value(tuple(address target, bool allowFailure, uint256 value, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)',
+]);

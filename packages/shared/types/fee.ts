@@ -1,5 +1,7 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
+import type { IServerNetwork } from '.';
+
 export enum ESendFeeStatus {
   Loading = 'Loading',
   Idle = 'Idle',

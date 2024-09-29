@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import B from 'bignumber.js';
+import { ethers } from 'ethers';
 import { defaultAbiCoder } from 'ethers/lib/utils';
-import { isNil, keyBy, orderBy, uniq } from 'lodash';
+import { isNil, keyBy, orderBy, pick, uniq } from 'lodash';
 
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
@@ -14,17 +17,22 @@ import type {
   IEstimateGasParams,
   IEstimateGasResp,
   IServerEstimateFeeResponse,
+  IServerGasFeeParams,
+  IServerGasFeeResponse,
+  IServerGasLimitParams,
+  IServerGasLimitResponse,
   IServerGasPriceParams,
   IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
+  IAmountUnit,
   IFetchServerTokenListApiParams,
   IServerAccountTokenItem,
   IServerTokenListQuery,
 } from '@onekeyhq/shared/types/serverToken';
 
 import { BaseApiProvider } from './BaseApiProvider';
-import { parseTokenItem, safeNumberString } from './utils';
+import { INTERFACE, parseTokenItem, safeNumberString } from './utils';
 
 import type { BigNumber } from 'bignumber.js';
 
@@ -35,6 +43,11 @@ export enum EVMMethodIds {
   resolver = '0x0178b8bf', // keccak256(Buffer.from('resolver(byte32)')).toString('hex') => 0x70a082310
   addr = '0xf1cb7e06', // keccak256(Buffer.from('addr(byte32,uint256)')).toString('hex') => 0x70a082310
 }
+
+const EMPTY_DATA = '0x';
+const GAS_LIMIT_RATE = 1.2;
+
+const BASE_FEE_RATE = 1.5;
 
 export const compareList = [
   {
@@ -56,6 +69,8 @@ export const compareList = [
 
 class EvmApiProvider extends BaseApiProvider {
   public defaultFeeRates = [1, 1.25, 1.5];
+
+  public l2PriceOracleAddress = '0x420000000000000000000000000000000000000f';
 
   public override async validateTokenAddress(params: {
     networkId: string;
@@ -377,6 +392,73 @@ class EvmApiProvider extends BaseApiProvider {
     return {
       isEIP1559,
       gasEIP1559,
+    };
+  }
+
+  override async getGasFee(
+    params: IServerGasFeeParams,
+  ): Promise<IServerGasFeeResponse> {
+    let l1Fee: IAmountUnit = '0';
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: params.networkId,
+    });
+
+    if (network.feeMeta.isWithL1BaseFee) {
+      l1Fee = await this.getL1Fee(params);
+    }
+
+    return {
+      baseFee: l1Fee,
+    };
+  }
+
+  protected async getL1Fee(params: IServerGasFeeParams): Promise<IAmountUnit> {
+    const encodedTx = params.encodedTx as IEncodedTxEvm;
+    // @ts-expect-error
+    const unsignedTx = ethers.Transaction.from({
+      // type: encodedTx.type,
+      to: encodedTx.to,
+      data: encodedTx.data,
+      value: encodedTx.value,
+      gasLimit: encodedTx.gasLimit,
+      nonce: encodedTx.nonce ?? 1, // all >0 have the same effect
+      chainId: encodedTx.chainId ?? 1, // all >0 have the same effect
+      gasPrice: encodedTx.gasPrice ?? 1e9, // value to keep size for unsignedSerialized length
+      maxFeePerGas: encodedTx.maxFeePerGas ?? 1e9, // value to keep size for unsignedSerialized length
+      maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas ?? 1e9, // value to keep size for unsignedSerialized length
+      // maxFeePerBlobGas
+    });
+    const bytes = unsignedTx.unsignedSerialized;
+
+    const l1Fee = await this.client.call<string>('eth_call', [
+      {
+        to: this.l2PriceOracleAddress,
+        data: INTERFACE.getL1Fee(bytes).data,
+      },
+      'latest',
+    ]);
+
+    return new B(l1Fee.toString()).times(BASE_FEE_RATE).toFixed(0);
+  }
+
+  override async getGasLimit(
+    params: IServerGasLimitParams,
+  ): Promise<IServerGasLimitResponse> {
+    const estimateGasLimitRes = await this.client.call<string>(
+      'eth_estimateGas',
+      [pick(params.encodedTx, 'from', 'to', 'value', 'data')],
+    );
+
+    const estimateGasLimit = Number(estimateGasLimitRes);
+
+    const gasLimit =
+      (params.encodedTx as IEncodedTxEvm)?.data === EMPTY_DATA
+        ? estimateGasLimit
+        : estimateGasLimit * GAS_LIMIT_RATE;
+
+    return {
+      gasLimit: Math.ceil(gasLimit).toString(),
+      estimateGasLimit: estimateGasLimit.toString(),
     };
   }
 }
