@@ -6849,6 +6849,7 @@ __metadata:
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
+    react-native-text-input: "https://github.com/huhuanming/react-native-text-input.git#35fd0400d107d0e1483dc4c6b80d02da761e0322"
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
@@ -32139,6 +32140,16 @@ __metadata:
   peerDependencies:
     react-native: ">=0.60.0"
   checksum: 10/c37ea6982ad9380ac612262bb6ce392fa204d3a9168e283548485449064ad18e745533887d13a4aa17b4e09d6eeda3c3c934241e41c5d9ec6d1e663d40e4518a
+  languageName: node
+  linkType: hard
+
+"react-native-text-input@https://github.com/huhuanming/react-native-text-input.git#35fd0400d107d0e1483dc4c6b80d02da761e0322":
+  version: 0.2.0
+  resolution: "react-native-text-input@https://github.com/huhuanming/react-native-text-input.git#commit=35fd0400d107d0e1483dc4c6b80d02da761e0322"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/f0754780f63d39530620650bd8e48c8f06f6bced6c699c46836e7ef2b136f090a80fd499f8947178436267ef3d5abe70c19d196bac25bb3077601291ad307247
   languageName: node
   linkType: hard
 

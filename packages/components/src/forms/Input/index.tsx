@@ -10,13 +10,7 @@ import {
 } from 'react';
 
 import { InteractionManager } from 'react-native';
-import {
-  Group,
-  Input as TMInput,
-  getFontSize,
-  useProps,
-  useThemeName,
-} from 'tamagui';
+import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,6 +18,7 @@ import { useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
+import { Input as TMInput } from './Input';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
