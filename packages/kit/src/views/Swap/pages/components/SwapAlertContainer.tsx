@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import { Alert, YStack } from '@onekeyhq/components';
+import { Alert, Icon, YStack } from '@onekeyhq/components';
 import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
 
@@ -39,14 +39,16 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   return (
     <YStack gap="$2.5">
       {alertsSorted?.map((item, index) => {
-        const { message, alertLevel } = item;
+        const { message, alertLevel,title,icon } = item;
         return (
           <Alert
             key={index}
             type={
               alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
             }
+            title={title}
             description={message}
+            icon={icon}
           />
         );
       }) ?? null}

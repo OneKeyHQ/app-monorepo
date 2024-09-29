@@ -1,3 +1,4 @@
+import { IKeyOfIcons } from '@onekeyhq/components';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type {
   IEventSourceCloseEvent,
@@ -304,6 +305,8 @@ export enum ESwapAlertLevel {
   ERROR = 'error',
 }
 export interface ISwapAlertState {
+  title?: string;
+  icon?: IKeyOfIcons;
   message?: string;
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
