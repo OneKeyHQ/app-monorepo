@@ -10,13 +10,7 @@ import {
 } from 'react';
 
 import { InteractionManager, requireNativeComponent } from 'react-native';
-import {
-  Group,
-  Input as TMInput,
-  getFontSize,
-  useProps,
-  useThemeName,
-} from 'tamagui';
+import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -36,7 +30,7 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps } from 'tamagui';
+import type { GetProps, Input as TMInput } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
