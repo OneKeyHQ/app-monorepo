@@ -1,0 +1,20 @@
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
+index 7b43bad..79004f3 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/CameraView.swift
+@@ -124,6 +124,7 @@ class CameraView: UIView {
+     
+     private func configureHardwareInteraction() {
+         // Create a new capture event interaction with a handler that captures a photo.
++        #if compiler(>=5.9)
+         if #available(iOS 17.2, *) {
+             let interaction = AVCaptureEventInteraction { event in
+                 // Capture a photo on "press up" of a hardware button.
+@@ -137,6 +138,7 @@ class CameraView: UIView {
+             self.addInteraction(interaction)
+             eventInteraction = interaction
+         }
++        #endif
+     }
+     
+ 
