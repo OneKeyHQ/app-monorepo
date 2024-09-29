@@ -9,8 +9,14 @@ import {
   useState,
 } from 'react';
 
-import { InteractionManager, requireNativeComponent } from 'react-native';
-import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
+import { InteractionManager } from 'react-native';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,11 +36,9 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps, Input as TMInput } from 'tamagui';
+import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
-
-const RCTMyCustomView = requireNativeComponent('AndroidPasteTextInput');
 
 export enum EPasteEventPayloadItemType {
   TextPlain = 'text/plain',
@@ -304,7 +308,7 @@ function BaseInput(
 
       {/* input */}
       <Group.Item>
-        <RCTMyCustomView
+        <TMInput
           unstyled
           ref={inputRef}
           keyboardType={keyboardType}
@@ -451,7 +455,7 @@ function BaseInputUnControlled(
       },
   );
   return (
-    <RCTMyCustomView
+    <TMInput
       ref={inputRef}
       {...inputProps}
       value={internalValue}
