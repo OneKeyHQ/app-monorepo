@@ -1,5 +1,7 @@
 import { Camera } from 'react-native-camera-kit/src';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
@@ -17,6 +19,9 @@ export function ScanCamera({
   return (
     <>
       <Camera
+        ref={(ref) =>
+          ref === null && defaultLogger.scanQrCode.readQrCode.releaseCamera()
+        }
         style={{ flex: 1 }}
         resizeMode="cover"
         scanBarcode
