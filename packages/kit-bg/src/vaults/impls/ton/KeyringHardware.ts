@@ -179,7 +179,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
     ).toString('hex');
-    if (signingMessageHexFromHw !== signingMessageHex) {
+    if (
+      !result.skip_validate &&
+      signingMessageHexFromHw !== signingMessageHex
+    ) {
       console.warn(
         'signingMessage mismatch',
         signingMessageHexFromHw,
