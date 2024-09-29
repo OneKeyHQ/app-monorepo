@@ -454,7 +454,7 @@ function BaseInputUnControlled(
   return (
     <TMInput
       ref={inputRef}
-      {...inputProps}
+      {...(inputProps as any)}
       value={internalValue}
       onChangeText={handleChange}
     />
