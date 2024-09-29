@@ -4,14 +4,18 @@ import { isNil, keyBy, orderBy, uniq } from 'lodash';
 
 import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IJsonRpcBatchParams,
   IJsonRpcParams,
 } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IEstimateGasParams,
   IEstimateGasResp,
   IServerEstimateFeeResponse,
+  IServerGasPriceParams,
+  IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchServerTokenListApiParams,
@@ -21,6 +25,8 @@ import type {
 
 import { BaseApiProvider } from './BaseApiProvider';
 import { parseTokenItem, safeNumberString } from './utils';
+
+import type { BigNumber } from 'bignumber.js';
 
 export enum EVMMethodIds {
   // eslint-disable-next-line spellcheck/spell-checker
@@ -49,6 +55,8 @@ export const compareList = [
 ];
 
 class EvmApiProvider extends BaseApiProvider {
+  public defaultFeeRates = [1, 1.25, 1.5];
+
   public override async validateTokenAddress(params: {
     networkId: string;
     address: string;
@@ -288,6 +296,88 @@ class EvmApiProvider extends BaseApiProvider {
     }
 
     return res as unknown as IEstimateGasResp;
+  }
+
+  override async getGasPrice(
+    params: IServerGasPriceParams,
+  ): Promise<IServerGasPriceResponse> {
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: params.networkId,
+    });
+    if (network.feeMeta.isEIP1559FeeEnabled) {
+      return this.getGasPriceEIP1559({ network });
+    }
+    const [gasPrice] = await this.client.batchCall<[string, string, any]>([
+      ['eth_gasPrice', []],
+    ]);
+
+    const gas = this.defaultFeeRates.map((rate) => ({
+      gasPrice: new B(gasPrice)
+        .multipliedBy(rate)
+        .shiftedBy(-network.feeMeta.decimals)
+        .toString(),
+    }));
+
+    return {
+      isEIP1559: false,
+      gas,
+    };
+  }
+
+  protected async getGasPriceEIP1559(params: {
+    network: IServerNetwork;
+  }): Promise<IServerGasPriceResponse> {
+    let isEIP1559 = false;
+    let maxPriorityFeePerGas: string;
+    let baseFeePerGas: BigNumber;
+    try {
+      const [maxPriorityFeePerGasResult, hexBlock] =
+        await this.client.batchCall<[string, any]>([
+          ['eth_maxPriorityFeePerGas', []],
+          ['eth_getBlockByNumber', ['latest', false]],
+        ]);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      baseFeePerGas = new B(hexBlock.baseFeePerGas);
+      isEIP1559 = !(baseFeePerGas.isNaN() || baseFeePerGas.isEqualTo(0)); // 0 also means not 1559
+      maxPriorityFeePerGas = maxPriorityFeePerGasResult;
+    } catch (error) {
+      console.error(
+        `[ProviderEVMFork.getGasPriceEIP1559] get maxPriorityFeePerGas error: ${
+          (error as Error).message
+        }`,
+      );
+      isEIP1559 = false;
+    }
+
+    let gasEIP1559;
+    if (isEIP1559) {
+      // @see https://www.blocknative.com/blog/eip-1559-fees#3
+      gasEIP1559 = [1, 1.25, 1.3].map((rate) => {
+        const maxPriorityFeePerGasEach = new B(
+          maxPriorityFeePerGas,
+        ).multipliedBy(rate);
+        const maxFeePerGasEach = baseFeePerGas
+          .multipliedBy(2)
+          .plus(maxPriorityFeePerGasEach);
+
+        return {
+          baseFeePerGas: baseFeePerGas
+            .shiftedBy(-params.network.feeMeta.decimals)
+            .toString(),
+          maxFeePerGas: maxFeePerGasEach
+            .shiftedBy(-params.network.feeMeta.decimals)
+            .toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGasEach
+            .shiftedBy(-params.network.feeMeta.decimals)
+            .toString(),
+        };
+      });
+    }
+
+    return {
+      isEIP1559,
+      gasEIP1559,
+    };
   }
 }
 

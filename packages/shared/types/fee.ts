@@ -129,10 +129,26 @@ export interface IServerGasPriceParams {
   networkId: string;
 }
 
+export interface IServerGasPriceItem {
+  gasPrice: string;
+  gasLimit?: string;
+  gasLimitForDisplay?: string;
+}
+
+export interface IServerGasEIP1995Item {
+  baseFeePerGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  gasLimit?: string;
+  gasLimitForDisplay?: string;
+  gasPrice?: string;
+  confidence?: number;
+}
+
 export interface IServerGasPriceResponse {
   isEIP1559?: boolean;
-  gas?: IGasLegacy[];
-  gasEIP1559?: IGasEIP1559[];
+  gas?: IServerGasPriceItem[];
+  gasEIP1559?: IServerGasEIP1995Item[];
   feeUTXO?: IFeeUTXO[];
 }
 
