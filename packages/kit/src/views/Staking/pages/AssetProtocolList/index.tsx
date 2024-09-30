@@ -205,7 +205,7 @@ const AssetProtocolListContent = ({
                 ? intl.formatMessage({
                     id: ETranslations.earn_currently_staking,
                   })
-                : ' '
+                : undefined
             }
             secondaryTextProps={{
               color: '$textInfo',
