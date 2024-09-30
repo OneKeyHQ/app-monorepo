@@ -4,7 +4,7 @@
 /* eslint-disable  */
   
   export enum ETranslations {
-  Toast_web_auth = 'Toast_web_auth',
+  Toast_web_auth = 'Toast.web_auth',
   Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',
   Token_manage_hidden_token = 'Token_manage.hidden_token',
   account_model_watched = 'account_model.watched',
@@ -1584,6 +1584,7 @@
   settings_onekey_lite_desc = 'settings.onekey_lite_desc',
   settings_onekey_wants_to_use_nfc = 'settings.onekey_wants_to_use_nfc',
   settings_onekey_wants_to_use_nfc_desc = 'settings.onekey_wants_to_use_nfc_desc',
+  settings_passkey = 'settings.passkey',
   settings_password_bypass = 'settings.password_bypass',
   settings_password_bypass_desc = 'settings.password_bypass_desc',
   settings_privacy_policy = 'settings.privacy_policy',
@@ -1699,10 +1700,7 @@
   swap_page_alert_tax_detected = 'swap_page.alert.tax_detected',
   swap_page_alert_tax_detected_buy = 'swap_page.alert.tax_detected_buy',
   swap_page_alert_tax_detected_sell = 'swap_page.alert.tax_detected_sell',
-<<<<<<< HEAD
   swap_page_alert_tax_detected_title = 'swap_page.alert.tax_detected_title',
-=======
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   swap_page_alert_value_drop = 'swap_page.alert.value_drop',
   swap_page_alert_value_drop_title = 'swap_page.alert.value_drop_title',
   swap_page_amount = 'swap_page.amount',

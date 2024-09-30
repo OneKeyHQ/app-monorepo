@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "Налаштування не вдалося",
+  "Toast.web_auth": "Налаштування не вдалося",
   "Token_manage.custom_token_address_faild": "Не вдалося знайти адресу контракту. Спробуйте ще раз. ",
   "Token_manage.hidden_token": "{num} прихований маркер",
   "account_model.watched": "Переглянуто",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "Відновіть свій гаманець без введення жодного слова.",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\" хоче використовувати NFC",
   "settings.onekey_wants_to_use_nfc_desc": "Для підключення до OneKey Lite потрібні дозволи NFC.",
+  "settings.passkey": "Ключ доступу",
   "settings.password_bypass": "Обхід паролю",
   "settings.password_bypass_desc": "При перевищенні дозволеного часу в 2 години, перевірка пароля все ще потрібна для забезпечення безпеки.",
   "settings.privacy_policy": "Політика конфіденційності",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "Мережева комісія в ETH автоматично віднімається на наступному кроці.",
   "swap_page.alert.no_provider_supports_trade": "Жоден провайдер не підтримує цю угоду",
   "swap_page.alert.not_best_rate": "Поточний постачальник не пропонує найкращий курс для цієї угоди.",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "Податок за токен йде на проект токена, а не на OneKey.",
   "swap_page.alert.tax_detected_buy": "купити",
   "swap_page.alert.tax_detected_sell": "продати",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} податок виявлено",
   "swap_page.alert.value_drop": "Високий вплив на ціну може призвести до втрати ваших активів.",
   "swap_page.alert.value_drop_title": "{number} падіння значення",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} податок виявлено. Податок для токена йде на проект токена, а не на OneKey.",
-  "swap_page.alert.tax_detected_buy": "купити",
-  "swap_page.alert.tax_detected_sell": "продати",
-  "swap_page.alert.value_drop": "{number} впадіння вартості. Висока впливовість ціни може спричинити втрату вашого активу.",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "затвердити {token} до {target}",
   "swap_page.balance": "Баланс: {number}",

@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "Установка не удалась",
+  "Toast.web_auth": "Установка не удалась",
   "Token_manage.custom_token_address_faild": "Не удалось найти адрес контракта. Попробуйте снова. ",
   "Token_manage.hidden_token": "{num} Скрытый токен",
   "account_model.watched": "Просмотрено",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "Восстановите свой кошелек без ввода одного слова.",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\" хочет использовать NFC",
   "settings.onekey_wants_to_use_nfc_desc": "Для подключения к OneKey Lite требуются разрешения NFC.",
+  "settings.passkey": "Ключ доступа",
   "settings.password_bypass": "Обход пароля",
   "settings.password_bypass_desc": "При превышении разрешенного времени в 2 часа, требуется проверка пароля для обеспечения безопасности.",
   "settings.privacy_policy": "Политика конфиденциальности",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "Сетевая комиссия в ETH будет автоматически вычтена на следующем шаге.",
   "swap_page.alert.no_provider_supports_trade": "Ни один поставщик не поддерживает эту сделку",
   "swap_page.alert.not_best_rate": "Текущий провайдер не предлагает лучший курс для этой сделки.",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "Налог на токен идет на проект токена, а не на OneKey.",
   "swap_page.alert.tax_detected_buy": "купить",
   "swap_page.alert.tax_detected_sell": "продавать",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} налог обнаружен",
   "swap_page.alert.value_drop": "Высокое влияние на цену может привести к потере ваших активов.",
   "swap_page.alert.value_drop_title": "{number} значение падает",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} налог обнаружен. Налог на токен идет на проект токена, а не на OneKey.",
-  "swap_page.alert.tax_detected_buy": "купить",
-  "swap_page.alert.tax_detected_sell": "продавать",
-  "swap_page.alert.value_drop": "{number} падение значения. Высокое влияние цены может привести к потере вашего активов.",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "утвердить {token} для {target}",
   "swap_page.balance": "Баланс: {number}",

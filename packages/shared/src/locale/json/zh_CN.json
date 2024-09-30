@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "设置失败",
+  "Toast.web_auth": "设置失败",
   "Token_manage.custom_token_address_faild": "未能找到合约地址。请再试一次。",
   "Token_manage.hidden_token": "{num} 隐藏代币",
   "account_model.watched": "观察账户",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "无需输入助记词即可恢复您的钱包",
   "settings.onekey_wants_to_use_nfc": "“OneKey”想要使用 NFC",
   "settings.onekey_wants_to_use_nfc_desc": "要连接到 OneKey Lite，需要 NFC 权限。",
+  "settings.passkey": "通行密钥",
   "settings.password_bypass": "免密功能",
   "settings.password_bypass_desc": "当超过 2 小时允许时间，仍需要进行密码验证以确保安全。",
   "settings.privacy_policy": "隐私政策",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "在下一步中，网络费用将以ETH自动扣除。",
   "swap_page.alert.no_provider_supports_trade": "没有提供商支持此交易",
   "swap_page.alert.not_best_rate": "当前的渠道商未为此交易提供最佳报价。",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "代币税由代币项目方收取，而非 OneKey。",
   "swap_page.alert.tax_detected_buy": "购买",
   "swap_page.alert.tax_detected_sell": "卖出",
   "swap_page.alert.tax_detected_title": "检测到 {token} 有 {percentage} {action}税",
   "swap_page.alert.value_drop": "高价格影响可能导致您的资产损失。",
   "swap_page.alert.value_drop_title": "{number} 的价值损失",
-=======
-  "swap_page.alert.tax_detected": "检测到 {token} 有 {percentage} {action} 税。代币税由代币项目方收取，而非 OneKey。",
-  "swap_page.alert.tax_detected_buy": "购买",
-  "swap_page.alert.tax_detected_sell": "卖出",
-  "swap_page.alert.value_drop": "{number} 的价值损失。高价格影响可能会导致您的资产损失。",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "授权 {token} 至 {target}",
   "swap_page.balance": "余额：{number}",

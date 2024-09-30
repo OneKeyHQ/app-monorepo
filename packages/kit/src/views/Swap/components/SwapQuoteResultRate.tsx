@@ -123,26 +123,26 @@ const SwapQuoteResultRate = ({
             animation="quick"
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
-            gap="$2"
+            // gap="$2"
           >
             {isBest ? (
-              <Badge badgeSize="sm" badgeType="success">
+              <Badge badgeSize="sm" marginRight="$2" badgeType="success" >
                 {intl.formatMessage({
                   id: ETranslations.global_best,
                 })}
               </Badge>
             ) : null}
-            <XStack>
-              <Image
-                source={{ uri: providerIcon }}
-                w="$5"
-                h="$5"
-                borderRadius="$1"
-              />
-              <SizableText numberOfLines={1} size="$bodyMdMedium" ml="$1">
-                {providerName ?? ''}
-              </SizableText>
-            </XStack>
+            {/* <XStack> */}
+            <Image
+              source={{ uri: providerIcon }}
+              w="$5"
+              h="$5"
+              borderRadius="$1"
+            />
+            <SizableText numberOfLines={1} size="$bodyMdMedium" ml="$1">
+              {providerName ?? ''}
+            </SizableText>
+            {/* </XStack> */}
           </XStack>
         )}
         {!isLoading && onOpenResult ? (

@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "การตั้งค่าล้มเหลว",
+  "Toast.web_auth": "การตั้งค่าล้มเหลว",
   "Token_manage.custom_token_address_faild": "ไม่สามารถหาที่อยู่ของสัญญา ลองอีกครั้ง",
   "Token_manage.hidden_token": "{num} โทเค็นที่ซ่อนอยู่",
   "account_model.watched": "ดูแล้ว",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "กู้กระเป๋าเงินของคุณโดยไม่ต้องพิมพ์คำใด ๆ",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\" ต้องการใช้ NFC",
   "settings.onekey_wants_to_use_nfc_desc": "เพื่อเชื่อมต่อกับ OneKey Lite จำเป็นต้องมีสิทธิ์ NFC",
+  "settings.passkey": "พาสคีย์",
   "settings.password_bypass": "การข้ามรหัสผ่าน",
   "settings.password_bypass_desc": "เมื่อเกินเวลาที่อนุญาต 2 ชั่วโมง ยังต้องทำการตรวจสอบรหัสผ่านเพื่อรักษาความปลอดภัย",
   "settings.privacy_policy": "นโยบายความเป็นส่วนตัว",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "ค่าธรรมเนียมเครือข่ายใน ETH จะถูกหักอัตโนมัติในขั้นตอนถัดไป",
   "swap_page.alert.no_provider_supports_trade": "ไม่มีผู้ให้บริการที่สนับสนุนการซื้อขายนี้",
   "swap_page.alert.not_best_rate": "ผู้ให้บริการปัจจุบันไม่ได้เสนออัตราที่ดีที่สุดสำหรับการซื้อขายนี้",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "ภาษีสำหรับโทเค็นจะไปที่โครงการโทเค็น ไม่ใช่ OneKey",
   "swap_page.alert.tax_detected_buy": "ซื้อ",
   "swap_page.alert.tax_detected_sell": "ขาย",
   "swap_page.alert.tax_detected_title": "ตรวจพบภาษี {percentage} {token} {action}",
   "swap_page.alert.value_drop": "ผลกระทบจากราคาสูงอาจทำให้สินทรัพย์ของคุณสูญเสีย",
   "swap_page.alert.value_drop_title": "{number} ค่าลดลง",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} ตรวจพบภาษี ภาษีสำหรับโทเค็นจะไปที่โครงการโทเค็น ไม่ใช่ OneKey",
-  "swap_page.alert.tax_detected_buy": "ซื้อ",
-  "swap_page.alert.tax_detected_sell": "ขาย",
-  "swap_page.alert.value_drop": "{number} การลดค่า ผลกระทบจากราคาสูงอาจทำให้สินทรัพย์ของคุณเสียหาย",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "อนุมัติ {token} ไปยัง {target}",
   "swap_page.balance": "ยอดเงินคงเหลือ: {number}",

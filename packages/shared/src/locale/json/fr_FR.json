@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "Échec de l'installation",
+  "Toast.web_auth": "Échec de l'installation",
   "Token_manage.custom_token_address_faild": "Échec de la recherche de l'adresse du contrat. Essayez à nouveau. ",
   "Token_manage.hidden_token": "{num} Jeton caché",
   "account_model.watched": "Regardé",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "Restaurez votre portefeuille sans taper un seul mot.",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\" souhaite utiliser NFC",
   "settings.onekey_wants_to_use_nfc_desc": "Pour se connecter à OneKey Lite, les permissions NFC sont requises.",
+  "settings.passkey": "Clé d’accès",
   "settings.password_bypass": "Contournement de mot de passe",
   "settings.password_bypass_desc": "Lorsque le temps autorisé de 2 heures est dépassé, une vérification du mot de passe est toujours nécessaire pour garantir la sécurité.",
   "settings.privacy_policy": "Politique de confidentialité",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "Frais de réseau en ETH déduits automatiquement à l'étape suivante.",
   "swap_page.alert.no_provider_supports_trade": "Aucun fournisseur ne prend en charge ce commerce",
   "swap_page.alert.not_best_rate": "Le fournisseur actuel n'offre pas le meilleur taux pour ce commerce.",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "La taxe pour le jeton va au projet de jeton, pas à OneKey.",
   "swap_page.alert.tax_detected_buy": "acheter",
   "swap_page.alert.tax_detected_sell": "vendre",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} taxe détectée",
   "swap_page.alert.value_drop": "Un impact élevé sur le prix peut entraîner une perte de vos actifs.",
   "swap_page.alert.value_drop_title": "Baisse de valeur {number}",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} taxe détectée. La taxe pour le token va au projet du token, pas à OneKey.",
-  "swap_page.alert.tax_detected_buy": "acheter",
-  "swap_page.alert.tax_detected_sell": "vendre",
-  "swap_page.alert.value_drop": "{number} baisse de valeur. Un impact élevé sur le prix peut entraîner une perte de votre actif.",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "approuver {token} à {target}",
   "swap_page.balance": "Solde : {number}",

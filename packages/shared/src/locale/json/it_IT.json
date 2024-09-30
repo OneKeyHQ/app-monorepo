@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "Impostazione fallita",
+  "Toast.web_auth": "Impostazione fallita",
   "Token_manage.custom_token_address_faild": "Impossibile trovare l'indirizzo del contratto. Prova di nuovo. ",
   "Token_manage.hidden_token": "{num} token nascosto",
   "account_model.watched": "Visto",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "Ripristina il tuo portafoglio senza digitare una parola.",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\" vuole utilizzare NFC",
   "settings.onekey_wants_to_use_nfc_desc": "Per connettersi a OneKey Lite, sono necessari i permessi NFC.",
+  "settings.passkey": "PassKey",
   "settings.password_bypass": "Salto della password",
   "settings.password_bypass_desc": "Quando si superano le 2 ore consentite, è comunque necessaria la verifica della password per garantire la sicurezza.",
   "settings.privacy_policy": "Politica sulla privacy",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "Commissione di rete in ETH detratta automaticamente nel prossimo passaggio.",
   "swap_page.alert.no_provider_supports_trade": "Nessun fornitore supporta questo commercio",
   "swap_page.alert.not_best_rate": "Il fornitore attuale non offre il miglior tasso per questo scambio.",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "La tassa per il token va al progetto del token, non a OneKey.",
   "swap_page.alert.tax_detected_buy": "acquistare",
   "swap_page.alert.tax_detected_sell": "vendere",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} imposta rilevata",
   "swap_page.alert.value_drop": "L'elevato impatto sul prezzo può causare la perdita del tuo asset.",
   "swap_page.alert.value_drop_title": "{number} valore in calo",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} tassa rilevata. La tassa per il token va al progetto del token, non a OneKey.",
-  "swap_page.alert.tax_detected_buy": "acquistare",
-  "swap_page.alert.tax_detected_sell": "vendere",
-  "swap_page.alert.value_drop": "{number} calo del valore. Un forte impatto sui prezzi può causare la perdita del tuo patrimonio.",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "approva {token} a {target}",
   "swap_page.balance": "Saldo: {number}",

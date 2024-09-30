@@ -1,5 +1,5 @@
 {
-  "Toast_web_auth": "설정 실패",
+  "Toast.web_auth": "설정 실패",
   "Token_manage.custom_token_address_faild": "계약 주소를 찾지 못했습니다. 다시 시도하십시오. ",
   "Token_manage.hidden_token": "{num} 개의 숨겨진 토큰",
   "account_model.watched": "시청함",
@@ -1579,6 +1579,7 @@
   "settings.onekey_lite_desc": "단어 하나 입력하지 않고 지갑을 복원하세요.",
   "settings.onekey_wants_to_use_nfc": "\"OneKey\"가 NFC를 사용하려고 합니다",
   "settings.onekey_wants_to_use_nfc_desc": "OneKey Lite에 연결하려면 NFC 권한이 필요합니다.",
+  "settings.passkey": "패스키",
   "settings.password_bypass": "비밀번호 우회",
   "settings.password_bypass_desc": "2시간이 초과되면 보안을 보장하기 위해 여전히 비밀번호 확인이 필요합니다.",
   "settings.privacy_policy": "개인정보 처리방침",
@@ -1691,19 +1692,12 @@
   "swap_page.alert.network_fee_deducted": "다음 단계에서 자동으로 차감되는 ETH 네트워크 수수료.",
   "swap_page.alert.no_provider_supports_trade": "이 거래를 지원하는 제공자가 없습니다",
   "swap_page.alert.not_best_rate": "현재 공급자는 이 거래에 대해 최고의 요금을 제공하지 않습니다.",
-<<<<<<< HEAD
   "swap_page.alert.tax_detected": "토큰에 대한 세금은 OneKey가 아닌 토큰 프로젝트로 갑니다.",
   "swap_page.alert.tax_detected_buy": "구입하다",
   "swap_page.alert.tax_detected_sell": "팔다",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} 세금 감지됨",
   "swap_page.alert.value_drop": "높은 가격 변동은 자산 손실을 초래할 수 있습니다.",
   "swap_page.alert.value_drop_title": "{number} 값 감소",
-=======
-  "swap_page.alert.tax_detected": "{percentage} {token} {action} 세금이 감지되었습니다. 토큰에 대한 세금은 OneKey가 아닌 토큰 프로젝트로 갑니다.",
-  "swap_page.alert.tax_detected_buy": "구입하다",
-  "swap_page.alert.tax_detected_sell": "팔다",
-  "swap_page.alert.value_drop": "{number} 값 하락. 높은 가격 충격은 당신의 자산 손실을 초래할 수 있습니다.",
->>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "{token}을(를) {target}에 승인하다",
   "swap_page.balance": "잔액: {number}",
