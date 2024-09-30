@@ -108,6 +108,9 @@ class BaseApiProvider {
     };
   }
 
+  /*= ==============================
+   *        /get-account
+   *============================== */
   async getAccount(
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {
@@ -208,6 +211,10 @@ class BaseApiProvider {
     };
   }
 
+  /*= ==============================
+   *        /token/list
+   *        /token/search
+   *============================== */
   async listAccountToken(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
@@ -559,6 +566,9 @@ class BaseApiProvider {
     };
   }
 
+  /*= ===============================
+   *        /estimate-fee
+   *============================== */
   async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
