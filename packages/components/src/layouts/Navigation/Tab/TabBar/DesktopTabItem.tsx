@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
@@ -12,7 +12,12 @@ import {
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
 
-import type { Animated, StyleProp, ViewStyle } from 'react-native';
+import type {
+  Animated,
+  GestureResponderEvent,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
 
 export interface IDesktopTabItemProps {
@@ -23,6 +28,7 @@ export interface IDesktopTabItemProps {
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
+  onClose?: () => void;
 }
 
 export function DesktopTabItem(
@@ -36,11 +42,15 @@ export function DesktopTabItem(
     actionList,
     avatarSrc,
     showAvatar = false,
+    onPress,
+    onClose,
     ...rest
   } = props;
 
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isContextMenuOpened, setIsContextMenuOpened] = useState(false);
   const onOpenContextMenu = useCallback((e: Event) => {
     e.preventDefault();
     openActionList?.current?.();
@@ -52,6 +62,22 @@ export function DesktopTabItem(
       stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
     };
   }, [onOpenContextMenu]);
+  const onMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
+  const onMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+  const reloadOnPress = useCallback(
+    (e: GestureResponderEvent) => {
+      if (selected) {
+        openActionList?.current?.();
+      } else {
+        onPress?.(e);
+      }
+    },
+    [onPress, selected],
+  );
   return (
     <YStack testID={rest.testID} ref={stackRef}>
       <XStack
@@ -66,13 +92,16 @@ export function DesktopTabItem(
         userSelect="none"
         style={tabBarStyle as ViewStyle}
         {...(!selected && {
-          hoverStyle: {
-            bg: '$bgHover',
-          },
           pressStyle: {
             bg: '$bgActive',
           },
         })}
+        {...((isContextMenuOpened || isHovered) && {
+          bg: '$bgHover',
+        })}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onPress={reloadOnPress}
         {...rest}
         testID={
           selected
@@ -116,27 +145,31 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
+        {(selected || isHovered) && actionList ? (
+          <IconButton
+            size="small"
+            icon="CrossedSmallOutline"
+            variant="tertiary"
+            focusVisibleStyle={undefined}
+            p="$0.5"
+            m={-3}
+            testID="browser-bar-options"
+            onPress={onClose}
+          />
+        ) : null}
         {actionList ? (
           <ActionList
             title=""
             placement="right-start"
-            renderTrigger={
-              selected ? (
-                <IconButton
-                  size="small"
-                  icon="DotHorOutline"
-                  variant="tertiary"
-                  focusVisibleStyle={undefined}
-                  p="$0.5"
-                  m={-3}
-                  testID="browser-bar-options"
-                />
-              ) : null
-            }
             sections={actionList}
+            renderTrigger={<></>}
             renderItems={({ handleActionListOpen }) => {
               openActionList.current = handleActionListOpen;
               return undefined;
+            }}
+            onOpenChange={(isOpened) => {
+              setIsContextMenuOpened(isOpened);
+              setIsHovered(isOpened);
             }}
           />
         ) : null}
