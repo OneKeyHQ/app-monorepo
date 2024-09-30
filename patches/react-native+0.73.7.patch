@@ -91,10 +91,10 @@ index f1c32e6..0ce9dfe 100644
  @end
  
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-index 9dca6a5..ce71c2c 100644
+index 9dca6a5..b2c6b53 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
-@@ -120,6 +120,11 @@ - (void)textFieldDidChange
+@@ -147,6 +147,11 @@ - (void)selectedTextRangeWasSet
    [self textFieldProbablyDidChangeSelection];
  }
  
@@ -103,9 +103,21 @@ index 9dca6a5..ce71c2c 100644
 +  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
 +}
 +
- - (void)textFieldDidEndEditingOnExit
- {
-   [_backedTextInputView.textInputDelegate textInputDidReturn];
+ #pragma mark - Generalization
+ 
+ - (void)textFieldProbablyDidChangeSelection
+@@ -290,6 +295,11 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
+   _previousSelectedTextRange = textRange;
+ }
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textViewProbablyDidChangeSelection
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
 index 209947d..5092dbd 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
