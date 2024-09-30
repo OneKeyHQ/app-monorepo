@@ -6405,6 +6405,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-text-input@npm:0.2.3":
+  version: 0.2.3
+  resolution: "@onekeyfe/react-native-text-input@npm:0.2.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/d6cdbf61b98e8df873ad01cc3265978cfd4a1a667045ffc13279e5180e792e6c6b3a6d4979e32202535de41f3ba3a0505549835543229bbe47cc671faaf4c59c
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -6772,6 +6782,7 @@ __metadata:
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
+    "@onekeyfe/react-native-text-input": "npm:0.2.3"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -22625,13 +22636,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7, follow-redirects@npm:^1.14.8, follow-redirects@npm:^1.15.6":
+"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7, follow-redirects@npm:^1.15.6":
   version: 1.15.6
   resolution: "follow-redirects@npm:1.15.6"
   peerDependenciesMeta:
     debug:
       optional: true
   checksum: 10/70c7612c4cab18e546e36b991bbf8009a1a41cf85354afe04b113d1117569abf760269409cb3eb842d9f7b03d62826687086b081c566ea7b1e6613cf29030bf7
+  languageName: node
+  linkType: hard
+
+"follow-redirects@npm:^1.14.8":
+  version: 1.15.9
+  resolution: "follow-redirects@npm:1.15.9"
+  peerDependenciesMeta:
+    debug:
+      optional: true
+  checksum: 10/e3ab42d1097e90d28b913903841e6779eb969b62a64706a3eb983e894a5db000fbd89296f45f08885a0e54cd558ef62e81be1165da9be25a6c44920da10f424c
   languageName: node
   linkType: hard
 
