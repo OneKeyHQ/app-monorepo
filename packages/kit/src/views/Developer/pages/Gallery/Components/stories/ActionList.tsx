@@ -5,6 +5,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { Layout } from './utils/Layout';
 
@@ -25,15 +26,18 @@ const ActionListDemo1 = () => (
       {
         label: 'Action2',
         icon: 'PlaceholderOutline',
-        onPress: () => {
-          console.log('action2');
+        onPress: (close) => {
+          setTimeout(() => {
+            console.log('action2');
+            close();
+          }, 3500);
         },
       },
       {
         label: 'Action3',
         icon: 'PlaceholderOutline',
         onPress: () => {
-          console.log('action2');
+          console.log('action3');
         },
         disabled: true,
       },
@@ -163,6 +167,7 @@ const ActionListDemo3 = () => (
           {
             label: 'Action2',
             icon: 'PlaceholderOutline',
+            shortcutKeys: [shortcutsKeys.CmdOrCtrl, 'k'],
             onPress: () => {
               console.log('action2');
             },
@@ -238,6 +243,49 @@ const ActionListGallery = () => (
             <ActionListDemo2 />
             <ActionListDemo3 />
           </Stack>
+        ),
+      },
+      {
+        title: 'shortcuts',
+        element: (
+          <ActionList
+            title="Action List(Close demo)"
+            renderTrigger={
+              <Button onPress={() => console.log('trigger')}>
+                Action List
+              </Button>
+            }
+            sections={[
+              {
+                items: [
+                  {
+                    label: 'just close it',
+                    icon: 'PlaceholderOutline',
+                    shortcutKeys: [
+                      shortcutsKeys.CmdOrCtrl,
+                      shortcutsKeys.Alt,
+                      'k',
+                    ],
+                    onPress: () => {
+                      console.log('action1');
+                    },
+                  },
+                  {
+                    label: 'async action(fail)',
+                    icon: 'PlaceholderOutline',
+                    shortcutKeys: [shortcutsKeys.CmdOrCtrl, 'o'],
+                    onPress: () =>
+                      new Promise((resolve) => {
+                        setTimeout(() => {
+                          alert('fail');
+                          resolve(false);
+                        }, 1000);
+                      }),
+                  },
+                ],
+              },
+            ]}
+          />
         ),
       },
       {

@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { I18nManager } from "react-native";
 
 const icons = {
   AppleBrand: () => import("./react/brand/Apple"),
@@ -69,6 +70,8 @@ const icons = {
   FilecoinIllus: () => import("./react/illus/Filecoin"),
   GasIllus: () => import("./react/illus/Gas"),
   GnosisChainIllus: () => import("./react/illus/GnosisChain"),
+  HandDrawRightDownArrowIllus: () =>
+    import("./react/illus/HandDrawRightDownArrow"),
   HardwareAboutDeviceBgIllus: () =>
     import("./react/illus/HardwareAboutDeviceBg"),
   HuobiEcoChainIllus: () => import("./react/illus/HuobiEcoChain"),
@@ -138,14 +141,26 @@ const icons = {
   AlbumsOutline: () => import("./react/outline/Albums"),
   AlighRightOutline: () => import("./react/outline/AlighRight"),
   AlignBottomOutline: () => import("./react/outline/AlignBottom"),
-  AlignLeftOutline: () => import("./react/outline/AlignLeft"),
-  AlignRightOutline: () => import("./react/outline/AlignRight"),
+  AlignLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/AlignRight")
+      : import("./react/outline/AlignLeft"),
+  AlignRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/AlignLeft")
+      : import("./react/outline/AlignRight"),
   AlignTopOutline: () => import("./react/outline/AlignTop"),
   AlignmentBarOutline: () => import("./react/outline/AlignmentBar"),
   AlignmentCenterOutline: () => import("./react/outline/AlignmentCenter"),
   AlignmentJustifyOutline: () => import("./react/outline/AlignmentJustify"),
-  AlignmentLeftOutline: () => import("./react/outline/AlignmentLeft"),
-  AlignmentRightOutline: () => import("./react/outline/AlignmentRight"),
+  AlignmentLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/AlignmentRight")
+      : import("./react/outline/AlignmentLeft"),
+  AlignmentRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/AlignmentLeft")
+      : import("./react/outline/AlignmentRight"),
   AltOutline: () => import("./react/outline/Alt"),
   AltTextOutline: () => import("./react/outline/AltText"),
   AnchorOutline: () => import("./react/outline/Anchor"),
@@ -160,26 +175,62 @@ const icons = {
   AroundOutline: () => import("./react/outline/Around"),
   ArrowBottomOutline: () => import("./react/outline/ArrowBottom"),
   ArrowBottomCircleOutline: () => import("./react/outline/ArrowBottomCircle"),
-  ArrowBottomLeftOutline: () => import("./react/outline/ArrowBottomLeft"),
-  ArrowBottomRightOutline: () => import("./react/outline/ArrowBottomRight"),
+  ArrowBottomLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowBottomRight")
+      : import("./react/outline/ArrowBottomLeft"),
+  ArrowBottomRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowBottomLeft")
+      : import("./react/outline/ArrowBottomRight"),
   ArrowExpandHoutline: () => import("./react/outline/ArrowExpandH"),
   ArrowExpandVoutline: () => import("./react/outline/ArrowExpandV"),
-  ArrowLeftOutline: () => import("./react/outline/ArrowLeft"),
-  ArrowLeftCircleOutline: () => import("./react/outline/ArrowLeftCircle"),
+  ArrowLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowRight")
+      : import("./react/outline/ArrowLeft"),
+  ArrowLeftCircleOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowRightCircle")
+      : import("./react/outline/ArrowLeftCircle"),
   ArrowPathDownOutline: () => import("./react/outline/ArrowPathDown"),
-  ArrowPathLeftOutline: () => import("./react/outline/ArrowPathLeft"),
-  ArrowPathRightOutline: () => import("./react/outline/ArrowPathRight"),
+  ArrowPathLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowPathRight")
+      : import("./react/outline/ArrowPathLeft"),
+  ArrowPathRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowPathLeft")
+      : import("./react/outline/ArrowPathRight"),
   ArrowPathUpOutline: () => import("./react/outline/ArrowPathUp"),
-  ArrowRightOutline: () => import("./react/outline/ArrowRight"),
-  ArrowRightCircleOutline: () => import("./react/outline/ArrowRightCircle"),
+  ArrowRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowLeft")
+      : import("./react/outline/ArrowRight"),
+  ArrowRightCircleOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowLeftCircle")
+      : import("./react/outline/ArrowRightCircle"),
   ArrowTopOutline: () => import("./react/outline/ArrowTop"),
   ArrowTopCircleOutline: () => import("./react/outline/ArrowTopCircle"),
-  ArrowTopLeftOutline: () => import("./react/outline/ArrowTopLeft"),
-  ArrowTopRightOutline: () => import("./react/outline/ArrowTopRight"),
+  ArrowTopLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowTopRight")
+      : import("./react/outline/ArrowTopLeft"),
+  ArrowTopRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowTopLeft")
+      : import("./react/outline/ArrowTopRight"),
   ArrowTriangleBottomOutline: () =>
     import("./react/outline/ArrowTriangleBottom"),
-  ArrowTriangleLeftOutline: () => import("./react/outline/ArrowTriangleLeft"),
-  ArrowTriangleRightOutline: () => import("./react/outline/ArrowTriangleRight"),
+  ArrowTriangleLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowTriangleRight")
+      : import("./react/outline/ArrowTriangleLeft"),
+  ArrowTriangleRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ArrowTriangleLeft")
+      : import("./react/outline/ArrowTriangleRight"),
   ArrowTriangleTopOutline: () => import("./react/outline/ArrowTriangleTop"),
   AtSignOutline: () => import("./react/outline/AtSign"),
   AttachmentOutline: () => import("./react/outline/Attachment"),
@@ -334,20 +385,44 @@ const icons = {
   ChecklistBoxSearchOutline: () => import("./react/outline/ChecklistBoxSearch"),
   ChevronBottomOutline: () => import("./react/outline/ChevronBottom"),
   ChevronDoubleDownOutline: () => import("./react/outline/ChevronDoubleDown"),
-  ChevronDoubleLeftOutline: () => import("./react/outline/ChevronDoubleLeft"),
-  ChevronDoubleRightOutline: () => import("./react/outline/ChevronDoubleRight"),
+  ChevronDoubleLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronDoubleRight")
+      : import("./react/outline/ChevronDoubleLeft"),
+  ChevronDoubleRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronDoubleLeft")
+      : import("./react/outline/ChevronDoubleRight"),
   ChevronDoubleUpOutline: () => import("./react/outline/ChevronDoubleUp"),
   ChevronDownSmallOutline: () => import("./react/outline/ChevronDownSmall"),
   ChevronGrabberHorOutline: () => import("./react/outline/ChevronGrabberHor"),
   ChevronGrabberVerOutline: () => import("./react/outline/ChevronGrabberVer"),
   ChevronLargeDownOutline: () => import("./react/outline/ChevronLargeDown"),
-  ChevronLargeLeftOutline: () => import("./react/outline/ChevronLargeLeft"),
-  ChevronLargeRightOutline: () => import("./react/outline/ChevronLargeRight"),
+  ChevronLargeLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronLargeRight")
+      : import("./react/outline/ChevronLargeLeft"),
+  ChevronLargeRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronLargeLeft")
+      : import("./react/outline/ChevronLargeRight"),
   ChevronLargeTopOutline: () => import("./react/outline/ChevronLargeTop"),
-  ChevronLeftOutline: () => import("./react/outline/ChevronLeft"),
-  ChevronLeftSmallOutline: () => import("./react/outline/ChevronLeftSmall"),
-  ChevronRightOutline: () => import("./react/outline/ChevronRight"),
-  ChevronRightSmallOutline: () => import("./react/outline/ChevronRightSmall"),
+  ChevronLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronRight")
+      : import("./react/outline/ChevronLeft"),
+  ChevronLeftSmallOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronRightSmall")
+      : import("./react/outline/ChevronLeftSmall"),
+  ChevronRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronLeft")
+      : import("./react/outline/ChevronRight"),
+  ChevronRightSmallOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/ChevronLeftSmall")
+      : import("./react/outline/ChevronRightSmall"),
   ChevronTopOutline: () => import("./react/outline/ChevronTop"),
   ChevronTopSmallOutline: () => import("./react/outline/ChevronTopSmall"),
   ChromecastOutline: () => import("./react/outline/Chromecast"),
@@ -396,28 +471,54 @@ const icons = {
   ControllerRoundDownOutline: () =>
     import("./react/outline/ControllerRoundDown"),
   ControllerRoundLeftOutline: () =>
-    import("./react/outline/ControllerRoundLeft"),
+    I18nManager.isRTL
+      ? import("./react/outline/ControllerRoundRight")
+      : import("./react/outline/ControllerRoundLeft"),
   ControllerRoundRightOutline: () =>
-    import("./react/outline/ControllerRoundRight"),
+    I18nManager.isRTL
+      ? import("./react/outline/ControllerRoundLeft")
+      : import("./react/outline/ControllerRoundRight"),
   ControllerRoundUpOutline: () => import("./react/outline/ControllerRoundUp"),
   ControllerSquareOutline: () => import("./react/outline/ControllerSquare"),
   ControllerSquareDownOutline: () =>
     import("./react/outline/ControllerSquareDown"),
   ControllerSquareLeftOutline: () =>
-    import("./react/outline/ControllerSquareLeft"),
+    I18nManager.isRTL
+      ? import("./react/outline/ControllerSquareRight")
+      : import("./react/outline/ControllerSquareLeft"),
   ControllerSquareRightOutline: () =>
-    import("./react/outline/ControllerSquareRight"),
+    I18nManager.isRTL
+      ? import("./react/outline/ControllerSquareLeft")
+      : import("./react/outline/ControllerSquareRight"),
   ControllerSquareUpOutline: () => import("./react/outline/ControllerSquareUp"),
   CookiesOutline: () => import("./react/outline/Cookies"),
   Copy1Outline: () => import("./react/outline/Copy1"),
   Copy2Outline: () => import("./react/outline/Copy2"),
   Copy3Outline: () => import("./react/outline/Copy3"),
-  CornerDownLeftOutline: () => import("./react/outline/CornerDownLeft"),
-  CornerDownRightOutline: () => import("./react/outline/CornerDownRight"),
-  CornerLeftDownOutline: () => import("./react/outline/CornerLeftDown"),
-  CornerLeftUpOutline: () => import("./react/outline/CornerLeftUp"),
-  CornerRightDownOutline: () => import("./react/outline/CornerRightDown"),
-  CornerRightUpOutline: () => import("./react/outline/CornerRightUp"),
+  CornerDownLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerDownRight")
+      : import("./react/outline/CornerDownLeft"),
+  CornerDownRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerDownLeft")
+      : import("./react/outline/CornerDownRight"),
+  CornerLeftDownOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerRightDown")
+      : import("./react/outline/CornerLeftDown"),
+  CornerLeftUpOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerRightUp")
+      : import("./react/outline/CornerLeftUp"),
+  CornerRightDownOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerLeftDown")
+      : import("./react/outline/CornerRightDown"),
+  CornerRightUpOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/CornerLeftUp")
+      : import("./react/outline/CornerRightUp"),
   CornerUpRightOutline: () => import("./react/outline/CornerUpRight"),
   CourtOutline: () => import("./react/outline/Court"),
   CreditCardOutline: () => import("./react/outline/CreditCard"),
@@ -625,8 +726,14 @@ const icons = {
   LayoutDashboardOutline: () => import("./react/outline/LayoutDashboard"),
   LayoutGrid1Outline: () => import("./react/outline/LayoutGrid1"),
   LayoutGrid2Outline: () => import("./react/outline/LayoutGrid2"),
-  LayoutLeftOutline: () => import("./react/outline/LayoutLeft"),
-  LayoutRightOutline: () => import("./react/outline/LayoutRight"),
+  LayoutLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/LayoutRight")
+      : import("./react/outline/LayoutLeft"),
+  LayoutRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/LayoutLeft")
+      : import("./react/outline/LayoutRight"),
   LayoutSearchOutline: () => import("./react/outline/LayoutSearch"),
   LayoutSidebarOutline: () => import("./react/outline/LayoutSidebar"),
   LayoutTopOutline: () => import("./react/outline/LayoutTop"),
@@ -863,8 +970,14 @@ const icons = {
   TargetCircleOutline: () => import("./react/outline/TargetCircle"),
   TelevisionOutline: () => import("./react/outline/Television"),
   TextOutline: () => import("./react/outline/Text"),
-  TextIndentLeftOutline: () => import("./react/outline/TextIndentLeft"),
-  TextIndentRightOutline: () => import("./react/outline/TextIndentRight"),
+  TextIndentLeftOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/TextIndentRight")
+      : import("./react/outline/TextIndentLeft"),
+  TextIndentRightOutline: () =>
+    I18nManager.isRTL
+      ? import("./react/outline/TextIndentLeft")
+      : import("./react/outline/TextIndentRight"),
   TextIndicatorOutline: () => import("./react/outline/TextIndicator"),
   TextSizeOutline: () => import("./react/outline/TextSize"),
   ThinkingBubbleOutline: () => import("./react/outline/ThinkingBubble"),
@@ -950,14 +1063,26 @@ const icons = {
   AlbumsSolid: () => import("./react/solid/Albums"),
   AlighRightSolid: () => import("./react/solid/AlighRight"),
   AlignBottomSolid: () => import("./react/solid/AlignBottom"),
-  AlignLeftSolid: () => import("./react/solid/AlignLeft"),
-  AlignRightSolid: () => import("./react/solid/AlignRight"),
+  AlignLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/AlignRight")
+      : import("./react/solid/AlignLeft"),
+  AlignRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/AlignLeft")
+      : import("./react/solid/AlignRight"),
   AlignTopSolid: () => import("./react/solid/AlignTop"),
   AlignmentBarSolid: () => import("./react/solid/AlignmentBar"),
   AlignmentCenterSolid: () => import("./react/solid/AlignmentCenter"),
   AlignmentJustifySolid: () => import("./react/solid/AlignmentJustify"),
-  AlignmentLeftSolid: () => import("./react/solid/AlignmentLeft"),
-  AlignmentRightSolid: () => import("./react/solid/AlignmentRight"),
+  AlignmentLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/AlignmentRight")
+      : import("./react/solid/AlignmentLeft"),
+  AlignmentRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/AlignmentLeft")
+      : import("./react/solid/AlignmentRight"),
   AltSolid: () => import("./react/solid/Alt"),
   AltTextSolid: () => import("./react/solid/AltText"),
   AnchorSolid: () => import("./react/solid/Anchor"),
@@ -971,25 +1096,61 @@ const icons = {
   AroundSolid: () => import("./react/solid/Around"),
   ArrowBottomSolid: () => import("./react/solid/ArrowBottom"),
   ArrowBottomCircleSolid: () => import("./react/solid/ArrowBottomCircle"),
-  ArrowBottomLeftSolid: () => import("./react/solid/ArrowBottomLeft"),
-  ArrowBottomRightSolid: () => import("./react/solid/ArrowBottomRight"),
+  ArrowBottomLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowBottomRight")
+      : import("./react/solid/ArrowBottomLeft"),
+  ArrowBottomRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowBottomLeft")
+      : import("./react/solid/ArrowBottomRight"),
   ArrowExpandHsolid: () => import("./react/solid/ArrowExpandH"),
   ArrowExpandVsolid: () => import("./react/solid/ArrowExpandV"),
-  ArrowLeftSolid: () => import("./react/solid/ArrowLeft"),
-  ArrowLeftCircleSolid: () => import("./react/solid/ArrowLeftCircle"),
+  ArrowLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowRight")
+      : import("./react/solid/ArrowLeft"),
+  ArrowLeftCircleSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowRightCircle")
+      : import("./react/solid/ArrowLeftCircle"),
   ArrowPathDownSolid: () => import("./react/solid/ArrowPathDown"),
-  ArrowPathLeftSolid: () => import("./react/solid/ArrowPathLeft"),
-  ArrowPathRightSolid: () => import("./react/solid/ArrowPathRight"),
+  ArrowPathLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowPathRight")
+      : import("./react/solid/ArrowPathLeft"),
+  ArrowPathRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowPathLeft")
+      : import("./react/solid/ArrowPathRight"),
   ArrowPathUpSolid: () => import("./react/solid/ArrowPathUp"),
-  ArrowRightSolid: () => import("./react/solid/ArrowRight"),
-  ArrowRightCircleSolid: () => import("./react/solid/ArrowRightCircle"),
+  ArrowRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowLeft")
+      : import("./react/solid/ArrowRight"),
+  ArrowRightCircleSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowLeftCircle")
+      : import("./react/solid/ArrowRightCircle"),
   ArrowTopSolid: () => import("./react/solid/ArrowTop"),
   ArrowTopCircleSolid: () => import("./react/solid/ArrowTopCircle"),
-  ArrowTopLeftSolid: () => import("./react/solid/ArrowTopLeft"),
-  ArrowTopRightSolid: () => import("./react/solid/ArrowTopRight"),
+  ArrowTopLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowTopRight")
+      : import("./react/solid/ArrowTopLeft"),
+  ArrowTopRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowTopLeft")
+      : import("./react/solid/ArrowTopRight"),
   ArrowTriangleBottomSolid: () => import("./react/solid/ArrowTriangleBottom"),
-  ArrowTriangleLeftSolid: () => import("./react/solid/ArrowTriangleLeft"),
-  ArrowTriangleRightSolid: () => import("./react/solid/ArrowTriangleRight"),
+  ArrowTriangleLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowTriangleRight")
+      : import("./react/solid/ArrowTriangleLeft"),
+  ArrowTriangleRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ArrowTriangleLeft")
+      : import("./react/solid/ArrowTriangleRight"),
   ArrowTriangleTopSolid: () => import("./react/solid/ArrowTriangleTop"),
   AtSignSolid: () => import("./react/solid/AtSign"),
   AttachmentSolid: () => import("./react/solid/Attachment"),
@@ -1136,20 +1297,44 @@ const icons = {
   ChecklistBoxSearchSolid: () => import("./react/solid/ChecklistBoxSearch"),
   ChevronBottomSolid: () => import("./react/solid/ChevronBottom"),
   ChevronDoubleDownSolid: () => import("./react/solid/ChevronDoubleDown"),
-  ChevronDoubleLeftSolid: () => import("./react/solid/ChevronDoubleLeft"),
-  ChevronDoubleRightSolid: () => import("./react/solid/ChevronDoubleRight"),
+  ChevronDoubleLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronDoubleRight")
+      : import("./react/solid/ChevronDoubleLeft"),
+  ChevronDoubleRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronDoubleLeft")
+      : import("./react/solid/ChevronDoubleRight"),
   ChevronDoubleUpSolid: () => import("./react/solid/ChevronDoubleUp"),
   ChevronDownSmallSolid: () => import("./react/solid/ChevronDownSmall"),
   ChevronGrabberHorSolid: () => import("./react/solid/ChevronGrabberHor"),
   ChevronGrabberVerSolid: () => import("./react/solid/ChevronGrabberVer"),
   ChevronLargeDownSolid: () => import("./react/solid/ChevronLargeDown"),
-  ChevronLargeLeftSolid: () => import("./react/solid/ChevronLargeLeft"),
-  ChevronLargeRightSolid: () => import("./react/solid/ChevronLargeRight"),
+  ChevronLargeLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronLargeRight")
+      : import("./react/solid/ChevronLargeLeft"),
+  ChevronLargeRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronLargeLeft")
+      : import("./react/solid/ChevronLargeRight"),
   ChevronLargeTopSolid: () => import("./react/solid/ChevronLargeTop"),
-  ChevronLeftSolid: () => import("./react/solid/ChevronLeft"),
-  ChevronLeftSmallSolid: () => import("./react/solid/ChevronLeftSmall"),
-  ChevronRightSolid: () => import("./react/solid/ChevronRight"),
-  ChevronRightSmallSolid: () => import("./react/solid/ChevronRightSmall"),
+  ChevronLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronRight")
+      : import("./react/solid/ChevronLeft"),
+  ChevronLeftSmallSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronRightSmall")
+      : import("./react/solid/ChevronLeftSmall"),
+  ChevronRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronLeft")
+      : import("./react/solid/ChevronRight"),
+  ChevronRightSmallSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ChevronLeftSmall")
+      : import("./react/solid/ChevronRightSmall"),
   ChevronTopSolid: () => import("./react/solid/ChevronTop"),
   ChevronTopSmallSolid: () => import("./react/solid/ChevronTopSmall"),
   ChromecastSolid: () => import("./react/solid/Chromecast"),
@@ -1193,25 +1378,54 @@ const icons = {
   ControlKeySolid: () => import("./react/solid/ControlKey"),
   ControllerRoundSolid: () => import("./react/solid/ControllerRound"),
   ControllerRoundDownSolid: () => import("./react/solid/ControllerRoundDown"),
-  ControllerRoundLeftSolid: () => import("./react/solid/ControllerRoundLeft"),
-  ControllerRoundRightSolid: () => import("./react/solid/ControllerRoundRight"),
+  ControllerRoundLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ControllerRoundRight")
+      : import("./react/solid/ControllerRoundLeft"),
+  ControllerRoundRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ControllerRoundLeft")
+      : import("./react/solid/ControllerRoundRight"),
   ControllerRoundUpSolid: () => import("./react/solid/ControllerRoundUp"),
   ControllerSquareSolid: () => import("./react/solid/ControllerSquare"),
   ControllerSquareDownSolid: () => import("./react/solid/ControllerSquareDown"),
-  ControllerSquareLeftSolid: () => import("./react/solid/ControllerSquareLeft"),
+  ControllerSquareLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/ControllerSquareRight")
+      : import("./react/solid/ControllerSquareLeft"),
   ControllerSquareRightSolid: () =>
-    import("./react/solid/ControllerSquareRight"),
+    I18nManager.isRTL
+      ? import("./react/solid/ControllerSquareLeft")
+      : import("./react/solid/ControllerSquareRight"),
   ControllerSquareUpSolid: () => import("./react/solid/ControllerSquareUp"),
   CookiesSolid: () => import("./react/solid/Cookies"),
   Copy1Solid: () => import("./react/solid/Copy1"),
   Copy2Solid: () => import("./react/solid/Copy2"),
   Copy3Solid: () => import("./react/solid/Copy3"),
-  CornerDownLeftSolid: () => import("./react/solid/CornerDownLeft"),
-  CornerDownRightSolid: () => import("./react/solid/CornerDownRight"),
-  CornerLeftDownSolid: () => import("./react/solid/CornerLeftDown"),
-  CornerLeftUpSolid: () => import("./react/solid/CornerLeftUp"),
-  CornerRightDownSolid: () => import("./react/solid/CornerRightDown"),
-  CornerRightUpSolid: () => import("./react/solid/CornerRightUp"),
+  CornerDownLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerDownRight")
+      : import("./react/solid/CornerDownLeft"),
+  CornerDownRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerDownLeft")
+      : import("./react/solid/CornerDownRight"),
+  CornerLeftDownSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerRightDown")
+      : import("./react/solid/CornerLeftDown"),
+  CornerLeftUpSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerRightUp")
+      : import("./react/solid/CornerLeftUp"),
+  CornerRightDownSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerLeftDown")
+      : import("./react/solid/CornerRightDown"),
+  CornerRightUpSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/CornerLeftUp")
+      : import("./react/solid/CornerRightUp"),
   CornerUpRightSolid: () => import("./react/solid/CornerUpRight"),
   CourtSolid: () => import("./react/solid/Court"),
   CreditCardSolid: () => import("./react/solid/CreditCard"),
@@ -1417,8 +1631,14 @@ const icons = {
   LayoutDashboardSolid: () => import("./react/solid/LayoutDashboard"),
   LayoutGrid1Solid: () => import("./react/solid/LayoutGrid1"),
   LayoutGrid2Solid: () => import("./react/solid/LayoutGrid2"),
-  LayoutLeftSolid: () => import("./react/solid/LayoutLeft"),
-  LayoutRightSolid: () => import("./react/solid/LayoutRight"),
+  LayoutLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/LayoutRight")
+      : import("./react/solid/LayoutLeft"),
+  LayoutRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/LayoutLeft")
+      : import("./react/solid/LayoutRight"),
   LayoutSearchSolid: () => import("./react/solid/LayoutSearch"),
   LayoutSidebarSolid: () => import("./react/solid/LayoutSidebar"),
   LayoutTopSolid: () => import("./react/solid/LayoutTop"),
@@ -1652,8 +1872,14 @@ const icons = {
   TargetCircleSolid: () => import("./react/solid/TargetCircle"),
   TelevisionSolid: () => import("./react/solid/Television"),
   TextSolid: () => import("./react/solid/Text"),
-  TextIndentLeftSolid: () => import("./react/solid/TextIndentLeft"),
-  TextIndentRightSolid: () => import("./react/solid/TextIndentRight"),
+  TextIndentLeftSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/TextIndentRight")
+      : import("./react/solid/TextIndentLeft"),
+  TextIndentRightSolid: () =>
+    I18nManager.isRTL
+      ? import("./react/solid/TextIndentLeft")
+      : import("./react/solid/TextIndentRight"),
   TextIndicatorSolid: () => import("./react/solid/TextIndicator"),
   TextSizeSolid: () => import("./react/solid/TextSize"),
   ThinkingBubbleSolid: () => import("./react/solid/ThinkingBubble"),
@@ -1704,6 +1930,7 @@ const icons = {
   WhisperSolid: () => import("./react/solid/Whisper"),
   WifiSolid: () => import("./react/solid/Wifi"),
   WindSolid: () => import("./react/solid/Wind"),
+  WindowsHelloSolid: () => import("./react/solid/WindowsHello"),
   WorldSolid: () => import("./react/solid/World"),
   WreathSolid: () => import("./react/solid/Wreath"),
   XBackspaceSolid: () => import("./react/solid/XBackspace"),

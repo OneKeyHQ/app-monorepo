@@ -1,4 +1,4 @@
-import type { IToken } from './token';
+import type { IToken, ITokenData } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -18,6 +18,7 @@ export enum EEarnLabels {
 
 export type IStakingInfo = {
   protocol: string;
+  protocolLogoURI?: string;
   label: EEarnLabels;
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
@@ -35,10 +36,16 @@ export type IStakeProviderInfo = {
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
+  minUnstakeAmount?: number;
   minClaimableAmount?: string;
-  isNative: string;
+  isNative?: string;
   nextLaunchLeft?: string;
-  labels?: string[];
+
+  lidoStTokenRate?: string;
+  type?: 'native' | 'liquid';
+  isStaking?: boolean;
+
+  unstakingTime?: number;
 
   // native token only
   minTransactionFee?: string;
@@ -50,6 +57,7 @@ export type IStakeProviderInfo = {
   maxStakeBlocks?: number;
   unbondingTime?: number;
   stakingCap?: string;
+  earnPoints?: boolean;
 };
 
 export type IStakeBaseParams = {
@@ -112,7 +120,7 @@ export type IStakeHistoryParams = {
 export type IStakeHistory = {
   txHash: string;
   title: string;
-  type: string;
+  type?: string;
   amount?: string;
   timestamp: number;
   tokenAddress: string;
@@ -171,6 +179,7 @@ export type IStakeProtocolDetails = {
   pendingInactive?: string;
   pendingActive?: string;
   claimable?: string;
+  rewards?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
   token: {
@@ -190,7 +199,6 @@ export type IStakeProtocolDetails = {
   earnHistoryEnable?: boolean;
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
-  minUnstakeAmount?: number;
   overflow?: string;
 };
 
@@ -240,6 +248,7 @@ export type IClaimableListResponse = {
 };
 
 export interface IEarnAccountToken {
+  networkId: string;
   name: string;
   symbol: string;
   logoURI: string;
@@ -259,10 +268,16 @@ export type IEarnAccountResponse = {
 };
 
 export type IEarnAccount = {
-  earn: IEarnAccountResponse;
+  tokens: IEarnAccountToken[];
   networkId: string;
   accountAddress: string;
   publicKey?: string;
+};
+
+export type IEarnAccountTokenResponse = {
+  totalFiatValue: string;
+  earnings24h: string;
+  accounts: IEarnAccount[];
 };
 
 export type IAvailableAsset = {
@@ -275,7 +290,7 @@ export type IAvailableAsset = {
 };
 
 export interface IEarnAtomData {
-  accounts?: Record<string, IEarnAccount[]>;
+  earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssets?: IAvailableAsset[];
 }
 
@@ -318,3 +333,18 @@ export interface IEarnFAQListItem {
   answer: string;
 }
 export type IEarnFAQList = IEarnFAQListItem[];
+
+export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
+
+export type IEarnEstimateFeeResp = {
+  coverFeeDays?: string;
+  feeFiatValue: string;
+  token: {
+    balance: string;
+    balanceParsed: string;
+    fiatValue: string;
+    price: string;
+    price24h: string;
+    info: IToken;
+  };
+};

@@ -16,6 +16,7 @@ import {
 import { useIntl } from 'react-intl';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -288,6 +289,7 @@ function BaseDialogContainer(
     tone,
     description,
     icon,
+    renderIcon,
     showExitButton,
     ...props
   }: IDialogContainerProps,
@@ -341,6 +343,7 @@ function BaseDialogContainer(
     tone,
     description,
     icon,
+    renderIcon,
     showExitButton,
   });
 
@@ -352,9 +355,10 @@ function BaseDialogContainer(
       tone,
       description,
       icon,
+      renderIcon,
       showExitButton,
     }));
-  }, [description, icon, showExitButton, title, tone]);
+  }, [description, icon, renderIcon, showExitButton, title, tone]);
   const headerContextValue = useMemo(
     () => ({ headerProps, setHeaderProps }),
     [headerProps],
@@ -390,6 +394,7 @@ function dialogShow({
     ref: React.RefObject<IDialogInstance> | undefined;
   }) => JSX.Element;
 }): IDialogInstance {
+  dismissKeyboard();
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
 
@@ -446,9 +451,20 @@ function dialogShow({
       ? renderToContainer(portalContainer, element)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
+  const close = async (extra?: { flag?: string }, times = 0) => {
+    if (times > 10) {
+      return;
+    }
+    if (!instanceRef?.current) {
+      setTimeout(() => {
+        void close(extra, times + 1);
+      }, 10);
+      return Promise.resolve();
+    }
+    return instanceRef?.current?.close(extra);
+  };
   return {
-    close: async (extra?: { flag?: string }) =>
-      instanceRef?.current?.close(extra),
+    close,
     getForm: () => instanceRef?.current?.getForm(),
   };
 }

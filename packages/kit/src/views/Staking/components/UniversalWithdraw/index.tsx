@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -15,17 +16,17 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
-
-const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
+import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import StakingFormWrapper from '../StakingFormWrapper';
 
 type IUniversalWithdrawProps = {
   balance: string;
@@ -41,9 +42,18 @@ type IUniversalWithdrawProps = {
   initialAmount?: string;
   tokenImageUri?: string;
   tokenSymbol?: string;
+
   minAmount?: string;
-  withdrawMinAmount?: number;
   unstakingPeriod?: number;
+
+  showPayWith?: boolean;
+  payWithToken?: string;
+  payWithTokenRate?: string;
+
+  hideReceived?: boolean;
+
+  estimateFeeResp?: IEarnEstimateFeeResp;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -56,10 +66,17 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
-  withdrawMinAmount,
   unstakingPeriod,
   providerLabel,
   decimals,
+  // pay with
+  showPayWith,
+  payWithToken,
+  payWithTokenRate = '1',
+
+  hideReceived,
+  estimateFeeResp,
+
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
@@ -74,14 +91,18 @@ export const UniversalWithdraw = ({
   const intl = useIntl();
 
   const onPress = useCallback(async () => {
+    Keyboard.dismiss();
     Dialog.show({
+      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
+      title: intl.formatMessage(
+        { id: ETranslations.earn_provider_asset_withdrawal },
+        {
+          'provider': capitalizeString(providerName ?? ''),
+          'asset': tokenSymbol?.toUpperCase() ?? '',
+        },
+      ),
       renderContent: (
-        <WithdrawShouldUnderstand
-          provider={providerName ?? ''}
-          logoURI={tokenImageUri ?? ''}
-          symbol={tokenSymbol ?? ''}
-          withdrawalPeriod={3}
-        />
+        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
       ),
       onConfirm: async (inst) => {
         try {
@@ -95,7 +116,15 @@ export const UniversalWithdraw = ({
       onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
       showCancelButton: false,
     });
-  }, [amountValue, onConfirm, intl, tokenImageUri, tokenSymbol, providerName]);
+  }, [
+    amountValue,
+    onConfirm,
+    intl,
+    tokenImageUri,
+    tokenSymbol,
+    providerName,
+    unstakingPeriod,
+  ]);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -132,43 +161,31 @@ export const UniversalWithdraw = ({
     [amountValue, balance],
   );
 
-  const isLessThanMinAmountResp = useMemo<{
-    result: boolean;
-    value: string;
-  }>(() => {
-    const minValue = Math.max(
-      Number(withdrawMinAmount ?? 0),
-      Number(minAmount ?? 0),
-    );
-    const minAmountBN = new BigNumber(minValue);
-    const amountValueBN = new BigNumber(amountValue);
-    if (minAmountBN.gt(0) && amountValueBN.gt(0)) {
-      return {
-        result: amountValueBN.isLessThan(minAmountBN),
-        value: minAmountBN.toFixed(),
-      };
+  const isLessThanMinAmount = useMemo<boolean>(() => {
+    const minAmountBn = new BigNumber(minAmount);
+    const amountValueBn = new BigNumber(amountValue);
+    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
+      return amountValueBn.isLessThan(minAmountBn);
     }
-    return { result: false, value: minAmountBN.toFixed() };
-  }, [minAmount, amountValue, withdrawMinAmount]);
+    return false;
+  }, [minAmount, amountValue]);
 
-  const isLessThanWithdrawMinAmountWarning = useMemo<boolean>(() => {
-    if (Number(withdrawMinAmount) > 0) {
-      const withdrawMinAmountBN = new BigNumber(Number(withdrawMinAmount));
+  const remainingLessThanMinAmountWarning = useMemo<boolean>(() => {
+    if (Number(minAmount) > 0) {
+      const minAmountBN = new BigNumber(Number(minAmount));
       const amountValueBN = new BigNumber(amountValue);
       const balanceBN = new BigNumber(balance);
-      if (
-        withdrawMinAmountBN.gt(0) &&
-        amountValueBN.gt(0) &&
-        balanceBN.gte(0)
-      ) {
+      if (minAmountBN.gt(0) && amountValueBN.gt(0) && balanceBN.gte(0)) {
         return (
           amountValueBN.gt(0) &&
-          balanceBN.minus(amountValueBN).lt(withdrawMinAmountBN)
+          amountValueBN.gte(minAmountBN) &&
+          balanceBN.minus(amountValueBN).gt(0) &&
+          balanceBN.minus(amountValueBN).lt(minAmountBN)
         );
       }
     }
     return false;
-  }, [withdrawMinAmount, amountValue, balance]);
+  }, [minAmount, amountValue, balance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -179,83 +196,79 @@ export const UniversalWithdraw = ({
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmountResp.result,
-    [amountValue, isInsufficientBalance, isLessThanMinAmountResp.result],
+      isLessThanMinAmount,
+    [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
   const editable = initialAmount === undefined;
 
   return (
-    <YStack>
-      <Stack mx="$2" px="$3" gap="$5">
-        <Stack position="relative" opacity={editable ? 1 : 0.7}>
-          <AmountInput
-            bg={editable ? '$bgApp' : '$bgDisabled'}
-            hasError={isInsufficientBalance || isLessThanMinAmountResp.result}
-            value={amountValue}
-            onChange={onChangeAmountValue}
-            tokenSelectorTriggerProps={{
-              selectedTokenImageUri: tokenImageUri,
-              selectedTokenSymbol: tokenSymbol,
-            }}
-            inputProps={{
-              placeholder: '0',
-            }}
-            balanceProps={{
-              value: balance,
-              onPress: onMax,
-            }}
-            valueProps={{
-              value: currentValue,
-              currency: currentValue ? symbol : undefined,
-            }}
-            enableMaxAmount
-          />
-          {!editable ? <Stack position="absolute" w="100%" h="100%" /> : null}
-        </Stack>
-        <YStack gap="$1">
-          {isLessThanWithdrawMinAmountWarning ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="warning"
-              title={intl.formatMessage(
-                { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
-                { number: withdrawMinAmount, symbol: tokenSymbol },
-              )}
-            />
-          ) : null}
-          {isLessThanMinAmountResp.result ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage(
-                { id: ETranslations.earn_minimum_amount },
-                {
-                  number: `${isLessThanMinAmountResp.value} ${
-                    tokenSymbol ?? ''
-                  }`,
-                },
-              )}
-            />
-          ) : null}
-          {isInsufficientBalance ? (
-            <Alert
-              icon="InfoCircleOutline"
-              type="critical"
-              title={intl.formatMessage({
-                id: ETranslations.earn_insufficient_staked_balance,
-              })}
-            />
-          ) : null}
-        </YStack>
+    <StakingFormWrapper>
+      <Stack position="relative" opacity={editable ? 1 : 0.7}>
+        <AmountInput
+          bg={editable ? '$bgApp' : '$bgDisabled'}
+          hasError={isInsufficientBalance || isLessThanMinAmount}
+          value={amountValue}
+          onChange={onChangeAmountValue}
+          tokenSelectorTriggerProps={{
+            selectedTokenImageUri: tokenImageUri,
+            selectedTokenSymbol: tokenSymbol,
+          }}
+          inputProps={{
+            placeholder: '0',
+            autoFocus: editable,
+          }}
+          balanceProps={{
+            value: balance,
+            onPress: onMax,
+          }}
+          valueProps={{
+            value: currentValue,
+            currency: currentValue ? symbol : undefined,
+          }}
+          enableMaxAmount
+        />
+        {!editable ? (
+          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+        ) : null}
       </Stack>
-      <YStack>
-        {amountValue ? (
-          <ListItem
-            title={intl.formatMessage({ id: ETranslations.earn_receive })}
-            titleProps={fieldTitleProps}
-          >
-            <SizableText>
+
+      {remainingLessThanMinAmountWarning ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="warning"
+          title={intl.formatMessage(
+            { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
+            { number: minAmount, symbol: tokenSymbol },
+          )}
+        />
+      ) : null}
+      {isLessThanMinAmount ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage(
+            { id: ETranslations.earn_minimum_amount },
+            { number: `${minAmount} ${tokenSymbol ?? ''}` },
+          )}
+        />
+      ) : null}
+      {isInsufficientBalance ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_staked_balance,
+          })}
+        />
+      ) : null}
+      <CalculationList>
+        {amountValue && !hideReceived ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_receive })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
               <NumberSizeableText
                 formatter="balance"
                 size="$bodyLgMedium"
@@ -263,44 +276,63 @@ export const UniversalWithdraw = ({
               >
                 {amountValue}
               </NumberSizeableText>
-            </SizableText>
-          </ListItem>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {showPayWith && payWithToken && Number(amountValue) > 0 ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_pay_with })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyLgMedium"
+                formatterOptions={{ tokenSymbol: payWithToken }}
+              >
+                {BigNumber(amountValue)
+                  .multipliedBy(payWithTokenRate)
+                  .toFixed()}
+              </NumberSizeableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
         {providerLogo && providerName ? (
-          <ListItem
-            title={
-              providerLabel ??
-              intl.formatMessage({
-                id: ETranslations.global_protocol,
-              })
-            }
-            titleProps={fieldTitleProps}
-          >
-            <XStack gap="$2" alignItems="center">
-              <Image
-                width="$5"
-                height="$5"
-                src={providerLogo}
-                borderRadius="$2"
-              />
-              <SizableText size="$bodyLgMedium">
-                {capitalizeString(providerName)}
-              </SizableText>
-            </XStack>
-          </ListItem>
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {providerLabel ??
+                intl.formatMessage({
+                  id: ETranslations.global_protocol,
+                })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <XStack gap="$2" alignItems="center">
+                <Image
+                  width="$5"
+                  height="$5"
+                  src={providerLogo}
+                  borderRadius="$2"
+                />
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(providerName)}
+                </SizableText>
+              </XStack>
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
         {unstakingPeriod ? (
-          <ListItem>
+          <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <SizableText {...fieldTitleProps}>
+              <CalculationListItem.Label>
                 {intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
-              </SizableText>
+              </CalculationListItem.Label>
               <Popover
                 title={intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
+                placement="bottom-start"
                 renderTrigger={
                   <IconButton
                     iconColor="$iconSubdued"
@@ -320,19 +352,25 @@ export const UniversalWithdraw = ({
                 }
               />
             </XStack>
-            <XStack gap="$2" alignItems="center">
-              <SizableText size="$bodyLgMedium">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.earn_up_to_number_days,
-                  },
-                  { 'number': unstakingPeriod },
-                )}
-              </SizableText>
-            </XStack>
-          </ListItem>
+
+            <CalculationListItem.Value>
+              {intl.formatMessage(
+                {
+                  id: ETranslations.earn_up_to_number_days,
+                },
+                { 'number': unstakingPeriod },
+              )}
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
-      </YStack>
+        {estimateFeeResp ? (
+          <EstimateNetworkFee
+            estimateFeeResp={estimateFeeResp}
+            isVisible={Number(amountValue) > 0}
+          />
+        ) : null}
+      </CalculationList>
+
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
@@ -343,6 +381,6 @@ export const UniversalWithdraw = ({
           disabled: isDisable,
         }}
       />
-    </YStack>
+    </StakingFormWrapper>
   );
 };

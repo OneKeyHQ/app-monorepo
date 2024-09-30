@@ -62,6 +62,8 @@ export interface IOneKeyWalletInfo {
 class ProviderApiPrivate extends ProviderApiBase {
   public providerName = IInjectedProviderNames.$private;
 
+  private lastFocusUrl = '';
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     // noop
@@ -215,9 +217,10 @@ class ProviderApiPrivate extends ProviderApiBase {
     console.log('ProviderApiPrivate.detectRiskLevel', request);
     if (request.origin) {
       const securityInfo =
-        await this.backgroundApi.serviceDiscovery.checkUrlSecurity(
-          request.origin,
-        );
+        await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
+          url: request.origin,
+          from: 'script',
+        });
       return {
         securityInfo,
         isExtension: !!platformEnv.isExtension,
@@ -364,6 +367,21 @@ class ProviderApiPrivate extends ProviderApiBase {
       data,
     });
     return result;
+  }
+
+  @providerApiMethod()
+  async wallet_lastFocusUrl(request: IJsBridgeMessagePayload) {
+    if (request.origin) {
+      if (this.lastFocusUrl !== request.origin) {
+        this.lastFocusUrl = request.origin;
+        appEventBus.emit(EAppEventBusNames.DAppLastFocusUrlUpdate, undefined);
+      }
+    }
+  }
+
+  @providerApiMethod()
+  async getLastFocusUrl() {
+    return Promise.resolve(this.lastFocusUrl);
   }
 }
 

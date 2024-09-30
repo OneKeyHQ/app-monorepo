@@ -21,6 +21,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -29,6 +30,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
@@ -71,10 +73,6 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
-      updateAccountOverviewState({
-        initialized: false,
-        isRefreshing: true,
-      });
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
@@ -148,17 +146,24 @@ function HomeOverviewContainer() {
           value: accountWorth.createAtNetworkWorth,
           currency: settings.currencyInfo.id,
         });
-      } else if (
-        !accountUtils.isOthersAccount({ accountId: account.id }) &&
-        network.isAllNetworks
-      ) {
+      } else {
         const accountValueId = account.indexedAccountId as string;
 
-        void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-          accountId: accountValueId,
-          value: accountWorth.worth,
-          currency: settings.currencyInfo.id,
-        });
+        if (network.isAllNetworks) {
+          void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
+            accountId: accountValueId,
+            value: accountWorth.worth,
+            currency: settings.currencyInfo.id,
+          });
+        } else {
+          void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
+            {
+              accountId: accountValueId,
+              value: accountWorth.worth,
+              currency: settings.currencyInfo.id,
+            },
+          );
+        }
       }
     }
   }, [
@@ -174,11 +179,13 @@ function HomeOverviewContainer() {
 
   const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
+  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    defaultLogger.account.wallet.walletManualRefresh();
   }, [isRefreshingWorth]);
 
   const isLoading =
@@ -224,6 +231,19 @@ function HomeOverviewContainer() {
       },
     });
   }, [account, network]);
+
+  const handleResourceDetailsOnPress = useCallback(() => {
+    if (resourceDialogInstance?.current) {
+      return;
+    }
+    resourceDialogInstance.current = showResourceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        resourceDialogInstance.current = null;
+      },
+    });
+  }, [account?.id, network?.id]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
@@ -298,6 +318,21 @@ function HomeOverviewContainer() {
         >
           {intl.formatMessage({
             id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : undefined}
+      {vaultSettings?.hasResource ? (
+        <Button
+          onPress={handleResourceDetailsOnPress}
+          variant="tertiary"
+          size="small"
+          iconAfter="InfoCircleOutline"
+          px="$1"
+          py="$0.5"
+          mx="$-1"
+        >
+          {intl.formatMessage({
+            id: vaultSettings.resourceKey,
           })}
         </Button>
       ) : undefined}

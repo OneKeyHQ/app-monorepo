@@ -71,6 +71,7 @@ function ConnectionList() {
       await serviceDApp.disconnectWebsite({
         origin,
         storageType,
+        entry: 'SettingModal',
       });
       void run();
     },

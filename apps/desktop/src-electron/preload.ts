@@ -17,6 +17,7 @@ import type {
 import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
+import type { IMacBundleInfo } from './libs/utils';
 
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
@@ -109,6 +110,7 @@ export type IDesktopAPI = {
   setBadge: (params: INotificationSetBadgeParams) => void;
   getNotificationPermission: () => INotificationPermissionDetail;
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
+  openLoggerFile: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -171,7 +173,7 @@ const getChannel = () => {
   return channel;
 };
 
-const desktopApi = {
+const desktopApi = Object.freeze({
   getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
@@ -222,6 +224,9 @@ const desktopApi = {
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_ENV_PATH) as {
       [key: string]: string;
     },
+  getBundleInfo: () =>
+    ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
+  openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>
@@ -331,12 +336,25 @@ const desktopApi = {
   },
   setBadge: (params: INotificationSetBadgeParams) => {
     ipcRenderer.send(ipcMessageKeys.NOTIFICATION_SET_BADGE, params);
+    // if windows
+    if (process.platform === 'win32') {
+      /* 
+      // If invokeType is set to "handle"
+      // Replace 8 with whatever number you want the badge to display
+      ipcRenderer.invoke('notificationCount', 8); 
+      */
+      // handle -> ipcRenderer.invoke
+      void ipcRenderer.invoke(
+        ipcMessageKeys.NOTIFICATION_SET_BADGE_WINDOWS,
+        params.count ?? 0,
+      );
+    }
   },
   getNotificationPermission: () =>
     ipcRenderer.sendSync(ipcMessageKeys.NOTIFICATION_GET_PERMISSION),
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
-};
+});
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);

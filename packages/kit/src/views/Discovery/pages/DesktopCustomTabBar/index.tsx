@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import _ from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,6 +29,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -45,6 +45,7 @@ import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const ITEM_HEIGHT = 32;
+const TIMESTAMP_DIFF_MULTIPLIER = 2;
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
@@ -114,7 +115,7 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab(id);
+      void closeWebTab({ tabId: id, entry: 'Menu' });
     },
     [closeWebTab],
   );
@@ -136,6 +137,7 @@ function DesktopCustomTabBar() {
         await backgroundApiProxy.serviceDApp.disconnectWebsite({
           origin,
           storageType: 'injectedProvider',
+          entry: 'Browser',
         });
         setTimeout(() => run(), 200);
       }
@@ -148,16 +150,6 @@ function DesktopCustomTabBar() {
       setCurrentWebTab('');
     }
   });
-
-  useEffect(() => {
-    const listener = () => {
-      closeAllWebTabs();
-    };
-    appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
-    return () => {
-      appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
-    };
-  }, [closeAllWebTabs]);
 
   // For risk detection
   useEffect(() => {
@@ -222,64 +214,7 @@ function DesktopCustomTabBar() {
         sectionIndex: number;
         itemIndex: number;
       };
-      to?: {
-        sectionIndex: number;
-        itemIndex: number;
-      };
     }) => {
-      const reloadTimeStamp = () => {
-        if (!dragResult?.from || !dragResult?.to || !result) {
-          return;
-        }
-        const fromItem =
-          sections?.[dragResult?.from?.sectionIndex]?.data?.[
-            dragResult?.from?.itemIndex
-          ];
-        const toItemId =
-          sections?.[dragResult?.to?.sectionIndex]?.data?.[
-            dragResult?.to?.itemIndex
-          ]?.id;
-        if (!fromItem || !toItemId) {
-          return;
-        }
-        const reloadTabs = [...result.pinnedTabs, ...result.unpinnedTabs];
-        const toItemIndex = reloadTabs.findIndex(
-          (item) => item.id === toItemId,
-        );
-        if (toItemIndex === -1) {
-          return;
-        }
-        const isDown =
-          dragResult.to.sectionIndex > dragResult.from.sectionIndex ||
-          (dragResult.to.sectionIndex === dragResult.from.sectionIndex &&
-            dragResult.to.itemIndex > dragResult.from.itemIndex);
-        const toItem = reloadTabs?.[toItemIndex];
-        if (!toItem) {
-          return;
-        }
-        const toItemTimestamp = toItem?.timestamp;
-        if (!toItemTimestamp) {
-          return;
-        }
-        const toItemBeforeIndex = isDown
-          ? reloadTabs.findIndex(
-              (item, index) =>
-                item.isPinned === toItem.isPinned && index > toItemIndex,
-            )
-          : _.findLastIndex(
-              reloadTabs,
-              (item, index) =>
-                item.isPinned === toItem.isPinned && index < toItemIndex,
-            );
-        const toItemBeforeTimestamp =
-          reloadTabs?.[toItemBeforeIndex]?.timestamp ??
-          toItemTimestamp + (isDown ? 2 : -2) * (toItem.isPinned ? 1 : -1);
-        fromItem.timestamp = Math.round(
-          (toItemBeforeTimestamp + toItemTimestamp) / 2,
-        );
-      };
-      reloadTimeStamp();
-
       const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as (IWebTab & {
         hasConnectedAccount: boolean;
       })[];
@@ -289,10 +224,61 @@ function DesktopCustomTabBar() {
       })[];
       pinnedTabs?.forEach?.((item) => (item.isPinned = true));
       unpinnedTabs?.forEach?.((item) => (item.isPinned = false));
+      const reloadTimeStamp = () => {
+        if (!dragResult?.from) {
+          return;
+        }
+        const fromItem =
+          sections?.[dragResult?.from?.sectionIndex]?.data?.[
+            dragResult?.from?.itemIndex
+          ];
+        let fromItemIndex: number | undefined;
+        let fromSectionData: IWebTab[] | undefined;
+        dragResult?.sections?.forEach((section) => {
+          section?.data?.forEach((item, index) => {
+            if (item === fromItem) {
+              fromItemIndex = index;
+              fromSectionData = section?.data;
+            }
+          });
+        });
+
+        if (
+          !fromSectionData ||
+          fromSectionData.length === 1 ||
+          !fromItem ||
+          fromItemIndex === undefined
+        ) {
+          return;
+        }
+
+        const beforeTimestamp =
+          fromItemIndex === 0
+            ? undefined
+            : fromSectionData?.[fromItemIndex - 1]?.timestamp;
+        const afterTimestamp =
+          fromItemIndex === fromSectionData.length - 1
+            ? undefined
+            : fromSectionData?.[fromItemIndex + 1]?.timestamp;
+        const isPinnedDiff = fromItem.isPinned ? 1 : -1;
+        if (!beforeTimestamp && afterTimestamp) {
+          fromItem.timestamp =
+            afterTimestamp + isPinnedDiff * -TIMESTAMP_DIFF_MULTIPLIER;
+        } else if (!afterTimestamp && beforeTimestamp) {
+          fromItem.timestamp =
+            beforeTimestamp + isPinnedDiff * TIMESTAMP_DIFF_MULTIPLIER;
+        } else if (beforeTimestamp && afterTimestamp) {
+          fromItem.timestamp = Math.round(
+            (beforeTimestamp + afterTimestamp) / 2,
+          );
+        }
+      };
+      reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTabs([...pinnedTabs, ...unpinnedTabs]);
+      defaultLogger.discovery.browser.tabDragSorting();
     },
-    [setTabs, setResult, sections, result],
+    [setTabs, setResult, sections],
   );
 
   return (

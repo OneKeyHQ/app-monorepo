@@ -1,16 +1,18 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
-import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+
+import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
 
 export function useUniversalStake({
   networkId,
@@ -47,8 +49,13 @@ export function useUniversalStake({
           term,
           provider,
         });
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx);
+
+      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+        networkId,
+        accountId,
+        tx: stakeTx,
+      });
+
       let useFeeInTx;
       let feeInfoEditable;
       if (networkUtils.isBTCNetwork(networkId)) {
@@ -101,6 +108,10 @@ export function useUniversalWithdraw({
           symbol,
           provider,
         });
+      if (!stakingConfig) {
+        throw new Error('Staking config not found');
+      }
+
       if (stakingConfig?.unstakeWithSignMessage) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
           accountId,
@@ -125,7 +136,7 @@ export function useUniversalWithdraw({
               message,
               payload: [account.address, message],
             },
-            sceneName: EAccountSelectorSceneName.home,
+            walletInternalSign: true,
           })) as string;
 
         stakeTx =
@@ -149,8 +160,11 @@ export function useUniversalWithdraw({
             provider,
           });
       }
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
+      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+        networkId,
+        accountId,
+        tx: stakeTx,
+      });
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
@@ -188,6 +202,7 @@ export function useUniversalClaim({
   accountId: string;
 }) {
   const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const showClaimEstimateGasAlert = useShowClaimEstimateGasAlert();
   return useCallback(
     async ({
       identity,
@@ -199,31 +214,58 @@ export function useUniversalClaim({
       onFail,
     }: {
       identity?: string;
-      amount?: string;
+      amount: string;
       symbol: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const stakeTx =
-        await backgroundApiProxy.serviceStaking.buildClaimTransaction({
+      const continueClaim = async () => {
+        const stakeTx =
+          await backgroundApiProxy.serviceStaking.buildClaimTransaction({
+            networkId,
+            accountId,
+            symbol,
+            provider,
+            amount,
+            identity,
+          });
+        const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
           networkId,
           accountId,
-          symbol,
-          provider,
-          amount,
-          identity,
+          tx: stakeTx,
         });
-      const vault = await vaultFactory.getVault({ networkId, accountId });
-      const encodedTx = await vault.buildStakeEncodedTx(stakeTx as any);
-      await navigationToSendConfirm({
-        encodedTx,
-        stakingInfo,
-        onSuccess,
-        onFail,
-      });
+        await navigationToSendConfirm({
+          encodedTx,
+          stakingInfo,
+          onSuccess,
+          onFail,
+        });
+      };
+      if (Number(amount) > 0) {
+        const estimateFeeResp =
+          await backgroundApiProxy.serviceStaking.estimateFee({
+            networkId,
+            provider,
+            symbol,
+            action: 'claim',
+            amount,
+          });
+        const tokenFiatValueBN = BigNumber(
+          estimateFeeResp.token.price,
+        ).multipliedBy(amount);
+        if (tokenFiatValueBN.lt(estimateFeeResp.feeFiatValue)) {
+          showClaimEstimateGasAlert({
+            claimTokenFiatValue: tokenFiatValueBN.toFixed(),
+            estFiatValue: estimateFeeResp.feeFiatValue,
+            onConfirm: continueClaim,
+          });
+          return;
+        }
+      }
+      await continueClaim();
     },
-    [navigationToSendConfirm, accountId, networkId],
+    [navigationToSendConfirm, accountId, networkId, showClaimEstimateGasAlert],
   );
 }

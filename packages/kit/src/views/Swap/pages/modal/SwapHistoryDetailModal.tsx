@@ -327,9 +327,6 @@ const SwapHistoryDetailModal = () => {
 
   const onDeleteOneHistory = useCallback(() => {
     Dialog.show({
-      description: intl.formatMessage({
-        id: ETranslations.swap_history_detail_clear_content,
-      }),
       title: intl.formatMessage({
         id: ETranslations.swap_history_detail_clear_title,
       }),

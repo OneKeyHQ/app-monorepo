@@ -1,4 +1,6 @@
-import { CameraScreen } from 'react-native-camera-kit';
+import { Camera } from 'react-native-camera-kit/src';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IScanCameraProps } from './types';
 
@@ -16,9 +18,12 @@ export function ScanCamera({
   }
   return (
     <>
-      {/* @ts-expect-error */}
-      <CameraScreen
-        hideControls
+      <Camera
+        ref={(ref) =>
+          ref === null && defaultLogger.scanQrCode.readQrCode.releaseCamera()
+        }
+        style={{ flex: 1 }}
+        resizeMode="cover"
         scanBarcode
         onReadCode={({ nativeEvent: { codeStringValue } }) => {
           if (typeof codeStringValue !== 'string') {

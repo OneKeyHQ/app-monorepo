@@ -38,7 +38,6 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -104,38 +103,17 @@ const SwapTokenSelectPage = () => {
           ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
-      if (swapFromAddressInfo.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) =>
-              item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-    } else {
-      if (toToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-      if (swapToAddressInfo.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) =>
-              item.networkId === swapToAddressInfo.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
-      }
-
-      return swapNetworksIncludeAllNetwork?.[0];
+    } else if (toToken?.networkId) {
+      return (
+        swapNetworksIncludeAllNetwork.find(
+          (item: ISwapNetwork) => item.networkId === toToken.networkId,
+        ) ?? swapNetworksIncludeAllNetwork?.[0]
+      );
     }
+    return swapNetworksIncludeAllNetwork?.[0];
   }, [
     fromToken?.networkId,
-    swapFromAddressInfo.networkId,
     swapNetworksIncludeAllNetwork,
-    swapToAddressInfo.networkId,
     toToken?.networkId,
     type,
   ]);
@@ -227,22 +205,13 @@ const SwapTokenSelectPage = () => {
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
 
-  const onSelectCurrentNetwork = useCallback(
-    (network: ISwapNetwork) => {
-      setCurrentSelectNetwork(network);
-      if (network.networkId !== getNetworkIdsMap().onekeyall) {
-        void updateSelectedAccountNetwork({
-          num: type === ESwapDirectionType.FROM ? 0 : 1,
-          networkId: network.networkId,
-        });
-      }
-      listViewRef.current?.scrollToOffset({
-        offset: 0,
-        animated: false,
-      });
-    },
-    [type, updateSelectedAccountNetwork],
-  );
+  const onSelectCurrentNetwork = useCallback((network: ISwapNetwork) => {
+    setCurrentSelectNetwork(network);
+    listViewRef.current?.scrollToOffset({
+      offset: 0,
+      animated: false,
+    });
+  }, []);
 
   const sameTokenDisabled = useCallback(
     (token: ISwapToken) =>
@@ -335,6 +304,7 @@ const SwapTokenSelectPage = () => {
             moreComponent={
               <ActionList
                 title={tokenItem.tokenSymbol ?? ''}
+                disabled={rawItem.isNative}
                 renderTrigger={
                   <IconButton variant="tertiary" icon="DotVerSolid" />
                 }
@@ -342,7 +312,7 @@ const SwapTokenSelectPage = () => {
                   {
                     icon: 'Copy3Outline',
                     label: intl.formatMessage({
-                      id: ETranslations.global_copy_address,
+                      id: ETranslations.global_copy_token_contract,
                     }),
                     onPress: () => {
                       copyText(rawItem.contractAddress);
@@ -448,10 +418,9 @@ const SwapTokenSelectPage = () => {
           </SizableText>
           <XStack>
             <SizableText size="$bodyMd">
-              {currentSelectNetwork?.name ??
-                currentSelectNetwork?.symbol ??
-                currentSelectNetwork?.shortcode ??
-                'Unknown'}
+              {currentSelectNetwork?.isAllNetworks
+                ? intl.formatMessage({ id: ETranslations.global_all_networks })
+                : currentSelectNetwork?.name}
             </SizableText>
           </XStack>
         </XStack>
@@ -477,7 +446,9 @@ const SwapTokenSelectPage = () => {
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
         />
-        <Divider mt="$2" />
+        {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
+          <Divider mt="$2" />
+        ) : null}
         <YStack flex={1}>
           <ListView
             ref={listViewRef}

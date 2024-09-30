@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 export const buildLocalTxStatusSyncId = (details: IStakeProtocolDetails) =>
@@ -16,7 +18,8 @@ export function countDecimalPlaces(input: string | number): number {
     return 0;
   }
 
-  const inputStr = inputNum.toString();
+  const inputStr =
+    typeof input === 'string' ? input : BigNumber(input).toFixed();
 
   // Find the decimal point
   const decimalIndex = inputStr.indexOf('.');

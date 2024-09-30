@@ -3,6 +3,10 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
 import {
+  getBtcForkNetwork,
+  validateBtcAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
@@ -55,6 +59,8 @@ import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
@@ -74,6 +80,9 @@ export default class ServiceSwap extends ServiceBase {
     {};
 
   private historyStateIntervalCountMap: Record<string, number> = {};
+
+  private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
+    {};
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -249,6 +258,91 @@ export default class ServiceSwap extends ServiceBase {
         return [];
       }
     }
+  }
+
+  @backgroundMethod()
+  async getSupportSwapAllAccounts({
+    indexedAccountId,
+    otherWalletTypeAccountId,
+    swapSupportNetworks,
+  }: {
+    indexedAccountId?: string;
+    otherWalletTypeAccountId?: string;
+    swapSupportNetworks: ISwapNetwork[];
+  }) {
+    const accountIdKey =
+      indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
+    let swapSupportAccounts: IAllNetworkAccountInfo[] = [];
+    if (indexedAccountId || otherWalletTypeAccountId) {
+      try {
+        const allNetAccountId = indexedAccountId
+          ? (
+              await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
+                {
+                  indexedAccountId,
+                },
+              )
+            ).id
+          : otherWalletTypeAccountId ?? '';
+        const { accountsInfo } =
+          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+            accountId: allNetAccountId,
+            networkId: getNetworkIdsMap().onekeyall,
+          });
+        const noBtcAccounts = accountsInfo.filter(
+          (networkDataString) =>
+            !networkUtils.isBTCNetwork(networkDataString.networkId),
+        );
+        const btcAccounts = accountsInfo.filter((networkDataString) =>
+          networkUtils.isBTCNetwork(networkDataString.networkId),
+        );
+        const btcAccountsWithMatchDeriveType = await Promise.all(
+          btcAccounts.map(async (networkData) => {
+            const globalDeriveType =
+              await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: networkData.networkId,
+                },
+              );
+            const btcNet = getBtcForkNetwork(
+              networkUtils.getNetworkImpl({
+                networkId: networkData.networkId,
+              }),
+            );
+            const addressValidate = validateBtcAddress({
+              network: btcNet,
+              address: networkData.apiAddress,
+            });
+            if (addressValidate.isValid && addressValidate.encoding) {
+              const deriveTypeRes =
+                await this.backgroundApi.serviceNetwork.getDeriveTypeByAddressEncoding(
+                  {
+                    networkId: networkData.networkId,
+                    encoding: addressValidate.encoding,
+                  },
+                );
+              if (deriveTypeRes === globalDeriveType) {
+                return networkData;
+              }
+            }
+            return null;
+          }),
+        );
+        const filteredAccounts = [
+          ...noBtcAccounts,
+          ...btcAccountsWithMatchDeriveType.filter(Boolean),
+        ];
+        swapSupportAccounts = filteredAccounts.filter((networkDataString) => {
+          const { networkId: accountNetworkId } = networkDataString;
+          return swapSupportNetworks.find(
+            (network) => network.networkId === accountNetworkId,
+          );
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return { accountIdKey, swapSupportAccounts };
   }
 
   @backgroundMethod()
@@ -808,6 +902,20 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         item.status = ESwapTxHistoryStatus.CANCELED;
       }
+      if (
+        item.txInfo.receiverTransactionId &&
+        !this._crossChainReceiveTxBlockNotificationMap[
+          item.txInfo.receiverTransactionId
+        ]
+      ) {
+        void this.backgroundApi.serviceNotification.blockNotificationForTxId({
+          networkId: item.baseInfo.toToken.networkId,
+          tx: item.txInfo.receiverTransactionId,
+        });
+        this._crossChainReceiveTxBlockNotificationMap[
+          item.txInfo.receiverTransactionId
+        ] = true;
+      }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
         const newPendingList = [...pre.swapHistoryPendingList];
@@ -972,6 +1080,43 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async swapRecentTokenSync() {
+    const recentTokenPairs =
+      await this.backgroundApi.simpleDb.swapConfigs.getRecentTokenPairs();
+
+    // To avoid getting the token balance information of the last transaction, we need to get the token base information again
+    const recentTokenPairsBase = recentTokenPairs.map((tokenPairs) => {
+      const { fromToken, toToken } = tokenPairs;
+      return {
+        fromToken: {
+          networkId: fromToken.networkId,
+          contractAddress: fromToken.contractAddress,
+          symbol: fromToken.symbol,
+          decimals: fromToken.decimals,
+          name: fromToken.name,
+          logoURI: fromToken.logoURI,
+          networkLogoURI: fromToken.networkLogoURI,
+          isNative: fromToken.isNative,
+        },
+        toToken: {
+          networkId: toToken.networkId,
+          contractAddress: toToken.contractAddress,
+          symbol: toToken.symbol,
+          decimals: toToken.decimals,
+          name: toToken.name,
+          logoURI: toToken.logoURI,
+          networkLogoURI: toToken.networkLogoURI,
+          isNative: toToken.isNative,
+        },
+      };
+    });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: recentTokenPairsBase,
+    }));
+  }
+
+  @backgroundMethod()
   async swapRecentTokenPairsUpdate({
     fromToken,
     toToken,
@@ -1058,8 +1203,8 @@ export default class ServiceSwap extends ServiceBase {
       swapRecentTokenPairs: newRecentTokenPairs,
     }));
     await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
-      fromToken,
-      toToken,
+      fromTokenBaseInfo,
+      toTokenBaseInfo,
       isExit,
     );
   }

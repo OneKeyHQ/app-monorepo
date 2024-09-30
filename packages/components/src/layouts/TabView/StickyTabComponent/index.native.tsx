@@ -26,7 +26,7 @@ export const TabComponent = (
     tabContentContainerStyle,
     style,
     onRefresh: onRefreshCallBack,
-    initialHeaderHeight = 209,
+    initialHeaderHeight = 0,
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -172,9 +172,18 @@ export const TabComponent = (
   );
 
   const onIndexChange = useCallback(() => {}, []);
-  const onLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    setHeaderHeight(nativeEvent.layout.height);
-  }, []);
+  const onLayout = useCallback(
+    ({ nativeEvent }: LayoutChangeEvent) => {
+      if (nativeEvent.layout.height === headerHeight) {
+        return;
+      }
+      if (platformEnv.isNativeAndroid && initialHeaderHeight > 0) {
+        return;
+      }
+      setHeaderHeight(nativeEvent.layout.height);
+    },
+    [headerHeight, initialHeaderHeight],
+  );
   return (
     // @ts-expect-error
     <NestedTabView

@@ -6,7 +6,13 @@ import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { IconButton, SizableText, Stack, Toast } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Stack,
+  Toast,
+  useClipboard,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -197,7 +203,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     // a workaround to fix this issue
     //  that remove page includes Popover from screen before closing popover
     setTimeout(() => {
-      closeWebTab(id);
+      closeWebTab({ tabId: id, entry: 'Menu' });
       setCurrentWebTab(null);
     });
   }, [closeWebTab, setCurrentWebTab, id]);
@@ -217,6 +223,11 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     handleShareUrl(tab?.url ?? '');
   }, [tab?.url, handleShareUrl]);
 
+  const { copyText } = useClipboard();
+  const onCopyUrl = useCallback(() => {
+    copyText(tab?.url);
+  }, [tab?.url, copyText]);
+
   useEffect(() => {
     const fn = () => {
       setTimeout(() => {
@@ -233,6 +244,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     await backgroundApiProxy.serviceDApp.disconnectWebsite({
       origin,
       storageType: 'injectedProvider',
+      entry: 'Browser',
     });
     void refreshConnectState();
   }, [origin, refreshConnectState]);
@@ -320,6 +332,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             webviewRefs[id]?.reload();
           }}
           onShare={onShare}
+          onCopyUrl={onCopyUrl}
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={handlePinTab}
           onBrowserOpen={() => {

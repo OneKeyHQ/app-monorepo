@@ -13,10 +13,10 @@ export default function useListenTabFocusState(
     )?.state;
     const modalRoutes = state?.routes.find(
       ({ name }) => name === ERootRoutes.Modal,
-    )?.state;
+    )?.key;
     const fullModalRoutes = state?.routes.find(
       ({ name }) => name === ERootRoutes.iOSFullScreen,
-    )?.state;
+    )?.key;
     const currentTabName = rootState?.routeNames
       ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
       : (rootState?.routes[0].name as ETabRoutes);

@@ -19,6 +19,8 @@ import {
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -246,6 +248,13 @@ export function UniversalSearch({
                   navigation.push(ETabMarketRoutes.MarketDetail, {
                     token: coingeckoId,
                   });
+                  defaultLogger.market.token.searchToken({
+                    tokenSymbol: coingeckoId,
+                    from:
+                      searchStatus === ESearchStatus.init
+                        ? 'trendingList'
+                        : 'searchList',
+                  });
                   setTimeout(() => {
                     universalSearchActions.current.addIntoRecentSearchList({
                       id: coingeckoId,
@@ -271,7 +280,11 @@ export function UniversalSearch({
                   tokenName={name}
                   tokenSymbol={symbol}
                 />
-                <MarketStar coingeckoId={coingeckoId} ml="$3" />
+                <MarketStar
+                  coingeckoId={coingeckoId}
+                  ml="$3"
+                  from={EWatchlistFrom.search}
+                />
               </XStack>
             </ListItem>
           );
@@ -281,7 +294,12 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, activeAccount?.network?.id, universalSearchActions],
+    [
+      navigation,
+      activeAccount?.network?.id,
+      searchStatus,
+      universalSearchActions,
+    ],
   );
 
   const renderResult = useCallback(() => {

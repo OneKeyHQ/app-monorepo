@@ -1,8 +1,10 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack } from '@onekeyhq/components';
+import type { Button } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -15,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import {
   PageFrame,
@@ -26,11 +29,8 @@ import { StakingTransactionIndicator } from '../../components/StakingActivityInd
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
-import {
-  useHandleClaim,
-  useHandleStake,
-  useHandleWithdraw,
-} from './useHandleActions';
+import { useHandleStake, useHandleWithdraw } from './useHandleActions';
+import { useHandleClaim } from './useHandleClaim';
 
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
@@ -68,7 +68,6 @@ const ProtocolDetailsPage = () => {
     void run();
   }, [refreshAccount, run]);
 
-  const handleClaim = useHandleClaim();
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
@@ -112,15 +111,31 @@ const ProtocolDetailsPage = () => {
     });
   }, [handleWithdraw, result, earnAccount, networkId, symbol, provider, run]);
 
-  const onClaim = useCallback(async () => {
-    await handleClaim({
-      details: result,
-      accountId: earnAccount?.accountId,
-      networkId,
-      symbol,
-      provider,
-    });
-  }, [handleClaim, result, earnAccount, networkId, symbol, provider]);
+  const handleClaim = useHandleClaim({
+    accountId: earnAccount?.accountId,
+    networkId,
+  });
+  const onClaim = useCallback(
+    async (params?: { isReward?: boolean }) => {
+      if (!result) return;
+      const { isReward } = params ?? {};
+      const amount = isReward ? result.rewards : result.claimable;
+      await handleClaim({
+        details: result,
+        isReward,
+        symbol,
+        provider,
+        stakingInfo: {
+          label: EEarnLabels.Claim,
+          protocol: result.provider.name,
+          protocolLogoURI: result.provider.logoURI,
+          receive: { token: result.token.info, amount: amount ?? '0' },
+          tags: [buildLocalTxStatusSyncId(result)],
+        },
+      });
+    },
+    [handleClaim, result, symbol, provider],
+  );
 
   const onPortfolioDetails = useMemo(
     () =>
@@ -147,6 +162,7 @@ const ProtocolDetailsPage = () => {
         networkId,
         symbol,
         provider,
+        stakeTag: buildLocalTxStatusSyncId(result),
       });
     };
   }, [
@@ -159,63 +175,81 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const intl = useIntl();
+  const media = useMedia();
+
+  const stakeButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      variant: 'primary',
+      loading: stakeLoading,
+      onPress: onStake,
+      disabled: !earnAccount?.accountAddress,
+    }),
+    [stakeLoading, earnAccount?.accountAddress, onStake],
+  );
+
+  const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
+    () => ({
+      onPress: onWithdraw,
+      disabled:
+        !earnAccount?.accountAddress ||
+        !(Number(result?.active) > 0 || Number(result?.overflow) > 0),
+    }),
+    [onWithdraw, earnAccount?.accountAddress, result?.active, result?.overflow],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_symbol },
-          { 'symbol': symbol },
+          {
+            'symbol': networkUtils.isBTCNetwork(networkId)
+              ? `${symbol} (Taproot)`
+              : symbol,
+          },
         )}
       />
-      <Page.Body>
+      <Page.Body px="$5" pb="$5" gap="$8">
         <PageFrame
           LoadingSkeleton={OverviewSkeleton}
           loading={isLoadingState({ result, isLoading })}
           error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
-          <Stack>
-            <ProtocolDetails
-              accountId={accountId}
-              networkId={networkId}
-              indexedAccountId={indexedAccountId}
-              earnAccount={earnAccount}
-              details={result}
-              onClaim={onClaim}
-              onWithdraw={onWithdraw}
-              onPortfolioDetails={onPortfolioDetails}
-              onCreateAddress={onCreateAddress}
-            />
+          <ProtocolDetails
+            accountId={accountId}
+            networkId={networkId}
+            indexedAccountId={indexedAccountId}
+            earnAccount={earnAccount}
+            details={result}
+            onClaim={onClaim}
+            onWithdraw={onWithdraw}
+            onPortfolioDetails={onPortfolioDetails}
+            onCreateAddress={onCreateAddress}
+            withdrawButtonProps={withdrawButtonProps}
+            stakeButtonProps={stakeButtonProps}
+          />
+          {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({
                 id: ETranslations.earn_stake,
               })}
-              confirmButtonProps={{
-                variant: 'primary',
-                loading: stakeLoading,
-                onPress: onStake,
-                disabled: !earnAccount?.accountAddress,
-              }}
+              confirmButtonProps={stakeButtonProps}
               onCancelText={intl.formatMessage({
                 id: ETranslations.global_withdraw,
               })}
-              cancelButtonProps={{
-                onPress: onWithdraw,
-                disabled:
-                  !earnAccount?.accountAddress ||
-                  Number(result?.staked) - Number(result?.pendingInactive) <= 0,
-              }}
+              cancelButtonProps={withdrawButtonProps}
             />
-            {result ? (
-              <StakingTransactionIndicator
-                accountId={earnAccount?.accountId ?? ''}
-                networkId={networkId}
-                stakeTag={buildLocalTxStatusSyncId(result)}
-                onRefresh={run}
-                onPress={onHistory}
-              />
-            ) : null}
-          </Stack>
+          ) : null}
+          {result ? (
+            <StakingTransactionIndicator
+              accountId={earnAccount?.accountId ?? ''}
+              networkId={networkId}
+              stakeTag={buildLocalTxStatusSyncId(result)}
+              onRefresh={run}
+              onPress={onHistory}
+            />
+          ) : null}
         </PageFrame>
       </Page.Body>
     </Page>

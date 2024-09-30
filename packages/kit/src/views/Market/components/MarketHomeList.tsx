@@ -46,6 +46,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -268,6 +270,10 @@ function BasicMarketHomeList({
                     }),
                     onPress: () => {
                       actions.removeFormWatchList(coingeckoId);
+                      defaultLogger.market.token.removeFromWatchlist({
+                        tokenSymbol: coingeckoId,
+                        removeWatchlistFrom: EWatchlistFrom.catalog,
+                      });
                     },
                   }
                 : {
@@ -277,6 +283,10 @@ function BasicMarketHomeList({
                     }),
                     onPress: () => {
                       actions.addIntoWatchList(coingeckoId);
+                      defaultLogger.market.token.addToWatchList({
+                        tokenSymbol: coingeckoId,
+                        addWatchlistFrom: EWatchlistFrom.catalog,
+                      });
                     },
                   },
               showMoreAction && {
@@ -787,6 +797,7 @@ function BasicMarketHomeList({
                       key={record.coingeckoId}
                       coingeckoId={record.coingeckoId}
                       tabIndex={tabIndex}
+                      from={EWatchlistFrom.catalog}
                     />
                   </Stack>
                   {showMoreAction ? (
@@ -922,9 +933,9 @@ function BasicMarketHomeList({
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
           TableEmptyComponent={
-            platformEnv.isNativeAndroid ? (
+            platformEnv.isNativeAndroid ? null : (
               <ListEmptyComponent columns={columns} />
-            ) : null
+            )
           }
         />
       </YStack>

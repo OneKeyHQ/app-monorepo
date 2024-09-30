@@ -1,6 +1,11 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ScrollView, Stack, useMedia } from '@onekeyhq/components';
+import {
+  RefreshControl,
+  ScrollView,
+  Stack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,7 +25,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
-import { Banner } from './Banner';
+import { DashboardBanner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
 import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
 
@@ -55,10 +60,17 @@ function DashboardContent({
       },
     );
 
-  const { result: homePageData, isLoading } = usePromiseResult(
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const {
+    result: homePageData,
+    isLoading,
+    run,
+  } = usePromiseResult(
     async () => {
       const homePageResponse =
         await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      setIsRefreshing(false);
       return homePageResponse;
     },
     [],
@@ -67,6 +79,11 @@ function DashboardContent({
       checkIsFocused: false,
     },
   );
+
+  const refresh = useCallback(() => {
+    setIsRefreshing(true);
+    void run();
+  }, [run]);
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
@@ -97,7 +114,7 @@ function DashboardContent({
   const content = useMemo(
     () => (
       <>
-        <Banner
+        <DashboardBanner
           key="Banner"
           banners={
             Array.isArray(homePageData?.banners) ? homePageData?.banners : []
@@ -186,6 +203,9 @@ function DashboardContent({
       <ScrollView
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
+        }
       >
         {content}
       </ScrollView>
@@ -193,9 +213,11 @@ function DashboardContent({
   }
 
   return (
-    <Stack maxWidth={1280} width="100%" alignSelf="center">
-      {content}
-    </Stack>
+    <ScrollView>
+      <Stack maxWidth={1280} width="100%" alignSelf="center">
+        {content}
+      </Stack>
+    </ScrollView>
   );
 }
 

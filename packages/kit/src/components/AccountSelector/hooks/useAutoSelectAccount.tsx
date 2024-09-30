@@ -4,6 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAccountSelectorAutoSelectTriggerBy } from '@onekeyhq/shared/types';
 
 import {
   useAccountSelectorActions,
@@ -49,7 +50,12 @@ export function useAutoSelectAccount({ num }: { num: number }) {
   // **** autoSelectAccount after AccountRemove
   useEffect(() => {
     const fn = async () => {
-      await actions.current.autoSelectNextAccount({ num, sceneName, sceneUrl });
+      await actions.current.autoSelectNextAccount({
+        num,
+        sceneName,
+        sceneUrl,
+        triggerBy: EAccountSelectorAutoSelectTriggerBy.removeAccount,
+      });
     };
     appEventBus.on(EAppEventBusNames.AccountRemove, fn);
     return () => {

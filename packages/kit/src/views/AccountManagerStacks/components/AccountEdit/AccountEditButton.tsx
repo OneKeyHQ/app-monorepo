@@ -3,16 +3,16 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, Divider } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -83,6 +83,15 @@ function AccountEditButtonView({
     [account, indexedAccount, wallet?.id],
   );
 
+  const isHwOrQrAccount = useMemo(
+    () =>
+      indexedAccount &&
+      !account &&
+      wallet?.id &&
+      accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+    [account, indexedAccount, wallet?.id],
+  );
+
   const getExportKeysVisible = useCallback(async () => {
     if (
       (isImportedAccount && account?.createAtNetwork) ||
@@ -104,11 +113,22 @@ function AccountEditButtonView({
             exportType: 'publicKey',
           },
         );
+
+      const mnemonicTypes =
+        await backgroundApiProxy.serviceAccount.getNetworkSupportedExportKeyTypes(
+          {
+            accountId: account?.id,
+            networkId: account?.createAtNetwork,
+            exportType: 'mnemonic',
+          },
+        );
+
       return {
         showExportPrivateKey: isWatchingAccount
           ? false
           : Boolean(privateKeyTypes?.length),
         showExportPublicKey: Boolean(publicKeyTypes?.length),
+        showExportMnemonic: Boolean(mnemonicTypes?.length),
       };
     }
 
@@ -119,11 +139,31 @@ function AccountEditButtonView({
       };
     }
 
+    if (isHwOrQrAccount) {
+      let showExportPublicKey = true;
+
+      // qr wallet firmware does not support verify and confirm public key currently
+      if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+        showExportPublicKey = false;
+      }
+      return {
+        showExportPrivateKey: false,
+        showExportPublicKey,
+      };
+    }
+
     return {
       showExportPrivateKey: false,
       showExportPublicKey: false,
     };
-  }, [account, isHdAccount, isImportedAccount, isWatchingAccount]);
+  }, [
+    account,
+    isHdAccount,
+    isHwOrQrAccount,
+    isImportedAccount,
+    isWatchingAccount,
+    wallet?.id,
+  ]);
 
   const estimatedContentHeight = useCallback(async () => {
     let basicHeight = 56;
@@ -133,6 +173,10 @@ function AccountEditButtonView({
     }
 
     if (exportKeysVisible?.showExportPublicKey) {
+      basicHeight += 44;
+    }
+
+    if (exportKeysVisible?.showExportMnemonic) {
       basicHeight += 44;
     }
 
@@ -210,6 +254,20 @@ function AccountEditButtonView({
               exportType="publicKey"
             />
           ) : null}
+          {exportKeysVisible?.showExportMnemonic ? (
+            <AccountExportPrivateKeyButton
+              testID={`popover-export-mnemonic-key-${name}`}
+              icon="Shield2CheckOutline"
+              accountName={name}
+              indexedAccount={indexedAccount}
+              account={account}
+              onClose={handleActionListClose}
+              label={intl.formatMessage({
+                id: ETranslations.global_backup_recovery_phrase,
+              })}
+              exportType="mnemonic"
+            />
+          ) : null}
           <AccountMoveToTopButton
             indexedAccount={indexedAccount}
             firstIndexedAccount={firstIndexedAccount}
@@ -221,6 +279,7 @@ function AccountEditButtonView({
             <>
               <Divider mx="$2" my="$1" />
               <AccountRemoveButton
+                accountsCount={accountsCount}
                 name={name}
                 indexedAccount={indexedAccount}
                 account={account}
@@ -232,6 +291,7 @@ function AccountEditButtonView({
       );
     },
     [
+      accountsCount,
       account,
       config,
       firstAccount,

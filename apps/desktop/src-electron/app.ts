@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
-import os from 'os';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
@@ -18,7 +17,11 @@ import {
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
-import logger from 'electron-log';
+import logger from 'electron-log/main';
+import windowsSecurityCredentialsUiModule, {
+  UserConsentVerificationResult,
+  UserConsentVerifierAvailability,
+} from 'electron-windows-security';
 
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -39,7 +42,11 @@ import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
+
+logger.initialize();
+logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
@@ -509,7 +516,22 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, (event) => {
+  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
+    if (isWin) {
+      const result = await new Promise((resolve) => {
+        windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
+          (error, status) => {
+            if (error) {
+              resolve(false);
+            } else {
+              resolve(status === UserConsentVerifierAvailability.available);
+            }
+          },
+        );
+      });
+      event.returnValue = result;
+      return;
+    }
     const result = systemPreferences?.canPromptTouchID?.();
     event.returnValue = !!result;
   });
@@ -537,6 +559,10 @@ function createMainWindow() {
     };
   });
 
+  ipcMain.on(ipcMessageKeys.APP_GET_BUNDLE_INFO, (event) => {
+    event.returnValue = parseContentPList();
+  });
+
   ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
     store.setDevTools(isOpen);
     refreshMenu();
@@ -549,6 +575,24 @@ function createMainWindow() {
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
+    if (isWin) {
+      windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
+        msg,
+        (error, status) => {
+          if (error) {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: false,
+              error: error.message,
+            });
+          } else {
+            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+              success: status === UserConsentVerificationResult.verified,
+            });
+          }
+        },
+      );
+      return;
+    }
     try {
       await systemPreferences.promptTouchID(msg);
       event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
@@ -603,6 +647,10 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_OPEN_LOGGER_FILE, () => {
+    void shell.openPath(path.dirname(logger.transports.file.getFile().path));
   });
 
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {

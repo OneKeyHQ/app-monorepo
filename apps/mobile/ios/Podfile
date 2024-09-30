@@ -106,12 +106,32 @@ target 'OneKeyWallet' do
       end
     end
     installer.pods_project.targets.each do |target|
+      # https://github.com/mockingbot/react-native-zip-archive/issues/307
+      # error: /node_modules/react-native-zip-archive/ios/RNZipArchive.m unsupported option '-G' for target 'arm64-apple-ios14.0-simulator' 
+      if target.name == 'RNZipArchive'
+        target.source_build_phase.files.each do |file|
+          if file.settings && file.settings['COMPILER_FLAGS']
+              file.settings['COMPILER_FLAGS'] = ''
+          end
+        end
+      end
       target.build_configurations.each do |config|
         config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
         if config.name == 'Debug'
           config.build_settings["ONLY_ACTIVE_ARCH"] = "NO"
         else
           config.build_settings["ONLY_ACTIVE_ARCH"] = "YES"
+        end
+      end
+    end
+  end
+
+  # https://github.com/teslamotors/react-native-camera-kit/issues/578
+  pre_install do |installer|
+    installer.pod_targets.each do |pod|
+      if pod.name.eql?('ReactNativeCameraKit')
+        def pod.build_type
+          Pod::BuildType.static_library
         end
       end
     end

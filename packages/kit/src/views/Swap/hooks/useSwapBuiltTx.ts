@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { EPageType, usePageType } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
@@ -48,7 +49,8 @@ export function useSwapBuildTx() {
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const [inAppNotificationAtom, setInAppNotificationAtom] =
+    useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -59,7 +61,7 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
-
+  const pageType = usePageType();
   const syncRecentTokenPairs = useCallback(
     async ({
       swapFromToken,
@@ -86,7 +88,8 @@ export function useSwapBuildTx() {
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
         const { swapInfo } = transactionSignedInfo;
-        const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
+        const { totalFeeInNative, totalFeeFiatValue, networkId } =
+          transactionDecodedInfo;
         if (swapInfo) {
           await generateSwapHistoryItem({
             txId,
@@ -94,6 +97,17 @@ export function useSwapBuildTx() {
             gasFeeInNative: totalFeeInNative,
             swapTxInfo: swapInfo,
           });
+          if (
+            swapInfo.sender.token.networkId ===
+            swapInfo.receiver.token.networkId
+          ) {
+            void backgroundApiProxy.serviceNotification.blockNotificationForTxId(
+              {
+                networkId,
+                tx: txId,
+              },
+            );
+          }
         }
       }
       setSwapBuildTxFetching(false);
@@ -112,6 +126,17 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         const transactionSignedInfo = data[0].signedTx;
         const txId = transactionSignedInfo.txid;
+        if (
+          inAppNotificationAtom.swapApprovingTransaction &&
+          !inAppNotificationAtom.swapApprovingTransaction.resetApproveValue
+        ) {
+          void backgroundApiProxy.serviceNotification.blockNotificationForTxId({
+            networkId:
+              inAppNotificationAtom.swapApprovingTransaction.fromToken
+                .networkId,
+            tx: txId,
+          });
+        }
         setInAppNotificationAtom((prev) => {
           if (prev.swapApprovingTransaction) {
             return {
@@ -126,7 +151,7 @@ export function useSwapBuildTx() {
         });
       }
     },
-    [setInAppNotificationAtom],
+    [inAppNotificationAtom.swapApprovingTransaction, setInAppNotificationAtom],
   );
 
   const handleTxFail = useCallback(() => {
@@ -401,6 +426,8 @@ export function useSwapBuildTx() {
             swapToToken: toToken,
           });
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            swapProvider: selectQuote?.info.provider,
+            swapProviderName: selectQuote?.info.providerName,
             swapType: EProtocolOfExchange.SWAP,
             slippage: slippageItem.value.toString(),
             sourceChain: fromToken.networkId,
@@ -410,6 +437,7 @@ export function useSwapBuildTx() {
             feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
             router: JSON.stringify(selectQuote?.routesData ?? ''),
             isFirstTime: isFirstTimeSwap,
+            createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
           });
           setSettings((prev) => ({
             ...prev,
@@ -430,6 +458,7 @@ export function useSwapBuildTx() {
     selectQuote?.fromAmount,
     selectQuote?.toAmount,
     selectQuote?.info.provider,
+    selectQuote?.info.providerName,
     selectQuote?.quoteResultCtx,
     selectQuote?.fee?.percentageFee,
     selectQuote?.routesData,
@@ -446,6 +475,7 @@ export function useSwapBuildTx() {
     isFirstTimeSwap,
     setSettings,
     setSwapShouldRefreshQuote,
+    pageType,
   ]);
 
   return { buildTx, wrappedTx, approveTx };

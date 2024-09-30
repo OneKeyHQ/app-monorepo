@@ -2,30 +2,30 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import {
-  Badge,
   Dialog,
   IconButton,
   ListView,
   Page,
   SizableText,
-  Spinner,
+  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -50,24 +50,83 @@ function formatNumber(num: number): string {
   return num.toFixed(2);
 }
 
-const AssetProtocolIntroButton = () => {
+function StakeTypeBadge({
+  stakeType,
+  label,
+}: {
+  stakeType: string;
+  label: string;
+}) {
+  const getBadgeColors = (
+    type: string,
+  ): { bg: ColorTokens; color: ColorTokens } => {
+    switch (type) {
+      case 'liquid':
+        return { bg: '$purple3', color: '$purple11' };
+      case 'locked':
+        return { bg: '$pink3', color: '$pink11' };
+      default:
+        return { bg: '$blue3', color: '$blue11' };
+    }
+  };
+
+  const { bg, color } = getBadgeColors(stakeType);
+
+  return (
+    <Stack
+      backgroundColor={bg}
+      borderRadius="$1"
+      borderCurve="continuous"
+      px="$2"
+      py="$0.5"
+      my="$0.5"
+    >
+      <SizableText size="$bodySmMedium" color={color}>
+        {label}
+      </SizableText>
+    </Stack>
+  );
+}
+const AssetProtocolIntroButton = ({
+  providerTypes,
+}: {
+  providerTypes?: IStakeProtocolListItem['provider']['type'][];
+}) => {
   const intl = useIntl();
   const onPress = useCallback(() => {
     Dialog.show({
-      renderContent: <AssetProtocolContent />,
+      icon: 'InfoCircleOutline',
+      title: intl.formatMessage({ id: ETranslations.earn_staking_methods }),
+      renderContent: <AssetProtocolContent providerTypes={providerTypes} />,
       showConfirmButton: false,
       onCancelText: intl.formatMessage({ id: ETranslations.global_got_it }),
-      cancelButtonProps: { size: 'small' },
     });
-  }, [intl]);
-  return (
+  }, [intl, providerTypes]);
+  return providerTypes && providerTypes.length > 0 ? (
     <IconButton
       icon="InfoCircleOutline"
-      size="small"
+      // size="small"
       variant="tertiary"
       onPress={onPress}
     />
-  );
+  ) : null;
+};
+
+const ProviderTypeBadge = ({
+  type,
+}: {
+  type?: IStakeProtocolListItem['provider']['type'];
+}) => {
+  const intl = useIntl();
+  if (!type) {
+    return null;
+  }
+  const stakeType = type === 'native' ? 'locked' : 'liquid';
+  const label =
+    type === 'native'
+      ? intl.formatMessage({ id: ETranslations.earn_native_staking })
+      : intl.formatMessage({ id: ETranslations.earn_liquid_staking });
+  return <StakeTypeBadge stakeType={stakeType} label={label} />;
 };
 
 const AssetProtocolListContent = ({
@@ -79,10 +138,15 @@ const AssetProtocolListContent = ({
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
+  const intl = useIntl();
   const { accountId, indexedAccountId, symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
     ({ item }: { item: IStakeProtocolListItem }) => {
+      defaultLogger.staking.page.selectProvider({
+        network: item.network.networkId,
+        stakeProvider: item.provider.name,
+      });
       appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
         accountId,
         networkId: item.network.networkId,
@@ -98,81 +162,77 @@ const AssetProtocolListContent = ({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
-  const intl = useIntl();
+
   return (
     <ListView
       estimatedItemSize={60}
       data={items}
       renderItem={({ item }: { item: IStakeProtocolListItem }) => (
-        <YStack w="100%" py="$2" px="$5">
-          <YStack
-            borderRadius="$3"
-            borderCurve="continuous"
-            overflow="hidden"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            onPress={() => onPress?.({ item })}
-            {...listItemPressStyle}
-          >
-            <XStack bg="$bgSubdued" p="$4">
-              <Stack pr="$3">
-                <Token
-                  size="lg"
-                  borderRadius="$2"
-                  tokenImageUri={item.provider.logoURI}
-                  networkImageUri={item.network.logoURI}
-                />
-              </Stack>
-              <YStack flex={1} justifyContent="center">
-                <SizableText size="$bodyLgMedium">
+        <ListItem userSelect="none" onPress={() => onPress?.({ item })}>
+          <Token
+            size="lg"
+            borderRadius="$2"
+            tokenImageUri={item.provider.logoURI}
+            networkImageUri={item.network.logoURI}
+          />
+          <ListItem.Text
+            flex={1}
+            primary={
+              <XStack gap="$1.5" ai="center">
+                <SizableText>
                   {capitalizeString(item.provider.name)}
                 </SizableText>
-                {item.provider.apr && Number(item.provider.apr) > 0 ? (
-                  <XStack alignItems="center">
-                    <SizableText size="$bodyMdMedium" color="$textSuccess">
-                      {` ${BigNumber(item.provider.apr).toFixed(2)}%`}
-                    </SizableText>
-                  </XStack>
-                ) : null}
-              </YStack>
-              {item.provider.labels && item.provider.labels.length > 0 ? (
-                <YStack alignItems="flex-end" justifyContent="space-around">
-                  {item.provider.labels.map((label) => (
-                    <Badge key={label}>{label}</Badge>
-                  ))}
-                </YStack>
-              ) : null}
-            </XStack>
-            <XStack h="$10" px="$4" ai="center" jc="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.earn_provider_staked })}
-              </SizableText>
-              <XStack alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {`${formatNumber(
-                    Number(item.provider.totalStaked),
-                  )} ${symbol}`}
-                </SizableText>
-                <XStack w="$1" h="$0.5" />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  (
-                  {`${currencySymbol} ${formatNumber(
-                    Number(item.provider.totalFiatValue),
-                  )}`}
-                  )
-                </SizableText>
+                <ProviderTypeBadge type={item.provider.type} />
               </XStack>
-            </XStack>
-          </YStack>
-        </YStack>
+            }
+            secondary={`TVL ${currencySymbol}${formatNumber(
+              Number(item.provider.totalFiatValue),
+            )}`}
+            secondaryTextProps={{
+              color: '$textSubdued',
+              size: '$bodyMd',
+            }}
+          />
+          <ListItem.Text
+            align="right"
+            primary={
+              Number(item.provider.apr) > 0
+                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}% APR`
+                : null
+            }
+            secondary={
+              item.provider.isStaking
+                ? intl.formatMessage({
+                    id: ETranslations.earn_currently_staking,
+                  })
+                : ' '
+            }
+            secondaryTextProps={{
+              color: '$textInfo',
+              size: '$bodyMd',
+            }}
+          />
+        </ListItem>
       )}
     />
   );
 };
 
 const LoadingSkeleton = () => (
-  <Stack w="100%" h="$40" jc="center" ai="center">
-    <Spinner size="large" />
+  <Stack>
+    {Array.from({ length: 3 }).map((_, index) => (
+      <ListItem key={index}>
+        <Skeleton w="$10" h="$10" borderRadius="$2" />
+        <YStack>
+          <YStack py="$1">
+            <Skeleton h="$4" w={120} borderRadius="$2" />
+          </YStack>
+          <YStack py="$1">
+            <Skeleton h="$3" w={80} borderRadius="$2" />
+          </YStack>
+        </YStack>
+      </ListItem>
+    ))}
   </Stack>
 );
 
@@ -181,25 +241,44 @@ const AssetProtocolList = () => {
     IModalStakingParamList,
     EModalStakingRoutes.AssetProtocolList
   >();
-  const { filter, symbol, networkId } = appRoute.params;
+  const { filter, symbol, networkId, accountId, indexedAccountId } =
+    appRoute.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolList({
-        networkId,
         symbol,
+        accountId,
+        indexedAccountId,
+        networkId,
         filter,
       }),
-    [filter, symbol, networkId],
+    [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },
   );
   const intl = useIntl();
 
-  const headerRight = useCallback(() => <AssetProtocolIntroButton />, []);
+  const headerRight = useCallback(
+    () => (
+      <AssetProtocolIntroButton
+        providerTypes={result?.map((o) => o.provider.type).filter(Boolean)}
+      />
+    ),
+    [result],
+  );
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.provider_title })}
+        title={intl.formatMessage(
+          {
+            id: symbol
+              ? ETranslations.earn_symbol_staking_provider
+              : ETranslations.provider_title,
+          },
+          {
+            symbol,
+          },
+        )}
         headerRight={headerRight}
       />
       <Page.Body>

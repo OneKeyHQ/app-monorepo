@@ -5,7 +5,7 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   IAvailableAsset,
-  IEarnAccount,
+  IEarnAccountTokenResponse,
   IEarnAtomData,
 } from '@onekeyhq/shared/types/staking';
 
@@ -47,23 +47,28 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
+  getEarnAccount = contextAtomMethod((get, set, key: string) => {
+    const { earnAccount } = get(earnAtom());
+    return earnAccount?.[key];
+  });
+
   updateEarnAccounts = contextAtomMethod(
     (
       get,
       set,
       {
         key,
-        accounts,
+        earnAccount,
       }: {
         key: string;
-        accounts: IEarnAccount[];
+        earnAccount: IEarnAccountTokenResponse;
       },
     ) => {
       const earnData = get(earnAtom());
       this.syncToJotai.call(set, {
-        accounts: {
-          ...earnData.accounts,
-          [key]: accounts,
+        earnAccount: {
+          ...earnData.earnAccount,
+          [key]: earnAccount,
         },
       });
     },
@@ -77,6 +82,7 @@ export function useEarnActions() {
   const getAvailableAssets = actions.getAvailableAssets.use();
   const updateAvailableAssets = actions.updateAvailableAssets.use();
   const updateEarnAccounts = actions.updateEarnAccounts.use();
+  const getEarnAccount = actions.getEarnAccount.use();
 
   const buildEarnAccountsKey = useCallback(
     (account = '', network = '') => `${account}-${network}`,
@@ -88,5 +94,6 @@ export function useEarnActions() {
     updateAvailableAssets,
     buildEarnAccountsKey,
     updateEarnAccounts,
+    getEarnAccount,
   });
 }

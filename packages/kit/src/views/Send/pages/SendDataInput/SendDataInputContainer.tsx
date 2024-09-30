@@ -707,9 +707,9 @@ function SendDataInputContainer() {
             },
           }}
           valueProps={{
-            value: isUseFiat
-              ? `${linkedAmount.amount} ${tokenSymbol}`
-              : `${currencySymbol}${linkedAmount.amount}`,
+            currency: isUseFiat ? undefined : currencySymbol,
+            tokenSymbol: isUseFiat ? tokenSymbol : undefined,
+            value: linkedAmount.originalAmount,
             onPress: handleOnChangeAmountMode,
           }}
           inputProps={{
@@ -761,7 +761,8 @@ function SendDataInputContainer() {
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      linkedAmount.amount,
+      // linkedAmount.amount,
+      linkedAmount.originalAmount,
       maxBalance,
       maxBalanceFiat,
       network?.logoURI,
@@ -967,6 +968,15 @@ function SendDataInputContainer() {
       });
     }
   }, [networkId, token, nft, isNFT, currentAccount.networkId]);
+
+  useEffect(() => {
+    if (
+      !isNil(tokenDetails?.balance) &&
+      form.getFieldState('amount').isTouched
+    ) {
+      void form.trigger('amount');
+    }
+  }, [form, tokenDetails?.balance]);
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>

@@ -52,8 +52,16 @@ function getTxActionTransferInfo(
 ) {
   const { action, decodedTx, isUTXO, intl } = props;
 
-  const { from, to, sends, receives, label, application } =
-    action.assetTransfer as IDecodedTxActionAssetTransfer;
+  const {
+    from,
+    to,
+    sends,
+    receives,
+    label,
+    application,
+    isInternalStaking,
+    internalStakingLabel,
+  } = action.assetTransfer as IDecodedTxActionAssetTransfer;
 
   const { type } = decodedTx.payload ?? {};
 
@@ -125,6 +133,8 @@ function getTxActionTransferInfo(
     sendTokenIcon: sendsWithToken[0]?.icon,
     receiveTokenIcon: receivesWithToken[0]?.icon,
     application,
+    isInternalStaking,
+    internalStakingLabel,
   };
 }
 
@@ -500,7 +510,17 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     swapInfo,
   } = props;
 
-  const { sends, receives, from, to, application } = getTxActionTransferInfo({
+  const { networkId } = decodedTx;
+
+  const {
+    sends,
+    receives,
+    from,
+    to,
+    application,
+    isInternalStaking,
+    internalStakingLabel,
+  } = getTxActionTransferInfo({
     ...props,
     intl,
   });
@@ -508,6 +528,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const { network: swapReceiveNetwork } = useAccountData({
     networkId: swapInfo?.receiver?.token?.networkId,
   });
+
+  const { vaultSettings } = useAccountData({ networkId });
+
+  const isUTXO = vaultSettings?.isUtxo;
 
   const sendsBlock = buildTransfersBlock(
     groupBy(sends, 'to'),
@@ -524,7 +548,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
   const renderTransferBlock = useCallback(
     (transfersBlock: ITransferBlock[]) => {
-      if (isEmpty(transfersBlock)) return null;
+      if (isEmpty(transfersBlock) && !isInternalStaking) return null;
 
       const transferOverviewElements: React.ReactElement[] = [];
 
@@ -545,7 +569,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT
+                  block.direction === EDecodedTxDirection.OUT &&
+                  !isUTXO
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount
                 } ${
@@ -563,16 +588,29 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       const transfersContent = (
         <YStack py="$2.5">
           <XStack px="$5" pb="$2">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({ id: ETranslations.send_amount })}
-            </SizableText>
+            {isInternalStaking && isEmpty(transfersBlock) ? null : (
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({ id: ETranslations.send_amount })}
+              </SizableText>
+            )}
             {swapInfo ? (
               <SizableText size="$bodyMd" color="$textSubdued" pl="$1.5">
                 ({intl.formatMessage({ id: ETranslations.for_reference_only })})
               </SizableText>
             ) : null}
           </XStack>
-          {transferChangeElements}
+          {isInternalStaking && isEmpty(transfersBlock) ? (
+            <ListItem>
+              <Token isNFT={false} fallbackIcon="Document2Outline" />
+              <Stack flex={1}>
+                <SizableText size="$bodyLgMedium">
+                  {internalStakingLabel}
+                </SizableText>
+              </Stack>
+            </ListItem>
+          ) : (
+            transferChangeElements
+          )}
         </YStack>
       );
       transferOverviewElements.push(transfersContent);
@@ -641,29 +679,31 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
               }
             />,
-            <InfoItem
-              key="target"
-              label={
-                application
-                  ? intl.formatMessage({
-                      id: ETranslations.interact_with_contract,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.global_to,
-                    })
-              }
-              renderContent={
-                to || intl.formatMessage({ id: ETranslations.global_unknown })
-              }
-              description={
-                <AddressInfo
-                  address={to}
-                  networkId={decodedTx.networkId}
-                  accountId={decodedTx.accountId}
-                />
-              }
-            />,
-          ],
+            to ? (
+              <InfoItem
+                key="target"
+                label={
+                  application
+                    ? intl.formatMessage({
+                        id: ETranslations.interact_with_contract,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.global_to,
+                      })
+                }
+                renderContent={
+                  to || intl.formatMessage({ id: ETranslations.global_unknown })
+                }
+                description={
+                  <AddressInfo
+                    address={to}
+                    networkId={decodedTx.networkId}
+                    accountId={decodedTx.accountId}
+                  />
+                }
+              />
+            ) : null,
+          ].filter(Boolean),
         );
       }
 
@@ -737,7 +777,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   h="$5"
                   source={{ uri: application.icon }}
                 />
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  textTransform="capitalize"
+                >
                   {application.name}
                 </SizableText>
               </XStack>
@@ -761,8 +805,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       decodedTx.accountId,
       decodedTx.networkId,
       from,
+      internalStakingLabel,
       intl,
+      isInternalStaking,
       isSendNativeToken,
+      isUTXO,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.logoURI,

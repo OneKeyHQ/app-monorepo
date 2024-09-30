@@ -3,10 +3,6 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import {
-  getBtcForkNetwork,
-  validateBtcAddress,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
@@ -15,7 +11,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -79,6 +74,7 @@ import {
   swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
+  swapTokenMetadataAtom,
 } from './atoms';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -704,6 +700,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const networks = get(swapNetworks());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
+      const tokenMetadata = get(swapTokenMetadataAtom());
       const quoteResultList = get(swapQuoteListAtom());
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -918,6 +915,58 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      if (tokenMetadata?.swapTokenMetadata) {
+        const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
+        const buyTokenBuyTaxBN = new BigNumber(
+          buyToken?.buyTaxBps ? buyToken?.buyTaxBps : 0,
+        );
+        const buyTokenSellTaxBN = new BigNumber(
+          buyToken?.sellTaxBps ? buyToken?.sellTaxBps : 0,
+        );
+        const sellTokenBuyTaxBN = new BigNumber(
+          sellToken?.buyTaxBps ? sellToken?.buyTaxBps : 0,
+        );
+        const sellTokenSellTaxBN = new BigNumber(
+          sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
+        );
+        if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
+          const actionLabel = buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            buyTokenSellTaxBN,
+            buyTokenBuyTaxBN,
+          );
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.dividedBy(100).toNumber()}% ${
+                toToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+        if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
+          const actionLabel = sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
+            ? 'sell'
+            : 'buy';
+          const showTax = BigNumber.maximum(
+            sellTokenBuyTaxBN,
+            sellTokenSellTaxBN,
+          );
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${showTax.dividedBy(100).toNumber()}% ${
+                fromToken?.symbol ?? ''
+              } ${actionLabel} tax`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+      }
+
       set(swapAlertsAtom(), {
         states: alertsRes,
         quoteId: quoteResult?.quoteId ?? '',
@@ -1112,7 +1161,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      networkId: string,
       indexedAccountId?: string,
       otherWalletTypeAccountId?: string,
     ) => {
@@ -1121,114 +1169,47 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       const swapSupportNetworks = get(swapNetworks());
-      const accountIdKey =
-        indexedAccountId ?? otherWalletTypeAccountId ?? 'noAccountId';
-      if (indexedAccountId || otherWalletTypeAccountId) {
-        try {
-          set(swapAllNetworkActionLockAtom(), true);
-          const allNetAccountId = indexedAccountId
-            ? (
-                await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount(
-                  {
-                    indexedAccountId,
-                  },
-                )
-              ).id
-            : otherWalletTypeAccountId ?? '';
-          const currentSwapAllNetworkTokenList = get(
-            swapAllNetworkTokenListMapAtom(),
-          )[accountIdKey];
-          const { accountsInfo } =
-            await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-              accountId: allNetAccountId,
-              networkId,
-            });
-          const noBtcAccounts = accountsInfo.filter(
-            (networkDataString) =>
-              !networkUtils.isBTCNetwork(networkDataString.networkId),
+      const { accountIdKey, swapSupportAccounts } =
+        await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+          indexedAccountId,
+          otherWalletTypeAccountId,
+          swapSupportNetworks,
+        });
+      if (swapSupportAccounts.length > 0) {
+        set(swapAllNetworkActionLockAtom(), true);
+        const currentSwapAllNetworkTokenList = get(
+          swapAllNetworkTokenListMapAtom(),
+        )[accountIdKey];
+        const accountAddressList = swapSupportAccounts.filter(
+          (item) => item.apiAddress,
+        );
+        const requests = accountAddressList.map((networkDataString) => {
+          const {
+            apiAddress,
+            networkId: accountNetworkId,
+            accountId,
+          } = networkDataString;
+          return this.updateAllNetworkTokenList.call(
+            set,
+            accountNetworkId,
+            accountId,
+            apiAddress,
+            !currentSwapAllNetworkTokenList,
+            indexedAccountId ?? otherWalletTypeAccountId ?? '',
           );
-          const btcAccounts = accountsInfo.filter((networkDataString) =>
-            networkUtils.isBTCNetwork(networkDataString.networkId),
-          );
-          const btcAccountsWithMatchDeriveType = await Promise.all(
-            btcAccounts.map(async (networkData) => {
-              const globalDeriveType =
-                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                  {
-                    networkId: networkData.networkId,
-                  },
-                );
-              const btcNet = getBtcForkNetwork(
-                networkUtils.getNetworkImpl({
-                  networkId: networkData.networkId,
-                }),
-              );
-              const addressValidate = validateBtcAddress({
-                network: btcNet,
-                address: networkData.apiAddress,
-              });
-              if (addressValidate.isValid && addressValidate.encoding) {
-                const deriveTypeRes =
-                  await backgroundApiProxy.serviceNetwork.getDeriveTypeByAddressEncoding(
-                    {
-                      networkId: networkData.networkId,
-                      encoding: addressValidate.encoding,
-                    },
-                  );
-                if (deriveTypeRes === globalDeriveType) {
-                  return networkData;
-                }
-              }
-              return null;
-            }),
-          );
-          const filteredAccounts = [
-            ...noBtcAccounts,
-            ...btcAccountsWithMatchDeriveType.filter(Boolean),
-          ];
-          const swapSupportAccounts = filteredAccounts
-            .filter((networkDataString) => {
-              const { networkId: accountNetworkId } = networkDataString;
-              return swapSupportNetworks.find(
-                (network) => network.networkId === accountNetworkId,
-              );
-            })
-            .filter((item) => item.apiAddress);
-          const requests = swapSupportAccounts.map((networkDataString) => {
-            const {
-              apiAddress,
-              networkId: accountNetworkId,
-              accountId,
-            } = networkDataString;
-            return this.updateAllNetworkTokenList.call(
-              set,
-              accountNetworkId,
-              accountId,
-              apiAddress,
-              !currentSwapAllNetworkTokenList,
-              indexedAccountId ?? otherWalletTypeAccountId ?? '',
-            );
-          });
+        });
 
-          if (!currentSwapAllNetworkTokenList) {
-            await Promise.all(requests);
-          } else {
-            const result = await Promise.all(requests);
-            const allTokensResult = (result.filter(Boolean) ?? []).flat();
-            set(swapAllNetworkTokenListMapAtom(), (v) => ({
-              ...v,
-              [accountIdKey]: allTokensResult,
-            }));
-          }
-        } catch (e) {
+        if (!currentSwapAllNetworkTokenList) {
+          await Promise.all(requests);
+        } else {
+          const result = await Promise.all(requests);
+          const allTokensResult = (result.filter(Boolean) ?? []).flat();
           set(swapAllNetworkTokenListMapAtom(), (v) => ({
             ...v,
-            [accountIdKey]: [],
+            [accountIdKey]: allTokensResult,
           }));
-          console.error(e);
-        } finally {
-          set(swapAllNetworkActionLockAtom(), false);
         }
+        set(swapAllNetworkActionLockAtom(), false);
       } else {
         set(swapAllNetworkTokenListMapAtom(), (v) => ({
           ...v,
@@ -1264,7 +1245,8 @@ export const useSwapActions = () => {
     },
   );
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
-  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
+  const { cleanQuoteInterval, cleanApprovingInterval, closeQuoteEvent } =
+    actions;
 
   return useRef({
     selectFromToken,
@@ -1282,5 +1264,6 @@ export const useSwapActions = () => {
     loadSwapSelectTokenDetail,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
+    closeQuoteEvent,
   });
 };

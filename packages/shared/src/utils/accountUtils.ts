@@ -27,6 +27,8 @@ import {
 } from '../engine/engineConsts';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { OneKeyInternalError } from '../errors';
+
 import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
@@ -127,6 +129,12 @@ function isHwAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwWallet({ walletId });
 }
+
+function isHwOrQrAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isHwOrQrWallet({ walletId });
+}
+
 const URL_ACCOUNT_ID = `${WALLET_TYPE_WATCHING}--global-url-account`;
 function isUrlAccountFn({ accountId }: { accountId: string | undefined }) {
   return accountId === URL_ACCOUNT_ID;
@@ -378,6 +386,22 @@ function buildLocalHistoryId(params: {
   const { networkId, txid, accountAddress, xpub } = params;
   const historyId = `${networkId}_${txid}_${xpub || accountAddress}`;
   return historyId;
+}
+
+export function buildAccountLocalAssetsKey({
+  networkId,
+  accountAddress,
+  xpub,
+}: {
+  networkId: string;
+  accountAddress?: string;
+  xpub?: string;
+}) {
+  if (!accountAddress && !xpub) {
+    throw new OneKeyInternalError('accountAddress or xpub is required');
+  }
+
+  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
 
 function isAccountCompatibleWithNetwork({
@@ -690,6 +714,14 @@ function buildHiddenWalletName({
   return `Hidden #${parentWallet?.nextIds?.hiddenWalletNum || 1}`;
 }
 
+function buildTonMnemonicCredentialId({ accountId }: { accountId: string }) {
+  return `${accountId}--ton_credential`;
+}
+
+function isTonMnemonicCredentialId(credentialId: string): boolean {
+  return credentialId.endsWith('--ton_credential');
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -717,6 +749,7 @@ export default {
   isHdAccount,
   isHwAccount,
   isQrAccount,
+  isHwOrQrAccount,
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,
@@ -741,4 +774,7 @@ export default {
   findIndexFromTemplate,
   removePathLastSegment,
   buildHiddenWalletName,
+  buildAccountLocalAssetsKey,
+  buildTonMnemonicCredentialId,
+  isTonMnemonicCredentialId,
 };

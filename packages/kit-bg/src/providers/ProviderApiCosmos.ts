@@ -38,6 +38,10 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   private signMessageSemaphore = new Semaphore(1);
 
+  private _enableFailureCache: { [origin: string]: number } = {};
+
+  private _getKeyQueue = new Semaphore(1);
+
   private async _getAccount(
     request: IJsBridgeMessagePayload,
     networkId: string,
@@ -142,7 +146,9 @@ class ProviderApiCosmos extends ProviderApiBase {
     const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
       networkId,
     });
-    if (!network) return false;
+    if (!network) {
+      throw new Error('Invalid chainId');
+    }
 
     try {
       await this.getAccountsInfo(request);
@@ -161,7 +167,33 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public enable(request: IJsBridgeMessagePayload, params: string[]) {
-    return this._queue.runExclusive(() => this._enable(request, params));
+    const { origin } = request;
+    if (!origin) {
+      return false;
+    }
+
+    return this._queue.runExclusive(async () => {
+      const now = Date.now();
+      // Some dApps may send a large number of concurrent requests, so we need to cache the results to avoid popping up multiple connection Modals
+      if (
+        this._enableFailureCache[origin] &&
+        now - this._enableFailureCache[origin] < 5000
+      ) {
+        return Promise.resolve(false);
+      }
+      try {
+        const result = await this._enable(request, params);
+        if (!result) {
+          this._enableFailureCache[origin] = now;
+        }
+        return result;
+      } catch (error) {
+        if ((error as Error).message !== 'Invalid chainId') {
+          this._enableFailureCache[origin] = now;
+        }
+        return false;
+      }
+    });
   }
 
   @providerApiMethod()
@@ -197,29 +229,40 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public async getKey(request: IJsBridgeMessagePayload, params: string) {
-    const networkId = this.convertCosmosChainId(params);
-    if (!networkId) throw new Error('Invalid chainId');
-    const network = await this.backgroundApi.serviceNetwork.getNetwork({
-      networkId,
+    return this._getKeyQueue.runExclusive(async () => {
+      const networkId = this.convertCosmosChainId(params);
+      if (!networkId) throw new Error('Invalid chainId');
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId,
+      });
+      if (!network) throw new Error('Invalid chainId');
+
+      let account: {
+        account: INetworkAccount;
+        accountInfo?: Partial<IConnectionAccountInfo> | undefined;
+      };
+      try {
+        account = await this._getAccount(request, networkId);
+      } catch (error) {
+        const now = Date.now();
+        const origin = request.origin ?? '';
+        // Some dApps may send a large number of concurrent requests, so we need to cache the results to avoid popping up multiple connection Modals
+        if (
+          !this._enableFailureCache[origin] ||
+          now - this._enableFailureCache[origin] >= 5000
+        ) {
+          this._enableFailureCache[origin ?? ''] = now;
+          await this.backgroundApi.serviceDApp.openConnectionModal(request);
+          await timerUtils.wait(100);
+        }
+        account = await this._getAccount(request, networkId);
+      }
+      if (!account) {
+        throw new Error('No account found');
+      }
+
+      return this._getKeyFromAccount(account.account);
     });
-    if (!network) throw new Error('Invalid chainId');
-
-    let account: {
-      account: INetworkAccount;
-      accountInfo?: Partial<IConnectionAccountInfo> | undefined;
-    };
-    try {
-      account = await this._getAccount(request, networkId);
-    } catch (error) {
-      await this.backgroundApi.serviceDApp.openConnectionModal(request);
-      await timerUtils.wait(100);
-      account = await this._getAccount(request, networkId);
-    }
-    if (!account) {
-      throw new Error('No account found');
-    }
-
-    return this._getKeyFromAccount(account.account);
   }
 
   @providerApiMethod()

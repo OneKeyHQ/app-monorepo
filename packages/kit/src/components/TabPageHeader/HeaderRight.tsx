@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -24,7 +26,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
-import { showNotificationPermissionsDialog } from '../PermissionsDialog';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
 
@@ -36,8 +37,8 @@ export function HeaderRight({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
-  const [{ firstTimeGuideOpened, badge }, setNotificationsData] =
-    useNotificationsAtom();
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
@@ -65,18 +66,10 @@ export function HeaderRight({
 
   const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
-    if (!firstTimeGuideOpened) {
-      showNotificationPermissionsDialog();
-      setNotificationsData((v) => ({
-        ...v,
-        firstTimeGuideOpened: true,
-      }));
-      return;
-    }
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
-  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
+  }, [navigation]);
 
   const items = useMemo(() => {
     const settingsButton = (
@@ -94,6 +87,7 @@ export function HeaderRight({
     };
     const layoutExtView = (
       <ActionList
+        key="layoutExtView"
         title={intl.formatMessage({
           id: ETranslations.global_layout,
         })}
@@ -105,6 +99,7 @@ export function HeaderRight({
                 }),
                 icon: 'LayoutRightOutline',
                 onPress: async () => {
+                  defaultLogger.account.wallet.openSidePanel();
                   await extUtils.openPanelOnActionClick(true);
                   await extUtils.openSidePanel(routeInfo);
                   window.close();
@@ -126,6 +121,7 @@ export function HeaderRight({
             }),
             icon: 'ExpandOutline',
             onPress: async () => {
+              defaultLogger.account.wallet.openExpandView();
               window.close();
               await backgroundApiProxy.serviceApp.openExtensionExpandTab(
                 routeInfo,
@@ -150,10 +146,9 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    const notificationsButton = (
-      <Stack>
+    let notificationsButton: ReactNode | null = (
+      <Stack key="notifications">
         <HeaderIconButton
-          key="notifications"
           title={intl.formatMessage({
             id: ETranslations.global_notifications,
           })}
@@ -164,36 +159,41 @@ export function HeaderRight({
         />
         {!firstTimeGuideOpened || badge ? (
           <Stack
-            borderRadius="$full"
-            bg="$bgApp"
             position="absolute"
             right="$-2.5"
             top="$-2"
-            borderWidth={2}
-            borderColor="$transparent"
+            alignItems="flex-end"
+            w="$10"
             pointerEvents="none"
           >
             <Stack
-              px="$1"
+              bg="$bgApp"
               borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              minHeight="$4"
-              alignItems="center"
-              justifyContent="center"
+              borderWidth={2}
+              borderColor="$transparent"
             >
-              {!firstTimeGuideOpened ? (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              ) : (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badge}
-                </SizableText>
-              )}
+              <Stack
+                px="$1"
+                borderRadius="$full"
+                bg="$bgCriticalStrong"
+                minWidth="$4"
+                height="$4"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {!firstTimeGuideOpened ? (
+                  <Stack
+                    width="$1"
+                    height="$1"
+                    backgroundColor="white"
+                    borderRadius="$full"
+                  />
+                ) : (
+                  <SizableText color="$textOnColor" size="$bodySm">
+                    {badge && badge > 99 ? '99+' : badge}
+                  </SizableText>
+                )}
+              </Stack>
             </Stack>
           </Stack>
         ) : null}
@@ -213,10 +213,22 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [layoutExtView, notificationsButton, settingsButton];
+      return [layoutExtView, notificationsButton, settingsButton].filter(
+        Boolean,
+      );
     }
 
-    return [scanButton, notificationsButton, settingsButton, searchInput];
+    // notifications is not supported on web currently
+    if (platformEnv.isWeb) {
+      notificationsButton = null;
+    }
+
+    return [
+      scanButton,
+      notificationsButton,
+      settingsButton,
+      searchInput,
+    ].filter(Boolean);
   }, [
     intl,
     openSettingPage,

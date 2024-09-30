@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -29,6 +29,8 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
+import { useEarnTxLabel } from '../../hooks/useEarnTxLabel';
+import { capitalizeString } from '../../utils/utils';
 
 type IHistoryItemProps = {
   item: IStakeHistory;
@@ -43,13 +45,14 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
       src: token?.logoURI,
     }}
     title={item.title}
-    subtitle={provider}
+    subtitle={provider ? capitalizeString(provider) : undefined}
   >
     <YStack>
       {item.amount && Number(item.amount) > 0 ? (
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="balance"
+          color={item.direction === 'receive' ? '$textSuccess' : undefined}
           formatterOptions={{
             tokenSymbol: token?.symbol,
             showPlusMinusSigns: true,
@@ -62,8 +65,14 @@ const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
   </ListItem>
 );
 
+type IHistorySectionItem = {
+  title: string;
+  data: IStakeHistory[];
+  isPending?: boolean;
+};
+
 type IHistoryContentProps = {
-  items: IStakeHistory[];
+  sections: IHistorySectionItem[];
   network?: { networkId: string; name: string; logoURI: string };
   tokenMap: Record<string, IToken>;
   provider?: string;
@@ -75,20 +84,11 @@ const keyExtractor = (item: unknown) => {
 };
 
 const HistoryContent = ({
-  items,
+  sections,
   network,
   tokenMap,
   provider,
 }: IHistoryContentProps) => {
-  const sections = useMemo(() => {
-    const result = groupBy(items, (item) =>
-      formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
-    );
-    return Object.entries(result)
-      .map(([title, data]) => ({ title, data }))
-      .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
-  }, [items]);
-
   const renderItem = useCallback(
     ({ item }: { item: IStakeHistory }) => (
       <HistoryItem
@@ -102,15 +102,10 @@ const HistoryContent = ({
   );
 
   const renderSectionHeader = useCallback(
-    ({
-      section,
-    }: {
-      section: {
-        title: string;
-      };
-    }) => (
+    ({ section }: { section: IHistorySectionItem }) => (
       <SectionList.SectionHeader
         title={section.title}
+        titleProps={{ color: section.isPending ? '$textCaution' : undefined }}
         justifyContent="space-between"
       />
     ),
@@ -128,6 +123,7 @@ const HistoryContent = ({
       keyExtractor={keyExtractor}
       ListEmptyComponent={
         <Empty
+          pt="$46"
           icon="ClockTimeHistoryOutline"
           title={intl.formatMessage({
             id: ETranslations.global_no_transactions_yet,
@@ -144,21 +140,73 @@ const HistoryContent = ({
 const HistoryList = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetails
+    EModalStakingRoutes.HistoryList
   >();
-  const { accountId, networkId, symbol, provider } = route.params;
-  const { result, isLoading, run } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getStakeHistory({
-        accountId,
-        networkId,
-        symbol,
-        provider,
-      }),
-    [accountId, networkId, symbol, provider],
-    { watchLoading: true },
-  );
   const intl = useIntl();
+  const labelFn = useEarnTxLabel();
+  const { accountId, networkId, symbol, provider, stakeTag } = route.params;
+  const { result, isLoading, run } = usePromiseResult(
+    async () => {
+      // remote history items
+      const historyResp =
+        await backgroundApiProxy.serviceStaking.getStakeHistory({
+          accountId,
+          networkId,
+          symbol,
+          provider,
+        });
+      const listMap = groupBy(historyResp.list, (item) =>
+        formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
+      );
+      const sections = Object.entries(listMap)
+        .map(([title, data]) => ({ title, data }))
+        .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
+
+      const tokenMap = { ...historyResp.tokenMap };
+
+      // local history items
+      if (stakeTag) {
+        const localItems =
+          await backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
+            accountId,
+            networkId,
+            stakeTag,
+          });
+        localItems.forEach((o) => {
+          if (o.stakingInfo.receive) {
+            const receive = o.stakingInfo.receive;
+            tokenMap[receive.token.address] = receive.token;
+          }
+          if (o.stakingInfo.send) {
+            const send = o.stakingInfo.send;
+            tokenMap[send.token.address] = send.token;
+          }
+        });
+        const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
+          const action = o.stakingInfo.send ?? o.stakingInfo.receive;
+          return {
+            txHash: o.id,
+            timestamp: o.decodedTx.createdAt ?? o.decodedTx.updatedAt ?? 0,
+            title: labelFn(o.stakingInfo.label),
+            direction: o.stakingInfo.send ? 'send' : 'receive',
+            amount: action?.amount,
+            tokenAddress: action?.token.address ?? '',
+          };
+        });
+        if (localNormalizedItems.length > 0) {
+          sections.unshift({
+            title: intl.formatMessage({ id: ETranslations.global_pending }),
+            data: localNormalizedItems,
+            isPending: true,
+          } as IHistorySectionItem);
+        }
+      }
+      return { network: historyResp.network, sections, tokenMap };
+    },
+    [accountId, networkId, symbol, provider, stakeTag, labelFn, intl],
+    { watchLoading: true, pollingInterval: 30 * 1000 },
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -173,7 +221,7 @@ const HistoryList = () => {
         >
           {result ? (
             <HistoryContent
-              items={result.list}
+              sections={result.sections}
               network={result.network}
               tokenMap={result.tokenMap}
               provider={provider}

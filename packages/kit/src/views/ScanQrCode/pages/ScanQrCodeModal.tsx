@@ -19,6 +19,7 @@ import {
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EScanQrCodeModalPages,
@@ -83,7 +84,7 @@ function ScanQrCodeModalFooter({
 
   const FOOTER_NORMAL_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
     {
-      icon: 'Copy1Outline',
+      icon: 'Copy3Outline',
       title: intl.formatMessage({
         id: ETranslations.scan_scan_address_codes_to_copy_address,
       }),
@@ -156,10 +157,10 @@ function ScanQrCodeModalFooter({
             <Icon name={item.icon} size="$5" color="$iconSubdued" />
           </Stack>
           <SizableText
+            flex={1}
             pl="$4"
             size="$bodyLg"
             color="$textSubdued"
-            flex={1}
             $gtMd={{
               size: '$bodyMd',
             }}
@@ -192,7 +193,7 @@ export default function ScanQrCodeModal() {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
+      const uri = result?.assets?.[0]?.uri;
       let data: string | null = null;
       try {
         data = await scanFromURLAsync(uri);
@@ -209,6 +210,10 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
+      defaultLogger.scanQrCode.readQrCode.readFromLibrary(
+        JSON.stringify(result),
+        data,
+      );
     }
   }, [callback, intl]);
 
@@ -217,6 +222,7 @@ export default function ScanQrCodeModal() {
       if (isPickedImage.current) {
         return {};
       }
+      defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       return callback(value);
     },
     [callback],

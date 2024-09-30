@@ -199,6 +199,9 @@ export type IVaultSettings = {
 
   hasFrozenBalance?: boolean;
 
+  hasResource?: boolean;
+  resourceKey?: MessageDescriptor['id'];
+
   withL1BaseFee?: boolean;
 
   hideBlockExplorer?: boolean;
@@ -229,6 +232,7 @@ export type IVaultSettings = {
   stakingConfig?: IStakingConfig;
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
+  isNativeTokenContractAddressEmpty?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -1,25 +1,12 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
-import { isNil } from 'lodash';
-import { Platform } from 'react-native';
-
-import type { IRenderPaginationParams } from '@onekeyhq/components';
-import {
-  IconButton,
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  Swiper,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ISizableTextProps } from '@onekeyhq/components';
+import { Banner, Skeleton, Stack } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../types';
 
-export function Banner({
+export function DashboardBanner({
   banners,
   handleOpenWebSite,
   isLoading,
@@ -32,152 +19,27 @@ export function Banner({
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
-  const media = useMedia();
-  const renderItem = useCallback(
-    ({ item }: { item: IDiscoveryBanner }) => (
-      <Stack
-        p="$5"
-        tag="section"
-        flex={1}
-        position="relative"
-        userSelect="none"
-        cursor="pointer"
-        onPress={() =>
-          handleOpenWebSite({
-            webSite: {
-              url: item.href,
-              title: item.href,
-            },
-            useSystemBrowser: item.useSystemBrowser,
-          })
-        }
-      >
-        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.src} />
-        <Stack
-          position="absolute"
-          bottom={0}
-          right={0}
-          left={0}
-          px="$10"
-          py="$8"
-          $gtMd={{
-            px: '$14',
-            py: '$10',
-          }}
-        >
-          <SizableText
-            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-            size="$headingLg"
-            $gtMd={{
-              size: '$heading2xl',
-            }}
-            maxWidth="$96"
-          >
-            {item.title ?? ''}
-          </SizableText>
-        </Stack>
-      </Stack>
-    ),
-    [handleOpenWebSite],
+  const data = useMemo(
+    () =>
+      banners.map((i) => ({
+        ...i,
+        imgUrl: i.src,
+        title: i.title || '',
+        titleTextProps: {
+          maxWidth: '$96',
+          size: '$headingLg',
+          $gtMd: {
+            size: '$heading2xl',
+          },
+        } as ISizableTextProps,
+      })),
+    [banners],
   );
-
-  const renderPagination = useCallback(
-    ({
-      currentIndex,
-      goToNextIndex,
-      gotToPrevIndex,
-    }: IRenderPaginationParams) => (
-      <>
-        {media.gtMd ? (
-          <>
-            {currentIndex !== 0 ? (
-              <IconButton
-                position="absolute"
-                left="$10"
-                top="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                icon="ChevronLeftOutline"
-                variant="tertiary"
-                iconProps={{
-                  color:
-                    banners[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={gotToPrevIndex}
-              />
-            ) : null}
-
-            {currentIndex !== banners.length - 1 ? (
-              <IconButton
-                icon="ChevronRightOutline"
-                variant="tertiary"
-                position="absolute"
-                right="$10"
-                top="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                iconProps={{
-                  color:
-                    banners[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={goToNextIndex}
-                disabled={currentIndex === banners.length - 1}
-              />
-            ) : null}
-          </>
-        ) : null}
-        {banners.length > 1 ? (
-          <XStack gap="$1" position="absolute" right="$10" bottom="$10">
-            {banners.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$whiteA12"
-                opacity={currentIndex === index ? 1 : 0.5}
-              />
-            ))}
-          </XStack>
-        ) : null}
-      </>
-    ),
-    [media.gtMd, banners],
-  );
-
-  const keyExtractor = useCallback(
-    (item: IDiscoveryBanner) => item.bannerId,
-    [],
-  );
-
-  if (isNil(isLoading) || isLoading) {
-    return (
-      <Stack p="$5">
-        <Skeleton
-          h={188}
-          w="100%"
-          $gtMd={{
-            height: 268,
-          }}
-          $gtLg={{
-            height: 364,
-          }}
-        />
-      </Stack>
-    );
-  }
-
   return (
-    <Swiper
-      autoplay
-      autoplayLoop
-      autoplayLoopKeepAnimation
-      autoplayDelayMs={3000}
+    <Banner
+      itemContainerStyle={{ p: '$5' }}
+      data={data}
+      isLoading={isLoading}
       height={228}
       $gtMd={{
         height: 308,
@@ -185,10 +47,40 @@ export function Banner({
       $gtLg={{
         height: 404,
       }}
-      keyExtractor={keyExtractor}
-      data={banners}
-      renderItem={renderItem}
-      renderPagination={renderPagination}
+      itemTitleContainerStyle={{
+        bottom: 0,
+        right: 0,
+        left: 0,
+        px: '$10',
+        py: '$8',
+        $gtMd: {
+          px: '$14',
+          py: '$10',
+        },
+      }}
+      emptyComponent={
+        <Stack p="$5">
+          <Skeleton
+            h={188}
+            w="100%"
+            $gtMd={{
+              height: 268,
+            }}
+            $gtLg={{
+              height: 364,
+            }}
+          />
+        </Stack>
+      }
+      onItemPress={(item) => {
+        handleOpenWebSite({
+          webSite: {
+            url: item.href,
+            title: item.href,
+          },
+          useSystemBrowser: item.useSystemBrowser,
+        });
+      }}
     />
   );
 }

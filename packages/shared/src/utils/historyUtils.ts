@@ -51,9 +51,9 @@ export function getOnChainHistoryTxAssetInfo({
   let decimals = 0;
   nft = nfts[key] ?? nfts[tokenAddress];
   if (tokenAddress === '') {
-    token = tokens[key] || tokens.native;
+    token = tokens[key] ?? tokens[tokenAddress] ?? tokens.native;
   } else {
-    token = tokens[key];
+    token = tokens[key] ?? tokens[tokenAddress];
   }
 
   if (nft) {
@@ -172,22 +172,6 @@ export function getHistoryTxDetailInfo({
     gasFee,
     gasFeeFiatValue,
   };
-}
-
-export function buildLocalHistoryKey({
-  networkId,
-  accountAddress,
-  xpub,
-}: {
-  networkId: string;
-  accountAddress?: string;
-  xpub?: string;
-}) {
-  if (!accountAddress && !xpub) {
-    throw new OneKeyInternalError('accountAddress or xpub is required');
-  }
-
-  return `${networkId}_${(xpub || accountAddress) ?? ''}`.toLowerCase();
 }
 
 // sort history

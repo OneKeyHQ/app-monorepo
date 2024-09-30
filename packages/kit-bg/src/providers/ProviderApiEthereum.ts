@@ -14,6 +14,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -112,6 +113,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
       networkId: networkId ?? '',
       request: rpcRequest,
+      origin: request.origin ?? '',
     });
 
     return result;
@@ -495,6 +497,11 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
+  }
+
+  @providerApiMethod()
+  wallet_addEthereumChain() {
+    throw new NotImplemented();
   }
 
   @providerApiMethod()

@@ -6,6 +6,7 @@ import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,9 +17,11 @@ import {
   Heading,
   Icon,
   SizableText,
+  XStack,
   YStack,
 } from '../../primitives';
 import { Popover } from '../Popover';
+import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
@@ -29,9 +32,10 @@ export interface IActionListItemProps {
   iconProps?: IIconProps;
   label: string;
   destructive?: boolean;
-  onPress?: () => void | Promise<boolean | void>;
+  onPress?: (close: () => void) => void | Promise<boolean | void>;
   disabled?: boolean;
   testID?: string;
+  shortcutKeys?: string[];
 }
 
 export function ActionListItem({
@@ -43,14 +47,15 @@ export function ActionListItem({
   disabled,
   onClose,
   testID,
+  shortcutKeys,
 }: IActionListItemProps & {
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
       event.stopPropagation();
-      const result = await onPress?.();
-      if (result || result === undefined) {
+      await onPress?.(onClose);
+      if (!onPress?.length) {
         onClose?.();
       }
     },
@@ -85,24 +90,38 @@ export function ActionListItem({
       onPress={handlePress}
       testID={testID}
     >
-      {icon ? (
-        <Icon
-          name={icon}
-          size="$5"
-          mr="$3"
-          $md={{ size: '$6' }}
-          color={destructive ? '$iconCritical' : '$icon'}
-          {...iconProps}
-        />
-      ) : null}
-      <SizableText
-        textAlign="left"
-        size="$bodyMd"
-        $md={{ size: '$bodyLg' }}
-        color={destructive ? '$textCritical' : '$text'}
-      >
-        {label}
-      </SizableText>
+      <XStack jc="space-between" flex={1}>
+        <XStack>
+          {icon ? (
+            <Icon
+              name={icon}
+              size="$5"
+              mr="$3"
+              $md={{ size: '$6' }}
+              color={destructive ? '$iconCritical' : '$icon'}
+              {...iconProps}
+            />
+          ) : null}
+          <SizableText
+            textAlign="left"
+            size="$bodyMd"
+            $md={{ size: '$bodyLg' }}
+            color={destructive ? '$textCritical' : '$text'}
+          >
+            {label}
+          </SizableText>
+        </XStack>
+        {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
+        shortcutKeys?.length ? (
+          <XStack>
+            <Shortcut>
+              {shortcutKeys.map((key) => (
+                <Shortcut.Key key={key}>{key}</Shortcut.Key>
+              ))}
+            </Shortcut>
+          </XStack>
+        ) : null}
+      </XStack>
     </ButtonFrame>
   );
 }
@@ -279,6 +298,7 @@ const showActionList = (
     onClose?: () => void;
   },
 ) => {
+  dismissKeyboard();
   const ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
     <BasicActionList

@@ -79,39 +79,36 @@ const formatNumber = (value: number, options?: FormatNumberOptions) => {
   return appLocale.intl.formatNumber(value, options);
 };
 
-const lazyDecimalSymbol = (digits: number) =>
-  formatNumber(0.1, {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: digits,
-  });
+const symbolMap: Record<string, string> = {};
+const lazyDecimalSymbol = (digits: number) => {
+  const locale = appLocale.intl.locale;
+  if (!symbolMap[locale]) {
+    symbolMap[locale] = formatNumber(0.1, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    })[1];
+  }
+  return symbolMap[locale];
+};
+
 const formatLocalNumber = (
   value: BigNumber | string,
   digits = 2,
   keepTrailingZeros = false,
-  keepDigits = false,
 ) => {
-  const string = typeof value === 'string' ? value : value.toFixed();
-  let [integerPart, decimalPart] = string.split('.');
-  if (!decimalPart && keepDigits) {
-    decimalPart = '0';
-  }
-  const decimal = decimalPart ? `.${decimalPart}` : '';
+  const num = new BigNumber(value).toFixed(digits, BigNumber.ROUND_HALF_UP);
 
-  const formatDecimal = decimal
-    ? formatNumber(Number.parseFloat(decimal), {
-        maximumFractionDigits: digits,
-        minimumFractionDigits: digits,
-      })
-    : '';
-  const plus = Number(formatDecimal[0] || 0);
-
+  const [integerPart, decimalPart] = num.split('.');
   const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
-    new BigNumber(integerPart).plus(plus).toFixed() as any,
+    new BigNumber(integerPart).toFixed() as any,
   )}`;
-  const decimalSymbol = formatDecimal
-    ? formatDecimal[1]
-    : lazyDecimalSymbol(digits)[1];
-  const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
+  const decimalSymbol = lazyDecimalSymbol(digits);
+  const formatDecimal = `${decimalSymbol}${decimalPart}`;
+  if (integer === '∞') {
+    return num;
+  }
+  const result = `${integer}${formatDecimal}`;
+
   return keepTrailingZeros ? stripTrailingZero(result, decimalSymbol) : result;
 };
 
@@ -189,13 +186,13 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: formatLocalNumber('0', 2, false, true),
+      formattedValue: formatLocalNumber('0', 2, false),
       meta: { value, currency, isZero: true, ...options },
     };
   }
   if (val.gte(1)) {
     return {
-      formattedValue: formatLocalNumber(val, 2, false, true),
+      formattedValue: formatLocalNumber(val, 2, false),
       meta: { value, currency, ...options },
     };
   }
@@ -215,7 +212,7 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: formatLocalNumber('0', 2, false, true),
+      formattedValue: formatLocalNumber('0', 2, false),
       meta: { value, isZero: true, symbol: '%', ...options },
     };
   }
@@ -234,7 +231,7 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
   }
   if (val.eq(0)) {
     return {
-      formattedValue: formatLocalNumber('0', 2, false, true),
+      formattedValue: formatLocalNumber('0', 2, false),
       meta: { value, currency, isZero: true, ...options },
     };
   }
@@ -325,18 +322,19 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (leading) {
     strings.push(leading);
   }
+  if (showPlusMinusSigns && !isNegativeNumber) {
+    strings.push('+');
+  }
+
   if (currency) {
     strings.push(currency);
   }
 
-  if (showPlusMinusSigns && !isNegativeNumber) {
-    strings.push('+');
-  }
   if (leadingZeros && leadingZeros > 4) {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push(formatLocalNumber('0', 1, false, true));
+    strings.push(formatLocalNumber('0', 1, false));
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {

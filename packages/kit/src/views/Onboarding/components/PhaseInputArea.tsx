@@ -43,6 +43,7 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
+import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -413,7 +414,10 @@ export function PhaseInputArea({
   showClearAllButton = true,
   defaultPhrases = [],
 }: {
-  onConfirm: (mnemonic: string) => void;
+  onConfirm: (params: {
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   FooterComponent?: ReactElement;
@@ -456,8 +460,10 @@ export function PhaseInputArea({
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
       text: mnemonic,
     });
-    await serviceAccount.validateMnemonic(mnemonicEncoded);
-    onConfirm(mnemonicEncoded);
+    const { mnemonicType } = await serviceAccount.validateMnemonic(
+      mnemonicEncoded,
+    );
+    onConfirm({ mnemonic: mnemonicEncoded, mnemonicType });
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   const {

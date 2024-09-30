@@ -1,11 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -34,7 +36,7 @@ const WithdrawPage = () => {
     onSuccess,
   } = route.params;
 
-  const { token, provider, active } = details;
+  const { token, provider, active, overflow } = details;
   const { price, info: tokenInfo } = token;
   const actionTag = buildLocalTxStatusSyncId(details);
   const appNavigation = useAppNavigation();
@@ -49,7 +51,7 @@ const WithdrawPage = () => {
         stakingInfo: {
           label: EEarnLabels.Withdraw,
           protocol: provider.name,
-          send: { token: tokenInfo, amount },
+          protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
         onSuccess: () => {
@@ -75,6 +77,36 @@ const WithdrawPage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
+  const showPayWith = useMemo<boolean>(
+    () => provider.name.toLowerCase() === 'lido',
+    [provider],
+  );
+
+  const hideReceived = useMemo<boolean>(
+    () =>
+      provider.name.toLowerCase() === 'everstake' &&
+      tokenInfo.symbol.toLowerCase() === 'apt',
+    [provider, tokenInfo.symbol],
+  );
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: provider.name,
+      symbol: tokenInfo.symbol,
+      action: 'unstake',
+      amount: '1',
+    });
+    return resp;
+  }, [networkId, provider.name, tokenInfo.symbol]);
+
+  const unstakingPeriod = useMemo(() => {
+    if (details.provider.unstakingTime) {
+      return Math.ceil(details.provider.unstakingTime / (24 * 60 * 60));
+    }
+    return details.unstakingPeriod; // day
+  }, [details]);
+
   return (
     <Page>
       <Page.Header
@@ -86,17 +118,28 @@ const WithdrawPage = () => {
       <Page.Body>
         <UniversalWithdraw
           price={price}
+          hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0).toFixed()}
+          balance={BigNumber(
+            Number(active ?? 0) + Number(overflow ?? 0),
+          ).toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
           providerLogo={provider.logoURI}
           providerName={provider.name}
           onConfirm={onConfirm}
-          withdrawMinAmount={details.minUnstakeAmount}
-          unstakingPeriod={details.unstakingPeriod}
+          minAmount={
+            Number(provider.minUnstakeAmount) > 0
+              ? String(provider.minUnstakeAmount)
+              : undefined
+          }
+          unstakingPeriod={unstakingPeriod}
           providerLabel={providerLabel}
+          showPayWith={showPayWith}
+          payWithToken={details.rewardToken}
+          payWithTokenRate={provider.lidoStTokenRate}
+          estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>
     </Page>

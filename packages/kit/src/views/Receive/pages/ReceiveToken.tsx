@@ -224,7 +224,7 @@ function ReceiveToken() {
         return (
           <Button
             mt="$5"
-            icon="Copy1Outline"
+            icon="Copy3Outline"
             disabled={isVerifying}
             loading={isVerifying}
             onPress={() => copyText(account?.address ?? '')}
@@ -259,7 +259,7 @@ function ReceiveToken() {
     return (
       <Button
         mt="$5"
-        icon="Copy1Outline"
+        icon="Copy3Outline"
         onPress={() => copyText(account?.address ?? '')}
       >
         {intl.formatMessage({
@@ -314,21 +314,12 @@ function ReceiveToken() {
           p="$4"
         >
           <Stack position="relative">
-            <QRCode value={account.address} size={240} />
-            <Stack
-              position="absolute"
-              width="100%"
-              height="100%"
-              justifyContent="center"
-              alignItems="center"
-            >
-              <Stack p={5} borderRadius="$full" overflow="hidden" bg="$bgApp">
-                <Token
-                  size="lg"
-                  tokenImageUri={token?.logoURI || network.logoURI}
-                />
-              </Stack>
-            </Stack>
+            <QRCode
+              value={account.address}
+              size={240}
+              logo={{ uri: token?.logoURI || network.logoURI }}
+              logoSize={40}
+            />
           </Stack>
 
           {!isShowQRCode ? (

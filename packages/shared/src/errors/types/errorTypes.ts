@@ -21,6 +21,8 @@ export enum EOneKeyErrorClassNames {
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
+  AxiosAbortCancelError = 'AxiosAbortCancelError',
+  AxiosNetworkError = 'AxiosNetworkError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
@@ -31,6 +33,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet = 'OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet',
   OneKeyErrorScanQrCodeCancel = 'OneKeyErrorScanQrCodeCancel',
   SecureQRCodeDialogCancel = 'SecureQRCodeDialogCancel',
+  HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
 }
@@ -74,6 +77,7 @@ export interface IOneKeyError<
 
   // ---server props
   requestId?: string;
+  disableFallbackMessage?: boolean;
 }
 
 export type IOneKeyHardwareErrorPayload = {

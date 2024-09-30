@@ -1,6 +1,5 @@
 // eslint-disable-next-line max-classes-per-file
 
-import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
@@ -15,18 +14,29 @@ import type {
 import { NotificationEventEmitter } from '../NotificationEventEmitter';
 import { PushProviderWebSocket } from '../PushProvider/PushProviderWebSocket';
 
+export type INotificationProviderBaseOptions = {
+  disabledWebSocket?: boolean;
+  disabledJPush?: boolean;
+  instanceId: string;
+};
 export default abstract class NotificationProviderBase {
-  constructor() {
-    console.log('NotificationProviderBase constructor');
+  constructor(options: INotificationProviderBaseOptions) {
+    this.options = options;
   }
+
+  options: INotificationProviderBaseOptions;
 
   eventEmitter: NotificationEventEmitter = new NotificationEventEmitter();
 
   webSocketProvider: PushProviderWebSocket | undefined;
 
   initWebSocketProvider() {
+    if (this.options.disabledWebSocket) {
+      return;
+    }
     this.webSocketProvider = new PushProviderWebSocket({
       eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
     });
   }
 
@@ -47,17 +57,13 @@ export default abstract class NotificationProviderBase {
   abstract setBadge(params: INotificationSetBadgeParams): Promise<void>;
   // TODO getBadgeCount
 
-  async clearBadge() {
-    await this.setBadge({ count: null });
-    defaultLogger.notification.common.clearBadge();
-  }
-
   abstract showAndFocusApp(): Promise<void>;
 
   abstract clearNotificationCache(): Promise<void>;
 
   fixShowParams(params: INotificationShowParams) {
-    params.icon = params.icon || ONEKEY_LOGO_ICON_URL;
+    // ONEKEY_LOGO_ICON_URL
+    params.icon = params.remotePushMessageInfo?.extras?.image || params.icon;
     params.notificationId = params.notificationId || generateUUID();
     params.time = params.time || Date.now();
     return params;

@@ -235,9 +235,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
           },
         }}
       >
-        {intl.formatMessage({
-          id: ETranslations.onboarding_install_onekey_bridge_help_text,
-        })}
+        {ETranslations.onboarding_install_onekey_bridge_help_text}
       </Dialog.RichDescription>
     </Stack>
   );
@@ -262,53 +260,6 @@ function ConnectByUSBOrBLE({
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
   const fwUpdateActions = useFirmwareUpdateActions();
   const navigation = useAppNavigation();
-
-  const createHwWallet = useCallback(
-    async ({
-      device,
-      isFirmwareVerified,
-      features,
-    }: {
-      device: SearchDevice;
-      isFirmwareVerified?: boolean;
-      features: IOneKeyDeviceFeatures;
-    }) => {
-      try {
-        console.log('ConnectYourDevice -> createHwWallet', device);
-
-        defaultLogger.account.wallet.connectHWWallet({
-          connectType: platformEnv.isNative ? 'ble' : 'usb',
-          deviceType: device.deviceType,
-          deviceFmVersion: features.onekey_firmware_version,
-        });
-
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
-
-        await Promise.all([
-          await actions.current.createHWWalletWithHidden({
-            device,
-            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
-            hideCheckingDeviceLoading: true,
-            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
-            features,
-            isFirmwareVerified,
-            defaultIsTemp: true,
-          }),
-        ]);
-      } catch (error) {
-        errorToastUtils.toastIfError(error);
-        navigation.pop();
-        throw error;
-      } finally {
-        const connectId = device.connectId || '';
-        await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId,
-          hardClose: true,
-        });
-      }
-    },
-    [actions, navigation],
-  );
 
   const handleSetupNewWalletPress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
@@ -460,6 +411,168 @@ function ConnectByUSBOrBLE({
     }
   }, []);
 
+  const [isSearching, setIsSearching] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+  const [showHelper, setShowHelper] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  const deviceScanner = useMemo(
+    () =>
+      deviceUtils.getDeviceScanner({
+        backgroundApi: backgroundApiProxy,
+      }),
+    [],
+  );
+
+  const scanDevice = useCallback(() => {
+    deviceScanner.startDeviceScan(
+      (response) => {
+        if (!response.success) {
+          const error = convertDeviceError(response.payload);
+          if (platformEnv.isNative) {
+            if (
+              !(error instanceof NeedBluetoothTurnedOn) &&
+              !(error instanceof NeedBluetoothPermissions) &&
+              !(error instanceof BleLocationServiceError)
+            ) {
+              Toast.error({
+                title: error.message || 'DeviceScanError',
+              });
+            } else {
+              deviceScanner.stopScan();
+            }
+          } else if (
+            error instanceof InitIframeLoadFail ||
+            error instanceof InitIframeTimeout
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_network_error,
+              }),
+              // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
+              message: error.message || 'DeviceScanError',
+              // message: "Check your connection and retry",
+            });
+            deviceScanner.stopScan();
+          }
+
+          if (
+            error instanceof BridgeTimeoutError ||
+            error instanceof BridgeTimeoutErrorForDesktop
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_connection_failed,
+              }),
+              // error.message i18n should set BridgeTimeoutError.defaultKey...
+              message: error.message || 'DeviceScanError',
+              // message: "Please reconnect the USB and try again", // USB only
+            });
+            deviceScanner.stopScan();
+          }
+
+          if (
+            error instanceof ConnectTimeoutError ||
+            error instanceof DeviceMethodCallTimeout
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_connection_failed,
+              }),
+              // error.message i18n should set ConnectTimeoutError.defaultKey...
+              message: error.message || 'DeviceScanError',
+              // message: "Please reconnect device and try again", // USB or BLE
+            });
+            deviceScanner.stopScan();
+          }
+
+          if (error instanceof NeedOneKeyBridge) {
+            Dialog.confirm({
+              icon: 'OnekeyBrand',
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_install_onekey_bridge,
+              }),
+              // error.message i18n should set NeedOneKeyBridge.defaultKey...
+              renderContent: <BridgeNotInstalledDialogContent error={error} />,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_download_and_install,
+              }),
+              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
+            });
+
+            deviceScanner.stopScan();
+          }
+
+          setIsSearching(false);
+          return;
+        }
+
+        setSearchedDevices(response.payload);
+        console.log('=====>>>>> startDeviceScan>>>>>', response.payload);
+      },
+      (state) => {
+        searchStateRef.current = state;
+      },
+    );
+  }, [deviceScanner, intl]);
+
+  const stopScan = useCallback(() => {
+    console.log('=====>>>>> stopDeviceScan>>>>>');
+    deviceScanner.stopScan();
+    setIsSearching(false);
+  }, [deviceScanner]);
+
+  const createHwWallet = useCallback(
+    async ({
+      device,
+      isFirmwareVerified,
+      features,
+    }: {
+      device: SearchDevice;
+      isFirmwareVerified?: boolean;
+      features: IOneKeyDeviceFeatures;
+    }) => {
+      try {
+        console.log('ConnectYourDevice -> createHwWallet', device);
+
+        stopScan();
+
+        defaultLogger.account.wallet.connectHWWallet({
+          connectType: platformEnv.isNative ? 'ble' : 'usb',
+          deviceType: device.deviceType,
+          deviceFmVersion: features.onekey_firmware_version,
+        });
+
+        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+        await Promise.all([
+          await actions.current.createHWWalletWithHidden({
+            device,
+            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+            hideCheckingDeviceLoading: true,
+            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
+            features,
+            isFirmwareVerified,
+            defaultIsTemp: true,
+          }),
+        ]);
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        navigation.pop();
+        scanDevice();
+        throw error;
+      } finally {
+        const connectId = device.connectId || '';
+        await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId,
+          hardClose: true,
+        });
+      }
+    },
+    [actions, navigation, stopScan, scanDevice],
+  );
+
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
       if (device.deviceType === 'unknown') {
@@ -563,12 +676,6 @@ function ConnectByUSBOrBLE({
     ],
   );
 
-  const [isSearching, setIsSearching] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
-  const [showHelper, setShowHelper] = useState(false);
-  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
       /*
@@ -657,101 +764,6 @@ function ConnectByUSBOrBLE({
     [handleHwWalletCreateFlow, searchedDevices],
   );
 
-  const scanDevice = useCallback(() => {
-    const deviceScanner = deviceUtils.getDeviceScanner({
-      backgroundApi: backgroundApiProxy,
-    });
-    deviceScanner.startDeviceScan(
-      (response) => {
-        if (!response.success) {
-          const error = convertDeviceError(response.payload);
-          if (platformEnv.isNative) {
-            if (
-              !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions) &&
-              !(error instanceof BleLocationServiceError)
-            ) {
-              Toast.error({
-                title: error.message || 'DeviceScanError',
-              });
-            } else {
-              deviceScanner.stopScan();
-            }
-          } else if (
-            error instanceof InitIframeLoadFail ||
-            error instanceof InitIframeTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_network_error,
-              }),
-              // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
-              message: error.message || 'DeviceScanError',
-              // message: "Check your connection and retry",
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof BridgeTimeoutError ||
-            error instanceof BridgeTimeoutErrorForDesktop
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              // error.message i18n should set BridgeTimeoutError.defaultKey...
-              message: error.message || 'DeviceScanError',
-              // message: "Please reconnect the USB and try again", // USB only
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (
-            error instanceof ConnectTimeoutError ||
-            error instanceof DeviceMethodCallTimeout
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_connection_failed,
-              }),
-              // error.message i18n should set ConnectTimeoutError.defaultKey...
-              message: error.message || 'DeviceScanError',
-              // message: "Please reconnect device and try again", // USB or BLE
-            });
-            deviceScanner.stopScan();
-          }
-
-          if (error instanceof NeedOneKeyBridge) {
-            Dialog.confirm({
-              icon: 'OnekeyBrand',
-              title: intl.formatMessage({
-                id: ETranslations.onboarding_install_onekey_bridge,
-              }),
-              // error.message i18n should set NeedOneKeyBridge.defaultKey...
-              renderContent: <BridgeNotInstalledDialogContent error={error} />,
-              onConfirmText: intl.formatMessage({
-                id: ETranslations.global_download_and_install,
-              }),
-              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
-            });
-
-            deviceScanner.stopScan();
-          }
-
-          setIsSearching(false);
-          return;
-        }
-
-        setSearchedDevices(response.payload);
-        console.log('startDeviceScan>>>>>', response.payload);
-      },
-      (state) => {
-        searchStateRef.current = state;
-      },
-    );
-  }, [intl]);
-
   const checkBLEState = useCallback(async () => {
     // hack missing getBleManager.
     await bleManagerInstance.getBleManager();
@@ -824,11 +836,9 @@ function ConnectByUSBOrBLE({
     () =>
       // unmount page stop scan
       () => {
-        const scanner = deviceUtils.getDeviceScanner({
-          backgroundApi: backgroundApiProxy,
-        });
-        scanner?.stopScan();
+        deviceScanner?.stopScan();
       },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

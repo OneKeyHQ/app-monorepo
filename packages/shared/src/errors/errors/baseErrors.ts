@@ -57,6 +57,10 @@ export class OneKeyError<
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
     let requestId: string | undefined;
+    let className: EOneKeyErrorClassNames | undefined;
+    let name: string | undefined;
+    let disableFallbackMessage: boolean | undefined;
+
     if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
         message: msg,
@@ -67,6 +71,9 @@ export class OneKeyError<
         autoToast,
         requestId,
         payload: hardwareErrorPayload,
+        className,
+        name,
+        disableFallbackMessage,
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
@@ -78,7 +85,11 @@ export class OneKeyError<
       // * empty string not allowed in Web3RpcError, give a fakeMessage by default
       // * can not access this.key before constructor
       msg ||
-        `Unknown Onekey Internal Error. ${[key].filter(Boolean).join(':')}`,
+        (disableFallbackMessage
+          ? ''
+          : `Unknown Onekey Internal Error. ${[key]
+              .filter(Boolean)
+              .join(':')}`),
       data,
     );
 
@@ -93,6 +104,12 @@ export class OneKeyError<
     }
     this.autoToast = autoToast;
     this.requestId = requestId;
+    if (className) {
+      this.className = className;
+    }
+    if (name) {
+      this.name = name;
+    }
   }
 
   // for jest only: this is not stable, do not use it. may be different in compressed code

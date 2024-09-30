@@ -1,3 +1,8 @@
+import { StackActions } from '@react-navigation/native';
+import { isNil } from 'lodash';
+
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+
 import {
   ENotificationPermission,
   ENotificationPushMessageAckAction,
@@ -31,10 +36,12 @@ async function navigateToNotificationDetail({
   notificationId,
   message,
   isFromNotificationClick,
+  navigation,
 }: {
   notificationId: string;
   message: INotificationPushMessageInfo | undefined;
-  isFromNotificationClick?: boolean;
+  isFromNotificationClick?: boolean; // click by system notification banner
+  navigation?: IAppNavigation;
 }) {
   let routes: string[] = [];
   let params: any = {};
@@ -66,6 +73,7 @@ async function navigateToNotificationDetail({
         accountAddress,
         transactionHash,
         notificationId,
+        checkIsFocused: false,
       };
     }
   }
@@ -96,14 +104,41 @@ async function navigateToNotificationDetail({
       screens: routes,
       routeParams: params,
     });
-    global.$navigationRef.current?.navigate(
-      modalParams.screen,
-      modalParams.params,
-    );
+    if (
+      navigation &&
+      routes?.length === 3 &&
+      routes?.[0] === ERootRoutes.Modal
+    ) {
+      const [, screen1, screen2] = routes;
+      navigation.pushModal(screen1 as any, {
+        screen: screen2,
+        params,
+      });
+    } else {
+      const pushAction = StackActions.push(
+        modalParams.screen,
+        modalParams.params,
+      );
+      global.$navigationRef.current?.dispatch(pushAction);
+    }
   }
+}
+
+function formatBadgeNumber(badgeNumber: number | undefined) {
+  if (isNil(badgeNumber)) {
+    return '';
+  }
+  if (!badgeNumber || badgeNumber <= 0) {
+    return '';
+  }
+  if (badgeNumber > 99) {
+    return '99+';
+  }
+  return badgeNumber.toString();
 }
 
 export default {
   convertWebPermissionToEnum,
   navigateToNotificationDetail,
+  formatBadgeNumber,
 };

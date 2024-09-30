@@ -24,6 +24,10 @@ export class PushProviderWebSocket extends PushProviderBase {
 
   private socket: Socket | null = null;
 
+  async ping(payload: any) {
+    return this.socket?.timeout(3000).emitWithAck('ping', payload);
+  }
+
   async ackMessage(
     params: INotificationPushMessageAckParams,
   ): Promise<boolean> {
@@ -61,6 +65,9 @@ export class PushProviderWebSocket extends PushProviderBase {
     // TODO init timeout
     this.socket = io(endpoint, {
       transports: ['websocket'],
+      auth: {
+        instanceId: this.instanceId,
+      },
     });
     this.socket.on('connect', () => {
       // 获取 socketId
@@ -90,6 +97,10 @@ export class PushProviderWebSocket extends PushProviderBase {
         'WebSocket 连接断开',
         reason,
       );
+    });
+
+    this.socket.on('ping', (payload) => {
+      this.socket?.emit('pong', payload);
     });
 
     this.socket.on('notification', (message: INotificationPushMessageInfo) => {

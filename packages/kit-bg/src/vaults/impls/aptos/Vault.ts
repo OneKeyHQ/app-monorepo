@@ -180,19 +180,26 @@ export default class VaultAptos extends VaultBase {
     const network = await this.getNetwork();
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
-    const { swapInfo } = unsignedTx;
+    const { swapInfo, stakingInfo } = unsignedTx;
     const { type, function: fun } = encodedTx;
     const account = await this.getAccount();
     if (!encodedTx?.sender) {
       encodedTx.sender = account.address;
     }
     let action: IDecodedTxAction | null = null;
+    const [toAddress] = encodedTx.arguments || [];
 
     if (swapInfo) {
-      const [toAddress] = encodedTx.arguments || [];
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapToAddress: toAddress,
+      });
+    } else if (stakingInfo) {
+      const accountAddress = await this.getAccountAddress();
+      action = await this.buildInternalStakingAction({
+        accountAddress,
+        stakingInfo,
+        stakingToAddress: toAddress,
       });
     } else {
       const actionType = getTransactionTypeByPayload({
@@ -506,9 +513,14 @@ export default class VaultAptos extends VaultBase {
 
     const account = await this.getAccount();
     const invalidSigBytes = new Uint8Array(64);
+    let pubkey = account.pub;
+    if (!pubkey) {
+      const accountOnChain = await this.client.getAccount(account.address);
+      pubkey = accountOnChain.authentication_key;
+    }
     const { rawTx: rawSignTx } = await buildSignedTx(
       newRawTx,
-      account.pub ?? '',
+      pubkey,
       bufferUtils.bytesToHex(invalidSigBytes),
     );
 

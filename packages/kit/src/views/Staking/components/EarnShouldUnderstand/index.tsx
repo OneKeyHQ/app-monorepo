@@ -3,7 +3,6 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Image,
   ScrollView,
   SizableText,
   Stack,
@@ -11,8 +10,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { capitalizeString } from '../../utils/utils';
 
 type IListItemTypography = string | ReactElement;
 
@@ -45,42 +42,21 @@ const ShouldUnderstandListItemListItem = ({
 );
 
 type IShouldUnderstandProps = {
-  title: string;
-  logoURI?: string;
-  subtitle?: string;
   items: { title: IListItemTypography; description?: IListItemTypography }[];
 };
 
-const ShouldUnderstand = ({
-  title,
-  logoURI,
-  subtitle,
-  items,
-}: IShouldUnderstandProps) => (
+const ShouldUnderstand = ({ items }: IShouldUnderstandProps) => (
   <YStack flex={1}>
     <ScrollView maxHeight={560}>
-      <YStack pb="$5">
-        <Stack>
-          <Image w="$14" h="$14" src={logoURI} />
-          <YStack mt="$5">
-            <SizableText size="$headingXl">{title}</SizableText>
-            {subtitle ? (
-              <XStack mt="$5">
-                <SizableText size="$bodyLg">{subtitle}</SizableText>
-              </XStack>
-            ) : null}
-          </YStack>
-          <YStack mt="$5" gap="$5">
-            {items.map((o, index) => (
-              <ShouldUnderstandListItemListItem
-                key={index}
-                index={index + 1}
-                title={o.title}
-                description={o.description}
-              />
-            ))}
-          </YStack>
-        </Stack>
+      <YStack gap="$5">
+        {items.map((o, index) => (
+          <ShouldUnderstandListItemListItem
+            key={index}
+            index={index + 1}
+            title={o.title}
+            description={o.description}
+          />
+        ))}
       </YStack>
     </ScrollView>
   </YStack>
@@ -91,7 +67,6 @@ const createTypography = (text: any, condition: unknown) =>
 
 export const StakeShouldUnderstand = ({
   provider,
-  logoURI,
   symbol,
   apr,
   updateFrequency,
@@ -99,7 +74,6 @@ export const StakeShouldUnderstand = ({
   unstakingPeriod,
 }: {
   provider: string;
-  logoURI?: string;
   symbol: string;
   apr?: string;
   updateFrequency?: string;
@@ -279,14 +253,6 @@ export const StakeShouldUnderstand = ({
   }
   return (
     <ShouldUnderstand
-      logoURI={logoURI}
-      title={intl.formatMessage(
-        { id: ETranslations.earn_provider_asset_staking },
-        {
-          'provider': capitalizeString(provider),
-          'asset': symbol.toUpperCase(),
-        },
-      )}
       items={items
         .filter((o) => !!o)
         .map((title) => ({
@@ -297,29 +263,15 @@ export const StakeShouldUnderstand = ({
 };
 
 type IWithdrawShouldUnderstandProps = {
-  provider: string;
-  logoURI: string;
-  symbol: string;
   withdrawalPeriod: number;
 };
 
 export const WithdrawShouldUnderstand = ({
-  provider,
-  symbol,
-  logoURI,
   withdrawalPeriod,
 }: IWithdrawShouldUnderstandProps) => {
   const intl = useIntl();
   return (
     <ShouldUnderstand
-      logoURI={logoURI}
-      title={intl.formatMessage(
-        { id: ETranslations.earn_provider_asset_withdrawal },
-        {
-          'provider': capitalizeString(provider),
-          'asset': symbol.toUpperCase(),
-        },
-      )}
       items={[
         {
           title: intl.formatMessage(

@@ -24,6 +24,7 @@ import {
   getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { clearPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -205,6 +206,7 @@ class ServiceSetting extends ServiceBase {
     if (values.tokenAndNFT) {
       // clear token and nft
       await this.backgroundApi.simpleDb.localTokens.clearRawData();
+      await this.backgroundApi.simpleDb.localNFTs.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history
@@ -242,6 +244,7 @@ class ServiceSetting extends ServiceBase {
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
+    defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
 
   @backgroundMethod()
@@ -251,6 +254,7 @@ class ServiceSetting extends ServiceBase {
       ESwapTxHistoryStatus.CANCELING,
       ESwapTxHistoryStatus.PENDING,
     ]);
+    defaultLogger.setting.page.clearData({ action: 'Pending txn' });
   }
 
   @backgroundMethod()

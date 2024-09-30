@@ -173,3 +173,7 @@ textarea {
 [data-rbd-drag-handle-context-id] {
   cursor: default !important;
 }
+
+.onekey-img-cropper {
+  height: 100%;
+}

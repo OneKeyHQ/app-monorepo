@@ -133,8 +133,10 @@ export function DeriveTypeSelectorTrigger({
   num,
   renderTrigger,
   placement,
+  focusedWalletId,
 }: IDeriveTypeSelectorTriggerPropsBase & {
   num: number;
+  focusedWalletId?: string;
 }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -142,7 +144,7 @@ export function DeriveTypeSelectorTrigger({
   const { activeAccount } = useActiveAccount({ num });
   const { deriveInfoItems, deriveInfo, deriveType, wallet, network } =
     activeAccount;
-  const walletId = wallet?.id;
+  const walletId = focusedWalletId || wallet?.id;
   const networkId = network?.id;
 
   const options = useMemo(
@@ -267,7 +269,13 @@ export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
   );
 }
 
-export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
+export function DeriveTypeSelectorTriggerForDapp({
+  num,
+  focusedWalletId,
+}: {
+  num: number;
+  focusedWalletId?: string;
+}) {
   return (
     <DeriveTypeSelectorTrigger
       placement="bottom-end"
@@ -279,6 +287,7 @@ export function DeriveTypeSelectorTriggerForDapp({ num }: { num: number }) {
         />
       )}
       num={num}
+      focusedWalletId={focusedWalletId}
     />
   );
 }

@@ -129,6 +129,8 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.DeviceInterruptedFromOutside;
+
+  override className = EOneKeyErrorClassNames.HardwareUserCancelFromOutside;
 }
 
 export class UnknownMethod extends OneKeyHardwareError {
@@ -174,6 +176,7 @@ export class NeedFirmwareUpgradeFromWeb extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedFirmwareUpgradeFromWeb',
+        defaultKey: ETranslations.update_update_in_official_web_tool,
       }),
     );
   }
@@ -485,7 +488,7 @@ export class NotInBootLoaderMode extends OneKeyHardwareError {
     }
   }
 
-  override code = HardwareErrorCode.DeviceUnexpectedBootloaderMode;
+  override code = HardwareErrorCode.NotAllowInBootloaderMode;
 }
 
 export class DeviceDetectInBootloaderMode extends OneKeyHardwareError {
@@ -758,6 +761,19 @@ export class DeviceDataOverload extends OneKeyHardwareError {
   override code = HardwareErrorCode.DataOverload;
 }
 
+export class DeviceDisconnectedError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceDisconnectedError',
+        defaultKey: ETranslations.update_device_disconnected_desc,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.BridgeDeviceDisconnected;
+}
+
 export class UnsupportedAddressTypeError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -785,6 +801,8 @@ export class HardwareCommunicationError extends OneKeyHardwareError {
       }),
     );
   }
+
+  override code = HardwareErrorCode.BridgeNetworkError;
 }
 
 // UnknownHardware

@@ -2,6 +2,7 @@ import { isEmpty, isNil } from 'lodash';
 
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
+  EMnemonicType,
   decodeSensitiveText,
   decryptRevealableSeed,
   encryptImportedCredential,
@@ -9,9 +10,15 @@ import {
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
+  revealableSeedFromTonMnemonic,
+  tonMnemonicFromEntropy,
+  tonValidateMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
-import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import type {
+  EAddressEncodings,
+  IExportKeyType,
+} from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -134,7 +141,10 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async validateMnemonic(mnemonic: string): Promise<string> {
+  async validateMnemonic(mnemonic: string): Promise<{
+    mnemonic: string;
+    mnemonicType: EMnemonicType;
+  }> {
     ensureSensitiveTextEncoded(mnemonic);
     const realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,
@@ -142,15 +152,18 @@ class ServiceAccount extends ServiceBase {
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
     // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
+      if (await tonValidateMnemonic(realMnemonicFixed.split(' '))) {
+        return {
+          mnemonic: realMnemonicFixed,
+          mnemonicType: EMnemonicType.TON,
+        };
+      }
       throw new InvalidMnemonic();
     }
-    return Promise.resolve(realMnemonicFixed);
-  }
-
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
+    return {
+      mnemonic: realMnemonicFixed,
+      mnemonicType: EMnemonicType.BIP39,
+    };
   }
 
   @backgroundMethod()
@@ -612,9 +625,11 @@ class ServiceAccount extends ServiceBase {
   async getNetworkSupportedExportKeyTypes({
     networkId,
     exportType,
+    accountId,
   }: {
     networkId: string;
-    exportType: 'privateKey' | 'publicKey';
+    exportType: IExportKeyType;
+    accountId?: string;
   }) {
     const settings = await getVaultSettings({ networkId });
     let keyTypes: ECoreApiExportedSecretKeyType[] | undefined;
@@ -634,6 +649,18 @@ class ServiceAccount extends ServiceBase {
         ].includes(item),
       );
     }
+    if (exportType === 'mnemonic') {
+      if (accountId) {
+        const hasMnemonic = await this.hasTonImportedAccountMnemonic({
+          accountId,
+        });
+        if (hasMnemonic) {
+          keyTypes = settings.supportExportedSecretKeys?.filter((item) =>
+            [ECoreApiExportedSecretKeyType.mnemonic].includes(item),
+          );
+        }
+      }
+    }
     return keyTypes;
   }
 
@@ -651,7 +678,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
-    exportType: 'privateKey' | 'publicKey';
+    exportType: IExportKeyType;
     accountName: string | undefined;
   }) {
     if (!accountId && !indexedAccountId) {
@@ -776,24 +803,66 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     keyType: ECoreApiExportedSecretKeyType;
   }): Promise<string | undefined> {
+    const buildResult = async (account: IDBAccount | undefined) => {
+      if (!account) {
+        throw new Error('exportAccountPublicKey ERROR: account not found');
+      }
+      let publicKey: string | undefined;
+      if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
+        publicKey = account?.pub;
+      }
+      if (keyType === ECoreApiExportedSecretKeyType.xpub) {
+        publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
+      }
+      if (!publicKey) {
+        throw new Error('publicKey not found');
+      }
+      return publicKey;
+    };
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const account = await this.getAccount({ accountId, networkId });
-    let publicKey: string | undefined;
-    if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
-      publicKey = account.pub;
+    const account: IDBAccount | undefined = await this.getAccount({
+      accountId,
+      networkId,
+    });
+    if (accountUtils.isHwOrQrAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const indexedAccountId = account.indexedAccountId;
+      const { deriveType } =
+        await this.backgroundApi.serviceNetwork.getDeriveTypeByDBAccount({
+          networkId,
+          account,
+        });
+      const { prepareParams, deviceParams } =
+        await this.getPrepareHDOrHWAccountsParams({
+          walletId,
+          networkId,
+          indexedAccountId,
+          deriveType,
+          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
+        });
+      const vault = await vaultFactory.getWalletOnlyVault({
+        networkId,
+        walletId,
+      });
+
+      return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const accounts = await vault.keyring.prepareAccounts(prepareParams);
+          return buildResult(accounts?.[0]);
+        },
+        {
+          deviceParams,
+          skipDeviceCancelAtFirst: true,
+          debugMethodName: 'exportAccountPublicKey.prepareAccounts',
+        },
+      );
     }
-    if (keyType === ECoreApiExportedSecretKeyType.xpub) {
-      publicKey = (account as IDBUtxoAccount | undefined)?.xpub;
-    }
-    if (!publicKey) {
-      throw new Error('publicKey not found');
-    }
-    return publicKey;
+    return buildResult(account);
   }
 
   @backgroundMethod()
@@ -1748,7 +1817,12 @@ class ServiceAccount extends ServiceBase {
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
-    const realMnemonic = await this.validateMnemonic(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType === EMnemonicType.TON) {
+      throw new Error('TON mnemonic is not supported');
+    }
 
     let walletHash: string | undefined;
     if (walletHashBuilder) {
@@ -1766,6 +1840,38 @@ class ServiceAccount extends ServiceBase {
     }
 
     return this.createHDWalletWithRs({ rs, password, name, walletHash });
+  }
+
+  @backgroundMethod()
+  async saveTonImportedAccountMnemonic({
+    mnemonic,
+    accountId,
+  }: {
+    mnemonic: string;
+    accountId: string;
+  }) {
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
+    ensureSensitiveTextEncoded(mnemonic);
+    const { mnemonic: realMnemonic, mnemonicType } =
+      await this.validateMnemonic(mnemonic);
+
+    if (mnemonicType !== EMnemonicType.TON) {
+      throw new Error('saveTonMnemonic ERROR: Not a TON mnemonic');
+    }
+    let rs: IBip39RevealableSeedEncryptHex | undefined;
+    try {
+      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+    } catch {
+      throw new InvalidMnemonic();
+    }
+
+    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+      throw new InvalidMnemonic();
+    }
+    await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
   }
 
   @backgroundMethod()
@@ -1984,6 +2090,44 @@ class ServiceAccount extends ServiceBase {
       text: mnemonic,
     });
     return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async getTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
+    if (!accountUtils.isImportedAccount({ accountId })) {
+      throw new Error(
+        'getTonImportedAccountMnemonic ERROR: Not a Ton Imported account',
+      );
+    }
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.Security,
+      });
+    const credential = await localDb.getCredential(
+      accountUtils.buildTonMnemonicCredentialId({
+        accountId,
+      }),
+    );
+    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
+    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
+    try {
+      const credential = await localDb.getCredential(
+        accountUtils.buildTonMnemonicCredentialId({
+          accountId,
+        }),
+      );
+      return !!credential;
+    } catch {
+      return false;
+    }
   }
 
   @backgroundMethod()

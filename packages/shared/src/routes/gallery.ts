@@ -71,4 +71,5 @@ export enum EGalleryRoutes {
   ComponentUsePromiseResult = 'component-UsePromiseResult',
   ComponentImageCropGallery = 'component-ImageCrop',
   ComponentCurrency = 'component-Currency',
+  PasswordKeyboardGallery = 'component-PasswordKeyboard',
 }

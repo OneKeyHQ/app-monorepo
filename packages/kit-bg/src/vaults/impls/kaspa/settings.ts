@@ -44,7 +44,7 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 300,
 
@@ -57,6 +57,7 @@ const settings: IVaultSettings = {
   },
 
   minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toString(),
+  isNativeTokenContractAddressEmpty: true,
 };
 
 export default Object.freeze(settings);

@@ -1,6 +1,7 @@
 import { PermissionStatus } from 'expo-modules-core';
 import {
   AndroidNotificationPriority,
+  DEFAULT_ACTION_IDENTIFIER,
   IosAuthorizationStatus,
   addNotificationResponseReceivedListener,
   cancelScheduledNotificationAsync,
@@ -36,14 +37,15 @@ import { PushProviderJPush } from '../PushProvider/PushProviderJPush';
 
 import NotificationProviderBase from './NotificationProviderBase';
 
+import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
 import type {
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor() {
-    super();
+  constructor(options: INotificationProviderBaseOptions) {
+    super(options);
     void this.configureNotifications();
     this.initWebSocketProvider();
     this.initJPushProvider();
@@ -52,8 +54,12 @@ export default class NotificationProvider extends NotificationProviderBase {
   jpushProvider: PushProviderJPush | undefined;
 
   initJPushProvider() {
+    if (this.options.disabledJPush) {
+      return;
+    }
     this.jpushProvider = new PushProviderJPush({
       eventEmitter: this.eventEmitter,
+      instanceId: this.options.instanceId,
     });
   }
 
@@ -64,20 +70,36 @@ export default class NotificationProvider extends NotificationProviderBase {
     //   console.log('Notifications dropped');
     // });
 
-    // not working when jpush enabled, use JPush.addLocalNotificationListener instead
+    // iOS: not working when jpush enabled, use JPush.addLocalNotificationListener instead
+    // Android: working
     const sub1 = addNotificationResponseReceivedListener(async (event) => {
+      const data = event?.notification?.request?.content?.data as
+        | IJPushNotificationLocalEvent
+        | undefined;
       defaultLogger.notification.common.consoleLog(
         'native addNotificationResponseReceivedListener',
         event.actionIdentifier, // TODO notification_closed
+        data?.extras,
       );
-      const data = event?.notification?.request?.content
-        ?.data as INotificationShowParams;
-      if (data) {
+      if (data && event.actionIdentifier === DEFAULT_ACTION_IDENTIFIER) {
         const notificationId =
-          data.notificationId || event.notification.request.identifier;
+          data?.extras?.params?.msgId ||
+          data?.extras?.msgId ||
+          data?.messageID ||
+          event.notification.request.identifier;
+        const showParams: INotificationShowParams = {
+          notificationId,
+          icon: data.extras?.image,
+          title: data.title,
+          description: data.content,
+          time: Date.now(),
+
+          remotePushMessageInfo: data,
+        };
         this.eventEmitter.emit(EPushProviderEventNames.notification_clicked, {
           notificationId,
-          params: data,
+          params: showParams,
+          eventSource: 'notificationClick',
         });
         await this.removeNotification({
           notificationId,

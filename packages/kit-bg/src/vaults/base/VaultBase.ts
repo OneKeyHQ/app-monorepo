@@ -25,7 +25,10 @@ import {
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { buildTxActionDirection } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  buildTxActionDirection,
+  getStakingActionLabel,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -56,7 +59,10 @@ import type {
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
-import type { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeTxResponse,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -382,19 +388,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
-  async buildHistoryTx({
-    historyTxToMerge,
-    decodedTx,
-    signedTx,
-    isSigner,
-    isLocalCreated,
-  }: {
+  async buildHistoryTx(params: {
     historyTxToMerge?: IAccountHistoryTx;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
     isSigner?: boolean;
     isLocalCreated?: boolean;
+    accountAddress?: string;
+    xpub?: string;
   }): Promise<IAccountHistoryTx> {
+    const { historyTxToMerge, decodedTx, signedTx, isSigner, isLocalCreated } =
+      params;
+
+    let accountAddress = params.accountAddress || '';
+    let xpub = params.xpub;
+
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
@@ -402,16 +410,22 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     const { accountId, networkId } = decodedTx;
 
-    const [accountAddress, xpub] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-    ]);
+    try {
+      const [a, x] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+      accountAddress = a;
+      xpub = x;
+    } catch (e) {
+      // pass
+    }
 
     decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = accountAddress;
@@ -516,6 +530,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
       return await this.buildHistoryTx({
         decodedTx,
+        accountAddress,
+        xpub,
       });
     } catch (e) {
       console.log(e);
@@ -695,7 +711,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       name: string;
       icon: string;
     };
+    internalStakingLabel?: string;
     isInternalSwap?: boolean;
+    isInternalStaking?: boolean;
     swapReceivedAddress?: string;
     swapReceivedNetworkId?: string;
   }): Promise<IDecodedTxAction> {
@@ -706,6 +724,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       data,
       application,
       isInternalSwap,
+      isInternalStaking,
+      internalStakingLabel,
       swapReceivedAddress,
       swapReceivedNetworkId,
     } = params;
@@ -723,6 +743,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       receives: [],
       application,
       isInternalSwap,
+      isInternalStaking,
+      internalStakingLabel,
       swapReceivedAddress,
       swapReceivedNetworkId,
     };
@@ -805,6 +827,56 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           isNative: swapReceiveToken.isNative,
         },
       ],
+    });
+    return action;
+  }
+
+  async buildInternalStakingAction(params: {
+    accountAddress: string;
+    stakingToAddress?: string;
+    stakingInfo: IStakingInfo;
+    stakingData?: string;
+  }) {
+    const { stakingInfo, stakingData, accountAddress, stakingToAddress } =
+      params;
+    const { protocol, protocolLogoURI, send, receive } = stakingInfo;
+
+    const transfers: IDecodedTxTransferInfo[] = [
+      send && {
+        from: accountAddress,
+        to: '',
+        tokenIdOnNetwork: send.token.address,
+        icon: send.token.logoURI ?? '',
+        name: send.token.name ?? '',
+        symbol: send.token.symbol,
+        amount: send.amount,
+        isNFT: false,
+        isNative: send.token.isNative,
+      },
+      receive && {
+        from: '',
+        to: accountAddress,
+        tokenIdOnNetwork: receive.token.address,
+        icon: receive.token.logoURI ?? '',
+        name: receive.token.name ?? '',
+        symbol: receive.token.symbol,
+        amount: receive.amount,
+        isNFT: false,
+        isNative: receive.token.isNative,
+      },
+    ].filter(Boolean);
+
+    const action = await this.buildTxTransferAssetAction({
+      from: accountAddress,
+      to: stakingToAddress ?? '',
+      data: stakingData,
+      application: {
+        name: protocol,
+        icon: protocolLogoURI ?? '',
+      },
+      isInternalStaking: true,
+      internalStakingLabel: getStakingActionLabel({ stakingInfo }),
+      transfers,
     });
     return action;
   }

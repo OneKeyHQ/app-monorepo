@@ -6,7 +6,9 @@ import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
+import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
+import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
 import { StakingScope } from './scopes/staking';
@@ -47,6 +49,10 @@ export class DefaultLogger {
   fiatCrypto = new FiatCryptoScope();
 
   notification = new NotificationScope();
+
+  market = new MarketScope();
+
+  scanQrCode = new ScanQrCodeScope();
 }
 
 const defaultLogger = new DefaultLogger();

@@ -126,6 +126,7 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: true,
 
   preCheckDappTxFeeInfoRequired: true,
+  isNativeTokenContractAddressEmpty: true,
 
   stakingConfig: {
     [getNetworkIdsMap().btc]: {
@@ -134,6 +135,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['BTC'],
           configs: {
             'BTC': {
+              enabled: true,
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
               withdrawWithTx: true,

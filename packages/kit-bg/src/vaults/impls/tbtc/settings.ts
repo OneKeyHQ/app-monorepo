@@ -76,6 +76,7 @@ const settings: IVaultSettings = {
           supportedSymbols: ['SBTC'],
           configs: {
             'SBTC': {
+              enabled: true,
               tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
               displayProfit: false,
               withdrawWithTx: true,

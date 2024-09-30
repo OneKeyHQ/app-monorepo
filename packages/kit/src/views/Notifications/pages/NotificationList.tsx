@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -10,9 +10,10 @@ import {
   HeaderIconButton,
   Page,
   SizableText,
-  Spinner,
+  Skeleton,
   Stack,
   XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   useNotificationsAtom,
@@ -20,6 +21,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INotificationPushMessageListItem } from '@onekeyhq/shared/types/notification';
 
@@ -82,7 +84,7 @@ function NotificationItem({
   const [readedMap] = useNotificationsReadedAtom();
   return (
     <ListItem
-      gap="$1"
+      gap="$0.5"
       flexDirection="column"
       alignItems="stretch"
       userSelect="none"
@@ -91,23 +93,18 @@ function NotificationItem({
       }}
       {...rest}
     >
-      <XStack alignItems="baseline" gap="$3">
+      <XStack alignItems="baseline" gap="$3" pr="$1.5">
         <SizableText flex={1} size="$headingSm" numberOfLines={1}>
           {title}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
           {formatDistanceToNow(new Date(createdAt))}
         </SizableText>
-      </XStack>
-      <XStack>
-        <XStack flex={1}>
-          <SizableText size="$bodyMd" flex={1} maxWidth="$96">
-            {content}
-          </SizableText>
-        </XStack>
         {!readed && !!badge && !readedMap?.[msgId] ? (
           <Stack
-            m="$1.5"
+            position="absolute"
+            top="$1.5"
+            right="$-2"
             borderRadius="$full"
             bg="$bgCriticalStrong"
             w="$2"
@@ -115,14 +112,38 @@ function NotificationItem({
           />
         ) : null}
       </XStack>
+      <SizableText size="$bodyMd" flex={1} maxWidth="$96">
+        {content}
+      </SizableText>
     </ListItem>
   );
 }
 
 function NotificationList() {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
+  const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
-  const [{ lastReceivedTime }] = useNotificationsAtom();
+  const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
+    useNotificationsAtom();
+
+  const isFirstTimeGuideOpened = useRef(false);
+
+  useEffect(() => {
+    if (!firstTimeGuideOpened && !isFirstTimeGuideOpened.current) {
+      // showNotificationPermissionsDialog();
+      setTimeout(() => {
+        navigation.pushModal(EModalRoutes.NotificationsModal, {
+          screen: EModalNotificationsRoutes.NotificationIntroduction,
+        });
+      }, 600);
+      isFirstTimeGuideOpened.current = true;
+      setNotificationsData((v) => ({
+        ...v,
+        firstTimeGuideOpened: true,
+      }));
+    }
+  }, [firstTimeGuideOpened, navigation, setNotificationsData]);
 
   const { result = [], isLoading } = usePromiseResult(
     async () => {
@@ -134,24 +155,41 @@ function NotificationList() {
     [lastReceivedTime],
     {
       watchLoading: true,
+      checkIsFocused: false,
     },
   );
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
         headerRight={renderHeaderRight}
       />
-      <Page.Body>
-        {isLoading ? (
-          <Stack pt={240} justifyContent="center" alignItems="center">
-            <Spinner size="large" />
+      <Page.Body pb={bottom || '$5'}>
+        {isLoading && !result?.length ? (
+          <Stack gap="$1.5" px="$5">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Stack key={index} gap="$1" py="$2">
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$16" />
+                </Stack>
+                <Stack py="$1">
+                  <Skeleton h="$3" w="$48" />
+                </Stack>
+              </Stack>
+            ))}
           </Stack>
         ) : (
           <>
             {!result?.length ? (
               <Empty
-                title={intl.formatMessage({ id: ETranslations.global_no_data })}
+                pt={170}
+                icon="BellOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.notifications_empty_title,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.notifications_empty_desc,
+                })}
               />
             ) : null}
             {result.map((item, index) => (
@@ -159,10 +197,11 @@ function NotificationList() {
                 key={index}
                 item={item}
                 {...(index !== 0 && {
-                  mt: '$1.5',
+                  mt: '$2.5',
                 })}
                 onPress={() => {
                   void notificationsUtils.navigateToNotificationDetail({
+                    navigation,
                     message: item.body,
                     notificationId:
                       item?.msgId ||

@@ -10,6 +10,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IStakingListItemProps = {
   networkId: string;
@@ -48,7 +49,7 @@ const StakingEntryListItemContent = ({
         borderRadius="$0"
       >
         <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-          <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+          <Icon name="CoinsOutline" color="$iconSuccess" />
         </Stack>
         <ListItem.Text
           flex={1}
@@ -84,7 +85,20 @@ const StakingEntryListItem = ({
       params: { networkId, accountId, symbol, filter: true },
     });
   }, [navigation, networkId, accountId, symbol]);
-  return <StakingEntryListItemContent aprValue={aprValue} onPress={onPress} />;
+  const intl = useIntl();
+  return (
+    <StakingEntryListItemContent
+      primaryTitle={
+        networkUtils.isBTCNetwork(networkId)
+          ? intl.formatMessage({
+              id: ETranslations.earn_stake_in_babylon_ecosystem,
+            })
+          : undefined
+      }
+      aprValue={aprValue}
+      onPress={onPress}
+    />
+  );
 };
 
 export const TokenDetailStakingEntry = ({

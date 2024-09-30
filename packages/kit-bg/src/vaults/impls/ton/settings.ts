@@ -54,7 +54,7 @@ const settings: IVaultSettings = {
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
-    // ECoreApiExportedSecretKeyType.publicKey,
+    ECoreApiExportedSecretKeyType.mnemonic,
   ],
 
   withMemo: true,

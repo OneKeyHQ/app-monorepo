@@ -50,6 +50,8 @@ export const ipcMessageKeys = {
   APP_CHANGE_LANGUAGE: 'app/changeLanguage',
   APP_LOCK_NOW: 'app/lockNow',
   APP_GET_ENV_PATH: 'app/getEnvPath',
+  APP_GET_BUNDLE_INFO: 'app/getBundleInfo',
+  APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
 
   // Theme
   THEME_UPDATE: 'theme/update',
@@ -89,4 +91,5 @@ export const ipcMessageKeys = {
   NOTIFICATION_SHOW: 'notification/show',
   NOTIFICATION_GET_PERMISSION: 'notification/getPermission',
   NOTIFICATION_SET_BADGE: 'notification/setBadge',
+  NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',
 };

@@ -247,13 +247,13 @@ class ServiceDApp extends ServiceBase {
     unsignedMessage,
     accountId,
     networkId,
-    sceneName,
+    walletInternalSign,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
-    sceneName?: EAccountSelectorSceneName;
+    walletInternalSign?: boolean;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -265,7 +265,7 @@ class ServiceDApp extends ServiceBase {
         unsignedMessage,
         accountId,
         networkId,
-        sceneName,
+        walletInternalSign,
       },
       fullScreen: !platformEnv.isNativeIOS,
     });
@@ -437,10 +437,12 @@ class ServiceDApp extends ServiceBase {
     origin,
     storageType,
     beforeConnect = false,
+    entry,
   }: {
     origin: string;
     storageType: IConnectionStorageType;
     beforeConnect?: boolean;
+    entry?: 'Browser' | 'SettingModal' | 'ExtPanel' | 'ExtFloatingTrigger';
   }) {
     const { simpleDb, serviceWalletConnect } = this.backgroundApi;
     // disconnect walletConnect
@@ -464,6 +466,14 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
     if (!beforeConnect) {
       await this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(origin);
+    }
+    if (entry) {
+      defaultLogger.discovery.dapp.disconnect({
+        dappDomain: origin,
+        disconnectType:
+          storageType === 'walletConnect' ? 'WalletConnect' : 'Injected',
+        disconnectFrom: entry,
+      });
     }
   }
 
@@ -1055,10 +1065,12 @@ class ServiceDApp extends ServiceBase {
     networkId,
     request,
     skipParseResponse,
+    origin,
   }: {
     networkId: string;
     request: IJsonRpcRequest;
     skipParseResponse?: boolean;
+    origin: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
@@ -1077,6 +1089,7 @@ class ServiceDApp extends ServiceBase {
           params: request.id ? request : { ...request, id: 0 },
         },
       ],
+      origin,
     });
 
     const data = results.data.data.data;
@@ -1100,6 +1113,14 @@ class ServiceDApp extends ServiceBase {
       | ProviderApiPrivate
       | undefined;
     return privateProvider?.callWebEmbedApiProxy(data);
+  }
+
+  @backgroundMethod()
+  async getLastFocusUrl() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.getLastFocusUrl();
   }
 }
 
