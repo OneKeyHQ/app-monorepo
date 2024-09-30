@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "Phí mạng lưới trong ETH sẽ được tự động trừ trong bước tiếp theo.",
   "swap_page.alert.no_provider_supports_trade": "Không có nhà cung cấp nào hỗ trợ giao dịch này",
   "swap_page.alert.not_best_rate": "Nhà cung cấp hiện tại không cung cấp mức giá tốt nhất cho giao dịch này.",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "Thuế cho token sẽ được chuyển đến dự án token, không phải OneKey.",
   "swap_page.alert.tax_detected_buy": "mua",
   "swap_page.alert.tax_detected_sell": "bán",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} thuế được phát hiện",
   "swap_page.alert.value_drop": "Ảnh hưởng giá cao có thể gây mất tài sản của bạn.",
   "swap_page.alert.value_drop_title": "{number} giá trị giảm",
+=======
+  "swap_page.alert.tax_detected": "{percentage} {token} {action} thuế được phát hiện. Thuế cho token sẽ được chuyển đến dự án token, không phải OneKey.",
+  "swap_page.alert.tax_detected_buy": "mua",
+  "swap_page.alert.tax_detected_sell": "bán",
+  "swap_page.alert.value_drop": "{number} giá trị giảm. Ảnh hưởng lớn về giá có thể gây mất tài sản của bạn.",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "chấp nhận {token} đến {target}",
   "swap_page.balance": "Số dư: {number}",

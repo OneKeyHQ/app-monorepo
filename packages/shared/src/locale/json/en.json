@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "Network fee in ETH deducted automatically in the next step.",
   "swap_page.alert.no_provider_supports_trade": "No provider supports this trade",
   "swap_page.alert.not_best_rate": "The current provider does not offer the best rate for this trade.",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "The tax for the token goes to the token project, not OneKey.",
   "swap_page.alert.tax_detected_buy": "buy",
   "swap_page.alert.tax_detected_sell": "sell",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} tax detected",
   "swap_page.alert.value_drop": "High price impact may cause your asset loss.",
   "swap_page.alert.value_drop_title": "{number} value drop",
+=======
+  "swap_page.alert.tax_detected": "{percentage} {token} {action} tax detected. The tax for the token goes to the token project, not OneKey.",
+  "swap_page.alert.tax_detected_buy": "buy",
+  "swap_page.alert.tax_detected_sell": "sell",
+  "swap_page.alert.value_drop": "{number} value drop. High price impact may cause your asset loss.",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "Approve {token} to {target}",
   "swap_page.balance": "Balance: {number}",

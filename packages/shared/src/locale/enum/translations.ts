@@ -1699,7 +1699,10 @@
   swap_page_alert_tax_detected = 'swap_page.alert.tax_detected',
   swap_page_alert_tax_detected_buy = 'swap_page.alert.tax_detected_buy',
   swap_page_alert_tax_detected_sell = 'swap_page.alert.tax_detected_sell',
+<<<<<<< HEAD
   swap_page_alert_tax_detected_title = 'swap_page.alert.tax_detected_title',
+=======
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   swap_page_alert_value_drop = 'swap_page.alert.value_drop',
   swap_page_alert_value_drop_title = 'swap_page.alert.value_drop_title',
   swap_page_amount = 'swap_page.amount',

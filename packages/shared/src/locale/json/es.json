@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "La tarifa de red en ETH se deduce automáticamente en el siguiente paso.",
   "swap_page.alert.no_provider_supports_trade": "Ningún proveedor admite este comercio",
   "swap_page.alert.not_best_rate": "El proveedor actual no ofrece la mejor tarifa para esta operación.",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "El impuesto del token va al proyecto del token, no a OneKey.",
   "swap_page.alert.tax_detected_buy": "comprar",
   "swap_page.alert.tax_detected_sell": "vender",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} impuesto detectado",
   "swap_page.alert.value_drop": "El alto impacto en el precio puede causar la pérdida de su activo.",
   "swap_page.alert.value_drop_title": "Caída del valor {number}",
+=======
+  "swap_page.alert.tax_detected": "{percentage} {token} {action} impuesto detectado. El impuesto para el token va al proyecto del token, no a OneKey.",
+  "swap_page.alert.tax_detected_buy": "comprar",
+  "swap_page.alert.tax_detected_sell": "vender",
+  "swap_page.alert.value_drop": "{number} caída de valor. Un alto impacto en el precio puede causar la pérdida de su activo.",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "aprobar {token} a {target}",
   "swap_page.balance": "Saldo: {number}",

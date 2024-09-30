@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "পরবর্তী পদক্ষেপে স্বয়ংক্রিয়ভাবে ETH এ নেটওয়ার্ক ফি কাটা হবে।",
   "swap_page.alert.no_provider_supports_trade": "এই বাণিজ্য সমর্থন করে কোন প্রদানকারী নেই",
   "swap_page.alert.not_best_rate": "বর্তমান প্রদানকারী এই বিনিময়ের জন্য সেরা হার প্রদান করে না।",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "টোকেনের জন্য কর টোকেন প্রকল্পে যায়, OneKey-এ নয়।",
   "swap_page.alert.tax_detected_buy": "কিনতে",
   "swap_page.alert.tax_detected_sell": "বিক্রি",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} ট্যাক্স শনাক্ত করা হয়েছে",
   "swap_page.alert.value_drop": "উচ্চ মূল্য প্রভাব আপনার সম্পদের ক্ষতি করতে পারে।",
   "swap_page.alert.value_drop_title": "{number} মান হ্রাস",
+=======
+  "swap_page.alert.tax_detected": "{percentage} {token} {action} কর সনাক্ত করা হয়েছে। টোকেনের জন্য কর টোকেন প্রকল্পে যায়, OneKey-তে নয়।",
+  "swap_page.alert.tax_detected_buy": "কিনতে",
+  "swap_page.alert.tax_detected_sell": "বিক্রি",
+  "swap_page.alert.value_drop": "{number} মান পতন হয়েছে। উচ্চ মূল্যের প্রভাব আপনার সম্পত্তির ক্ষতি হতে পারে।",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "{token} কে {target} এ অনুমোদন করুন",
   "swap_page.balance": "ব্যালেন্স: {number}",

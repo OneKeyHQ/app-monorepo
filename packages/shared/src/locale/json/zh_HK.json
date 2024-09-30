@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "在下一步中，網絡費用將以ETH自動扣除。",
   "swap_page.alert.no_provider_supports_trade": "沒有渠道商支持該交易。",
   "swap_page.alert.not_best_rate": "當前的渠道商未為此交易提供最佳報價。",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "代幣稅由代幣項目方收取，而非 OneKey。",
   "swap_page.alert.tax_detected_buy": "購買",
   "swap_page.alert.tax_detected_sell": "賣出",
   "swap_page.alert.tax_detected_title": "偵測到 {token} 有 {percentage} {action}稅",
   "swap_page.alert.value_drop": "高價格影響可能會導致您的資產損失。",
   "swap_page.alert.value_drop_title": "{number} 的價值損失",
+=======
+  "swap_page.alert.tax_detected": "檢測到 {token} 有 {percentage} {action} 稅。代幣稅由代幣項目方收取，而非 OneKey。",
+  "swap_page.alert.tax_detected_buy": "購買",
+  "swap_page.alert.tax_detected_sell": "賣出",
+  "swap_page.alert.value_drop": "{number} 值價值損失。高價格影響可能會導致您的資產損失。",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "授權 {token} 至 {target}",
   "swap_page.balance": "餘額：{number}",

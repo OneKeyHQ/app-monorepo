@@ -1691,12 +1691,19 @@
   "swap_page.alert.network_fee_deducted": "Biaya jaringan dalam ETH akan otomatis dipotong pada langkah selanjutnya.",
   "swap_page.alert.no_provider_supports_trade": "Tidak ada penyedia yang mendukung perdagangan ini",
   "swap_page.alert.not_best_rate": "Penyedia saat ini tidak menawarkan tarif terbaik untuk perdagangan ini.",
+<<<<<<< HEAD
   "swap_page.alert.tax_detected": "Pajak untuk token masuk ke proyek token, bukan OneKey.",
   "swap_page.alert.tax_detected_buy": "membeli",
   "swap_page.alert.tax_detected_sell": "menjual",
   "swap_page.alert.tax_detected_title": "{percentage} {token} {action} pajak terdeteksi",
   "swap_page.alert.value_drop": "Dampak harga tinggi dapat menyebabkan kerugian aset Anda.",
   "swap_page.alert.value_drop_title": "{number} nilai turun",
+=======
+  "swap_page.alert.tax_detected": "{percentage} {token} {action} pajak terdeteksi. Pajak untuk token tersebut masuk ke proyek token, bukan OneKey.",
+  "swap_page.alert.tax_detected_buy": "membeli",
+  "swap_page.alert.tax_detected_sell": "menjual",
+  "swap_page.alert.value_drop": "{number} nilai turun. Dampak harga tinggi dapat menyebabkan kerugian aset Anda.",
+>>>>>>> 03a9ed837a121dbe9979248aa13d8c8e6f6e7163
   "swap_page.amount": "{number}",
   "swap_page.approve_button": "setujui {token} ke {target}",
   "swap_page.balance": "Saldo: {number}",
