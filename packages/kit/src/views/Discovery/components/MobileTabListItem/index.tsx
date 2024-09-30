@@ -89,7 +89,9 @@ function MobileTabListItem({
                 numberOfLines={1}
                 mx="$2"
               >
-                {tab?.title || ''}
+                {(tab?.customTitle?.length ?? 0) > 0
+                  ? tab?.customTitle
+                  : tab?.title}
               </SizableText>
               <IconButton
                 variant="tertiary"
