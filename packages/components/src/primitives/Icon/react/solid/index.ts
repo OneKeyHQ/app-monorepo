@@ -581,6 +581,7 @@ export { default as Pages } from './Pages';
 export { default as Palette } from './Palette';
 export { default as PanoramaView } from './PanoramaView';
 export { default as PartyCelebrate } from './PartyCelebrate';
+export { default as PassKey } from './PassKey';
 export { default as Passport } from './Passport';
 export { default as Password } from './Password';
 export { default as Pause } from './Pause';
