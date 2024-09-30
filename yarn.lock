@@ -6405,13 +6405,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-text-input@npm:0.2.3":
-  version: 0.2.3
-  resolution: "@onekeyfe/react-native-text-input@npm:0.2.3"
+"@onekeyfe/react-native-text-input@npm:0.2.4":
+  version: 0.2.4
+  resolution: "@onekeyfe/react-native-text-input@npm:0.2.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/d6cdbf61b98e8df873ad01cc3265978cfd4a1a667045ffc13279e5180e792e6c6b3a6d4979e32202535de41f3ba3a0505549835543229bbe47cc671faaf4c59c
+  checksum: 10/5f4e7f7150ea411a9b6967d13d40934d3dce7c26e6d2b27ca55c63a4ef9b654da3603e625af3a8a67f847b8a2c42703a6147b31c6a64f959efb4ff114369218d
   languageName: node
   linkType: hard
 
@@ -6782,7 +6782,7 @@ __metadata:
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
-    "@onekeyfe/react-native-text-input": "npm:0.2.3"
+    "@onekeyfe/react-native-text-input": "npm:0.2.4"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
