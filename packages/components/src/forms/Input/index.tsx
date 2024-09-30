@@ -35,16 +35,14 @@ import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
-export enum EPasteEventPayloadItemType {
-  TextPlain = 'text/plain',
-}
+export { EPasteEventPayloadItemType } from 'react-native-text-input';
 
-export type IPasteEventPayloadItem = {
-  data?: string;
-  type?: EPasteEventPayloadItemType;
-};
-export type IPasteEventPayload = IPasteEventPayloadItem[];
-export type IPasteEventParams = { nativeEvent: { items?: IPasteEventPayload } };
+export type {
+  IPasteEventPayloadItem,
+  IPasteEventPayload,
+  IPasteEventParams,
+} from 'react-native-text-input';
+
 export type IInputProps = {
   displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
