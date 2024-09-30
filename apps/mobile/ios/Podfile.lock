@@ -1143,6 +1143,10 @@ PODS:
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
     - React-Core
+  - react-native-text-input (0.2.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - react-native-video (6.0.0-beta.6):
     - React-Core
     - react-native-video/Video (= 6.0.0-beta.6)
@@ -1497,6 +1501,7 @@ DEPENDENCIES:
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
+  - react-native-text-input (from `../../../node_modules/react-native-text-input`)
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
@@ -1727,6 +1732,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-tab-page-view"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
+  react-native-text-input:
+    :path: "../../../node_modules/react-native-text-input"
   react-native-video:
     :path: "../../../node_modules/react-native-video"
   react-native-view-shot:
@@ -1920,6 +1927,7 @@ SPEC CHECKSUMS:
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
   react-native-tab-page-view: 60a852e918db6eab5ee871d0d758ec7df5608085
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
+  react-native-text-input: 44f9ad473d7ee0e3eeb1c376f0de9376edfe4b62
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: ab8587e1e43e274471ec8dc9342ec1711fa8bf61
