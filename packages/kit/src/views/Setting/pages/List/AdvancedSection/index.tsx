@@ -81,8 +81,18 @@ export const AdvancedSection = () => {
     defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomRPC);
   }, [navigation]);
+  const onAddCustomNetwork = useCallback(() => {
+    defaultLogger.setting.page.enterCustomRPC();
+    navigation.push(EModalSettingRoutes.SettingCustomNetwork);
+  }, [navigation]);
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
+      <ListItem
+        onPress={onAddCustomNetwork}
+        icon="BezierNodesOutline"
+        title="Add Custom Network"
+        drillIn
+      />
       <ListItem
         onPress={onCustomRPC}
         icon="BezierNodesOutline"

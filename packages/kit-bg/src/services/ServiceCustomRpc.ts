@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   ICustomRpcItem,
   IDBCustomRpc,
@@ -18,6 +19,9 @@ class ServiceCustomRpc extends ServiceBase {
     super({ backgroundApi });
   }
 
+  /*= ===============================
+   *       Custom RPC
+   *============================== */
   @backgroundMethod()
   public async addCustomRpc(params: IDBCustomRpc) {
     return this.backgroundApi.simpleDb.customRpc.addCustomRpc({
@@ -62,6 +66,23 @@ class ServiceCustomRpc extends ServiceBase {
       rpcUrl: params.rpcUrl,
     });
     return result;
+  }
+
+  /*= ===============================
+   *       Custom Network
+   *============================== */
+  @backgroundMethod()
+  public async getChainIdByRpcUrl(params: { rpcUrl: string }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const result = await vault.getCustomRpcEndpointStatus({
+      rpcUrl: params.rpcUrl,
+      validateChainId: false,
+    });
+    return {
+      chainId: result.chainId,
+    };
   }
 }
 

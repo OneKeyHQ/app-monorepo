@@ -32,6 +32,9 @@ const SettingSpendUTXOModal = LazyLoadPage(
 const SettingCustomRPCModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomRPC'),
 );
+const SettingCustomNetworkModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
+);
 
 const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
@@ -81,6 +84,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingCustomRPC,
     component: SettingCustomRPCModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingCustomNetwork,
+    component: SettingCustomNetworkModal,
   },
   {
     name: EModalSettingRoutes.SettingAppAutoLockModal,

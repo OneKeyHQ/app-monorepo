@@ -9,9 +9,11 @@ export interface IDBCustomRpc {
 
 export interface IMeasureRpcStatusParams {
   rpcUrl: string;
+  validateChainId?: boolean;
 }
 
 export interface IMeasureRpcStatusResult {
+  chainId: number;
   bestBlockNumber: number;
   responseTime: number;
 }
