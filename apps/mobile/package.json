@@ -35,7 +35,7 @@
     "@onekeyfe/react-native-ble-plx": "3.0.0",
     "@onekeyfe/react-native-lite-card": "1.0.11",
     "@onekeyfe/react-native-tab-page-view": "1.0.15",
-    "@onekeyfe/react-native-text-input": "0.2.0",
+    "@onekeyfe/react-native-text-input": "0.2.1",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
