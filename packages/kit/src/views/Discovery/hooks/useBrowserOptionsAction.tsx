@@ -40,34 +40,31 @@ function useBrowserOptionsAction() {
           renderContent: (
             <Dialog.Form
               formProps={{
-                defaultValues: { name: item.title },
+                defaultValues: {
+                  name:
+                    (item?.customTitle?.length ?? 0) > 0
+                      ? item?.customTitle
+                      : item?.title,
+                },
               }}
             >
-              <Dialog.FormField
-                name="name"
-                rules={{
-                  required: {
-                    value: true,
-                    message: intl.formatMessage({
-                      id: ETranslations.global_name,
-                    }),
-                  },
-                }}
-              >
-                <Input autoFocus flex={1} />
+              <Dialog.FormField name="name">
+                <Input
+                  autoFocus
+                  flex={1}
+                  placeholder={item.title}
+                  clearButtonMode="always"
+                />
               </Dialog.FormField>
             </Dialog.Form>
           ),
           onConfirm: (dialogInstance) => {
             const form = dialogInstance.getForm()?.getValues();
-            if (form?.name) {
-              setWebTabData({
-                ...item,
-                title: form.name,
-                hasCustomTitle: true,
-              });
-              setTabs();
-            }
+            setWebTabData({
+              ...item,
+              customTitle: form?.name,
+            });
+            setTabs();
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.global_success,

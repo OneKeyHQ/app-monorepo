@@ -61,7 +61,7 @@ function MobileTabListPinnedItem({
           </Image.Loading>
         </Image>
         <SizableText flex={1} size="$bodySm" numberOfLines={1} ml="$2">
-          {tab?.title || ''}
+          {(tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title}
         </SizableText>
       </XStack>
     </Stack>

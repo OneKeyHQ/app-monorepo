@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -38,6 +38,9 @@ function DesktopCustomTabBarItem({
   const isActive = activeTabId === id;
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
+  const closeTab = useCallback(() => {
+    onClose?.(tab?.id);
+  }, [onClose, tab?.id]);
   const actionListItems = useMemo(
     () => [
       {
@@ -119,9 +122,7 @@ function DesktopCustomTabBarItem({
               id: ETranslations.explore_close_tab,
             }),
             icon: 'CrossedLargeOutline',
-            onPress: () => {
-              onClose(tab?.id);
-            },
+            onPress: closeTab,
             testID: `action-list-item-close`,
           },
         ].filter(Boolean) as IActionListItemProps[],
@@ -142,6 +143,7 @@ function DesktopCustomTabBarItem({
       onClose,
       copyText,
       handleRenameTab,
+      closeTab,
     ],
   );
   return (
@@ -150,11 +152,14 @@ function DesktopCustomTabBarItem({
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}
-      label={tab?.title}
+      label={
+        (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title
+      }
       avatarSrc={tab?.favicon}
       testID={testID}
       id={id}
       actionList={actionListItems}
+      onClose={closeTab}
     />
   );
 }
