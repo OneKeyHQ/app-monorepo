@@ -6485,7 +6485,6 @@ __metadata:
     biginteger: "npm:^1.0.3"
     bignumber.js: "npm:9.1.2"
     browserify-zlib: "npm:^0.2.0"
-    check-disk-space: "npm:^3.4.0"
     cheerio: "npm:^1.0.0-rc.12"
     copy-webpack-plugin: "npm:^6.0.2"
     cross-env: "npm:^7.0.3"
@@ -17103,13 +17102,6 @@ __metadata:
   bin:
     check-dependency-version-consistency: dist/bin/check-dependency-version-consistency.js
   checksum: 10/8ee74466e317f0c8e3ddff366882818122057c311ffbf4377ec5f09e0cbf9fdbdb79abafcf017ebcc498a3dd2b268a41015c1a80a0f8b3f2c36b1000113b1eff
-  languageName: node
-  linkType: hard
-
-"check-disk-space@npm:^3.4.0":
-  version: 3.4.0
-  resolution: "check-disk-space@npm:3.4.0"
-  checksum: 10/73130c32e26aaa1eda359706d9cbcde21785285dd829ec2b850c59e88ce99d8ebf830d6849315b2d4bc7eed9082aaea7c5f065f1ace591f49d3851f0c21157f9
   languageName: node
   linkType: hard
 
