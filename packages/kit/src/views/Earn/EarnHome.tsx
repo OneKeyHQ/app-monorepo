@@ -60,10 +60,13 @@ interface ITokenAccount extends IEarnAccountToken {
 }
 
 const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
-const getNumberColor = (value: string | number): ISizableTextProps['color'] =>
+const getNumberColor = (
+  value: string | number,
+  defaultColor: ISizableTextProps['color'] = '$textSuccess',
+): ISizableTextProps['color'] =>
   (typeof value === 'string' ? Number(value) : value) === 0
     ? '$textDisabled'
-    : '$textSuccess';
+    : defaultColor;
 
 const toTokenProviderListPage = async (
   navigation: ReturnType<typeof useAppNavigation>,
@@ -416,7 +419,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         <NumberSizeableText
           size="$heading5xl"
           formatter="price"
-          color={getNumberColor(totalFiatValue)}
+          color={getNumberColor(totalFiatValue, '$text')}
           formatterOptions={{ currency: settings.currencyInfo.symbol }}
           numberOfLines={1}
         >
