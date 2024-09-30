@@ -9,11 +9,7 @@ import {
   useState,
 } from 'react';
 
-import {
-  EPasteEventPayloadItemType,
-  type IPasteEventParams,
-  type IPasteEventPayload,
-} from '@onekeyfe/react-native-text-input';
+import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
@@ -29,6 +25,10 @@ import { getSharedInputStyles } from './sharedStyles';
 
 import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 import type {
+  IPasteEventParams,
+  IPasteEventPayload,
+} from '@onekeyfe/react-native-text-input';
+import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
@@ -40,7 +40,7 @@ import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
-export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input';
+export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 
 export type {
   IPasteEventPayloadItem,
