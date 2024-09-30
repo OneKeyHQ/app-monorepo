@@ -12,6 +12,7 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
@@ -83,6 +84,22 @@ class ServiceCustomRpc extends ServiceBase {
     return {
       chainId: result.chainId,
     };
+  }
+
+  @backgroundMethod()
+  public async upsertCustomNetwork(params: {
+    networkName: string;
+    rpcUrl: string;
+    chainId: number;
+    symbol: string;
+    blockExplorerUrl: string;
+  }) {
+    const { chainId } = params;
+    const networkId = accountUtils.buildCustomEvmNetworkId({
+      chainId: chainId.toString(),
+    });
+    return this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
+    });
   }
 }
 
