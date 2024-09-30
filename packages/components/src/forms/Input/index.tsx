@@ -9,6 +9,11 @@ import {
   useState,
 } from 'react';
 
+import {
+  EPasteEventPayloadItemType,
+  type IPasteEventParams,
+  type IPasteEventPayload,
+} from '@onekeyfe/react-native-text-input';
 import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
@@ -32,7 +37,6 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 import type { GetProps } from 'tamagui';
-import { IPasteEventParams } from '@onekeyfe/react-native-text-input';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
