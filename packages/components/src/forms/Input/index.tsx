@@ -10,7 +10,13 @@ import {
 } from 'react';
 
 import { InteractionManager } from 'react-native';
-import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -18,8 +24,8 @@ import { useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { Icon } from '../../primitives';
 
-import { Input as TMInput } from './Input';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
+import { Input as PasteInput } from './PasteInput';
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IGroupProps, IKeyOfIcons } from '../../primitives';
@@ -273,6 +279,11 @@ function BaseInput(
     [onChangeText],
   );
 
+  const InputComponent = useMemo(
+    () => (onPaste ? PasteInput : TMInput),
+    [onPaste],
+  );
+
   return (
     <Group
       orientation="horizontal"
@@ -303,7 +314,7 @@ function BaseInput(
 
       {/* input */}
       <Group.Item>
-        <TMInput
+        <InputComponent
           unstyled
           ref={inputRef}
           keyboardType={keyboardType}
@@ -446,8 +457,15 @@ function BaseInputUnControlled(
         focus: () => {},
       },
   );
+
+  const InputComponent = useMemo(
+    // eslint-disable-next-line react/destructuring-assignment
+    () => (inputProps.onPaste ? PasteInput : TMInput),
+    // eslint-disable-next-line react/destructuring-assignment
+    [inputProps.onPaste],
+  );
   return (
-    <TMInput
+    <InputComponent
       ref={inputRef}
       {...(inputProps as any)}
       value={internalValue}
