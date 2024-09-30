@@ -35,13 +35,13 @@ import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
-export { EPasteEventPayloadItemType } from 'react-native-text-input';
+export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input';
 
 export type {
   IPasteEventPayloadItem,
   IPasteEventPayload,
   IPasteEventParams,
-} from 'react-native-text-input';
+} from '@onekeyfe/react-native-text-input';
 
 export type IInputProps = {
   displayAsMaskWhenEmptyValue?: boolean;

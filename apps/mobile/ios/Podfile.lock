@@ -1501,7 +1501,7 @@ DEPENDENCIES:
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
-  - react-native-text-input (from `../../../node_modules/react-native-text-input`)
+  - "react-native-text-input (from `../../../node_modules/@onekeyfe/react-native-text-input`)"
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
@@ -1733,7 +1733,7 @@ EXTERNAL SOURCES:
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
   react-native-text-input:
-    :path: "../../../node_modules/react-native-text-input"
+    :path: "../../../node_modules/@onekeyfe/react-native-text-input"
   react-native-video:
     :path: "../../../node_modules/react-native-video"
   react-native-view-shot:

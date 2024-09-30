@@ -6405,6 +6405,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-text-input@npm:0.2.0":
+  version: 0.2.0
+  resolution: "@onekeyfe/react-native-text-input@npm:0.2.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/696d328f72960c57be200e855b66eb22ce129d5ee68159850023e1f28574111dca961c6e690feecb6952069af467b986dc80253516ddaf957e45c3f7b1d904ff
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -6773,6 +6783,7 @@ __metadata:
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
+    "@onekeyfe/react-native-text-input": "npm:0.2.0"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -6849,7 +6860,6 @@ __metadata:
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
-    react-native-text-input: "https://github.com/huhuanming/react-native-text-input.git#8098e2dbcf93f0224c9c5dd54a23ef335c982073"
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
@@ -22634,13 +22644,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7, follow-redirects@npm:^1.14.8, follow-redirects@npm:^1.15.6":
+"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7, follow-redirects@npm:^1.15.6":
   version: 1.15.6
   resolution: "follow-redirects@npm:1.15.6"
   peerDependenciesMeta:
     debug:
       optional: true
   checksum: 10/70c7612c4cab18e546e36b991bbf8009a1a41cf85354afe04b113d1117569abf760269409cb3eb842d9f7b03d62826687086b081c566ea7b1e6613cf29030bf7
+  languageName: node
+  linkType: hard
+
+"follow-redirects@npm:^1.14.8":
+  version: 1.15.9
+  resolution: "follow-redirects@npm:1.15.9"
+  peerDependenciesMeta:
+    debug:
+      optional: true
+  checksum: 10/e3ab42d1097e90d28b913903841e6779eb969b62a64706a3eb983e894a5db000fbd89296f45f08885a0e54cd558ef62e81be1165da9be25a6c44920da10f424c
   languageName: node
   linkType: hard
 
@@ -32140,16 +32160,6 @@ __metadata:
   peerDependencies:
     react-native: ">=0.60.0"
   checksum: 10/c37ea6982ad9380ac612262bb6ce392fa204d3a9168e283548485449064ad18e745533887d13a4aa17b4e09d6eeda3c3c934241e41c5d9ec6d1e663d40e4518a
-  languageName: node
-  linkType: hard
-
-"react-native-text-input@https://github.com/huhuanming/react-native-text-input.git#8098e2dbcf93f0224c9c5dd54a23ef335c982073":
-  version: 0.2.0
-  resolution: "react-native-text-input@https://github.com/huhuanming/react-native-text-input.git#commit=8098e2dbcf93f0224c9c5dd54a23ef335c982073"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/b9c45bd59399f1460b0adf6e6d0a339774328017434de2f22c7603a6be271756f4aca51c5f0833843b455871577dca54290cc5ab9d1d0373c01377af19736d71
   languageName: node
   linkType: hard
 
