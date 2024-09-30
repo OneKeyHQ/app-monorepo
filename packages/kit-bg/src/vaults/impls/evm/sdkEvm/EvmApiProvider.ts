@@ -14,6 +14,10 @@ import type {
 } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
+  IFetchServerAccountDetailsParams,
+  IServerFetchNonceResponse,
+} from '@onekeyhq/shared/types/address';
+import type {
   IEstimateGasParams,
   IEstimateGasResp,
   IServerEstimateFeeResponse,
@@ -83,6 +87,19 @@ class EvmApiProvider extends BaseApiProvider {
       throw new Error('Invalid address');
     }
     return normalizedAddress;
+  }
+
+  protected override async getNonce(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IServerFetchNonceResponse> {
+    const res = await this.client.call<string>('eth_getTransactionCount', [
+      params.accountAddress,
+      'latest',
+    ]);
+
+    return {
+      nonce: Number(res),
+    };
   }
 
   override async listAccountTokenFromRpc(

@@ -19,6 +19,8 @@ import numberUtils, {
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -1136,13 +1138,22 @@ export default class Vault extends VaultBase {
 
   // RPC Client
   async getRpcClient() {
-    const url = 'https://core.public.infstones.com'; // Core
+    // const url = 'https://core.public.infstones.com'; // Core
+    const url = 'https://optimism.llamarpc.com';
     const provider = new EvmApiProvider({
       url,
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     });
     return provider;
+  }
+
+  override async fetchAccountDetailsByRpc(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.getAccount(params);
+    return resp;
   }
 
   override async fetchTokenListByRpc(

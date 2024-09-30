@@ -8,6 +8,13 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
+  IFetchAccountDetailsResp,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
+  IServerFetchNonceResponse,
+  IServerGetAccountNetWorthResponse,
+} from '@onekeyhq/shared/types/address';
+import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
   IServerGasFeeParams,
@@ -34,7 +41,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { parseTokenItem } from './utils';
+import { parseTokenItem, safeNumberString } from './utils';
 
 class BaseApiProvider {
   backgroundApi: IBackgroundApi;
@@ -98,6 +105,106 @@ class BaseApiProvider {
       balance: '',
       balanceParsed: '',
       fiatValue: '',
+    };
+  }
+
+  async getAccount(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const res: IFetchAccountDetailsResp = {
+      address: params.accountAddress,
+      netWorth: undefined,
+      balance: undefined,
+      balanceParsed: undefined,
+      isContract: undefined,
+      nonce: undefined,
+      utxoList: undefined,
+    };
+    const stages: {
+      stage: string;
+      value: () => Promise<any>;
+      condition: boolean;
+    }[] = [
+      {
+        stage: 'getAccountNetworth',
+        value: () =>
+          this.getAccountNetWorth(params).then((n) => {
+            res.netWorth = n.netWorth;
+            res.balance = n.balance;
+            res.balanceParsed = n.balanceParsed;
+          }),
+        condition: !!params.withNetWorth,
+      },
+      {
+        stage: 'getNonce',
+        value: () =>
+          this.getNonce(params).then((n) => {
+            res.nonce = n.nonce;
+            res.accountNumber = n.accountNumber;
+          }),
+        condition: !!params.withNonce,
+      },
+    ];
+    await Promise.all(
+      stages.map(async (n) => {
+        if (n.condition) {
+          return n.value();
+        }
+        return Promise.resolve();
+      }),
+    );
+
+    return {
+      data: {
+        data: res,
+      },
+    };
+  }
+
+  protected async getAccountNetWorth(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IServerGetAccountNetWorthResponse> {
+    const res = await this.listAccountTokenWithBalance({
+      networkId: params.networkId,
+      accountAddress: params.accountAddress,
+      xpub: params.xpub,
+      contractList: [this.nativeTokenAddress],
+    });
+
+    let netWorth = new BigNumber(0);
+    let nativeToken: IServerAccountTokenItem | undefined;
+
+    for (const t of res) {
+      if (t) {
+        if (t.info?.isNative) {
+          nativeToken = t;
+        }
+        netWorth = netWorth.plus(t.fiatValue ?? 0);
+      }
+    }
+
+    if (!nativeToken) {
+      return {
+        netWorth: undefined,
+        balance: undefined,
+        balanceParsed: undefined,
+      };
+    }
+
+    return {
+      netWorth: safeNumberString(netWorth.toFixed()),
+      balance: new BigNumber(nativeToken?.balance ?? '0').toString(),
+      balanceParsed: new BigNumber(
+        nativeToken?.balanceParsed ?? '0',
+      ).toString(),
+    };
+  }
+
+  protected async getNonce(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IServerFetchNonceResponse> {
+    return {
+      nonce: undefined,
     };
   }
 

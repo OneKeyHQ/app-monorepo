@@ -36,6 +36,8 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
   IFetchAccountDetailsResp,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -66,8 +68,6 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
-  IFetchServerAccountDetailsParams,
-  IFetchServerAccountDetailsResponse,
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
   IFetchServerTokenListParams,
