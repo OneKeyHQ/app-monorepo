@@ -74,11 +74,22 @@ export function useSwapInit(params?: ISwapInitParams) {
       setNetworkListFetching(false);
       return;
     }
-    const swapNetworksSortList =
+    let swapNetworksSortList =
       await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
     if (swapNetworksSortList?.data?.length) {
-      setSwapNetworks(swapNetworksSortList.data);
-      setNetworkListFetching(false);
+      const noSupportInfo = swapNetworksSortList?.data.every(
+        (net) =>
+          isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap),
+      );
+      if (!noSupportInfo) {
+        setSwapNetworks(swapNetworksSortList.data);
+        setNetworkListFetching(false);
+      } else {
+        swapNetworksSortList = null;
+        void backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+          data: [],
+        });
+      }
     }
     let networks: ISwapNetwork[] = [];
     const fetchNetworks =

@@ -38,6 +38,7 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
@@ -50,18 +51,29 @@ function useSwapWarningCheck() {
       networkId: undefined,
       accountInfo: undefined,
     },
+    swapToAddressInfo: {
+      address: undefined,
+      networkId: undefined,
+      accountInfo: undefined,
+    },
   });
   const isFocused = useIsFocused();
   const asyncRefContainer = useCallback(() => {
     if (refContainer.current.swapFromAddressInfo !== swapFromAddressInfo) {
       refContainer.current.swapFromAddressInfo = swapFromAddressInfo;
     }
-  }, [swapFromAddressInfo]);
+    if (refContainer.current.swapToAddressInfo !== swapToAddressInfo) {
+      refContainer.current.swapToAddressInfo = swapToAddressInfo;
+    }
+  }, [swapFromAddressInfo, swapToAddressInfo]);
 
   useEffect(() => {
     if (isFocused) {
       asyncRefContainer();
-      void checkSwapWarning(refContainer.current.swapFromAddressInfo);
+      void checkSwapWarning(
+        refContainer.current.swapFromAddressInfo,
+        refContainer.current.swapToAddressInfo,
+      );
     }
   }, [
     asyncRefContainer,

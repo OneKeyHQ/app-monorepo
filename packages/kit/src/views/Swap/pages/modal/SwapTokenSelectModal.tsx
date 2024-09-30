@@ -32,10 +32,10 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,6 +54,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
+  ESwapTabSwitchType,
   ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
@@ -83,10 +84,11 @@ const SwapTokenSelectPage = () => {
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
-  const [swapNetworks] = useSwapNetworksAtom();
+  const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
@@ -103,17 +105,34 @@ const SwapTokenSelectPage = () => {
           ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
-    } else if (toToken?.networkId) {
-      return (
-        swapNetworksIncludeAllNetwork.find(
-          (item: ISwapNetwork) => item.networkId === toToken.networkId,
-        ) ?? swapNetworksIncludeAllNetwork?.[0]
-      );
+      if (toToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === toToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
+    } else {
+      if (toToken?.networkId) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === toToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
+      if (fromToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
     }
     return swapNetworksIncludeAllNetwork?.[0];
   }, [
     fromToken?.networkId,
     swapNetworksIncludeAllNetwork,
+    swapTypeSwitch,
     toToken?.networkId,
     type,
   ]);
@@ -356,6 +375,14 @@ const SwapTokenSelectPage = () => {
     ],
   );
 
+  const disableOtherNet = useMemo(
+    () =>
+      type === ESwapDirectionType.TO &&
+      !!fromToken &&
+      swapTypeSwitch === ESwapTabSwitchType.SWAP,
+    [fromToken, swapTypeSwitch, type],
+  );
+
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
     let swapNetworksMoreCount;
@@ -428,11 +455,13 @@ const SwapTokenSelectPage = () => {
           onMoreNetwork={() => {
             openChainSelector({
               defaultNetworkId: currentSelectNetwork?.networkId,
-              networkIds: swapNetworks.map((item) => item.networkId),
+              networkIds: swapAllSupportNetworks
+                .filter((item) => !item.isAllNetworks)
+                .map((item) => item.networkId),
               grouped: false,
               onSelect: (network) => {
                 if (!network) return;
-                const findSwapNetwork = swapNetworks.find(
+                const findSwapNetwork = swapAllSupportNetworks.find(
                   (net) => net.networkId === network.id,
                 );
                 if (!findSwapNetwork) return;
@@ -444,6 +473,7 @@ const SwapTokenSelectPage = () => {
           networks={networkFilterData.swapNetworksCommon}
           moreNetworksCount={networkFilterData.swapNetworksMoreCount}
           selectedNetwork={currentSelectNetwork}
+          disableOtherNet={disableOtherNet}
           onSelectNetwork={onSelectCurrentNetwork}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
