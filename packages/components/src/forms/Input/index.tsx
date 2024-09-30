@@ -32,6 +32,7 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 import type { GetProps } from 'tamagui';
+import { IPasteEventParams } from '@onekeyfe/react-native-text-input';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
