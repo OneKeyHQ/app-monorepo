@@ -4,12 +4,16 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePasswordAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
+import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useWebAuthActions } from '../components/BiologyAuthComponent/hooks/useWebAuthActions';
@@ -129,22 +133,73 @@ const useExtEvents = platformEnv.isExtension
   ? () => {
       const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
       const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+      const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+      const intl = useIntl();
       useEffect(() => {
-        const verifyPassKey = async () => {
-          if (window.location.href.includes('passkey=true')) {
-            console.log('verifiedPasswordWebAuth');
+        if (window.location.href.includes('passkey=true')) {
+          const verifyPassKey = async () => {
             const hasCachedPassword =
               webAuthCredentialId &&
               !!(await backgroundApiProxy.servicePassword.getCachedPassword());
             if (hasCachedPassword) {
               await verifiedPasswordWebAuth();
             } else {
-              await checkWebAuth();
+              try {
+                const result = await checkWebAuth();
+                if (result) {
+                  setPasswordAtom((v) => ({
+                    ...v,
+                    passwordVerifyStatus: {
+                      value: EPasswordVerifyStatus.VERIFIED,
+                    },
+                  }));
+                } else {
+                  setPasswordAtom((v) => ({
+                    ...v,
+                    passwordVerifyStatus: {
+                      value: EPasswordVerifyStatus.ERROR,
+                      message: intl.formatMessage({
+                        id: ETranslations.auth_error_password_incorrect,
+                      }),
+                    },
+                  }));
+                }
+              } catch {
+                setPasswordAtom((v) => ({
+                  ...v,
+                  passwordVerifyStatus: {
+                    value: EPasswordVerifyStatus.ERROR,
+                    message: intl.formatMessage({
+                      id: ETranslations.auth_error_password_incorrect,
+                    }),
+                  },
+                }));
+              } finally {
+                window.location.href = '/';
+              }
             }
+          };
+
+          if (
+            passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
+            passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+          ) {
+            return;
           }
-        };
-        void verifyPassKey();
-      }, [checkWebAuth, verifiedPasswordWebAuth, webAuthCredentialId]);
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+          }));
+          void verifyPassKey();
+        }
+      }, [
+        checkWebAuth,
+        intl,
+        passwordVerifyStatus.value,
+        setPasswordAtom,
+        verifiedPasswordWebAuth,
+        webAuthCredentialId,
+      ]);
     }
   : () => undefined;
 

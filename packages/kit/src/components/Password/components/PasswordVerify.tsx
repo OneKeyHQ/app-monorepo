@@ -140,7 +140,7 @@ const PasswordVerify = ({
       status.value === EPasswordVerifyStatus.DEFAULT &&
       !manualLocking
     ) {
-      void onBiologyAuth();
+      // void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnable, manualLocking]);
