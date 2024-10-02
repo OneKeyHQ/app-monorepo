@@ -1,6 +1,8 @@
 import { Base64 } from 'js-base64';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 export const base64Encode = function (arraybuffer: ArrayBuffer): string {
   const uint8Array = new Uint8Array(arraybuffer);
@@ -62,6 +64,21 @@ export const verifiedWebAuth = async (credId: string) => {
       timeout: 60_000,
     },
   };
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    await extUtils.openStandaloneWindow(
+      {
+        routes: [ERootRoutes.Main],
+        params: {
+          passkey: true,
+        },
+      },
+      {
+        height: 1,
+        width: 1,
+      },
+    );
+    return undefined;
+  }
   try {
     return await navigator.credentials.get(getCredentialOptions);
   } catch (e) {

@@ -4,6 +4,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -11,6 +12,7 @@ import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useWebAuthActions } from '../components/BiologyAuthComponent/hooks/useWebAuthActions';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
@@ -123,10 +125,34 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
+const useExtEvents = platformEnv.isExtension
+  ? () => {
+      const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
+      const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+      useEffect(() => {
+        const verifyPassKey = async () => {
+          if (window.location.href.includes('passkey=true')) {
+            console.log('verifiedPasswordWebAuth');
+            const hasCachedPassword =
+              webAuthCredentialId &&
+              !!(await backgroundApiProxy.servicePassword.getCachedPassword());
+            if (hasCachedPassword) {
+              await verifiedPasswordWebAuth();
+            } else {
+              await checkWebAuth();
+            }
+          }
+        };
+        void verifyPassKey();
+      }, [checkWebAuth, verifiedPasswordWebAuth, webAuthCredentialId]);
+    }
+  : () => undefined;
+
 export function Bootstrap() {
   useEffect(() => {
     void backgroundApiProxy.serviceSetting.fetchCurrencyList();
   }, []);
   useDesktopEvents();
+  useExtEvents();
   return null;
 }

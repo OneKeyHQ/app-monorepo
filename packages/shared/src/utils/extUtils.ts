@@ -87,7 +87,13 @@ async function openUrlInTab(
   });
 }
 
-async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
+async function openStandaloneWindow(
+  routeInfo: IOpenUrlRouteInfo,
+  params: {
+    height: number;
+    width: number;
+  } = {},
+) {
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
@@ -118,8 +124,8 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     focused: true,
     type: 'popup',
     // init size same to ext ui-popup.html
-    height: UI_HTML_DEFAULT_MIN_HEIGHT + 50, // height including title bar, so should add 50px more
-    width: UI_HTML_DEFAULT_MIN_WIDTH,
+    height: params.height || UI_HTML_DEFAULT_MIN_HEIGHT + 50, // height including title bar, so should add 50px more
+    width: params.width || UI_HTML_DEFAULT_MIN_WIDTH,
     // check useAutoRedirectToRoute()
     url,
     top,
