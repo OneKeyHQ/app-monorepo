@@ -153,6 +153,7 @@ const useExtEvents = platformEnv.isExtension
                       value: EPasswordVerifyStatus.VERIFIED,
                     },
                   }));
+                  await backgroundApiProxy.servicePassword.unLockApp();
                 } else {
                   setPasswordAtom((v) => ({
                     ...v,
