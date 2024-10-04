@@ -12,11 +12,13 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 function AddCustomNetwork() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   const form = useForm<{
     networkName: string;
@@ -83,15 +85,16 @@ function AddCustomNetwork() {
         blockExplorerUrl,
       };
       console.log('params: ', params);
-
-      // TODO: 提交成功后的操作，例如显示成功消息或导航到其他页面
+      await backgroundApiProxy.serviceCustomRpc.upsertCustomNetwork(params);
+      Toast.success({ title: 'Add custom network successfully.' });
+      navigation.pop();
     } catch (error) {
       console.error(error);
       Toast.error({ title: 'Add custom network failed.' });
     } finally {
       setIsLoading(false);
     }
-  }, [form, getChainId]);
+  }, [form, getChainId, navigation]);
 
   return (
     <Page>

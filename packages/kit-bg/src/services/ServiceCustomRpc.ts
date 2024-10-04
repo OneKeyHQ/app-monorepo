@@ -3,6 +3,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   ICustomRpcItem,
   IDBCustomRpc,
@@ -12,7 +15,6 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
@@ -94,11 +96,50 @@ class ServiceCustomRpc extends ServiceBase {
     symbol: string;
     blockExplorerUrl: string;
   }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const { isEIP1559FeeEnabled } = await vault.checkFeeSupportInfo({
+      rpcUrl: params.rpcUrl,
+    });
+
     const { chainId } = params;
     const networkId = accountUtils.buildCustomEvmNetworkId({
       chainId: chainId.toString(),
     });
+    const networkInfo: IServerNetwork = {
+      impl: IMPL_EVM,
+      chainId: chainId.toString(),
+      id: networkId,
+      name: params.networkName,
+      symbol: params.symbol,
+      code: params.networkName,
+      shortcode: params.networkName,
+      shortname: params.networkName,
+      decimals: 18,
+      feeMeta: {
+        code: params.networkName,
+        decimals: 9,
+        symbol: 'Gwei',
+        isEIP1559FeeEnabled,
+        // TODO: check isWithL1BaseFee
+        isWithL1BaseFee: false,
+      },
+      status: ENetworkStatus.LISTED,
+      isTestnet: false,
+      logoURI: '',
+      defaultEnabled: true,
+      backendIndex: false,
+      explorerURL: params.blockExplorerUrl,
+    };
+    await this.addCustomRpc({
+      networkId,
+      enabled: true,
+      rpc: params.rpcUrl,
+      isCustomNetwork: true,
+    });
     return this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
+      networkInfo,
     });
   }
 }

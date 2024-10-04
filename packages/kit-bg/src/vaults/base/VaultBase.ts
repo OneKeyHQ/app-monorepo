@@ -301,6 +301,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  async checkFeeSupportInfo(params: IMeasureRpcStatusParams): Promise<{
+    isEIP1559FeeEnabled: boolean;
+  }> {
+    throw new NotImplemented();
+  }
+
   async fetchTokenDetails(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {

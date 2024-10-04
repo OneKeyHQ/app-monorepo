@@ -66,6 +66,7 @@ export type IServerNetwork = {
   isTestnet: boolean;
   extensions?: Record<string, unknown>;
   isAllNetworks?: boolean;
+  explorerURL?: string;
 };
 
 export enum EOnekeyDomain {

@@ -21,6 +21,19 @@ export class ClientEvm extends JsonRPCRequest {
     return { chainId };
   }
 
+  async checkEIP1559Support(): Promise<{
+    isEIP1559FeeEnabled: boolean;
+  }> {
+    const hexBlock = await this.call<{
+      baseFeePerGas: string;
+    }>('eth_getBlockByNumber', ['latest', false]);
+    const baseFeePerGas = new BigNumber(hexBlock.baseFeePerGas);
+    const isEIP1559FeeEnabled = !(
+      baseFeePerGas.isNaN() || baseFeePerGas.isEqualTo(0)
+    ); // 0 also means not 1559
+    return { isEIP1559FeeEnabled };
+  }
+
   async broadcastTransaction(rawTx: string): Promise<string> {
     return this.call('eth_sendRawTransaction', [rawTx]);
   }

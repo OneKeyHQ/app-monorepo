@@ -1183,4 +1183,9 @@ export default class Vault extends VaultBase {
     const resp = await provider.estimateFee(params);
     return resp;
   }
+
+  override async checkFeeSupportInfo(params: IMeasureRpcStatusParams) {
+    const client = new ClientEvm(params.rpcUrl);
+    return client.checkEIP1559Support();
+  }
 }
