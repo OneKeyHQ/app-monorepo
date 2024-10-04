@@ -123,8 +123,6 @@ import type {
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type { MessageDescriptor } from 'react-intl';
 
-const useRpc = true;
-
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
 };
@@ -301,6 +299,13 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  async isCustomNetwork() {
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: this.networkId,
+    });
+    return !!network.isCustomNetwork;
+  }
+
   async checkFeeSupportInfo(params: IMeasureRpcStatusParams): Promise<{
     isEIP1559FeeEnabled: boolean;
   }> {
@@ -310,7 +315,8 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async fetchTokenDetails(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
-    if (useRpc) {
+    const isCustomNetwork = await this.isCustomNetwork();
+    if (isCustomNetwork) {
       return this.fetchTokenDetailsByRpc(params);
     }
     return this.fetchTokenDetailsByApi(params);
@@ -1110,7 +1116,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountDetails(
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {
-    if (useRpc) {
+    const isCustomNetwork = await this.isCustomNetwork();
+    if (isCustomNetwork) {
       return this.fetchAccountDetailsByRpc(params);
     }
     return this.fetchAccountDetailsByApi(params);
@@ -1153,7 +1160,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenList(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    if (useRpc) {
+    const isCustomNetwork = await this.isCustomNetwork();
+    if (isCustomNetwork) {
       return this.fetchTokenListByRpc(params);
     }
     return this.fetchTokenListByApi(params);
@@ -1185,7 +1193,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
-    if (useRpc) {
+    const isCustomNetwork = await this.isCustomNetwork();
+    if (isCustomNetwork) {
       return this.estimateFeeByRpc(params);
     }
     return this.estimateFeeByApi(params);

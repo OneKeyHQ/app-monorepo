@@ -132,6 +132,7 @@ class ServiceCustomRpc extends ServiceBase {
       defaultEnabled: true,
       backendIndex: false,
       explorerURL: params.blockExplorerUrl,
+      isCustomNetwork: true,
     };
     // Insert custom rpc
     await this.addCustomRpc({

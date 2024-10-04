@@ -1142,10 +1142,16 @@ export default class Vault extends VaultBase {
 
   // RPC Client
   async getRpcClient() {
-    // const url = 'https://core.public.infstones.com'; // Core
-    const url = 'https://optimism.llamarpc.com';
+    const rpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+    if (!rpcInfo?.rpc) {
+      throw new OneKeyInternalError('No RPC url');
+    }
+
     const provider = new EvmApiProvider({
-      url,
+      url: rpcInfo.rpc,
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     });
