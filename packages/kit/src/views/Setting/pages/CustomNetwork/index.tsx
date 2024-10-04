@@ -70,13 +70,6 @@ function AddCustomNetwork() {
         return;
       }
 
-      // await backgroundApiProxy.serviceCustomRpc.addCustomNetwork({
-      //   networkName,
-      //   rpcUrl,
-      //   chainId: finalChainId,
-      //   symbol,
-      //   blockExplorerUrl,
-      // });
       const params = {
         networkName,
         rpcUrl,

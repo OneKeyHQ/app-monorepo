@@ -11,6 +11,7 @@ import type {
   IDBCustomRpc,
   IMeasureRpcStatusParams,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -132,15 +133,37 @@ class ServiceCustomRpc extends ServiceBase {
       backendIndex: false,
       explorerURL: params.blockExplorerUrl,
     };
+    // Insert custom rpc
     await this.addCustomRpc({
       networkId,
       enabled: true,
       rpc: params.rpcUrl,
       isCustomNetwork: true,
     });
+
+    // Insert native token
+    const nativeToken: IToken = {
+      decimals: 18,
+      name: params.networkName,
+      symbol: params.symbol,
+      address: '', // native token always be empty
+      logoURI: '',
+      isNative: true,
+    };
+    await this.backgroundApi.simpleDb.localTokens.updateTokens({
+      networkId,
+      tokens: [nativeToken],
+    });
+
+    // Insert custom network
     return this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
       networkInfo,
     });
+  }
+
+  @backgroundMethod()
+  public async getAllCustomNetworks(): Promise<IServerNetwork[]> {
+    return this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
   }
 }
 
