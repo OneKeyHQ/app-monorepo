@@ -38,7 +38,7 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -53,6 +53,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
@@ -299,6 +300,32 @@ class ServiceDApp extends ServiceBase {
       },
       fullScreen: true,
     }) as Promise<ISignedTxPro>;
+  }
+
+  @backgroundMethod()
+  async openAddCustomNetworkModal({
+    request,
+    params,
+  }: {
+    request: IJsBridgeMessagePayload;
+    params: IAddEthereumChainParameter;
+  }): Promise<IServerNetwork> {
+    return this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.AddCustomNetworkModal,
+      ],
+      params: {
+        chainId: params.chainId,
+        blockExplorerUrls: params.blockExplorerUrls,
+        chainName: params.chainName,
+        iconUrls: params.iconUrls,
+        nativeCurrency: params.nativeCurrency,
+        rpcUrls: params.rpcUrls,
+      },
+      fullScreen: true,
+    }) as Promise<IServerNetwork>;
   }
 
   // connection allowance

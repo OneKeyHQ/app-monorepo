@@ -1,5 +1,6 @@
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
 
 import type { EAccountSelectorSceneName } from '../../types';
 import type {
@@ -13,6 +14,7 @@ export enum EDAppConnectionModal {
   'ConnectionList' = 'ConnectionList',
   'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
   'SignMessageModal' = 'SignMessageModal',
+  'AddCustomNetworkModal' = 'AddCustomNetworkModal',
   'CurrentConnectionModal' = 'CurrentConnectionModal',
   'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
 
@@ -34,6 +36,18 @@ export type IDAppConnectionModalParamList = {
     accountId: string;
     networkId: string;
     sceneName?: EAccountSelectorSceneName;
+  };
+  [EDAppConnectionModal.AddCustomNetworkModal]: {
+    chainId: string;
+    blockExplorerUrls?: string[];
+    chainName?: string;
+    iconUrls?: string[];
+    nativeCurrency?: {
+      name: string;
+      symbol: string;
+      decimals: number;
+    };
+    rpcUrls?: string[];
   };
   [EDAppConnectionModal.CurrentConnectionModal]: {
     origin: string;

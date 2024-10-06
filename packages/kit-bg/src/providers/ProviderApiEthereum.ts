@@ -20,6 +20,7 @@ import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -34,6 +35,35 @@ export type ISwitchEthereumChainParameter = {
   chainId: string;
   // networkId?: string; // not use?
 };
+
+export type IAddEthereumChainParameter = {
+  chainId: string;
+  blockExplorerUrls?: string[];
+  chainName?: string;
+  iconUrls?: string[];
+  nativeCurrency?: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  rpcUrls?: string[];
+};
+
+function convertToEthereumChainResult(
+  result: IServerNetwork | undefined | null,
+) {
+  return {
+    id: result?.id,
+    impl: result?.impl,
+    symbol: result?.symbol,
+    decimals: result?.decimals,
+    logoURI: result?.logoURI,
+    shortName: result?.shortname,
+    shortCode: result?.shortcode,
+    chainId: result?.chainId,
+    networkVersion: undefined,
+  };
+}
 
 function prefixTxValueToHex(value: string) {
   if (value?.startsWith?.('0X') && value?.slice) {
@@ -500,9 +530,82 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  wallet_addEthereumChain() {
-    throw new NotImplemented();
+  async wallet_addEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: IAddEthereumChainParameter,
+    address?: string,
+    ...others: any[]
+  ) {
+    // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
+
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    if (this._addEthereumChainMemo._has(request, params, address, ...others)) {
+      /*
+       code:-32002
+       message:"Request of type 'wallet_addEthereumChain' already pending for origin https://beta.layer3.xyz. Please wait."
+      */
+      throw web3Errors.rpc.resourceUnavailable({
+        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+          request?.origin || ''
+        }. Please wait.`,
+      });
+    }
+
+    // **** should await return
+    await this._addEthereumChainMemo(request, params, address, ...others);
+
+    // Metamask return null
+    return null;
   }
+
+  _addEthereumChainMemo = memoizee(
+    async (
+      request: IJsBridgeMessagePayload,
+      params: IAddEthereumChainParameter,
+      address?: string,
+      ...others: any[]
+    ) => {
+      const networkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+      const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      if (network) {
+        const connectedAccount =
+          await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+            request,
+          );
+        if (
+          connectedAccount?.every(
+            (account) => account.accountInfo?.networkId !== networkId,
+          )
+        ) {
+          await this._switchEthereumChainMemo(request, {
+            chainId: params.chainId,
+          });
+        }
+        return convertToEthereumChainResult(network);
+      }
+
+      const result =
+        await this.backgroundApi.serviceDApp.openAddCustomNetworkModal({
+          request,
+          params,
+        });
+      return convertToEthereumChainResult(result);
+    },
+    {
+      max: 1,
+      maxAge: 800,
+      normalizer([request, params]: [
+        IJsBridgeMessagePayload,
+        ISwitchEthereumChainParameter,
+      ]): string {
+        const p = request?.data ?? [params];
+        return stringify(p);
+      },
+    },
+  );
 
   @providerApiMethod()
   async wallet_switchEthereumChain(
