@@ -105,7 +105,6 @@ class EvmApiProvider extends BaseApiProvider {
   override async listAccountTokenFromRpc(
     params: IFetchServerTokenListApiParams,
   ): Promise<IServerAccountTokenItem[]> {
-    console.log('listAccountTokenFromRpc: ======>>>>>>1: ', params);
     const { accountAddress } = params;
     const chainTokens = await this.getChainTokens({
       ...params,
@@ -134,11 +133,9 @@ class EvmApiProvider extends BaseApiProvider {
       return ['eth_getBalance', [accountAddress, 'latest']];
     });
 
-    console.log('listAccountTokenFromRpc: ======>>>>>> requests: ', requests);
     const balances = await this.client.batchCall<string[]>(
       requests as IJsonRpcBatchParams,
     );
-    console.log('listAccountTokenFromRpc: ======>>>>>>6 balances: ', balances);
 
     const list = tokens.map<IServerAccountTokenItem>((token, i) => {
       let balance = new B(0);
@@ -191,11 +188,9 @@ class EvmApiProvider extends BaseApiProvider {
       ]),
     );
 
-    console.log('getChainTokensFromRpc: ======>>>>>>2 payloads: ', payloads);
     const infos = await this.client.batchChunkCall<string>(
       payloads as Array<Array<[string, IJsonRpcParams]>>,
     );
-    console.log('getChainTokensFromRpc: ======>>>>>>3 infos: ', infos);
     const tokens = infos.map((item, idx) => {
       const address = this.normalizeAddress(filteredContractList[idx]);
       const [name = '', symbol = '', decimals] = item.map((result, i) => {
@@ -241,8 +236,6 @@ class EvmApiProvider extends BaseApiProvider {
 
     const tokensMap = keyBy(tokens, 'address');
 
-    console.log('getChainTokensFromRpc: ======>>>>>>4 tokensMap: ', tokensMap);
-
     const result = (params.contractList ?? []).map((a) => {
       if (a === this.nativeTokenAddress) {
         return nativeToken;
@@ -253,7 +246,6 @@ class EvmApiProvider extends BaseApiProvider {
       // @ts-ignore
       return parseTokenItem(tokensMap[a]);
     });
-    console.log('getChainTokensFromRpc: ======>>>>>>5 result: ', result);
     return result as IServerAccountTokenItem[];
   }
 

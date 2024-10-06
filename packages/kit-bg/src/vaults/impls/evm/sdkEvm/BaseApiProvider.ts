@@ -218,7 +218,6 @@ class BaseApiProvider {
   async listAccountToken(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    console.log('=====> args: ', params);
     const arg = params.requestApiParams;
     const hiddenTokenSet = new Set(arg.hiddenTokens ?? []);
 
@@ -229,7 +228,6 @@ class BaseApiProvider {
     const reply = await this.listAccountTokenWithBalance(
       params.requestApiParams,
     );
-    console.log('=====>REPLY: ', reply);
     const sortedAccountTokenArray = orderBy(
       reply,
       [(item) => item.info?.isNative, (item) => +(item.fiatValue ?? 0)],
@@ -384,12 +382,7 @@ class BaseApiProvider {
     if (typeof keywords === 'string') {
       return this.searchChainTokens(params);
     }
-    console.log('getChainTokens: ======>>>>>> getChainTokensFromDB: ', params);
     let tokens = await this.getChainTokensFromDB(params);
-    console.log(
-      'getChainTokens: ======>>>>>> getChainTokensFromDB Result: ',
-      tokens,
-    );
     tokens = tokens.map((t, i) => {
       if (t) {
         return t;
@@ -402,10 +395,6 @@ class BaseApiProvider {
     if (!missedTokenContracts?.length) {
       return tokens;
     }
-    console.log(
-      'getChainTokens: ======>>>>>> missedTokenContracts: ',
-      missedTokenContracts,
-    );
 
     const chainTokens = await this.getChainTokensFromRpc({
       ...params,
