@@ -38,16 +38,7 @@ export type IDAppConnectionModalParamList = {
     sceneName?: EAccountSelectorSceneName;
   };
   [EDAppConnectionModal.AddCustomNetworkModal]: {
-    chainId: string;
-    blockExplorerUrls?: string[];
-    chainName?: string;
-    iconUrls?: string[];
-    nativeCurrency?: {
-      name: string;
-      symbol: string;
-      decimals: number;
-    };
-    rpcUrls?: string[];
+    networkInfo: IAddEthereumChainParameter;
   };
   [EDAppConnectionModal.CurrentConnectionModal]: {
     origin: string;

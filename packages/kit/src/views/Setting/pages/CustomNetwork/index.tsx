@@ -13,13 +13,17 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 function AddCustomNetwork() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-
+  const { networkInfo } = useDappQuery<{
+    networkInfo: IAddEthereumChainParameter;
+  }>();
   const form = useForm<{
     networkName: string;
     rpcUrl: string;
@@ -28,6 +32,13 @@ function AddCustomNetwork() {
     blockExplorerUrl: string;
   }>({
     mode: 'onBlur',
+    defaultValues: {
+      networkName: networkInfo?.chainName ?? '',
+      rpcUrl: networkInfo?.rpcUrls?.[0] ?? '',
+      chainId: networkInfo?.chainId ? Number(networkInfo?.chainId) : undefined,
+      symbol: networkInfo?.nativeCurrency?.symbol ?? '',
+      blockExplorerUrl: networkInfo?.blockExplorerUrls?.[0] ?? '',
+    },
   });
 
   const getChainId = useCallback(
@@ -193,6 +204,9 @@ function AddCustomNetwork() {
       <Page.Footer
         onConfirmText="Save"
         onCancelText="Cancel"
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
         onConfirm={() => form.handleSubmit(onSubmit)()}
         onCancel={() => console.log('onCancel')}
       />

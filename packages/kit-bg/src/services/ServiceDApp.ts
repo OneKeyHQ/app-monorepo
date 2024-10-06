@@ -317,12 +317,7 @@ class ServiceDApp extends ServiceBase {
         EDAppConnectionModal.AddCustomNetworkModal,
       ],
       params: {
-        chainId: params.chainId,
-        blockExplorerUrls: params.blockExplorerUrls,
-        chainName: params.chainName,
-        iconUrls: params.iconUrls,
-        nativeCurrency: params.nativeCurrency,
-        rpcUrls: params.rpcUrls,
+        networkInfo: params,
       },
       fullScreen: true,
     }) as Promise<IServerNetwork>;
