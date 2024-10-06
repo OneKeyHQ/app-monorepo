@@ -943,6 +943,14 @@ class ServiceNetwork extends ServiceBase {
       allNetworkItem,
     };
   }
+
+  @backgroundMethod()
+  async isCustomNetwork({ networkId }: { networkId: string }) {
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    return !!network.isCustomNetwork;
+  }
 }
 
 export default ServiceNetwork;

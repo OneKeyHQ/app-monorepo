@@ -140,6 +140,13 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     toAddress: string;
   }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      return { isContract: false, interacted: 'unknown' };
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
       const resp = await client.get<{

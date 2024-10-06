@@ -299,13 +299,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
-  async isCustomNetwork() {
-    const network = await this.backgroundApi.serviceNetwork.getNetwork({
-      networkId: this.networkId,
-    });
-    return !!network.isCustomNetwork;
-  }
-
   async checkFeeSupportInfo(params: IMeasureRpcStatusParams): Promise<{
     isEIP1559FeeEnabled: boolean;
   }> {
@@ -315,7 +308,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async fetchTokenDetails(
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
-    const isCustomNetwork = await this.isCustomNetwork();
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
     if (isCustomNetwork) {
       return this.fetchTokenDetailsByRpc(params);
     }
@@ -1116,7 +1112,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountDetails(
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {
-    const isCustomNetwork = await this.isCustomNetwork();
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
     if (isCustomNetwork) {
       return this.fetchAccountDetailsByRpc(params);
     }
@@ -1160,7 +1159,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchTokenList(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
-    const isCustomNetwork = await this.isCustomNetwork();
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
     if (isCustomNetwork) {
       return this.fetchTokenListByRpc(params);
     }
@@ -1193,7 +1195,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
-    const isCustomNetwork = await this.isCustomNetwork();
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
     if (isCustomNetwork) {
       return this.estimateFeeByRpc(params);
     }

@@ -177,6 +177,14 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   public async preCheckIsFeeInfoOverflow(params: IPreCheckFeeInfoParams) {
     try {
+      const isCustomNetwork =
+        await this.backgroundApi.serviceNetwork.isCustomNetwork({
+          networkId: params.networkId,
+        });
+      // custom network will skip pre-check
+      if (isCustomNetwork) {
+        return false;
+      }
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
