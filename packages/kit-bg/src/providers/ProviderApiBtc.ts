@@ -709,6 +709,7 @@ class ProviderApiBtc extends ProviderApiBase {
         skipParseResponse: true,
         origin,
       });
+      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const blockHeight = result?.data?.blockbook?.bestHeight;
       if (blockHeight) {
