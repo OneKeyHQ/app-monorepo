@@ -250,11 +250,6 @@ export const useSuggestion = (
     (value: string, inputIndex: number) => {
       const arrays = value.trim().split(' ');
       if (arrays.length > 1) {
-        const formWords = Object.values(form.getValues()) as string[];
-        const prevWord = formWords[inputIndex];
-        if (prevWord?.length > 0) {
-          arrays[0] = arrays[0].slice(prevWord.length);
-        }
         let currentPhraseLength = phraseLength;
         setTimeout(async () => {
           clearText();
@@ -282,9 +277,7 @@ export const useSuggestion = (
           await timerUtils.wait(10);
           checkAllWords();
         }, 25);
-        return true;
       }
-      return false;
     },
     [
       checkAllWords,

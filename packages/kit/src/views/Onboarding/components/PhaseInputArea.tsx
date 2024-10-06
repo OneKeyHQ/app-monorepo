@@ -22,10 +22,12 @@ import type {
   IElement,
   IInputProps,
   IPageFooterProps,
+  IPasteEventParams,
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import {
   Button,
+  EPasteEventPayloadItemType,
   Form,
   HeightTransition,
   Icon,
@@ -217,7 +219,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string, index: number) => boolean;
+    onPasteMnemonic: (text: string, index: number) => void;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -255,16 +257,11 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (onPasteMnemonic(v, index)) {
-        onInputChange('');
-        onChange?.('');
-        return;
-      }
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [index, onChange, onInputChange, onPasteMnemonic],
+    [onChange, onInputChange],
   );
 
   const handleOpenChange = useCallback(
@@ -291,6 +288,16 @@ function BasicPhaseInput(
       }
     },
     [suggestionsRef, updateInputValue],
+  );
+
+  const handlePaste = useCallback(
+    (event: IPasteEventParams) => {
+      const item = event.nativeEvent?.items?.[0];
+      if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
+        onPasteMnemonic(item?.data, index);
+      }
+    },
+    [index, onPasteMnemonic],
   );
 
   const handleKeyPress = useCallback(
@@ -337,6 +344,7 @@ function BasicPhaseInput(
       pr: '$0',
       justifyContent: 'center',
     },
+    onPaste: handlePaste,
     error: isShowError,
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
