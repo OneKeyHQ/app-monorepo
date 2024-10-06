@@ -250,6 +250,7 @@ class EvmApiProvider extends BaseApiProvider {
       if (!tokensMap[a]) {
         return null;
       }
+      // @ts-ignore
       return parseTokenItem(tokensMap[a]);
     });
     console.log('getChainTokensFromRpc: ======>>>>>>5 result: ', result);

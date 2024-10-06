@@ -14,7 +14,7 @@ export interface IMeasureRpcStatusParams {
 }
 
 export interface IMeasureRpcStatusResult {
-  chainId: number;
+  chainId?: number;
   bestBlockNumber: number;
   responseTime: number;
 }

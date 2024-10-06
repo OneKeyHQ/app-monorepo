@@ -47,7 +47,9 @@ function AddCustomNetwork() {
         await backgroundApiProxy.serviceCustomRpc.getChainIdByRpcUrl({
           rpcUrl,
         });
-      form.setValue('chainId', chainId);
+      if (chainId) {
+        form.setValue('chainId', chainId);
+      }
       return chainId;
     },
     [form],
@@ -68,7 +70,10 @@ function AddCustomNetwork() {
       let finalChainId = chainId;
       try {
         if (!finalChainId) {
-          finalChainId = await getChainId(rpcUrl);
+          const chainIdFromRpc = await getChainId(rpcUrl);
+          if (chainIdFromRpc) {
+            finalChainId = chainIdFromRpc;
+          }
         }
 
         if (!finalChainId) {
