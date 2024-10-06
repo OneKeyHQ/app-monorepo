@@ -1104,7 +1104,8 @@ class ServiceDApp extends ServiceBase {
       const vault = await vaultFactory.getChainOnlyVault({
         networkId,
       });
-      return vault.proxyJsonRPCCall(request);
+      const result = await vault.proxyJsonRPCCall(request);
+      return [result];
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
