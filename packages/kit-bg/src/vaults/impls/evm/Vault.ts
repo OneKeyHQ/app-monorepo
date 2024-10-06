@@ -102,6 +102,7 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -1193,5 +1194,10 @@ export default class Vault extends VaultBase {
   override async checkFeeSupportInfo(params: IMeasureRpcStatusParams) {
     const client = new ClientEvm(params.rpcUrl);
     return client.checkEIP1559Support();
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const provider = await this.getRpcClient();
+    return provider.client.call(request.method, request.params as any);
   }
 }

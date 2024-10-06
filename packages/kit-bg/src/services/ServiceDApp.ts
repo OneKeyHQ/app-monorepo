@@ -49,6 +49,8 @@ import type {
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
@@ -1094,6 +1096,16 @@ class ServiceDApp extends ServiceBase {
     skipParseResponse?: boolean;
     origin: string;
   }) {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      const vault = await vaultFactory.getChainOnlyVault({
+        networkId,
+      });
+      return vault.proxyJsonRPCCall(request);
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
       data: {
