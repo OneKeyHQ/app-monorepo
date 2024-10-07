@@ -8,6 +8,13 @@ export interface IAccountValueDb {
       currency: string;
     }
   >; // <accountId, value>
+  all: Record<
+    string,
+    {
+      value: Record<string, string>; // <networkId, value>
+      currency: string; // Currency for all networks is always USD
+    }
+  >;
 }
 
 export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValueDb> {
@@ -42,7 +49,53 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       } else {
         data[accountId] = { value, currency };
       }
-      return { data };
+      return { data, all: { ...rawData?.all } };
     });
+  }
+
+  async updateAllNetworkAccountValue({
+    allNetworkAccountId,
+    value,
+    currency,
+    updateAll,
+  }: {
+    allNetworkAccountId: string;
+    value: Record<string, string>;
+    currency: string;
+    updateAll?: boolean;
+  }) {
+    if (updateAll) {
+      await this.setRawData(({ rawData }) => {
+        const all = { ...rawData?.all };
+        all[allNetworkAccountId] = { value, currency };
+        return { all, data: { ...rawData?.data } };
+      });
+    } else {
+      await this.setRawData(({ rawData }) => {
+        const all = { ...rawData?.all };
+        all[allNetworkAccountId] = {
+          value: {
+            ...all[allNetworkAccountId]?.value,
+            ...value,
+          },
+          currency,
+        };
+        return { all, data: { ...rawData?.data } };
+      });
+    }
+  }
+
+  async getAllNetworkAccountsValue({
+    accounts,
+  }: {
+    accounts: { allNetworkAccountId: string }[];
+  }) {
+    const rawData = await this.getRawData();
+
+    return accounts.map(({ allNetworkAccountId }) => ({
+      allNetworkAccountId,
+      value: rawData?.all[allNetworkAccountId]?.value,
+      currency: rawData?.all[allNetworkAccountId]?.currency,
+    }));
   }
 }

@@ -41,6 +41,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
+import BigNumber from 'bignumber.js';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -76,7 +77,7 @@ function HomeOverviewContainer() {
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
-          worth: '0',
+          worth: {},
           initialized: false,
         });
       }
@@ -149,21 +150,13 @@ function HomeOverviewContainer() {
       } else {
         const accountValueId = account.indexedAccountId as string;
 
-        if (network.isAllNetworks) {
-          void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-            accountId: accountValueId,
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+          {
+            allNetworkAccountId: accountValueId,
             value: accountWorth.worth,
             currency: settings.currencyInfo.id,
-          });
-        } else {
-          void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
-            {
-              accountId: accountValueId,
-              value: accountWorth.worth,
-              currency: settings.currencyInfo.id,
-            },
-          );
-        }
+          },
+        );
       }
     }
   }, [
@@ -245,6 +238,17 @@ function HomeOverviewContainer() {
     });
   }, [account?.id, network?.id]);
 
+  const balanceString = useMemo(() => {
+    if (network?.isAllNetworks) {
+      const allWorth = Object.values(accountWorth.worth).reduce(
+        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        '0',
+      );
+      return allWorth;
+    }
+    return accountWorth.worth[network?.id ?? ''] ?? '0';
+  }, [accountWorth.worth, network?.id, network?.isAllNetworks]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
       <Stack py="$2.5">
@@ -252,7 +256,6 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },

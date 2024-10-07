@@ -31,7 +31,10 @@ import type {
 } from '@onekeyhq/shared/types/proxy';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { activeAccountValueAtom } from '../states/jotai/atoms';
+import {
+  activeAccountValueAtom,
+  currencyPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -430,6 +433,50 @@ class ServiceAccountProfile extends ServiceBase {
     const data = resp.data.data.data;
 
     return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+  }
+
+  @backgroundMethod()
+  async updateAllNetworkAccountValue(params: {
+    allNetworkAccountId: string;
+    value: Record<string, string>;
+    currency: string;
+    updateAll?: boolean;
+  }) {
+    const { currency, value } = params;
+
+    const currencyItems = (await currencyPersistAtom.get()).currencyItems;
+
+    let usdValue: Record<string, string> = value;
+
+    if (currency !== 'usd') {
+      const currencyInfo = currencyItems.find((item) => item.id === currency);
+
+      if (!currencyInfo) {
+        throw new Error('Currency not found');
+      }
+      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
+        acc[n] = new BigNumber(v)
+          .div(new BigNumber(currencyInfo.value))
+          .toString();
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    await simpleDb.accountValue.updateAllNetworkAccountValue({
+      ...params,
+      value: usdValue,
+      currency: 'usd',
+    });
+  }
+
+  @backgroundMethod()
+  async getAllNetworkAccountValue(params: {
+    accounts: { allNetworkAccountId: string }[];
+  }) {
+    const accountValue = await simpleDb.accountValue.getAllNetworkAccountsValue(
+      params,
+    );
+    return accountValue;
   }
 
   @backgroundMethod()
