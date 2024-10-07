@@ -13,17 +13,23 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 function AddCustomNetwork() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { networkInfo } = useDappQuery<{
+  const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
+  const dappApprove = useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
   const form = useForm<{
     networkName: string;
     rpcUrl: string;
@@ -93,8 +99,13 @@ function AddCustomNetwork() {
         symbol,
         blockExplorerUrl,
       };
-      console.log('params: ', params);
       await backgroundApiProxy.serviceCustomRpc.upsertCustomNetwork(params);
+      const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: accountUtils.buildCustomEvmNetworkId({
+          chainId: finalChainId.toString(),
+        }),
+      });
+      void dappApprove.resolve({ result: network });
       Toast.success({ title: 'Add custom network successfully.' });
       navigation.pop();
     } catch (error) {
@@ -103,7 +114,7 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, getChainId, navigation]);
+  }, [form, getChainId, navigation, dappApprove]);
 
   return (
     <Page>
@@ -197,7 +208,6 @@ function AddCustomNetwork() {
                 if (!value.startsWith('http')) {
                   return 'http/https prefix required';
                 }
-                void getChainId(value);
                 return undefined;
               },
             }}
@@ -213,7 +223,7 @@ function AddCustomNetwork() {
           loading: isLoading,
         }}
         onConfirm={() => form.handleSubmit(onSubmit)()}
-        onCancel={() => console.log('onCancel')}
+        onCancel={() => dappApprove.reject()}
       />
     </Page>
   );
