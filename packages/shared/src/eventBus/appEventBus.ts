@@ -76,6 +76,7 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  AddedCustomNetwork = 'AddedCustomNetwork',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -221,6 +222,7 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.AddedCustomNetwork]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

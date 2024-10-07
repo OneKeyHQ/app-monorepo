@@ -4,6 +4,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -157,9 +161,14 @@ class ServiceCustomRpc extends ServiceBase {
     });
 
     // Insert custom network
-    return this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
+    await this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
       networkInfo,
     });
+
+    setTimeout(() => {
+      void this.backgroundApi.serviceNetwork.clearNetworkVaultSettingsCache();
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }, 500);
   }
 
   @backgroundMethod()

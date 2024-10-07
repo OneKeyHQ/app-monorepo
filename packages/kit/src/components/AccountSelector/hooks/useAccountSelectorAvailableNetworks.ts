@@ -1,3 +1,10 @@
+import { useEffect } from 'react';
+
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountSelectorAvailableNetworksAtom } from '../../../states/jotai/contexts/accountSelector';
@@ -13,7 +20,7 @@ export function useAccountSelectorAvailableNetworks({
   const [map] = useAccountSelectorAvailableNetworksAtom();
   const availableNetworksInfo = map[num];
 
-  const networkIds: string[] = usePromiseResult(
+  const { result: networkIds, run } = usePromiseResult(
     async () => {
       if (
         availableNetworksInfo?.networkIds &&
@@ -28,7 +35,17 @@ export function useAccountSelectorAvailableNetworks({
     {
       initResult: [],
     },
-  ).result;
+  );
+
+  useEffect(() => {
+    const refreshNetworkIds = async () => {
+      void run({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
+    };
+  }, [run]);
 
   return {
     networkIds,

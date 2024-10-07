@@ -951,6 +951,11 @@ class ServiceNetwork extends ServiceBase {
     });
     return !!network.isCustomNetwork;
   }
+
+  @backgroundMethod()
+  async clearNetworkVaultSettingsCache() {
+    void this._getNetworkVaultSettings.clear();
+  }
 }
 
 export default ServiceNetwork;
