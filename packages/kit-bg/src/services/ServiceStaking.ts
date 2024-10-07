@@ -528,7 +528,10 @@ class ServiceStaking extends ServiceBase {
 
     const uniqueAccountParams = Array.from(
       new Map(
-        accountParams.map((item) => [JSON.stringify(item), item]),
+        accountParams.map((item) => [
+          `${item.networkId}-${item.accountAddress}-${item.publicKey || ''}`,
+          item,
+        ]),
       ).values(),
     );
     return this.getAccountAsset(uniqueAccountParams);

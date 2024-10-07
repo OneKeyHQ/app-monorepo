@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -113,6 +114,9 @@ type IPortfolioInfoProps = {
   pendingActiveTooltip?: string;
   claimable?: string;
   rewards?: string;
+
+  labelForClaimable?: string;
+
   minClaimableNum?: string;
   babylonOverflow?: string;
 
@@ -130,6 +134,9 @@ function PortfolioInfo({
   pendingActiveTooltip,
   claimable,
   rewards,
+
+  labelForClaimable,
+
   minClaimableNum,
 
   babylonOverflow,
@@ -212,9 +219,12 @@ function PortfolioInfo({
               tokenImageUri={token.logoURI}
               tokenSymbol={token.symbol}
               amount={claimable}
-              statusText={intl.formatMessage({
-                id: ETranslations.earn_claimable,
-              })}
+              statusText={
+                labelForClaimable ??
+                intl.formatMessage({
+                  id: ETranslations.earn_claimable,
+                })
+              }
               useLoading
               onPress={onClaim}
               buttonText={intl.formatMessage({
@@ -295,9 +305,11 @@ export const PortfolioSection = ({
   }
 
   let pendingActiveTooltip: string | undefined;
+  let labelForClaimable: string | undefined;
   if (
-    details.provider.name.toLowerCase() === 'everstake' &&
-    details.token.info.name.toLowerCase() === 'eth'
+    details.provider.name.toLowerCase() ===
+      EEarnProviderEnum.Everstake.toLowerCase() &&
+    details.token.info.symbol.toLowerCase() === 'eth'
   ) {
     pendingActiveTooltip = intl.formatMessage({
       id: ETranslations.earn_pending_activation_tooltip_eth,
@@ -309,6 +321,15 @@ export const PortfolioSection = ({
       },
       { number: details.pendingActivatePeriod },
     );
+  }
+  if (
+    details.provider.name.toLowerCase() ===
+      EEarnProviderEnum.Everstake.toLowerCase() &&
+    details.token.info.symbol.toLowerCase() === 'matic'
+  ) {
+    labelForClaimable = intl.formatMessage({
+      id: ETranslations.earn_withdrawn,
+    });
   }
 
   const portfolio: IPortfolioInfoProps = {
@@ -327,6 +348,7 @@ export const PortfolioSection = ({
         ? details.overflow
         : undefined,
     token: details.token.info,
+    labelForClaimable,
   };
 
   return (

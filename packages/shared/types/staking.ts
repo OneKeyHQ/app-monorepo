@@ -45,6 +45,8 @@ export type IStakeProviderInfo = {
   type?: 'native' | 'liquid';
   isStaking?: boolean;
 
+  unstakingTime?: number;
+
   // native token only
   minTransactionFee?: string;
 

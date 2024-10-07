@@ -1080,6 +1080,43 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async swapRecentTokenSync() {
+    const recentTokenPairs =
+      await this.backgroundApi.simpleDb.swapConfigs.getRecentTokenPairs();
+
+    // To avoid getting the token balance information of the last transaction, we need to get the token base information again
+    const recentTokenPairsBase = recentTokenPairs.map((tokenPairs) => {
+      const { fromToken, toToken } = tokenPairs;
+      return {
+        fromToken: {
+          networkId: fromToken.networkId,
+          contractAddress: fromToken.contractAddress,
+          symbol: fromToken.symbol,
+          decimals: fromToken.decimals,
+          name: fromToken.name,
+          logoURI: fromToken.logoURI,
+          networkLogoURI: fromToken.networkLogoURI,
+          isNative: fromToken.isNative,
+        },
+        toToken: {
+          networkId: toToken.networkId,
+          contractAddress: toToken.contractAddress,
+          symbol: toToken.symbol,
+          decimals: toToken.decimals,
+          name: toToken.name,
+          logoURI: toToken.logoURI,
+          networkLogoURI: toToken.networkLogoURI,
+          isNative: toToken.isNative,
+        },
+      };
+    });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: recentTokenPairsBase,
+    }));
+  }
+
+  @backgroundMethod()
   async swapRecentTokenPairsUpdate({
     fromToken,
     toToken,
@@ -1166,8 +1203,8 @@ export default class ServiceSwap extends ServiceBase {
       swapRecentTokenPairs: newRecentTokenPairs,
     }));
     await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
-      fromToken,
-      toToken,
+      fromTokenBaseInfo,
+      toTokenBaseInfo,
       isExit,
     );
   }

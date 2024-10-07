@@ -15,6 +15,7 @@ import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
@@ -80,13 +81,17 @@ const PasswordVerify = ({
       loading?: boolean;
     }>[] = [];
     if (isEnable && !passwordInput) {
+      let iconName: IKeyOfIcons =
+        authType &&
+        (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+          authType.includes(AuthenticationType.IRIS))
+          ? 'FaceIdOutline'
+          : 'TouchId2Outline';
+      if (platformEnv.isDesktopWin) {
+        iconName = 'WindowsHelloSolid';
+      }
       actions.push({
-        iconName:
-          authType &&
-          (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
-            authType.includes(AuthenticationType.IRIS))
-            ? 'FaceIdOutline'
-            : 'TouchId2Outline',
+        iconName,
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });

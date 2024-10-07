@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import checkDiskSpace from 'check-disk-space';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
@@ -283,19 +282,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    // fix the issue where the remaining space inside the read-only image is 0
-    //  after loading AppImage from a read-only partition in Linux.
-    const { free } = await checkDiskSpace(isLinux ? '/' : rootPath);
-    logger.info('check-free-space', `${free} ${rootPath}`);
-    if (free < 1024 * 1024 * 300) {
-      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-        err: {
-          message: 'Insufficient disk space, please clear and retry.',
-        },
-        isNetworkError: false,
-      });
-      return;
-    }
     const feedUrl = `${buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Utility,
       env: updateSettings.useTestFeedUrl ? 'test' : 'prod',

@@ -6,8 +6,8 @@
     "base": {
       "node": "20.0.0",
       "android": {
-        "image": "ubuntu-22.04-jdk-17-ndk-r21e",
-        "ndk": "23.1.7779620",
+        "image": "ubuntu-22.04-jdk-17-ndk-r25b",
+        "ndk": "25.1.8937393",
         "env": {
           "PLATFORM": "android"
         }

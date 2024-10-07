@@ -170,7 +170,8 @@ const EstimateNetworkFeeListItem = ({
       currencyInfo: { symbol: fiatSymbol },
     },
   ] = useSettingsPersistAtom();
-  return (
+
+  return Number(estFiatValue) > 0 ? (
     <CalculationListItem onPress={onPress}>
       <CalculationListItem.Label>
         {intl.formatMessage({
@@ -192,7 +193,7 @@ const EstimateNetworkFeeListItem = ({
         {onPress ? <Icon name="ChevronRightSmallOutline" size={24} /> : null}
       </XStack>
     </CalculationListItem>
-  );
+  ) : null;
 };
 
 export const calcDaysSpent = (

@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BiologyAuthSwitch from '../components/BiologyAuthSwitch';
 
@@ -30,7 +31,9 @@ const BiologyAuthSwitchContainer = ({
       } catch (e) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.global_touch_id_set_error,
+            id: platformEnv.isDesktopWin
+              ? ETranslations.global_windows_hello_set_error
+              : ETranslations.global_touch_id_set_error,
           }),
         });
       }

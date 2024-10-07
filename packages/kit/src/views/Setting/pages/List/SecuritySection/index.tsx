@@ -132,6 +132,9 @@ const FaceIdItem = () => {
             : ETranslations.global_face_id,
       });
       icon = 'FaceIdSolid';
+    } else if (platformEnv.isDesktopWin) {
+      title = intl.formatMessage({ id: ETranslations.global_windows_hello });
+      icon = 'WindowsHelloSolid';
     }
   }
 

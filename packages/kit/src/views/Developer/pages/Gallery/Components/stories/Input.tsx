@@ -12,7 +12,13 @@ const InputGallery = () => (
         title: 'Sizes',
         element: (
           <Stack gap="$4">
-            <Input size="small" placeholder="Placeholder" />
+            <Input
+              size="small"
+              placeholder="Placeholder"
+              onPaste={() => {
+                alert('onPaste');
+              }}
+            />
             <Input size="medium" placeholder="Placeholder" />
             <Input size="large" placeholder="Placeholder" />
           </Stack>

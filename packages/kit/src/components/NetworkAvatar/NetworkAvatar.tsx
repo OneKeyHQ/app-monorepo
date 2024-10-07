@@ -1,6 +1,5 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
