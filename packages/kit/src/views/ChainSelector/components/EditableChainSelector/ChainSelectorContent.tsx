@@ -12,12 +12,14 @@ import { useIntl } from 'react-intl';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Empty,
+  Icon,
   SearchBar,
   SectionList,
   SortableSectionList,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -330,7 +332,7 @@ export const EditableChainSelectorContent = ({
 
   return (
     <EditableChainSelectorContext.Provider value={context}>
-      <Stack flex={1}>
+      <Stack flex={1} position="relative">
         <Stack px="$5">
           <SearchBar
             testID="chain-selector"
@@ -393,6 +395,30 @@ export const EditableChainSelectorContent = ({
             <ListEmptyComponent />
           )}
         </Stack>
+        {isEditMode ? (
+          <Stack
+            py="$1"
+            w="$full"
+            borderTopWidth="$px"
+            borderColor="$borderSubdued"
+          >
+            <ListItem
+              renderIcon={
+                <Stack
+                  w="$8"
+                  h="$8"
+                  jc="center"
+                  ai="center"
+                  bg="$bgStrong"
+                  borderRadius="$full"
+                >
+                  <Icon size="$6" name="PlusSmallOutline" />
+                </Stack>
+              }
+              title="Custom EVM network"
+            />
+          </Stack>
+        ) : null}
       </Stack>
     </EditableChainSelectorContext.Provider>
   );
