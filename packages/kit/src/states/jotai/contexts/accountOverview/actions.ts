@@ -31,18 +31,23 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         createAtNetworkWorth?: string;
         initialized: boolean;
         accountId: string;
+        updateAll?: boolean;
         merge?: boolean;
       },
     ) => {
       if (payload.merge) {
         const { worth, createAtNetworkWorth } = get(accountWorthAtom());
         set(accountWorthAtom(), {
-          worth,
+          worth: {
+            ...worth,
+            ...payload.worth,
+          },
           createAtNetworkWorth: new BigNumber(createAtNetworkWorth ?? '0')
             .plus(payload.createAtNetworkWorth ?? '0')
             .toFixed(),
           initialized: payload.initialized,
           accountId: payload.accountId,
+          updateAll: payload.updateAll,
         });
         return;
       }
@@ -52,6 +57,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         createAtNetworkWorth: payload.createAtNetworkWorth ?? '0',
         initialized: payload.initialized,
         accountId: payload.accountId,
+        updateAll: payload.updateAll,
       });
     },
   );

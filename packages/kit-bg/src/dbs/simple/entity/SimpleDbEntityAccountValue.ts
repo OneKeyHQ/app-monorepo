@@ -54,12 +54,12 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   }
 
   async updateAllNetworkAccountValue({
-    allNetworkAccountId,
+    accountId,
     value,
     currency,
     updateAll,
   }: {
-    allNetworkAccountId: string;
+    accountId: string;
     value: Record<string, string>;
     currency: string;
     updateAll?: boolean;
@@ -67,15 +67,15 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     if (updateAll) {
       await this.setRawData(({ rawData }) => {
         const all = { ...rawData?.all };
-        all[allNetworkAccountId] = { value, currency };
+        all[accountId] = { value, currency };
         return { all, data: { ...rawData?.data } };
       });
     } else {
       await this.setRawData(({ rawData }) => {
         const all = { ...rawData?.all };
-        all[allNetworkAccountId] = {
+        all[accountId] = {
           value: {
-            ...all[allNetworkAccountId]?.value,
+            ...all[accountId]?.value,
             ...value,
           },
           currency,
@@ -88,14 +88,14 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   async getAllNetworkAccountsValue({
     accounts,
   }: {
-    accounts: { allNetworkAccountId: string }[];
+    accounts: { accountId: string }[];
   }) {
     const rawData = await this.getRawData();
 
-    return accounts.map(({ allNetworkAccountId }) => ({
-      allNetworkAccountId,
-      value: rawData?.all[allNetworkAccountId]?.value,
-      currency: rawData?.all[allNetworkAccountId]?.currency,
+    return accounts.map(({ accountId }) => ({
+      accountId,
+      value: rawData?.all[accountId]?.value,
+      currency: rawData?.all[accountId]?.currency,
     }));
   }
 }

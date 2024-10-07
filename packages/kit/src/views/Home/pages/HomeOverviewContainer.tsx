@@ -146,15 +146,33 @@ function HomeOverviewContainer() {
           accountId: accountValueId,
           value: accountWorth.createAtNetworkWorth,
           currency: settings.currencyInfo.id,
+          shouldUpdateActiveAccountValue: true,
         });
       } else {
         const accountValueId = account.indexedAccountId as string;
 
+        if (!network.isAllNetworks) {
+          void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
+            {
+              accountId: accountValueId,
+              value:
+                accountWorth.worth[
+                  accountUtils.buildAccountValueKey({
+                    accountId: account.id,
+                    networkId: network.id,
+                  })
+                ],
+              currency: settings.currencyInfo.id,
+            },
+          );
+        }
+
         void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
           {
-            allNetworkAccountId: accountValueId,
+            accountId: accountValueId,
             value: accountWorth.worth,
             currency: settings.currencyInfo.id,
+            updateAll: accountWorth.updateAll,
           },
         );
       }
@@ -164,6 +182,7 @@ function HomeOverviewContainer() {
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
+    accountWorth.updateAll,
     accountWorth.worth,
     network,
     settings.currencyInfo.id,
@@ -246,8 +265,17 @@ function HomeOverviewContainer() {
       );
       return allWorth;
     }
-    return accountWorth.worth[network?.id ?? ''] ?? '0';
-  }, [accountWorth.worth, network?.id, network?.isAllNetworks]);
+    return (
+      accountWorth.worth[
+        accountUtils.buildAccountValueKey({
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+        })
+      ] ??
+      Object.values(accountWorth.worth)[0] ??
+      '0'
+    );
+  }, [accountWorth.worth, account?.id, network?.id, network?.isAllNetworks]);
 
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (

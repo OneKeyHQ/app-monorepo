@@ -437,12 +437,12 @@ class ServiceAccountProfile extends ServiceBase {
 
   @backgroundMethod()
   async updateAllNetworkAccountValue(params: {
-    allNetworkAccountId: string;
+    accountId: string;
     value: Record<string, string>;
     currency: string;
     updateAll?: boolean;
   }) {
-    const { currency, value } = params;
+    const { currency, value, updateAll } = params;
 
     const currencyItems = (await currencyPersistAtom.get()).currencyItems;
 
@@ -462,21 +462,43 @@ class ServiceAccountProfile extends ServiceBase {
       }, {} as Record<string, string>);
     }
 
-    await simpleDb.accountValue.updateAllNetworkAccountValue({
+    const usdAccountValue = {
       ...params,
       value: usdValue,
       currency: 'usd',
-    });
+    };
+
+    if (updateAll) {
+      await activeAccountValueAtom.set(usdAccountValue);
+    } else {
+      const accountsValue =
+        await simpleDb.accountValue.getAllNetworkAccountsValue({
+          accounts: [{ accountId: params.accountId }],
+        });
+      const currentAccountValue = accountsValue?.[0];
+      if (currentAccountValue?.accountId !== params.accountId) {
+        return;
+      }
+
+      await activeAccountValueAtom.set({
+        ...usdAccountValue,
+        value: {
+          ...currentAccountValue.value,
+          ...usdValue,
+        },
+      });
+    }
+
+    await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
   }
 
   @backgroundMethod()
-  async getAllNetworkAccountValue(params: {
-    accounts: { allNetworkAccountId: string }[];
+  async getAllNetworkAccountsValue(params: {
+    accounts: { accountId: string }[];
   }) {
-    const accountValue = await simpleDb.accountValue.getAllNetworkAccountsValue(
-      params,
-    );
-    return accountValue;
+    const accountsValue =
+      await simpleDb.accountValue.getAllNetworkAccountsValue(params);
+    return accountsValue;
   }
 
   @backgroundMethod()
@@ -490,8 +512,11 @@ class ServiceAccountProfile extends ServiceBase {
     accountId: string;
     value: string;
     currency: string;
+    shouldUpdateActiveAccountValue?: boolean;
   }) {
-    await activeAccountValueAtom.set(params);
+    if (params.shouldUpdateActiveAccountValue) {
+      await activeAccountValueAtom.set(params);
+    }
 
     await simpleDb.accountValue.updateAccountValue(params);
   }

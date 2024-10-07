@@ -19,11 +19,13 @@ export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;
+    updateAll?: boolean;
   }>({
     worth: {},
     createAtNetworkWorth: '0',
     accountId: '',
     initialized: false,
+    updateAll: false,
   });
 
 export const {

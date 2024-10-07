@@ -64,7 +64,7 @@ export function AccountSelectorAccountListItem({
   selectedAccount: IAccountSelectorSelectedAccount;
   accountsValue: {
     accountId: string;
-    value: string | undefined;
+    value: Record<string, string> | string | undefined;
     currency: string | undefined;
   }[];
   linkNetwork: boolean | undefined;
