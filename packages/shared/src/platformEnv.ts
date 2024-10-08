@@ -474,6 +474,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionBackgroundHtml,
   isExtensionBackgroundServiceWorker,
   isExtensionOffscreen,
+  isExtensionPassKey,
   isExtensionUi,
   isExtensionUiPopup,
   isExtensionUiExpandTab,
