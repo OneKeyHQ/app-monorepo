@@ -332,4 +332,4 @@ function HeaderRightToolBarWrapper() {
   return <HeaderRightToolBar />;
 }
 
-export default withBrowserProvider(HeaderRightToolBarWrapper)
+export default withBrowserProvider(HeaderRightToolBarWrapper);

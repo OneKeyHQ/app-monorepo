@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -7,9 +9,10 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type {
+import {
   EChainSelectorPages,
-  IChainSelectorParamList,
+  EModalRoutes,
+  type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -37,12 +40,16 @@ type IChainSelectorBaseProps = {
 
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
   onPressItem: (item: IServerNetwork) => void;
+  onAddCustomNetwork?: () => void;
+  onEditCustomNetwork?: (network: IServerNetwork) => void;
 };
 
 const EditableAccountChainSelector = ({
   num,
   networkIds,
   onPressItem,
+  onAddCustomNetwork,
+  onEditCustomNetwork,
 }: IAccountChainSelectorProps) => {
   const {
     activeAccount: { network, account, wallet },
@@ -70,6 +77,8 @@ const EditableAccountChainSelector = ({
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={onPressItem}
+      onAddCustomNetwork={onAddCustomNetwork}
+      onEditCustomNetwork={onEditCustomNetwork}
       onFrequentlyUsedItemsChange={async (items) => {
         const pinnedNetworkIds =
           await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
@@ -197,9 +206,17 @@ function AccountChainSelector({
     });
     navigation.popStack();
   };
+  const onAddCustomNetwork = useCallback(() => {
+    navigation.push(EChainSelectorPages.AddCustomNetwork, {});
+  }, [navigation]);
+  const onEditCustomNetwork = useCallback((network: IServerNetwork) => {
+    console.log('onEditCustomNetwork: ', network);
+  }, []);
   return editable ? (
     <EditableAccountChainSelector
       onPressItem={handleListItemPress}
+      onAddCustomNetwork={onAddCustomNetwork}
+      onEditCustomNetwork={onEditCustomNetwork}
       num={num}
       networkIds={networkIds}
     />

@@ -73,6 +73,8 @@ type IEditableChainSelectorContentProps = {
   allNetworkItem?: IServerNetwork;
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
+  onAddCustomNetwork?: () => void;
+  onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
 };
 
@@ -82,6 +84,8 @@ export const EditableChainSelectorContent = ({
   frequentlyUsedItems,
   unavailableItems,
   onPressItem,
+  onAddCustomNetwork,
+  onEditCustomNetwork,
   networkId,
   isEditMode,
   allNetworkItem,
@@ -284,6 +288,8 @@ export const EditableChainSelectorContent = ({
       ),
       networkId,
       onPressItem,
+      onAddCustomNetwork,
+      onEditCustomNetwork,
       isEditMode,
       searchText: searchTextTrim,
       allNetworkItem,
@@ -293,6 +299,8 @@ export const EditableChainSelectorContent = ({
       setTempFrequentlyUsedItems,
       networkId,
       onPressItem,
+      onAddCustomNetwork,
+      onEditCustomNetwork,
       isEditMode,
       searchTextTrim,
       allNetworkItem,
@@ -411,9 +419,7 @@ export const EditableChainSelectorContent = ({
             >
               <ListItem
                 userSelect="none"
-                onPress={() => {
-                  console.log('onPress');
-                }}
+                onPress={() => onAddCustomNetwork?.()}
               >
                 <Stack p="$1" borderRadius="$full" bg="$bgStrong">
                   <Icon name="PlusSmallOutline" color="$iconSubdued" />
