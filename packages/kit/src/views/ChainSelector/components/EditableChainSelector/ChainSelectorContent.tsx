@@ -8,11 +8,13 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Empty,
   Icon,
+  Page,
   SearchBar,
   SectionList,
   SortableSectionList,
@@ -389,35 +391,41 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={<Stack h={bottom || '$2'} />} // Act as padding bottom
+              ListFooterComponent={
+                <>
+                  {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
+                </>
+              } // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />
           )}
         </Stack>
         {isEditMode ? (
-          <Stack
-            py="$1"
-            w="$full"
-            borderTopWidth="$px"
-            borderColor="$borderSubdued"
-          >
-            <ListItem
-              renderIcon={
-                <Stack
-                  w="$8"
-                  h="$8"
-                  jc="center"
-                  ai="center"
-                  bg="$bgStrong"
-                  borderRadius="$full"
-                >
-                  <Icon size="$6" name="PlusSmallOutline" />
+          <Page.Footer>
+            <Stack
+              pt="$2"
+              pb={bottom || '$2'}
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="$borderSubdued"
+            >
+              <ListItem
+                userSelect="none"
+                onPress={() => {
+                  console.log('onPress');
+                }}
+              >
+                <Stack p="$1" borderRadius="$full" bg="$bgStrong">
+                  <Icon name="PlusSmallOutline" color="$iconSubdued" />
                 </Stack>
-              }
-              title="Custom EVM network"
-            />
-          </Stack>
+                <ListItem.Text
+                  primary={intl.formatMessage({
+                    id: ETranslations.custom_network_add_network_action_text,
+                  })}
+                />
+              </ListItem>
+            </Stack>
+          </Page.Footer>
         ) : null}
       </Stack>
     </EditableChainSelectorContext.Provider>
