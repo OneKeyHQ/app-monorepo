@@ -2,15 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Alert,
-  Form,
-  Input,
-  Page,
-  Stack,
-  Toast,
-  useForm,
-} from '@onekeyhq/components';
+import { Alert, Form, Input, Page, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
