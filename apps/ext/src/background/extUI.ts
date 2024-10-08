@@ -12,3 +12,13 @@ export const setupExtUIEvent = () => {
     }
   });
 };
+
+export const setupExtUIEventOnPassKeyPage = () => {
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name === EXT_UI_TO_BG_PORT_NAME) {
+      port.onDisconnect.addListener(() => {
+        window.close();
+      });
+    }
+  });
+};
