@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 
 import { View } from 'react-native';
 
-// import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
+import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 
 export function GlobalJotaiReady({ children }: { children: any }) {
   const [isReady, setIsReady] = useState(false);
   useEffect(() => {
-    // void globalJotaiStorageReadyHandler.ready.then((ready) => {
-    //   setIsReady(ready);
-    // });
+    void globalJotaiStorageReadyHandler.ready.then((ready) => {
+      setIsReady(ready);
+    });
   }, []);
 
   if (!isReady) {
