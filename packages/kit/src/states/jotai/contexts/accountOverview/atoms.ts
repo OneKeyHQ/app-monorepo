@@ -15,15 +15,17 @@ export {
 
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
-    worth: string;
+    worth: Record<string, string>;
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;
+    updateAll?: boolean;
   }>({
-    worth: '0',
+    worth: {},
     createAtNetworkWorth: '0',
     accountId: '',
     initialized: false,
+    updateAll: false,
   });
 
 export const {

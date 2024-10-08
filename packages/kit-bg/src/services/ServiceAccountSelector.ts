@@ -820,7 +820,7 @@ class ServiceAccountSelector extends ServiceBase {
     let accountsCount = 0;
     let accountsValue: {
       accountId: string;
-      value: string | undefined;
+      value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
 
@@ -837,11 +837,23 @@ class ServiceAccountSelector extends ServiceBase {
           });
         });
       });
-
-      accountsValue =
-        await this.backgroundApi.serviceAccountProfile.getAccountsValue({
-          accounts: accountsForValuesQuery,
-        });
+      if (
+        accountUtils.isOthersWallet({
+          walletId: focusedWallet ?? '',
+        })
+      ) {
+        accountsValue =
+          await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+            accounts: accountsForValuesQuery,
+          });
+      } else {
+        accountsValue =
+          await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+            {
+              accounts: accountsForValuesQuery,
+            },
+          );
+      }
     } catch (error) {
       //
     }

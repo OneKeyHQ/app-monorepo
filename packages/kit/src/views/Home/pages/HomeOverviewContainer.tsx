@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -76,7 +77,7 @@ function HomeOverviewContainer() {
       if (network.isAllNetworks) {
         updateAccountWorth({
           accountId: account.id,
-          worth: '0',
+          worth: {},
           initialized: false,
         });
       }
@@ -145,25 +146,35 @@ function HomeOverviewContainer() {
           accountId: accountValueId,
           value: accountWorth.createAtNetworkWorth,
           currency: settings.currencyInfo.id,
+          shouldUpdateActiveAccountValue: true,
         });
       } else {
         const accountValueId = account.indexedAccountId as string;
 
-        if (network.isAllNetworks) {
-          void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
-            accountId: accountValueId,
-            value: accountWorth.worth,
-            currency: settings.currencyInfo.id,
-          });
-        } else {
+        if (!network.isAllNetworks) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
               accountId: accountValueId,
-              value: accountWorth.worth,
+              value:
+                accountWorth.worth[
+                  accountUtils.buildAccountValueKey({
+                    accountId: account.id,
+                    networkId: network.id,
+                  })
+                ],
               currency: settings.currencyInfo.id,
             },
           );
         }
+
+        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+          {
+            accountId: accountValueId,
+            value: accountWorth.worth,
+            currency: settings.currencyInfo.id,
+            updateAll: accountWorth.updateAll,
+          },
+        );
       }
     }
   }, [
@@ -171,6 +182,7 @@ function HomeOverviewContainer() {
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
+    accountWorth.updateAll,
     accountWorth.worth,
     network,
     settings.currencyInfo.id,
@@ -245,6 +257,26 @@ function HomeOverviewContainer() {
     });
   }, [account?.id, network?.id]);
 
+  const balanceString = useMemo(() => {
+    if (network?.isAllNetworks) {
+      const allWorth = Object.values(accountWorth.worth).reduce(
+        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        '0',
+      );
+      return allWorth;
+    }
+    return (
+      accountWorth.worth[
+        accountUtils.buildAccountValueKey({
+          accountId: account?.id ?? '',
+          networkId: network?.id ?? '',
+        })
+      ] ??
+      Object.values(accountWorth.worth)[0] ??
+      '0'
+    );
+  }, [accountWorth.worth, account?.id, network?.id, network?.isAllNetworks]);
+
   if (overviewState.isRefreshing && !overviewState.initialized)
     return (
       <Stack py="$2.5">
@@ -252,7 +284,6 @@ function HomeOverviewContainer() {
       </Stack>
     );
 
-  const balanceString = accountWorth.worth ?? '0';
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },

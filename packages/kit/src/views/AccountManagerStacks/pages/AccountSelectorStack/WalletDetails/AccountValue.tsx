@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -13,7 +14,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 function AccountValue(accountValue: {
   accountId: string;
   currency: string;
-  value: string;
+  value: Record<string, string> | string;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -26,6 +27,16 @@ function AccountValue(accountValue: {
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
+  const accountValueString = useMemo(() => {
+    if (typeof value === 'string') {
+      return value;
+    }
+    return Object.values(value).reduce(
+      (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
+      '0',
+    );
+  }, [value]);
+
   return (
     <Currency
       hideValue
@@ -35,7 +46,7 @@ function AccountValue(accountValue: {
       color="$textSubdued"
       sourceCurrency={currency}
     >
-      {value}
+      {accountValueString}
     </Currency>
   );
 }
@@ -49,7 +60,7 @@ function AccountValueWithSpotlight({
     | {
         accountId: string;
         currency: string | undefined;
-        value: string | undefined;
+        value: Record<string, string> | string | undefined;
       }
     | undefined;
   isOthersUniversal: boolean;
