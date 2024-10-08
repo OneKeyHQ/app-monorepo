@@ -37,6 +37,7 @@ export enum EAppEventBusNames {
   RenameDBAccounts = 'RenameDBAccounts',
   CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
+  OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
@@ -111,6 +112,9 @@ export interface IAppEventBusPayload {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+  };
+  [EAppEventBusNames.OnSwitchDAppNetwork]: {
+    state: 'switching' | 'completed';
   };
   [EAppEventBusNames.DAppNetworkUpdate]: {
     networkId: string;

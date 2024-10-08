@@ -312,4 +312,24 @@ function HeaderRightToolBar() {
   return <>{content}</>;
 }
 
-export default withBrowserProvider(HeaderRightToolBar);
+function HeaderRightToolBarWrapper() {
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
+
+  useEffect(() => {
+    const onSwitchNetwork = (event: { state: 'switching' | 'completed' }) => {
+      setIsSwitchingNetwork(event.state === 'switching');
+    };
+    appEventBus.on(EAppEventBusNames.OnSwitchDAppNetwork, onSwitchNetwork);
+    return () => {
+      appEventBus.off(EAppEventBusNames.OnSwitchDAppNetwork, onSwitchNetwork);
+    };
+  }, []);
+
+  if (isSwitchingNetwork) {
+    return null;
+  }
+
+  return <HeaderRightToolBar />;
+}
+
+export default withBrowserProvider(HeaderRightToolBarWrapper)

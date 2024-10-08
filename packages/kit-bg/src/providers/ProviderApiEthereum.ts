@@ -14,12 +14,16 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -137,8 +141,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
     const rpcRequest = data as IJsonRpcRequest;
-
-    console.log(`${this.providerName} RpcCall=====>>>> : BgApi:`, request);
 
     const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
       networkId: networkId ?? '',
@@ -592,6 +594,16 @@ class ProviderApiEthereum extends ProviderApiBase {
           request,
           params,
         });
+      appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
+        state: 'switching',
+      });
+      await timerUtils.wait(500);
+      await this.wallet_switchEthereumChain(request, {
+        chainId: params.chainId,
+      });
+      appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
+        state: 'completed',
+      });
       return convertToEthereumChainResult(result);
     },
     {
