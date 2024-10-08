@@ -89,8 +89,10 @@ export const AdvancedSection = () => {
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
         onPress={onAddCustomNetwork}
-        icon="BezierNodesOutline"
-        title="Add Custom Network"
+        icon="GlobusOutline"
+        title={intl.formatMessage({
+          id: ETranslations.custom_network_add_network_action_text,
+        })}
         drillIn
       />
       <ListItem

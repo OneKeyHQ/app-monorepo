@@ -47,16 +47,22 @@ function AddCustomNetwork() {
     },
   });
 
+  const [isFetchingChainId, setIsFetchingChainId] = useState(false);
   const getChainId = useCallback(
     async (rpcUrl: string) => {
-      const { chainId } =
-        await backgroundApiProxy.serviceCustomRpc.getChainIdByRpcUrl({
-          rpcUrl,
-        });
-      if (chainId) {
-        form.setValue('chainId', chainId);
+      try {
+        setIsFetchingChainId(true);
+        const { chainId } =
+          await backgroundApiProxy.serviceCustomRpc.getChainIdByRpcUrl({
+            rpcUrl,
+          });
+        if (chainId) {
+          form.setValue('chainId', chainId);
+        }
+        return chainId;
+      } finally {
+        setIsFetchingChainId(false);
       }
-      return chainId;
     },
     [form],
   );
@@ -117,19 +123,26 @@ function AddCustomNetwork() {
   }, [form, getChainId, navigation, dappApprove]);
 
   return (
-    <Page>
-      <Page.Header title="Custom EVM Network" />
-      <Page.Body px="$5">
-        <Stack pb="$5">
-          <Alert
-            type="warning"
-            title="Untrusted networks can fake blockchain and track you. Use only trusted ones."
-          />
-        </Stack>
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.custom_network_add_network_action_text,
+        })}
+      />
+      <Page.Body px="$5" gap="$5">
+        <Alert
+          icon="ErrorOutline"
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.custom_network_form_alert_text,
+          })}
+        />
         <Form form={form}>
           <Form.Field
             name="networkName"
-            label="Network name"
+            label={intl.formatMessage({
+              id: ETranslations.form_network_name_label,
+            })}
             rules={{
               required: {
                 value: true,
@@ -139,7 +152,12 @@ function AddCustomNetwork() {
               },
             }}
           >
-            <Input />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+            />
           </Form.Field>
           <Form.Field
             name="rpcUrl"
@@ -151,20 +169,30 @@ function AddCustomNetwork() {
                   id: ETranslations.address_book_add_address_name_required,
                 }),
               },
-              validate: (value: string) => {
+              validate: async (value: string) => {
                 if (!value) return undefined;
                 if (!uriUtils.parseUrl(value)) {
-                  return 'Invalid RPC URL';
+                  return intl.formatMessage({
+                    id: ETranslations.form_rpc_url_invalid,
+                  });
                 }
                 if (!value.startsWith('http')) {
-                  return 'http/https prefix required';
+                  return intl.formatMessage({
+                    id: ETranslations.form_rpc_url_prefix_required,
+                  });
                 }
-                void getChainId(value);
+                await getChainId(value);
                 return undefined;
               },
             }}
           >
-            <Input />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+              {...(isFetchingChainId && { addOns: [{ loading: true }] })}
+            />
           </Form.Field>
           <Form.Field
             name="chainId"
@@ -179,11 +207,19 @@ function AddCustomNetwork() {
             }}
             disabled
           >
-            <Input editable={false} />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+              editable={false}
+            />
           </Form.Field>
           <Form.Field
             name="symbol"
-            label="Symbol"
+            label={intl.formatMessage({
+              id: ETranslations.manage_token_custom_token_symbol,
+            })}
             rules={{
               required: {
                 value: true,
@@ -193,32 +229,48 @@ function AddCustomNetwork() {
               },
             }}
           >
-            <Input />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+            />
           </Form.Field>
           <Form.Field
             name="blockExplorerUrl"
-            label="Block Explorer URL"
+            label={intl.formatMessage({
+              id: ETranslations.form_block_explorer_url_label,
+            })}
             optional
             rules={{
               validate: (value: string) => {
                 if (!value) return undefined;
                 if (!uriUtils.parseUrl(value)) {
-                  return 'Invalid URL';
+                  return intl.formatMessage({
+                    id: ETranslations.form_rpc_url_invalid,
+                  });
                 }
                 if (!value.startsWith('http')) {
-                  return 'http/https prefix required';
+                  return intl.formatMessage({
+                    id: ETranslations.form_rpc_url_prefix_required,
+                  });
                 }
                 return undefined;
               },
             }}
           >
-            <Input />
+            <Input
+              size="large"
+              $gtMd={{
+                size: 'medium',
+              }}
+            />
           </Form.Field>
         </Form>
       </Page.Body>
       <Page.Footer
-        onConfirmText="Save"
-        onCancelText="Cancel"
+        onConfirmText={intl.formatMessage({ id: ETranslations.action_save })}
+        onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
         confirmButtonProps={{
           loading: isLoading,
         }}
