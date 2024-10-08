@@ -15,12 +15,15 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
+import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
+
 function PassKeyContainer() {
   const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
   const intl = useIntl();
   useEffect(() => {
+    setupExtUIEventOnPassKeyPage();
     const verifyPassKey = async () => {
       const hasCachedPassword =
         webAuthCredentialId &&
