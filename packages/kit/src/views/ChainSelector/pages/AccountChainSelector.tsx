@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,14 +10,10 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
   EChainSelectorPages,
+  EModalRoutes,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
@@ -239,32 +235,7 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const {
-    num,
-    sceneName,
-    sceneUrl,
-    networkIds: networkIdsFromRoute,
-    editable,
-    onRefreshNetworkIds,
-  } = route.params;
-
-  const [networkIds, setNetworkIds] = useState<string[]>(
-    networkIdsFromRoute ?? [],
-  );
-  useEffect(() => {
-    const refreshNetworkIds = async () => {
-      await timerUtils.wait(1000);
-      const newNetworkIds = onRefreshNetworkIds?.();
-      if (Array.isArray(newNetworkIds)) {
-        setNetworkIds(newNetworkIds);
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
-    };
-  }, [onRefreshNetworkIds]);
-
+  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}
