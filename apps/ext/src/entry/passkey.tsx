@@ -84,6 +84,7 @@ function PassKeyContainer() {
 
 const root = window.document.querySelector('#root');
 if (!root) throw new Error('No root element found!');
+
 createRoot(root).render(
   <GlobalJotaiReady>
     <ThemeProvider>

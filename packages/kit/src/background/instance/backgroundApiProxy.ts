@@ -5,7 +5,7 @@ import backgroundApiInit from './backgroundApiInit';
 
 let backgroundApi = null;
 
-if (!platformEnv.isExtensionUi) {
+if (!platformEnv.isExtensionUi && !platformEnv.isExtensionPassKey) {
   // Ext use mock backgroundApi in UI
   backgroundApi = backgroundApiInit();
 }
