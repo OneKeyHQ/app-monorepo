@@ -13,7 +13,23 @@ import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 const checkExtWebAuth = async () => {
-  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+  // https://support.google.com/chrome/answer/13168025?hl=en&co=GENIE.Platform%3DDesktop
+  // in Windows:
+  //  store passkeys in Windows Hello.
+  // in MacOS:
+  //  store passkeys in iCloud KeyChain or Chrome Password Manager.
+  // in Linux:
+  //  store passkeys in KeePassXC.
+  // in ChromeOS:
+  //  store passkeys in ChromeOS Password Vault.
+
+  // Bug:
+  // In macOS's Chrome, the passkey window from Chrome password manager cannot be opened in a popup or sidebar window, 
+  //  so a separate pop-up window needs to be opened.
+  if (
+    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
+    platformEnv.isRuntimeMacOSBrowser
+  ) {
     await extUtils.openStandaloneWindow(
       {
         routes: [ERootRoutes.Main],
