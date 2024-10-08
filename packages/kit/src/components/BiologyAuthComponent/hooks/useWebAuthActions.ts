@@ -24,24 +24,13 @@ const checkExtWebAuth = async () => {
   //  store passkeys in ChromeOS Password Vault.
 
   // Bug:
-  // In macOS's Chrome, the passkey window from Chrome password manager cannot be opened in a popup or sidebar window, 
+  // In macOS's Chrome, the passkey window from Chrome password manager cannot be opened in a popup or sidebar window,
   //  so a separate pop-up window needs to be opened.
   if (
     (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
     platformEnv.isRuntimeMacOSBrowser
   ) {
-    await extUtils.openStandaloneWindow(
-      {
-        routes: [ERootRoutes.Main],
-        params: {
-          passkey: true,
-        },
-      },
-      {
-        height: 1,
-        width: 1,
-      },
-    );
+    await extUtils.openPassKeyWindow();
     return new Promise(() => {});
   }
 };

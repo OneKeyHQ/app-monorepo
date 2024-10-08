@@ -129,7 +129,7 @@ module.exports = ({
             config,
           });
         }
-        config.plugins = [...config.plugins, ...pluginsHtml.uiHtml].filter(
+        config.plugins = [...config.plugins, ...pluginsHtml.passkeyHtml].filter(
           Boolean,
         );
         return config;

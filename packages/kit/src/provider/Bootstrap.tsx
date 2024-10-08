@@ -129,86 +129,10 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
-const useExtEvents = platformEnv.isExtension
-  ? () => {
-      const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
-      const [{ webAuthCredentialId }] = usePasswordPersistAtom();
-      const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
-      const intl = useIntl();
-      useEffect(() => {
-        if (window.location.href.includes('passkey=true')) {
-          const verifyPassKey = async () => {
-            const hasCachedPassword =
-              webAuthCredentialId &&
-              !!(await backgroundApiProxy.servicePassword.getCachedPassword());
-            if (hasCachedPassword) {
-              await verifiedPasswordWebAuth();
-            } else {
-              try {
-                const result = await checkWebAuth();
-                if (result) {
-                  setPasswordAtom((v) => ({
-                    ...v,
-                    passwordVerifyStatus: {
-                      value: EPasswordVerifyStatus.VERIFIED,
-                    },
-                  }));
-                  await backgroundApiProxy.servicePassword.unLockApp();
-                } else {
-                  setPasswordAtom((v) => ({
-                    ...v,
-                    passwordVerifyStatus: {
-                      value: EPasswordVerifyStatus.ERROR,
-                      message: intl.formatMessage({
-                        id: ETranslations.auth_error_password_incorrect,
-                      }),
-                    },
-                  }));
-                }
-              } catch {
-                setPasswordAtom((v) => ({
-                  ...v,
-                  passwordVerifyStatus: {
-                    value: EPasswordVerifyStatus.ERROR,
-                    message: intl.formatMessage({
-                      id: ETranslations.auth_error_password_incorrect,
-                    }),
-                  },
-                }));
-              } finally {
-                window.location.href = '/';
-              }
-            }
-          };
-
-          if (
-            passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-            passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
-          ) {
-            return;
-          }
-          setPasswordAtom((v) => ({
-            ...v,
-            passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
-          }));
-          void verifyPassKey();
-        }
-      }, [
-        checkWebAuth,
-        intl,
-        passwordVerifyStatus.value,
-        setPasswordAtom,
-        verifiedPasswordWebAuth,
-        webAuthCredentialId,
-      ]);
-    }
-  : () => undefined;
-
 export function Bootstrap() {
   useEffect(() => {
     void backgroundApiProxy.serviceSetting.fetchCurrencyList();
   }, []);
   useDesktopEvents();
-  useExtEvents();
   return null;
 }

@@ -87,13 +87,7 @@ async function openUrlInTab(
   });
 }
 
-async function openStandaloneWindow(
-  routeInfo: IOpenUrlRouteInfo,
-  params: {
-    height: number;
-    width: number;
-  } = {},
-) {
+async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
   const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
@@ -124,8 +118,48 @@ async function openStandaloneWindow(
     focused: true,
     type: 'popup',
     // init size same to ext ui-popup.html
-    height: params.height || UI_HTML_DEFAULT_MIN_HEIGHT + 50, // height including title bar, so should add 50px more
-    width: params.width || UI_HTML_DEFAULT_MIN_WIDTH,
+    height: UI_HTML_DEFAULT_MIN_HEIGHT + 50, // height including title bar, so should add 50px more
+    width: UI_HTML_DEFAULT_MIN_WIDTH,
+    // check useAutoRedirectToRoute()
+    url,
+    top,
+    left,
+  });
+}
+
+async function openPassKeyWindow() {
+  const url = buildExtRouteUrl('passkey.html', {});
+  let left = 0;
+  let top = 0;
+  // debugger
+  try {
+    /* eslint-disable */
+    const lastFocused = await browser.windows.getLastFocused();
+    // Position window in top right corner of lastFocused window.
+    if (
+      lastFocused &&
+      lastFocused.top &&
+      lastFocused.left &&
+      lastFocused.width
+    ) {
+      top = lastFocused.top;
+      left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
+    }
+    /* eslint-enable */
+  } catch (_) {
+    // The following properties are more than likely 0, due to being
+    // opened from the background chrome process for the extension that
+    // has no physical dimensions
+    const { screenX, screenY, outerWidth } = window;
+    top = Math.max(screenY, 0);
+    left = Math.max(screenX + (outerWidth - UI_HTML_DEFAULT_MIN_WIDTH), 0);
+  }
+  return chrome.windows.create({
+    focused: true,
+    type: 'popup',
+    // init size same to ext ui-popup.html
+    height: 1, // height including title bar, so should add 50px more
+    width: 1,
     // check useAutoRedirectToRoute()
     url,
     top,
@@ -259,6 +293,7 @@ async function openPermissionSettings() {
 export default {
   openUrl,
   openUrlInTab,
+  openPassKeyWindow,
   openExpandTabOrSidePanel,
   openStandaloneWindow,
   openExpandTab,

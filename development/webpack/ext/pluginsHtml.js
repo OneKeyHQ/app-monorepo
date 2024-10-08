@@ -45,7 +45,6 @@ let uiHtml = [
   'ui-expand-tab',
   'ui-side-panel',
   'ui-standalone-window',
-  'passkey',
   'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
   // 'ui-newtab',
@@ -64,8 +63,14 @@ let offscreenHtml = [devUtils.consts.entry.offscreen].map((name) =>
 );
 offscreenHtml = lodash.flatten(offscreenHtml);
 
+let passkeyHtml = [devUtils.consts.entry.passkey].map((name) =>
+  createHtmlPlugin({ name }),
+);
+passkeyHtml = lodash.flatten(passkeyHtml);
+
 module.exports = {
   uiHtml,
+  passkeyHtml,
   backgroundHtml,
   offscreenHtml,
 };
