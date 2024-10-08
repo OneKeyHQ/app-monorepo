@@ -32,5 +32,6 @@ export type IChainSelectorParamList = {
     chainId?: number;
     symbol?: string;
     blockExplorerUrl?: string;
+    onSuccess?: (network: IServerNetwork) => void;
   };
 };

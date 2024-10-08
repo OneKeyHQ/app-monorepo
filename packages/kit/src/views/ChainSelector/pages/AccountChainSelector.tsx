@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EChainSelectorPages,
-  EModalRoutes,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -199,16 +198,23 @@ function AccountChainSelector({
 }: IChainSelectorBaseProps) {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
-  const handleListItemPress = (item: IServerNetwork) => {
-    void actions.current.updateSelectedAccountNetwork({
-      num,
-      networkId: item.id,
-    });
-    navigation.popStack();
-  };
+  const handleListItemPress = useCallback(
+    (item: IServerNetwork) => {
+      void actions.current.updateSelectedAccountNetwork({
+        num,
+        networkId: item.id,
+      });
+      navigation.popStack();
+    },
+    [actions, num, navigation],
+  );
   const onAddCustomNetwork = useCallback(() => {
-    navigation.push(EChainSelectorPages.AddCustomNetwork, {});
-  }, [navigation]);
+    navigation.push(EChainSelectorPages.AddCustomNetwork, {
+      onSuccess: (network: IServerNetwork) => {
+        handleListItemPress(network);
+      },
+    });
+  }, [navigation, handleListItemPress]);
   const onEditCustomNetwork = useCallback((network: IServerNetwork) => {
     console.log('onEditCustomNetwork: ', network);
   }, []);

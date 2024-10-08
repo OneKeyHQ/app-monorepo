@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Alert, Form, Input, Page, Toast, useForm } from '@onekeyhq/components';
@@ -9,12 +10,23 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EChainSelectorPages,
+  IChainSelectorParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import type { RouteProp } from '@react-navigation/core';
 
 function AddCustomNetwork() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
+    >();
+  const { onSuccess } = route.params;
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
@@ -104,6 +116,9 @@ function AddCustomNetwork() {
         }),
       });
       void dappApprove.resolve({ result: network });
+      setTimeout(() => {
+        onSuccess?.(network);
+      }, 500);
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.custom_network_add_custom_network_successfully_toast_text,
@@ -120,7 +135,7 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, dappApprove, intl, navigation, getChainId]);
+  }, [form, dappApprove, intl, navigation, getChainId, onSuccess]);
 
   return (
     <Page scrollEnabled>
