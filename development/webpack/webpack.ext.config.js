@@ -113,7 +113,7 @@ module.exports = ({
       config: {
         name: devUtils.consts.configName.passkey,
         entry: {
-          [devUtils.consts.entry.passkey]: path.join(
+          [devUtils.consts.entry['ui-passkey']]: path.join(
             basePath,
             'src/entry/ui-passkey.tsx',
           ),
