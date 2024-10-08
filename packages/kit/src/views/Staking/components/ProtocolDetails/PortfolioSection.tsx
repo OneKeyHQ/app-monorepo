@@ -115,6 +115,7 @@ type IPortfolioInfoProps = {
   claimable?: string;
   rewards?: string;
 
+  tooltipForClaimable?: string;
   labelForClaimable?: string;
 
   minClaimableNum?: string;
@@ -135,6 +136,7 @@ function PortfolioInfo({
   claimable,
   rewards,
 
+  tooltipForClaimable,
   labelForClaimable,
 
   minClaimableNum,
@@ -230,6 +232,7 @@ function PortfolioInfo({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              tooltip={tooltipForClaimable}
             />
           ) : null}
           {rewards && Number(rewards) > 0 ? (
@@ -305,6 +308,7 @@ export const PortfolioSection = ({
 
   let pendingActiveTooltip: string | undefined;
   let labelForClaimable: string | undefined;
+  let tooltipForClaimable: string | undefined;
   if (
     details.provider.name.toLowerCase() ===
       EEarnProviderEnum.Everstake.toLowerCase() &&
@@ -320,6 +324,15 @@ export const PortfolioSection = ({
       },
       { number: details.pendingActivatePeriod },
     );
+  }
+  if (
+    details.provider.name.toLowerCase() ===
+      EEarnProviderEnum.Everstake.toLowerCase() &&
+    details.token.info.symbol.toLowerCase() === 'atom'
+  ) {
+    tooltipForClaimable = intl.formatMessage({
+      id: ETranslations.earn_claim_together_tooltip,
+    });
   }
   if (
     details.provider.name.toLowerCase() ===
@@ -348,6 +361,7 @@ export const PortfolioSection = ({
         : undefined,
     token: details.token.info,
     labelForClaimable,
+    tooltipForClaimable,
   };
 
   return (
