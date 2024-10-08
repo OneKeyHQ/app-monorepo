@@ -8,16 +8,20 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
   Empty,
+  Icon,
+  Page,
   SearchBar,
   SectionList,
   SortableSectionList,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -330,7 +334,7 @@ export const EditableChainSelectorContent = ({
 
   return (
     <EditableChainSelectorContext.Provider value={context}>
-      <Stack flex={1}>
+      <Stack flex={1} position="relative">
         <Stack px="$5">
           <SearchBar
             testID="chain-selector"
@@ -387,12 +391,42 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={<Stack h={bottom || '$2'} />} // Act as padding bottom
+              ListFooterComponent={
+                <>
+                  {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
+                </>
+              } // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />
           )}
         </Stack>
+        {isEditMode ? (
+          <Page.Footer>
+            <Stack
+              pt="$2"
+              pb={bottom || '$2'}
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="$borderSubdued"
+            >
+              <ListItem
+                userSelect="none"
+                onPress={() => {
+                  console.log('onPress');
+                }}
+              >
+                <Stack p="$1" borderRadius="$full" bg="$bgStrong">
+                  <Icon name="PlusSmallOutline" color="$iconSubdued" />
+                </Stack>
+                <ListItem.Text
+                  primary={intl.formatMessage({
+                    id: ETranslations.custom_network_add_network_action_text,
+                  })}
+                />
+              </ListItem>
+            </Stack>
+          </Page.Footer>
+        ) : null}
       </Stack>
     </EditableChainSelectorContext.Provider>
   );
