@@ -45,6 +45,7 @@ let uiHtml = [
   'ui-expand-tab',
   'ui-side-panel',
   'ui-standalone-window',
+  'passkey',
   'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
   // 'ui-newtab',

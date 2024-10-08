@@ -15,8 +15,10 @@ const consts = {
     offscreen: 'offscreen',
     ui: 'ui',
     cs: 'cs',
+    passkey: 'passkey',
   },
   entry: {
+    'passkey': 'passkey',
     'ui-popup': 'ui-popup',
     'ui-devtools': 'ui-devtools',
     'background': 'background',
