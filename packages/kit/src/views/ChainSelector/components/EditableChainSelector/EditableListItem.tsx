@@ -80,14 +80,12 @@ export const EditableListItem = ({
     EditableChainSelectorContext,
   );
 
-  const opacity = isDisabled ? 0.7 : 1;
-
   const onPress = useMemo(() => {
-    if (!isEditMode && !isDisabled) {
+    if (!isEditMode) {
       return () => onPressItem?.(item);
     }
     return undefined;
-  }, [isEditMode, isDisabled, item, onPressItem]);
+  }, [isEditMode, item, onPressItem]);
 
   return (
     <ListItem
@@ -100,35 +98,36 @@ export const EditableListItem = ({
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-      opacity={opacity}
       onPress={onPress}
+      disabled={isDisabled}
     >
-      {isEditable && isEditMode && !isDisabled ? (
-        <ListItem.IconButton
-          icon="PencilOutline"
-          title="Edit"
-          onPress={() => {}}
-        />
-      ) : null}
-      {isEditable && isEditMode && !isDisabled && !isDraggable ? (
-        <EditableListItemPinOrNot item={item} />
-      ) : null}
-      {networkId === item.id && !isEditMode ? (
-        <ListItem.CheckMark key="checkmark" />
-      ) : null}
-      {isEditMode && isDraggable ? (
-        <XStack>
-          <EditableListItemPinOrNot item={item} />
-          <Stack w="$5" />
+      <XStack gap="$5">
+        {isEditable && isEditMode && !isDisabled ? (
           <ListItem.IconButton
-            key="darg"
-            cursor="move"
-            icon="DragOutline"
-            onPressIn={drag}
-            dataSet={dragProps}
+            icon="PencilOutline"
+            title={intl.formatMessage({ id: ETranslations.global_edit })}
+            onPress={() => {}}
           />
-        </XStack>
-      ) : null}
+        ) : null}
+        {isEditable && isEditMode && !isDisabled && !isDraggable ? (
+          <EditableListItemPinOrNot item={item} />
+        ) : null}
+        {isEditMode && isDraggable ? (
+          <>
+            <EditableListItemPinOrNot item={item} />
+            <ListItem.IconButton
+              key="darg"
+              cursor="move"
+              icon="DragOutline"
+              onPressIn={drag}
+              dataSet={dragProps}
+            />
+          </>
+        ) : null}
+        {networkId === item.id && !isEditMode ? (
+          <ListItem.CheckMark key="checkmark" />
+        ) : null}
+      </XStack>
     </ListItem>
   );
 };
