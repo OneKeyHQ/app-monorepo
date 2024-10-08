@@ -3,6 +3,7 @@ import { Icon, Image, XStack } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { LetterAvatar } from '../LetterAvatar';
 
 export const NetworkAvatarBase = ({
   logoURI,
@@ -28,20 +29,28 @@ export const NetworkAvatarBase = ({
 type INetworkAvatarProps = {
   networkId?: string;
   size?: IImageProps['size'];
+  isCustomNetwork?: boolean;
 };
 
-export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
+export function NetworkAvatar({
+  networkId,
+  size = '$6',
+  isCustomNetwork = false,
+}: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
   const res = usePromiseResult(
     () =>
-      networkId
+      !isCustomNetwork && networkId
         ? serviceNetwork.getNetwork({ networkId })
         : Promise.resolve({ logoURI: '' }),
-    [networkId, serviceNetwork],
+    [isCustomNetwork, networkId, serviceNetwork],
     {
       checkIsFocused: false,
     },
   );
+  if (isCustomNetwork) {
+    return <LetterAvatar letter={networkId?.[0]} size={size} />;
+  }
   const { logoURI } = res.result || {};
   return logoURI ? <NetworkAvatarBase size={size} logoURI={logoURI} /> : null;
 }
