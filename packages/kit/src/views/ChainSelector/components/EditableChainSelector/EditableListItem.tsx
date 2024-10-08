@@ -103,6 +103,13 @@ export const EditableListItem = ({
       opacity={opacity}
       onPress={onPress}
     >
+      {isEditable && isEditMode && !isDisabled ? (
+        <ListItem.IconButton
+          icon="PencilOutline"
+          title="Edit"
+          onPress={() => {}}
+        />
+      ) : null}
       {isEditable && isEditMode && !isDisabled && !isDraggable ? (
         <EditableListItemPinOrNot item={item} />
       ) : null}
