@@ -104,15 +104,23 @@ function AddCustomNetwork() {
         }),
       });
       void dappApprove.resolve({ result: network });
-      Toast.success({ title: 'Add custom network successfully.' });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.custom_network_add_custom_network_successfully_toast_text,
+        }),
+      });
       navigation.pop();
     } catch (error) {
       console.error(error);
-      Toast.error({ title: 'Add custom network failed.' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.custom_network_add_custom_network_failed_toast_text,
+        }),
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [form, getChainId, navigation, dappApprove]);
+  }, [form, dappApprove, intl, navigation, getChainId]);
 
   return (
     <Page scrollEnabled>
