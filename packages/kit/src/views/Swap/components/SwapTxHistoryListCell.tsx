@@ -125,7 +125,7 @@ const SwapTxHistoryListCell = ({
         align="right"
         flexShrink={0}
         primary={
-          <SizableText color="$textSuccess">
+          <SizableText color="$textSuccess" textAlign="right">
             +
             <NumberSizeableText color="$textSuccess" formatter="balance">
               {item.baseInfo.toAmount}
