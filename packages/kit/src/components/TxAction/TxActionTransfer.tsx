@@ -570,8 +570,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT &&
-                  (!isUTXO || networkUtils.isBTCNetwork(networkId))
+                  block.direction === EDecodedTxDirection.OUT
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount
                 } ${
@@ -810,7 +809,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isInternalStaking,
       isSendNativeToken,
-      isUTXO,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.logoURI,
