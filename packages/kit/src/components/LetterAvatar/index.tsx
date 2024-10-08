@@ -1,31 +1,22 @@
-import type { ISizableTextProps, IStackProps } from '@onekeyhq/components';
-import { SizableText, Stack } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { SizableText, Stack, getTokenValue } from '@onekeyhq/components';
+
+import type { Token } from 'tamagui';
 
 type ILetterAvatarProps = {
   letter?: string;
-  size?: 'lg' | 'md' | 'sm' | 'xs' | 'xxs' | 'xxxs';
+  size?: IStackProps['width'];
 } & IStackProps;
-
-const sizeMap: Record<
-  string,
-  { frameSize: IStackProps['width']; letterSize: ISizableTextProps['size'] }
-> = {
-  lg: { frameSize: '$10', letterSize: '$heading2xl' },
-  md: { frameSize: '$8', letterSize: '$headingXl' },
-  sm: { frameSize: '$6', letterSize: '$headingSm' },
-  xs: { frameSize: '$5', letterSize: '$headingXs' },
-  xxs: { frameSize: '$4', letterSize: '$headingXs' },
-  // eslint-disable-next-line spellcheck/spell-checker
-  xxxs: { frameSize: '$3', letterSize: '$headingXxs' },
-};
 
 export function LetterAvatar({
   letter,
-  size = 'md',
+  size = '$8',
   ...props
 }: ILetterAvatarProps) {
-  const { frameSize, letterSize } = sizeMap[size];
-
+  const frameSize: number =
+    typeof size === 'number' ? size : getTokenValue(size as Token, 'size');
+  const fontSize = Math.round(frameSize / 1.6667);
+  const lineHeight = Math.round(fontSize * 1.3333);
   return (
     <Stack
       borderRadius="$full"
@@ -36,8 +27,12 @@ export function LetterAvatar({
       alignItems="center"
       {...props}
     >
-      <SizableText color="$textInverse" size={letterSize}>
-        {letter}
+      <SizableText
+        color="$textInverse"
+        fontSize={fontSize}
+        lineHeight={lineHeight}
+      >
+        {letter?.toUpperCase()}
       </SizableText>
     </Stack>
   );
