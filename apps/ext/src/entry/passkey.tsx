@@ -59,8 +59,6 @@ function PassKeyContainer() {
               }),
             },
           }));
-        } finally {
-          // window.location.href = '/';
         }
       }
     };
