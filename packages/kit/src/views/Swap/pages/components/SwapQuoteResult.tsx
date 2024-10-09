@@ -1,6 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
 
-import { token } from '@alephium/web3/dist/src/codec';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -99,7 +98,7 @@ const SwapQuoteResult = ({
         />
       );
     },
-    [swapQuoteLoading],
+    [intl, swapQuoteLoading],
   );
 
   const tokenMetadataParse = useCallback(
