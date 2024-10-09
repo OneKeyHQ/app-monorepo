@@ -270,6 +270,7 @@ const initMenu = () => {
       paste: i18nText(ETranslations.menu_paste),
       selectAll: i18nText(ETranslations.menu_select_all),
       copyImage: i18nText(ETranslations.menu__copy_image),
+      saveImageAs: i18nText(ETranslations.menu__save_image_as),
     },
   });
 };
