@@ -99,11 +99,9 @@ async function openUrlInTab(
   });
 }
 
-async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
-  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
+const getWindowPosition = async () => {
   let left = 0;
   let top = 0;
-  // debugger
   try {
     /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
@@ -126,6 +124,15 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     top = Math.max(screenY, 0);
     left = Math.max(screenX + (outerWidth - UI_HTML_DEFAULT_MIN_WIDTH), 0);
   }
+  return {
+    top,
+    left,
+  };
+};
+
+async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
+  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
+  const { top, left } = await getWindowPosition();
   return chrome.windows.create({
     focused: true,
     type: 'popup',
@@ -141,31 +148,7 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
 
 async function openPassKeyWindow() {
   const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {});
-  let left = 0;
-  let top = 0;
-  // debugger
-  try {
-    /* eslint-disable */
-    const lastFocused = await browser.windows.getLastFocused();
-    // Position window in top right corner of lastFocused window.
-    if (
-      lastFocused &&
-      lastFocused.top &&
-      lastFocused.left &&
-      lastFocused.width
-    ) {
-      top = lastFocused.top;
-      left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
-    }
-    /* eslint-enable */
-  } catch (_) {
-    // The following properties are more than likely 0, due to being
-    // opened from the background chrome process for the extension that
-    // has no physical dimensions
-    const { screenX, screenY, outerWidth } = window;
-    top = Math.max(screenY, 0);
-    left = Math.max(screenX + (outerWidth - UI_HTML_DEFAULT_MIN_WIDTH), 0);
-  }
+  const { top, left } = await getWindowPosition();
   return chrome.windows.create({
     focused: true,
     type: 'popup',
