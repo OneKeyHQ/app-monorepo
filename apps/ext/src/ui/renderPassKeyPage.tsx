@@ -111,17 +111,8 @@ const usePassKeyOperations = () => {
       default:
         break;
     }
-  }, [
-    setWebAuthEnable,
-    verifiedPasswordWebAuth,
-    checkWebAuth,
-    webAuthCredentialId,
-    passwordVerifyStatus,
-    setPasswordAtom,
-    intl,
-    switchWebAuth,
-    verifyPassKey,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 };
 
 function PassKeyContainer() {
