@@ -19,6 +19,7 @@ import type {
   ViewStyle,
 } from 'react-native';
 import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IDesktopTabItemProps {
   icon?: IKeyOfIcons;
@@ -56,11 +57,13 @@ export function DesktopTabItem(
     openActionList?.current?.();
   }, []);
   useEffect(() => {
-    const stackValue = stackRef?.current as HTMLElement;
-    stackValue?.addEventListener('contextmenu', onOpenContextMenu);
-    return () => {
-      stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
-    };
+    if (!platformEnv.isNative) {
+      const stackValue = stackRef?.current as HTMLElement;
+      stackValue?.addEventListener('contextmenu', onOpenContextMenu);
+      return () => {
+        stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
+      };
+    }
   }, [onOpenContextMenu]);
   const onMouseEnter = useCallback(() => {
     setIsHovered(true);
