@@ -91,7 +91,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       encodedTx,
       transfersInfo,
-      approveInfo,
+      approvesInfo,
       wrappedInfo,
       specifiedFeeRate,
     } = params;
@@ -99,7 +99,7 @@ class ServiceSend extends ServiceBase {
     return vault.buildUnsignedTx({
       encodedTx,
       transfersInfo,
-      approveInfo,
+      approvesInfo,
       wrappedInfo,
       specifiedFeeRate,
     });
@@ -458,7 +458,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       unsignedTx,
       encodedTx,
-      approveInfo,
+      approvesInfo,
       transfersInfo,
       wrappedInfo,
       swapInfo,
@@ -478,7 +478,7 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountId,
         encodedTx,
-        approveInfo,
+        approvesInfo,
         transfersInfo,
         wrappedInfo,
         specifiedFeeRate,

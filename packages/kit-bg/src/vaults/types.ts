@@ -454,7 +454,7 @@ export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
-  approveInfo?: IApproveInfo;
+  approvesInfo?: IApproveInfo[];
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;

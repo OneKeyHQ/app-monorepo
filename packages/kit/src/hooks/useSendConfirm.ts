@@ -27,7 +27,7 @@ type IBuildUnsignedTxParams = {
   encodedTx?: IEncodedTx;
   unsignedTx?: IUnsignedTxPro;
   transfersInfo?: ITransferInfo[];
-  approveInfo?: IApproveInfo;
+  approvesInfo?: IApproveInfo[];
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
