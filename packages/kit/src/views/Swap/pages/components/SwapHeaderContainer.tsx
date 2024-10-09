@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,15 +26,24 @@ import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
 interface ISwapHeaderContainerProps {
   pageType?: EPageType;
+  defaultSwapType?: ESwapTabSwitchType;
 }
 
-const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
+const SwapHeaderContainer = ({
+  pageType,
+  defaultSwapType,
+}: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
-
+  useEffect(() => {
+    if (defaultSwapType) {
+      void swapTypeSwitchAction(defaultSwapType, networkId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onSwapLimit = useCallback(() => {
     Dialog.confirm({
       icon: 'InfoCircleOutline',
