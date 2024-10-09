@@ -180,6 +180,8 @@
   "custom_network.add_network_action_text": "添加自定义网络",
   "custom_network.form_alert_text": "不受信任的网络可以伪造区块链并追踪您。请仅使用受信任的网络。",
   "custom_network.network_exists_feedback_text": "网络已存在",
+  "custom_network.remove_network_dialog_description": "您需要重新添加它以访问此网络上的资产。",
+  "custom_network.remove_network_dialog_title": "移除此网络？",
   "custom_rpc_cta_label": "添加自定义 RPC",
   "custom_rpc_desc": "自定义 RPC 将取代 OneKey 节点。如需还原，禁用或删除自定义 RPC。若非必要，请使用 OneKey 节点以获得最佳服务。",
   "custom_rpc_edit_dialog_title": "自定义 {network} RPC",

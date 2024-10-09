@@ -180,6 +180,8 @@
   "custom_network.add_network_action_text": "เพิ่มเครือข่ายที่กำหนดเอง",
   "custom_network.form_alert_text": "เครือข่ายที่ไม่น่าเชื่อถือสามารถปลอมแปลงบล็อกเชนและติดตามคุณได้ ใช้เฉพาะเครือข่ายที่เชื่อถือได้เท่านั้น",
   "custom_network.network_exists_feedback_text": "เครือข่ายมีอยู่แล้ว",
+  "custom_network.remove_network_dialog_description": "คุณจะต้องเพิ่มมันกลับเข้าไปเพื่อเข้าถึงสินทรัพย์ของคุณบนเครือข่ายนี้",
+  "custom_network.remove_network_dialog_title": "ลบเครือข่ายนี้หรือไม่?",
   "custom_rpc_cta_label": "เพิ่ม RPC ที่กำหนดเอง",
   "custom_rpc_desc": "RPC ที่กำหนดเองจะแทนที่โหนดของ OneKey หากต้องการย้อนกลับ ให้ปิดใช้งานหรือลบ RPC ที่กำหนดเอง หากไม่จำเป็น ให้ใช้โหนดของ OneKey เพื่อให้บริการที่เหมาะสมที่สุด",
   "custom_rpc_edit_dialog_title": "RPC {network} ที่กำหนดเอง",

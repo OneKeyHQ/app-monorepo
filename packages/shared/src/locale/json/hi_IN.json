@@ -180,6 +180,8 @@
   "custom_network.add_network_action_text": "कस्टम नेटवर्क जोड़ें",
   "custom_network.form_alert_text": "अविश्वसनीय नेटवर्क ब्लॉकचेन को नकली बना सकते हैं और आपका पता लगा सकते हैं। केवल विश्वसनीय नेटवर्क का ही उपयोग करें।",
   "custom_network.network_exists_feedback_text": "नेटवर्क पहले से मौजूद है",
+  "custom_network.remove_network_dialog_description": "आपको इस नेटवर्क पर अपनी संपत्तियों तक पहुंचने के लिए इसे फिर से जोड़ना होगा।",
+  "custom_network.remove_network_dialog_title": "क्या इस नेटवर्क को हटाना है?",
   "custom_rpc_cta_label": "कस्टम RPC जोड़ें",
   "custom_rpc_desc": "कस्टम RPC, OneKey के नोड को बदल देगा। वापस लौटने के लिए, कस्टम RPC को अक्षम करें या हटा दें। यदि आवश्यक नहीं है, तो उत्कृष्ट सेवा के लिए OneKey के नोड्स का उपयोग करें।",
   "custom_rpc_edit_dialog_title": "कस्टम {network} RPC",

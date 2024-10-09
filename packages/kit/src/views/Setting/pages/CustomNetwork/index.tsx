@@ -184,9 +184,12 @@ function AddCustomNetwork() {
       return;
     }
     Dialog.show({
-      title: 'Remove this network?',
-      description:
-        'You will have to add it back to access your assets on this network.',
+      title: intl.formatMessage({
+        id: ETranslations.custom_network_remove_network_dialog_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.custom_network_remove_network_dialog_description,
+      }),
       showCancelButton: true,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_remove,
@@ -215,13 +218,14 @@ function AddCustomNetwork() {
     }
     return (
       <IconButton
+        title={intl.formatMessage({ id: ETranslations.global_remove })}
         icon="DeleteOutline"
         variant="tertiary"
         iconColor="$iconSubdued"
         onPress={() => onDelete()}
       />
     );
-  }, [state, onDelete]);
+  }, [state, intl, onDelete]);
 
   return (
     <Page scrollEnabled>

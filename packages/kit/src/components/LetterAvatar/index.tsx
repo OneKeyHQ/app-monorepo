@@ -54,6 +54,7 @@ export function LetterAvatar({
         color="$textInverse"
         fontSize={fontSize}
         lineHeight={lineHeight}
+        fontWeight="600"
       >
         {letter?.toUpperCase()}
       </SizableText>
