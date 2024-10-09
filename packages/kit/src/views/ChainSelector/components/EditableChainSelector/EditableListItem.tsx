@@ -17,6 +17,7 @@ type IEditableListItemProps = {
   isDraggable?: boolean;
   isDisabled?: boolean;
   isEditable?: boolean;
+  isCustomNetworkEditable?: boolean;
   drag?: () => void;
   dragProps?: Record<string, any>;
 };
@@ -74,11 +75,11 @@ export const EditableListItem = ({
   isDisabled,
   isDraggable,
   isEditable = true,
+  isCustomNetworkEditable,
 }: IEditableListItemProps) => {
   const intl = useIntl();
-  const { isEditMode, networkId, onPressItem } = useContext(
-    EditableChainSelectorContext,
-  );
+  const { isEditMode, networkId, onPressItem, onEditCustomNetwork } =
+    useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
     if (!isEditMode) {
@@ -102,11 +103,11 @@ export const EditableListItem = ({
       disabled={isDisabled}
     >
       <XStack gap="$5">
-        {isEditable && isEditMode && !isDisabled ? (
+        {isCustomNetworkEditable && isEditMode && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
             title={intl.formatMessage({ id: ETranslations.global_edit })}
-            onPress={() => {}}
+            onPress={() => onEditCustomNetwork?.(item)}
           />
         ) : null}
         {isEditable && isEditMode && !isDisabled && !isDraggable ? (

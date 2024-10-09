@@ -323,6 +323,7 @@ export const EditableChainSelectorContent = ({
         isDraggable={section.draggable}
         isDisabled={section.unavailable}
         isEditable={section.editable}
+        isCustomNetworkEditable={item.isCustomNetwork}
         drag={drag}
         dragProps={dragProps}
       />

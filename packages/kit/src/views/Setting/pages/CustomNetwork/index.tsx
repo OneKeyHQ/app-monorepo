@@ -102,6 +102,19 @@ function AddCustomNetwork() {
         return;
       }
 
+      const networkId = accountUtils.buildCustomEvmNetworkId({
+        chainId: finalChainId.toString(),
+      });
+
+      const existingNetwork =
+        await backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId });
+      if (existingNetwork && !existingNetwork.isCustomNetwork) {
+        Toast.error({
+          title: 'The network already exists',
+        });
+        return;
+      }
+
       const params = {
         networkName,
         rpcUrl,
@@ -111,9 +124,7 @@ function AddCustomNetwork() {
       };
       await backgroundApiProxy.serviceCustomRpc.upsertCustomNetwork(params);
       const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-        networkId: accountUtils.buildCustomEvmNetworkId({
-          chainId: finalChainId.toString(),
-        }),
+        networkId,
       });
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
