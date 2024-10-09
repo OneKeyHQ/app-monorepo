@@ -118,6 +118,17 @@ function ActionSwap(props: IActionItemsProps) {
   );
 }
 
+function ActionBridge(props: IActionItemsProps) {
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_swap })}
+      icon="SwitchHorOutline"
+      {...props}
+    />
+  );
+}
+
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
   const media = useMedia();
@@ -165,5 +176,6 @@ RawActions.Sell = ActionSell;
 RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
+RawActions.Bridge = ActionBridge;
 
 export { RawActions, ActionItem };

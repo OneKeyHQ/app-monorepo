@@ -18,6 +18,7 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
@@ -84,6 +85,36 @@ function TokenDetailsHeader(props: IProps) {
           logoURI: tokenInfo.logoURI,
           networkLogoURI: network?.logoURI,
         },
+      },
+    });
+  }, [
+    navigation,
+    network?.logoURI,
+    networkId,
+    tokenInfo.address,
+    tokenInfo.decimals,
+    tokenInfo.isNative,
+    tokenInfo.logoURI,
+    tokenInfo.name,
+    tokenInfo.symbol,
+  ]);
+
+  const handleOnBridge = useCallback(async () => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importFromToken: {
+          contractAddress: tokenInfo.address,
+          symbol: tokenInfo.symbol,
+          networkId,
+          isNative: tokenInfo.isNative,
+          decimals: tokenInfo.decimals,
+          name: tokenInfo.name,
+          logoURI: tokenInfo.logoURI,
+          networkLogoURI: network?.logoURI,
+        },
+        swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
       },
     });
   }, [
@@ -187,6 +218,7 @@ function TokenDetailsHeader(props: IProps) {
           </ReviewControl>
 
           <RawActions.Swap onPress={handleOnSwap} />
+          <RawActions.Bridge onPress={handleOnBridge} />
 
           <RawActions.Send onPress={handleSendPress} />
           <RawActions.Receive
