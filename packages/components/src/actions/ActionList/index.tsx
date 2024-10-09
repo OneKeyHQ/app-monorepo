@@ -91,7 +91,7 @@ export function ActionListItem({
       testID={testID}
     >
       <XStack jc="space-between" flex={1}>
-        <XStack>
+        <XStack width="100%">
           {icon ? (
             <Icon
               name={icon}

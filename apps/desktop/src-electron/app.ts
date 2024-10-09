@@ -32,7 +32,6 @@ import type {
   IDesktopAppState,
   IDesktopSubModuleInitParams,
   IMediaType,
-  IPrefType,
 } from '@onekeyhq/shared/types/desktop';
 
 import appDevOnlyApi from './appDevOnlyApi';
@@ -49,9 +48,7 @@ logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 // https://github.com/sindresorhus/electron-context-menu
-const disposeContextMenu = contextMenu({
-  showSaveImageAs: true,
-});
+let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
 const APP_NAME = 'OneKey Wallet';
 app.name = APP_NAME;
@@ -261,6 +258,20 @@ const initMenu = () => {
   ];
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
+  disposeContextMenu?.();
+  disposeContextMenu = contextMenu({
+    showSaveImageAs: true,
+    showSearchWithGoogle: false,
+    showLookUpSelection: false,
+    showSelectAll: true,
+    labels: {
+      cut: i18nText(ETranslations.menu_cut),
+      copy: i18nText(ETranslations.global_copy),
+      paste: i18nText(ETranslations.menu_paste),
+      selectAll: i18nText(ETranslations.menu_select_all),
+      copyImage: i18nText(ETranslations.menu__copy_image),
+    },
+  });
 };
 
 const refreshMenu = () => {
@@ -472,7 +483,7 @@ function createMainWindow() {
       app.relaunch();
     }
     app.exit(0);
-    disposeContextMenu();
+    disposeContextMenu?.();
   });
   ipcMain.on(ipcMessageKeys.APP_FOCUS, () => {
     showMainWindow();
@@ -904,7 +915,7 @@ app.on('before-quit', () => {
     mainWindow?.removeAllListeners('close');
     mainWindow?.close();
   }
-  disposeContextMenu();
+  disposeContextMenu?.();
 });
 
 // Quit when all windows are closed.
