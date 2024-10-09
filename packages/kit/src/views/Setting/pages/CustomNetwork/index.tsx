@@ -26,7 +26,14 @@ function AddCustomNetwork() {
     useRoute<
       RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
     >();
-  const { onSuccess } = route.params ?? {};
+  const {
+    onSuccess,
+    networkName: routeNetworkName,
+    rpcUrl: routeRpcUrl,
+    chainId: routeChainId,
+    symbol: routeSymbol,
+    blockExplorerUrl: routeBlockExplorerUrl,
+  } = route.params ?? {};
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
@@ -43,11 +50,14 @@ function AddCustomNetwork() {
   }>({
     mode: 'onBlur',
     defaultValues: {
-      networkName: networkInfo?.chainName ?? '',
-      rpcUrl: networkInfo?.rpcUrls?.[0] ?? '',
-      chainId: networkInfo?.chainId ? Number(networkInfo?.chainId) : undefined,
-      symbol: networkInfo?.nativeCurrency?.symbol ?? '',
-      blockExplorerUrl: networkInfo?.blockExplorerUrls?.[0] ?? '',
+      networkName: routeNetworkName ?? networkInfo?.chainName ?? '',
+      rpcUrl: routeRpcUrl ?? networkInfo?.rpcUrls?.[0] ?? '',
+      chainId:
+        routeChainId ??
+        (networkInfo?.chainId ? Number(networkInfo?.chainId) : undefined),
+      symbol: routeSymbol ?? networkInfo?.nativeCurrency?.symbol ?? '',
+      blockExplorerUrl:
+        routeBlockExplorerUrl ?? networkInfo?.blockExplorerUrls?.[0] ?? '',
     },
   });
 

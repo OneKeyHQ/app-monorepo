@@ -40,7 +40,13 @@ type IChainSelectorBaseProps = {
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
   onPressItem: (item: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
-  onEditCustomNetwork?: (network: IServerNetwork) => void;
+  onEditCustomNetwork?: ({
+    network,
+    refreshNetworkData,
+  }: {
+    network: IServerNetwork;
+    refreshNetworkData: () => void;
+  }) => void;
 };
 
 const EditableAccountChainSelector = ({
@@ -77,7 +83,12 @@ const EditableAccountChainSelector = ({
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={onPressItem}
       onAddCustomNetwork={onAddCustomNetwork}
-      onEditCustomNetwork={onEditCustomNetwork}
+      onEditCustomNetwork={(item: IServerNetwork) =>
+        onEditCustomNetwork?.({
+          network: item,
+          refreshNetworkData: refreshLocalData,
+        })
+      }
       onFrequentlyUsedItemsChange={async (items) => {
         const pinnedNetworkIds =
           await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
@@ -215,9 +226,29 @@ function AccountChainSelector({
       },
     });
   }, [navigation, handleListItemPress]);
-  const onEditCustomNetwork = useCallback((network: IServerNetwork) => {
-    console.log('onEditCustomNetwork: ', network);
-  }, []);
+  const onEditCustomNetwork = useCallback(
+    async ({
+      network,
+      refreshNetworkData,
+    }: {
+      network: IServerNetwork;
+      refreshNetworkData: () => void;
+    }) => {
+      const rpcInfo =
+        await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+          network.id,
+        );
+      navigation.push(EChainSelectorPages.AddCustomNetwork, {
+        networkName: network.name,
+        rpcUrl: rpcInfo?.rpc ?? '',
+        chainId: network.chainId,
+        symbol: network.symbol,
+        blockExplorerUrl: network.explorerURL,
+        onSuccess: () => refreshNetworkData(),
+      });
+    },
+    [navigation],
+  );
   return editable ? (
     <EditableAccountChainSelector
       onPressItem={handleListItemPress}
