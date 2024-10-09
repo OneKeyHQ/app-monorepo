@@ -54,7 +54,7 @@ const StakingEntryListItemContent = ({
         <ListItem.Text
           flex={1}
           userSelect="none"
-          cursor="pointer"
+          cursor="default"
           primary={primary}
           secondary={
             aprValue && Number(aprValue) > 0
