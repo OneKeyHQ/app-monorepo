@@ -95,13 +95,20 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
         borderRadius="$3"
       >
         <XStack px={14} pt={14} justifyContent="space-between">
-          <Badge
-            badgeType={
-              statusBadgeType[getBabylonPortfolioStatus(item)] ?? 'default'
-            }
-          >
-            {statusMap[getBabylonPortfolioStatus(item)]}
-          </Badge>
+          <XStack gap="$1">
+            {getBabylonPortfolioStatus(item) === 'withdraw_requested' ? (
+              <Badge badgeType={statusBadgeType.active}>
+                {statusMap.active}
+              </Badge>
+            ) : null}
+            <Badge
+              badgeType={
+                statusBadgeType[getBabylonPortfolioStatus(item)] ?? 'default'
+              }
+            >
+              {statusMap[getBabylonPortfolioStatus(item)]}
+            </Badge>
+          </XStack>
           <Button
             onPress={onPress}
             size="small"
