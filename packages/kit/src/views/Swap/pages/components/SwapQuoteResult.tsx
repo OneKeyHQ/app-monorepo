@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef, useState } from 'react';
 
+import { token } from '@alephium/web3/dist/src/codec';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -40,7 +41,6 @@ import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
-import { token } from '@alephium/web3/dist/src/codec';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;

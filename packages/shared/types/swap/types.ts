@@ -1,4 +1,4 @@
-import { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';

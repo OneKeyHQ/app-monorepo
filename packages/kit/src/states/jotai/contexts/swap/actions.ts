@@ -1,8 +1,6 @@
 import { useRef } from 'react';
-
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
@@ -83,8 +81,6 @@ import {
   swapTokenMetadataAtom,
   swapTypeSwitchAtom,
 } from './atoms';
-import { token } from '@alephium/web3/dist/src/codec';
-import { Icon } from '@onekeyhq/components';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;

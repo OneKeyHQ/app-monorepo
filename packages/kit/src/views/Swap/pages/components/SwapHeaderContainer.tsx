@@ -91,7 +91,6 @@ const SwapHeaderContainer = ({
           >
             {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
           </SizableText>
-
         </XStack>
         {headerRight()}
       </XStack>

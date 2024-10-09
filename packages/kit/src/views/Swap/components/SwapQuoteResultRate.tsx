@@ -126,7 +126,7 @@ const SwapQuoteResultRate = ({
             // gap="$2"
           >
             {isBest ? (
-              <Badge badgeSize="sm" marginRight="$2" badgeType="success" >
+              <Badge badgeSize="sm" marginRight="$2" badgeType="success">
                 {intl.formatMessage({
                   id: ETranslations.global_best,
                 })}
