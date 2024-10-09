@@ -12,6 +12,7 @@ import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
@@ -66,13 +67,19 @@ const WithdrawOptions = () => {
 
   const babylonStatusMap = useBabylonStatusMap();
 
+  let title = intl.formatMessage({
+    id: ETranslations.earn_select_an_order_to_withdraw,
+  });
+
+  if (provider.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()) {
+    title = intl.formatMessage({
+      id: ETranslations.earn_select_for_early_withdrawal,
+    });
+  }
+
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.earn_select_an_order_to_withdraw,
-        })}
-      />
+      <Page.Header title={title} />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={SimpleSpinnerSkeleton}
