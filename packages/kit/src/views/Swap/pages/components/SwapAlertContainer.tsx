@@ -122,16 +122,20 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
             }
             title={title}
             description={message}
-            icon={icon}
-            action={{
-              primary: action?.actionLabel ?? '',
-              onPrimaryPress: () => {
-                void handleAlertAction(action);
-              },
-              isPrimaryLoading:
-                accountManualCreatingAtom.key === action?.actionData?.key &&
-                accountManualCreatingAtom.isLoading,
-            }}
+            action={
+              action?.actionLabel
+                ? {
+                    primary: action?.actionLabel ?? '',
+                    onPrimaryPress: () => {
+                      void handleAlertAction(action);
+                    },
+                    isPrimaryLoading:
+                      accountManualCreatingAtom.key ===
+                        action?.actionData?.key &&
+                      accountManualCreatingAtom.isLoading,
+                  }
+                : undefined
+            }
           />
         );
       }) ?? null}
