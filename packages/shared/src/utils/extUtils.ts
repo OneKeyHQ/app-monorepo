@@ -7,6 +7,18 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
 import { buildModalRouteParams } from './routeUtils';
 
+/**
+ * ext get html function
+ */
+export const EXT_HTML_FILES = {
+  background: 'background.html',
+  uiPopup: 'ui-popup.html',
+  uiExpandTab: 'ui-expand-tab.html',
+  uiPassKey: 'ui-passkey.html',
+  uiSidePanel: 'ui-side-panel.html',
+  uiStandAloneWindow: 'ui-standalone-window.html',
+};
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -128,7 +140,7 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
 }
 
 async function openPassKeyWindow() {
-  const url = buildExtRouteUrl('passkey.html', {});
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {});
   let left = 0;
   let top = 0;
   // debugger
@@ -166,17 +178,6 @@ async function openPassKeyWindow() {
     left,
   });
 }
-
-/**
- * ext get html function
- */
-export const EXT_HTML_FILES = {
-  background: 'background.html',
-  uiPopup: 'ui-popup.html',
-  uiExpandTab: 'ui-expand-tab.html',
-  uiSidePanel: 'ui-side-panel.html',
-  uiStandAloneWindow: 'ui-standalone-window.html',
-};
 
 export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionBackgroundHtml) {
