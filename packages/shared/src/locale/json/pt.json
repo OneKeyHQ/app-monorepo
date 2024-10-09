@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Adicionar rede personalizada com sucesso",
   "custom_network.add_network_action_text": "Adicionar rede personalizada",
   "custom_network.form_alert_text": "Redes não confiáveis podem falsificar blockchain e rastrear você. Use apenas as confiáveis.",
+  "custom_network.network_exists_feedback_text": "A rede já existe",
   "custom_rpc_cta_label": "Adicionar RPC personalizado",
   "custom_rpc_desc": "O RPC personalizado substituirá o nó do OneKey. Para reverter, desative ou exclua o RPC personalizado. Se não for necessário, use os nós do OneKey para um serviço otimizado.",
   "custom_rpc_edit_dialog_title": "RPC de {network} personalizado",

@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Réseau personnalisé ajouté avec succès",
   "custom_network.add_network_action_text": "Ajouter un réseau personnalisé",
   "custom_network.form_alert_text": "Les réseaux non fiables peuvent falsifier la blockchain et vous suivre. Utilisez uniquement des réseaux de confiance.",
+  "custom_network.network_exists_feedback_text": "Le réseau existe déjà",
   "custom_rpc_cta_label": "Ajouter un RPC personnalisé",
   "custom_rpc_desc": "Le RPC personnalisé remplacera le nœud OneKey. Pour revenir en arrière, désactivez ou supprimez le RPC personnalisé. Si ce n'est pas nécessaire, utilisez les nœuds OneKey pour un service optimal.",
   "custom_rpc_edit_dialog_title": "RPC {network} personnalisé",

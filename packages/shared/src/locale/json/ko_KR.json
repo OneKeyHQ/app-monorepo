@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "사용자 정의 네트워크 추가 성공",
   "custom_network.add_network_action_text": "사용자 정의 네트워크 추가",
   "custom_network.form_alert_text": "신뢰할 수 없는 네트워크는 블록체인을 위조하고 당신을 추적할 수 있습니다. 신뢰할 수 있는 네트워크만 사용하세요.",
+  "custom_network.network_exists_feedback_text": "네트워크가 이미 존재합니다",
   "custom_rpc_cta_label": "사용자 정의 RPC 추가",
   "custom_rpc_desc": "사용자 정의 RPC는 OneKey의 노드를 대체합니다. 되돌리려면 사용자 정의 RPC를 비활성화하거나 삭제하십시오. 필요하지 않은 경우, 최적의 서비스를 위해 OneKey의 노드를 사용하십시오.",
   "custom_rpc_edit_dialog_title": "사용자 정의 {network} RPC",

@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "কাস্টম নেটওয়ার্ক সফলভাবে যোগ করা হয়েছে",
   "custom_network.add_network_action_text": "কাস্টম নেটওয়ার্ক যোগ করুন",
   "custom_network.form_alert_text": "অবিশ্বস্ত নেটওয়ার্কগুলি ব্লকচেইনকে নকল করতে পারে এবং আপনাকে ট্র্যাক করতে পারে। শুধুমাত্র বিশ্বস্ত নেটওয়ার্কগুলি ব্যবহার করুন।",
+  "custom_network.network_exists_feedback_text": "নেটওয়ার্ক ইতিমধ্যেই বিদ্যমান",
   "custom_rpc_cta_label": "কাস্টম RPC যোগ করুন",
   "custom_rpc_desc": "কাস্টম RPC টি OneKey এর নোড প্রতিস্থাপন করবে। পুনরায় ফিরে যেতে, কাস্টম RPC টি অক্ষম করুন বা মুছে ফেলুন। যদি প্রয়োজন না হয়, অনুপতিস্থ সেবার জন্য OneKey এর নোডগুলি ব্যবহার করুন।",
   "custom_rpc_edit_dialog_title": "কাস্টম {network} RPC",

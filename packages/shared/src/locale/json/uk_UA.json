@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Мережу успішно додано",
   "custom_network.add_network_action_text": "Додати спеціальну мережу",
   "custom_network.form_alert_text": "Ненадійні мережі можуть підробити блокчейн і відстежити вас. Використовуйте лише надійні.",
+  "custom_network.network_exists_feedback_text": "Мережа вже існує",
   "custom_rpc_cta_label": "Додайте спеціальний RPC",
   "custom_rpc_desc": "Користувацький RPC замінить вузол OneKey. Щоб повернути, вимкніть або видаліть користувацький RPC. Якщо це не необхідно, використовуйте вузли OneKey для оптимального обслуговування.",
   "custom_rpc_edit_dialog_title": "Користувацька {network} RPC",

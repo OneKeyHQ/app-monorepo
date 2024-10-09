@@ -26,7 +26,7 @@ function AddCustomNetwork() {
     useRoute<
       RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
     >();
-  const { onSuccess } = route.params;
+  const { onSuccess } = route.params ?? {};
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
@@ -93,12 +93,20 @@ function AddCustomNetwork() {
         }
 
         if (!finalChainId) {
-          Toast.error({ title: 'Fetch chainId failed.' });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.form_rpc_url_invalid,
+            }),
+          });
           return;
         }
       } catch (error) {
         console.error(error);
-        Toast.error({ title: 'Fetch chainId failed.' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.form_rpc_url_invalid,
+          }),
+        });
         return;
       }
 
@@ -110,7 +118,9 @@ function AddCustomNetwork() {
         await backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId });
       if (existingNetwork && !existingNetwork.isCustomNetwork) {
         Toast.error({
-          title: 'The network already exists',
+          title: intl.formatMessage({
+            id: ETranslations.custom_network_network_exists_feedback_text,
+          }),
         });
         return;
       }

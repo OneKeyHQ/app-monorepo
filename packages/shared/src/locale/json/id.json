@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Berhasil menambahkan jaringan kustom",
   "custom_network.add_network_action_text": "Tambahkan jaringan khusus",
   "custom_network.form_alert_text": "Jaringan yang tidak terpercaya dapat memalsukan blockchain dan melacak Anda. Gunakan hanya yang terpercaya.",
+  "custom_network.network_exists_feedback_text": "Jaringan sudah ada",
   "custom_rpc_cta_label": "Tambahkan RPC khusus",
   "custom_rpc_desc": "RPC kustom akan menggantikan node OneKey. Untuk mengembalikan, nonaktifkan atau hapus RPC kustom. Jika tidak perlu, gunakan node OneKey untuk layanan optimal.",
   "custom_rpc_edit_dialog_title": "RPC {network} khusus",

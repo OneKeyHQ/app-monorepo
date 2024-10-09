@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "添加自訂網絡成功",
   "custom_network.add_network_action_text": "新增自訂網絡",
   "custom_network.form_alert_text": "不受信任的網絡可以偽造區塊鏈並追蹤你。請只使用受信任的網絡。",
+  "custom_network.network_exists_feedback_text": "網路已存在",
   "custom_rpc_cta_label": "新增自訂 RPC",
   "custom_rpc_desc": "自訂 RPC 將取代 OneKey 節點。如需還原，停用或刪除自訂 RPC。若非必要，請使用 OneKey 的節點以獲得最佳服務。",
   "custom_rpc_edit_dialog_title": "自訂 {network} RPC",

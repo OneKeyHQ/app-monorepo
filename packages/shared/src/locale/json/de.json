@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Benutzerdefiniertes Netzwerk erfolgreich hinzugefügt",
   "custom_network.add_network_action_text": "Benutzerdefiniertes Netzwerk hinzufügen",
   "custom_network.form_alert_text": "Nicht vertrauenswürdige Netzwerke können die Blockchain fälschen und Sie verfolgen. Verwenden Sie nur vertrauenswürdige.",
+  "custom_network.network_exists_feedback_text": "Netzwerk existiert bereits",
   "custom_rpc_cta_label": "Benutzerdefiniertes RPC hinzufügen",
   "custom_rpc_desc": "Der benutzerdefinierte RPC ersetzt den Knoten von OneKey. Um dies rückgängig zu machen, deaktivieren oder löschen Sie den benutzerdefinierten RPC. Wenn nicht notwendig, verwenden Sie OneKey's Knoten für den optimalen Service.",
   "custom_rpc_edit_dialog_title": "Benutzerdefiniertes {network} -RPC",

@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Thêm mạng tùy chỉnh thành công",
   "custom_network.add_network_action_text": "Thêm mạng tùy chỉnh",
   "custom_network.form_alert_text": "Các mạng không đáng tin cậy có thể giả mạo blockchain và theo dõi bạn. Chỉ sử dụng những mạng đáng tin cậy.",
+  "custom_network.network_exists_feedback_text": "Mạng đã tồn tại",
   "custom_rpc_cta_label": "Thêm RPC tùy chỉnh",
   "custom_rpc_desc": "RPC tùy chỉnh sẽ thay thế nút của OneKey. Để quay lại, hãy vô hiệu hóa hoặc xóa RPC tùy chỉnh. Nếu không cần thiết, hãy sử dụng các nút của OneKey để dịch vụ tối ưu.",
   "custom_rpc_edit_dialog_title": "RPC {network} tùy chỉnh",

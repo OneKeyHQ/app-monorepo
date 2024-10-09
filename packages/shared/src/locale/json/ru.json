@@ -179,6 +179,7 @@
   "custom_network.add_custom_network_successfully_toast_text": "Сеть успешно добавлена",
   "custom_network.add_network_action_text": "Добавить пользовательскую сеть",
   "custom_network.form_alert_text": "Недоверенные сети могут подделывать блокчейн и отслеживать вас. Используйте только проверенные.",
+  "custom_network.network_exists_feedback_text": "Сеть уже существует",
   "custom_rpc_cta_label": "Добавить пользовательский RPC",
   "custom_rpc_desc": "Пользовательский RPC заменит узел OneKey. Чтобы вернуться, отключите или удалите пользовательский RPC. Если это не необходимо, используйте узлы OneKey для оптимального обслуживания.",
   "custom_rpc_edit_dialog_title": "Пользовательский RPC {network}",

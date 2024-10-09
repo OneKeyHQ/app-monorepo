@@ -184,6 +184,7 @@
   custom_network_add_custom_network_successfully_toast_text = 'custom_network.add_custom_network_successfully_toast_text',
   custom_network_add_network_action_text = 'custom_network.add_network_action_text',
   custom_network_form_alert_text = 'custom_network.form_alert_text',
+  custom_network_network_exists_feedback_text = 'custom_network.network_exists_feedback_text',
   custom_rpc_cta_label = 'custom_rpc_cta_label',
   custom_rpc_desc = 'custom_rpc_desc',
   custom_rpc_edit_dialog_title = 'custom_rpc_edit_dialog_title',
