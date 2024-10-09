@@ -1,5 +1,6 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -32,26 +33,26 @@ type INetworkAvatarProps = {
   isCustomNetwork?: boolean;
 };
 
-export function NetworkAvatar({
-  networkId,
-  size = '$6',
-  isCustomNetwork = false,
-}: INetworkAvatarProps) {
+export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
   const res = usePromiseResult(
     () =>
-      !isCustomNetwork && networkId
+      networkId
         ? serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve({ logoURI: '' }),
-    [isCustomNetwork, networkId, serviceNetwork],
+        : Promise.resolve({
+            logoURI: '',
+            isCustomNetwork: false,
+            name: '',
+          } as IServerNetwork),
+    [networkId, serviceNetwork],
     {
       checkIsFocused: false,
     },
   );
+  const { logoURI, isCustomNetwork, name } = res.result || {};
   if (isCustomNetwork) {
-    return <LetterAvatar letter={networkId?.[0]} size={size} />;
+    return <LetterAvatar letter={name?.[0]} size={size} />;
   }
-  const { logoURI } = res.result || {};
   return logoURI ? <NetworkAvatarBase size={size} logoURI={logoURI} /> : null;
 }
 
