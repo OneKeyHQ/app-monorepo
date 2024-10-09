@@ -102,6 +102,7 @@ const usePassKeyOperations = () => {
   }, [
     checkWebAuth,
     intl,
+    passwordPromptPromiseTriggerData?.idNumber,
     setPasswordAtom,
     verifiedPasswordWebAuth,
     webAuthCredentialId,
