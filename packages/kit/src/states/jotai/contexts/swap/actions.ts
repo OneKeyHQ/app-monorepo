@@ -84,6 +84,7 @@ import {
   swapTypeSwitchAtom,
 } from './atoms';
 import { token } from '@alephium/web3/dist/src/codec';
+import { Icon } from '@onekeyhq/components';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
@@ -736,18 +737,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ? [networkId, deriveType, walletId, indexedAccountId].join('-')
         : Math.random().toString();
     return {
-      message: `No ${netInfo?.name ?? ''} address`,
+      icon: 'WalletCryptoOutline',
+      title: `No ${netInfo?.name ?? ''} address`,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_create_to_enable_network,
+      }),
       alertLevel: ESwapAlertLevel.INFO,
       action: {
         actionType: ESwapAlertActionType.CREATE_ADDRESS,
-        actionLabel: 'Create',
+        actionLabel: appLocale.intl.formatMessage({
+          id: ETranslations.global_create,
+        }),
         actionData: {
           num: 0,
           key,
           account,
         } as ISwapAlertActionData,
       },
-    };
+    } as ISwapAlertState;
   };
 
   checkSwapWarning = contextAtomMethod(
@@ -850,7 +857,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           }))
       ) {
-        const alertAction = this.checkAddressNeedCreate(
+        const alertAction:ISwapAlertState = this.checkAddressNeedCreate(
           swapSupportAllNetworks,
           fromToken,
           swapFromAddressInfo,
@@ -933,7 +940,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   id: ETranslations.swap_page_alert_value_drop,
                 }),
                 alertLevel: ESwapAlertLevel.WARNING,
-                icon:'ActivityOutline'
+                icon: 'ActivityOutline',
                 action: {
                   actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
                 },
@@ -957,7 +964,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   id: ETranslations.swap_page_alert_value_drop,
                 }),
                 alertLevel: ESwapAlertLevel.WARNING,
-                icon:'ActivityOutline'
+                icon: 'ActivityOutline',
                 action: {
                   actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
                 },
@@ -1014,7 +1021,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
       const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
       const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
-      
+
       // check network fee
       const gasFeeBN = new BigNumber(
         quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
@@ -1025,8 +1032,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         alertsRes = [
           ...alertsRes,
-          { 
-            icon:'GasOutline',
+          {
+            icon: 'GasOutline',
             title: appLocale.intl.formatMessage({
               id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
             }),
@@ -1080,11 +1087,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   action: `${actionLabel}`,
                 },
               ),
-              message:appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected,
-                },
-              ),
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_tax_detected,
+              }),
               alertLevel: ESwapAlertLevel.INFO,
             },
           ];
@@ -1113,11 +1118,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   action: `${actionLabel}`,
                 },
               ),
-              message:appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_alert_tax_detected,
-                },
-              ),
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_tax_detected,
+              }),
               alertLevel: ESwapAlertLevel.INFO,
             },
           ];

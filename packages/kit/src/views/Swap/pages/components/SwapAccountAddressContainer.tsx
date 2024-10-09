@@ -338,9 +338,9 @@ ISwapAccountAddressContainerProps) => {
       );
       if (networkInfo) {
         return (
-          <XStack gap="$2">
+          <XStack gap="$1" alignItems='center'>
             <Image w={18} h={18} source={{ uri: networkInfo.logoURI }} />
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$text">
               {networkInfo.name}
             </SizableText>
           </XStack>
@@ -358,8 +358,8 @@ ISwapAccountAddressContainerProps) => {
   ]);
 
   return (
-    <XStack pb="$1.5">
-      <SizableText size="$bodyMdMedium" mr="$2" userSelect="none">
+    <XStack pb="$2">
+      <SizableText size="$bodyMd" mr="$2" userSelect="none" color="$textSubdued">
         {intl.formatMessage({
           id:
             type === ESwapDirectionType.FROM
