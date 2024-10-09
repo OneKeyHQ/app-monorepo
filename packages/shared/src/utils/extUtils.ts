@@ -158,7 +158,9 @@ async function openPassKeyWindow(type: EPassKeyWindowType) {
   const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {
     params: {
       type,
-      from: platformEnv.isExtensionUiPopup ? EPassKeyWindowFrom.popup : EPassKeyWindowFrom.sidebar,
+      from: platformEnv.isExtensionUiPopup
+        ? EPassKeyWindowFrom.popup
+        : EPassKeyWindowFrom.sidebar,
     },
   });
   const { top, left } = await getWindowPosition();

@@ -13,17 +13,43 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EPassKeyWindowFrom,
+  EPassKeyWindowType,
+} from '@onekeyhq/shared/src/utils/extUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
 
-function PassKeyContainer() {
+const params = new URLSearchParams(window.location.href.split('?').pop());
+const from = params.get('from') as EPassKeyWindowFrom;
+const type = params.get('type') as EPassKeyWindowType;
+
+const useCreatePasskey = () => {
+  const { setWebAuthEnable } = useWebAuthActions();
+  useEffect(() => {
+    if (type !== EPassKeyWindowType.create) {
+      return;
+    }
+    const switchWebAuth = async (checked: boolean) => {
+      const res = await setWebAuthEnable(checked);
+      if (res) {
+        await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
+      }
+    };
+    void switchWebAuth(true);
+  }, [setWebAuthEnable]);
+};
+
+const useVerifyPassKey = () => {
   const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
   const intl = useIntl();
   useEffect(() => {
-    setupExtUIEventOnPassKeyPage();
+    if (type !== EPassKeyWindowType.unlock) {
+      return;
+    }
     const verifyPassKey = async () => {
       const hasCachedPassword =
         webAuthCredentialId &&
@@ -62,6 +88,10 @@ function PassKeyContainer() {
               }),
             },
           }));
+        } finally {
+          if (from === EPassKeyWindowFrom.sidebar) {
+            window.close();
+          }
         }
       }
     };
@@ -79,6 +109,15 @@ function PassKeyContainer() {
     void verifyPassKey();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+};
+
+function PassKeyContainer() {
+  useEffect(() => {
+    setupExtUIEventOnPassKeyPage();
+  }, []);
+  useCreatePasskey();
+  useVerifyPassKey();
+
   return null;
 }
 
