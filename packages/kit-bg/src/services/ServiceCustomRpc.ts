@@ -172,6 +172,15 @@ class ServiceCustomRpc extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async deleteCustomNetwork(params: { networkId: string }) {
+    await this.deleteCustomRpc(params.networkId);
+    await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(params);
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }, 500);
+  }
+
+  @backgroundMethod()
   public async getAllCustomNetworks(): Promise<IServerNetwork[]> {
     return this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
   }

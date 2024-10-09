@@ -3,7 +3,15 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Alert, Form, Input, Page, Toast, useForm } from '@onekeyhq/components';
+import {
+  Alert,
+  Form,
+  IconButton,
+  Input,
+  Page,
+  Toast,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -27,6 +35,8 @@ function AddCustomNetwork() {
       RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
     >();
   const {
+    state,
+    networkId: routeNetworkId,
     onSuccess,
     networkName: routeNetworkName,
     rpcUrl: routeRpcUrl,
@@ -168,12 +178,42 @@ function AddCustomNetwork() {
     }
   }, [form, dappApprove, intl, navigation, getChainId, onSuccess]);
 
+  const onDelete = useCallback(async () => {
+    if (!routeNetworkId) {
+      return;
+    }
+    await backgroundApiProxy.serviceCustomRpc.deleteCustomNetwork({
+      networkId: routeNetworkId,
+    });
+    Toast.success({
+      title: intl.formatMessage({
+        id: ETranslations.explore_removed_success,
+      }),
+    });
+    navigation.pop();
+  }, [routeNetworkId, intl, navigation]);
+
+  const headerRight = useCallback(() => {
+    if (state !== 'edit') {
+      return null;
+    }
+    return (
+      <IconButton
+        icon="DeleteOutline"
+        variant="tertiary"
+        iconColor="$iconSubdued"
+        onPress={() => onDelete()}
+      />
+    );
+  }, [state, onDelete]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,
         })}
+        headerRight={headerRight}
       />
       <Page.Body px="$5" gap="$5">
         <Alert

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,9 +10,14 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
@@ -221,6 +226,7 @@ function AccountChainSelector({
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.AddCustomNetwork, {
+      state: 'add',
       onSuccess: (network: IServerNetwork) => {
         handleListItemPress(network);
       },
@@ -239,6 +245,8 @@ function AccountChainSelector({
           network.id,
         );
       navigation.push(EChainSelectorPages.AddCustomNetwork, {
+        state: 'edit',
+        networkId: network.id,
         networkName: network.name,
         rpcUrl: rpcInfo?.rpc ?? '',
         chainId: network.chainId,
@@ -272,7 +280,31 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.AccountChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+  const {
+    num,
+    sceneName,
+    sceneUrl,
+    networkIds: networkIdsFromRoute,
+    editable,
+    onRefreshNetworkIds,
+  } = route.params;
+  const [networkIds, setNetworkIds] = useState<string[]>(
+    networkIdsFromRoute ?? [],
+  );
+  useEffect(() => {
+    const refreshNetworkIds = async () => {
+      await timerUtils.wait(1000);
+      const newNetworkIds = onRefreshNetworkIds?.();
+      if (Array.isArray(newNetworkIds)) {
+        setNetworkIds(newNetworkIds);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, refreshNetworkIds);
+    };
+  }, [onRefreshNetworkIds]);
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}

@@ -12,6 +12,7 @@ export enum EChainSelectorPages {
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
     editable?: boolean;
+    onRefreshNetworkIds?: () => string[];
   };
 
 export type IChainSelectorParams = {
@@ -27,6 +28,8 @@ export type IChainSelectorParamList = {
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
   [EChainSelectorPages.AddCustomNetwork]: {
+    state: 'add' | 'edit';
+    networkId?: string;
     networkName?: string;
     rpcUrl?: string;
     chainId?: number;
