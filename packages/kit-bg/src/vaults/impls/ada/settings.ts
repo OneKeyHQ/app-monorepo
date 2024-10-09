@@ -45,6 +45,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 600,
+  maxSendCanNotSentFullAmount: true,
 
   accountDeriveInfo,
   networkInfo: {

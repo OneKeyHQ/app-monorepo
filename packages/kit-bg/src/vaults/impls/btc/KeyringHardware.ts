@@ -266,7 +266,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signedPsbt = response.psbt;
 
     let rawTx = '';
-    const finalizedPsbt = BitcoinJS.Psbt.fromHex(psbt.toHex(), {
+    const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbt, {
       network: btcNetwork,
     });
     inputsToSign.forEach((v) => {

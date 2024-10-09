@@ -18,6 +18,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
@@ -569,8 +570,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT &&
-                  !isUTXO
+                  block.direction === EDecodedTxDirection.OUT
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount
                 } ${
@@ -809,7 +809,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isInternalStaking,
       isSendNativeToken,
-      isUTXO,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.logoURI,
