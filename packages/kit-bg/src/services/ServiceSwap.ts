@@ -160,6 +160,8 @@ export default class ServiceSwap extends ServiceBase {
             logoURI: clientNetwork.logoURI,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
+            supportCrossChainSwap: network.supportCrossChainSwap,
+            supportSingleSwap: network.supportSingleSwap,
           };
         }
         return null;

@@ -42,7 +42,6 @@ import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
-  receivedAddress?: string;
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
 }

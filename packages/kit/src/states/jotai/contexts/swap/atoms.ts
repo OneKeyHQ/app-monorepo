@@ -7,10 +7,6 @@ import {
   ESwapProviderSort,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import {
-  ESwapReceiveAddressType,
-  ESwapSlippageSegmentKey,
-} from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
@@ -22,6 +18,11 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapReceiveAddressType,
+  ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -36,6 +37,10 @@ const {
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
 
+// swap bridge limit switch
+export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
+  contextAtom<ESwapTabSwitchType>(ESwapTabSwitchType.SWAP);
+
 // swap networks & tokens
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
@@ -45,7 +50,13 @@ export const {
   atom: swapNetworksIncludeAllNetworkAtom,
   use: useSwapNetworksIncludeAllNetworkAtom,
 } = contextAtomComputed<ISwapNetwork[]>((get) => {
-  const networks = get(swapNetworks());
+  let networks = get(swapNetworks());
+  const swapType = get(swapTypeSwitchAtom());
+  networks = networks.filter((net) =>
+    swapType === ESwapTabSwitchType.BRIDGE
+      ? net.supportCrossChainSwap
+      : net.supportSingleSwap,
+  );
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
     name: dangerAllNetworkRepresent.name,
