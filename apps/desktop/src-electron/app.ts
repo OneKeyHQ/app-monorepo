@@ -94,70 +94,64 @@ function showMainWindow() {
 
 const initMenu = () => {
   const template = [
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              {
-                role: 'about',
-                label: i18nText(ETranslations.menu_about_onekey_wallet),
-              },
-              { type: 'separator' },
-              !process.mas && {
-                label: i18nText(ETranslations.menu_check_for_updates),
-                click: () => {
-                  showMainWindow();
-                  const safelyMainWindow = getSafelyMainWindow();
-                  safelyMainWindow?.webContents.send(
-                    ipcMessageKeys.CHECK_FOR_UPDATES,
-                  );
-                },
-              },
-              { type: 'separator' },
-              {
-                label: i18nText(ETranslations.menu_preferences),
-                accelerator: 'CmdOrCtrl+,',
-                click: () => {
-                  const safelyMainWindow = getSafelyMainWindow();
-                  const visible = !!safelyMainWindow?.isVisible();
-                  logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
-                  showMainWindow();
-                  safelyMainWindow?.webContents.send(
-                    ipcMessageKeys.APP_OPEN_SETTINGS,
-                    visible,
-                  );
-                },
-              },
-              { type: 'separator' },
-              {
-                label: i18nText(ETranslations.menu_lock_now),
-                click: () => {
-                  showMainWindow();
-                  const safelyMainWindow = getSafelyMainWindow();
-                  if (safelyMainWindow) {
-                    safelyMainWindow.webContents.send(
-                      ipcMessageKeys.APP_LOCK_NOW,
-                    );
-                  }
-                },
-              },
-              { type: 'separator' },
-              {
-                role: 'hide',
-                accelerator: 'Alt+CmdOrCtrl+H',
-                label: i18nText(ETranslations.menu_hide_onekey_wallet),
-              },
-              { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
-              { type: 'separator' },
-              {
-                role: 'quit',
-                label: i18nText(ETranslations.menu_quit_onekey_wallet),
-              },
-            ].filter(Boolean),
+    {
+      label: app.name,
+      submenu: [
+        {
+          role: 'about',
+          label: i18nText(ETranslations.menu_about_onekey_wallet),
+        },
+        { type: 'separator' },
+        !process.mas && {
+          label: i18nText(ETranslations.menu_check_for_updates),
+          click: () => {
+            showMainWindow();
+            const safelyMainWindow = getSafelyMainWindow();
+            safelyMainWindow?.webContents.send(
+              ipcMessageKeys.CHECK_FOR_UPDATES,
+            );
           },
-        ]
-      : []),
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_preferences),
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            const safelyMainWindow = getSafelyMainWindow();
+            const visible = !!safelyMainWindow?.isVisible();
+            logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
+            showMainWindow();
+            safelyMainWindow?.webContents.send(
+              ipcMessageKeys.APP_OPEN_SETTINGS,
+              visible,
+            );
+          },
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_lock_now),
+          click: () => {
+            showMainWindow();
+            const safelyMainWindow = getSafelyMainWindow();
+            if (safelyMainWindow) {
+              safelyMainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          role: 'hide',
+          accelerator: 'Alt+CmdOrCtrl+H',
+          label: i18nText(ETranslations.menu_hide_onekey_wallet),
+        },
+        { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+        { type: 'separator' },
+        {
+          role: 'quit',
+          label: i18nText(ETranslations.menu_quit_onekey_wallet),
+        },
+      ].filter(Boolean),
+    },
     {
       label: i18nText(ETranslations.global_edit),
       submenu: [
