@@ -331,7 +331,19 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxEvm);
+      const unsignedTx = await this._buildUnsignedTxFromEncodedTx(
+        encodedTx as IEncodedTxEvm,
+      );
+
+      if (params.prevNonce && isNumber(params.prevNonce)) {
+        return this.updateUnsignedTx({
+          unsignedTx,
+          nonceInfo: {
+            nonce: new BigNumber(params.prevNonce).plus(1).toNumber(),
+          },
+        });
+      }
+      return unsignedTx;
     }
     throw new OneKeyInternalError();
   }

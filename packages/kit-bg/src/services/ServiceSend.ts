@@ -91,17 +91,19 @@ class ServiceSend extends ServiceBase {
       accountId,
       encodedTx,
       transfersInfo,
-      approvesInfo,
+      approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       encodedTx,
       transfersInfo,
-      approvesInfo,
+      approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     });
   }
 
@@ -458,12 +460,13 @@ class ServiceSend extends ServiceBase {
       accountId,
       unsignedTx,
       encodedTx,
-      approvesInfo,
+      approveInfo,
       transfersInfo,
       wrappedInfo,
       swapInfo,
       stakingInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -478,10 +481,11 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountId,
         encodedTx,
-        approvesInfo,
+        approveInfo,
         transfersInfo,
         wrappedInfo,
         specifiedFeeRate,
+        prevNonce,
       });
     }
     if (swapInfo) {

@@ -454,11 +454,12 @@ export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
-  approvesInfo?: IApproveInfo[];
+  approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
+  prevNonce?: number;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
