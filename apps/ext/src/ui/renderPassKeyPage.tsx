@@ -11,6 +11,7 @@ import { ThemeProvider } from '@onekeyhq/kit/src/provider/ThemeProvider';
 import {
   usePasswordAtom,
   usePasswordPersistAtom,
+  usePasswordPromptPromiseTriggerAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -28,6 +29,9 @@ const type = params.get('type') as EPassKeyWindowType;
 const usePassKeyOperations = () => {
   const { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth } =
     useWebAuthActions();
+
+  const [{ passwordPromptPromiseTriggerData }] =
+    usePasswordPromptPromiseTriggerAtom();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
   const intl = useIntl();
@@ -46,31 +50,30 @@ const usePassKeyOperations = () => {
     const hasCachedPassword =
       webAuthCredentialId &&
       !!(await backgroundApiProxy.servicePassword.getCachedPassword());
-    if (hasCachedPassword) {
-      await verifiedPasswordWebAuth();
-    } else {
-      try {
-        const result = await checkWebAuth();
-        if (result) {
-          setPasswordAtom((v) => ({
-            ...v,
-            passwordVerifyStatus: {
-              value: EPasswordVerifyStatus.VERIFIED,
+
+    try {
+      const result = hasCachedPassword
+        ? await verifiedPasswordWebAuth()
+        : await checkWebAuth();
+      if (result) {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.VERIFIED,
+          },
+        }));
+        // Password Dialog
+        if (passwordPromptPromiseTriggerData?.idNumber) {
+          await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
+            passwordPromptPromiseTriggerData?.idNumber,
+            {
+              password: result as string,
             },
-          }));
-          await backgroundApiProxy.servicePassword.unLockApp();
+          );
         } else {
-          setPasswordAtom((v) => ({
-            ...v,
-            passwordVerifyStatus: {
-              value: EPasswordVerifyStatus.ERROR,
-              message: intl.formatMessage({
-                id: ETranslations.auth_error_password_incorrect,
-              }),
-            },
-          }));
+          await backgroundApiProxy.servicePassword.unLockApp();
         }
-      } catch {
+      } else {
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: {
@@ -80,10 +83,20 @@ const usePassKeyOperations = () => {
             }),
           },
         }));
-      } finally {
-        if (from === EPassKeyWindowFrom.sidebar) {
-          window.close();
-        }
+      }
+    } catch {
+      setPasswordAtom((v) => ({
+        ...v,
+        passwordVerifyStatus: {
+          value: EPasswordVerifyStatus.ERROR,
+          message: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
+        },
+      }));
+    } finally {
+      if (from === EPassKeyWindowFrom.sidebar) {
+        window.close();
       }
     }
   }, [
