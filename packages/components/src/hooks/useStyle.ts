@@ -14,6 +14,8 @@ export {
   useTheme,
   useMedia,
   useThemeName,
+  useStyle,
+  usePropsAndStyle,
 } from 'tamagui';
 
 export type IThemeColorKeys = keyof UseThemeResult;
