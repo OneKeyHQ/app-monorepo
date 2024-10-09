@@ -64,11 +64,19 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
-  const { scope, isWalletConnectRequest, options = {} } = params;
+  const {
+    scope,
+    isWalletConnectRequest,
+    isTonConnectRequest,
+    options = {},
+  } = params;
 
-  const storageType: IConnectionStorageType = isWalletConnectRequest
-    ? 'walletConnect'
-    : 'injectedProvider';
+  let storageType: IConnectionStorageType = 'injectedProvider';
+  if (isWalletConnectRequest) {
+    storageType = 'walletConnect';
+  } else if (isTonConnectRequest) {
+    storageType = 'tonConnect';
+  }
   let networkImpls: string[] | undefined = [];
   if (options.networkImpl) {
     networkImpls = [options.networkImpl];
@@ -140,6 +148,7 @@ class ServiceDApp extends ServiceBase {
             scope: request.scope,
             data: request.data as any,
             isWalletConnectRequest: !!request.isWalletConnectRequest,
+            tonConnectClientId: request.tonConnectClientId,
           };
 
           const routeParams = {
@@ -370,14 +379,19 @@ class ServiceDApp extends ServiceBase {
     accountsInfo,
     storageType,
     walletConnectTopic,
+    tonConnectClientId,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IConnectionStorageType;
     walletConnectTopic?: string;
+    tonConnectClientId?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
       throw new Error('walletConnectTopic is required');
+    }
+    if (storageType === 'tonConnect' && !tonConnectClientId) {
+      throw new Error('tonConnectClientId is required');
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
@@ -387,6 +401,7 @@ class ServiceDApp extends ServiceBase {
       imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
       storageType,
       walletConnectTopic,
+      tonConnectClientId,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
     await this.backgroundApi.serviceSignature.addConnectedSite({
@@ -504,6 +519,7 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async disconnectAllWebsites() {
     await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
+    await this.backgroundApi.tonConnect.disconnectAll();
     await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
@@ -513,12 +529,14 @@ class ServiceDApp extends ServiceBase {
     origin,
     scope,
     isWalletConnectRequest,
+    isTonConnectRequest,
     options,
   }: IGetDAppAccountInfoParams) {
     const { storageType, networkImpls } = getQueryDAppAccountParams({
       origin,
       scope,
       isWalletConnectRequest,
+      isTonConnectRequest,
       options,
     });
     const allAccountsInfo = [];
@@ -581,6 +599,7 @@ class ServiceDApp extends ServiceBase {
       origin: request.origin ?? '',
       scope: request.scope,
       isWalletConnectRequest: request.isWalletConnectRequest,
+      isTonConnectRequest: !!request.tonConnectClientId,
     });
     if (
       !accountsInfo ||
@@ -625,6 +644,13 @@ class ServiceDApp extends ServiceBase {
           storageType: 'injectedProvider',
         }))
       : [];
+    const tonConnectProviders: IConnectionItemWithStorageType[] = rawData?.data
+      ?.tonConnect
+      ? Object.values(rawData.data.tonConnect).map((i) => ({
+          ...i,
+          storageType: 'tonConnect',
+        }))
+      : [];
 
     const activeSessions = await serviceWalletConnect.getActiveSessions();
     const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
@@ -644,7 +670,11 @@ class ServiceDApp extends ServiceBase {
     }
 
     // Combine all connected lists and build availableNetworksMap
-    const allConnectedList = [...injectedProviders, ...walletConnects];
+    const allConnectedList = [
+      ...injectedProviders,
+      ...walletConnects,
+      ...tonConnectProviders,
+    ];
     for (const item of allConnectedList) {
       const networksMap: Record<string, { networkIds: string[] }> = {};
       for (const [num, accountInfo] of Object.entries(item.connectionMap)) {

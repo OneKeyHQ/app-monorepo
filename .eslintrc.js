@@ -244,6 +244,8 @@ module.exports = {
           /atto/i,
           /alephium/i,
           /Preauthorized/i,
+          /nacl/i,
+          /ttl/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,

@@ -34,6 +34,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get tonConnect() {
+    const Service =
+      require('../services/ServiceTonConnect') as typeof import('../services/ServiceTonConnect');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'tonConnect', { value });
+    return value;
+  }
+
   get servicePromise() {
     const Service =
       require('../services/ServicePromise') as typeof import('../services/ServicePromise');

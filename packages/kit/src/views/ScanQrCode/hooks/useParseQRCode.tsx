@@ -164,6 +164,9 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
+        case EQRCodeHandlerType.TON_CONNECT:
+          void backgroundApiProxy.tonConnect.connect(result.data as any);
+          break;
         case EQRCodeHandlerType.ANIMATION_CODE:
           rootNavigationRef?.current?.goBack();
           // eslint-disable-next-line no-case-declarations

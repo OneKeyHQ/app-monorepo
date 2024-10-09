@@ -27,6 +27,7 @@ export interface IConnectionItem {
     [address in string]: number[];
   };
   walletConnectTopic?: string;
+  tonConnectClientId?: string;
   updatedAt?: number;
 }
 
@@ -39,12 +40,16 @@ export type IConnectionItemWithStorageType = IConnectionItem & {
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
 };
 
-export type IConnectionStorageType = 'injectedProvider' | 'walletConnect';
+export type IConnectionStorageType =
+  | 'injectedProvider'
+  | 'walletConnect'
+  | 'tonConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
   scope?: IInjectedProviderNamesStrings;
   isWalletConnectRequest?: boolean;
+  isTonConnectRequest?: boolean;
   options?: {
     networkImpl?: string;
   };

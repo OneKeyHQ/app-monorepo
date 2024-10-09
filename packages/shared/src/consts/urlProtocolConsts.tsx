@@ -1,5 +1,6 @@
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
+  TON_CONNECT_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from './deeplinkConsts';
 
@@ -9,6 +10,9 @@ export const VALID_DEEP_LINK = [
 
   // wallet connect
   `${WALLET_CONNECT_DEEP_LINK_NAME}:` as const,
+
+  // ton connect
+  `${TON_CONNECT_DEEP_LINK_NAME}:` as const,
 ];
 
 export const PROTOCOLS_SUPPORTED_TO_OPEN = [

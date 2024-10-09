@@ -17,6 +17,7 @@ export enum EQRCodeHandlerType {
   DEEPLINK = 'DEEPLINK',
   URL_ACCOUNT = 'URL_ACCOUNT',
   MARKET_DETAIL = 'MARKET_DETAIL',
+  TON_CONNECT = 'TON_CONNECT',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -67,6 +68,12 @@ export interface ILightningNetworkValue extends IBaseValue {
 export interface IWalletConnectValue extends IBaseValue {
   version: string;
   wcUri: string;
+}
+export interface ITonConnectValue extends IBaseValue {
+  v: string;
+  id: string;
+  r: string;
+  ret: string;
 }
 export interface IUrlAccountValue extends IBaseValue {
   origin: string;
@@ -123,6 +130,7 @@ export enum EQRCodeHandlerNames {
   ethereum = 'ethereum',
   solana = 'solana',
   walletconnect = 'walletconnect',
+  tonConnect = 'tonConnect',
   migrate = 'migrate',
   animation = 'animation',
   urlAccount = 'urlAccount',

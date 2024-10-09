@@ -61,12 +61,6 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
-  useEffect(() => {
-    if (tab?.url) {
-      console.log('tab.url: ===>: ', tab.url);
-    }
-  }, [tab?.url]);
-
   const origin = tab?.url ? new URL(tab.url).origin : null;
   const { result: hasConnectedAccount, run: refreshConnectState } =
     usePromiseResult(async () => {
@@ -251,6 +245,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
+
   return (
     <Stack
       flexDirection="row"
