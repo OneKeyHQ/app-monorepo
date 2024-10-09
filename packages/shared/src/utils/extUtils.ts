@@ -146,8 +146,21 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
   });
 }
 
-async function openPassKeyWindow() {
-  const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {});
+export enum EPassKeyWindowType {
+  unlock = 'unlock',
+  create = 'create',
+}
+export enum EPassKeyWindowFrom {
+  popup = 'popup',
+  sidebar = 'sidebar',
+}
+async function openPassKeyWindow(type: EPassKeyWindowType) {
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {
+    params: {
+      type,
+      from: platformEnv.isExtensionUiPopup ? EPassKeyWindowFrom.popup : EPassKeyWindowFrom.sidebar,
+    },
+  });
   const { top, left } = await getWindowPosition();
   return chrome.windows.create({
     focused: true,
