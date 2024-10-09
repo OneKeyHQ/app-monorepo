@@ -51,6 +51,7 @@ class ServiceNetwork extends ServiceBase {
   async getAllNetworks(
     params: {
       excludeAllNetworkItem?: boolean;
+      excludeCustomNetwork?: boolean;
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
@@ -64,6 +65,12 @@ class ServiceNetwork extends ServiceBase {
       excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
     }
     let networks = getPresetNetworks();
+    const customNetworks =
+      await this.backgroundApi.serviceCustomRpc.getAllCustomNetworks();
+    networks = networks.concat(customNetworks);
+    if (params.excludeCustomNetwork) {
+      excludeNetworkIds.push(...customNetworks.map((n) => n.id));
+    }
     if (uniqByImpl) {
       networks = uniqBy(networks, (n) => n.impl);
     }
@@ -935,6 +942,19 @@ class ServiceNetwork extends ServiceBase {
       unavailableItems: unavailableNetworks,
       allNetworkItem,
     };
+  }
+
+  @backgroundMethod()
+  async isCustomNetwork({ networkId }: { networkId: string }) {
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    return !!network.isCustomNetwork;
+  }
+
+  @backgroundMethod()
+  async clearNetworkVaultSettingsCache() {
+    void this._getNetworkVaultSettings.clear();
   }
 }
 
