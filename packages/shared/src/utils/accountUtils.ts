@@ -726,7 +726,18 @@ function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
   return `evm--${chainId}`;
 }
 
+function buildAccountValueKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}_${networkId}`;
+}
+
 export default {
+  buildAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
