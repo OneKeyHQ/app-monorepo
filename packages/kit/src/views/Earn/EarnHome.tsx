@@ -140,15 +140,19 @@ function RecommendedItem({
       void getColors(url, {
         cache: true,
         key: url,
-      }).then((result) => {
-        if ('vibrant' in result) {
-          const hexColor = result.vibrant;
-          const r = parseInt(hexColor.slice(1, 3), 16);
-          const g = parseInt(hexColor.slice(3, 5), 16);
-          const b = parseInt(hexColor.slice(5, 7), 16);
-          setDecorationColor(`rgba(${r}, ${g}, ${b}, 0.075)`);
-        }
-      });
+      })
+        .then((result) => {
+          if ('vibrant' in result) {
+            const hexColor = result.vibrant;
+            const r = parseInt(hexColor.slice(1, 3), 16);
+            const g = parseInt(hexColor.slice(3, 5), 16);
+            const b = parseInt(hexColor.slice(5, 7), 16);
+            setDecorationColor(`rgba(${r}, ${g}, ${b}, 0.075)`);
+          }
+        })
+        .catch(() => {
+          setDecorationColor('$bgSubdued');
+        });
     }
   }, [token?.logoURI]);
 
@@ -178,7 +182,8 @@ function RecommendedItem({
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      bg={decorationColor || '$bgSubdued'}
+      // bg={decorationColor || '$bgSubdued'} // $bgSubdued is the default color. Will cause a blink.
+      bg={decorationColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"
