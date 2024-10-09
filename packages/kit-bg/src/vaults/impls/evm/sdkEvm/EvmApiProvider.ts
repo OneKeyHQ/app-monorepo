@@ -42,7 +42,7 @@ import type { BigNumber } from 'bignumber.js';
 
 export enum EVMMethodIds {
   // eslint-disable-next-line spellcheck/spell-checker
-  Allowance = '0xdd62ed3e', // keccak256(Buffer.from('Allnwance(address,address)')).toString('hex') => 0xdd62ed3e7e1f3d1f3f6
+  Allowance = '0xdd62ed3e', // keccak256(Buffer.from('Allowance(address,address)')).toString('hex') => 0xdd62ed3e7e1f3d1f3f6
   balanceOf = '0x70a08231', // keccak256(Buffer.from('balanceOf(address)')).toString('hex') => 0x70a082310
   resolver = '0x0178b8bf', // keccak256(Buffer.from('resolver(byte32)')).toString('hex') => 0x70a082310
   addr = '0xf1cb7e06', // keccak256(Buffer.from('addr(byte32,uint256)')).toString('hex') => 0x70a082310
