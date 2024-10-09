@@ -96,10 +96,7 @@ const useVerifyPassKey = () => {
       }
     };
 
-    if (
-      passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-      passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
-    ) {
+    if (passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED) {
       return;
     }
     setPasswordAtom((v) => ({
