@@ -9,12 +9,14 @@ import {
   useSwapAlertsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -51,6 +53,7 @@ const SwapInputContainer = ({
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
+  const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
     if (!token?.price) return '0.0';
@@ -65,9 +68,13 @@ const SwapInputContainer = ({
 
   const fromInputHasError = useMemo(
     () =>
-      alerts?.states.some((item) => item.inputShowError) &&
-      direction === ESwapDirectionType.FROM,
-    [direction, alerts],
+      (alerts?.states.some((item) => item.inputShowError) &&
+        direction === ESwapDirectionType.FROM) ||
+      (!address &&
+        (accountUtils.isHdWallet({ walletId: accountInfo?.wallet?.id }) ||
+          accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
+          accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id }))),
+    [alerts?.states, direction, address, accountInfo],
   );
 
   const valueMoreComponent = useMemo(() => {
