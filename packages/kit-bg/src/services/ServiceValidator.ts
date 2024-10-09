@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -33,6 +34,15 @@ class ServiceValidator extends ServiceBase {
       return 'invalid';
     }
     try {
+      const isCustomNetwork =
+        await this.backgroundApi.serviceNetwork.isCustomNetwork({
+          networkId,
+        });
+      if (isCustomNetwork) {
+        throw new NotImplemented(
+          'Custom network is not supported validate address online',
+        );
+      }
       const resp = await this.serverValidateAddress(params);
       const serverValid = resp.data.data.isValid;
       if (!serverValid) {

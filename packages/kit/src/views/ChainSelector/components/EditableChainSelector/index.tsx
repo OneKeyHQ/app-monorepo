@@ -17,6 +17,8 @@ type IEditableChainSelectorProps = {
   allNetworkItem?: IServerNetwork;
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
+  onAddCustomNetwork?: () => void;
+  onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
 };
 
@@ -38,6 +40,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   frequentlyUsedItems,
   networkId,
   onPressItem,
+  onAddCustomNetwork,
+  onEditCustomNetwork,
   onFrequentlyUsedItemsChange,
   allNetworkItem,
 }) => {
@@ -68,6 +72,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           mainnetItems={mainnetItems}
           testnetItems={testnetItems}
           onPressItem={onPressItem}
+          onAddCustomNetwork={onAddCustomNetwork}
+          onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
         />

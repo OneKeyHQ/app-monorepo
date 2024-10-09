@@ -25,7 +25,7 @@ const InterNetworkIcon = ({
   if (isLoading) {
     return <Skeleton w="$5" h="$5" />;
   }
-  if (network?.logoURI) {
+  if (network?.id) {
     return <NetworkAvatar networkId={network?.id} size="$5" />;
   }
 

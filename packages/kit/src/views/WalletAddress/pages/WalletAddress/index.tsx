@@ -118,7 +118,14 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
       title={item.name}
       subtitle={subtitle}
       onPress={onPress}
-      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$10" />}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={item.logoURI}
+          isCustomNetwork={item.isCustomNetwork}
+          networkName={item.name}
+          size="$10"
+        />
+      }
     >
       <Icon name="ChevronRightOutline" color="$iconSubdued" />
     </ListItem>
@@ -224,7 +231,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     <ListItem
       title={item.name}
       subtitle={subtitle}
-      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$10" />}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={item.logoURI}
+          isCustomNetwork={item.isCustomNetwork}
+          networkName={item.name}
+          size="$10"
+        />
+      }
       onPress={onPress}
       disabled={loading}
     >

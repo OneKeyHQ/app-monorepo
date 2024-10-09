@@ -1,33 +1,45 @@
 import type { IImageProps, IXStackProps } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { LetterAvatar } from '../LetterAvatar';
 
 export const NetworkAvatarBase = ({
   logoURI,
   size,
+  isCustomNetwork,
+  networkName,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
-}) => (
-  <Image size={size} src={logoURI} borderRadius="$full">
-    <Image.Source source={{ uri: logoURI }} />
-    <Image.Fallback
-      delayMs={1000}
-      alignItems="center"
-      justifyContent="center"
-      bg="$gray5"
-      padding="$1"
-    >
-      <Icon name="GlobusOutline" color="$iconSubdued" />
-    </Image.Fallback>
-  </Image>
-);
+  isCustomNetwork?: boolean;
+  networkName?: string;
+}) => {
+  if (isCustomNetwork) {
+    return <LetterAvatar letter={networkName?.[0]} size={size} />;
+  }
+  return (
+    <Image size={size} src={logoURI} borderRadius="$full">
+      <Image.Source source={{ uri: logoURI }} />
+      <Image.Fallback
+        delayMs={1000}
+        alignItems="center"
+        justifyContent="center"
+        bg="$gray5"
+        padding="$1"
+      >
+        <Icon name="GlobusOutline" color="$iconSubdued" />
+      </Image.Fallback>
+    </Image>
+  );
+};
 
 type INetworkAvatarProps = {
   networkId?: string;
   size?: IImageProps['size'];
+  isCustomNetwork?: boolean;
 };
 
 export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
@@ -36,13 +48,20 @@ export function NetworkAvatar({ networkId, size = '$6' }: INetworkAvatarProps) {
     () =>
       networkId
         ? serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve({ logoURI: '' }),
+        : Promise.resolve({
+            logoURI: '',
+            isCustomNetwork: false,
+            name: '',
+          } as IServerNetwork),
     [networkId, serviceNetwork],
     {
       checkIsFocused: false,
     },
   );
-  const { logoURI } = res.result || {};
+  const { logoURI, isCustomNetwork, name } = res.result || {};
+  if (isCustomNetwork) {
+    return <LetterAvatar letter={name?.[0]} size={size} />;
+  }
   return logoURI ? <NetworkAvatarBase size={size} logoURI={logoURI} /> : null;
 }
 

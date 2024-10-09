@@ -146,20 +146,12 @@ class ServiceCustomToken extends ServiceBase {
       allNetworkAccounts?: IAllNetworkAccountsParamsForApi[];
     };
   }) {
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const response = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        ...searchParams,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            walletId,
-          }),
-      },
-    );
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const response = await vault.fetchTokenDetails({
+      walletId,
+      networkId,
+      ...searchParams,
+    });
     return response.data.data ?? [];
   }
 

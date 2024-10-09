@@ -109,7 +109,7 @@ const LanguageListItem = () => {
       renderTrigger={({ label }) => (
         <ListItem
           userSelect="none"
-          icon="GlobusOutline"
+          icon="TranslateOutline"
           title={intl.formatMessage({ id: ETranslations.global_language })}
         >
           <XStack>

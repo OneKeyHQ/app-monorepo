@@ -11,6 +11,7 @@ export type IEditableChainSelectorContext = {
   networkId?: string;
   searchText?: string;
   onPressItem?: (item: IServerNetwork) => void;
+  onEditCustomNetwork?: (item: IServerNetwork) => void;
 
   allNetworkItem?: IServerNetwork;
 };
@@ -21,6 +22,7 @@ export type IEditableChainSelectorSection = {
   unavailable?: boolean;
   draggable?: boolean;
   editable?: boolean;
+  isCustomNetworkEditable?: boolean;
 };
 
 export const CELL_HEIGHT = 48;

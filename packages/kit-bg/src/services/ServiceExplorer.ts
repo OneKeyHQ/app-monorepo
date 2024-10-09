@@ -23,6 +23,13 @@ class ServiceExplorer extends ServiceBase {
 
   @backgroundMethod()
   async buildExplorerUrl(params: IBuildExplorerUrlParams) {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: params.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.buildCustomEvmExplorerUrl(params);
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const { networkId, ...rest } = params;
     void this.check(params);
@@ -30,6 +37,38 @@ class ServiceExplorer extends ServiceBase {
       url: `/wallet/v1/network/explorer/${networkId}`,
       params: rest,
     });
+  }
+
+  @backgroundMethod()
+  async buildCustomEvmExplorerUrl(params: IBuildExplorerUrlParams) {
+    const { networkId, type, param } = params;
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (!isCustomNetwork) {
+      throw new Error('Only custom network is supported');
+    }
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    let { explorerURL } = network;
+    if (!explorerURL) {
+      return '';
+    }
+    explorerURL = explorerURL.replace(/\/+$/, '');
+    switch (type) {
+      case 'address':
+        return `${explorerURL}/address/${param}`;
+      case 'token':
+        return `${explorerURL}/token/${param}`;
+      case 'transaction':
+        return `${explorerURL}/transaction/${param}`;
+      case 'block':
+        return `${explorerURL}/block/${param}`;
+      default:
+        return explorerURL;
+    }
   }
 }
 

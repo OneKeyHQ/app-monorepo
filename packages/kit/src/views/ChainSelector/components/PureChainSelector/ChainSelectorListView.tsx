@@ -9,6 +9,7 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { LetterAvatar } from '@onekeyhq/kit/src/components/LetterAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -53,7 +54,14 @@ const ChainSelectorListViewContent = ({
       renderItem={({ item }) => (
         <ListItem
           h={48}
-          renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
+          renderAvatar={
+            <NetworkAvatarBase
+              logoURI={item.logoURI}
+              isCustomNetwork={item.isCustomNetwork}
+              networkName={item.name}
+              size="$8"
+            />
+          }
           title={
             item.isAllNetworks
               ? intl.formatMessage({ id: ETranslations.global_all_networks })

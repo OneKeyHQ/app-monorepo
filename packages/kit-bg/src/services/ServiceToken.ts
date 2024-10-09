@@ -115,32 +115,47 @@ class ServiceToken extends ServiceBase {
 
     rest.hiddenTokens = hiddenTokens.map((t) => t.address);
 
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    // const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountTokensControllers.push(controller);
-    const resp = await client.post<{
-      data: IFetchAccountTokensResp;
-    }>(
-      `/wallet/v1/account/token/list?flag=${flag || ''}`,
-      {
+    // const resp = await client.post<{
+    //   data: IFetchAccountTokensResp;
+    // }>(
+    //   `/wallet/v1/account/token/list?flag=${flag || ''}`,
+    //   {
+    //     ...rest,
+    //     accountAddress,
+    //     xpub,
+    //     isAllNetwork: isAllNetworks,
+    //     isForceRefresh: isManualRefresh,
+    //   },
+    //   {
+    //     signal: controller.signal,
+    //     headers:
+    //       await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+    //         accountId,
+    //       }),
+    //   },
+    // );
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
+    const resp = await vault.fetchTokenList({
+      accountId,
+      requestApiParams: {
         ...rest,
         accountAddress,
         xpub,
         isAllNetwork: isAllNetworks,
         isForceRefresh: isManualRefresh,
       },
-      {
-        signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-
+      flag,
+      signal: controller.signal,
+    });
     let allTokens: ITokenData | undefined;
     if (mergeTokens) {
-      const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
+      const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
       ({ allTokens } = getMergedTokenData({
         tokens,
         riskTokens,
@@ -262,28 +277,18 @@ class ServiceToken extends ServiceBase {
       return [];
     }
 
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        accountAddress,
-        xpub,
-        contractList,
-        withCheckInscription,
-        withFrozenBalance,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
+    });
+    const resp = await vault.fetchTokenDetails({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+      contractList,
+      withCheckInscription,
+      withFrozenBalance,
     });
 
     return vault.fillTokensDetails({
@@ -294,24 +299,16 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async searchTokens(params: ISearchTokensParams) {
     const { accountId, networkId, contractList, keywords } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._searchTokensControllers.push(controller);
-    const resp = await client.post<{ data: ISearchTokenItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        contractList,
-        keywords,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-        signal: controller.signal,
-      },
-    );
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const resp = await vault.fetchTokenDetails({
+      accountId,
+      networkId,
+      contractList,
+      keywords,
+      signal: controller.signal,
+    });
 
     return resp.data.data.map((item) => ({
       ...item.info,

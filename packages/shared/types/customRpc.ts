@@ -5,13 +5,16 @@ export interface IDBCustomRpc {
   networkId: string;
   enabled: boolean;
   updatedAt?: number;
+  isCustomNetwork?: boolean;
 }
 
 export interface IMeasureRpcStatusParams {
   rpcUrl: string;
+  validateChainId?: boolean;
 }
 
 export interface IMeasureRpcStatusResult {
+  chainId?: number;
   bestBlockNumber: number;
   responseTime: number;
 }

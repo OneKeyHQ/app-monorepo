@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { LetterAvatar } from '@onekeyhq/kit/src/components/LetterAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
@@ -173,7 +174,12 @@ const DeriveTypesAddressItem = ({
       title={item.deriveInfo.label}
       subtitle={subtitle}
       renderAvatar={
-        <NetworkAvatarBase logoURI={network?.logoURI ?? ''} size="$10" />
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isCustomNetwork={network?.isCustomNetwork}
+          networkName={network?.name}
+          size="$8"
+        />
       }
       onPress={onPress}
       disabled={loading}

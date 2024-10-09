@@ -1,5 +1,7 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
+import type { IServerNetwork } from '.';
+
 export enum ESendFeeStatus {
   Loading = 'Loading',
   Idle = 'Idle',
@@ -111,6 +113,12 @@ export type IEstimateGasResp = {
   };
 };
 
+export type IServerEstimateFeeResponse = {
+  data: {
+    data: IEstimateGasResp;
+  };
+};
+
 export type IFeeSelectorItem = {
   label: string;
   icon: string;
@@ -118,3 +126,49 @@ export type IFeeSelectorItem = {
   feeInfo: IFeeInfoUnit;
   type: EFeeType;
 };
+
+export interface IServerGasPriceParams {
+  networkId: string;
+}
+
+export interface IServerGasPriceItem {
+  gasPrice: string;
+  gasLimit?: string;
+  gasLimitForDisplay?: string;
+}
+
+export interface IServerGasEIP1995Item {
+  baseFeePerGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  gasLimit?: string;
+  gasLimitForDisplay?: string;
+  gasPrice?: string;
+  confidence?: number;
+}
+
+export interface IServerGasPriceResponse {
+  isEIP1559?: boolean;
+  gas?: IServerGasPriceItem[];
+  gasEIP1559?: IServerGasEIP1995Item[];
+  feeUTXO?: IFeeUTXO[];
+}
+
+export interface IServerGasFeeParams {
+  networkId: string;
+  encodedTx: IEncodedTx;
+}
+
+export interface IServerGasFeeResponse {
+  baseFee?: string;
+}
+
+export interface IServerGasLimitParams {
+  networkId: string;
+  encodedTx: IEncodedTx;
+}
+
+export interface IServerGasLimitResponse {
+  gasLimit: string;
+  estimateGasLimit?: string;
+}
