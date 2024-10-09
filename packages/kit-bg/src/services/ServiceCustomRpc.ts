@@ -149,7 +149,7 @@ class ServiceCustomRpc extends ServiceBase {
     // Insert native token
     const nativeToken: IToken = {
       decimals: 18,
-      name: params.networkName,
+      name: params.symbol,
       symbol: params.symbol,
       address: '', // native token always be empty
       logoURI: '',
