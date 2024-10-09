@@ -122,7 +122,7 @@ function ActionBridge(props: IActionItemsProps) {
   const intl = useIntl();
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_swap })}
+      label={intl.formatMessage({ id: ETranslations.swap_page_bridge })}
       icon="SwitchHorOutline"
       {...props}
     />
