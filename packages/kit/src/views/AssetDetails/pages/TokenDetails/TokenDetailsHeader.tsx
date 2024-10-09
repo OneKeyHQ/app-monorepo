@@ -70,64 +70,43 @@ function TokenDetailsHeader(props: IProps) {
       },
     );
 
-  const handleOnSwap = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: networkId,
-        importFromToken: {
-          contractAddress: tokenInfo.address,
-          symbol: tokenInfo.symbol,
-          networkId,
-          isNative: tokenInfo.isNative,
-          decimals: tokenInfo.decimals,
-          name: tokenInfo.name,
-          logoURI: tokenInfo.logoURI,
-          networkLogoURI: network?.logoURI,
+  const createSwapActionHandler = useCallback(
+    (actionType?: ESwapTabSwitchType) => async () => {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: networkId,
+          importFromToken: {
+            contractAddress: tokenInfo.address,
+            symbol: tokenInfo.symbol,
+            networkId,
+            isNative: tokenInfo.isNative,
+            decimals: tokenInfo.decimals,
+            name: tokenInfo.name,
+            logoURI: tokenInfo.logoURI,
+            networkLogoURI: network?.logoURI,
+          },
+          ...(actionType && {
+            swapTabSwitchType: actionType,
+          }),
         },
-      },
-    });
-  }, [
-    navigation,
-    network?.logoURI,
-    networkId,
-    tokenInfo.address,
-    tokenInfo.decimals,
-    tokenInfo.isNative,
-    tokenInfo.logoURI,
-    tokenInfo.name,
-    tokenInfo.symbol,
-  ]);
+      });
+    },
+    [
+      navigation,
+      network?.logoURI,
+      networkId,
+      tokenInfo.address,
+      tokenInfo.decimals,
+      tokenInfo.isNative,
+      tokenInfo.logoURI,
+      tokenInfo.name,
+      tokenInfo.symbol,
+    ],
+  );
 
-  const handleOnBridge = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: networkId,
-        importFromToken: {
-          contractAddress: tokenInfo.address,
-          symbol: tokenInfo.symbol,
-          networkId,
-          isNative: tokenInfo.isNative,
-          decimals: tokenInfo.decimals,
-          name: tokenInfo.name,
-          logoURI: tokenInfo.logoURI,
-          networkLogoURI: network?.logoURI,
-        },
-        swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
-      },
-    });
-  }, [
-    navigation,
-    network?.logoURI,
-    networkId,
-    tokenInfo.address,
-    tokenInfo.decimals,
-    tokenInfo.isNative,
-    tokenInfo.logoURI,
-    tokenInfo.name,
-    tokenInfo.symbol,
-  ]);
+  const handleOnSwap = createSwapActionHandler();
+  const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SendModal, {
