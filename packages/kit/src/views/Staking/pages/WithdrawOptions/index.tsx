@@ -1,8 +1,9 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -71,10 +72,21 @@ const WithdrawOptions = () => {
     id: ETranslations.earn_select_an_order_to_withdraw,
   });
 
+  let ListHeaderComponent:
+    | ComponentProps<typeof OptionList>['ListHeaderComponent']
+    | undefined;
+
   if (provider.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()) {
     title = intl.formatMessage({
       id: ETranslations.earn_select_for_early_withdrawal,
     });
+    ListHeaderComponent = (
+      <SectionList.SectionHeader
+        title={intl.formatMessage({
+          id: ETranslations.earn_select_for_early_withdrawal_desc,
+        })}
+      />
+    );
   }
 
   return (
@@ -89,6 +101,7 @@ const WithdrawOptions = () => {
         >
           {result ? (
             <OptionList
+              ListHeaderComponent={ListHeaderComponent}
               items={result.items}
               token={result.token}
               network={result.network}
