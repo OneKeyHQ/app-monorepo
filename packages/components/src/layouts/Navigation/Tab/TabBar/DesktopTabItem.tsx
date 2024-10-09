@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   Animated,
@@ -19,7 +20,6 @@ import type {
   ViewStyle,
 } from 'react-native';
 import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IDesktopTabItemProps {
   icon?: IKeyOfIcons;
