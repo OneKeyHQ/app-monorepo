@@ -51,6 +51,8 @@ module.exports = {
         'from': 'build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
+    ],
+    'extraFiles': [
       {
         'from': 'resources/vccorlib140.dll',
         'to': 'vccorlib140.dll',
