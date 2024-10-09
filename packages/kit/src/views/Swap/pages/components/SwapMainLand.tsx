@@ -8,7 +8,6 @@ import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -61,7 +60,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
-  const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -154,7 +152,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pt: '$5',
           }}
         >
-          {pageType !== EPageType.modal ? <SwapHeaderContainer /> : null}
+          <SwapHeaderContainer pageType={pageType} />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
@@ -167,9 +165,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           {alerts.states.length > 0 &&
           !quoteLoading &&
           !quoteEventFetching &&
-          alerts.quoteId === (quoteResult?.quoteId ?? '') &&
-          !selectTokenDetailLoading.from &&
-          !selectTokenDetailLoading.to ? (
+          alerts.quoteId === (quoteResult?.quoteId ?? '') ? (
             <SwapAlertContainer alerts={alerts.states} />
           ) : null}
           <SwapRecentTokenPairsGroup
