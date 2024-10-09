@@ -4,7 +4,7 @@ import { globalAtom } from '../utils';
 export type IAccountValueAtom =
   | {
       accountId: string;
-      value: string;
+      value: Record<string, string> | string;
       currency: string;
     }
   | undefined;
