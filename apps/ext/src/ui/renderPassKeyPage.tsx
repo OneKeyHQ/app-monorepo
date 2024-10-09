@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { createRoot } from 'react-dom/client';
 import { useIntl } from 'react-intl';
@@ -25,60 +25,41 @@ const params = new URLSearchParams(window.location.href.split('?').pop());
 const from = params.get('from') as EPassKeyWindowFrom;
 const type = params.get('type') as EPassKeyWindowType;
 
-const useCreatePasskey = () => {
-  const { setWebAuthEnable } = useWebAuthActions();
-  useEffect(() => {
-    if (type !== EPassKeyWindowType.create) {
-      return;
-    }
-    const switchWebAuth = async (checked: boolean) => {
+const usePassKeyOperations = () => {
+  const { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth } =
+    useWebAuthActions();
+  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
+  const intl = useIntl();
+
+  const switchWebAuth = useCallback(
+    async (checked: boolean) => {
       const res = await setWebAuthEnable(checked);
       if (res) {
         await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(checked);
       }
-    };
-    void switchWebAuth(true);
-  }, [setWebAuthEnable]);
-};
+    },
+    [setWebAuthEnable],
+  );
 
-const useVerifyPassKey = () => {
-  const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
-  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
-  const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
-  const intl = useIntl();
-  useEffect(() => {
-    if (type !== EPassKeyWindowType.unlock) {
-      return;
-    }
-    const verifyPassKey = async () => {
-      const hasCachedPassword =
-        webAuthCredentialId &&
-        !!(await backgroundApiProxy.servicePassword.getCachedPassword());
-      if (hasCachedPassword) {
-        await verifiedPasswordWebAuth();
-      } else {
-        try {
-          const result = await checkWebAuth();
-          if (result) {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: {
-                value: EPasswordVerifyStatus.VERIFIED,
-              },
-            }));
-            await backgroundApiProxy.servicePassword.unLockApp();
-          } else {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: {
-                value: EPasswordVerifyStatus.ERROR,
-                message: intl.formatMessage({
-                  id: ETranslations.auth_error_password_incorrect,
-                }),
-              },
-            }));
-          }
-        } catch {
+  const verifyPassKey = useCallback(async () => {
+    const hasCachedPassword =
+      webAuthCredentialId &&
+      !!(await backgroundApiProxy.servicePassword.getCachedPassword());
+    if (hasCachedPassword) {
+      await verifiedPasswordWebAuth();
+    } else {
+      try {
+        const result = await checkWebAuth();
+        if (result) {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: {
+              value: EPasswordVerifyStatus.VERIFIED,
+            },
+          }));
+          await backgroundApiProxy.servicePassword.unLockApp();
+        } else {
           setPasswordAtom((v) => ({
             ...v,
             passwordVerifyStatus: {
@@ -88,33 +69,66 @@ const useVerifyPassKey = () => {
               }),
             },
           }));
-        } finally {
-          if (from === EPassKeyWindowFrom.sidebar) {
-            window.close();
-          }
+        }
+      } catch {
+        setPasswordAtom((v) => ({
+          ...v,
+          passwordVerifyStatus: {
+            value: EPasswordVerifyStatus.ERROR,
+            message: intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            }),
+          },
+        }));
+      } finally {
+        if (from === EPassKeyWindowFrom.sidebar) {
+          window.close();
         }
       }
-    };
-
-    if (passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED) {
-      return;
     }
-    setPasswordAtom((v) => ({
-      ...v,
-      passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
-    }));
-    void verifyPassKey();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    checkWebAuth,
+    intl,
+    setPasswordAtom,
+    verifiedPasswordWebAuth,
+    webAuthCredentialId,
+  ]);
+
+  useEffect(() => {
+    switch (type) {
+      case EPassKeyWindowType.create:
+        void switchWebAuth(true);
+        break;
+      case EPassKeyWindowType.unlock:
+        if (passwordVerifyStatus.value !== EPasswordVerifyStatus.VERIFIED) {
+          setPasswordAtom((v) => ({
+            ...v,
+            passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
+          }));
+          void verifyPassKey();
+        }
+        break;
+      default:
+        break;
+    }
+  }, [
+    setWebAuthEnable,
+    verifiedPasswordWebAuth,
+    checkWebAuth,
+    webAuthCredentialId,
+    passwordVerifyStatus,
+    setPasswordAtom,
+    intl,
+    switchWebAuth,
+    verifyPassKey,
+  ]);
 };
 
 function PassKeyContainer() {
   useEffect(() => {
     setupExtUIEventOnPassKeyPage();
   }, []);
-  useCreatePasskey();
-  useVerifyPassKey();
-
+  usePassKeyOperations();
   return null;
 }
 
