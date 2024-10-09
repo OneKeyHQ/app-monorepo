@@ -7,8 +7,9 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-import { EPassKeyWindowType } from '@onekeyhq/shared/src/utils/extUtils';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import extUtils, {
+  EPassKeyWindowType,
+} from '@onekeyhq/shared/src/utils/extUtils';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
