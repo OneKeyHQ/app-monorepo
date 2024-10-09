@@ -10,7 +10,6 @@ import {
   Alert,
   Divider,
   Empty,
-  IconButton,
   ListView,
   Page,
   SizableText,
@@ -302,43 +301,48 @@ const SwapTokenSelectPage = () => {
           <TokenListItem
             {...tokenItem}
             moreComponent={
-              <ActionList
-                title={tokenItem.tokenSymbol ?? ''}
-                disabled={rawItem.isNative}
-                renderTrigger={
-                  <IconButton variant="tertiary" icon="DotVerSolid" />
-                }
-                items={[
-                  {
-                    icon: 'Copy3Outline',
-                    label: intl.formatMessage({
-                      id: ETranslations.global_copy_token_contract,
-                    }),
-                    onPress: () => {
-                      copyText(rawItem.contractAddress);
+              <Stack alignSelf="center">
+                <ActionList
+                  title={tokenItem.tokenSymbol ?? ''}
+                  disabled={rawItem.isNative}
+                  renderTrigger={
+                    <ListItem.IconButton
+                      icon="DotVerSolid"
+                      variant="tertiary"
+                    />
+                  }
+                  items={[
+                    {
+                      icon: 'Copy3Outline',
+                      label: intl.formatMessage({
+                        id: ETranslations.global_copy_token_contract,
+                      }),
+                      onPress: () => {
+                        copyText(rawItem.contractAddress);
+                      },
+                      disabled: rawItem.isNative,
                     },
-                    disabled: rawItem.isNative,
-                  },
-                  {
-                    icon: 'OpenOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.swap_token_selector_contract_info,
-                    }),
-                    onPress: async () => {
-                      const url =
-                        await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
-                          {
-                            networkId: rawItem.networkId,
-                            type: 'token',
-                            param: rawItem.contractAddress,
-                          },
-                        );
-                      openUrlExternal(url);
+                    {
+                      icon: 'OpenOutline',
+                      label: intl.formatMessage({
+                        id: ETranslations.swap_token_selector_contract_info,
+                      }),
+                      onPress: async () => {
+                        const url =
+                          await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
+                            {
+                              networkId: rawItem.networkId,
+                              type: 'token',
+                              param: rawItem.contractAddress,
+                            },
+                          );
+                        openUrlExternal(url);
+                      },
+                      disabled: rawItem.isNative,
                     },
-                    disabled: rawItem.isNative,
-                  },
-                ]}
-              />
+                  ]}
+                />
+              </Stack>
             }
           />
         </>
