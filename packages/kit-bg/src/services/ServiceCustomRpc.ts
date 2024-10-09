@@ -177,7 +177,7 @@ class ServiceCustomRpc extends ServiceBase {
     await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(params);
     setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
-    }, 500);
+    }, 300);
   }
 
   @backgroundMethod()

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Dialog,
   Form,
   IconButton,
   Input,
@@ -182,15 +183,30 @@ function AddCustomNetwork() {
     if (!routeNetworkId) {
       return;
     }
-    await backgroundApiProxy.serviceCustomRpc.deleteCustomNetwork({
-      networkId: routeNetworkId,
-    });
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.explore_removed_success,
+    Dialog.show({
+      title: 'Remove this network?',
+      description:
+        'You will have to add it back to access your assets on this network.',
+      showCancelButton: true,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_remove,
       }),
+      confirmButtonProps: {
+        variant: 'destructive',
+      },
+      onConfirm: async ({ close }) => {
+        await backgroundApiProxy.serviceCustomRpc.deleteCustomNetwork({
+          networkId: routeNetworkId,
+        });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.explore_removed_success,
+          }),
+        });
+        navigation.pop();
+        await close();
+      },
     });
-    navigation.pop();
   }, [routeNetworkId, intl, navigation]);
 
   const headerRight = useCallback(() => {
