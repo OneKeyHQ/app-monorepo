@@ -9,23 +9,32 @@ import { LetterAvatar } from '../LetterAvatar';
 export const NetworkAvatarBase = ({
   logoURI,
   size,
+  isCustomNetwork,
+  networkName,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
-}) => (
-  <Image size={size} src={logoURI} borderRadius="$full">
-    <Image.Source source={{ uri: logoURI }} />
-    <Image.Fallback
-      delayMs={1000}
-      alignItems="center"
-      justifyContent="center"
-      bg="$gray5"
-      padding="$1"
-    >
-      <Icon name="GlobusOutline" color="$iconSubdued" />
-    </Image.Fallback>
-  </Image>
-);
+  isCustomNetwork?: boolean;
+  networkName?: string;
+}) => {
+  if (isCustomNetwork) {
+    return <LetterAvatar letter={networkName?.[0]} size={size} />;
+  }
+  return (
+    <Image size={size} src={logoURI} borderRadius="$full">
+      <Image.Source source={{ uri: logoURI }} />
+      <Image.Fallback
+        delayMs={1000}
+        alignItems="center"
+        justifyContent="center"
+        bg="$gray5"
+        padding="$1"
+      >
+        <Icon name="GlobusOutline" color="$iconSubdued" />
+      </Image.Fallback>
+    </Image>
+  );
+};
 
 type INetworkAvatarProps = {
   networkId?: string;

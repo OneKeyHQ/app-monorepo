@@ -100,11 +100,12 @@ export const EditableListItem = ({
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={
-        item.isCustomNetwork ? (
-          <LetterAvatar letter={item.name?.[0]} size="$8" />
-        ) : (
-          <NetworkAvatarBase logoURI={item.logoURI} size="$8" />
-        )
+        <NetworkAvatarBase
+          logoURI={item.logoURI}
+          isCustomNetwork={item.isCustomNetwork}
+          networkName={item.name}
+          size="$8"
+        />
       }
       onPress={onPress}
       disabled={isDisabled}
