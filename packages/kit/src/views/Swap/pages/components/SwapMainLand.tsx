@@ -152,7 +152,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pt: '$5',
           }}
         >
-          <SwapHeaderContainer pageType={pageType} />
+          <SwapHeaderContainer
+            pageType={pageType}
+            defaultSwapType={swapInitParams?.swapTabSwitchType}
+          />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}

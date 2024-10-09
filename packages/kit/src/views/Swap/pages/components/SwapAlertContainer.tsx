@@ -121,15 +121,20 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
               alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
             }
             description={message}
-            action={{
-              primary: action?.actionLabel ?? '',
-              onPrimaryPress: () => {
-                void handleAlertAction(action);
-              },
-              isPrimaryLoading:
-                accountManualCreatingAtom.key === action?.actionData?.key &&
-                accountManualCreatingAtom.isLoading,
-            }}
+            action={
+              action?.actionLabel
+                ? {
+                    primary: action?.actionLabel ?? '',
+                    onPrimaryPress: () => {
+                      void handleAlertAction(action);
+                    },
+                    isPrimaryLoading:
+                      accountManualCreatingAtom.key ===
+                        action?.actionData?.key &&
+                      accountManualCreatingAtom.isLoading,
+                  }
+                : undefined
+            }
           />
         );
       }) ?? null}

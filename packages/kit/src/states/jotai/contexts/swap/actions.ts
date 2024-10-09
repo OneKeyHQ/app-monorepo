@@ -1367,6 +1367,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (!fromToken.isNative && fromNetworkDefault.fromToken) {
             set(swapSelectToTokenAtom(), fromNetworkDefault.fromToken);
           }
+          if (toToken && toToken.networkId !== fromToken.networkId) {
+            set(swapSelectToTokenAtom(), undefined);
+          }
         } else if (fromNetworkDefault.fromToken) {
           set(swapSelectFromTokenAtom(), fromNetworkDefault.fromToken);
         }

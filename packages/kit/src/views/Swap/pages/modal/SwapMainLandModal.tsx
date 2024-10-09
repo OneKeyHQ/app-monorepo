@@ -23,7 +23,7 @@ const SwapMainLandModalPage = () => {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapMainLand>>();
-  const { importFromToken, importNetworkId, importToToken } =
+  const { importFromToken, importNetworkId, importToToken, swapTabSwitchType } =
     route.params ?? {};
   const [, setSettings] = useSettingsAtom();
   useEffect(() => {
@@ -42,7 +42,12 @@ const SwapMainLandModalPage = () => {
       />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
-        swapInitParams={{ importFromToken, importNetworkId, importToToken }}
+        swapInitParams={{
+          importFromToken,
+          importNetworkId,
+          importToToken,
+          swapTabSwitchType,
+        }}
       />
     </Page>
   );
