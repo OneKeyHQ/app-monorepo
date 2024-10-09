@@ -87,6 +87,7 @@ const ApproveBaseStakePage = () => {
       />
       <Page.Body>
         <ApproveBaseStake
+          details={details}
           price={price}
           balance={balanceParsed}
           token={token.info}
