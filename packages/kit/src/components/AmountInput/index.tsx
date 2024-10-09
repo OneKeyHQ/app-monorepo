@@ -45,6 +45,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
       value?: string;
       onPress?: () => void;
       loading?: boolean;
+      iconText?: string;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -286,7 +287,13 @@ export function AmountInput({
             pr: '$0',
           })}
         >
-          <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
+          {balanceProps.iconText ? (
+            <SizableText color="$textSubdued" size="$bodyMd" mr="$1">
+              {balanceProps.iconText}
+            </SizableText>
+          ) : (
+            <Icon name="WalletOutline" size="$5" color="$iconSubdued" mr="$1" />
+          )}
           <SizableText size="$bodyMd" color="$textSubdued">
             <NumberSizeableText
               size="$bodyMd"

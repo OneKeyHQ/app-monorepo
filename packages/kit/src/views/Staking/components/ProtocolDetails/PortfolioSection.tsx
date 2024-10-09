@@ -115,6 +115,7 @@ type IPortfolioInfoProps = {
   claimable?: string;
   rewards?: string;
 
+  tooltipForClaimable?: string;
   labelForClaimable?: string;
 
   minClaimableNum?: string;
@@ -135,6 +136,7 @@ function PortfolioInfo({
   claimable,
   rewards,
 
+  tooltipForClaimable,
   labelForClaimable,
 
   minClaimableNum,
@@ -230,6 +232,7 @@ function PortfolioInfo({
               buttonText={intl.formatMessage({
                 id: ETranslations.earn_claim,
               })}
+              tooltip={tooltipForClaimable}
             />
           ) : null}
           {rewards && Number(rewards) > 0 ? (
@@ -258,29 +261,28 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
+          {Number(babylonOverflow) > 0 ? (
+            <Alert
+              fullBleed
+              borderRadius="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderCautionSubdued"
+              type="critical"
+              title={intl.formatMessage(
+                {
+                  id: ETranslations.earn_overflow_number_alert,
+                },
+                { number: babylonOverflow },
+              )}
+              action={{
+                primary: intl.formatMessage({
+                  id: ETranslations.global_withdraw,
+                }),
+                onPrimaryPress: onWithdraw,
+              }}
+            />
+          ) : null}
         </YStack>
-        {Number(babylonOverflow) > 0 ? (
-          <Alert
-            mt="$3"
-            fullBleed
-            borderRadius="$3"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderCautionSubdued"
-            type="critical"
-            title={intl.formatMessage(
-              {
-                id: ETranslations.earn_overflow_number_alert,
-              },
-              { number: babylonOverflow },
-            )}
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.global_withdraw,
-              }),
-              onPrimaryPress: onWithdraw,
-            }}
-          />
-        ) : null}
       </YStack>
     );
   }
@@ -306,6 +308,7 @@ export const PortfolioSection = ({
 
   let pendingActiveTooltip: string | undefined;
   let labelForClaimable: string | undefined;
+  let tooltipForClaimable: string | undefined;
   if (
     details.provider.name.toLowerCase() ===
       EEarnProviderEnum.Everstake.toLowerCase() &&
@@ -321,6 +324,15 @@ export const PortfolioSection = ({
       },
       { number: details.pendingActivatePeriod },
     );
+  }
+  if (
+    details.provider.name.toLowerCase() ===
+      EEarnProviderEnum.Everstake.toLowerCase() &&
+    details.token.info.symbol.toLowerCase() === 'atom'
+  ) {
+    tooltipForClaimable = intl.formatMessage({
+      id: ETranslations.earn_claim_together_tooltip,
+    });
   }
   if (
     details.provider.name.toLowerCase() ===
@@ -344,11 +356,12 @@ export const PortfolioSection = ({
     active: details.active,
     minClaimableNum: details.provider.minClaimableAmount,
     babylonOverflow:
-      Number(details?.active) > 0 && Number(details.overflow) > 0
+      Number(details?.staked) > 0 && Number(details.overflow) > 0
         ? details.overflow
         : undefined,
     token: details.token.info,
     labelForClaimable,
+    tooltipForClaimable,
   };
 
   return (

@@ -220,6 +220,7 @@ export const UniversalWithdraw = ({
           }}
           balanceProps={{
             value: balance,
+            iconText: intl.formatMessage({ id: ETranslations.earn_staked }),
             onPress: onMax,
           }}
           valueProps={{

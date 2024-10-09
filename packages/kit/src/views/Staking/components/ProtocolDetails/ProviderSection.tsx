@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -26,6 +27,12 @@ type IProviderInfoProps = {
   network?: {
     name: string;
   };
+  babylonStakingCap?: {
+    value: string;
+  };
+  babylonConfirmedCap?: {
+    value: string;
+  };
 };
 
 function ProviderInfo({
@@ -33,6 +40,8 @@ function ProviderInfo({
   minOrMaxStaking,
   untilNextLaunch,
   network,
+  babylonConfirmedCap,
+  babylonStakingCap,
 }: IProviderInfoProps) {
   const intl = useIntl();
   let minOrMaxStakingItem: { label: string; value: string } | undefined;
@@ -106,6 +115,20 @@ function ProviderInfo({
             {network.name}
           </GridItem>
         ) : null}
+        {babylonStakingCap?.value ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_staking_cap })}
+          >
+            {babylonStakingCap.value} BTC
+          </GridItem>
+        ) : null}
+        {babylonConfirmedCap?.value ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_confirmed_cap })}
+          >
+            {babylonConfirmedCap.value} BTC
+          </GridItem>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -136,6 +159,26 @@ export const ProviderSection = ({
         value: Number(details.provider.nextLaunchLeft),
         token: details.token.info.symbol,
       };
+    }
+    if (details.provider.name === 'babylon') {
+      if (
+        details.provider.stakingCap &&
+        Number(details.provider.stakingCap) > 0
+      ) {
+        providerProps.babylonStakingCap = {
+          value: details.provider.stakingCap,
+        };
+      }
+      if (
+        details.provider.totalStaked &&
+        Number(details.provider.totalStaked) > 0
+      ) {
+        providerProps.babylonConfirmedCap = {
+          value: BigNumber(details.provider.totalStaked)
+            .decimalPlaces(4)
+            .toFixed(),
+        };
+      }
     }
   }
   if (details.network) {
