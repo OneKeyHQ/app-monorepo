@@ -1,8 +1,20 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { Alert, YStack } from '@onekeyhq/components';
-import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
-import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
+import { useIntl } from 'react-intl';
+
+import { Alert, Toast, YStack } from '@onekeyhq/components';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useSwapSelectTokenDetailFetchingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useAccountManualCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ISwapAlertActionData,
+  ISwapAlertState,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapAlertActionType,
+  ESwapAlertLevel,
+} from '@onekeyhq/shared/types/swap/types';
 
 export interface ISwapAlertContainerProps {
   alerts: ISwapAlertState[];
@@ -22,7 +34,55 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       }),
     [alerts],
   );
+  const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
+  const intl = useIntl();
+  const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
+    useAccountManualCreatingAtom();
+  const { createAddress } = useAccountSelectorCreateAddress();
 
+  const handleAlertAction = useCallback(
+    async (action?: {
+      actionType: ESwapAlertActionType;
+      actionLabel?: string;
+      actionData?: ISwapAlertActionData;
+    }) => {
+      if (
+        action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
+        action.actionData?.account
+      ) {
+        try {
+          setAccountManualCreatingAtom((prev) => ({
+            ...prev,
+            key: action?.actionData?.key,
+            isLoading: true,
+          }));
+          await createAddress({
+            num: action?.actionData?.num ?? 0,
+            account: action?.actionData?.account,
+            selectAfterCreate: false,
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.swap_page_toast_address_generated,
+            }),
+          });
+        } catch (e) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.swap_page_toast_address_generated_fail,
+            }),
+          });
+        } finally {
+          setAccountManualCreatingAtom((prev) => ({
+            ...prev,
+            key: action?.actionData?.key,
+            isLoading: false,
+          }));
+        }
+      }
+    },
+    [createAddress, intl, setAccountManualCreatingAtom],
+  );
   if (alertsSorted?.some((item) => item.alertLevel === ESwapAlertLevel.ERROR)) {
     return (
       <YStack gap="$2.5">
@@ -36,10 +96,24 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       </YStack>
     );
   }
+
   return (
     <YStack gap="$2.5">
       {alertsSorted?.map((item, index) => {
-        const { message, alertLevel } = item;
+        const { message, alertLevel, action } = item;
+        if (
+          action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
+          action?.actionData?.key === accountManualCreatingAtom.key &&
+          !accountManualCreatingAtom.isLoading
+        ) {
+          return null;
+        }
+        if (
+          (selectTokenDetailLoading.from || selectTokenDetailLoading.to) &&
+          action?.actionType === ESwapAlertActionType.TOKEN_DETAIL_FETCHING
+        ) {
+          return null;
+        }
         return (
           <Alert
             key={index}
@@ -47,6 +121,15 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
               alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
             }
             description={message}
+            action={{
+              primary: action?.actionLabel ?? '',
+              onPrimaryPress: () => {
+                void handleAlertAction(action);
+              },
+              isPrimaryLoading:
+                accountManualCreatingAtom.key === action?.actionData?.key &&
+                accountManualCreatingAtom.isLoading,
+            }}
           />
         );
       }) ?? null}
