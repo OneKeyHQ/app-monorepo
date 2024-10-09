@@ -39,6 +39,7 @@ function AddCustomNetwork() {
     state,
     networkId: routeNetworkId,
     onSuccess,
+    onDeleteSuccess,
     networkName: routeNetworkName,
     rpcUrl: routeRpcUrl,
     chainId: routeChainId,
@@ -207,10 +208,11 @@ function AddCustomNetwork() {
           }),
         });
         navigation.pop();
+        onDeleteSuccess?.();
         await close();
       },
     });
-  }, [routeNetworkId, intl, navigation]);
+  }, [routeNetworkId, intl, navigation, onDeleteSuccess]);
 
   const headerRight = useCallback(() => {
     if (state !== 'edit') {

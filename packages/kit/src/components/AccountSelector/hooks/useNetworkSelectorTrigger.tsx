@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -19,11 +19,6 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
     num,
   });
 
-  const networkIdsRef = useRef(networkIds ?? []);
-  useEffect(() => {
-    networkIdsRef.current = networkIds ?? [];
-  }, [networkIds]);
-
   const navigation = useAppNavigation();
 
   const showChainSelector = useCallback(() => {
@@ -37,12 +32,6 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
       editable:
         sceneName === EAccountSelectorSceneName.home ||
         sceneName === EAccountSelectorSceneName.homeUrlAccount,
-      onRefreshNetworkIds: () => {
-        if (Array.isArray(networkIdsRef.current)) {
-          return networkIdsRef.current;
-        }
-        return [];
-      },
     });
   }, [
     actions,

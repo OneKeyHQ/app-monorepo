@@ -12,7 +12,6 @@ export enum EChainSelectorPages {
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
     editable?: boolean;
-    onRefreshNetworkIds?: () => string[];
   };
 
 export type IChainSelectorParams = {
@@ -36,5 +35,6 @@ export type IChainSelectorParamList = {
     symbol?: string;
     blockExplorerUrl?: string;
     onSuccess?: (network: IServerNetwork) => void;
+    onDeleteSuccess?: () => void;
   };
 };
