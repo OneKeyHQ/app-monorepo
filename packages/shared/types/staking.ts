@@ -1,4 +1,4 @@
-import type { IToken, ITokenData } from './token';
+import type { IToken } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -182,6 +182,8 @@ export type IStakeProtocolDetails = {
   rewards?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
+  totalStaked?: string;
+  stakingCap?: string;
   token: {
     balance: string;
     balanceParsed: string;

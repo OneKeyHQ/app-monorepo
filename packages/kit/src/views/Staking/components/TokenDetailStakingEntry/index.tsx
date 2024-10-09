@@ -53,6 +53,8 @@ const StakingEntryListItemContent = ({
         </Stack>
         <ListItem.Text
           flex={1}
+          userSelect="none"
+          cursor="pointer"
           primary={primary}
           secondary={
             aprValue && Number(aprValue) > 0
@@ -65,6 +67,7 @@ const StakingEntryListItemContent = ({
           secondaryTextProps={{
             size: '$bodyMdMedium',
             color: '$textSuccess',
+            userSelect: 'none',
           }}
         />
       </ListItem>
