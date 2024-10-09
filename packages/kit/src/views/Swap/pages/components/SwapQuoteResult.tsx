@@ -43,7 +43,6 @@ import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 import { token } from '@alephium/web3/dist/src/codec';
 
 interface ISwapQuoteResultProps {
-  receivedAddress?: string;
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
 }
