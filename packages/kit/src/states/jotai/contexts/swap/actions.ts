@@ -738,7 +738,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         : Math.random().toString();
     return {
       icon: 'WalletCryptoOutline',
-      title: `No ${netInfo?.name ?? ''} address`,
+      title: appLocale.intl.formatMessage(
+        {
+          id: ETranslations.swap_page_no_address,
+        },
+        { network: netInfo?.name ?? '' },
+      ),
       message: appLocale.intl.formatMessage({
         id: ETranslations.swap_page_create_to_enable_network,
       }),
@@ -857,7 +862,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           }))
       ) {
-        const alertAction:ISwapAlertState = this.checkAddressNeedCreate(
+        const alertAction: ISwapAlertState = this.checkAddressNeedCreate(
           swapSupportAllNetworks,
           fromToken,
           swapFromAddressInfo,
@@ -1065,8 +1070,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
           const actionLabel = appLocale.intl.formatMessage({
             id: buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_buy
-              : ETranslations.swap_page_alert_tax_detected_sell,
+              ? ETranslations.swap_page_alert_tax_detected_sell
+              : ETranslations.swap_page_alert_tax_detected_buy,
           });
 
           const showTax = BigNumber.maximum(
@@ -1097,8 +1102,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
           const actionLabel = appLocale.intl.formatMessage({
             id: sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
-              ? ETranslations.swap_page_alert_tax_detected_buy
-              : ETranslations.swap_page_alert_tax_detected_sell,
+              ? ETranslations.swap_page_alert_tax_detected_sell
+              : ETranslations.swap_page_alert_tax_detected_buy,
           });
           const showTax = BigNumber.maximum(
             sellTokenBuyTaxBN,

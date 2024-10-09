@@ -1274,6 +1274,7 @@
   menu_zoom = 'menu.zoom',
   menu_zoom_in = 'menu.zoom_in',
   menu_zoom_out = 'menu.zoom_out',
+  menu__copy_image = 'menu__copy_image',
   msg__str_is_required_for_network_fees_top_up_str_to_make_tx = 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
   msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail = 'msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail',
   native_token_tooltip = 'native_token_tooltip',
