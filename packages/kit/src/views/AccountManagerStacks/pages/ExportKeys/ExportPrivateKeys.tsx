@@ -13,7 +13,7 @@ import {
   Page,
   SizableText,
   Stack,
-  TextArea,
+  TextAreaInput,
   useClipboard,
   useForm,
   useMedia,
@@ -324,7 +324,7 @@ function ExportPrivateKeysPage({
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
-            <TextArea
+            <TextAreaInput
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
