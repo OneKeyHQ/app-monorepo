@@ -1,16 +1,49 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, Dialog, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Dialog,
+  EPageType,
+  SegmentControl,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
+import {
+  useSwapActions,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
-const SwapHeaderContainer = () => {
-  const intl = useIntl();
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
+interface ISwapHeaderContainerProps {
+  pageType?: EPageType;
+  defaultSwapType?: ESwapTabSwitchType;
+}
 
+const SwapHeaderContainer = ({
+  pageType,
+  defaultSwapType,
+}: ISwapHeaderContainerProps) => {
+  const intl = useIntl();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { swapTypeSwitchAction } = useSwapActions().current;
+  const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
+  useEffect(() => {
+    if (defaultSwapType) {
+      void swapTypeSwitchAction(defaultSwapType, networkId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onSwapLimit = useCallback(() => {
     Dialog.confirm({
       icon: 'InfoCircleOutline',
@@ -26,23 +59,78 @@ const SwapHeaderContainer = () => {
       }),
     });
   }, [intl]);
-  return (
-    <XStack justifyContent="space-between">
-      <XStack gap="$5">
-        <SizableText size="$headingLg" userSelect="none">
-          {intl.formatMessage({ id: ETranslations.swap_page_swap })}
-        </SizableText>
 
-        <XStack opacity={0.5} gap="$1" onPress={onSwapLimit}>
-          <SizableText size="$headingLg" userSelect="none">
-            {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+  if (pageType !== EPageType.modal) {
+    return (
+      <XStack justifyContent="space-between">
+        <XStack gap="$5">
+          <SizableText
+            size="$headingLg"
+            userSelect="none"
+            cursor="pointer"
+            opacity={swapTypeSwitch !== ESwapTabSwitchType.SWAP ? 0.5 : 1}
+            onPress={() => {
+              if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
+                void swapTypeSwitchAction(ESwapTabSwitchType.SWAP, networkId);
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.swap_page_swap })}
           </SizableText>
-          <Badge badgeSize="sm" badgeType="default">
-            {intl.formatMessage({ id: ETranslations.coming_soon })}
-          </Badge>
+
+          <SizableText
+            size="$headingLg"
+            userSelect="none"
+            cursor="pointer"
+            opacity={swapTypeSwitch !== ESwapTabSwitchType.BRIDGE ? 0.5 : 1}
+            onPress={() => {
+              if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
+                void swapTypeSwitchAction(ESwapTabSwitchType.BRIDGE, networkId);
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.swap_page_swap })}
+          </SizableText>
+
+          <XStack
+            opacity={swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? 0.5 : 1}
+            gap="$1"
+            onPress={onSwapLimit}
+            cursor="pointer"
+          >
+            <SizableText size="$headingLg" userSelect="none">
+              {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+            </SizableText>
+            <Badge badgeSize="sm" badgeType="default">
+              {intl.formatMessage({ id: ETranslations.coming_soon })}
+            </Badge>
+          </XStack>
         </XStack>
+        {headerRight()}
       </XStack>
-      {headerRight()}
+    );
+  }
+  return (
+    <XStack justifyContent="center" alignItems="center">
+      <XStack minWidth={320}>
+        <SegmentControl
+          fullWidth
+          value={swapTypeSwitch}
+          options={[
+            {
+              label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+              value: ESwapTabSwitchType.SWAP,
+            },
+            {
+              label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+              value: ESwapTabSwitchType.BRIDGE,
+            },
+          ]}
+          onChange={(value) => {
+            void swapTypeSwitchAction(value as ESwapTabSwitchType, networkId);
+          }}
+        />
+      </XStack>
     </XStack>
   );
 };
