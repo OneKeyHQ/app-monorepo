@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
-import { Titlebar } from 'custom-electron-titlebar';
+import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer } from 'electron';
 
 import type {
@@ -174,6 +174,18 @@ const getChannel = () => {
   return channel;
 };
 
+let globalTitleBar: Titlebar | null = null;
+
+const updateGlobalTitleBarBackgroundColor = () => {
+  if (globalTitleBar) {
+    setTimeout(() => {
+      globalTitleBar.updateBackground(
+        TitlebarColor.fromHex(document.documentElement.style.backgroundColor),
+      );
+    }, 0);
+  }
+};
+
 const desktopApi = Object.freeze({
   getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
   on: (channel: string, func: (...args: any[]) => any) => {
@@ -214,8 +226,10 @@ const desktopApi = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   changeDevTools: (isOpen: boolean) =>
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
-  changeTheme: (theme: string) =>
-    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  changeTheme: (theme: string) => {
+    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
+    updateGlobalTitleBarBackgroundColor();
+  },
   changeLanguage: (lang: string) => {
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
   },
@@ -362,6 +376,7 @@ window.desktopApi = desktopApi;
 
 window.addEventListener('DOMContentLoaded', () => {
   // eslint-disable-next-line no-new
-  const title = new Titlebar({});
-  title.updateTitle('');
+  globalTitleBar = new Titlebar({});
+  globalTitleBar.updateTitle('');
+  updateGlobalTitleBarBackgroundColor();
 });
