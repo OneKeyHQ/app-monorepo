@@ -5,14 +5,9 @@ import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useScrollToLocation } from '../../layouts/ScrollView';
 import { type IInputProps, Input } from '../Input';
 
-import type {
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputFocusEventData,
-} from 'react-native';
+import type { TextInput } from 'react-native';
 import type { TextAreaProps } from 'tamagui';
 
 export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
@@ -21,21 +16,11 @@ export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
 const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
-  { size, onFocus, verticalAlign, ...props }: ITextAreaInputProps,
+  { size, verticalAlign, ...props }: ITextAreaInputProps,
   forwardedRef: Ref<TextInput>,
 ) {
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
-
-  const { scrollToView } = useScrollToLocation(ref);
-  const handleFocus = useCallback(
-    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
-      onFocus?.(e);
-      scrollToView();
-    },
-    [onFocus, scrollToView],
-  );
-
   return (
     <Input
       containerProps={{
@@ -47,7 +32,6 @@ function BaseTextArea(
       }}
       InputComponent={TMTextArea}
       ref={ref}
-      onFocus={handleFocus}
       fontSize={getFontSize('$bodyLg')}
       py={size === 'large' ? '$3.5' : '$2.5'}
       numberOfLines={3}
