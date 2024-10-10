@@ -85,7 +85,12 @@ const SwapQuoteResult = ({
       const finalShowTax = showTax.dividedBy(100).toNumber();
       return (
         <SwapCommonInfoItem
-          title={`${tokenInfo?.symbol ?? ''} buy/sell tax`}
+          title={intl.formatMessage(
+            {
+              id: ETranslations.swap_page_buy_sell_tax,
+            },
+            { token: `${tokenInfo?.symbol ?? ''}` },
+          )}
           isLoading={swapQuoteLoading}
           valueComponent={
             <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
@@ -93,7 +98,7 @@ const SwapQuoteResult = ({
         />
       );
     },
-    [swapQuoteLoading],
+    [intl, swapQuoteLoading],
   );
 
   const tokenMetadataParse = useCallback(
@@ -199,6 +204,7 @@ const SwapQuoteResult = ({
                 rate={quoteResult?.instantRate}
                 fromToken={fromToken}
                 toToken={toToken}
+                isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
                 providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
@@ -232,6 +238,7 @@ const SwapQuoteResult = ({
                   providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
                   providerName={quoteResult?.info.providerName ?? ''}
                   isLoading={swapQuoteLoading}
+                  isBest={quoteResult.isBest}
                   fromToken={fromToken}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}

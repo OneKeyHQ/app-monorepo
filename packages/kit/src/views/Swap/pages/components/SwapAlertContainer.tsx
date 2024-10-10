@@ -100,7 +100,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   return (
     <YStack gap="$2.5">
       {alertsSorted?.map((item, index) => {
-        const { message, alertLevel, action } = item;
+        const { message, alertLevel, action, title, icon } = item;
         if (
           action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
           action?.actionData?.key === accountManualCreatingAtom.key &&
@@ -120,6 +120,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
             type={
               alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
             }
+            title={title}
             description={message}
             action={
               action?.actionLabel

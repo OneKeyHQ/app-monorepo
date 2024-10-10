@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Icon,
   Image,
   SizableText,
@@ -13,6 +14,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
+  isBest?: boolean;
   toToken?: ISwapToken;
   providerIcon: string;
   providerName: string;
@@ -22,6 +24,7 @@ interface ISwapProviderInfoItemProps {
 }
 const SwapProviderInfoItem = ({
   fromToken,
+  isBest,
   toToken,
   providerIcon,
   providerName,
@@ -52,6 +55,13 @@ const SwapProviderInfoItem = ({
         >
           {!providerIcon || !fromToken || !toToken ? null : (
             <>
+              {isBest ? (
+                <Badge badgeSize="sm" badgeType="success" marginRight="$2">
+                  {intl.formatMessage({
+                    id: ETranslations.global_best,
+                  })}
+                </Badge>
+              ) : null}
               <Image
                 source={{ uri: providerIcon }}
                 w="$5"
