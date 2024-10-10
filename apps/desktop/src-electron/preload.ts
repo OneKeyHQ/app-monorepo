@@ -402,8 +402,9 @@ if (!isMac) {
     globalTitleBar = new Titlebar({
       icon: nativeImage.createFromPath(
         path.join(
-          __dirname,
-          '../../mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          (global as any).resourcesPath,
+          'images/icons/round_icon.png',
         ),
       ),
     });
