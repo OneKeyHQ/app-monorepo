@@ -42,6 +42,7 @@ export type IDesktopAPI = {
   platform: string;
   systemVersion: string;
   isMas: boolean;
+  isDev: boolean;
   channel?: string;
   reload: () => void;
   ready: () => void;
@@ -222,6 +223,7 @@ const desktopApi = Object.freeze({
   platform: process.platform,
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
+  isDev,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   reload: () => ipcRenderer.send(ipcMessageKeys.APP_RELOAD),
