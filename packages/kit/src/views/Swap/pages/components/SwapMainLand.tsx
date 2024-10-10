@@ -149,7 +149,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           flex={1}
           $gtMd={{
             flex: 'unset',
-            pt: '$5',
+            pt: pageType === EPageType.modal ? '$2.5' : '$5',
           }}
         >
           <SwapHeaderContainer

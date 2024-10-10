@@ -1183,7 +1183,7 @@ export default class Vault extends VaultBase {
     return resp;
   }
 
-  override async estimateFee(
+  override async estimateFeeByRpc(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
     const provider = await this.getRpcClient();
