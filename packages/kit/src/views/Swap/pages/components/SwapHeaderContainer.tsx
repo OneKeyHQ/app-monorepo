@@ -2,14 +2,8 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Dialog,
-  EPageType,
-  SegmentControl,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import type { EPageType, IStackProps } from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapTypeSwitchAtom,
@@ -23,6 +17,56 @@ import {
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
+
+type ICustomTabItemProps = IStackProps & {
+  isSelected?: boolean;
+  onPress?: IStackProps['onPress'];
+};
+
+function CustomTabItem({
+  children,
+  isSelected,
+  onPress,
+  ...rest
+}: ICustomTabItemProps) {
+  return (
+    <Stack
+      py="$1"
+      px="$2.5"
+      borderRadius="$2"
+      borderCurve="continuous"
+      userSelect="none"
+      hitSlop={{
+        top: 4,
+        bottom: 4,
+      }}
+      {...(isSelected
+        ? {
+            bg: '$bgActive',
+          }
+        : {
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+          })}
+      onPress={onPress}
+      {...rest}
+    >
+      <SizableText
+        size="$headingMd"
+        color="$textSubdued"
+        {...(isSelected && {
+          color: '$text',
+        })}
+      >
+        {children}
+      </SizableText>
+    </Stack>
+  );
+}
 
 interface ISwapHeaderContainerProps {
   pageType?: EPageType;
@@ -60,63 +104,32 @@ const SwapHeaderContainer = ({
     });
   }, [intl]);
 
-  if (pageType !== EPageType.modal) {
-    return (
-      <XStack justifyContent="space-between">
-        <XStack gap="$5">
-          <SizableText
-            size="$headingLg"
-            userSelect="none"
-            cursor="pointer"
-            opacity={swapTypeSwitch !== ESwapTabSwitchType.SWAP ? 0.5 : 1}
-            onPress={() => {
-              if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
-                void swapTypeSwitchAction(ESwapTabSwitchType.SWAP, networkId);
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.swap_page_swap })}
-          </SizableText>
-
-          <SizableText
-            size="$headingLg"
-            userSelect="none"
-            cursor="pointer"
-            opacity={swapTypeSwitch !== ESwapTabSwitchType.BRIDGE ? 0.5 : 1}
-            onPress={() => {
-              if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-                void swapTypeSwitchAction(ESwapTabSwitchType.BRIDGE, networkId);
-              }
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
-          </SizableText>
-        </XStack>
-        {headerRight()}
-      </XStack>
-    );
-  }
   return (
-    <XStack justifyContent="center" alignItems="center">
-      <XStack minWidth={320}>
-        <SegmentControl
-          fullWidth
-          value={swapTypeSwitch}
-          options={[
-            {
-              label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
-              value: ESwapTabSwitchType.SWAP,
-            },
-            {
-              label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
-              value: ESwapTabSwitchType.BRIDGE,
-            },
-          ]}
-          onChange={(value) => {
-            void swapTypeSwitchAction(value as ESwapTabSwitchType, networkId);
+    <XStack justifyContent="space-between">
+      <XStack gap="$3">
+        <CustomTabItem
+          isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
+          onPress={() => {
+            if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
+              void swapTypeSwitchAction(ESwapTabSwitchType.SWAP, networkId);
+            }
           }}
-        />
+        >
+          {intl.formatMessage({ id: ETranslations.swap_page_swap })}
+        </CustomTabItem>
+
+        <CustomTabItem
+          isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
+          onPress={() => {
+            if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
+              void swapTypeSwitchAction(ESwapTabSwitchType.BRIDGE, networkId);
+            }
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
+        </CustomTabItem>
       </XStack>
+      {headerRight()}
     </XStack>
   );
 };
