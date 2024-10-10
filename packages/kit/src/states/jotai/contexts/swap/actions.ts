@@ -735,18 +735,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ? [networkId, deriveType, walletId, indexedAccountId].join('-')
         : Math.random().toString();
     return {
-      message: `No ${netInfo?.name ?? ''} address`,
+      icon: 'WalletCryptoOutline',
+      title: appLocale.intl.formatMessage(
+        {
+          id: ETranslations.swap_page_no_address,
+        },
+        { network: netInfo?.name ?? '' },
+      ),
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_create_to_enable_network,
+      }),
       alertLevel: ESwapAlertLevel.INFO,
       action: {
         actionType: ESwapAlertActionType.CREATE_ADDRESS,
-        actionLabel: 'Create',
+        actionLabel: appLocale.intl.formatMessage({
+          id: ETranslations.global_create,
+        }),
         actionData: {
           num: 0,
           key,
           account,
         } as ISwapAlertActionData,
       },
-    };
+    } as ISwapAlertState;
   };
 
   checkSwapWarning = contextAtomMethod(
@@ -849,7 +860,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
           }))
       ) {
-        const alertAction = this.checkAddressNeedCreate(
+        const alertAction: ISwapAlertState = this.checkAddressNeedCreate(
           swapSupportAllNetworks,
           fromToken,
           swapFromAddressInfo,
@@ -870,12 +881,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapToAddressInfo.accountInfo?.wallet?.id,
           }))
       ) {
-        const alertAction = this.checkAddressNeedCreate(
-          swapSupportAllNetworks,
-          toToken,
-          swapToAddressInfo,
-        );
-        alertsRes = [...alertsRes, alertAction];
+        if (!(fromToken && fromToken.networkId === toToken.networkId)) {
+          const alertAction = this.checkAddressNeedCreate(
+            swapSupportAllNetworks,
+            toToken,
+            swapToAddressInfo,
+          );
+          alertsRes = [...alertsRes, alertAction];
+        }
       }
 
       if (quoteResult?.toAmount && !quoteResult.isBest) {
@@ -924,11 +937,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertsRes = [
               ...alertsRes,
               {
-                message: appLocale.intl.formatMessage(
-                  { id: ETranslations.swap_page_alert_value_drop },
+                title: appLocale.intl.formatMessage(
+                  { id: ETranslations.swap_page_alert_value_drop_title },
                   { number: '100%' },
                 ),
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.swap_page_alert_value_drop,
+                }),
                 alertLevel: ESwapAlertLevel.WARNING,
+                icon: 'ActivityOutline',
                 action: {
                   actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
                 },
@@ -938,9 +955,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertsRes = [
               ...alertsRes,
               {
-                message: appLocale.intl.formatMessage(
+                title: appLocale.intl.formatMessage(
                   {
-                    id: ETranslations.swap_page_alert_value_drop,
+                    id: ETranslations.swap_page_alert_value_drop_title,
                   },
                   {
                     number: numberFormat(difference.absoluteValue().toFixed(), {
@@ -948,7 +965,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     }) as string,
                   },
                 ),
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.swap_page_alert_value_drop,
+                }),
                 alertLevel: ESwapAlertLevel.WARNING,
+                icon: 'ActivityOutline',
                 action: {
                   actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
                 },
@@ -975,7 +996,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   symbol: fromToken?.symbol ?? 'unknown',
                 },
               ),
-
               alertLevel: ESwapAlertLevel.ERROR,
               inputShowError: true,
             },
@@ -1007,6 +1027,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
       const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
 
+      // check network fee
       const gasFeeBN = new BigNumber(
         quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
       );
@@ -1017,6 +1038,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
+            icon: 'GasOutline',
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
+            }),
             message: appLocale.intl.formatMessage({
               id: ETranslations.swap_page_alert_fee_exceeds_amount,
             }),
@@ -1043,9 +1068,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           sellToken?.sellTaxBps ? sellToken?.sellTaxBps : 0,
         );
         if (buyTokenBuyTaxBN.gt(0) || buyTokenSellTaxBN.gt(0)) {
-          const actionLabel = buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
-            ? 'sell'
-            : 'buy';
+          const actionLabel = appLocale.intl.formatMessage({
+            id: buyTokenSellTaxBN.gt(buyTokenBuyTaxBN)
+              ? ETranslations.swap_page_alert_tax_detected_sell
+              : ETranslations.swap_page_alert_tax_detected_buy,
+          });
+
           const showTax = BigNumber.maximum(
             buyTokenSellTaxBN,
             buyTokenBuyTaxBN,
@@ -1053,17 +1081,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `${showTax.dividedBy(100).toNumber()}% ${
-                toToken?.symbol ?? ''
-              } ${actionLabel} tax`,
-              alertLevel: ESwapAlertLevel.WARNING,
+              icon: 'HandCoinsOutline',
+              title: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.swap_page_alert_tax_detected_title,
+                },
+                {
+                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
+                  token: `${toToken?.symbol ?? ''}`,
+                  action: `${actionLabel}`,
+                },
+              ),
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_tax_detected,
+              }),
+              alertLevel: ESwapAlertLevel.INFO,
             },
           ];
         }
         if (sellTokenBuyTaxBN.gt(0) || sellTokenSellTaxBN.gt(0)) {
-          const actionLabel = sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
-            ? 'sell'
-            : 'buy';
+          const actionLabel = appLocale.intl.formatMessage({
+            id: sellTokenSellTaxBN.gt(sellTokenBuyTaxBN)
+              ? ETranslations.swap_page_alert_tax_detected_sell
+              : ETranslations.swap_page_alert_tax_detected_buy,
+          });
           const showTax = BigNumber.maximum(
             sellTokenBuyTaxBN,
             sellTokenSellTaxBN,
@@ -1071,10 +1112,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `${showTax.dividedBy(100).toNumber()}% ${
-                fromToken?.symbol ?? ''
-              } ${actionLabel} tax`,
-              alertLevel: ESwapAlertLevel.WARNING,
+              icon: 'HandCoinsOutline',
+              title: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.swap_page_alert_tax_detected_title,
+                },
+                {
+                  percentage: `${showTax.dividedBy(100).toNumber()}%`,
+                  token: `${fromToken?.symbol ?? ''}`,
+                  action: `${actionLabel}`,
+                },
+              ),
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.swap_page_alert_tax_detected,
+              }),
+              alertLevel: ESwapAlertLevel.INFO,
             },
           ];
         }
