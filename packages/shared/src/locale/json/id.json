@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "Jaringan yang dipilih saat ini hanya mendukung {deviceType}",
   "send.address_exists": "Alamat sudah ada",
   "send.address_invalid": "Alamat tidak valid. Silakan periksa dan masukkan kembali",
-  "send.amount": "Jumlah",
+  "send.amount": "Perkiraan hasil",
   "send.amount_invalid": "Saldo tidak cukup. Silakan coba jumlah yang lebih kecil",
   "send.amount_too_small": "Jumlah transfer terlalu kecil.",
   "send.authentication_failed_verify_again": "Autentikasi gagal, silakan periksa koneksi jaringan Anda dan coba lagi.",

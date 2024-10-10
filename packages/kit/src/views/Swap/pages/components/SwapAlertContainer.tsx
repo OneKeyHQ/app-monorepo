@@ -136,6 +136,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
                   }
                 : undefined
             }
+            icon={icon}
           />
         );
       }) ?? null}
