@@ -89,22 +89,8 @@ const SwapHeaderContainer = ({
               }
             }}
           >
-            {intl.formatMessage({ id: ETranslations.swap_page_swap })}
+            {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
           </SizableText>
-
-          <XStack
-            opacity={swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? 0.5 : 1}
-            gap="$1"
-            onPress={onSwapLimit}
-            cursor="pointer"
-          >
-            <SizableText size="$headingLg" userSelect="none">
-              {intl.formatMessage({ id: ETranslations.swap_page_limit })}
-            </SizableText>
-            <Badge badgeSize="sm" badgeType="default">
-              {intl.formatMessage({ id: ETranslations.coming_soon })}
-            </Badge>
-          </XStack>
         </XStack>
         {headerRight()}
       </XStack>
@@ -122,7 +108,7 @@ const SwapHeaderContainer = ({
               value: ESwapTabSwitchType.SWAP,
             },
             {
-              label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+              label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
               value: ESwapTabSwitchType.BRIDGE,
             },
           ]}

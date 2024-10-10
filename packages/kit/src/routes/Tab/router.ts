@@ -89,7 +89,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
-          translationId: ETranslations.global_swap,
+          translationId: ETranslations.global_trade,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: '/swap',
           exact: true,
