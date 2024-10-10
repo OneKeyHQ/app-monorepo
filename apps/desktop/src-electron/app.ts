@@ -152,7 +152,10 @@ const initMenu = () => {
           accelerator: 'Alt+CmdOrCtrl+H',
           label: i18nText(ETranslations.menu_hide_onekey_wallet),
         },
-        { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+        isMac && {
+          role: 'unhide',
+          label: i18nText(ETranslations.menu_show_all),
+        },
         { type: 'separator' },
         {
           role: 'quit',
@@ -205,7 +208,7 @@ const initMenu = () => {
       label: i18nText(ETranslations.menu_window),
       submenu: [
         { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
-        { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        isMac && { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
         ...(isMac
           ? [
               { type: 'separator' },
@@ -222,7 +225,7 @@ const initMenu = () => {
               },
             ]
           : []),
-      ],
+      ].filter(Boolean),
     },
     {
       role: 'help',
