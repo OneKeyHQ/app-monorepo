@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
+import path from 'path';
+
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, nativeImage } from 'electron';
 
 import type {
   IDesktopAppState,
@@ -394,7 +396,11 @@ window.desktopApi = desktopApi;
 
 window.addEventListener('DOMContentLoaded', () => {
   // eslint-disable-next-line no-new
-  globalTitleBar = new Titlebar({});
+  globalTitleBar = new Titlebar({
+    icon: nativeImage.createFromPath(
+      path.join(__dirname, '../public/static/images/icons/512x512.png'),
+    ),
+  });
   globalTitleBar.updateTitle('');
   updateGlobalTitleBarBackgroundColor();
 });
