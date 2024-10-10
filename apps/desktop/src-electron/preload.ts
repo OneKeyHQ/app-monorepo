@@ -179,8 +179,10 @@ let globalTitleBar: Titlebar | null = null;
 const updateGlobalTitleBarBackgroundColor = () => {
   if (globalTitleBar) {
     setTimeout(() => {
-      globalTitleBar.updateBackground(
-        TitlebarColor.fromHex(document.documentElement.style.backgroundColor),
+      globalTitleBar?.updateBackground(
+        TitlebarColor.fromHex(
+          document.body.classList.contains('t_light') ? '#ffffff' : '#0f0f0f',
+        ),
       );
     }, 0);
   }
