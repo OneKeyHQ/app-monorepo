@@ -25,6 +25,24 @@ const TextAreaGallery = () => (
               minHeight={platformEnv.isNativeIOS ? '$20' : undefined}
             />
             <TextArea error />
+            <TextArea
+              addOns={[
+                {
+                  testID: 'account-key-show-btn',
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    alert('eyes');
+                  },
+                },
+                {
+                  iconName: 'Copy3Outline',
+                  testID: 'account-key-copy-btn',
+                  onPress: () => {
+                    alert('copy');
+                  },
+                },
+              ]}
+            />
           </Stack>
         ),
       },
