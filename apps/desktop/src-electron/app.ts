@@ -398,7 +398,9 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
-  attachTitlebarToWindow(browserWindow);
+  if (!isMac) {
+    attachTitlebarToWindow(browserWindow);
+  }
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
