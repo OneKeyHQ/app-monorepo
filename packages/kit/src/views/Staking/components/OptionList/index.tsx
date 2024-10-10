@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import {
   Suspense,
   createContext,
@@ -25,7 +26,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import type { IClaimableListItem } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -190,6 +190,7 @@ type IOptionListProps = {
     logoURI: string;
   };
   extraFields?: IExtraField[];
+  ListHeaderComponent?: ComponentProps<typeof ListView>['ListHeaderComponent'];
 };
 
 export const OptionList = ({
@@ -199,6 +200,7 @@ export const OptionList = ({
   onPress,
   onConfirmText,
   extraFields,
+  ListHeaderComponent,
 }: IOptionListProps) => {
   const appNavigation = useAppNavigation();
   const [activeId, setActiveId] = useState(items[0]?.id);
@@ -245,6 +247,7 @@ export const OptionList = ({
           estimatedItemSize="$5"
           data={items}
           renderItem={renderItem}
+          ListHeaderComponent={ListHeaderComponent}
           ListEmptyComponent={ListEmptyComponent}
         />
         <Page.Footer

@@ -34,6 +34,7 @@ function TokenDetailsHeader(props: IProps) {
     deriveType,
     tokenInfo,
     isAllNetworks,
+    indexedAccountId,
   } = props;
   const navigation = useAppNavigation();
 
@@ -217,6 +218,7 @@ function TokenDetailsHeader(props: IProps) {
       <TokenDetailStakingEntry
         networkId={networkId}
         accountId={accountId}
+        indexedAccountId={indexedAccountId}
         tokenAddress={tokenInfo.address}
       />
       {/* History */}
