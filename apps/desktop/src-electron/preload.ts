@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
+import { staticPath } from './resoucePath';
 
 import type { IUpdateSettings } from './libs/store';
 import type { IMacBundleInfo } from './libs/utils';
@@ -403,7 +404,7 @@ if (!isMac) {
       icon: nativeImage.createFromPath(
         path.join(
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (global as any).resourcesPath,
+          staticPath,
           'images/icons/round_icon.png',
         ),
       ),
