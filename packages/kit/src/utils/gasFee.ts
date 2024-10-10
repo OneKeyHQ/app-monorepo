@@ -9,6 +9,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import { BATCH_SEND_TXS_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -198,19 +199,35 @@ export function calculateFeeForSend({
   nativeTokenPrice,
   txSize,
   estimateFeeParams,
+  txCount = 1,
+  multiTxFeeUpRatio = BATCH_SEND_TXS_FEE_UP_RATIO,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
   txSize?: number;
   estimateFeeParams?: IEstimateFeeParams;
+  txCount?: number;
+  multiTxFeeUpRatio?: number;
 }) {
   const feeRange = calculateTotalFeeRange({
     feeInfo,
     txSize,
     estimateFeeParams,
   });
-  const total = feeRange.max;
-  const totalForDisplay = feeRange.maxForDisplay;
+  const total = new BigNumber(feeRange.max)
+    .times(txCount)
+    .times(txCount > 1 ? multiTxFeeUpRatio : 1)
+    .toFixed();
+
+  const totalForDisplay = new BigNumber(feeRange.maxForDisplay)
+    .times(txCount)
+    .toFixed();
+
+  const totalMaxForDisplay = new BigNumber(feeRange.maxForDisplay)
+    .times(txCount)
+    .times(txCount > 1 ? multiTxFeeUpRatio : 1)
+    .toFixed();
+
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
@@ -221,20 +238,31 @@ export function calculateFeeForSend({
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
+  const totalNativeMaxForDisplay = calculateTotalFeeNative({
+    amount: totalMaxForDisplay,
+    feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
+  });
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
+
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed();
+
+  const totalFiatMaxForDisplay = new BigNumber(totalNativeMaxForDisplay)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
   return {
     total,
-    totalForDisplay,
     totalNative,
     totalFiat,
     totalNativeForDisplay,
     totalFiatForDisplay,
+    totalNativeMaxForDisplay,
+    totalFiatMaxForDisplay,
     feeRange,
   };
 }

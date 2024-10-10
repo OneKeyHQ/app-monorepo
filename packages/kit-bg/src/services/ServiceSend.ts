@@ -44,6 +44,7 @@ import type {
   ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
+import { BATCH_SEND_TXS_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -307,8 +308,27 @@ class ServiceSend extends ServiceBase {
     nativeAmountInfo?: INativeAmountInfo;
   }) {
     const newUnsignedTxs = [];
+    const isMultiTxs = unsignedTxs.length > 1;
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
+      const feeInfo = sendSelectedFeeInfo?.feeInfo;
+
+      if (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo)) {
+        if (feeInfo?.gas) {
+          feeInfo.gas.gasLimit = new BigNumber(feeInfo.gas.gasLimit)
+            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .toFixed();
+        }
+
+        if (feeInfo?.gasEIP1559) {
+          feeInfo.gasEIP1559.gasLimit = new BigNumber(
+            feeInfo.gasEIP1559.gasLimit,
+          )
+            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .toFixed();
+        }
+      }
+
       const newUnsignedTx = await this.updateUnsignedTx({
         accountId,
         networkId,

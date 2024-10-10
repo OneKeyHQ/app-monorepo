@@ -59,8 +59,6 @@ function TxActionsContainer(props: IProps) {
       ),
     );
 
-    debugger;
-
     if (decodedTxs.length > 1) {
       const approveTxs = decodedTxs.filter(
         (decodedTx) =>
@@ -253,8 +251,6 @@ function TxActionsContainer(props: IProps) {
         </InfoItemGroup>
       );
     }
-
-    console.log('decodedTxs', decodedTxs);
 
     return decodedTxs.map((decodedTx, index) => (
       <TxActionsListView
