@@ -2,7 +2,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  getNetworkIds,
+  getNetworkIdsMap,
+} from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -15,6 +18,7 @@ import type {
   IDBCustomRpc,
   IMeasureRpcStatusParams,
 } from '@onekeyhq/shared/types/customRpc';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
@@ -26,6 +30,8 @@ class ServiceCustomRpc extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  public isLoading: boolean | undefined;
 
   /*= ===============================
    *       Custom RPC
@@ -183,6 +189,98 @@ class ServiceCustomRpc extends ServiceBase {
   @backgroundMethod()
   public async getAllCustomNetworks(): Promise<IServerNetwork[]> {
     return this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
+  }
+
+  /*= ===============================
+   *       Server Network
+   *============================== */
+  @backgroundMethod()
+  public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
+    if (this.isLoading) {
+      return [];
+    }
+    this.isLoading = true;
+    console.log('====$$$$%%%%%%%%===>>: fetchNetworkFromServer');
+    // 请求 /wallet/v1/network/list 接口获取全部 evm 的网络列表
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{ data: IServerNetwork[] }>(
+      '/wallet/v1/network/list',
+      {
+        params: {
+          onlyEvmNetworks: true,
+        },
+      },
+    );
+
+    const serverNetworks = resp.data.data;
+    serverNetworks.push(...this.mockServerNetwork());
+    const presetNetworkIds = Object.values(getNetworkIdsMap());
+    // filter preset networks
+    const usedNetworks = serverNetworks.filter(
+      (n) => !presetNetworkIds.includes(n.id),
+    );
+
+    // delete custom networks
+    const customNetworks = await this.getAllCustomNetworks();
+    for (const customNetwork of customNetworks) {
+      if (serverNetworks.find((n) => n.id === customNetwork.id)) {
+        await this.deleteCustomNetwork({ networkId: customNetwork.id });
+      }
+    }
+
+    console.log('=====>>>: usedNetworks: ', usedNetworks);
+    return usedNetworks;
+  }
+
+  private mockServerNetwork(): IServerNetwork[] {
+    return [
+      {
+        'impl': 'evm',
+        'chainId': '32769',
+        'id': 'evm--32769',
+        'name': 'Zilliqa EVM',
+        'symbol': 'ETH',
+        'code': 'zilliqa',
+        'shortcode': 'zilliqa',
+        'shortname': 'Zilliqa',
+        'decimals': 18,
+        'feeMeta': {
+          'code': 'eth',
+          'decimals': 9,
+          'symbol': 'Gwei',
+          'isEIP1559FeeEnabled': false,
+          'isWithL1BaseFee': false,
+        },
+        'status': ENetworkStatus.LISTED,
+        'isTestnet': true,
+        'logoURI': '',
+        'defaultEnabled': false,
+        'backendIndex': false,
+      },
+      {
+        'impl': 'evm',
+        'chainId': '245022934',
+        'id': 'evm--245022934',
+        'name': 'Neon EVM Mainnet',
+        'symbol': 'ETH',
+        'code': 'neon',
+        'shortcode': 'neon',
+        'shortname': 'neon',
+        'decimals': 18,
+        'feeMeta': {
+          'code': 'eth',
+          'decimals': 9,
+          'symbol': 'Gwei',
+          'isEIP1559FeeEnabled': false,
+          'isWithL1BaseFee': false,
+        },
+        'status': ENetworkStatus.LISTED,
+        'isTestnet': true,
+        'logoURI': '',
+        'defaultEnabled': false,
+        'backendIndex': false,
+      },
+    ];
   }
 }
 

@@ -57,6 +57,7 @@ class ServiceNetwork extends ServiceBase {
       uniqByImpl?: boolean;
     } = {},
   ): Promise<{ networks: IServerNetwork[] }> {
+    void this.backgroundApi.serviceCustomRpc.fetchNetworkFromServer();
     // TODO save to simpleDB
     const excludeTestNetwork = params?.excludeTestNetwork ?? false;
     const uniqByImpl = params?.uniqByImpl ?? false;
