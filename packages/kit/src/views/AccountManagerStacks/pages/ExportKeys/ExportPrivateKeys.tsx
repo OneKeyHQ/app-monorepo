@@ -227,6 +227,8 @@ function ExportPrivateKeysPage({
         onPress: async () => {
           if (!rawKeyValue) {
             await refreshKey({ noDebouncedCall: true });
+          } else {
+            reset();
           }
           setSecureEntry(!secureEntry);
         },
@@ -256,7 +258,16 @@ function ExportPrivateKeysPage({
         },
       },
     ],
-    [clipboard, exportType, form, intl, rawKeyValue, refreshKey, secureEntry],
+    [
+      clipboard,
+      exportType,
+      form,
+      intl,
+      rawKeyValue,
+      refreshKey,
+      reset,
+      secureEntry,
+    ],
   );
 
   useEffect(() => {
