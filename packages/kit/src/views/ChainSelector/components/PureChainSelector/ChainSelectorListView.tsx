@@ -9,7 +9,6 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { LetterAvatar } from '@onekeyhq/kit/src/components/LetterAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
