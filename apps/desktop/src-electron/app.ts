@@ -32,7 +32,6 @@ import type {
   IDesktopAppState,
   IDesktopSubModuleInitParams,
   IMediaType,
-  IPrefType,
 } from '@onekeyhq/shared/types/desktop';
 
 import appDevOnlyApi from './appDevOnlyApi';
@@ -49,9 +48,7 @@ logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 // https://github.com/sindresorhus/electron-context-menu
-const disposeContextMenu = contextMenu({
-  showSaveImageAs: true,
-});
+let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
 const APP_NAME = 'OneKey Wallet';
 app.name = APP_NAME;
@@ -97,70 +94,64 @@ function showMainWindow() {
 
 const initMenu = () => {
   const template = [
-    ...(isMac
-      ? [
-          {
-            label: app.name,
-            submenu: [
-              {
-                role: 'about',
-                label: i18nText(ETranslations.menu_about_onekey_wallet),
-              },
-              { type: 'separator' },
-              !process.mas && {
-                label: i18nText(ETranslations.menu_check_for_updates),
-                click: () => {
-                  showMainWindow();
-                  const safelyMainWindow = getSafelyMainWindow();
-                  safelyMainWindow?.webContents.send(
-                    ipcMessageKeys.CHECK_FOR_UPDATES,
-                  );
-                },
-              },
-              { type: 'separator' },
-              {
-                label: i18nText(ETranslations.menu_preferences),
-                accelerator: 'CmdOrCtrl+,',
-                click: () => {
-                  const safelyMainWindow = getSafelyMainWindow();
-                  const visible = !!safelyMainWindow?.isVisible();
-                  logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
-                  showMainWindow();
-                  safelyMainWindow?.webContents.send(
-                    ipcMessageKeys.APP_OPEN_SETTINGS,
-                    visible,
-                  );
-                },
-              },
-              { type: 'separator' },
-              {
-                label: i18nText(ETranslations.menu_lock_now),
-                click: () => {
-                  showMainWindow();
-                  const safelyMainWindow = getSafelyMainWindow();
-                  if (safelyMainWindow) {
-                    safelyMainWindow.webContents.send(
-                      ipcMessageKeys.APP_LOCK_NOW,
-                    );
-                  }
-                },
-              },
-              { type: 'separator' },
-              {
-                role: 'hide',
-                accelerator: 'Alt+CmdOrCtrl+H',
-                label: i18nText(ETranslations.menu_hide_onekey_wallet),
-              },
-              { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
-              { type: 'separator' },
-              {
-                role: 'quit',
-                label: i18nText(ETranslations.menu_quit_onekey_wallet),
-              },
-            ].filter(Boolean),
+    {
+      label: app.name,
+      submenu: [
+        {
+          role: 'about',
+          label: i18nText(ETranslations.menu_about_onekey_wallet),
+        },
+        { type: 'separator' },
+        !process.mas && {
+          label: i18nText(ETranslations.menu_check_for_updates),
+          click: () => {
+            showMainWindow();
+            const safelyMainWindow = getSafelyMainWindow();
+            safelyMainWindow?.webContents.send(
+              ipcMessageKeys.CHECK_FOR_UPDATES,
+            );
           },
-        ]
-      : []),
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_preferences),
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            const safelyMainWindow = getSafelyMainWindow();
+            const visible = !!safelyMainWindow?.isVisible();
+            logger.info('APP_OPEN_SETTINGS visible >>>> ', visible);
+            showMainWindow();
+            safelyMainWindow?.webContents.send(
+              ipcMessageKeys.APP_OPEN_SETTINGS,
+              visible,
+            );
+          },
+        },
+        { type: 'separator' },
+        {
+          label: i18nText(ETranslations.menu_lock_now),
+          click: () => {
+            showMainWindow();
+            const safelyMainWindow = getSafelyMainWindow();
+            if (safelyMainWindow) {
+              safelyMainWindow.webContents.send(ipcMessageKeys.APP_LOCK_NOW);
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          role: 'hide',
+          accelerator: 'Alt+CmdOrCtrl+H',
+          label: i18nText(ETranslations.menu_hide_onekey_wallet),
+        },
+        { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+        { type: 'separator' },
+        {
+          role: 'quit',
+          label: i18nText(ETranslations.menu_quit_onekey_wallet),
+        },
+      ].filter(Boolean),
+    },
     {
       label: i18nText(ETranslations.global_edit),
       submenu: [
@@ -261,6 +252,21 @@ const initMenu = () => {
   ];
   const menu = Menu.buildFromTemplate(template as any);
   Menu.setApplicationMenu(menu);
+  disposeContextMenu?.();
+  disposeContextMenu = contextMenu({
+    showSaveImageAs: true,
+    showSearchWithGoogle: false,
+    showLookUpSelection: false,
+    showSelectAll: true,
+    labels: {
+      cut: i18nText(ETranslations.menu_cut),
+      copy: i18nText(ETranslations.global_copy),
+      paste: i18nText(ETranslations.menu_paste),
+      selectAll: i18nText(ETranslations.menu_select_all),
+      copyImage: i18nText(ETranslations.menu__copy_image),
+      saveImageAs: i18nText(ETranslations.menu__save_image_as),
+    },
+  });
 };
 
 const refreshMenu = () => {
@@ -472,7 +478,7 @@ function createMainWindow() {
       app.relaunch();
     }
     app.exit(0);
-    disposeContextMenu();
+    disposeContextMenu?.();
   });
   ipcMain.on(ipcMessageKeys.APP_FOCUS, () => {
     showMainWindow();
@@ -904,7 +910,7 @@ app.on('before-quit', () => {
     mainWindow?.removeAllListeners('close');
     mainWindow?.close();
   }
-  disposeContextMenu();
+  disposeContextMenu?.();
 });
 
 // Quit when all windows are closed.

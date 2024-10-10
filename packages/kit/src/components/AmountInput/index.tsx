@@ -203,16 +203,16 @@ export function AmountInput({
               <Icon size="$6" name="CryptoCoinOutline" color="$iconSubdued" />
             </Image.Fallback>
           </Image>
-          <Stack
-            position="absolute"
-            right="$-1"
-            bottom="$-1"
-            p="$0.5"
-            borderRadius="$full"
-            flexShrink={1}
-            bg="$bgApp"
-          >
-            {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
+          {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
+            <Stack
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+              p="$0.5"
+              borderRadius="$full"
+              flexShrink={1}
+              bg="$bgApp"
+            >
               <Image height="$3" width="$3" borderRadius="$full">
                 <Image.Source
                   source={{
@@ -227,8 +227,8 @@ export function AmountInput({
                   />
                 </Image.Fallback>
               </Image>
-            ) : null}
-          </Stack>
+            </Stack>
+          ) : null}
         </Stack>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||

@@ -336,15 +336,10 @@ function BasicMarketHomeList({
             {...listItemPressStyle}
             {...(platformEnv.isNative ? pressEvents : undefined)}
           >
-            <XStack gap="$3" ai="center" flexShrink={1}>
+            <XStack gap="$3" ai="center">
               <MarketTokenIcon uri={item.image} size="$10" />
-              <YStack flexShrink={1}>
-                <SizableText
-                  size="$bodyLgMedium"
-                  userSelect="none"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
+              <YStack>
+                <SizableText size="$bodyLgMedium" userSelect="none">
                   {item.symbol.toUpperCase()}
                 </SizableText>
                 <SizableText
@@ -365,9 +360,11 @@ function BasicMarketHomeList({
                 </SizableText>
               </YStack>
             </XStack>
-            <XStack ai="center" gap="$5">
+            <XStack ai="center" gap="$5" flexShrink={1}>
               {mdColumnKeys[0] === 'price' ? (
                 <MarketTokenPrice
+                  numberOfLines={1}
+                  flexShrink={1}
                   size="$bodyLgMedium"
                   price={String(item[mdColumnKeys[0]])}
                   tokenName={item.name}
