@@ -37,7 +37,6 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
 
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
-  hello: string;
   arch: string;
   platform: string;
   systemVersion: string;
@@ -218,7 +217,6 @@ const desktopApi = Object.freeze({
       ipcRenderer.on(channel, (_, ...args) => func(...args));
     }
   },
-  hello: 'world',
   arch: process.arch,
   platform: process.platform,
   systemVersion: process.getSystemVersion(),
