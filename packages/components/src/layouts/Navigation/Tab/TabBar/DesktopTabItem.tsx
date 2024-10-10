@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   Animated,
@@ -56,11 +57,13 @@ export function DesktopTabItem(
     openActionList?.current?.();
   }, []);
   useEffect(() => {
-    const stackValue = stackRef?.current as HTMLElement;
-    stackValue?.addEventListener('contextmenu', onOpenContextMenu);
-    return () => {
-      stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
-    };
+    if (!platformEnv.isNative) {
+      const stackValue = stackRef?.current as HTMLElement;
+      stackValue?.addEventListener('contextmenu', onOpenContextMenu);
+      return () => {
+        stackValue?.removeEventListener('contextmenu', onOpenContextMenu);
+      };
+    }
   }, [onOpenContextMenu]);
   const onMouseEnter = useCallback(() => {
     setIsHovered(true);

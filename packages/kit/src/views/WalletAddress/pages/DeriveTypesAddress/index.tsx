@@ -173,7 +173,12 @@ const DeriveTypesAddressItem = ({
       title={item.deriveInfo.label}
       subtitle={subtitle}
       renderAvatar={
-        <NetworkAvatarBase logoURI={network?.logoURI ?? ''} size="$10" />
+        <NetworkAvatarBase
+          logoURI={network?.logoURI ?? ''}
+          isCustomNetwork={network?.isCustomNetwork}
+          networkName={network?.name}
+          size="$8"
+        />
       }
       onPress={onPress}
       disabled={loading}

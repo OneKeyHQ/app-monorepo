@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  Dialog,
   Image,
   NumberSizeableText,
   Page,
@@ -17,12 +18,16 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnEstimateFeeResp,
+  IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
+import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
@@ -32,6 +37,8 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
+  details: IStakeProtocolDetails;
+
   price: string;
   balance: string;
   token: IToken;
@@ -61,6 +68,8 @@ type IApproveBaseStakeProps = {
 };
 
 export const ApproveBaseStake = ({
+  details,
+
   price,
   balance,
   token,
@@ -231,13 +240,40 @@ export const ApproveBaseStake = ({
   }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
 
   const onSubmit = useCallback(async () => {
-    const submitFn = async () => {
-      setLoading(true);
-      try {
-        await onConfirm?.(amountValue);
-      } finally {
-        setLoading(false);
-      }
+    const showDialog = () => {
+      Dialog.show({
+        renderIcon: (
+          <Image width="$14" height="$14" src={details.token.info.logoURI} />
+        ),
+        title: intl.formatMessage(
+          { id: ETranslations.earn_provider_asset_staking },
+          {
+            'provider': capitalizeString(details.provider.name.toLowerCase()),
+            'asset': details.token.info.symbol.toUpperCase(),
+          },
+        ),
+        renderContent: (
+          <StakeShouldUnderstand
+            provider={details.provider.name.toLowerCase()}
+            symbol={details.token.info.symbol.toLowerCase()}
+            apr={details.provider.apr}
+            updateFrequency={details.updateFrequency}
+            unstakingPeriod={details.unstakingPeriod}
+            receiveSymbol={details.rewardToken}
+          />
+        ),
+        onConfirm: async (inst) => {
+          try {
+            setLoading(true);
+            await inst.close();
+            await onConfirm?.(amountValue);
+          } finally {
+            setLoading(false);
+          }
+        },
+        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+        showCancelButton: false,
+      });
     };
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
@@ -248,18 +284,20 @@ export const ApproveBaseStake = ({
         showEstimateGasAlert({
           daysConsumed: daySpent,
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: submitFn,
+          onConfirm: showDialog,
         });
         return;
       }
     }
-    await submitFn();
+    showDialog();
   }, [
     onConfirm,
     amountValue,
     estAnnualRewardsState,
     estimateFeeResp,
     showEstimateGasAlert,
+    details,
+    intl,
   ]);
 
   return (

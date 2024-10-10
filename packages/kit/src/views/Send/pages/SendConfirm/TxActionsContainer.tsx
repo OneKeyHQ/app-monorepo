@@ -134,7 +134,10 @@ function TxActionsContainer(props: IProps) {
         isSendNativeTokenOnly = true;
       }
 
-      if (isSendNativeTokenOnly && !vaultSettings?.isUtxo) {
+      if (
+        isSendNativeTokenOnly &&
+        !vaultSettings?.maxSendCanNotSentFullAmount
+      ) {
         nativeTokenTransferBN = new BigNumber(
           transferPayload?.amountToSend ?? nativeTokenTransferBN,
         );
@@ -190,7 +193,7 @@ function TxActionsContainer(props: IProps) {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
     vaultSettings?.ignoreUpdateNativeAmount,
-    vaultSettings?.isUtxo,
+    vaultSettings?.maxSendCanNotSentFullAmount,
     vaultSettings?.maxSendFeeUpRatio,
   ]);
 

@@ -18,6 +18,7 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
@@ -33,6 +34,7 @@ function TokenDetailsHeader(props: IProps) {
     deriveType,
     tokenInfo,
     isAllNetworks,
+    indexedAccountId,
   } = props;
   const navigation = useAppNavigation();
 
@@ -69,34 +71,43 @@ function TokenDetailsHeader(props: IProps) {
       },
     );
 
-  const handleOnSwap = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: networkId,
-        importFromToken: {
-          contractAddress: tokenInfo.address,
-          symbol: tokenInfo.symbol,
-          networkId,
-          isNative: tokenInfo.isNative,
-          decimals: tokenInfo.decimals,
-          name: tokenInfo.name,
-          logoURI: tokenInfo.logoURI,
-          networkLogoURI: network?.logoURI,
+  const createSwapActionHandler = useCallback(
+    (actionType?: ESwapTabSwitchType) => async () => {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: networkId,
+          importFromToken: {
+            contractAddress: tokenInfo.address,
+            symbol: tokenInfo.symbol,
+            networkId,
+            isNative: tokenInfo.isNative,
+            decimals: tokenInfo.decimals,
+            name: tokenInfo.name,
+            logoURI: tokenInfo.logoURI,
+            networkLogoURI: network?.logoURI,
+          },
+          ...(actionType && {
+            swapTabSwitchType: actionType,
+          }),
         },
-      },
-    });
-  }, [
-    navigation,
-    network?.logoURI,
-    networkId,
-    tokenInfo.address,
-    tokenInfo.decimals,
-    tokenInfo.isNative,
-    tokenInfo.logoURI,
-    tokenInfo.name,
-    tokenInfo.symbol,
-  ]);
+      });
+    },
+    [
+      navigation,
+      network?.logoURI,
+      networkId,
+      tokenInfo.address,
+      tokenInfo.decimals,
+      tokenInfo.isNative,
+      tokenInfo.logoURI,
+      tokenInfo.name,
+      tokenInfo.symbol,
+    ],
+  );
+
+  const handleOnSwap = createSwapActionHandler();
+  const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SendModal, {
@@ -187,6 +198,7 @@ function TokenDetailsHeader(props: IProps) {
           </ReviewControl>
 
           <RawActions.Swap onPress={handleOnSwap} />
+          <RawActions.Bridge onPress={handleOnBridge} />
 
           <RawActions.Send onPress={handleSendPress} />
           <RawActions.Receive
@@ -206,6 +218,7 @@ function TokenDetailsHeader(props: IProps) {
       <TokenDetailStakingEntry
         networkId={networkId}
         accountId={accountId}
+        indexedAccountId={indexedAccountId}
         tokenAddress={tokenInfo.address}
       />
       {/* History */}

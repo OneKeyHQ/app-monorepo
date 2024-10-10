@@ -222,6 +222,8 @@ export type IVaultSettings = {
     [networkId: string]: number;
   };
 
+  maxSendCanNotSentFullAmount?: boolean;
+
   preCheckDappTxFeeInfoRequired?: boolean;
 
   activateTokenRequired?: boolean;
