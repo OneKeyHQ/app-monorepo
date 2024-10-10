@@ -402,7 +402,12 @@ if (!isMac) {
     // eslint-disable-next-line no-new
     globalTitleBar = new Titlebar({
       icon: nativeImage.createFromPath(
-        path.join(__dirname, '../public/static/images/icons/round_icon.png'),
+        path.join(
+          __dirname,
+          globalThis.isElectronDev
+            ? '../public/static/images/icons/round_icon.png'
+            : '../build/static/images/icons/round_icon.png',
+        ),
       ),
     });
     globalTitleBar.updateTitle('');
