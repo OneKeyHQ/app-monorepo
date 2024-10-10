@@ -870,12 +870,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             walletId: swapToAddressInfo.accountInfo?.wallet?.id,
           }))
       ) {
-        const alertAction = this.checkAddressNeedCreate(
-          swapSupportAllNetworks,
-          toToken,
-          swapToAddressInfo,
-        );
-        alertsRes = [...alertsRes, alertAction];
+        if (!(fromToken && fromToken.networkId === toToken.networkId)) {
+          const alertAction = this.checkAddressNeedCreate(
+            swapSupportAllNetworks,
+            toToken,
+            swapToAddressInfo,
+          );
+          alertsRes = [...alertsRes, alertAction];
+        }
       }
 
       if (quoteResult?.toAmount && !quoteResult.isBest) {
