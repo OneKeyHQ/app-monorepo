@@ -532,7 +532,7 @@ function createMainWindow() {
     }
   });
 
-  ipcMain.on(ipcMessageKeys.IS_DEV, async (event) => {
+  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
   });
 
