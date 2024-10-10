@@ -89,6 +89,8 @@ const PasswordVerify = ({
           : 'TouchId2Outline';
       if (platformEnv.isDesktopWin) {
         iconName = 'WindowsHelloSolid';
+      } else if (platformEnv.isExtension) {
+        iconName = 'PassKeySolid';
       }
       actions.push({
         iconName,

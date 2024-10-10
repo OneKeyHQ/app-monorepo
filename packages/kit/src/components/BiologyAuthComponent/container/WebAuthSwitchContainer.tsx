@@ -35,23 +35,6 @@ const WebAuthSwitchContainer = ({
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
-        if (
-          (platformEnv.isExtensionUiPopup ||
-            platformEnv.isExtensionUiSidePanel) &&
-          !skipRegistration &&
-          !credId &&
-          checked
-        ) {
-          void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              ERootRoutes.Modal,
-              EModalRoutes.SettingModal,
-              EModalSettingRoutes.SettingListModal,
-            ],
-            params: { flag: 'webAuthRegistration' },
-          });
-          return;
-        }
         if (!skipRegistration) {
           if (checked) {
             const res = await setWebAuthEnable(checked);
@@ -73,7 +56,7 @@ const WebAuthSwitchContainer = ({
         });
       }
     },
-    [skipRegistration, credId, setWebAuthEnable, intl],
+    [skipRegistration, setWebAuthEnable, intl],
   );
   return (
     <WebAuthSwitch

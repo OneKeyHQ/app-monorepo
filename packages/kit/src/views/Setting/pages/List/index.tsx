@@ -137,20 +137,6 @@ const SocialButtonGroup = () => {
 };
 
 export default function SettingListModal() {
-  const route = useRoute();
-  const flag = (route.params as { flag?: string })?.flag ?? '';
-  const { setWebAuthEnable } = useWebAuthActions();
-  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
-  useEffect(() => {
-    if (flag === 'webAuthRegistration' && !credId) {
-      void (async () => {
-        const res = await setWebAuthEnable(true);
-        if (res) {
-          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(true);
-        }
-      })();
-    }
-  }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 

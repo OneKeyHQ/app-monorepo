@@ -108,6 +108,34 @@ module.exports = ({
       },
     },
 
+    // **** passkey standalone entry build without code-split
+    {
+      config: {
+        name: devUtils.consts.configName.passkey,
+        entry: {
+          [devUtils.consts.entry['ui-passkey']]: path.join(
+            basePath,
+            'src/entry/ui-passkey.tsx',
+          ),
+        },
+      },
+      configUpdater(config) {
+        if (isManifestV2) {
+          codeSplit.enableCodeSplitChunks({
+            config,
+          });
+        } else {
+          codeSplit.enableCodeSplitChunks({
+            config,
+          });
+        }
+        config.plugins = [...config.plugins, ...pluginsHtml.passkeyHtml].filter(
+          Boolean,
+        );
+        return config;
+      },
+    },
+
     // **** manifest v3 background standalone build without code-split
     (isManifestV3 || isManifestV2) && {
       config: {

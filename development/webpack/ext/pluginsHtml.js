@@ -63,8 +63,14 @@ let offscreenHtml = [devUtils.consts.entry.offscreen].map((name) =>
 );
 offscreenHtml = lodash.flatten(offscreenHtml);
 
+let passkeyHtml = [devUtils.consts.entry['ui-passkey']].map((name) =>
+  createHtmlPlugin({ name }),
+);
+passkeyHtml = lodash.flatten(passkeyHtml);
+
 module.exports = {
   uiHtml,
+  passkeyHtml,
   backgroundHtml,
   offscreenHtml,
 };

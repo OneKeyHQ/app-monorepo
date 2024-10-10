@@ -105,6 +105,7 @@ export type IPlatformEnv = {
   isExtensionBackgroundServiceWorker?: boolean;
   isExtensionOffscreen?: boolean;
   isExtensionUi?: boolean;
+  isExtensionUiPassKey?: boolean;
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
   isExtensionUiSidePanel?: boolean;
@@ -390,6 +391,9 @@ export const isExtensionUi: boolean =
   isRuntimeBrowser &&
   window.location.pathname.startsWith('/ui-');
 
+export const isExtensionUiPassKey: boolean =
+  isExtensionUi && window.location.pathname.startsWith('/ui-passkey.html');
+
 export const isExtensionUiPopup: boolean =
   isExtensionUi && window.location.pathname.startsWith('/ui-popup.html');
 
@@ -469,6 +473,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionBackgroundHtml,
   isExtensionBackgroundServiceWorker,
   isExtensionOffscreen,
+  isExtensionUiPassKey,
   isExtensionUi,
   isExtensionUiPopup,
   isExtensionUiExpandTab,

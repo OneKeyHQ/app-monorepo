@@ -120,8 +120,15 @@ const FaceIdItem = () => {
   let title = intl.formatMessage({ id: ETranslations.global_touch_id });
   let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
 
+  if (platformEnv.isExtension) {
+    title = intl.formatMessage({ id: ETranslations.settings_passkey });
+    icon = 'PassKeySolid';
+  }
   if (biologyAuthIsSupport) {
-    if (
+    if (platformEnv.isDesktopWin) {
+      title = intl.formatMessage({ id: ETranslations.global_windows_hello });
+      icon = 'WindowsHelloSolid';
+    } else if (
       authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
       authType.includes(AuthenticationType.IRIS)
     ) {
@@ -132,9 +139,6 @@ const FaceIdItem = () => {
             : ETranslations.global_face_id,
       });
       icon = 'FaceIdSolid';
-    } else if (platformEnv.isDesktopWin) {
-      title = intl.formatMessage({ id: ETranslations.global_windows_hello });
-      icon = 'WindowsHelloSolid';
     }
   }
 
