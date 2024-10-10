@@ -532,6 +532,10 @@ function createMainWindow() {
     }
   });
 
+  ipcMain.on(ipcMessageKeys.IS_DEV, async (event) => {
+    event.returnValue = isDev;
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
     if (isWin) {
       const result = await new Promise((resolve) => {

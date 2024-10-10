@@ -29,7 +29,6 @@ type IWindowOneKeyHub = {
   };
 };
 declare global {
-  var isElectronDev: boolean;
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 

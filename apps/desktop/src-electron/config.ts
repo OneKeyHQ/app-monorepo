@@ -8,6 +8,7 @@ export const cspRules = [
 ];
 
 export const ipcMessageKeys = {
+  IS_DEV: 'IS_DEV',
   // DEV Only
   APP_DEV_ONLY_API: 'electronAppMainProcessDevOnly/api',
 

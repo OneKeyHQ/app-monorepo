@@ -179,6 +179,7 @@ const getChannel = () => {
 
 let globalTitleBar: Titlebar | null = null;
 
+const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 // packages/components/tamagui.config.ts
 // lightColors.bgApp
 const lightColor = '#ffffff';
@@ -404,7 +405,7 @@ if (!isMac) {
       icon: nativeImage.createFromPath(
         path.join(
           __dirname,
-          globalThis.isElectronDev
+          isDev
             ? '../public/static/images/icons/round_icon.png'
             : '../build/static/images/icons/round_icon.png',
         ),
