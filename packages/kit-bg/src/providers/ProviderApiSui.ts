@@ -31,15 +31,20 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 @backgroundClass()
 class ProviderApiSui extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.ethereum;
+  public providerName = IInjectedProviderNames.sui;
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
     const data = async ({ origin }: { origin: string }) => {
+      const params = await this.sui_accounts({
+        origin,
+        scope: this.providerName,
+      });
+
       const result = {
         method: 'wallet_events_accountChanged',
-        params: await this.sui_accounts({ origin }),
+        params,
       };
       return result;
     };
