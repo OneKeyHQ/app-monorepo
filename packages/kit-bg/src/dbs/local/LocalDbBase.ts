@@ -1604,16 +1604,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultIsTemp,
     } = params;
     console.log('createHwWallet', features);
-    // TODO check features if exists
-    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
     const { connectId } = device;
     if (!connectId) {
       throw new Error('createHwWallet ERROR: connectId is required');
     }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
-    const deviceType =
-      device.deviceType || deviceUtils.getDeviceTypeFromFeatures({ features });
+
+    // ble connected device type is inaccuracy
+    const deviceTypeFromFeatures = await deviceUtils.getDeviceTypeFromFeatures({
+      features,
+    });
+    const deviceType = deviceTypeFromFeatures || device.deviceType;
+
     const avatar: IAvatarInfo = {
       img: deviceType,
     };
