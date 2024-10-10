@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "Zoom avant",
   "menu.zoom_out": "Zoom arrière",
   "menu__copy_image": "Copier l'image",
+  "menu__save_image_as": "Enregistrer l'image sous…",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Solde {crypto} insuffisant pour couvrir les frais de réseau",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Des transactions avec le même nonce existent déjà, veuillez payer des frais de réseau plus élevés, sinon la transaction pourrait échouer.",
   "native_token_tooltip": "C'est la cryptomonnaie utilisée pour payer les frais de réseau",

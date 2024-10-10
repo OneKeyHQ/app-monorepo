@@ -113,13 +113,13 @@ export function MarketTokenPrice({
   tokenSymbol,
   lastUpdated,
   size,
+  ...props
 }: {
   price: string;
   tokenSymbol: string;
   tokenName: string;
   lastUpdated?: string;
-  size: ISizableTextProps['size'];
-}) {
+} & ISizableTextProps) {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
   const lastUpdateDate = useMemo(
@@ -138,6 +138,7 @@ export function MarketTokenPrice({
       formatter="price"
       size={size}
       formatterOptions={{ currency }}
+      {...props}
     >
       {tokenPrice}
     </NumberSizeableText>

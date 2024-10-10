@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "Увеличить масштаб",
   "menu.zoom_out": "Уменьшить масштаб",
   "menu__copy_image": "Копировать изображение",
+  "menu__save_image_as": "Сохранить изображение как…",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Недостаточно средств в {crypto} для покрытия сетевых комиссий",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Транзакции с таким же nonce уже существуют, пожалуйста, уплатите более высокую сетевую комиссию, иначе транзакция может не пройти.",
   "native_token_tooltip": "Это криптовалюта, используемая для оплаты сетевых комиссий",

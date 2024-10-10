@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "Dar un golpe de zoom",
   "menu.zoom_out": "Alejar",
   "menu__copy_image": "Copiar imagen",
+  "menu__save_image_as": "Guardar imagen como…",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Saldo insuficiente de {crypto} para cubrir las tarifas de la red",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Ya existen transacciones con el mismo nonce, por favor paga una tarifa de red más alta, de lo contrario, la transacción puede fallar.",
   "native_token_tooltip": "Esta es la criptomoneda utilizada para pagar las tarifas de la red",

@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "放大",
   "menu.zoom_out": "缩小",
   "menu__copy_image": "复制图像",
+  "menu__save_image_as": "将图像另存为...",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{crypto} 余额不足以覆盖网络费用",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "已存在具有相同 nonce 的交易，请支付更高的网络费，否则交易可能会失败。",
   "native_token_tooltip": "该加密货币也会被用于支付网络费用",

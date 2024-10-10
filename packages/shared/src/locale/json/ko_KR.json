@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "확대",
   "menu.zoom_out": "축소",
   "menu__copy_image": "이미지 복사",
+  "menu__save_image_as": "이미지를 다른 이름으로 저장…",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "네트워크 수수료를 충당할 수 없을 만큼의 {crypto} 잔액이 부족합니다",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "동일한 nonce를 가진 거래가 이미 존재하므로, 더 높은 네트워크 수수료를 지불하십시오. 그렇지 않으면 거래가 실패할 수 있습니다.",
   "native_token_tooltip": "이것은 네트워크 수수료를 지불하는 데 사용되는 암호화폐입니다",

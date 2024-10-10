@@ -1270,6 +1270,7 @@
   "menu.zoom_in": "Zoom In",
   "menu.zoom_out": "Zoom Out",
   "menu__copy_image": "Copy image",
+  "menu__save_image_as": "Save image as…",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "Insufficient {crypto} balance to cover network fees",
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "Transactions with the same nonce already exist, please pay a higher network fee, otherwise the transaction may fail.",
   "native_token_tooltip": "This is the cryptocurrency used to pay for network fees",
