@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 // import type { IXStackProps } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   // Icon,
   Image,
   SizableText,
@@ -328,27 +329,39 @@ ISwapAccountAddressContainerProps) => {
   // ]);
 
   const networkComponent = useMemo(() => {
-    if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
-      const networkInfo = swapSupportAllNetwork.find(
-        (net) =>
-          net.networkId ===
-          (type === ESwapDirectionType.FROM
-            ? fromToken?.networkId
-            : toToken?.networkId),
-      );
-      if (networkInfo) {
-        return (
-          <XStack gap="$1" alignItems="center">
+    const networkInfo = swapSupportAllNetwork.find(
+      (net) =>
+        net.networkId ===
+        (type === ESwapDirectionType.FROM
+          ? fromToken?.networkId
+          : toToken?.networkId),
+    );
+
+    return (
+      <AnimatePresence>
+        {swapTypeSwitch === ESwapTabSwitchType.BRIDGE && networkInfo ? (
+          <XStack
+            key="network-component"
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+              x: 8,
+            }}
+            exitStyle={{
+              opacity: 0,
+              x: 4,
+            }}
+            gap="$1"
+            alignItems="center"
+          >
             <Image w={18} h={18} source={{ uri: networkInfo.logoURI }} />
             <SizableText size="$bodyMd" color="$text">
               {networkInfo.name}
             </SizableText>
           </XStack>
-        );
-      }
-      return null;
-    }
-    return null;
+        ) : null}
+      </AnimatePresence>
+    );
   }, [
     type,
     fromToken?.networkId,
