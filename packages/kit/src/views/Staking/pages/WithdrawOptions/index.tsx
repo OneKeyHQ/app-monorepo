@@ -1,8 +1,9 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -12,6 +13,7 @@ import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
 import {
@@ -66,13 +68,30 @@ const WithdrawOptions = () => {
 
   const babylonStatusMap = useBabylonStatusMap();
 
-  return (
-    <Page scrollEnabled>
-      <Page.Header
+  let title = intl.formatMessage({
+    id: ETranslations.earn_select_an_order_to_withdraw,
+  });
+
+  let ListHeaderComponent:
+    | ComponentProps<typeof OptionList>['ListHeaderComponent']
+    | undefined;
+
+  if (provider.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()) {
+    title = intl.formatMessage({
+      id: ETranslations.earn_select_for_early_withdrawal,
+    });
+    ListHeaderComponent = (
+      <SectionList.SectionHeader
         title={intl.formatMessage({
-          id: ETranslations.earn_select_an_order_to_withdraw,
+          id: ETranslations.earn_select_for_early_withdrawal_desc,
         })}
       />
+    );
+  }
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header title={title} />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={SimpleSpinnerSkeleton}
@@ -82,6 +101,7 @@ const WithdrawOptions = () => {
         >
           {result ? (
             <OptionList
+              ListHeaderComponent={ListHeaderComponent}
               items={result.items}
               token={result.token}
               network={result.network}

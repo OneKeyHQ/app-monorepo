@@ -28,7 +28,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { TokenIconView } from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -403,10 +402,7 @@ function CustomRPC() {
                 value={item.enabled}
                 onChange={() => onToggleCustomRpcEnabledState(item)}
               />
-              <TokenIconView
-                icon={item.network.logoURI}
-                networkId={item.networkId}
-              />
+              <NetworkAvatar networkId={item.networkId} size="$10" />
               <ListItem.Text
                 flex={1}
                 primary={

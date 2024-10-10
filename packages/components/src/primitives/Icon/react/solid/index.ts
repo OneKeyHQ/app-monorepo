@@ -734,6 +734,7 @@ export { default as TouchId } from './TouchId';
 export { default as TouchId2 } from './TouchId2';
 export { default as Trade } from './Trade';
 export { default as Transcription } from './Transcription';
+export { default as Translate } from './Translate';
 export { default as Tree } from './Tree';
 export { default as Truck } from './Truck';
 export { default as Ufo } from './Ufo';

@@ -8,6 +8,10 @@ const AccountChainSelector = LazyLoadPage(
 );
 const ChainSelector = LazyLoadPage(() => import('../pages/ChainSelector'));
 
+const SettingCustomNetworkModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
+);
+
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   EChainSelectorPages,
   IChainSelectorParamList
@@ -19,5 +23,9 @@ export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EChainSelectorPages.ChainSelector,
     component: ChainSelector,
+  },
+  {
+    name: EChainSelectorPages.AddCustomNetwork,
+    component: SettingCustomNetworkModal,
   },
 ];

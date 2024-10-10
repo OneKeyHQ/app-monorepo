@@ -526,6 +526,15 @@ class ServiceHistory extends ServiceBase {
       accountId,
       networkId,
     });
+
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      return [];
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     let extraParams: any;
