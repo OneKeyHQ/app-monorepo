@@ -176,14 +176,30 @@ const getChannel = () => {
 
 let globalTitleBar: Titlebar | null = null;
 
+// packages/components/tamagui.config.ts
+// lightColors.bgApp
+const lightColor = '#ffffff';
+// packages/components/tamagui.config.ts
+// darkColors.bgApp
+const darkColor = '#0f0f0f';
+
 const updateGlobalTitleBarBackgroundColor = () => {
   if (globalTitleBar) {
     setTimeout(() => {
-      globalTitleBar?.updateBackground(
-        TitlebarColor.fromHex(
-          document.body.classList.contains('t_light') ? '#ffffff' : '#0f0f0f',
-        ),
-      );
+      let color = lightColor;
+      const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
+      if (theme === 'dark') {
+        color = darkColor;
+      } else if (theme === 'light') {
+        color = lightColor;
+      } else if (window.matchMedia) {
+        color = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? darkColor
+          : lightColor;
+      } else {
+        color = lightColor;
+      }
+      globalTitleBar?.updateBackground(TitlebarColor.fromHex(color));
     }, 0);
   }
 };
