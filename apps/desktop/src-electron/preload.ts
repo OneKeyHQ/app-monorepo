@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
+import { Titlebar } from 'custom-electron-titlebar';
 import { ipcRenderer } from 'electron';
 
 import type {
@@ -358,3 +359,8 @@ const desktopApi = Object.freeze({
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
+
+window.addEventListener('DOMContentLoaded', () => {
+  // eslint-disable-next-line no-new
+  new Titlebar({});
+});
