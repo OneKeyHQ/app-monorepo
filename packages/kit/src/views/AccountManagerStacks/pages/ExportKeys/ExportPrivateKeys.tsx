@@ -10,10 +10,10 @@ import type {
 } from '@onekeyhq/components';
 import {
   Form,
-  Input,
   Page,
   SizableText,
   Stack,
+  TextArea,
   useClipboard,
   useForm,
   useMedia,
@@ -313,12 +313,11 @@ function ExportPrivateKeysPage({
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
-            <Input
+            <TextArea
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
               placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
-              secureTextEntry={secureEntry}
               addOns={actions}
               displayAsMaskWhenEmptyValue
             />
