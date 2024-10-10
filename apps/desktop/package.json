@@ -39,7 +39,7 @@
     "electron-log": "5.2.0",
     "electron-store": "^8.2.0",
     "electron-updater": "6.1.8",
-    "electron-windows-security": "git+https://github.com/OneKeyHQ/electron-windows-security.git#17818b10b84e889ebfe6aff684fd9ccc3f01b767",
+    "electron-windows-security": "0.0.3",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
