@@ -8,6 +8,7 @@ import type {
   IEventSourceOpenEvent,
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
+import { IDecodedTxAction, IDecodedTxActionTokenApprove } from '../tx';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap',
@@ -378,6 +379,7 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  swapRequiredApproves?: IDecodedTxActionTokenApprove[];
 }
 
 export interface IEVMTransaction {

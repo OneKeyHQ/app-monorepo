@@ -80,7 +80,6 @@ function useSendConfirm(params: IParams) {
                   accountId,
                   approveInfo,
                   prevNonce,
-                  ...rest,
                 },
               );
             prevNonce = unsignedTx.nonce;

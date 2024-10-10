@@ -71,14 +71,6 @@ class ServiceSend extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
-    if (unsignedTx.swapInfo) {
-      decodedTx.toAddressLabel =
-        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
-    }
-
-    if (unsignedTx.stakingInfo) {
-      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
-    }
     return decodedTx;
   }
 
