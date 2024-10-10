@@ -401,7 +401,10 @@ if (!isMac) {
     // eslint-disable-next-line no-new
     globalTitleBar = new Titlebar({
       icon: nativeImage.createFromPath(
-        path.join(__dirname, '../public/static/images/icons/512x512.png'),
+        path.join(
+          __dirname,
+          '../../mobile/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png',
+        ),
       ),
     });
     globalTitleBar.updateTitle('');
