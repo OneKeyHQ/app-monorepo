@@ -1736,6 +1736,7 @@ const icons = {
   PaletteSolid: () => import("./react/solid/Palette"),
   PanoramaViewSolid: () => import("./react/solid/PanoramaView"),
   PartyCelebrateSolid: () => import("./react/solid/PartyCelebrate"),
+  PassKeySolid: () => import("./react/solid/PassKey"),
   PassportSolid: () => import("./react/solid/Passport"),
   PasswordSolid: () => import("./react/solid/Password"),
   PauseSolid: () => import("./react/solid/Pause"),

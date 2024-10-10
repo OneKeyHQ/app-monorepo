@@ -7,6 +7,18 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
 import { buildModalRouteParams } from './routeUtils';
 
+/**
+ * ext get html function
+ */
+export const EXT_HTML_FILES = {
+  background: 'background.html',
+  uiPopup: 'ui-popup.html',
+  uiExpandTab: 'ui-expand-tab.html',
+  uiPassKey: 'ui-passkey.html',
+  uiSidePanel: 'ui-side-panel.html',
+  uiStandAloneWindow: 'ui-standalone-window.html',
+};
+
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -87,11 +99,9 @@ async function openUrlInTab(
   });
 }
 
-async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
-  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
+const getWindowPosition = async () => {
   let left = 0;
   let top = 0;
-  // debugger
   try {
     /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
@@ -114,6 +124,15 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
     top = Math.max(screenY, 0);
     left = Math.max(screenX + (outerWidth - UI_HTML_DEFAULT_MIN_WIDTH), 0);
   }
+  return {
+    top,
+    left,
+  };
+};
+
+async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
+  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
+  const { top, left } = await getWindowPosition();
   return chrome.windows.create({
     focused: true,
     type: 'popup',
@@ -127,16 +146,36 @@ async function openStandaloneWindow(routeInfo: IOpenUrlRouteInfo) {
   });
 }
 
-/**
- * ext get html function
- */
-export const EXT_HTML_FILES = {
-  background: 'background.html',
-  uiPopup: 'ui-popup.html',
-  uiExpandTab: 'ui-expand-tab.html',
-  uiSidePanel: 'ui-side-panel.html',
-  uiStandAloneWindow: 'ui-standalone-window.html',
-};
+export enum EPassKeyWindowType {
+  unlock = 'unlock',
+  create = 'create',
+}
+export enum EPassKeyWindowFrom {
+  popup = 'popup',
+  sidebar = 'sidebar',
+}
+async function openPassKeyWindow(type: EPassKeyWindowType) {
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiPassKey, {
+    params: {
+      type,
+      from: platformEnv.isExtensionUiPopup
+        ? EPassKeyWindowFrom.popup
+        : EPassKeyWindowFrom.sidebar,
+    },
+  });
+  const { top, left } = await getWindowPosition();
+  return chrome.windows.create({
+    focused: true,
+    type: 'popup',
+    // init size same to ext ui-popup.html
+    height: 1, // height including title bar, so should add 50px more
+    width: 1,
+    // check useAutoRedirectToRoute()
+    url,
+    top,
+    left,
+  });
+}
 
 export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionBackgroundHtml) {
@@ -253,6 +292,7 @@ async function openPermissionSettings() {
 export default {
   openUrl,
   openUrlInTab,
+  openPassKeyWindow,
   openExpandTabOrSidePanel,
   openStandaloneWindow,
   openExpandTab,
