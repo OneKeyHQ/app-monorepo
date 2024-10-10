@@ -71,7 +71,7 @@ function FaqInfo({ solutions }: { solutions: ISolution[] }) {
                   unstyled
                   pt="$2"
                   pb="$5"
-                  animation="quick"
+                  animation="100ms"
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
