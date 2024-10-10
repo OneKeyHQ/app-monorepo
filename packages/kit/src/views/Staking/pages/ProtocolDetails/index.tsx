@@ -182,9 +182,14 @@ const ProtocolDetailsPage = () => {
       variant: 'primary',
       loading: stakeLoading,
       onPress: onStake,
-      disabled: !earnAccount?.accountAddress,
+      disabled: !earnAccount?.accountAddress || result?.provider.stakeDisable,
     }),
-    [stakeLoading, earnAccount?.accountAddress, onStake],
+    [
+      stakeLoading,
+      earnAccount?.accountAddress,
+      onStake,
+      result?.provider.stakeDisable,
+    ],
   );
 
   const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
