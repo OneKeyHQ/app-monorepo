@@ -4,6 +4,10 @@ import * as path from 'path';
 import { format as formatUrl } from 'url';
 
 import {
+  attachTitlebarToWindow,
+  setupTitlebar,
+} from 'custom-electron-titlebar/main';
+import {
   BrowserWindow,
   Menu,
   app,
@@ -69,6 +73,10 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+
+if (!isMac) {
+  setupTitlebar();
+}
 
 let systemIdleInterval: NodeJS.Timeout;
 
@@ -358,7 +366,8 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     show: false,
     title: APP_NAME,
-    titleBarStyle: isWin ? 'default' : 'hidden',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 18 },
     autoHideMenuBar: true,
     frame: true,
@@ -389,6 +398,7 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
+  attachTitlebarToWindow(browserWindow);
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
