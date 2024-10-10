@@ -11,7 +11,6 @@ import {
   BrowserWindow,
   Menu,
   app,
-  contextBridge,
   ipcMain,
   nativeTheme,
   powerMonitor,
@@ -75,8 +74,6 @@ if (!isMac) {
 }
 
 let systemIdleInterval: NodeJS.Timeout;
-
-contextBridge.exposeInMainWorld('isElectronDev', isDev);
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
