@@ -14,6 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -372,13 +373,11 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
       }}
       userSelect="none"
     >
-      <Image
-        width="$4"
-        height="$4"
-        borderRadius="$full"
-        source={{
-          uri: network?.logoURI,
-        }}
+      <NetworkAvatarBase
+        logoURI={network?.logoURI ?? ''}
+        isCustomNetwork={network?.isCustomNetwork}
+        networkName={network?.name}
+        size="$4"
       />
       <SizableText
         pl="$1.5"

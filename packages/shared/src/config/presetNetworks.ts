@@ -1534,7 +1534,7 @@ const holesky: IServerNetwork = {
   'impl': 'evm',
   'chainId': '17000',
   'id': 'evm--17000',
-  'name': 'Garnet Holesky',
+  'name': 'Ethereum Holesky Testnet',
   'symbol': 'ETH',
   'code': 'holesky',
   'shortcode': 'holesky',
