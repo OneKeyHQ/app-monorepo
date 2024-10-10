@@ -185,6 +185,8 @@ const lightColor = '#ffffff';
 // darkColors.bgApp
 const darkColor = '#0f0f0f';
 
+const isMac = process.platform === 'darwin';
+
 const updateGlobalTitleBarBackgroundColor = () => {
   if (globalTitleBar) {
     setTimeout(() => {
@@ -394,13 +396,15 @@ const desktopApi = Object.freeze({
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 
-window.addEventListener('DOMContentLoaded', () => {
-  // eslint-disable-next-line no-new
-  globalTitleBar = new Titlebar({
-    icon: nativeImage.createFromPath(
-      path.join(__dirname, '../public/static/images/icons/512x512.png'),
-    ),
+if (!isMac) {
+  window.addEventListener('DOMContentLoaded', () => {
+    // eslint-disable-next-line no-new
+    globalTitleBar = new Titlebar({
+      icon: nativeImage.createFromPath(
+        path.join(__dirname, '../public/static/images/icons/512x512.png'),
+      ),
+    });
+    globalTitleBar.updateTitle('');
+    updateGlobalTitleBarBackgroundColor();
   });
-  globalTitleBar.updateTitle('');
-  updateGlobalTitleBarBackgroundColor();
-});
+}
