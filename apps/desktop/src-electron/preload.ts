@@ -362,5 +362,6 @@ window.desktopApi = desktopApi;
 
 window.addEventListener('DOMContentLoaded', () => {
   // eslint-disable-next-line no-new
-  new Titlebar({});
+  const title = new Titlebar({});
+  title.updateTitle('');
 });
