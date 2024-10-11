@@ -18,3 +18,5 @@ export const REPLACE_TX_FEE_UP_RATIO = 1.1;
 export const SHOW_NFT_AMOUNT_MAX = 9999;
 
 export const TOKEN_LIST_HIGH_VALUE_MAX = 50;
+
+export const BATCH_SEND_TXS_FEE_UP_RATIO = 5;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,14 +21,24 @@ import {
 
 function TxExtraInfoContainer() {
   const [unsignedTxs] = useUnsignedTxsAtom();
-  const unsignedTx = unsignedTxs[0];
   const intl = useIntl();
   const [shouldShowData, setShouldShowData] = useState<boolean>(false);
   const { copyText } = useClipboard();
 
-  const encodedTx = unsignedTx?.encodedTx as IEncodedTxEvm;
+  const dataContent = useMemo(() => {
+    if (!unsignedTxs || unsignedTxs.length === 0) {
+      return '';
+    }
+    return unsignedTxs.reduce((acc, unsignedTx) => {
+      const tx = unsignedTx.encodedTx as IEncodedTxEvm;
+      if (tx && tx.data) {
+        return acc ? `${acc}\n\n${tx.data}` : tx.data;
+      }
+      return acc;
+    }, '');
+  }, [unsignedTxs]);
 
-  if (encodedTx && encodedTx.data) {
+  if (dataContent && dataContent !== '') {
     return (
       <>
         <Divider mx="$5" />
@@ -68,10 +78,10 @@ function TxExtraInfoContainer() {
                     }}
                     userSelect="none"
                     onPress={() => {
-                      copyText(encodedTx.data as string);
+                      copyText(dataContent);
                     }}
                   >
-                    {encodedTx.data}
+                    {dataContent}
                   </SizableText>
                 </ScrollView>
               ) : null

@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "A rede selecionada atualmente suporta apenas {deviceType}",
   "send.address_exists": "O endereço já existe",
   "send.address_invalid": "Endereço inválido. Por favor, verifique e digite novamente",
-  "send.amount": "Quantidade",
+  "send.amount": "Resultados estimados",
   "send.amount_invalid": "Saldo insuficiente. Por favor, tente um valor menor",
   "send.amount_too_small": "Valor da transferência muito pequeno.",
   "send.authentication_failed_verify_again": "A autenticação falhou, por favor verifique sua conexão de rede e tente novamente.",

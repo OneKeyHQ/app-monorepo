@@ -10,6 +10,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { BATCH_SEND_TXS_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -71,14 +72,6 @@ class ServiceSend extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
-    if (unsignedTx.swapInfo) {
-      decodedTx.toAddressLabel =
-        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
-    }
-
-    if (unsignedTx.stakingInfo) {
-      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
-    }
     return decodedTx;
   }
 
@@ -94,6 +87,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -102,6 +96,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     });
   }
 
@@ -313,8 +308,27 @@ class ServiceSend extends ServiceBase {
     nativeAmountInfo?: INativeAmountInfo;
   }) {
     const newUnsignedTxs = [];
+    const isMultiTxs = unsignedTxs.length > 1;
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
+      const feeInfo = sendSelectedFeeInfo?.feeInfo;
+
+      if (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo)) {
+        if (feeInfo?.gas) {
+          feeInfo.gas.gasLimit = new BigNumber(feeInfo.gas.gasLimit)
+            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .toFixed();
+        }
+
+        if (feeInfo?.gasEIP1559) {
+          feeInfo.gasEIP1559.gasLimit = new BigNumber(
+            feeInfo.gasEIP1559.gasLimit,
+          )
+            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .toFixed();
+        }
+      }
+
       const newUnsignedTx = await this.updateUnsignedTx({
         accountId,
         networkId,
@@ -345,6 +359,8 @@ class ServiceSend extends ServiceBase {
       transferPayload,
     } = params;
 
+    const isMultiTxs = unsignedTxs.length > 1;
+
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
@@ -374,7 +390,12 @@ class ServiceSend extends ServiceBase {
         decodedTx,
       };
 
-      result.push(data);
+      if (
+        !isMultiTxs ||
+        (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+      ) {
+        result.push(data);
+      }
 
       await this.backgroundApi.serviceSignature.addItemFromSendProcess(
         data,
@@ -472,6 +493,7 @@ class ServiceSend extends ServiceBase {
       swapInfo,
       stakingInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -490,6 +512,7 @@ class ServiceSend extends ServiceBase {
         transfersInfo,
         wrappedInfo,
         specifiedFeeRate,
+        prevNonce,
       });
     }
     if (swapInfo) {

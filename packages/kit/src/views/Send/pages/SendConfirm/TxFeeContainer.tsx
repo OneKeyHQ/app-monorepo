@@ -431,11 +431,14 @@ function TxFeeContainer(props: IProps) {
       totalFiat,
       totalNativeForDisplay,
       totalFiatForDisplay,
+      totalNativeMaxForDisplay,
+      totalFiatMaxForDisplay,
     } = calculateFeeForSend({
       feeInfo: selectedFeeInfo,
       nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
       txSize: unsignedTxs[0]?.txSize,
       estimateFeeParams,
+      txCount: unsignedTxs.length,
     });
 
     txFeeInit.current = true;
@@ -448,6 +451,8 @@ function TxFeeContainer(props: IProps) {
         totalFiat,
         totalNativeForDisplay,
         totalFiatForDisplay,
+        totalNativeMaxForDisplay,
+        totalFiatMaxForDisplay,
       },
     };
   }, [
@@ -634,6 +639,123 @@ function TxFeeContainer(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
+  const renderTotalNative = useCallback(() => {
+    const commonProps = {
+      size: '$bodyMd',
+      color: '$textSubdued',
+      formatter: 'balance',
+      formatterOptions: { tokenSymbol: txFee?.common.nativeSymbol },
+    };
+    if (
+      selectedFee?.totalFiatForDisplay !== selectedFee?.totalFiatMaxForDisplay
+    ) {
+      return (
+        <XStack alignItems="center" gap="$0.5">
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFee?.common.nativeSymbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {selectedFee?.totalNativeForDisplay ?? '-'}
+          </NumberSizeableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            ~
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFee?.common.nativeSymbol,
+            }}
+          >
+            {selectedFee?.totalNativeMaxForDisplay ?? '-'}
+          </NumberSizeableText>
+        </XStack>
+      );
+    }
+
+    return (
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: txFee?.common.nativeSymbol,
+        }}
+      >
+        {selectedFee?.totalNativeForDisplay ?? '-'}
+      </NumberSizeableText>
+    );
+  }, [
+    selectedFee?.totalFiatForDisplay,
+    selectedFee?.totalFiatMaxForDisplay,
+    selectedFee?.totalNativeForDisplay,
+    selectedFee?.totalNativeMaxForDisplay,
+    txFee?.common.nativeSymbol,
+  ]);
+
+  const renderTotalFiat = useCallback(() => {
+    if (
+      selectedFee?.totalFiatForDisplay !==
+        selectedFee?.totalFiatMaxForDisplay &&
+      new BigNumber(selectedFee?.totalFiatForDisplay ?? 0).gte(0.01)
+    ) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          (
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {selectedFee?.totalFiatForDisplay ?? '-'}
+          </NumberSizeableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            ~
+          </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {selectedFee?.totalFiatMaxForDisplay ?? '-'}
+          </NumberSizeableText>
+          )
+        </SizableText>
+      );
+    }
+
+    return (
+      <SizableText size="$bodyMd" color="$textSubdued">
+        (
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+          }}
+        >
+          {selectedFee?.totalFiatForDisplay ?? '-'}
+        </NumberSizeableText>
+        )
+      </SizableText>
+    );
+  }, [
+    selectedFee?.totalFiatForDisplay,
+    selectedFee?.totalFiatMaxForDisplay,
+    settings.currencyInfo.symbol,
+  ]);
   return (
     <Stack
       mb="$5"
@@ -658,39 +780,15 @@ function TxFeeContainer(props: IProps) {
       </XStack>
       <XStack gap="$1" alignItems="center">
         {txFeeInit.current ? (
-          <NumberSizeableText
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: txFee?.common.nativeSymbol,
-            }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {selectedFee?.totalNativeForDisplay ?? '-'}
-          </NumberSizeableText>
+          renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit.current && !isNil(selectedFee?.totalFiatForDisplay) ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            (
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-            >
-              {selectedFee?.totalFiatForDisplay ?? '-'}
-            </NumberSizeableText>
-            )
-          </SizableText>
-        ) : (
-          ''
-        )}
+        {txFeeInit.current && !isNil(selectedFee?.totalFiatForDisplay)
+          ? renderTotalFiat()
+          : ''}
       </XStack>
     </Stack>
     // <InfoItemGroup

@@ -178,6 +178,7 @@ function SendConfirmActionsContainer(props: IProps) {
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
         interactContract: undefined,
       });
+
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({

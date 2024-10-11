@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "चयनित नेटवर्क वर्तमान में केवल {deviceType} का समर्थन करता है।",
   "send.address_exists": "पता पहले से मौजूद है",
   "send.address_invalid": "अमान्य पता। कृपया जांचें और पुनः दर्ज करें",
-  "send.amount": "राशि",
+  "send.amount": "अनुमानित परिणाम",
   "send.amount_invalid": "अपर्याप्त बैलेंस। कृपया एक छोटी राशि का प्रयास करें",
   "send.amount_too_small": "स्थानांतरण राशि बहुत छोटी है।",
   "send.authentication_failed_verify_again": "प्रमाणीकरण विफल रहा, कृपया अपने नेटवर्क कनेक्शन की जांच करें और पुनः प्रयास करें।",

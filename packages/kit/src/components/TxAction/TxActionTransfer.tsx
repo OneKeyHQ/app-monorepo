@@ -557,6 +557,42 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       const transferExtraElements: React.ReactElement[] = [];
 
+      if (swapInfo?.swapRequiredApproves) {
+        swapInfo.swapRequiredApproves.forEach((approve) => {
+          let approveContent = '';
+          if (new BigNumber(approve.amount).eq(0)) {
+            approveContent = intl.formatMessage(
+              {
+                id: ETranslations.global_revoke_approve,
+              },
+              {
+                symbol: approve.symbol,
+              },
+            );
+          } else {
+            approveContent = intl.formatMessage(
+              { id: ETranslations.form__approve_str },
+              {
+                amount: approve.isInfiniteAmount
+                  ? intl.formatMessage({
+                      id: ETranslations.swap_page_provider_approve_amount_un_limit,
+                    })
+                  : approve.amount,
+                symbol: approve.symbol,
+              },
+            );
+          }
+
+          transferChangeElements.push(
+            <ListItem key={`${approve.tokenIdOnNetwork}-approve`}>
+              <Token isNFT={false} tokenImageUri={approve.icon} />
+              <Stack flex={1}>
+                <SizableText size="$bodyLgMedium">{approveContent}</SizableText>
+              </Stack>
+            </ListItem>,
+          );
+        });
+      }
       transfersBlock.forEach((block) => {
         const { transfersInfo } = block;
         transfersInfo.forEach((transfer) =>

@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "Mạng được chọn hiện tại chỉ hỗ trợ {deviceType}",
   "send.address_exists": "Địa chỉ này đã tồn tại",
   "send.address_invalid": "Địa chỉ không hợp lệ. Vui lòng kiểm tra và nhập lại",
-  "send.amount": "Số lượng",
+  "send.amount": "Kết quả ước tính",
   "send.amount_invalid": "Số dư không đủ. Vui lòng thử một số lượng nhỏ hơn",
   "send.amount_too_small": "Số tiền chuyển nhỏ quá.",
   "send.authentication_failed_verify_again": "Xác thực không thành công, vui lòng kiểm tra kết nối mạng của bạn và thử lại.",

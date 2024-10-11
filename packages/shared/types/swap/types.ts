@@ -12,6 +12,10 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import { IDecodedTxAction } from '../tx';
+
+import type { IDecodedTxActionTokenApprove } from '../tx';
+
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
@@ -420,6 +424,7 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  swapRequiredApproves?: IDecodedTxActionTokenApprove[];
 }
 
 export interface IEVMTransaction {

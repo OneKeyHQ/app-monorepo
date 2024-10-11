@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "Das ausgewählte Netzwerk unterstützt derzeit nur {deviceType}",
   "send.address_exists": "Die Adresse existiert bereits",
   "send.address_invalid": "Ungültige Adresse. Bitte überprüfen und erneut eingeben",
-  "send.amount": "Betrag",
+  "send.amount": "Geschätzte Ergebnisse",
   "send.amount_invalid": "Unzureichendes Guthaben. Bitte versuchen Sie es mit einem kleineren Betrag",
   "send.amount_too_small": "Überweisungsbetrag zu klein.",
   "send.authentication_failed_verify_again": "Authentifizierung fehlgeschlagen, bitte überprüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut.",

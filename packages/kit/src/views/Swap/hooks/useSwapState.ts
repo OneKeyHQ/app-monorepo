@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapQuoteIntervalMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -108,6 +109,7 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -173,7 +175,9 @@ export function useSwapActionState() {
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = intl.formatMessage({
-          id: ETranslations.global_approve,
+          id: settingsPersistAtom.swapBatchApproveAndSwap
+            ? ETranslations.swap_page_approve_and_swap
+            : ETranslations.global_approve,
         });
       }
       if (
@@ -243,6 +247,7 @@ export function useSwapActionState() {
     quoteLoading,
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
+    settingsPersistAtom.swapBatchApproveAndSwap,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     toToken,

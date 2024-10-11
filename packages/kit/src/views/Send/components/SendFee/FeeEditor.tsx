@@ -1197,22 +1197,6 @@ function FeeEditor(props: IProps) {
         {priorityFeeAlert && currentFeeType === EFeeType.Custom ? (
           <Alert type="warning" mt="$4" title={priorityFeeAlert} />
         ) : null}
-        {vaultSettings?.editFeeEnabled ? (
-          <Button
-            mt="$4"
-            disabled={isSaveFeeDisabled}
-            variant="primary"
-            size="large"
-            $gtMd={
-              {
-                size: 'medium',
-              } as any
-            }
-            onPress={handleApplyFeeInfo}
-          >
-            {intl.formatMessage({ id: ETranslations.action_save })}
-          </Button>
-        ) : null}
       </>
     );
   }, [
@@ -1223,14 +1207,11 @@ function FeeEditor(props: IProps) {
     feeAlert,
     feeSelectorItems,
     feeSymbol,
-    handleApplyFeeInfo,
     intl,
-    isSaveFeeDisabled,
     nativeSymbol,
     nativeTokenPrice,
     priorityFeeAlert,
     unsignedTxs,
-    vaultSettings?.editFeeEnabled,
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
     watchAllFields.feeRate,
@@ -1298,6 +1279,8 @@ function FeeEditor(props: IProps) {
     };
   }, []);
 
+  const isMultiTxs = unsignedTxs.length > 1;
+
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
@@ -1307,12 +1290,28 @@ function FeeEditor(props: IProps) {
         </Stack>
       </ScrollView>
       <Stack
-        pt="$4"
+        pt={isMultiTxs ? '$0' : '$4'}
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
       >
-        {renderFeeDetails()}
-        {renderFeeOverview()}
+        {isMultiTxs ? null : renderFeeDetails()}
+        {isMultiTxs ? null : renderFeeOverview()}
+        {vaultSettings?.editFeeEnabled ? (
+          <Button
+            mt="$4"
+            disabled={isSaveFeeDisabled}
+            variant="primary"
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as any
+            }
+            onPress={handleApplyFeeInfo}
+          >
+            {intl.formatMessage({ id: ETranslations.action_save })}
+          </Button>
+        ) : null}
       </Stack>
     </>
   );

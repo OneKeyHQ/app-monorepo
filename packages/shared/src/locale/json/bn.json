@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "নির্বাচিত নেটওয়ার্ক বর্তমানে কেবল {deviceType} সমর্থন করে",
   "send.address_exists": "ঠিকানাটি ইতিমধ্যেই বিদ্যমান",
   "send.address_invalid": "অবৈধ ঠিকানা। দয়া করে পরীক্ষা করুন এবং পুনরায় প্রবেশ করুন",
-  "send.amount": "পরিমাণ",
+  "send.amount": "আনুমানিক ফলাফল",
   "send.amount_invalid": "অপর্যাপ্ত ব্যালেন্স। দয়া করে একটি ছোট পরিমাণ চেষ্টা করুন",
   "send.amount_too_small": "ট্রান্সফার পরিমাণ খুব ছোট।",
   "send.authentication_failed_verify_again": "প্রমাণীকরণ ব্যর্থ হয়েছে, দয়া করে আপনার নেটওয়ার্ক সংযোগ পরীক্ষা করুন এবং আবার চেষ্টা করুন।",
