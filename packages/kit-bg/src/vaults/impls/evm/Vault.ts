@@ -36,6 +36,10 @@ import type {
   IFeeInfoUnit,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import type {
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
+} from '@onekeyhq/shared/types/history';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type {
   IFetchServerTokenDetailParams,
@@ -345,7 +349,19 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxEvm);
+      const unsignedTx = await this._buildUnsignedTxFromEncodedTx(
+        encodedTx as IEncodedTxEvm,
+      );
+
+      if (params.prevNonce && isNumber(params.prevNonce)) {
+        return this.updateUnsignedTx({
+          unsignedTx,
+          nonceInfo: {
+            nonce: new BigNumber(params.prevNonce).plus(1).toNumber(),
+          },
+        });
+      }
+      return unsignedTx;
     }
     throw new OneKeyInternalError();
   }
@@ -1188,6 +1204,14 @@ export default class Vault extends VaultBase {
   ): Promise<IServerEstimateFeeResponse> {
     const provider = await this.getRpcClient();
     const resp = await provider.estimateFee(params);
+    return resp;
+  }
+
+  override async fetchAccountHistoryDetailByRpc(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.getAccountHistoryDetail(params);
     return resp;
   }
 
