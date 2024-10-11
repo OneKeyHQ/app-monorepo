@@ -104,6 +104,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     toToken: {
       'networkId': 'evm--1',
@@ -114,6 +115,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
   },
   'evm--56': {
@@ -126,6 +128,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
     toToken: {
       'networkId': 'evm--56',
@@ -136,6 +139,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     },
   },
   'evm--137': {
@@ -149,6 +153,7 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
 
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
     toToken: {
       'networkId': 'evm--137',
@@ -160,6 +165,7 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0x3c499c542cef5e3811e1192ce70d8cc03d5c3359.png',
 
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     },
   },
   'evm--43114': {
@@ -172,6 +178,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
     toToken: {
       'networkId': 'evm--43114',
@@ -182,6 +190,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--43114/tokens/address-0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e.png',
       'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/avalanche.png',
     },
   },
   'evm--10': {
@@ -195,6 +205,8 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address--1721283262262.png',
 
       'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
     toToken: {
       'networkId': 'evm--10',
@@ -205,6 +217,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--10/tokens/address-0x0b2c639c533813f4aa9d7837caf62653d097ff85.png',
       'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/optimism.png',
     },
   },
   'evm--42161': {
@@ -217,6 +231,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
       'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
     toToken: {
       'networkId': 'evm--42161',
@@ -227,6 +243,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831.png',
       'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
   },
   'evm--8453': {
@@ -239,6 +257,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     toToken: {
       'networkId': 'evm--8453',
@@ -249,6 +268,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
   },
   'evm--250': {
@@ -262,6 +282,7 @@ export const swapDefaultSetTokens: Record<
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--250/tokens/native.png',
 
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
     toToken: {
       'networkId': 'evm--250',
@@ -272,6 +293,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--250/tokens/0x04068da6c83afcfa0e13ba15a6696662335d5b75.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     },
   },
   'evm--324': {
@@ -284,6 +306,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--324/tokens/native.png',
       'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
     toToken: {
       'networkId': 'evm--324',
@@ -294,6 +318,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--324/tokens/0x1d17cbcf0d6d143135ae902365d2e5e2a16538d4.png',
       'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/zksync-era-mainnet.png',
     },
   },
   'btc--0': {
@@ -306,6 +332,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/btc--0/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/btc.png',
     },
   },
   'ltc--0': {
@@ -318,6 +345,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/ltc--0/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ltc.png',
     },
   },
   'bch--0': {
@@ -330,6 +358,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/bch--0/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bch.png',
     },
   },
   'doge--0': {
@@ -342,6 +371,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/doge--0/tokens/address-.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/doge.png',
     },
   },
   'sol--101': {
@@ -354,6 +384,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
     toToken: {
       'networkId': 'sol--101',
@@ -364,6 +395,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
   },
   'xrp--0': {
@@ -376,6 +408,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/xrp--0/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/xrp.png',
     },
   },
   'kaspa--kaspa': {
@@ -388,6 +421,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/kaspa--kaspa/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/kas.png',
     },
   },
   'evm--1030': {
@@ -400,6 +434,8 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/evm--1030/tokens/native.png',
       'isNative': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/conflux-espace.png',
     },
   },
   'near--0': {
@@ -412,6 +448,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/near--0/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/near.png',
     },
   },
   'tron--0x2b6653dc': {
@@ -424,6 +461,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address--1720669765494.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     },
     toToken: {
       'networkId': 'tron--0x2b6653dc',
@@ -434,6 +472,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/tron--0x2b6653dc/tokens/address-TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t-1720668500740.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
     },
   },
   'sui--mainnet': {
@@ -446,6 +485,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0x2::sui::SUI.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
     },
   },
   'ton--mainnet': {
@@ -458,6 +498,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
     },
   },
   'aptos--1': {
@@ -470,6 +511,7 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/aptos--1/tokens/0x1::aptos_coin::AptosCoin.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
     },
   },
 };

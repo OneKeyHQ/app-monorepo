@@ -10,7 +10,10 @@ type IProps = PropsWithChildren<{
   onClose?: (extra?: { flag?: string }) => void;
 }>;
 
-function DappOpenModalPage({ children, onClose, dappApprove }: IProps) {
+export function useDappCloseHandler(
+  dappApprove: ReturnType<typeof useDappApproveAction>,
+  onClose?: (extra?: { flag?: string }) => void,
+) {
   const handleOnClose = (extra?: { flag?: string }) => {
     if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
       dappApprove.reject();
@@ -19,6 +22,12 @@ function DappOpenModalPage({ children, onClose, dappApprove }: IProps) {
       onClose(extra);
     }
   };
+
+  return handleOnClose;
+}
+
+function DappOpenModalPage({ children, onClose, dappApprove }: IProps) {
+  const handleOnClose = useDappCloseHandler(dappApprove, onClose);
 
   return (
     <Page scrollEnabled onClose={handleOnClose}>

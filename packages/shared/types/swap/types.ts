@@ -237,6 +237,13 @@ export interface ISwapTokenMetadata {
   };
 }
 
+export interface IQuoteTip {
+  icon?: string;
+  title?: string;
+  detail?: string;
+  link?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   info: IFetchQuoteInfo;
@@ -264,6 +271,7 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
+  quoteShowTip?: IQuoteTip;
 }
 
 export interface IAllowanceResult {
