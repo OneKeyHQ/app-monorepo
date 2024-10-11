@@ -28,6 +28,12 @@ import type {
   IServerGasPriceParams,
   IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
+import {
+  EOnChainHistoryTxStatus,
+  type IFetchHistoryTxDetailsResp,
+  type IOnChainHistoryTxTransfer,
+  type IServerFetchAccountHistoryDetailParams,
+} from '@onekeyhq/shared/types/history';
 import type {
   IAmountUnit,
   IFetchServerTokenListApiParams,
@@ -36,7 +42,12 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 
 import { BaseApiProvider } from './BaseApiProvider';
-import { INTERFACE, parseTokenItem, safeNumberString } from './utils';
+import {
+  INTERFACE,
+  parseTokenItem,
+  safeNumber,
+  safeNumberString,
+} from './utils';
 
 import type { BigNumber } from 'bignumber.js';
 
@@ -46,6 +57,52 @@ export enum EVMMethodIds {
   balanceOf = '0x70a08231', // keccak256(Buffer.from('balanceOf(address)')).toString('hex') => 0x70a082310
   resolver = '0x0178b8bf', // keccak256(Buffer.from('resolver(byte32)')).toString('hex') => 0x70a082310
   addr = '0xf1cb7e06', // keccak256(Buffer.from('addr(byte32,uint256)')).toString('hex') => 0x70a082310
+}
+
+interface IEvmGetTransactionByHash {
+  blockHash: string;
+  blockNumber: string;
+  chainId: string;
+  from: string;
+  gas: string;
+  gasPrice: string;
+  hash: string;
+  input: string;
+  nonce: string;
+  r: string;
+  s: string;
+  to: string;
+  transactionIndex: string;
+  type: string;
+  v: string;
+  value: string;
+}
+
+interface IEvmGetTransactionReceipt {
+  blockHash: string;
+  blockNumber: string;
+  contractAddress: string | null;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
+  from: string;
+  gasUsed: string;
+  logs: Array<{
+    address: string;
+    blockHash: string;
+    blockNumber: string;
+    data: string;
+    logIndex: string;
+    removed: boolean;
+    topics: string[];
+    transactionHash: string;
+    transactionIndex: string;
+  }>;
+  logsBloom: string;
+  status: string;
+  to: string;
+  transactionHash: string;
+  transactionIndex: string;
+  type: string;
 }
 
 const EMPTY_DATA = '0x';
@@ -468,6 +525,97 @@ class EvmApiProvider extends BaseApiProvider {
     return {
       gasLimit: Math.ceil(gasLimit).toString(),
       estimateGasLimit: estimateGasLimit.toString(),
+    };
+  }
+
+  override async getHistoryDetailFromThirdParty(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IFetchHistoryTxDetailsResp> {
+    const { txid, accountAddress } = params;
+    const res = await this.client.batchCall<
+      [IEvmGetTransactionByHash, IEvmGetTransactionReceipt]
+    >([
+      ['eth_getTransactionByHash', [txid]],
+      ['eth_getTransactionReceipt', [txid]],
+    ]);
+
+    const tx = res[0];
+    const receipt = res[1];
+
+    if (!tx || !receipt) {
+      throw new Error(
+        `[ProviderEVMFork.getHistoryDetail] Can not find transaction by hash: ${txid}`,
+      );
+    }
+
+    const nativeToken = await this.getNativeToken();
+
+    if (!nativeToken.info?.decimals) {
+      throw new Error('decimals is undefined');
+    }
+
+    const gasFee = new B(receipt?.effectiveGasPrice ?? 0)
+      .multipliedBy(receipt?.gasUsed)
+      .shiftedBy(-nativeToken.info.decimals);
+
+    const value = new B(tx?.value ?? '0').shiftedBy(-nativeToken.info.decimals);
+
+    let transfers: IOnChainHistoryTxTransfer[] = [
+      {
+        label: 'Transfer',
+        from: tx?.from,
+        to: tx?.to,
+        amount: value.toString(),
+        token: this.nativeTokenAddress,
+      } as IOnChainHistoryTxTransfer,
+    ];
+
+    const sends: IOnChainHistoryTxTransfer[] = [];
+    const receives: IOnChainHistoryTxTransfer[] = [];
+
+    if (accountAddress) {
+      transfers.forEach((item) => {
+        if (item.from === params.accountAddress) {
+          sends.push(item);
+        }
+        if (item.to === params.accountAddress) {
+          receives.push(item);
+        }
+      });
+      transfers = [];
+    }
+
+    let status = EOnChainHistoryTxStatus.Failed;
+
+    if (new B(receipt?.status).isGreaterThan(0)) {
+      status = EOnChainHistoryTxStatus.Success;
+    }
+
+    return {
+      // @ts-expect-error
+      tokens: {
+        [nativeToken.info.address]: nativeToken,
+      },
+      data: {
+        tx: txid,
+        from: tx?.from,
+        to: tx?.to,
+        riskLevel: 0,
+        sends,
+        receives,
+        transfers,
+        status,
+        block: safeNumber(receipt?.blockNumber),
+        // @ts-expect-error
+        timestamp: undefined,
+        gasFee: gasFee.toString(),
+        gasFeeFiatValue: safeNumberString(
+          gasFee.multipliedBy(nativeToken.price),
+        ),
+        // @ts-expect-error
+        nonce: safeNumber(tx?.nonce),
+        value: value.toString(),
+      },
     };
   }
 }

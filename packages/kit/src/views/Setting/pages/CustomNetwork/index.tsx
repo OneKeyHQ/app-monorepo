@@ -26,6 +26,8 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
+import { useDappCloseHandler } from '../../../DAppConnection/pages/DappOpenModalPage';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function AddCustomNetwork() {
@@ -229,8 +231,10 @@ function AddCustomNetwork() {
     );
   }, [state, intl, onDelete]);
 
+  const handleOnClose = useDappCloseHandler(dappApprove);
+
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,

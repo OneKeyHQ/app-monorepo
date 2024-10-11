@@ -58,11 +58,14 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IFetchHistoryTxDetailsResp,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
@@ -1228,6 +1231,45 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async estimateFeeByRpc(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
+    throw new NotImplemented();
+  }
+
+  async fetchAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.fetchAccountHistoryDetailByRpc(params);
+    }
+    return this.fetchAccountHistoryDetailByApi(params);
+  }
+
+  async fetchAccountHistoryDetailByApi(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const { accountId, ...rest } = params;
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+      '/wallet/v1/account/history/detail',
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp;
+  }
+
+  async fetchAccountHistoryDetailByRpc(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
     throw new NotImplemented();
   }
 }

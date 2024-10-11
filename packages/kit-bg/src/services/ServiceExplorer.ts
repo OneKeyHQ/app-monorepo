@@ -63,7 +63,7 @@ class ServiceExplorer extends ServiceBase {
       case 'token':
         return `${explorerURL}/token/${param}`;
       case 'transaction':
-        return `${explorerURL}/transaction/${param}`;
+        return `${explorerURL}/tx/${param}`;
       case 'block':
         return `${explorerURL}/block/${param}`;
       default:
