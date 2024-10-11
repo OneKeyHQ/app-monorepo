@@ -4,6 +4,8 @@ import path from 'path';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { resourcesPath } from '../resoucePath';
+
 import type { ChildProcess } from 'child_process';
 
 export type IStatus = {
@@ -94,8 +96,7 @@ export default abstract class BaseProcess {
     this.stopped = false;
 
     const processDir = path.join(
-      // @ts-expect-error
-      global.resourcesPath as string,
+      resourcesPath,
       'bin',
       this.resource,
       isDev ? system : '',

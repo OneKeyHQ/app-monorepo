@@ -177,3 +177,7 @@ textarea {
 .onekey-img-cropper {
   height: 100%;
 }
+
+body > div.cet-container {
+  z-index: unset;
+}
