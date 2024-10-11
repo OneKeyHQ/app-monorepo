@@ -658,6 +658,9 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
   }) {
     const { accountId, networkId, indexedAccountId } = params;
+    if (!accountId && !indexedAccountId) {
+      return null;
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error('networkId should not be all network');
     }

@@ -82,12 +82,7 @@ const StakePage = () => {
 
   const isReachBabylonCap = useMemo<boolean | undefined>(() => {
     if (provider && provider.name === 'babylon') {
-      const { stakingCap, totalStaked } = provider;
-      return (
-        Number(stakingCap) > 0 &&
-        Number(totalStaked) > 0 &&
-        Number(totalStaked) > Number(stakingCap)
-      );
+      return provider.stakeDisable;
     }
     return false;
   }, [provider]);
