@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, unset } from 'lodash';
 
 import type {
   IUnsignedMessage,
@@ -10,7 +10,10 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { BATCH_SEND_TXS_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -313,10 +316,17 @@ class ServiceSend extends ServiceBase {
       const unsignedTx = unsignedTxs[i];
       const feeInfo = sendSelectedFeeInfo?.feeInfo;
 
-      if (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo)) {
+      if (
+        isMultiTxs &&
+        (unsignedTx.swapInfo || unsignedTx.stakingInfo || i >= 1)
+      ) {
+        const isApproveTx = !unsignedTx.swapInfo && !unsignedTx.stakingInfo;
+        const multiTxFeeUpRatio = isApproveTx
+          ? BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE
+          : BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP;
         if (feeInfo?.gas) {
           feeInfo.gas.gasLimit = new BigNumber(feeInfo.gas.gasLimit)
-            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .times(multiTxFeeUpRatio)
             .toFixed();
         }
 
@@ -324,7 +334,7 @@ class ServiceSend extends ServiceBase {
           feeInfo.gasEIP1559.gasLimit = new BigNumber(
             feeInfo.gasEIP1559.gasLimit,
           )
-            .times(BATCH_SEND_TXS_FEE_UP_RATIO)
+            .times(multiTxFeeUpRatio)
             .toFixed();
         }
       }
