@@ -640,6 +640,12 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   const renderTotalNative = useCallback(() => {
+    const commonProps = {
+      size: '$bodyMd',
+      color: '$textSubdued',
+      formatter: 'balance',
+      formatterOptions: { tokenSymbol: txFee?.common.nativeSymbol },
+    };
     if (
       selectedFee?.totalFiatForDisplay !== selectedFee?.totalFiatMaxForDisplay
     ) {

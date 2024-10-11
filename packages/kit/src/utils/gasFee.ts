@@ -206,8 +206,8 @@ export function calculateFeeForSend({
   nativeTokenPrice: number;
   txSize?: number;
   estimateFeeParams?: IEstimateFeeParams;
-  txCount?: number;
-  multiTxFeeUpRatio?: number;
+  txCount: number;
+  multiTxFeeUpRatio: number;
 }) {
   const feeRange = calculateTotalFeeRange({
     feeInfo,

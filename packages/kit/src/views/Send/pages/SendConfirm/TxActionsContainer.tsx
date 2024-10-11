@@ -82,11 +82,14 @@ function TxActionsContainer(props: IProps) {
           .flatMap((tx) => tx.actions[0].tokenApprove)
           .filter(Boolean);
 
-        swapInfo.swapRequiredApproves = approveActions;
+        const newSwapInfo = {
+          ...swapInfo,
+          swapRequiredApproves: approveActions,
+        };
 
         return {
           decodedTxs: transferTxs,
-          swapInfo,
+          swapInfo: newSwapInfo,
         };
       }
 

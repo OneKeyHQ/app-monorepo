@@ -452,6 +452,7 @@ export function useSwapBuildTx() {
               setSwapShouldRefreshQuote(true);
             }
           } catch (e) {
+            console.error(e);
             setSwapBuildTxFetching(false);
             setSwapShouldRefreshQuote(true);
           }

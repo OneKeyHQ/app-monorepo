@@ -557,7 +557,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       const transferExtraElements: React.ReactElement[] = [];
 
-      if (swapInfo && swapInfo.swapRequiredApproves) {
+      if (swapInfo?.swapRequiredApproves) {
         swapInfo.swapRequiredApproves.forEach((approve) => {
           let approveContent = '';
           if (new BigNumber(approve.amount).eq(0)) {
