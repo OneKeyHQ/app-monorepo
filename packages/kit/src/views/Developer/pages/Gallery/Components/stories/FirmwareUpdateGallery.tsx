@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import {
   Button,
   Dialog,
@@ -7,7 +5,6 @@ import {
   Select,
   SizableText,
   Stack,
-  Switch,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -17,7 +14,6 @@ import { FirmwareChangeLogView } from '@onekeyhq/kit/src/views/FirmwareUpdate/co
 import { FirmwareCheckingLoading } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareCheckingLoading';
 import { FirmwareInstallingViewBase } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareInstallingView';
 import { FirmwareLatestVersionInstalled } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareLatestVersionInstalled';
-import { FirmwareUpdateCheckList } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateCheckList';
 import {
   EnterBootModeGuide,
   useFirmwareUpdateErrors,
@@ -31,7 +27,6 @@ import {
   EnumBasicDialogContentContainer,
 } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import {
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdatesDetectStatusAtom,
@@ -39,6 +34,7 @@ import {
 import * as AllErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';

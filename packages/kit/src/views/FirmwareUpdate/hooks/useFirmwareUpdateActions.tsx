@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -13,6 +12,7 @@ import {
   EModalRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';

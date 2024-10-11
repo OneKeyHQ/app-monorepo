@@ -1,8 +1,8 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { DeviceAvatar } from '../../../components/DeviceAvatar';
 

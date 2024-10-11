@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
@@ -9,7 +8,10 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import type {
+  EFirmwareUpdateTipMessages,
+  ICheckAllFirmwareReleaseResult,
+} from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdateDone } from './FirmwareUpdateDone';
 import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';

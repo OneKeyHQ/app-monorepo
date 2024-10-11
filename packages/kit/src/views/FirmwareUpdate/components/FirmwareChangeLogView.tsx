@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
@@ -22,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
+  ICheckAllFirmwareReleaseResult,
   IFirmwareChangeLog,
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
