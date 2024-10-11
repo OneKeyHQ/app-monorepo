@@ -4,6 +4,10 @@ import * as path from 'path';
 import { format as formatUrl } from 'url';
 
 import {
+  attachTitlebarToWindow,
+  setupTitlebar,
+} from 'custom-electron-titlebar/main';
+import {
   BrowserWindow,
   Menu,
   app,
@@ -43,6 +47,7 @@ import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
+import { resourcesPath, staticPath } from './resoucePath';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -54,12 +59,6 @@ const APP_NAME = 'OneKey Wallet';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
-(global as any).resourcesPath = isDev
-  ? path.join(__dirname, '../public/static')
-  : process.resourcesPath;
-const staticPath = isDev
-  ? path.join(__dirname, '../public/static')
-  : path.join((global as any).resourcesPath, 'static');
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
 
@@ -69,6 +68,10 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+
+if (!isMac) {
+  setupTitlebar();
+}
 
 let systemIdleInterval: NodeJS.Timeout;
 
@@ -144,7 +147,10 @@ const initMenu = () => {
           accelerator: 'Alt+CmdOrCtrl+H',
           label: i18nText(ETranslations.menu_hide_onekey_wallet),
         },
-        { role: 'unhide', label: i18nText(ETranslations.menu_show_all) },
+        isMac && {
+          role: 'unhide',
+          label: i18nText(ETranslations.menu_show_all),
+        },
         { type: 'separator' },
         {
           role: 'quit',
@@ -197,7 +203,7 @@ const initMenu = () => {
       label: i18nText(ETranslations.menu_window),
       submenu: [
         { role: 'minimize', label: i18nText(ETranslations.menu_minimize) },
-        { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
+        isMac && { role: 'zoom', label: i18nText(ETranslations.menu_zoom) },
         ...(isMac
           ? [
               { type: 'separator' },
@@ -214,7 +220,7 @@ const initMenu = () => {
               },
             ]
           : []),
-      ],
+      ].filter(Boolean),
     },
     {
       role: 'help',
@@ -358,7 +364,8 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     show: false,
     title: APP_NAME,
-    titleBarStyle: isWin ? 'default' : 'hidden',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 18 },
     autoHideMenuBar: true,
     frame: true,
@@ -389,6 +396,9 @@ function createMainWindow() {
     ...savedWinBounds,
   });
 
+  if (!isMac) {
+    attachTitlebarToWindow(browserWindow);
+  }
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
@@ -433,7 +443,7 @@ function createMainWindow() {
     safelyBrowserWindow?.webContents.send(
       ipcMessageKeys.SET_ONEKEY_DESKTOP_GLOBALS,
       {
-        resourcesPath: (global as any).resourcesPath,
+        resourcesPath,
         staticPath: `file://${staticPath}`,
         preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
@@ -520,6 +530,10 @@ function createMainWindow() {
       // Maximized window
       safelyBrowserWindow?.maximize();
     }
+  });
+
+  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
+    event.returnValue = isDev;
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
