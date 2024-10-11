@@ -128,7 +128,7 @@ export default class VaultBtc extends VaultBase {
     const { swapInfo, stakingInfo } = unsignedTx;
     const { inputs, outputs, inputsToSign, psbtHex } = encodedTx;
 
-    if (psbtHex && Array.isArray(inputsToSign)) {
+    if (!swapInfo && !stakingInfo && psbtHex && Array.isArray(inputsToSign)) {
       return this.buildDecodedPsbtTx(params);
     }
 
@@ -264,6 +264,7 @@ export default class VaultBtc extends VaultBase {
         action.assetTransfer.utxoFrom = utxoFrom;
         action.assetTransfer.utxoTo = originalUtxoTo;
       }
+      actions = [action];
     } else if (nativeToken) {
       actions = [
         {

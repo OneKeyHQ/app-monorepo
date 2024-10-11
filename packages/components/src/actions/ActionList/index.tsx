@@ -91,7 +91,7 @@ export function ActionListItem({
       testID={testID}
     >
       <XStack jc="space-between" flex={1}>
-        <XStack>
+        <XStack flex={1}>
           {icon ? (
             <Icon
               name={icon}
@@ -105,6 +105,8 @@ export function ActionListItem({
           <SizableText
             textAlign="left"
             size="$bodyMd"
+            width="100%"
+            flexShrink={1}
             $md={{ size: '$bodyLg' }}
             color={destructive ? '$textCritical' : '$text'}
           >

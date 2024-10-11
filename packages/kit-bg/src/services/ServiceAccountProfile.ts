@@ -95,27 +95,16 @@ class ServiceAccountProfile extends ServiceBase {
       xpub?: string;
     },
   ): Promise<IFetchAccountDetailsResp> {
-    const queryParams = {
-      ...omit(params, ['accountId', 'signal']),
-    };
-
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
     const controller = new AbortController();
     this._fetchAccountDetailsControllers.push(controller);
-    const resp = await client.get<{
-      data: IFetchAccountDetailsResp;
-    }>(
-      `/wallet/v1/account/get-account?${qs.stringify(
-        omitBy(queryParams, isNil),
-      )}`,
-      {
-        headers: await this._getWalletTypeHeader({
-          accountId: params.accountId,
-        }),
-        signal: controller.signal,
-      },
-    );
-
+    const resp = await vault.fetchAccountDetails({
+      ...params,
+      signal: controller.signal,
+    });
     return resp.data.data;
   }
 
@@ -154,6 +143,13 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     toAddress: string;
   }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      return { isContract: false, interacted: 'unknown' };
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
       const resp = await client.get<{

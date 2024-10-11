@@ -2,6 +2,7 @@ import { keyBy, merge } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
@@ -74,6 +75,47 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
         return token;
       }
     }
+  }
+
+  @backgroundMethod()
+  async getTokens({
+    networkId,
+    tokenIdOnNetworkList,
+  }: {
+    networkId: string;
+    tokenIdOnNetworkList: string[];
+  }) {
+    const tokenMap = (await this.getRawData())?.data;
+    if (!tokenMap) {
+      return [];
+    }
+
+    return tokenIdOnNetworkList
+      .map((tokenIdOnNetwork) => {
+        const tokenId = accountUtils.buildLocalTokenId({
+          networkId,
+          tokenIdOnNetwork,
+        });
+        return tokenMap[tokenId];
+      })
+      .filter((token): token is IToken => !!token);
+  }
+
+  @backgroundMethod()
+  async searchTokens(params: { keywords: string }): Promise<IToken[]> {
+    const rawData = await this.getRawData();
+    const tokenMap = rawData?.data;
+
+    if (!tokenMap) {
+      return [];
+    }
+
+    const tokens = Object.values(tokenMap);
+    const fuse = buildFuse(tokens, {
+      keys: ['address'],
+    });
+    const result = fuse.search(params.keywords).map((i) => i.item);
+    return result;
   }
 
   @backgroundMethod()

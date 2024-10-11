@@ -19,6 +19,8 @@ import numberUtils, {
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -29,8 +31,18 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateGasParams,
+  IFeeInfoUnit,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type {
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+} from '@onekeyhq/shared/types/serverToken';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -86,9 +98,11 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientEvm } from './sdkEvm/ClientEvm';
+import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -1095,12 +1109,16 @@ export default class Vault extends VaultBase {
   ): Promise<IMeasureRpcStatusResult> {
     const client = new ClientEvm(params.rpcUrl);
     const { chainId } = await client.getChainId();
-    if (Number(chainId) !== Number(await this.getNetworkChainId())) {
+    if (
+      params.validateChainId &&
+      Number(chainId) !== Number(await this.getNetworkChainId())
+    ) {
       throw new OneKeyError('Invalid chainId');
     }
     const start = performance.now();
     const result = await client.getInfo();
     return {
+      chainId: Number(chainId),
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber: result.bestBlockNumber,
     };
@@ -1121,5 +1139,65 @@ export default class Vault extends VaultBase {
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  // RPC Client
+  async getRpcClient() {
+    const rpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+    if (!rpcInfo?.rpc) {
+      throw new OneKeyInternalError('No RPC url');
+    }
+
+    const provider = new EvmApiProvider({
+      url: rpcInfo.rpc,
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+    });
+    return provider;
+  }
+
+  override async fetchAccountDetailsByRpc(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.getAccount(params);
+    return resp;
+  }
+
+  override async fetchTokenListByRpc(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.listAccountToken(params);
+    return resp;
+  }
+
+  override async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.queryAccountToken(params);
+    return resp;
+  }
+
+  override async estimateFeeByRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const provider = await this.getRpcClient();
+    const resp = await provider.estimateFee(params);
+    return resp;
+  }
+
+  override async checkFeeSupportInfo(params: IMeasureRpcStatusParams) {
+    const client = new ClientEvm(params.rpcUrl);
+    return client.checkEIP1559Support();
+  }
+
+  override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
+    const provider = await this.getRpcClient();
+    return provider.client.call(request.method, request.params as any);
   }
 }
