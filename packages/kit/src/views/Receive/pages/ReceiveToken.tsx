@@ -21,7 +21,6 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
@@ -42,7 +41,6 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -317,8 +315,12 @@ function ReceiveToken() {
             <QRCode
               value={account.address}
               size={240}
-              logo={{ uri: token?.logoURI || network.logoURI }}
-              logoSize={40}
+              logo={
+                network.isCustomNetwork
+                  ? undefined
+                  : { uri: token?.logoURI || network.logoURI }
+              }
+              logoSize={network.isCustomNetwork ? undefined : 40}
             />
           </Stack>
 

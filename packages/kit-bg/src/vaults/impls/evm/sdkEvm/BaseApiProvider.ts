@@ -292,7 +292,7 @@ class BaseApiProvider {
         price24h: 0,
         balance: accountToken.balance,
         balanceParsed: accountToken.balanceParsed,
-        fiatValue: '',
+        fiatValue: '0',
       };
 
       data.push({
@@ -315,7 +315,9 @@ class BaseApiProvider {
         ['asc', 'desc', 'desc'],
       ),
       keys: md5(
-        `${networkId}__${isEmpty(map) ? '' : Object.keys(map).join(',')}`,
+        `${networkId}__${
+          isEmpty(map) ? '' : Object.keys(map).join(',')
+        }__${JSON.stringify(data)}`,
       ),
       fiatValue: undefined,
     };
