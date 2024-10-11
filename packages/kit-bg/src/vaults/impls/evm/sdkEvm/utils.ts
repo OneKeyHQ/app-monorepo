@@ -14,6 +14,16 @@ export function safeNumberString(n: string | B | number, fallback?: string) {
   return res.toString();
 }
 
+export function safeNumber(n: string | B | number, fallback?: number) {
+  const res = new B(n);
+
+  if (res.isNaN() || !res.isFinite()) {
+    return fallback;
+  }
+
+  return res.toNumber();
+}
+
 export const nativeTokenUniqueKey = 'native';
 
 function isServerFiatTokenInfo(

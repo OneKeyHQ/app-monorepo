@@ -2,10 +2,11 @@
 
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
-import { isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
+import { forEach, isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyError } from '@onekeyhq/shared/src/errors';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IFetchAccountDetailsResp,
@@ -24,6 +25,14 @@ import type {
   IServerGasPriceParams,
   IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type {
+  IFetchAccountHistoryResp,
+  IFetchHistoryTxDetailsResp,
+  IOnChainHistoryTx,
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
+} from '@onekeyhq/shared/types/history';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -606,6 +615,141 @@ class BaseApiProvider {
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse['data']['data']> {
     throw new NotImplemented();
+  }
+
+  /*= ==============================
+   *        /history/detail
+   *============================== */
+  async getAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    if (params.accountAddress) {
+      params.accountAddress = this.normalizeAddress(params.accountAddress);
+    }
+    const reply = await this.getHistoryDetailOnChain(params);
+
+    // XXX: transfer FiatAmount by currencyValue
+    // XXX: change object item by ref not a good way !!!
+    forEach(reply.tokens, (tokenRef) => {
+      tokenRef.price = '0';
+    });
+
+    reply.data.gasFeeFiatValue = '0';
+
+    console.log('=====>>> reply: ', reply);
+    const res = this.normalizeHistoryTxActionLabels(params.networkId, {
+      ...reply,
+      data: [reply.data],
+    });
+
+    return {
+      data: {
+        data: {
+          data: res.data[0],
+          nfts: {},
+          tokens: res.tokens,
+        },
+      },
+    };
+  }
+
+  async getHistoryDetailOnChain(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IFetchHistoryTxDetailsResp> {
+    const history: IFetchHistoryTxDetailsResp =
+      await this.getHistoryDetailFromThirdParty(params);
+    const data = history.data;
+    if (!data) {
+      throw new OneKeyError(
+        `[ProviderBasic.getHistoryDetail] Transaction not found: ${params.txid}`,
+      );
+    }
+
+    const transfers = data.sends?.concat(data.receives ?? []) ?? [];
+
+    if (transfers?.length === 1) {
+      if (!data.from) {
+        data.from = transfers[0].from;
+      }
+      if (!data.to) {
+        data.to = transfers[0].to;
+      }
+    }
+
+    return history;
+  }
+
+  async getHistoryDetailFromThirdParty(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IFetchHistoryTxDetailsResp> {
+    throw new NotImplemented();
+  }
+
+  private normalizeHistoryTxActionLabels(
+    networkId: string,
+    res: IFetchAccountHistoryResp,
+  ) {
+    const isNoFromToInTransfersChain = false;
+    res.data = res.data.map((n) => {
+      const originLabel = n.label;
+      if (n.tokenActive) {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_token_active',
+        });
+      } else if (n.tokenApprove) {
+        if (new BigNumber(n.tokenApprove?.amount).isLessThanOrEqualTo(0)) {
+          const token = res.tokens?.[n.tokenApprove?.key];
+          const nft = res.nfts?.[n.tokenApprove?.key];
+          n.label = appLocale.intl.formatMessage(
+            {
+              id: 'wallet__history_token_approve_cancel',
+            },
+
+            {
+              symbol: token?.info?.symbol ?? nft?.collectionSymbol ?? '',
+            },
+          );
+        } else {
+          n.label = appLocale.intl.formatMessage({
+            id: 'wallet__history_token_approve',
+          });
+        }
+      } else if (
+        n.sends?.length &&
+        !n.receives?.length &&
+        (isNoFromToInTransfersChain || n.sends.every((i) => i.to))
+      ) {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_send',
+        });
+      } else if (
+        n.receives?.length &&
+        !n.sends?.length &&
+        (isNoFromToInTransfersChain || n.receives.every((i) => i.from))
+      ) {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_receive',
+        });
+      } else if (n.label === EOnChainHistoryTxType.Send) {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_send',
+        });
+      } else if (n.label === EOnChainHistoryTxType.Receive) {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_receive',
+        });
+      } else {
+        n.label = appLocale.intl.formatMessage({
+          id: 'wallet__history_contract_interaction',
+        });
+        const functionName = n.contractCall?.functionName ?? originLabel;
+        if (functionName) {
+          n.label += ` (${functionName})`;
+        }
+      }
+      return n;
+    });
+    return res;
   }
 }
 

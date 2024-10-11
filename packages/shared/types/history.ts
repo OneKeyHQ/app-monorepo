@@ -94,6 +94,16 @@ export type IOnChainHistoryTx = {
   outputs?: IOnChainHistoryTxUTXOOutput[];
 
   tokenApprove?: IOnChainHistoryTxApprove;
+
+  tokenActive?: {
+    token: string;
+    from: string;
+  };
+
+  contractCall?: {
+    functionName?: string;
+  };
+
   // TODO: on chain swap info
   swapInfo?: any;
 
