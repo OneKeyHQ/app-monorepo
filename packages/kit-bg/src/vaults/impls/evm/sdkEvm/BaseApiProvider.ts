@@ -6,7 +6,6 @@ import { forEach, isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { NotImplemented, OneKeyError } from '@onekeyhq/shared/src/errors';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IFetchAccountDetailsResp,
@@ -640,7 +639,6 @@ class BaseApiProvider {
 
       reply.data.gasFeeFiatValue = '0';
 
-      console.log('=====>>> reply: ', reply);
       const res = this.normalizeHistoryTxActionLabels(params.networkId, {
         ...reply,
         data: [reply.data],

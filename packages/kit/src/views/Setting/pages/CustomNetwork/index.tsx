@@ -88,6 +88,10 @@ function AddCustomNetwork() {
           form.setValue('chainId', chainId);
         }
         return chainId;
+      } catch (error) {
+        // @ts-expect-error
+        form.setValue('chainId', '');
+        throw error;
       } finally {
         setIsFetchingChainId(false);
       }
@@ -293,7 +297,18 @@ function AddCustomNetwork() {
                     id: ETranslations.form_rpc_url_prefix_required,
                   });
                 }
-                await getChainId(value);
+                try {
+                  const chainId = await getChainId(value);
+                  if (!chainId) {
+                    return intl.formatMessage({
+                      id: ETranslations.form_rpc_url_invalid,
+                    });
+                  }
+                } catch (error) {
+                  return intl.formatMessage({
+                    id: ETranslations.form_rpc_url_invalid,
+                  });
+                }
                 return undefined;
               },
             }}
@@ -306,19 +321,7 @@ function AddCustomNetwork() {
               {...(isFetchingChainId && { addOns: [{ loading: true }] })}
             />
           </Form.Field>
-          <Form.Field
-            name="chainId"
-            label="Chain ID"
-            rules={{
-              required: {
-                value: true,
-                message: intl.formatMessage({
-                  id: ETranslations.address_book_add_address_name_required,
-                }),
-              },
-            }}
-            disabled
-          >
+          <Form.Field name="chainId" label="Chain ID" disabled>
             <Input
               size="large"
               $gtMd={{
