@@ -136,6 +136,8 @@ const SwapActionsState = ({
         renderContent: currentQuoteRes.quoteShowTip?.link ? (
           <Button
             variant="tertiary"
+            size="small"
+            alignSelf="flex-start"
             icon="QuestionmarkOutline"
             onPress={() => {
               if (currentQuoteRes.quoteShowTip?.link) {
