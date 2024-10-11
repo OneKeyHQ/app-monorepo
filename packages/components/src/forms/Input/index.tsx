@@ -357,8 +357,8 @@ function BaseInput(
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
           {...readOnlyStyle}
-          {...props}
           {...InputComponentStyle}
+          {...props}
           onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
           onChangeText={
             platformEnv.isNativeIOS && keyboardType === 'decimal-pad'
