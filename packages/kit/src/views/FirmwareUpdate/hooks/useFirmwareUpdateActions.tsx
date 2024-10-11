@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -15,6 +16,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -160,6 +162,22 @@ export function useFirmwareUpdateActions() {
     [intl, openChangeLogModal],
   );
 
+  const showCheckList = useCallback(
+    ({ result }: { result: ICheckAllFirmwareReleaseResult | undefined }) => {
+      Dialog.confirm({
+        title: intl.formatMessage({
+          id: ETranslations.update_ready_to_upgrade_checklist,
+        }),
+        icon: 'ChecklistOutline',
+        renderContent: <FirmwareUpdateCheckList result={result} />,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+      });
+    },
+    [intl],
+  );
+
   return {
     closeUpdateModal,
     openChangeLog,
@@ -167,5 +185,6 @@ export function useFirmwareUpdateActions() {
     openChangeLogOfExtension,
     showBootloaderMode,
     showForceUpdate,
+    showCheckList,
   };
 }

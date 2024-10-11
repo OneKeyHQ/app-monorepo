@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
@@ -25,6 +25,8 @@ import type {
   IFirmwareChangeLog,
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
+
+import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
@@ -168,6 +170,7 @@ export function FirmwareChangeLogView({
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const { showCheckList } = useFirmwareUpdateActions();
 
   return (
     <>
@@ -175,12 +178,13 @@ export function FirmwareChangeLogView({
         onConfirmText={intl.formatMessage({
           id: ETranslations.update_update_now,
         })}
-        onConfirm={() =>
+        onConfirm={() => {
           setStepInfo({
             step: EFirmwareUpdateSteps.showCheckList,
             payload: undefined,
-          })
-        }
+          });
+          showCheckList({ result });
+        }}
       />
       <Stack>
         <FirmwareUpdateWalletProfile result={result} />

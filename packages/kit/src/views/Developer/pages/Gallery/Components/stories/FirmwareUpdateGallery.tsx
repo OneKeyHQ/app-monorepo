@@ -31,7 +31,7 @@ import {
   EnumBasicDialogContentContainer,
 } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import {
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdatesDetectStatusAtom,
@@ -239,10 +239,15 @@ function FirmwareUpdateGalleryStaticUI() {
       </Stack>
 
       <Stack my="$8">
-        <SizableText size="$heading5xl">* 升级前检查项</SizableText>
-        <FirmwareUpdateCheckList
-          result={FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any}
-        />
+        <Button
+          onPress={() => {
+            actions.showCheckList({
+              result: FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE as any,
+            });
+          }}
+        >
+          * 升级前检查项
+        </Button>
       </Stack>
 
       <Stack my="$8">
