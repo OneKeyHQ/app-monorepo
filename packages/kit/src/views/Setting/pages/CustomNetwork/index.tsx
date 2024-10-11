@@ -88,6 +88,10 @@ function AddCustomNetwork() {
           form.setValue('chainId', chainId);
         }
         return chainId;
+      } catch (error) {
+        // @ts-expect-error
+        form.setValue('chainId', '');
+        throw error;
       } finally {
         setIsFetchingChainId(false);
       }
