@@ -10,10 +10,10 @@ import type {
 } from '@onekeyhq/components';
 import {
   Form,
-  Input,
   Page,
   SizableText,
   Stack,
+  TextAreaInput,
   useClipboard,
   useForm,
   useMedia,
@@ -227,6 +227,8 @@ function ExportPrivateKeysPage({
         onPress: async () => {
           if (!rawKeyValue) {
             await refreshKey({ noDebouncedCall: true });
+          } else {
+            reset();
           }
           setSecureEntry(!secureEntry);
         },
@@ -256,7 +258,16 @@ function ExportPrivateKeysPage({
         },
       },
     ],
-    [clipboard, exportType, form, intl, rawKeyValue, refreshKey, secureEntry],
+    [
+      clipboard,
+      exportType,
+      form,
+      intl,
+      rawKeyValue,
+      refreshKey,
+      reset,
+      secureEntry,
+    ],
   );
 
   useEffect(() => {
@@ -313,12 +324,11 @@ function ExportPrivateKeysPage({
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
-            <Input
+            <TextAreaInput
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
               placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
-              secureTextEntry={secureEntry}
               addOns={actions}
               displayAsMaskWhenEmptyValue
             />

@@ -82,4 +82,9 @@ function BaseTextArea(
   );
 }
 
+/**
+ * @deprecated This component is deprecated. Please use TextAreaInput instead.
+ */
 export const TextArea = forwardRef(BaseTextArea);
+
+export * from './Input';

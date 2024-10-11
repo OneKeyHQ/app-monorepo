@@ -1,4 +1,10 @@
-import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
+import type {
+  ComponentType,
+  CompositionEventHandler,
+  ForwardedRef,
+  ReactComponentElement,
+  RefObject,
+} from 'react';
 import {
   forwardRef,
   useCallback,
@@ -23,7 +29,12 @@ import { Input as TMInput } from './Input';
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IGroupProps, IKeyOfIcons } from '../../primitives';
+import type {
+  IGroupProps,
+  IKeyOfIcons,
+  IStackProps,
+  IStackStyle,
+} from '../../primitives';
 import type {
   IPasteEventParams,
   IPasteEventPayload,
@@ -49,6 +60,9 @@ export type {
 } from '@onekeyfe/react-native-text-input';
 
 export type IInputProps = {
+  InputComponent?: ComponentType;
+  InputComponentStyle?: IStackStyle;
+  addOnsContainerProps?: IStackProps;
   displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
@@ -129,6 +143,7 @@ function BaseInput(
   forwardedRef: ForwardedRef<IInputRef>,
 ) {
   const {
+    InputComponent = TMInput,
     size = 'medium',
     leftAddOnProps,
     leftIconName,
@@ -138,6 +153,7 @@ function BaseInput(
     editable,
     error,
     containerProps,
+    addOnsContainerProps,
     readonly,
     autoFocus,
     selectTextOnFocus,
@@ -147,6 +163,7 @@ function BaseInput(
     onPaste,
     onChangeText,
     keyboardType,
+    InputComponentStyle,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -306,7 +323,7 @@ function BaseInput(
 
       {/* input */}
       <Group.Item>
-        <TMInput
+        <InputComponent
           unstyled
           ref={inputRef}
           keyboardType={keyboardType}
@@ -340,6 +357,7 @@ function BaseInput(
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
           {...readOnlyStyle}
+          {...InputComponentStyle}
           {...props}
           onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
           onChangeText={
@@ -372,6 +390,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
+            {...addOnsContainerProps}
           >
             {addOns.map(
               (
