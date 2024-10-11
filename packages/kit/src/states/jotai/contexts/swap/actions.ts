@@ -1440,7 +1440,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
         }
       }
-      console.log('swap__type', type);
       set(swapTypeSwitchAtom(), type);
     },
   );
