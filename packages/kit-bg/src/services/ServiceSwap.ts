@@ -1197,9 +1197,24 @@ export default class ServiceSwap extends ServiceBase {
       },
       ...recentTokenPairs,
     ];
-    if (newRecentTokenPairs.length > maxRecentTokenPairs) {
-      newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
+
+    let singleChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId === t.toToken.networkId,
+    );
+    let crossChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId !== t.toToken.networkId,
+    );
+
+    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
+      singleChainTokenPairs = singleChainTokenPairs.slice(
+        0,
+        maxRecentTokenPairs,
+      );
     }
+    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
+      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,

@@ -53,13 +53,35 @@ export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> 
           ),
       );
     }
-    recentTokenPairs.unshift({ fromToken, toToken });
-    if (recentTokenPairs.length > maxRecentTokenPairs) {
-      recentTokenPairs = recentTokenPairs.slice(0, maxRecentTokenPairs);
+    let newRecentTokenPairs = [
+      {
+        fromToken,
+        toToken,
+      },
+      ...recentTokenPairs,
+    ];
+
+    let singleChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId === t.toToken.networkId,
+    );
+    let crossChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId !== t.toToken.networkId,
+    );
+
+    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
+      singleChainTokenPairs = singleChainTokenPairs.slice(
+        0,
+        maxRecentTokenPairs,
+      );
     }
+    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
+      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
+
     await this.setRawData({
       ...data,
-      recentTokenPairs,
+      recentTokenPairs: newRecentTokenPairs,
     });
   }
 }
