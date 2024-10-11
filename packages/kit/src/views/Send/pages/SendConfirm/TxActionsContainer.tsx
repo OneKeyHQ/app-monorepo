@@ -20,8 +20,8 @@ import {
   isSendNativeTokenAction,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
-
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
+
 import {
   InfoItem,
   InfoItemGroup,

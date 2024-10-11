@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
+import { isEmpty } from 'lodash';
+
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
@@ -17,7 +19,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import useAppNavigation from './useAppNavigation';
-import { isEmpty } from 'lodash';
 
 type IParams = {
   accountId: string;

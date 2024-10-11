@@ -11,7 +11,10 @@ import type {
   IEventSourceOpenEvent,
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
-import { IDecodedTxAction, IDecodedTxActionTokenApprove } from '../tx';
+
+import { IDecodedTxAction } from '../tx';
+
+import type { IDecodedTxActionTokenApprove } from '../tx';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
