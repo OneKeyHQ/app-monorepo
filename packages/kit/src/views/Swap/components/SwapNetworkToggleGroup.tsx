@@ -11,7 +11,8 @@ import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
-  disableOtherNet?: boolean;
+  disableNetworks?: string[];
+  disableMoreNetworks?: boolean;
   moreNetworksCount?: number;
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
@@ -22,7 +23,8 @@ const SwapNetworkToggleGroup = ({
   networks,
   selectedNetwork,
   onSelectNetwork,
-  disableOtherNet,
+  disableMoreNetworks,
+  disableNetworks,
   moreNetworksCount,
   onMoreNetwork,
 }: ISwapNetworkToggleGroupProps) => {
@@ -38,9 +40,7 @@ const SwapNetworkToggleGroup = ({
       {filteredNetworks.map((network) => (
         <NetworksFilterItem
           key={network.networkId}
-          disabled={Boolean(
-            disableOtherNet && network.networkId !== selectedNetwork?.networkId,
-          )}
+          disabled={Boolean(disableNetworks?.includes(network.networkId))}
           networkImageUri={network.logoURI}
           tooltipContent={
             network.isAllNetworks
@@ -49,7 +49,7 @@ const SwapNetworkToggleGroup = ({
           }
           isSelected={network?.networkId === selectedNetwork?.networkId}
           onPress={
-            disableOtherNet && network.networkId !== selectedNetwork?.networkId
+            disableNetworks?.includes(network.networkId)
               ? undefined
               : () => {
                   onSelectNetwork(network);
@@ -59,10 +59,10 @@ const SwapNetworkToggleGroup = ({
       ))}
       {moreNetworksCount && moreNetworksCount > 0 ? (
         <NetworksFilterItem
-          disabled={disableOtherNet}
+          disabled={disableMoreNetworks}
           networkName={`${moreNetworksCount}+`}
           flex={1}
-          onPress={disableOtherNet ? undefined : onMoreNetwork}
+          onPress={disableMoreNetworks ? undefined : onMoreNetwork}
         />
       ) : null}
     </XStack>
