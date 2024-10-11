@@ -18,7 +18,7 @@ import {
   YStack,
 } from '../../primitives';
 import { Input } from '../Input';
-import { TextArea } from '../TextArea';
+import { TextArea, TextAreaInput } from '../TextArea';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
@@ -61,6 +61,7 @@ const getChildProps = (
   };
   switch (child.type) {
     case Input:
+    case TextAreaInput:
     case TextArea: {
       const handleChange = onChangeText
         ? composeEventHandlers(onChangeText, field.onChange)
