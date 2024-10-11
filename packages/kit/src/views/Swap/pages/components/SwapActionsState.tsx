@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -19,9 +20,11 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -48,6 +51,7 @@ const SwapActionsState = ({
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
+  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
@@ -113,6 +117,46 @@ const SwapActionsState = ({
     swapActionState.isWrapped,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
+  ]);
+
+  const onActionHandlerBefore = useCallback(() => {
+    if (!swapActionState.isRefreshQuote && currentQuoteRes?.quoteShowTip) {
+      Dialog.confirm({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          onActionHandler();
+        },
+        title: currentQuoteRes?.quoteShowTip.title ?? '',
+        description: currentQuoteRes.quoteShowTip.detail ?? '',
+        icon:
+          (currentQuoteRes?.quoteShowTip.icon as IKeyOfIcons) ??
+          'ChecklistBoxOutline',
+        renderContent: currentQuoteRes.quoteShowTip?.link ? (
+          <Button
+            variant="tertiary"
+            size="small"
+            alignSelf="flex-start"
+            icon="QuestionmarkOutline"
+            onPress={() => {
+              if (currentQuoteRes.quoteShowTip?.link) {
+                openUrlExternal(currentQuoteRes.quoteShowTip?.link);
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          </Button>
+        ) : undefined,
+      });
+    } else {
+      onActionHandler();
+    }
+  }, [
+    currentQuoteRes?.quoteShowTip,
+    intl,
+    onActionHandler,
+    swapActionState.isRefreshQuote,
   ]);
 
   const approveStepComponent = useMemo(
@@ -196,7 +240,7 @@ const SwapActionsState = ({
       >
         {approveStepComponent}
         <Button
-          onPress={onActionHandler}
+          onPress={onActionHandlerBefore}
           size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
@@ -209,7 +253,7 @@ const SwapActionsState = ({
     [
       approveStepComponent,
       md,
-      onActionHandler,
+      onActionHandlerBefore,
       pageType,
       quoteLoading,
       swapActionState.disabled,

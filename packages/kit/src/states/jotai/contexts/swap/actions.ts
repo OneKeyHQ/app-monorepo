@@ -176,13 +176,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         token.networkId !== toToken?.networkId &&
         swapTypeSwitchValue === ESwapTabSwitchType.SWAP
       ) {
+        const defaultTokenSet = swapDefaultSetTokens[token.networkId];
         if (token.isNative) {
-          set(swapSelectToTokenAtom(), undefined);
-        } else {
-          const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-          if (defaultTokenSet.fromToken) {
-            set(swapSelectToTokenAtom(), defaultTokenSet.fromToken);
-          }
+          set(
+            swapSelectToTokenAtom(),
+            !defaultTokenSet.toToken?.isNative
+              ? defaultTokenSet.toToken
+              : undefined,
+          );
+        } else if (
+          defaultTokenSet.fromToken &&
+          defaultTokenSet.fromToken.isNative
+        ) {
+          set(swapSelectToTokenAtom(), defaultTokenSet.fromToken);
         }
       }
     }
@@ -891,18 +897,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      if (quoteResult?.toAmount && !quoteResult.isBest) {
-        // provider best check
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_not_best_rate,
-            }),
-            alertLevel: ESwapAlertLevel.WARNING,
-          },
-        ];
-      }
+      // if (quoteResult?.toAmount && !quoteResult.isBest) {
+      //   // provider best check
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: appLocale.intl.formatMessage({
+      //         id: ETranslations.swap_page_alert_not_best_rate,
+      //       }),
+      //       alertLevel: ESwapAlertLevel.WARNING,
+      //     },
+      //   ];
+      // }
 
       // market rate check
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
@@ -1416,14 +1422,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const fromNetworkDefault =
           swapDefaultSetTokens[swapAccountNetworkId ?? ''];
         if (fromToken) {
-          if (!fromToken.isNative && fromNetworkDefault.fromToken) {
-            set(swapSelectToTokenAtom(), fromNetworkDefault.fromToken);
+          if (
+            !fromToken.isNative &&
+            fromNetworkDefault?.fromToken &&
+            fromNetworkDefault?.fromToken.isNative
+          ) {
+            set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
           }
           if (toToken && toToken.networkId !== fromToken.networkId) {
             set(swapSelectToTokenAtom(), undefined);
           }
-        } else if (fromNetworkDefault.fromToken) {
-          set(swapSelectFromTokenAtom(), fromNetworkDefault.fromToken);
+        } else if (
+          fromNetworkDefault?.fromToken &&
+          fromNetworkDefault?.fromToken?.isNative &&
+          !toToken?.isNative
+        ) {
+          set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
         }
       }
       set(swapTypeSwitchAtom(), type);

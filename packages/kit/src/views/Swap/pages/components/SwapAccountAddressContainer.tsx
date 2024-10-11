@@ -121,10 +121,12 @@ import {
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
-  onToAnotherAddressModal?: () => void;
+  onClickNetwork?: (type: ESwapDirectionType) => void;
+  // onToAnotherAddressModal?: () => void;
 }
 const SwapAccountAddressContainer = ({
   type,
+  onClickNetwork,
 }: // onToAnotherAddressModal,
 ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
@@ -353,6 +355,10 @@ ISwapAccountAddressContainerProps) => {
             }}
             gap="$1"
             alignItems="center"
+            cursor="pointer"
+            onPress={() => {
+              onClickNetwork?.(type);
+            }}
           >
             <Image w={18} h={18} source={{ uri: networkInfo.logoURI }} />
             <SizableText size="$bodyMd" color="$text">
@@ -363,10 +369,11 @@ ISwapAccountAddressContainerProps) => {
       </AnimatePresence>
     );
   }, [
-    type,
-    fromToken?.networkId,
     swapSupportAllNetwork,
     swapTypeSwitch,
+    onClickNetwork,
+    type,
+    fromToken?.networkId,
     toToken?.networkId,
   ]);
 

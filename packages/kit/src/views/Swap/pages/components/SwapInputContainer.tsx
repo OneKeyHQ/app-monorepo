@@ -32,7 +32,7 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
-  onToAnotherAddressModal?: () => void;
+  // onToAnotherAddressModal?: () => void;
 }
 
 const SwapInputContainer = ({
@@ -44,7 +44,7 @@ const SwapInputContainer = ({
   inputLoading,
   onSelectToken,
   onBalanceMaxPress,
-  onToAnotherAddressModal,
+  // onToAnotherAddressModal,
   balance,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
@@ -102,7 +102,8 @@ const SwapInputContainer = ({
     <YStack>
       <SwapAccountAddressContainer
         type={direction}
-        onToAnotherAddressModal={onToAnotherAddressModal}
+        // onToAnotherAddressModal={onToAnotherAddressModal}
+        onClickNetwork={onSelectToken}
       />
       <AmountInput
         onChange={onAmountChange}
