@@ -25,7 +25,10 @@ import type {
   IServerGasPriceParams,
   IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type {
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsResp,
@@ -623,34 +626,49 @@ class BaseApiProvider {
   async getAccountHistoryDetail(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    if (params.accountAddress) {
-      params.accountAddress = this.normalizeAddress(params.accountAddress);
-    }
-    const reply = await this.getHistoryDetailOnChain(params);
+    try {
+      if (params.accountAddress) {
+        params.accountAddress = this.normalizeAddress(params.accountAddress);
+      }
+      const reply = await this.getHistoryDetailOnChain(params);
 
-    // XXX: transfer FiatAmount by currencyValue
-    // XXX: change object item by ref not a good way !!!
-    forEach(reply.tokens, (tokenRef) => {
-      tokenRef.price = '0';
-    });
+      // XXX: transfer FiatAmount by currencyValue
+      // XXX: change object item by ref not a good way !!!
+      forEach(reply.tokens, (tokenRef) => {
+        tokenRef.price = '0';
+      });
 
-    reply.data.gasFeeFiatValue = '0';
+      reply.data.gasFeeFiatValue = '0';
 
-    console.log('=====>>> reply: ', reply);
-    const res = this.normalizeHistoryTxActionLabels(params.networkId, {
-      ...reply,
-      data: [reply.data],
-    });
+      console.log('=====>>> reply: ', reply);
+      const res = this.normalizeHistoryTxActionLabels(params.networkId, {
+        ...reply,
+        data: [reply.data],
+      });
 
-    return {
-      data: {
+      return {
         data: {
-          data: res.data[0],
-          nfts: {},
-          tokens: res.tokens,
+          data: {
+            data: res.data[0],
+            nfts: {},
+            tokens: res.tokens,
+          },
         },
-      },
-    };
+      };
+    } catch {
+      // always fallback to pending
+      return {
+        data: {
+          data: {
+            // @ts-expect-error
+            data: {
+              tx: params.txid,
+              status: EOnChainHistoryTxStatus.Pending,
+            },
+          },
+        },
+      };
+    }
   }
 
   async getHistoryDetailOnChain(
