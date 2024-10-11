@@ -175,6 +175,7 @@ function decrypt(
   data: Buffer | string,
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean,
+  allowRawPassword?: boolean,
 ): Buffer {
   if (!password) {
     throw new IncorrectPassword();
@@ -185,7 +186,11 @@ function decrypt(
     defaultLogger.account.secretPerf.decodePassword();
   }
   // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({ password, ignoreLogger: true });
+  const passwordDecoded = decodePassword({
+    password,
+    ignoreLogger: true,
+    allowRawPassword,
+  });
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.decodePasswordDone();
   }
@@ -297,11 +302,13 @@ function decodeSensitiveText({
   encodedText,
   key,
   ignoreLogger,
+  allowRawPassword,
 }: {
   encodedText: string;
   key?: string;
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -312,6 +319,7 @@ function decodeSensitiveText({
         theKey,
         Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.aes.length), 'hex'),
         ignoreLogger,
+        allowRawPassword,
       ).toString('utf-8');
       return text;
     }

@@ -132,6 +132,7 @@ export default class ServicePassword extends ServiceBase {
     const output = decodeSensitiveText({
       encodedText: input,
       key: instanceId,
+      allowRawPassword: true,
     });
     return Promise.resolve(output);
   }
