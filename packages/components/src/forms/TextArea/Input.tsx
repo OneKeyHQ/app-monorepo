@@ -26,7 +26,7 @@ function BaseTextArea(
       containerProps={{
         flexDirection: 'column',
       }}
-      addsOnContainerProps={{
+      addOnsContainerProps={{
         justifyContent: 'flex-end',
         paddingBottom: '$2',
       }}
