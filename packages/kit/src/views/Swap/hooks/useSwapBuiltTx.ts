@@ -381,7 +381,7 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.accountInfo?.account?.id &&
         swapFromAddressInfo.address
       ) {
-        if (settingsPersistAtom.swapBitchApproveAndSwap) {
+        if (settingsPersistAtom.swapBatchApproveAndSwap) {
           try {
             setSwapBuildTxFetching(true);
             let approvesInfo = [];
@@ -506,7 +506,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
-      settingsPersistAtom.swapBitchApproveAndSwap,
+      settingsPersistAtom.swapBatchApproveAndSwap,
       setSwapBuildTxFetching,
       createBuildTx,
       navigationToSendConfirm,

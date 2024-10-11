@@ -175,7 +175,7 @@ export function useSwapActionState() {
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = intl.formatMessage({
-          id: settingsPersistAtom.swapBitchApproveAndSwap
+          id: settingsPersistAtom.swapBatchApproveAndSwap
             ? ETranslations.swap_page_approve_and_swap
             : ETranslations.global_approve,
         });
@@ -247,7 +247,7 @@ export function useSwapActionState() {
     quoteLoading,
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
-    settingsPersistAtom.swapBitchApproveAndSwap,
+    settingsPersistAtom.swapBatchApproveAndSwap,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     toToken,
