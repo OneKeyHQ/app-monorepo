@@ -359,6 +359,8 @@ class ServiceSend extends ServiceBase {
       transferPayload,
     } = params;
 
+    const isMultiTxs = unsignedTxs.length > 1;
+
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
@@ -388,7 +390,12 @@ class ServiceSend extends ServiceBase {
         decodedTx,
       };
 
-      result.push(data);
+      if (
+        !isMultiTxs ||
+        (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+      ) {
+        result.push(data);
+      }
 
       await this.backgroundApi.serviceSignature.addItemFromSendProcess(
         data,
