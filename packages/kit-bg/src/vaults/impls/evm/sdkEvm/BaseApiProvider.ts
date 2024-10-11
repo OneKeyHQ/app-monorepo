@@ -703,6 +703,7 @@ class BaseApiProvider {
     throw new NotImplemented();
   }
 
+  // Since the label field is not used in the transaction history details page, we don't apply i18n to it for now
   private normalizeHistoryTxActionLabels(
     networkId: string,
     res: IFetchAccountHistoryResp,
@@ -711,55 +712,33 @@ class BaseApiProvider {
     res.data = res.data.map((n) => {
       const originLabel = n.label;
       if (n.tokenActive) {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_token_active',
-        });
+        n.label = 'Active';
       } else if (n.tokenApprove) {
         if (new BigNumber(n.tokenApprove?.amount).isLessThanOrEqualTo(0)) {
           const token = res.tokens?.[n.tokenApprove?.key];
           const nft = res.nfts?.[n.tokenApprove?.key];
-          n.label = appLocale.intl.formatMessage(
-            {
-              id: 'wallet__history_token_approve_cancel',
-            },
-
-            {
-              symbol: token?.info?.symbol ?? nft?.collectionSymbol ?? '',
-            },
-          );
+          n.label = `Revoke {symbol} allowance`;
         } else {
-          n.label = appLocale.intl.formatMessage({
-            id: 'wallet__history_token_approve',
-          });
+          n.label = 'Approve';
         }
       } else if (
         n.sends?.length &&
         !n.receives?.length &&
         (isNoFromToInTransfersChain || n.sends.every((i) => i.to))
       ) {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_send',
-        });
+        n.label = 'Send';
       } else if (
         n.receives?.length &&
         !n.sends?.length &&
         (isNoFromToInTransfersChain || n.receives.every((i) => i.from))
       ) {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_receive',
-        });
+        n.label = 'Receive';
       } else if (n.label === EOnChainHistoryTxType.Send) {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_send',
-        });
+        n.label = 'Send';
       } else if (n.label === EOnChainHistoryTxType.Receive) {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_receive',
-        });
+        n.label = 'Receive';
       } else {
-        n.label = appLocale.intl.formatMessage({
-          id: 'wallet__history_contract_interaction',
-        });
+        n.label = 'Contract Interaction';
         const functionName = n.contractCall?.functionName ?? originLabel;
         if (functionName) {
           n.label += ` (${functionName})`;
