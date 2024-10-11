@@ -204,3 +204,17 @@ export type IAllNetworkHistoryExtraItem = {
   accountAddress: string;
   accountXpub?: string;
 };
+
+export interface IServerFetchAccountHistoryDetailParams {
+  accountId: string;
+  networkId: string;
+  txid: string;
+  accountAddress?: string;
+  xpub?: string;
+}
+
+export interface IServerFetchAccountHistoryDetailResp {
+  data: {
+    data: IFetchHistoryTxDetailsResp;
+  };
+}
