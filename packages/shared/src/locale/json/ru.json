@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "Выбранная сеть в настоящее время поддерживает только {deviceType}",
   "send.address_exists": "Адрес уже существует",
   "send.address_invalid": "Неверный адрес. Пожалуйста, проверьте и введите заново",
-  "send.amount": "Сумма",
+  "send.amount": "Оценочные результаты",
   "send.amount_invalid": "Недостаточно средств. Попробуйте меньшую сумму",
   "send.amount_too_small": "Сумма перевода слишком мала.",
   "send.authentication_failed_verify_again": "Аутентификация не удалась, пожалуйста, проверьте ваше сетевое соединение и попробуйте снова.",
