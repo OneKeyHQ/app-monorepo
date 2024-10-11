@@ -104,9 +104,6 @@ export function FirmwareUpdateCheckList({
         onConfirm={
           result
             ? async (dialog) => {
-                if (!result) {
-                  return;
-                }
                 try {
                   await dialog.close();
                   setStepInfo({

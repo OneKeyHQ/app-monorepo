@@ -29,7 +29,6 @@ function PageFirmwareUpdateInstall() {
   >();
   const { result } = route.params;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
