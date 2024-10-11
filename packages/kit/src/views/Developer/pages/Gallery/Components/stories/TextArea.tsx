@@ -1,4 +1,4 @@
-import { Stack, TextArea } from '@onekeyhq/components';
+import { Stack, TextArea, TextAreaInput } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
@@ -25,7 +25,7 @@ const TextAreaGallery = () => (
               minHeight={platformEnv.isNativeIOS ? '$20' : undefined}
             />
             <TextArea error />
-            <TextArea
+            <TextAreaInput
               addOns={[
                 {
                   testID: 'account-key-show-btn',
