@@ -6,7 +6,6 @@ import { forEach, isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { NotImplemented, OneKeyError } from '@onekeyhq/shared/src/errors';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IFetchAccountDetailsResp,
@@ -293,7 +292,7 @@ class BaseApiProvider {
         price24h: 0,
         balance: accountToken.balance,
         balanceParsed: accountToken.balanceParsed,
-        fiatValue: '',
+        fiatValue: '0',
       };
 
       data.push({
@@ -316,7 +315,9 @@ class BaseApiProvider {
         ['asc', 'desc', 'desc'],
       ),
       keys: md5(
-        `${networkId}__${isEmpty(map) ? '' : Object.keys(map).join(',')}`,
+        `${networkId}__${
+          isEmpty(map) ? '' : Object.keys(map).join(',')
+        }__${JSON.stringify(data)}`,
       ),
       fiatValue: undefined,
     };
@@ -640,7 +641,6 @@ class BaseApiProvider {
 
       reply.data.gasFeeFiatValue = '0';
 
-      console.log('=====>>> reply: ', reply);
       const res = this.normalizeHistoryTxActionLabels(params.networkId, {
         ...reply,
         data: [reply.data],
