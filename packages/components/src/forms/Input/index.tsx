@@ -62,7 +62,7 @@ export type {
 export type IInputProps = {
   InputComponent?: ComponentType;
   InputComponentStyle?: IStackStyle;
-  addsOnContainerProps?: IStackProps;
+  addOnsContainerProps?: IStackProps;
   displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
@@ -153,7 +153,7 @@ function BaseInput(
     editable,
     error,
     containerProps,
-    addsOnContainerProps,
+    addOnsContainerProps,
     readonly,
     autoFocus,
     selectTextOnFocus,
@@ -390,7 +390,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
-            {...addsOnContainerProps}
+            {...addOnsContainerProps}
           >
             {addOns.map(
               (
