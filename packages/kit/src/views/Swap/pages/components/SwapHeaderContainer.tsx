@@ -2,8 +2,8 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { EPageType, IStackProps } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, XStack } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapTypeSwitchAtom,
@@ -69,12 +69,12 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
-  pageType?: EPageType;
+  // pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
 }
 
 const SwapHeaderContainer = ({
-  pageType,
+  // pageType,
   defaultSwapType,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
@@ -84,25 +84,29 @@ const SwapHeaderContainer = ({
   const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   useEffect(() => {
     if (defaultSwapType) {
-      void swapTypeSwitchAction(defaultSwapType, networkId);
+      // Avoid switching the default toToken before it has been loaded,
+      // resulting in the default network toToken across chains
+      setTimeout(() => {
+        void swapTypeSwitchAction(defaultSwapType, networkId);
+      }, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const onSwapLimit = useCallback(() => {
-    Dialog.confirm({
-      icon: 'InfoCircleOutline',
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.swap_page_limit_dialog_button,
-      }),
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_limit_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_limit_dialog_content,
-      }),
-    });
-  }, [intl]);
+  // const onSwapLimit = useCallback(() => {
+  //   Dialog.confirm({
+  //     icon: 'InfoCircleOutline',
+  //     showCancelButton: false,
+  //     onConfirmText: intl.formatMessage({
+  //       id: ETranslations.swap_page_limit_dialog_button,
+  //     }),
+  //     title: intl.formatMessage({
+  //       id: ETranslations.swap_page_limit_dialog_title,
+  //     }),
+  //     description: intl.formatMessage({
+  //       id: ETranslations.swap_page_limit_dialog_content,
+  //     }),
+  //   });
+  // }, [intl]);
 
   return (
     <XStack justifyContent="space-between">

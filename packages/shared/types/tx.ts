@@ -126,8 +126,6 @@ export type IDecodedTx = {
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
   nativeAmountValue?: string;
-
-  toAddressLabel?: string; // used for display swap provider or staking protocol name, such as "Uniswap", "Compound", "1Inch", "Lido"
 };
 
 export type IDecodedTxActionBase = {

@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
-import { ipcRenderer } from 'electron';
+import path from 'path';
+
+import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
+import { ipcRenderer, nativeImage } from 'electron';
 
 import type {
   IDesktopAppState,
@@ -15,6 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 
 import { ipcMessageKeys } from './config';
+import { staticPath } from './resoucePath';
 
 import type { IUpdateSettings } from './libs/store';
 import type { IMacBundleInfo } from './libs/utils';
@@ -33,11 +37,11 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
 
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
-  hello: string;
   arch: string;
   platform: string;
   systemVersion: string;
   isMas: boolean;
+  isDev: boolean;
   channel?: string;
   reload: () => void;
   ready: () => void;
@@ -173,6 +177,39 @@ const getChannel = () => {
   return channel;
 };
 
+let globalTitleBar: Titlebar | null = null;
+
+const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
+// packages/components/tamagui.config.ts
+// lightColors.bgApp
+const lightColor = '#ffffff';
+// packages/components/tamagui.config.ts
+// darkColors.bgApp
+const darkColor = '#0f0f0f';
+
+const isMac = process.platform === 'darwin';
+
+const updateGlobalTitleBarBackgroundColor = () => {
+  if (globalTitleBar) {
+    setTimeout(() => {
+      let color = lightColor;
+      const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
+      if (theme === 'dark') {
+        color = darkColor;
+      } else if (theme === 'light') {
+        color = lightColor;
+      } else if (window.matchMedia) {
+        color = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? darkColor
+          : lightColor;
+      } else {
+        color = lightColor;
+      }
+      globalTitleBar?.updateBackground(TitlebarColor.fromHex(color));
+    }, 0);
+  }
+};
+
 const desktopApi = Object.freeze({
   getVersion: () => ipcRenderer.sendSync(ipcMessageKeys.APP_VERSION) as string,
   on: (channel: string, func: (...args: any[]) => any) => {
@@ -180,11 +217,11 @@ const desktopApi = Object.freeze({
       ipcRenderer.on(channel, (_, ...args) => func(...args));
     }
   },
-  hello: 'world',
   arch: process.arch,
   platform: process.platform,
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
+  isDev,
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   reload: () => ipcRenderer.send(ipcMessageKeys.APP_RELOAD),
@@ -213,8 +250,10 @@ const desktopApi = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW),
   changeDevTools: (isOpen: boolean) =>
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, isOpen),
-  changeTheme: (theme: string) =>
-    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme),
+  changeTheme: (theme: string) => {
+    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
+    updateGlobalTitleBarBackgroundColor();
+  },
   changeLanguage: (lang: string) => {
     ipcRenderer.send(ipcMessageKeys.APP_CHANGE_LANGUAGE, lang);
   },
@@ -358,3 +397,21 @@ const desktopApi = Object.freeze({
 
 window.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
+
+if (!isMac) {
+  window.addEventListener('DOMContentLoaded', () => {
+    // eslint-disable-next-line no-new
+    globalTitleBar = new Titlebar({
+      icon: nativeImage.createFromPath(
+        path.join(
+          __dirname,
+          isDev
+            ? '../public/static/images/icons/round_icon.png'
+            : '../build/static/images/icons/round_icon.png',
+        ),
+      ),
+    });
+    globalTitleBar.updateTitle('');
+    updateGlobalTitleBarBackgroundColor();
+  });
+}

@@ -2,10 +2,10 @@
 
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
-import { isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
+import { forEach, isEmpty, isNaN, keyBy, omit, orderBy, uniqBy } from 'lodash';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyError } from '@onekeyhq/shared/src/errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import type {
   IFetchAccountDetailsResp,
@@ -24,6 +24,17 @@ import type {
   IServerGasPriceParams,
   IServerGasPriceResponse,
 } from '@onekeyhq/shared/types/fee';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
+import type {
+  IFetchAccountHistoryResp,
+  IFetchHistoryTxDetailsResp,
+  IOnChainHistoryTx,
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
+} from '@onekeyhq/shared/types/history';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -281,7 +292,7 @@ class BaseApiProvider {
         price24h: 0,
         balance: accountToken.balance,
         balanceParsed: accountToken.balanceParsed,
-        fiatValue: '',
+        fiatValue: '0',
       };
 
       data.push({
@@ -304,7 +315,9 @@ class BaseApiProvider {
         ['asc', 'desc', 'desc'],
       ),
       keys: md5(
-        `${networkId}__${isEmpty(map) ? '' : Object.keys(map).join(',')}`,
+        `${networkId}__${
+          isEmpty(map) ? '' : Object.keys(map).join(',')
+        }__${JSON.stringify(data)}`,
       ),
       fiatValue: undefined,
     };
@@ -606,6 +619,134 @@ class BaseApiProvider {
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse['data']['data']> {
     throw new NotImplemented();
+  }
+
+  /*= ==============================
+   *        /history/detail
+   *============================== */
+  async getAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    try {
+      if (params.accountAddress) {
+        params.accountAddress = this.normalizeAddress(params.accountAddress);
+      }
+      const reply = await this.getHistoryDetailOnChain(params);
+
+      // XXX: transfer FiatAmount by currencyValue
+      // XXX: change object item by ref not a good way !!!
+      forEach(reply.tokens, (tokenRef) => {
+        tokenRef.price = '0';
+      });
+
+      reply.data.gasFeeFiatValue = '0';
+
+      const res = this.normalizeHistoryTxActionLabels(params.networkId, {
+        ...reply,
+        data: [reply.data],
+      });
+
+      return {
+        data: {
+          data: {
+            data: res.data[0],
+            nfts: {},
+            tokens: res.tokens,
+          },
+        },
+      };
+    } catch {
+      // always fallback to pending
+      return {
+        data: {
+          data: {
+            // @ts-expect-error
+            data: {
+              tx: params.txid,
+              status: EOnChainHistoryTxStatus.Pending,
+            },
+          },
+        },
+      };
+    }
+  }
+
+  async getHistoryDetailOnChain(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IFetchHistoryTxDetailsResp> {
+    const history: IFetchHistoryTxDetailsResp =
+      await this.getHistoryDetailFromThirdParty(params);
+    const data = history.data;
+    if (!data) {
+      throw new OneKeyError(
+        `[ProviderBasic.getHistoryDetail] Transaction not found: ${params.txid}`,
+      );
+    }
+
+    const transfers = data.sends?.concat(data.receives ?? []) ?? [];
+
+    if (transfers?.length === 1) {
+      if (!data.from) {
+        data.from = transfers[0].from;
+      }
+      if (!data.to) {
+        data.to = transfers[0].to;
+      }
+    }
+
+    return history;
+  }
+
+  async getHistoryDetailFromThirdParty(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IFetchHistoryTxDetailsResp> {
+    throw new NotImplemented();
+  }
+
+  // Since the label field is not used in the transaction history details page, we don't apply i18n to it for now
+  private normalizeHistoryTxActionLabels(
+    networkId: string,
+    res: IFetchAccountHistoryResp,
+  ) {
+    const isNoFromToInTransfersChain = false;
+    res.data = res.data.map((n) => {
+      const originLabel = n.label;
+      if (n.tokenActive) {
+        n.label = 'Active';
+      } else if (n.tokenApprove) {
+        if (new BigNumber(n.tokenApprove?.amount).isLessThanOrEqualTo(0)) {
+          const token = res.tokens?.[n.tokenApprove?.key];
+          const nft = res.nfts?.[n.tokenApprove?.key];
+          n.label = `Revoke {symbol} allowance`;
+        } else {
+          n.label = 'Approve';
+        }
+      } else if (
+        n.sends?.length &&
+        !n.receives?.length &&
+        (isNoFromToInTransfersChain || n.sends.every((i) => i.to))
+      ) {
+        n.label = 'Send';
+      } else if (
+        n.receives?.length &&
+        !n.sends?.length &&
+        (isNoFromToInTransfersChain || n.receives.every((i) => i.from))
+      ) {
+        n.label = 'Receive';
+      } else if (n.label === EOnChainHistoryTxType.Send) {
+        n.label = 'Send';
+      } else if (n.label === EOnChainHistoryTxType.Receive) {
+        n.label = 'Receive';
+      } else {
+        n.label = 'Contract Interaction';
+        const functionName = n.contractCall?.functionName ?? originLabel;
+        if (functionName) {
+          n.label += ` (${functionName})`;
+        }
+      }
+      return n;
+    });
+    return res;
   }
 }
 
