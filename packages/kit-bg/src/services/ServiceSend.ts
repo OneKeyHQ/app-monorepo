@@ -18,6 +18,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFeeInfoUnit,
@@ -48,7 +49,6 @@ import type {
   ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
