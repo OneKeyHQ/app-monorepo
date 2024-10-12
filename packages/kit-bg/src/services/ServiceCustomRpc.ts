@@ -223,7 +223,7 @@ class ServiceCustomRpc extends ServiceBase {
 
       if (
         !lastFetchTime ||
-        now - lastFetchTime >= timerUtils.getTimeDurationMs({ seconds: 10 })
+        now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
       ) {
         return this.fetchNetworkFromServer();
       }
