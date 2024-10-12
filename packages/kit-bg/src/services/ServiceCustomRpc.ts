@@ -225,7 +225,6 @@ class ServiceCustomRpc extends ServiceBase {
         !lastFetchTime ||
         now - lastFetchTime >= timerUtils.getTimeDurationMs({ seconds: 10 })
       ) {
-        console.log('====$$$$%%%%%%%%===>>: fetchNetworkFromServer cache');
         return this.fetchNetworkFromServer();
       }
       return networks;
