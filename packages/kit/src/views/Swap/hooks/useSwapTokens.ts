@@ -179,49 +179,49 @@ export function useSwapInit(params?: ISwapInitParams) {
           (net) => net.networkId === params?.importFromToken?.networkId,
         ))
     ) {
-      if (params.importFromToken) {
+      if (params?.importFromToken) {
         const fromTokenSupportTypes = checkSupportTokenSwapType(
-          params.importFromToken,
+          params?.importFromToken,
         );
         if (
-          params.swapTabSwitchType &&
-          fromTokenSupportTypes.includes(params.swapTabSwitchType)
+          params?.swapTabSwitchType &&
+          fromTokenSupportTypes.includes(params?.swapTabSwitchType)
         ) {
-          setFromToken(params.importFromToken);
+          setFromToken(params?.importFromToken);
         }
       }
-      if (params.importToToken) {
+      if (params?.importToToken) {
         const toTokenSupportTypes = checkSupportTokenSwapType(
-          params.importToToken,
+          params?.importToToken,
         );
         if (
-          params.swapTabSwitchType &&
-          toTokenSupportTypes.includes(params.swapTabSwitchType)
+          params?.swapTabSwitchType &&
+          toTokenSupportTypes.includes(params?.swapTabSwitchType)
         ) {
-          setToToken(params.importToToken);
+          setToToken(params?.importToToken);
         }
       }
       if (
-        params.importFromToken &&
-        !params.importToToken &&
-        !params.importFromToken?.isNative
+        params?.importFromToken &&
+        !params?.importToToken &&
+        !params?.importFromToken?.isNative
       ) {
         const defaultToToken =
-          tokenDetailSwapDefaultToTokens[params.importFromToken.networkId];
+          tokenDetailSwapDefaultToTokens[params?.importFromToken.networkId];
         if (defaultToToken) {
           const defaultTokenSupportTypes =
             checkSupportTokenSwapType(defaultToToken);
           if (
-            params.swapTabSwitchType &&
-            defaultTokenSupportTypes.includes(params.swapTabSwitchType)
+            params?.swapTabSwitchType &&
+            defaultTokenSupportTypes.includes(params?.swapTabSwitchType)
           ) {
             setToToken(defaultToToken);
           }
         }
       }
       void syncNetworksSort(
-        params.importFromToken?.networkId ??
-          params.importToToken?.networkId ??
+        params?.importFromToken?.networkId ??
+          params?.importToToken?.networkId ??
           getNetworkIdsMap().onekeyall,
       );
       return;
@@ -312,11 +312,11 @@ export function useSwapInit(params?: ISwapInitParams) {
       if (
         params?.importNetworkId &&
         swapAddressInfoRef.current?.networkId &&
-        params.importNetworkId !== swapAddressInfoRef.current.networkId
+        params?.importNetworkId !== swapAddressInfoRef.current.networkId
       ) {
         await updateSelectedAccountNetwork({
           num: 0,
-          networkId: params.importNetworkId,
+          networkId: params?.importNetworkId,
         });
       }
     })();
