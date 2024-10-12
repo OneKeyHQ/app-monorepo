@@ -48,6 +48,7 @@ import type {
   ITokenApproveInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -236,6 +237,7 @@ class ServiceSend extends ServiceBase {
 
     tx.swapInfo = unsignedTx.swapInfo;
     tx.stakingInfo = unsignedTx.stakingInfo;
+    tx.uuid = unsignedTx.uuid;
     return tx;
   }
 
@@ -367,6 +369,7 @@ class ServiceSend extends ServiceBase {
       feeInfo: sendSelectedFeeInfo,
       replaceTxInfo,
       transferPayload,
+      successfullySentTxs,
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
@@ -374,53 +377,64 @@ class ServiceSend extends ServiceBase {
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
-      const signedTx = signOnly
-        ? await this.signTransaction({
-            unsignedTx,
-            accountId,
-            networkId,
-            signOnly: true,
-          })
-        : await this.signAndSendTransaction({
-            unsignedTx,
-            networkId,
-            accountId,
-            signOnly: false,
-          });
-      const decodedTx = await this.buildDecodedTx({
-        networkId,
-        accountId,
-        unsignedTx,
-        feeInfo: sendSelectedFeeInfo,
-        transferPayload,
-      });
-
-      const data = {
-        signedTx,
-        decodedTx,
-      };
-
       if (
-        !isMultiTxs ||
-        (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+        !successfullySentTxs ||
+        !unsignedTx.uuid ||
+        !successfullySentTxs.includes(unsignedTx.uuid)
       ) {
-        result.push(data);
-      }
-
-      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-        data,
-        sourceInfo,
-      );
-      if (signedTx && !signOnly) {
-        await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+        const signedTx = signOnly
+          ? await this.signTransaction({
+              unsignedTx,
+              accountId,
+              networkId,
+              signOnly: true,
+            })
+          : await this.signAndSendTransaction({
+              unsignedTx,
+              networkId,
+              accountId,
+              signOnly: false,
+            });
+        const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
-          data: {
-            signedTx,
-            decodedTx,
-          },
-          replaceTxInfo,
+          unsignedTx,
+          feeInfo: sendSelectedFeeInfo,
+          transferPayload,
         });
+
+        const data = {
+          signedTx,
+          decodedTx,
+        };
+
+        // only fill swap(staking) tx info for batch approve&swap(staking) callback
+        if (
+          !isMultiTxs ||
+          (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+        ) {
+          result.push(data);
+        }
+
+        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+          data,
+          sourceInfo,
+        );
+        if (signedTx && !signOnly) {
+          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx,
+              decodedTx,
+            },
+            replaceTxInfo,
+          });
+        }
+
+        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
+          successfullySentTxs.push(unsignedTx.uuid);
+        }
       }
     }
 
@@ -552,6 +566,9 @@ class ServiceSend extends ServiceBase {
         nonceInfo: { nonce },
       });
     }
+
+    newUnsignedTx.uuid = generateUUID();
+
     return newUnsignedTx;
   }
 
