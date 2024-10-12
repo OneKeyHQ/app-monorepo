@@ -387,6 +387,7 @@
   "earn.pending_activation": "En attente d'activation",
   "earn.pending_activation_tooltip": "Le nouveau staking doit attendre environ {number} avant de devenir actif et de commencer à gagner des récompenses.",
   "earn.pending_activation_tooltip_eth": "Votre ETH jalonné devient actif lorsque le validateur atteint le seuil de 32 ETH.",
+  "earn.pending_transactions_data_out_of_sync": "Transactions en attente, les données peuvent ne pas être synchronisées.",
   "earn.portfolio": "Portefeuille",
   "earn.portfolio_details": "Détails du portefeuille",
   "earn.provider_asset_staking": "Jalonnement {provider} {asset}",

@@ -387,6 +387,7 @@
   "earn.pending_activation": "Pendente de ativação",
   "earn.pending_activation_tooltip": "O novo staking precisa esperar cerca de {number} antes de se tornar ativo e começar a ganhar recompensas.",
   "earn.pending_activation_tooltip_eth": "O seu ETH em staking torna-se ativo quando o validador atinge o requisito de 32 ETH.",
+  "earn.pending_transactions_data_out_of_sync": "Transações pendentes, os dados podem estar desatualizados.",
   "earn.portfolio": "Portfólio",
   "earn.portfolio_details": "Detalhes do portfólio",
   "earn.provider_asset_staking": "{provider} {asset} apostando",
