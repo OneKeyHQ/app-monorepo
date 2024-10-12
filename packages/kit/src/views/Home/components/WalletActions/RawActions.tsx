@@ -81,7 +81,7 @@ function ActionSell(props: IActionItemsProps) {
   const intl = useIntl();
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
       icon="MinusLargeOutline"
       {...props}
     />
