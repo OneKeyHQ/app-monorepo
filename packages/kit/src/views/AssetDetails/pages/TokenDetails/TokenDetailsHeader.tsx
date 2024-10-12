@@ -1,5 +1,7 @@
+import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import { Divider, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -24,6 +26,19 @@ import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 
 import type { IProps } from '.';
+
+function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
+  return (
+    <XStack
+      justifyContent="space-between"
+      $gtSm={{
+        gap: '$2',
+        justifyContent: 'flex-start',
+      }}
+      {...props}
+    />
+  );
+}
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -194,13 +209,7 @@ function TokenDetailsHeader(props: IProps) {
             flexDirection: 'row',
           }}
         >
-          <XStack
-            justifyContent="space-between"
-            $gtSm={{
-              gap: '$2',
-              justifyContent: 'flex-start',
-            }}
-          >
+          <ActionsRowContainer>
             <ReviewControl>
               <ActionBuy
                 networkId={networkId}
@@ -220,15 +229,8 @@ function TokenDetailsHeader(props: IProps) {
                 tokenAddress={tokenInfo.address}
               />
             </ReviewControl>
-          </XStack>
-
-          <XStack
-            justifyContent="space-between"
-            $gtSm={{
-              gap: '$2',
-              justifyContent: 'flex-start',
-            }}
-          >
+          </ActionsRowContainer>
+          <ActionsRowContainer>
             <RawActions.Send onPress={handleSendPress} />
             <RawActions.Receive
               disabled={isReceiveDisabled}
@@ -246,7 +248,7 @@ function TokenDetailsHeader(props: IProps) {
                 display: 'none',
               }}
             />
-          </XStack>
+          </ActionsRowContainer>
         </RawActions>
       </Stack>
       <TokenDetailStakingEntry
