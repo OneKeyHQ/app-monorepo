@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   forwardRef,
   memo,
@@ -16,9 +16,12 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
+  Portal,
   SizableText,
   Toast,
 } from '@onekeyhq/components';
+import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
+import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -31,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
@@ -54,7 +58,9 @@ import {
 } from './constants';
 
 function HardwareSingletonDialogCmp(
-  props: any,
+  props: ComponentProps<typeof DialogContainer> & {
+    state: IHardwareUiState | undefined;
+  },
   ref: ForwardedRef<IDialogInstance>,
 ) {
   const { state }: { state: IHardwareUiState | undefined } = props;
@@ -242,6 +248,299 @@ const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
 };
 
 const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
+
+function HardwareUiStateContainerCmpControlled() {
+  const [state] = useHardwareUiStateAtom();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const { serviceHardwareUI } = backgroundApiProxy;
+
+  const action = state?.action;
+
+  const AUTO_CLOSED_FLAG = 'autoClosed';
+
+  const log = (...args: any[]) => {
+    const ts = Date.now();
+    console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
+  };
+
+  log('state', action, state);
+
+  const getDeviceType = useCallback(
+    (currentState: IHardwareUiState | undefined) =>
+      currentState?.payload?.deviceType || 'unknown',
+    [],
+  );
+
+  const hasToastAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (
+        [EHardwareUiStateAction.REQUEST_BUTTON].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.ConfirmOnDevice ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.InstallingFirmware
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  const hasToastCloseAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+        return true;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.GoToBootloaderSuccess ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.FirmwareEraseSuccess
+        ) {
+          return true;
+        }
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  // const isToastActionRef = useRef(isToastAction);
+  // isToastActionRef.current = isToastAction;
+
+  const hasDialogAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (hasToastAction(currentState)) return false;
+
+      if (
+        [
+          EHardwareUiStateAction.FIRMWARE_TIP,
+          EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          EHardwareUiStateAction.CLOSE_UI_WINDOW,
+          EHardwareUiStateAction.PREVIOUS_ADDRESS,
+        ].includes(currentState?.action)
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+    [hasToastAction],
+  );
+
+  const hasOperationAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+      if (hasToastAction(currentState)) return false;
+
+      if (
+        currentState &&
+        [
+          EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
+          EHardwareUiStateAction.LOCATION_PERMISSION,
+          EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+        ].includes(currentState.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [hasToastAction],
+  );
+
+  const hasDeviceResetToHome = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (
+        currentState?.action &&
+        [
+          EHardwareUiStateAction.REQUEST_PASSPHRASE,
+          EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+          EHardwareUiStateAction.REQUEST_PIN,
+          EHardwareUiStateAction.EnterPinOnDevice,
+          EHardwareUiStateAction.REQUEST_BUTTON,
+        ].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  const shouldSkipCancel = useMemo(() => {
+    // TODO atom firmware is updating
+    if (
+      action &&
+      [
+        EHardwareUiStateAction.FIRMWARE_TIP,
+        EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      ].includes(action)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [action]);
+
+  const shouldSkipCancelRef = useRef(shouldSkipCancel);
+  shouldSkipCancelRef.current = shouldSkipCancel;
+
+  const actionStatus = useMemo(() => {
+    const isToastAction = hasToastAction(state);
+    const isDialogAction = hasDialogAction(state);
+    const isToastCloseAction = hasToastCloseAction(state);
+    const isOperationAction = hasOperationAction(state);
+    const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
+    const currentDeviceType = getDeviceType(state);
+    return {
+      isToastAction,
+      isDialogAction,
+      isToastCloseAction,
+      isOperationAction,
+      currentShouldDeviceResetToHome,
+      currentDeviceType,
+    };
+  }, [
+    getDeviceType,
+    hasDeviceResetToHome,
+    hasDialogAction,
+    hasOperationAction,
+    hasToastAction,
+    hasToastCloseAction,
+    state,
+  ]);
+
+  const dialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+  if (process.env.NODE_ENV !== 'production') {
+    // @ts-ignore
+    global.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
+  }
+  const dialogElement = useRef<any>(null);
+  const toastElement = useRef<any>(null);
+
+  if (actionStatus.isToastAction) {
+    toastElement.current = (
+      <ShowCustom
+        // key={generateUUID()}
+        ref={toastInstanceRef}
+        onClose={async (params) => {
+          log('close toast:', params, state, {
+            currentShouldDeviceResetToHome:
+              actionStatus.currentShouldDeviceResetToHome,
+            shouldSkipCancel: shouldSkipCancelRef.current,
+          });
+          if (params?.flag !== AUTO_CLOSED_FLAG) {
+            appEventBus.emit(
+              EAppEventBusNames.CloseHardwareUiStateDialogManually,
+              undefined,
+            );
+            await serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId: state?.connectId,
+              skipDeviceCancel: shouldSkipCancelRef.current,
+              deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            });
+          }
+        }}
+      >
+        <ConfirmOnDeviceToastContent
+          deviceType={actionStatus.currentDeviceType}
+        />
+      </ShowCustom>
+    );
+  } else {
+    // close toast not working, backdrop not removed
+    // setTimeout(async () => {
+    //   toastElement.current = null;
+    //   await toastInstanceRef?.current?.close?.({ flag: AUTO_CLOSED_FLAG });
+    // });
+
+    toastElement.current = null;
+  }
+
+  if (actionStatus.isDialogAction) {
+    dialogElement.current = (
+      <HardwareSingletonDialog
+        // key={generateUUID()}
+        ref={dialogInstanceRef}
+        state={state}
+        dismissOnOverlayPress={false}
+        // disableSwipeGesture
+        disableDrag
+        showFooter={!!actionStatus.isOperationAction}
+        onClose={async (params) => {
+          log(
+            'close dialog',
+            { params, state },
+            {
+              currentShouldDeviceResetToHome:
+                actionStatus.currentShouldDeviceResetToHome,
+              shouldSkipCancel: shouldSkipCancelRef.current,
+            },
+          );
+
+          if (params?.flag !== AUTO_CLOSED_FLAG) {
+            appEventBus.emit(
+              EAppEventBusNames.CloseHardwareUiStateDialogManually,
+              undefined,
+            );
+            await serviceHardwareUI.closeHardwareUiStateDialog({
+              connectId: state?.connectId,
+              reason: 'HardwareUiStateContainer onClose',
+              skipDeviceCancel: shouldSkipCancelRef.current,
+              deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+            });
+          }
+        }}
+      />
+    );
+  } else {
+    // setTimeout(async () => {
+    //   dialogElement.current = null;
+    //   await dialogInstanceRef?.current?.close?.({ flag: AUTO_CLOSED_FLAG });
+    // });
+
+    dialogElement.current = null;
+  }
+
+  return (
+    <>
+      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
+        {toastElement.current}
+      </Portal.Body>
+      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+        {dialogElement.current}
+      </Portal.Body>
+    </>
+  );
+}
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
@@ -452,13 +751,18 @@ function HardwareUiStateContainerCmp() {
         state: currentState,
         action: () =>
           Dialog.show({
+            portalContainer: undefined,
             dismissOnOverlayPress: false,
             // disableSwipeGesture: true,
             disableDrag: true,
             showFooter: !!isOperationAction,
             // eslint-disable-next-line react/no-unstable-nested-components
             dialogContainer: ({ ref }: { ref: any }) => (
-              <HardwareSingletonDialog ref={ref} state={currentState} />
+              <HardwareSingletonDialog
+                ref={ref}
+                state={currentState}
+                onClose={async () => {}}
+              />
             ),
             async onClose(params) {
               log('close dialog', params, currentState, {
@@ -605,4 +909,7 @@ function HardwareUiStateContainerCmp() {
   return null;
 }
 
-export const HardwareUiStateContainer = memo(HardwareUiStateContainerCmp);
+export const HardwareUiStateContainer = memo(
+  // HardwareUiStateContainerCmp
+  HardwareUiStateContainerCmpControlled,
+);
