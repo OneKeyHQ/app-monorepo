@@ -107,6 +107,7 @@ export type IUnsignedTxPro = IUnsignedTx & {
   txSize?: number;
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
+  uuid?: string;
 };
 export type ISignedTx = {
   txid: string;
@@ -126,6 +127,7 @@ export type ISignedTxResult = ISignedTx & {
   randomSeed?: number;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
+  uuid?: string;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;

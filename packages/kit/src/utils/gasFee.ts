@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { BATCH_SEND_TXS_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
+import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -200,7 +200,7 @@ export function calculateFeeForSend({
   txSize,
   estimateFeeParams,
   txCount = 1,
-  multiTxFeeUpRatio = BATCH_SEND_TXS_FEE_UP_RATIO,
+  multiTxFeeUpRatio = BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;

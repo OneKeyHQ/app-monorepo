@@ -513,6 +513,7 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
+  successfullySentTxs?: string[];
 }
 
 export interface ISignMessageParams {

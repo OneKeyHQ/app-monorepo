@@ -149,7 +149,6 @@ export function useSendConfirmActions() {
   const updateIsSinglePreset = actions.updateIsSinglePreset.use();
   const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
-
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,

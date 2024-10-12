@@ -12,8 +12,6 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
-import { IDecodedTxAction } from '../tx';
-
 import type { IDecodedTxActionTokenApprove } from '../tx';
 
 export enum EProtocolOfExchange {
