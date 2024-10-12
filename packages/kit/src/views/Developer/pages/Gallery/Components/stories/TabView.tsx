@@ -199,8 +199,8 @@ const TabViewGallery = () => (
               itemTitleSelectedStyle={{ color: '$text' }}
               cursorStyle={{
                 height: '100%',
-                bg: 'red',
-                borderRadius: 9999,
+                bg: '$bgStrong',
+                borderRadius: '$3',
                 borderCurve: 'continuous',
               }}
               onSelectedPageIndex={(index: number) => {
