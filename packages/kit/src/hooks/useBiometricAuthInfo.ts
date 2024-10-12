@@ -17,7 +17,7 @@ export const useBiometricAuthInfo = () => {
     let titleId =
       platformEnv.isNativeIOS || platformEnv.isDesktopMac
         ? ETranslations.global_touch_id
-        : ETranslations.auth_with_biometric;
+        : ETranslations.global_biometric;
 
     if (platformEnv.isNative) {
       if (
