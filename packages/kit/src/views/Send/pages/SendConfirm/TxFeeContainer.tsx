@@ -79,6 +79,8 @@ function TxFeeContainer(props: IProps) {
     updateIsSinglePreset,
   } = useSendConfirmActions().current;
 
+  const isMultiTxs = unsignedTxs.length > 1;
+
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -227,7 +229,7 @@ function TxFeeContainer(props: IProps) {
 
       updateIsSinglePreset(items.length === 1);
 
-      if (vaultSettings?.editFeeEnabled && feeInfoEditable) {
+      if (vaultSettings?.editFeeEnabled && feeInfoEditable && !isMultiTxs) {
         const customFeeInfo: IFeeInfoUnit = {
           common: txFee.common,
         };
@@ -344,7 +346,12 @@ function TxFeeContainer(props: IProps) {
         });
       }
 
-      if (vaultSettings?.editFeeEnabled && useFeeInTx && !feeInfoEditable) {
+      if (
+        vaultSettings?.editFeeEnabled &&
+        useFeeInTx &&
+        !feeInfoEditable &&
+        !isMultiTxs
+      ) {
         const customFeeInfo: IFeeInfoUnit = {
           common: txFee.common,
         };
