@@ -2,6 +2,7 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
+import { MsgWithdrawDelegatorReward } from 'cosmjs-types/cosmos/distribution/v1beta1/tx';
 import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
 import {
   MsgBeginRedelegate,
@@ -144,6 +145,17 @@ function getConverter(msgType: string) {
             delegatorAddress: msg.value.delegator_address,
             validatorAddress: msg.value.validator_address,
             amount: msg.value.amount,
+          }),
+        ).finish(),
+      ).toString('hex'),
+    }),
+    'cosmos-sdk/MsgWithdrawDelegationReward': (msg: ICosmosStdMsg) => ({
+      typeUrl: '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+      value: Buffer.from(
+        MsgWithdrawDelegatorReward.encode(
+          MsgWithdrawDelegatorReward.fromPartial({
+            delegatorAddress: msg.value.delegator_address,
+            validatorAddress: msg.value.validator_address,
           }),
         ).finish(),
       ).toString('hex'),
