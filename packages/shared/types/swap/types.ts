@@ -12,6 +12,8 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { IDecodedTxActionTokenApprove } from '../tx';
+
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
@@ -233,6 +235,13 @@ export interface ISwapTokenMetadata {
   };
 }
 
+export interface IQuoteTip {
+  icon?: string;
+  title?: string;
+  detail?: string;
+  link?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   info: IFetchQuoteInfo;
@@ -260,6 +269,7 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
+  quoteShowTip?: IQuoteTip;
 }
 
 export interface IAllowanceResult {
@@ -412,6 +422,7 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  swapRequiredApproves?: IDecodedTxActionTokenApprove[];
 }
 
 export interface IEVMTransaction {

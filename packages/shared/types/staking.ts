@@ -58,6 +58,7 @@ export type IStakeProviderInfo = {
   unbondingTime?: number;
   stakingCap?: string;
   earnPoints?: boolean;
+  stakeDisable?: boolean;
 };
 
 export type IStakeBaseParams = {

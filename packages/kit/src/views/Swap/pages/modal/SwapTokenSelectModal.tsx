@@ -37,6 +37,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -260,6 +261,39 @@ const SwapTokenSelectPage = () => {
 
   const { md } = useMedia();
   const { copyText } = useClipboard();
+
+  const disableNetworks = useMemo(() => {
+    let res: string[] = [];
+    const networkIds = swapNetworksIncludeAllNetwork.map(
+      (net) => net.networkId,
+    );
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.SWAP &&
+      type === ESwapDirectionType.TO &&
+      fromToken
+    ) {
+      res = networkIds.filter(
+        (net) =>
+          net !== fromToken?.networkId && net !== getNetworkIdsMap().onekeyall,
+      );
+    }
+    if (
+      type === ESwapDirectionType.TO &&
+      fromToken &&
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE
+    ) {
+      res = networkIds.filter((net) => net === fromToken?.networkId);
+    }
+
+    if (
+      type === ESwapDirectionType.FROM &&
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
+      toToken
+    ) {
+      res = networkIds.filter((net) => net === toToken?.networkId);
+    }
+    return res;
+  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, toToken, type]);
   const renderItem = useCallback(
     ({
       item,
@@ -295,10 +329,14 @@ const SwapTokenSelectPage = () => {
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: !sameTokenDisabled(rawItem)
-          ? () => onSelectToken(rawItem)
-          : undefined,
-        disabled: sameTokenDisabled(rawItem),
+        onPress:
+          !sameTokenDisabled(rawItem) &&
+          !disableNetworks.includes(rawItem.networkId)
+            ? () => onSelectToken(rawItem)
+            : undefined,
+        disabled:
+          sameTokenDisabled(rawItem) ||
+          disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
@@ -370,6 +408,7 @@ const SwapTokenSelectPage = () => {
     [
       alertIndex,
       copyText,
+      disableNetworks,
       intl,
       md,
       onSelectToken,
@@ -379,13 +418,19 @@ const SwapTokenSelectPage = () => {
     ],
   );
 
-  const disableOtherNet = useMemo(
-    () =>
-      type === ESwapDirectionType.TO &&
-      !!fromToken &&
-      swapTypeSwitch === ESwapTabSwitchType.SWAP,
-    [fromToken, swapTypeSwitch, type],
-  );
+  const disableMoreNetworks = useMemo(() => {
+    let res = false;
+    const liveNetworksCount =
+      swapNetworksIncludeAllNetwork.length - disableNetworks.length;
+    if (md) {
+      if (liveNetworksCount <= swapNetworksCommonCountMD) {
+        res = true;
+      }
+    } else if (liveNetworksCount <= swapNetworksCommonCount) {
+      res = true;
+    }
+    return res;
+  }, [disableNetworks.length, md, swapNetworksIncludeAllNetwork.length]);
 
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
@@ -461,6 +506,7 @@ const SwapTokenSelectPage = () => {
               defaultNetworkId: currentSelectNetwork?.networkId,
               networkIds: swapAllSupportNetworks
                 .filter((item) => !item.isAllNetworks)
+                .filter((item) => !disableNetworks.includes(item.networkId))
                 .map((item) => item.networkId),
               grouped: false,
               onSelect: (network) => {
@@ -477,7 +523,8 @@ const SwapTokenSelectPage = () => {
           networks={networkFilterData.swapNetworksCommon}
           moreNetworksCount={networkFilterData.swapNetworksMoreCount}
           selectedNetwork={currentSelectNetwork}
-          disableOtherNet={disableOtherNet}
+          disableNetworks={disableNetworks}
+          disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (

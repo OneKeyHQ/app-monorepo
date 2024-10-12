@@ -12,6 +12,7 @@ import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
+  useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
@@ -71,6 +72,7 @@ function SendConfirmActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [tokenApproveInfo] = useTokenApproveInfoAtom();
+  const successfullySentTxs = useRef<string[]>([]);
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -161,6 +163,7 @@ function SendConfirmActionsContainer(props: IProps) {
           signOnly,
           sourceInfo,
           transferPayload,
+          successfullySentTxs: successfullySentTxs.current,
         });
 
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
@@ -178,6 +181,7 @@ function SendConfirmActionsContainer(props: IProps) {
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
         interactContract: undefined,
       });
+
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
@@ -217,6 +221,7 @@ function SendConfirmActionsContainer(props: IProps) {
     signOnly,
     sourceInfo,
     transferPayload,
+    successfullySentTxs,
     onSuccess,
     intl,
     navigation,

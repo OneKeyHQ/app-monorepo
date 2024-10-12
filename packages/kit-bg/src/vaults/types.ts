@@ -461,6 +461,7 @@ export interface IBuildUnsignedTxParams {
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
+  prevNonce?: number;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
@@ -512,6 +513,7 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
+  successfullySentTxs?: string[];
 }
 
 export interface ISignMessageParams {

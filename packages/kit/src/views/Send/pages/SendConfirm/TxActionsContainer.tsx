@@ -20,6 +20,7 @@ import {
   isSendNativeTokenAction,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import {
   InfoItem,
@@ -45,25 +46,70 @@ function TxActionsContainer(props: IProps) {
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [isSendNativeToken, setIsSendNativeToken] = useState(false);
   const { vaultSettings, network } = useAccountData({ networkId });
-  const swapInfo = unsignedTxs[0]?.swapInfo;
 
-  const r = usePromiseResult(
-    () =>
-      Promise.all(
-        unsignedTxs.map((unsignedTx) =>
-          backgroundApiProxy.serviceSend.buildDecodedTx({
-            accountId,
-            networkId,
-            unsignedTx,
-            transferPayload,
-          }),
-        ),
+  const r = usePromiseResult(async () => {
+    const decodedTxs = await Promise.all(
+      unsignedTxs.map((unsignedTx) =>
+        backgroundApiProxy.serviceSend.buildDecodedTx({
+          accountId,
+          networkId,
+          unsignedTx,
+          transferPayload,
+        }),
       ),
-    [accountId, networkId, transferPayload, unsignedTxs],
-  );
+    );
+
+    if (decodedTxs.length > 1) {
+      const approveTxs = decodedTxs.filter(
+        (decodedTx) =>
+          decodedTx.actions.length === 1 &&
+          decodedTx.actions[0].type === EDecodedTxActionType.TOKEN_APPROVE,
+      );
+
+      const transferTxs = decodedTxs.filter(
+        (decodedTx) =>
+          decodedTx.actions.length === 1 &&
+          (decodedTx.actions[0].type === EDecodedTxActionType.ASSET_TRANSFER ||
+            decodedTx.actions[0].type === EDecodedTxActionType.INTERNAL_STAKE ||
+            decodedTx.actions[0].type === EDecodedTxActionType.INTERNAL_SWAP),
+      );
+
+      const swapInfo = unsignedTxs.filter((tx) => tx.swapInfo)[0]?.swapInfo;
+
+      // approve with swap
+      if (approveTxs.length > 0 && transferTxs.length > 0 && swapInfo) {
+        const approveActions = approveTxs
+          .flatMap((tx) => tx.actions[0].tokenApprove)
+          .filter(Boolean);
+
+        const newSwapInfo = {
+          ...swapInfo,
+          swapRequiredApproves: approveActions,
+        };
+
+        return {
+          decodedTxs: transferTxs,
+          swapInfo: newSwapInfo,
+        };
+      }
+
+      return {
+        decodedTxs,
+        swapInfo: unsignedTxs[0]?.swapInfo,
+      };
+    }
+
+    return {
+      decodedTxs,
+      swapInfo: unsignedTxs[0]?.swapInfo,
+    };
+  }, [accountId, networkId, transferPayload, unsignedTxs]);
 
   useEffect(() => {
-    const decodedTxs = r.result ?? [];
+    const { decodedTxs } = r.result ?? {
+      decodedTxs: [],
+      swapInfo: undefined,
+    };
 
     let nativeTokenTransferBN = new BigNumber(0);
     decodedTxs.forEach((decodedTx) => {
@@ -153,7 +199,10 @@ function TxActionsContainer(props: IProps) {
   ]);
 
   const renderActions = useCallback(() => {
-    const decodedTxs = r.result ?? [];
+    const { decodedTxs, swapInfo } = r.result ?? {
+      decodedTxs: [],
+      swapInfo: undefined,
+    };
 
     if (nativeTokenInfo.isLoading) {
       return (
@@ -223,7 +272,6 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     r.result,
-    swapInfo,
   ]);
 
   return <>{renderActions()}</>;

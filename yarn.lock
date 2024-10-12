@@ -2230,14 +2230,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@electron/notarize@npm:^2.3.0":
-  version: 2.3.0
-  resolution: "@electron/notarize@npm:2.3.0"
+"@electron/notarize@npm:2.3.2":
+  version: 2.3.2
+  resolution: "@electron/notarize@npm:2.3.2"
   dependencies:
     debug: "npm:^4.1.1"
     fs-extra: "npm:^9.0.1"
     promise-retry: "npm:^2.0.1"
-  checksum: 10/7725617389d78b65fb9b2a616330af2abaa0aa496e2ebc5cf8f6df40a4e746e78c6ed7d2373fa1efcdceca1ff28670d304af1f9be1d905516da642546378f88f
+  checksum: 10/c391c5b005496f3ad504fe323083d9ae1a14d4cbf7db03d7823b92dcad0815f9bd9d01732d9f748c933dae1b5d5ba98360df0ceedff4dd1814937376fc75be31
   languageName: node
   linkType: hard
 
@@ -6402,13 +6402,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-tab-page-view@npm:1.0.15":
-  version: 1.0.15
-  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.15"
+"@onekeyfe/react-native-tab-page-view@npm:1.0.16":
+  version: 1.0.16
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.16"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/009f15c1bd1fdd08ca278e0547d3726029d3ecec83433f56b63d0cbfd691c768612a20098ece4e443bf58c076d3ea321d500e0d0d50006194d2f837f195ad6cf
+  checksum: 10/98b31bbc39a2da22d0b092ad449c837bf93c29702624deb225cd69b257e128c934e4400f20036cf9ee0843edc07c30216fed2ff015f3bc9695fae4d87e774d4a
   languageName: node
   linkType: hard
 
@@ -6507,6 +6507,7 @@ __metadata:
     cross-env: "npm:^7.0.3"
     crypto-browserify: "npm:^3.12.0"
     css-loader: "npm:^6.8.1"
+    custom-electron-titlebar: "npm:4.2.8"
     date-fns: "npm:^2.30.0"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
@@ -6689,7 +6690,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:apps/desktop"
   dependencies:
-    "@electron/notarize": "npm:^2.3.0"
+    "@electron/notarize": "npm:2.3.2"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -6706,7 +6707,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.2"
+    electron-windows-security: "npm:0.0.3"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -6790,7 +6791,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
-    "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.0.16"
     "@onekeyfe/react-native-text-input": "npm:0.2.4"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -18558,6 +18559,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"custom-electron-titlebar@npm:4.2.8":
+  version: 4.2.8
+  resolution: "custom-electron-titlebar@npm:4.2.8"
+  peerDependencies:
+    electron: ">20.0.0"
+  checksum: 10/7d91bd8f8a8d31c0e53b659b4ec997335f86ddbae50098c1e47e2174a91c7ef5683f1cd406f8951df19d332c5e6eba1b64bdbb8a1882a8be63a263ffb2da50dc
+  languageName: node
+  linkType: hard
+
 "d3-array@npm:2 - 3, d3-array@npm:2.10.0 - 3":
   version: 3.2.4
   resolution: "d3-array@npm:3.2.4"
@@ -19704,12 +19714,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.2":
-  version: 0.0.2
-  resolution: "electron-windows-security@npm:0.0.2"
+"electron-windows-security@npm:0.0.3":
+  version: 0.0.3
+  resolution: "electron-windows-security@npm:0.0.3"
   dependencies:
     nan: "npm:2.20.0"
-  checksum: 10/bfd18d054932f3ba79b007a19c3d68e80715d01b354f15e9faff1ab54960d084f00198b344bfcc9c1cffdc06cb3d6b2eab513483f1376c22b51f0f40a47937f5
+  checksum: 10/d45348a8019f3f341f9a0dd34ef9a1cbaaa69744b931dff94288cae0626c8f57e93b7b3244105f00d8875324caa792277ce33c1dc3da3f020ab0d764cb44a2c8
   languageName: node
   linkType: hard
 

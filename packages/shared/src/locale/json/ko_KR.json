@@ -1464,7 +1464,7 @@
   "selected_network_only_supports_device": "선택한 네트워크는 현재 {deviceType}만 지원합니다.",
   "send.address_exists": "주소가 이미 존재합니다",
   "send.address_invalid": "잘못된 주소입니다. 확인 후 다시 입력해 주세요",
-  "send.amount": "금액",
+  "send.amount": "예상 결과",
   "send.amount_invalid": "잔액이 부족합니다. 더 작은 금액을 시도해 주세요",
   "send.amount_too_small": "송금 금액이 너무 작습니다.",
   "send.authentication_failed_verify_again": "인증에 실패했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.",
