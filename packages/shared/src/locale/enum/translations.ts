@@ -756,6 +756,7 @@
   global_cancel_confirm_on_device_feedback = 'global.cancel_confirm_on_device_feedback',
   global_cancel_copy = 'global.cancel_copy',
   global_cancelling = 'global.cancelling',
+  global_cash_out = 'global.cash_out',
   global_chain = 'global.chain',
   global_change_password = 'global.change_password',
   global_check_for_updates = 'global.check_for_updates',

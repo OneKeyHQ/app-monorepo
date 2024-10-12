@@ -1,5 +1,7 @@
+import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import { Divider, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -24,6 +26,19 @@ import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 
 import type { IProps } from '.';
+
+function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
+  return (
+    <XStack
+      justifyContent="space-between"
+      $gtSm={{
+        gap: '$2',
+        justifyContent: 'flex-start',
+      }}
+      {...props}
+    />
+  );
+}
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -187,32 +202,53 @@ function TokenDetailsHeader(props: IProps) {
           </Stack>
         </XStack>
         {/* Actions */}
-        <RawActions>
-          <ReviewControl>
-            <ActionBuy
-              networkId={networkId}
-              accountId={accountId}
-              walletType={wallet?.type}
-              tokenAddress={tokenInfo.address}
-            />
-          </ReviewControl>
+        <RawActions
+          flexDirection="column"
+          gap="$5"
+          $gtSm={{
+            flexDirection: 'row',
+          }}
+        >
+          <ActionsRowContainer>
+            <ReviewControl>
+              <ActionBuy
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
 
-          <RawActions.Swap onPress={handleOnSwap} />
-          <RawActions.Bridge onPress={handleOnBridge} />
-
-          <RawActions.Send onPress={handleSendPress} />
-          <RawActions.Receive
-            disabled={isReceiveDisabled}
-            onPress={() => handleOnReceive(tokenInfo)}
-          />
-          <ReviewControl>
-            <ActionSell
-              networkId={networkId}
-              accountId={accountId}
-              walletType={wallet?.type}
-              tokenAddress={tokenInfo.address}
+            <RawActions.Swap onPress={handleOnSwap} />
+            <RawActions.Bridge onPress={handleOnBridge} />
+            <ReviewControl>
+              <ActionSell
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
+          </ActionsRowContainer>
+          <ActionsRowContainer>
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive
+              disabled={isReceiveDisabled}
+              onPress={() => handleOnReceive(tokenInfo)}
             />
-          </ReviewControl>
+            <Stack
+              w={50}
+              $gtSm={{
+                display: 'none',
+              }}
+            />
+            <Stack
+              w={50}
+              $gtSm={{
+                display: 'none',
+              }}
+            />
+          </ActionsRowContainer>
         </RawActions>
       </Stack>
       <TokenDetailStakingEntry

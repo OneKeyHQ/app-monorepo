@@ -12,6 +12,7 @@ const ActionSell = ({
   tokenAddress,
   accountId,
   walletType,
+  ...rest
 }: IActionProps) => {
   const intl = useIntl();
   return (
@@ -19,10 +20,11 @@ const ActionSell = ({
       networkId={networkId}
       tokenAddress={tokenAddress}
       accountId={accountId}
-      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
       icon="MinusLargeOutline"
       type="sell"
       walletType={walletType}
+      {...rest}
     />
   );
 };

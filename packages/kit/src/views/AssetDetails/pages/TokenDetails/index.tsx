@@ -248,7 +248,7 @@ function TokenDetails() {
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

@@ -126,7 +126,7 @@ export function WalletActionMore() {
     sections.unshift({
       items: [
         {
-          label: intl.formatMessage({ id: ETranslations.global_sell }),
+          label: intl.formatMessage({ id: ETranslations.global_cash_out }),
           icon: 'MinusLargeOutline',
           disabled: Boolean(isSellDisabled || !account?.id || !network?.id),
           onPress: sellCrypto,

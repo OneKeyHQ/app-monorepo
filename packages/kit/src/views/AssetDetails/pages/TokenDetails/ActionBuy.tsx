@@ -12,8 +12,10 @@ const ActionBuy = ({
   tokenAddress,
   accountId,
   walletType,
+  ...rest
 }: IActionProps) => {
   const intl = useIntl();
+
   return (
     <ActionBase
       networkId={networkId}
@@ -23,6 +25,7 @@ const ActionBuy = ({
       icon="PlusLargeOutline"
       type="buy"
       walletType={walletType}
+      {...rest}
     />
   );
 };
