@@ -34,6 +34,7 @@ import {
   useSwapActions,
   useSwapAllNetworkTokenListMapAtom,
   useSwapNetworksAtom,
+  useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenFetchingAtom,
@@ -303,6 +304,7 @@ export function useSwapTokenList(
     IAllNetworkAccountInfo[]
   >([]);
   const [swapNetworks] = useSwapNetworksAtom();
+  const [swapSupportAllNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
@@ -420,7 +422,9 @@ export function useSwapTokenList(
             return token;
           })
           ?.filter((token) =>
-            swapNetworks.find((net) => net.networkId === token.networkId),
+            swapSupportAllNetworks.find(
+              (net) => net.networkId === token.networkId,
+            ),
           ) ?? [];
       const haveBalanceTokenList =
         allNetworkTokenList?.filter((token) => {
@@ -432,21 +436,27 @@ export function useSwapTokenList(
         }) ?? [];
       if (swapAllNetRecommend) {
         const filterRecommendTokenList =
-          swapAllNetRecommend?.filter(
-            (token) =>
-              !haveBalanceTokenList?.find((balanceToken) =>
-                equalTokenNoCaseSensitive({
-                  token1: {
-                    networkId: balanceToken?.networkId,
-                    contractAddress: balanceToken?.contractAddress,
-                  },
-                  token2: {
-                    networkId: token?.networkId,
-                    contractAddress: token?.contractAddress,
-                  },
-                }),
+          swapAllNetRecommend
+            ?.filter(
+              (token) =>
+                !haveBalanceTokenList?.find((balanceToken) =>
+                  equalTokenNoCaseSensitive({
+                    token1: {
+                      networkId: balanceToken?.networkId,
+                      contractAddress: balanceToken?.contractAddress,
+                    },
+                    token2: {
+                      networkId: token?.networkId,
+                      contractAddress: token?.contractAddress,
+                    },
+                  }),
+                ),
+            )
+            ?.filter((token) =>
+              swapSupportAllNetworks.find(
+                (net) => net.networkId === token.networkId,
               ),
-          ) ?? [];
+            ) ?? [];
         const allNetTokens = [
           ...haveBalanceTokenList,
           ...filterRecommendTokenList,
@@ -457,7 +467,9 @@ export function useSwapTokenList(
         const allNetSearchTokens = swapSearchTokens
           .map((token) => {
             if (
-              !swapNetworks.find((net) => net.networkId === token.networkId)
+              !swapSupportAllNetworks.find(
+                (net) => net.networkId === token.networkId,
+              )
             ) {
               return undefined;
             }
@@ -477,7 +489,12 @@ export function useSwapTokenList(
       }
       return [];
     },
-    [sortAllNetworkTokens, swapAllNetworkTokenList, swapNetworks],
+    [
+      sortAllNetworkTokens,
+      swapAllNetworkTokenList,
+      swapNetworks,
+      swapSupportAllNetworks,
+    ],
   );
 
   const fuseRemoteTokensSearch = useFuse(

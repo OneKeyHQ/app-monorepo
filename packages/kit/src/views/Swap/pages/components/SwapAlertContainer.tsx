@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -39,7 +39,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
     useAccountManualCreatingAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
-
+  const [createAddressError, setCreateAddressError] = useState(false);
   const handleAlertAction = useCallback(
     async (action?: {
       actionType: ESwapAlertActionType;
@@ -66,12 +66,14 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
               id: ETranslations.swap_page_toast_address_generated,
             }),
           });
+          setCreateAddressError(false);
         } catch (e) {
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.swap_page_toast_address_generated_fail,
             }),
           });
+          setCreateAddressError(true);
         } finally {
           setAccountManualCreatingAtom((prev) => ({
             ...prev,
@@ -101,10 +103,12 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     <YStack gap="$2.5">
       {alertsSorted?.map((item, index) => {
         const { message, alertLevel, action, title, icon } = item;
+        // Avoid the intermediate state where the alert action still exists after creating the address loading
         if (
           action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
           action?.actionData?.key === accountManualCreatingAtom.key &&
-          !accountManualCreatingAtom.isLoading
+          !accountManualCreatingAtom.isLoading &&
+          !createAddressError
         ) {
           return null;
         }
@@ -121,6 +125,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
               alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
             }
             title={title}
+            icon={icon}
             description={message}
             action={
               action?.actionLabel

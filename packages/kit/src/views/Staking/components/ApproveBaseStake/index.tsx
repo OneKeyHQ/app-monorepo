@@ -190,12 +190,14 @@ export const ApproveBaseStake = ({
       networkId: approveTarget.networkId,
     });
     await navigationToSendConfirm({
-      approveInfo: {
-        owner: account.address,
-        spender: approveTarget.spenderAddress,
-        amount: amountValue,
-        tokenInfo: approveTarget.token,
-      },
+      approvesInfo: [
+        {
+          owner: account.address,
+          spender: approveTarget.spenderAddress,
+          amount: amountValue,
+          tokenInfo: approveTarget.token,
+        },
+      ],
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
