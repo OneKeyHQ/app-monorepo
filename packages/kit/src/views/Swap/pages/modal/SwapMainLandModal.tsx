@@ -35,7 +35,7 @@ const SwapMainLandModalPage = () => {
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_swap })}
+        title={intl.formatMessage({ id: ETranslations.global_trade })}
       />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
