@@ -8,6 +8,7 @@ export interface IServerNetworkDBStruct {
     string,
     IServerNetwork & { createdAt: number; updatedAt: number }
   >;
+  lastFetchTime: number; // last fetch api time
 }
 
 export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetworkDBStruct> {
@@ -16,42 +17,42 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
   override enableCache = false;
 
   @backgroundMethod()
-  async upsertServerNetwork(params: { networkInfo: IServerNetwork }) {
-    const { networkInfo } = params;
+  async upsertServerNetworks(params: { networkInfos: IServerNetwork[] }) {
+    const { networkInfos } = params;
     await this.setRawData(({ rawData }) => {
-      const data: IServerNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
-      };
       const now = Date.now();
-      const existingNetwork = data.data[networkInfo.id];
-
-      data.data[networkInfo.id] = {
-        ...networkInfo,
-        createdAt: existingNetwork?.createdAt || now,
-        updatedAt: now,
-      };
-      return data;
-    });
-  }
-
-  @backgroundMethod()
-  async deleteServerNetwork(params: { networkId: string }) {
-    const { networkId } = params;
-    await this.setRawData(({ rawData }) => {
       const data: IServerNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: {},
+        lastFetchTime: now,
       };
-      delete data.data[networkId];
+
+      // Update or add new network data
+      for (const networkInfo of networkInfos) {
+        const existingNetwork = rawData?.data?.[networkInfo.id];
+        data.data[networkInfo.id] = {
+          ...networkInfo,
+          createdAt: existingNetwork?.createdAt || now,
+          updatedAt: now,
+        };
+      }
+
       return data;
     });
   }
 
   @backgroundMethod()
-  async getAllServerNetworks(): Promise<IServerNetwork[]> {
+  async getAllServerNetworks(): Promise<{
+    networks: IServerNetwork[];
+    lastFetchTime: number | undefined;
+  }> {
     const rawData = await this.getRawData();
-    return Object.values(rawData?.data || {}).sort(
+    const result = Object.values(rawData?.data || {}).sort(
       (a, b) => (b?.createdAt ?? 0) - (a?.createdAt ?? 0),
     );
+    return {
+      networks: result,
+      lastFetchTime: rawData?.lastFetchTime,
+    };
   }
 
   @backgroundMethod()
@@ -59,26 +60,5 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
     const { networkId } = params;
     const rawData = await this.getRawData();
     return rawData?.data?.[networkId];
-  }
-
-  @backgroundMethod()
-  async updateNetworkStatus(params: {
-    networkId: string;
-    status: ENetworkStatus;
-  }) {
-    const { networkId, status } = params;
-    await this.setRawData(({ rawData }) => {
-      const data: IServerNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
-      };
-      if (data.data[networkId]) {
-        data.data[networkId] = {
-          ...data.data[networkId],
-          status,
-          updatedAt: Date.now(),
-        };
-      }
-      return data;
-    });
   }
 }

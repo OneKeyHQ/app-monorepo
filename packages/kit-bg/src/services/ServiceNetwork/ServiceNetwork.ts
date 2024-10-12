@@ -57,7 +57,6 @@ class ServiceNetwork extends ServiceBase {
       uniqByImpl?: boolean;
     } = {},
   ): Promise<{ networks: IServerNetwork[] }> {
-    void this.backgroundApi.serviceCustomRpc.fetchNetworkFromServer();
     // TODO save to simpleDB
     const excludeTestNetwork = params?.excludeTestNetwork ?? false;
     const uniqByImpl = params?.uniqByImpl ?? false;
@@ -66,6 +65,13 @@ class ServiceNetwork extends ServiceBase {
       excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
     }
     let networks = getPresetNetworks();
+
+    // Server networks
+    const serverNetworks =
+      await this.backgroundApi.serviceCustomRpc.getServerNetworks();
+    networks = networks.concat(serverNetworks);
+
+    // Custom networks
     const customNetworks =
       await this.backgroundApi.serviceCustomRpc.getAllCustomNetworks();
     networks = networks.concat(customNetworks);

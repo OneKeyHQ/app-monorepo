@@ -1,17 +1,17 @@
+import { Semaphore } from 'async-mutex';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getNetworkIds,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   ICustomRpcItem,
@@ -27,11 +27,11 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
+  private semaphore = new Semaphore(1);
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
-
-  public isLoading: boolean | undefined;
 
   /*= ===============================
    *       Custom RPC
@@ -46,6 +46,16 @@ class ServiceCustomRpc extends ServiceBase {
   @backgroundMethod()
   public async deleteCustomRpc(networkId: string) {
     return this.backgroundApi.simpleDb.customRpc.deleteCustomRpc(networkId);
+  }
+
+  @backgroundMethod()
+  public async updateCustomRpcEnabledStatus(params: {
+    networkId: string;
+    enabled: boolean;
+  }) {
+    return this.backgroundApi.simpleDb.customRpc.updateCustomRpcEnabledStatus(
+      params,
+    );
   }
 
   @backgroundMethod()
@@ -178,8 +188,18 @@ class ServiceCustomRpc extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async deleteCustomNetwork(params: { networkId: string }) {
-    await this.deleteCustomRpc(params.networkId);
+  public async deleteCustomNetwork(params: {
+    networkId: string;
+    replaceByServerNetwork?: boolean;
+  }) {
+    if (params.replaceByServerNetwork) {
+      await this.updateCustomRpcEnabledStatus({
+        networkId: params.networkId,
+        enabled: false,
+      });
+    } else {
+      await this.deleteCustomRpc(params.networkId);
+    }
     await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(params);
     setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
@@ -195,13 +215,26 @@ class ServiceCustomRpc extends ServiceBase {
    *       Server Network
    *============================== */
   @backgroundMethod()
+  public async getServerNetworks(): Promise<IServerNetwork[]> {
+    return this.semaphore.runExclusive(async () => {
+      const { networks, lastFetchTime } =
+        await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+      const now = Date.now();
+
+      if (
+        !lastFetchTime ||
+        now - lastFetchTime >= timerUtils.getTimeDurationMs({ seconds: 10 })
+      ) {
+        console.log('====$$$$%%%%%%%%===>>: fetchNetworkFromServer cache');
+        return this.fetchNetworkFromServer();
+      }
+      return networks;
+    });
+  }
+
+  @backgroundMethod()
   public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
-    if (this.isLoading) {
-      return [];
-    }
-    this.isLoading = true;
-    console.log('====$$$$%%%%%%%%===>>: fetchNetworkFromServer');
-    // 请求 /wallet/v1/network/list 接口获取全部 evm 的网络列表
+    // Request /wallet/v1/network/list to get all evm networks
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{ data: IServerNetwork[] }>(
       '/wallet/v1/network/list',
@@ -217,18 +250,25 @@ class ServiceCustomRpc extends ServiceBase {
     const presetNetworkIds = Object.values(getNetworkIdsMap());
     // filter preset networks
     const usedNetworks = serverNetworks.filter(
-      (n) => !presetNetworkIds.includes(n.id),
+      (n) =>
+        !presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.LISTED,
     );
+
+    await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
+      networkInfos: usedNetworks,
+    });
 
     // delete custom networks
     const customNetworks = await this.getAllCustomNetworks();
     for (const customNetwork of customNetworks) {
       if (serverNetworks.find((n) => n.id === customNetwork.id)) {
-        await this.deleteCustomNetwork({ networkId: customNetwork.id });
+        await this.deleteCustomNetwork({
+          networkId: customNetwork.id,
+          replaceByServerNetwork: true,
+        });
       }
     }
 
-    console.log('=====>>>: usedNetworks: ', usedNetworks);
     return usedNetworks;
   }
 
