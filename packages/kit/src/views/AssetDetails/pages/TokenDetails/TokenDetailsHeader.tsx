@@ -187,32 +187,56 @@ function TokenDetailsHeader(props: IProps) {
           </Stack>
         </XStack>
         {/* Actions */}
-        <RawActions>
-          <ReviewControl>
-            <ActionBuy
-              networkId={networkId}
-              accountId={accountId}
-              walletType={wallet?.type}
-              tokenAddress={tokenInfo.address}
-            />
-          </ReviewControl>
+        <RawActions
+          flexDirection="column"
+          gap="$5"
+          $gtSm={{
+            flexDirection: 'row',
+          }}
+        >
+          <XStack
+            justifyContent="space-between"
+            $gtSm={{
+              gap: '$2',
+              justifyContent: 'flex-start',
+            }}
+          >
+            <ReviewControl>
+              <ActionBuy
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
 
-          <RawActions.Swap onPress={handleOnSwap} />
-          <RawActions.Bridge onPress={handleOnBridge} />
+            <RawActions.Swap onPress={handleOnSwap} />
+            <RawActions.Bridge onPress={handleOnBridge} />
+            <ReviewControl>
+              <ActionSell
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
+          </XStack>
 
-          <RawActions.Send onPress={handleSendPress} />
-          <RawActions.Receive
-            disabled={isReceiveDisabled}
-            onPress={() => handleOnReceive(tokenInfo)}
-          />
-          <ReviewControl>
-            <ActionSell
-              networkId={networkId}
-              accountId={accountId}
-              walletType={wallet?.type}
-              tokenAddress={tokenInfo.address}
+          <XStack
+            justifyContent="space-between"
+            $gtSm={{
+              gap: '$2',
+              justifyContent: 'flex-start',
+            }}
+          >
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive
+              disabled={isReceiveDisabled}
+              onPress={() => handleOnReceive(tokenInfo)}
             />
-          </ReviewControl>
+            <Stack w={50} />
+            <Stack w={50} />
+          </XStack>
         </RawActions>
       </Stack>
       <TokenDetailStakingEntry

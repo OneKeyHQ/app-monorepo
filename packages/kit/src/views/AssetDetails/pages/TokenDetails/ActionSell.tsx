@@ -12,6 +12,7 @@ const ActionSell = ({
   tokenAddress,
   accountId,
   walletType,
+  ...rest
 }: IActionProps) => {
   const intl = useIntl();
   return (
@@ -23,6 +24,7 @@ const ActionSell = ({
       icon="MinusLargeOutline"
       type="sell"
       walletType={walletType}
+      {...rest}
     />
   );
 };
