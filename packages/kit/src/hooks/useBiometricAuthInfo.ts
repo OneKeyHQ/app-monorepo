@@ -9,8 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useBiometricAuthInfo = () => {
-  const [{ isSupport: biologyAuthIsSupport, authType }] =
-    usePasswordBiologyAuthInfoAtom();
+  const [{ authType }] = usePasswordBiologyAuthInfoAtom();
   const intl = useIntl();
   return useMemo(() => {
     let icon: IKeyOfIcons = 'TouchIdSolid';
@@ -21,9 +20,8 @@ export const useBiometricAuthInfo = () => {
 
     if (platformEnv.isNative) {
       if (
-        biologyAuthIsSupport &&
-        (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
-          authType.includes(AuthenticationType.IRIS))
+        authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+        authType.includes(AuthenticationType.IRIS)
       ) {
         if (platformEnv.isNativeIOS && authType.length > 1) {
           titleId = ETranslations.global_face_id;
@@ -42,5 +40,5 @@ export const useBiometricAuthInfo = () => {
       title: intl.formatMessage({ id: titleId }),
       icon,
     };
-  }, [authType, biologyAuthIsSupport, intl]);
+  }, [authType, intl]);
 };
