@@ -158,6 +158,7 @@ export function useAccountSelectorCreateAddress() {
             // as skipCloseHardwareUiStateDialog is true, so we need to close the dialog manually
             await serviceHardwareUI.closeHardwareUiStateDialog({
               connectId,
+              hardClose: true,
             });
           }
         }

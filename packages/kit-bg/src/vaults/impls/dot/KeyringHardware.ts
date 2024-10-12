@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -27,13 +28,33 @@ import { getMetadataRpc } from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.dot.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'dot';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    const networkInfo = await this.getNetworkInfo();
+    const chainId = await this.getNetworkChainId();
+
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+      prefix: networkInfo.addressPrefix,
+      chainName: chainId,
+    };
+  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -50,22 +71,45 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.polkadotGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => {
-                const i = pathSuffix.replace('{index}', `${index}`);
-                return {
-                  path: `${pathPrefix}/${i}`,
-                  showOnOneKey: showOnOnekeyFn(arrIndex),
-                  prefix: +networkInfo.addressPrefix,
-                  network: chainId,
-                };
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              hwSdkNetwork: this.hwSdkNetwork,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account, index }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                publicKey: account.payload?.publicKey || '',
               }),
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const response = await sdk.polkadotGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => {
+            //     const i = pathSuffix.replace('{index}', `${index}`);
+            //     return {
+            //       path: `${pathPrefix}/${i}`,
+            //       showOnOneKey: showOnOnekeyFn(arrIndex),
+            //       prefix: +networkInfo.addressPrefix,
+            //       network: chainId,
+            //     };
+            //   }),
+            // });
+            // return response;
           },
         });
 

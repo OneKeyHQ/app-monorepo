@@ -109,11 +109,20 @@ export function AccountSelectorAddAccountButton({
             await actions.current.addDefaultNetworkAccounts({
               wallet: focusedWallet,
               indexedAccount,
+              autoHandleExitError: false, // always throw error
             });
           }
         }
       } finally {
         await indexedAccountAddressCreationStateAtom.set(undefined);
+        if (focusedWalletInfo.device?.connectId) {
+          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+            {
+              connectId: focusedWalletInfo.device?.connectId,
+              hardClose: true,
+            },
+          );
+        }
         navigation.popStack();
       }
     },

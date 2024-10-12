@@ -620,6 +620,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount: IDBIndexedAccount | undefined;
         skipDeviceCancel?: boolean;
         hideCheckingDeviceLoading?: boolean;
+        autoHandleExitError?: boolean;
       },
     ) => {
       const {
@@ -627,6 +628,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
+        autoHandleExitError,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -646,6 +648,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
           skipDeviceCancel,
           hideCheckingDeviceLoading,
+          autoHandleExitError,
         },
       );
     },
