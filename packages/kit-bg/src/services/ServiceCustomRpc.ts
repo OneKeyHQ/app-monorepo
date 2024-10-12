@@ -246,7 +246,6 @@ class ServiceCustomRpc extends ServiceBase {
     );
 
     const serverNetworks = resp.data.data;
-    serverNetworks.push(...this.mockServerNetwork());
     const presetNetworkIds = Object.values(getNetworkIdsMap());
     // filter preset networks
     const usedNetworks = serverNetworks.filter(
@@ -270,57 +269,6 @@ class ServiceCustomRpc extends ServiceBase {
     }
 
     return usedNetworks;
-  }
-
-  private mockServerNetwork(): IServerNetwork[] {
-    return [
-      {
-        'impl': 'evm',
-        'chainId': '32769',
-        'id': 'evm--32769',
-        'name': 'Zilliqa EVM',
-        'symbol': 'ETH',
-        'code': 'zilliqa',
-        'shortcode': 'zilliqa',
-        'shortname': 'Zilliqa',
-        'decimals': 18,
-        'feeMeta': {
-          'code': 'eth',
-          'decimals': 9,
-          'symbol': 'Gwei',
-          'isEIP1559FeeEnabled': false,
-          'isWithL1BaseFee': false,
-        },
-        'status': ENetworkStatus.LISTED,
-        'isTestnet': true,
-        'logoURI': '',
-        'defaultEnabled': false,
-        'backendIndex': false,
-      },
-      {
-        'impl': 'evm',
-        'chainId': '245022934',
-        'id': 'evm--245022934',
-        'name': 'Neon EVM Mainnet',
-        'symbol': 'ETH',
-        'code': 'neon',
-        'shortcode': 'neon',
-        'shortname': 'neon',
-        'decimals': 18,
-        'feeMeta': {
-          'code': 'eth',
-          'decimals': 9,
-          'symbol': 'Gwei',
-          'isEIP1559FeeEnabled': false,
-          'isWithL1BaseFee': false,
-        },
-        'status': ENetworkStatus.LISTED,
-        'isTestnet': true,
-        'logoURI': '',
-        'defaultEnabled': false,
-        'backendIndex': false,
-      },
-    ];
   }
 }
 
