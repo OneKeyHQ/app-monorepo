@@ -84,7 +84,11 @@ const SwapHeaderContainer = ({
   const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   useEffect(() => {
     if (defaultSwapType) {
-      void swapTypeSwitchAction(defaultSwapType, networkId);
+      // Avoid switching the default toToken before it has been loaded,
+      // resulting in the default network toToken across chains
+      setTimeout(() => {
+        void swapTypeSwitchAction(defaultSwapType, networkId);
+      }, 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

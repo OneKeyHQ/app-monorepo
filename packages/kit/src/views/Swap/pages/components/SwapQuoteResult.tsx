@@ -251,9 +251,7 @@ const SwapQuoteResult = ({
                   }
                 />
               ) : null}
-              {quoteResult?.toAmount &&
-              !quoteResult?.allowanceResult &&
-              !quoteResult?.unSupportSlippage ? (
+              {quoteResult?.toAmount && !quoteResult?.unSupportSlippage ? (
                 <SwapSlippageTriggerContainer
                   isLoading={swapQuoteLoading}
                   onPress={slippageHandleClick}
