@@ -59,6 +59,8 @@ function ActionItem({
         textAlign="center"
         size="$bodySm"
         color="$textSubdued"
+        minWidth="$20"
+        numberOfLines={1}
       >
         {label}
       </SizableText>

@@ -234,8 +234,18 @@ function TokenDetailsHeader(props: IProps) {
               disabled={isReceiveDisabled}
               onPress={() => handleOnReceive(tokenInfo)}
             />
-            <Stack w={50} />
-            <Stack w={50} />
+            <Stack
+              w={50}
+              $gtSm={{
+                display: 'none',
+              }}
+            />
+            <Stack
+              w={50}
+              $gtSm={{
+                display: 'none',
+              }}
+            />
           </XStack>
         </RawActions>
       </Stack>
