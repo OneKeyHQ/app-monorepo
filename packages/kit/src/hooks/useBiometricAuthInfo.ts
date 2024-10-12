@@ -25,10 +25,9 @@ export const useBiometricAuthInfo = () => {
         (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
           authType.includes(AuthenticationType.IRIS))
       ) {
-        titleId =
-          authType.length > 1
-            ? ETranslations.global_biometric
-            : ETranslations.global_face_id;
+        if (platformEnv.isNativeIOS && authType.length > 1) { {
+          titleId =  ETranslations.global_face_id;
+        }
         icon = 'FaceIdSolid';
       }
     } else if (platformEnv.isDesktopWin) {
