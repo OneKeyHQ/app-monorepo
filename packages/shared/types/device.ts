@@ -106,6 +106,7 @@ export type IGetDeviceAccountDataParams = {
   deviceId: string;
   pathPrefix: string;
   pathSuffix: string;
+  template: string;
   coinName: string | undefined;
   showOnOnekeyFn: (index: number) => boolean | undefined;
 };

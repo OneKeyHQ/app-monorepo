@@ -762,6 +762,7 @@ class ServiceDemo extends ServiceBase {
       //   showOnOneKey: false,
       // },
     ];
+    console.log('sdk.allNetworkGetAddress bundle', bundle);
     const response = await convertDeviceResponse(() =>
       // TODO return public keys (xpub) or address
       // @ts-ignore

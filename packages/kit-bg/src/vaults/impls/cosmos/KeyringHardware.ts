@@ -16,19 +16,121 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import type { HDNodeType } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.cosmos.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'cosmos';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
+
+  override async prepareAccounts(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<IDBAccount[]> {
+    const chainId = await this.getNetworkChainId();
+
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const { curve } = await this.getNetworkInfo();
+        if (curve === 'ed25519') {
+          throw new HardwareError('ed25519 curve is not supported');
+        }
+
+        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
+          params,
+          usedIndexes,
+          sdkGetPublicKeysFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            template,
+            showOnOnekeyFn,
+          }) => {
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              hwSdkNetwork: this.hwSdkNetwork,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account, index }) => ({
+                path: account.path,
+                publicKey: account.payload?.publicKey || '',
+              }),
+            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // const response = await sdk.cosmosGetPublicKey(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${index}`,
+            //     /**
+            //      * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+            //      */
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     chainId: Number(chainId),
+            //   })),
+            // });
+            // return response;
+          },
+        });
+
+        const networkInfo = await this.getNetworkInfo();
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (let i = 0; i < publicKeys.length; i += 1) {
+          const item = publicKeys[i];
+          const { path, publicKey } = item;
+          const pubkey = hexToBytes(`0x${publicKey}`);
+          const addressInfo: ICoreApiGetAddressItem = {
+            address: '',
+            path,
+            publicKey,
+            addresses: {
+              [this.networkId]: pubkeyToAddress(
+                curve,
+                networkInfo.addressPrefix,
+                pubkey,
+              ),
+            },
+          };
+          ret.push(addressInfo);
+        }
+        return ret;
+      },
+    });
+  }
 
   override async signTransaction(
     params: ISignTransactionParams,
@@ -95,69 +197,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       }),
     );
     return results;
-  }
-
-  override async prepareAccounts(
-    params: IPrepareHardwareAccountsParams,
-  ): Promise<IDBAccount[]> {
-    const chainId = await this.getNetworkChainId();
-
-    return this.basePrepareHdNormalAccounts(params, {
-      buildAddressesInfo: async ({ usedIndexes }) => {
-        const { curve } = await this.getNetworkInfo();
-        if (curve === 'ed25519') {
-          throw new HardwareError('ed25519 curve is not supported');
-        }
-
-        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
-          params,
-          usedIndexes,
-          sdkGetPublicKeysFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
-            showOnOnekeyFn,
-          }) => {
-            const sdk = await this.getHardwareSDKInstance();
-
-            const response = await sdk.cosmosGetPublicKey(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${index}`,
-                /**
-                 * Search accounts not show detail at device.Only show on device when add accounts into wallet.
-                 */
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                chainId: Number(chainId),
-              })),
-            });
-            return response;
-          },
-        });
-
-        const networkInfo = await this.getNetworkInfo();
-        const ret: ICoreApiGetAddressItem[] = [];
-        for (let i = 0; i < publicKeys.length; i += 1) {
-          const item = publicKeys[i];
-          const { path, publicKey } = item;
-          const pubkey = hexToBytes(`0x${publicKey}`);
-          const addressInfo: ICoreApiGetAddressItem = {
-            address: '',
-            path,
-            publicKey,
-            addresses: {
-              [this.networkId]: pubkeyToAddress(
-                curve,
-                networkInfo.addressPrefix,
-                pubkey,
-              ),
-            },
-          };
-          ret.push(addressInfo);
-        }
-        return ret;
-      },
-    });
   }
 
   override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {

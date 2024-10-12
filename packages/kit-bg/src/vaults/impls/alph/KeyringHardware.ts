@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import type { IEncodedTxAlph } from '@onekeyhq/core/src/chains/alph/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -11,6 +12,7 @@ import {
   convertDeviceError,
   convertDeviceResponse,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -22,13 +24,41 @@ import {
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.alph.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'alph';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    const path = this.buildFullPath({
+      index: params.index,
+      template: params.template,
+    });
+    return {
+      network: this.hwSdkNetwork,
+      path,
+      showOnOneKey: false,
+      // @ts-expect-error
+      includePublicKey: true, // TODO fix type
+    };
+  }
+
+  buildFullPath = ({ index, template }: { index: number; template: string }) =>
+    // const { pathPrefix, pathSuffix } = accountUtils.slicePathTemplate(template);
+    `${accountUtils.buildPathFromTemplate({
+      template,
+      index,
+    })}/0/0`;
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -43,22 +73,46 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.alephiumGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}/0/0`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                includePublicKey: true,
-                group: 0,
-              })),
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: ({ index }) =>
+                this.buildFullPath({
+                  index,
+                  template,
+                }),
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                publicKey: account.payload?.publicKey || '',
+                derivedPath: account.payload?.derivedPath || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const bundle = usedIndexes.map((index, arrIndex) => ({
+            //   path: `${pathPrefix}/${pathSuffix.replace(
+            //     '{index}',
+            //     `${index}`,
+            //   )}/0/0`,
+            //   showOnOneKey: showOnOnekeyFn(arrIndex),
+            //   includePublicKey: true,
+            //   group: 0,
+            // }));
+            // const response = await sdk.alephiumGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle,
+            // });
+            // return response;
           },
         });
 

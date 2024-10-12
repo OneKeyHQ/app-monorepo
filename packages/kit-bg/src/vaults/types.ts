@@ -52,7 +52,8 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
+import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -311,6 +312,7 @@ export type IPrepareHdAccountsOptions = {
 };
 export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
+  hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -333,6 +335,51 @@ export type IExportAccountSecretKeysParams = {
   keyType: ECoreApiExportedSecretKeyType;
   relPaths?: string[]; // used for get privateKey of other utxo address
 };
+
+export type IBuildHwAllNetworkPrepareAccountsParams = {
+  path: string; // full path
+  template: string;
+  index: number;
+};
+
+export type IBuildPrepareAccountsPrefixedPathParams = {
+  template: string;
+  index: number;
+};
+
+export type IHwSdkNetwork = AllNetworkAddressParams['network'];
+
+export type IHwAllNetworkPrepareAccountsItem = {
+  success: boolean;
+  error?: string;
+  errorCode?: string; // TODO return error code from hw sdk
+
+  path: string;
+  network: IHwSdkNetwork;
+  chainName?: string;
+  prefix?: string;
+
+  payload?: {
+    address?: string;
+    pub?: string;
+    publicKey?: string; // cosmos, sui
+
+    publickey?: string; // nostr
+    npub?: string; // nostr
+
+    xpub?: string;
+    xpubSegwit?: string;
+
+    node?: HDNodeType; // btc
+
+    serializedPath?: string; // ada
+    stakeAddress?: string; // ada
+
+    derivedPath?: string; // alph
+  };
+};
+export type IHwAllNetworkPrepareAccountsResponse =
+  IHwAllNetworkPrepareAccountsItem[];
 
 export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------

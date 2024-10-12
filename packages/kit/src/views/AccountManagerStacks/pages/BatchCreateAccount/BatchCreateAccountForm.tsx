@@ -149,6 +149,7 @@ function BatchCreateAccountFormPage({
                     excludedIndexes: {},
                     saveToDb: true,
                     hideCheckingDeviceLoading: true,
+                    autoHandleExitError: true,
                   },
                 );
               } else {

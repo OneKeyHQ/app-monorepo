@@ -220,7 +220,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // await dbTx.done;
       return result;
     } catch (error) {
-      // console.error(error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(error);
+      }
       dbTx.abort();
       throw error;
     }

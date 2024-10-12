@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { Semaphore } from 'async-mutex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
@@ -67,14 +68,21 @@ function HardwareSingletonDialogCmp(
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
-  const title = useRef('Loading');
-  const content = useRef(
-    <CommonDeviceLoading>
-      {platformEnv.isDev ? (
-        <SizableText size="$bodySmMedium">{action}</SizableText>
-      ) : null}
-    </CommonDeviceLoading>,
+  const defaultLoadingView = useMemo(
+    () => (
+      <CommonDeviceLoading>
+        {platformEnv.isDev ? (
+          <SizableText size="$bodySmMedium">
+            {action || 'unknow action'}
+          </SizableText>
+        ) : null}
+      </CommonDeviceLoading>
+    ),
+    [action],
   );
+
+  const title = useRef('Loading');
+  const content = useRef(defaultLoadingView);
 
   useEffect(() => {
     let delayTime = SHOW_CLOSE_ACTION_MIN_DURATION;
@@ -101,12 +109,12 @@ function HardwareSingletonDialogCmp(
     title.current = intl.formatMessage({
       id: ETranslations.global_checking_device,
     });
-    content.current = <CommonDeviceLoading />;
+    content.current = defaultLoadingView;
   }
 
   if (action === EHardwareUiStateAction.ProcessLoading) {
     title.current = intl.formatMessage({ id: ETranslations.global_processing });
-    content.current = <CommonDeviceLoading />;
+    content.current = defaultLoadingView;
   }
 
   // EnterPin on Device
@@ -159,7 +167,14 @@ function HardwareSingletonDialogCmp(
           await serviceHardwareUI.sendPassphraseToDevice({
             passphrase,
           });
+          // The device will not emit a loading event
+          // so we need to manually display the loading to inform the user that the device is currently processing
+
+          // **** The call sequence is prone to problems, causing the loading dialog to fail to close properly, so it is temporarily disabled
           await serviceHardwareUI.showDeviceProcessLoadingDialog({ connectId });
+
+          // TODO skip show loading dialog if custom dialog is shown
+          // ETranslations.onboarding_finalize_generating_accounts
         }}
         switchOnDevice={async () => {
           await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
@@ -528,6 +543,8 @@ function HardwareUiStateContainerCmp() {
     };
   }, []);
 
+  const mutex = useMemo(() => new Semaphore(1), []);
+
   useEffect(() => {
     const handleStateChange = async () => {
       const isToastAction = hasToastAction(state);
@@ -537,7 +554,8 @@ function HardwareUiStateContainerCmp() {
       console.log('HardwareUiStateContainer action change === ', {
         isToastAction,
         isDialogAction,
-        state: state?.action,
+        stateAction: state?.action,
+        state,
         hasSameDialogAction: hasSameDialogAction(state),
         hasSameToastAction: hasSameToastAction(state),
         dialogCurrentState:
@@ -563,16 +581,22 @@ function HardwareUiStateContainerCmp() {
       } else {
         await toastQueueManagerRef.current?.closeAll();
         await dialogQueueManagerRef.current?.closeAll();
+        if (toastQueueManagerRef?.current) {
+          toastQueueManagerRef.current.currentActionState = undefined;
+        }
+        if (dialogQueueManagerRef?.current) {
+          dialogQueueManagerRef.current.currentActionState = undefined;
+        }
       }
     };
-
-    void handleStateChange();
+    void mutex.runExclusive(handleStateChange);
   }, [
     hasDialogAction,
     hasSameDialogAction,
     hasSameToastAction,
     hasToastAction,
     hasToastCloseAction,
+    mutex,
     showActionsDialog,
     showActionsToast,
     state,

@@ -21,6 +21,8 @@ import type {
   IDBVariantAccount,
 } from '../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IBuildPrepareAccountsPrefixedPathParams,
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
   IPrepareAccountsParams,
@@ -29,6 +31,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export abstract class KeyringBase extends VaultContext {
   constructor(vault: VaultBase) {
@@ -274,6 +277,18 @@ export abstract class KeyringBase extends VaultContext {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
+    throw new NotImplemented();
+  }
+
+  async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return undefined;
+  }
+
+  buildPrepareAccountsPrefixedPath(
+    params: IBuildPrepareAccountsPrefixedPathParams,
+  ): string {
     throw new NotImplemented();
   }
 }

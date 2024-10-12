@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -20,13 +21,28 @@ import { buildSignedTx, generateUnsignedTransaction } from './utils';
 import type VaultAptos from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.aptos.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'aptos';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -44,37 +60,61 @@ export class KeyringHardware extends KeyringHardwareBase {
             pathSuffix,
             coinName,
             showOnOnekeyFn,
+            template,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.aptosGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => {
-                const i = pathSuffix.replace('{index}', `${index}`);
-                return {
-                  path: `${pathPrefix}/${i}`,
-                  /**
-                   * Search accounts not show detail at device.Only show on device when add accounts into wallet.
-                   */
-                  showOnOneKey: showOnOnekeyFn(arrIndex),
-                  chainId: Number(chainId),
-                };
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
               }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const response = await sdk.aptosGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => {
+            //     const i = pathSuffix.replace('{index}', `${index}`);
+            //     return {
+            //       path: `${pathPrefix}/${i}`,
+            //       /**
+            //        * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+            //        */
+            //       showOnOneKey: showOnOnekeyFn(arrIndex),
+            //       chainId: Number(chainId),
+            //     };
+            //   }),
+            // });
+            // return response;
           },
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < list.length; i += 1) {
           const item = list[i];
-          const { path, address, publicKey } = item;
+          const { path, address } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address || '',
             path,
-            publicKey: publicKey || '',
+            publicKey: '',
+            // publicKey: publicKey || '',
           };
           ret.push(addressInfo);
         }

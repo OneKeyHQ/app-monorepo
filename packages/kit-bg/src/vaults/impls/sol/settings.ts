@@ -28,14 +28,14 @@ const accountDeriveInfo: IAccountDeriveInfoMapSol = {
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'/0'`,
     coinType: COINTYPE_SOL,
     labelKey: ETranslations.bip44__standard,
-    desc: 'OneKey, Phantom, Sollet, m/44’/501’/*’/0’',
+    desc: `OneKey, Phantom, Sollet, m/44'/501'/*'/0'`,
   },
   ledgerLive: {
     namePrefix: 'SOL Ledger Live',
     template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_SOL,
     label: 'Ledger Live',
-    desc: 'Ledger Live, Solflare, m/44’/501’/*’',
+    desc: `Ledger Live, Solflare, m/44'/501'/*'`,
   },
 };
 
