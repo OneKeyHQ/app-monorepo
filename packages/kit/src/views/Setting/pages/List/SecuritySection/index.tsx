@@ -1,7 +1,5 @@
-import type { ComponentProps } from 'react';
 import { Suspense, useCallback, useMemo } from 'react';
 
-import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
@@ -11,6 +9,7 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
@@ -111,36 +110,11 @@ const PasswordItem = () => {
 };
 
 const FaceIdItem = () => {
-  const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
   const [{ isSupport: biologyAuthIsSupport, authType }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-
-  let title = intl.formatMessage({ id: ETranslations.global_touch_id });
-  let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
-
-  if (platformEnv.isExtension) {
-    title = intl.formatMessage({ id: ETranslations.settings_passkey });
-    icon = 'PassKeySolid';
-  }
-  if (biologyAuthIsSupport) {
-    if (platformEnv.isDesktopWin) {
-      title = intl.formatMessage({ id: ETranslations.global_windows_hello });
-      icon = 'WindowsHelloSolid';
-    } else if (
-      authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
-      authType.includes(AuthenticationType.IRIS)
-    ) {
-      title = intl.formatMessage({
-        id:
-          authType.length > 1
-            ? ETranslations.global_biometric
-            : ETranslations.global_face_id,
-      });
-      icon = 'FaceIdSolid';
-    }
-  }
+  const { title, icon } = useBiometricAuthInfo();
 
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
     <ListItem icon={icon} title={title}>

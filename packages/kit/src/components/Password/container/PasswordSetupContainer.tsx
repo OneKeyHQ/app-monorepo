@@ -1,13 +1,5 @@
-import {
-  Suspense,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { Suspense, memo, useCallback, useEffect, useState } from 'react';
 
-import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
@@ -20,6 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordSetup from '../components/PasswordSetup';
@@ -39,31 +32,16 @@ const BiologyAuthContainer = ({
   webAuthIsSupport,
   skipAuth,
 }: IBiologyAuthContainerProps) => {
-  const [{ isSupport: biologyAuthIsSupport, authType }] =
+  const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const intl = useIntl();
-  const settingsTitle = useMemo(() => {
-    if (
-      biologyAuthIsSupport &&
-      (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
-        authType.includes(AuthenticationType.IRIS))
-    ) {
-      return intl.formatMessage(
-        { id: ETranslations.auth_with_biometric },
-        {
-          biometric:
-            authType.length > 1
-              ? intl.formatMessage({ id: ETranslations.global_biometric })
-              : 'FaceID',
-        },
-      );
-    }
-    return intl.formatMessage(
-      { id: ETranslations.auth_with_biometric },
-      { biometric: 'TouchID' },
-    );
-  }, [authType, biologyAuthIsSupport, intl]);
+
+  const { title } = useBiometricAuthInfo();
+  const settingsTitle = intl.formatMessage(
+    { id: ETranslations.auth_with_biometric },
+    { biometric: title },
+  );
 
   useEffect(() => {
     if (
