@@ -336,6 +336,24 @@ export function useSwapBuildTx() {
               encodedTx = res.tx as string;
             }
           }
+          // check gasLimit
+          const buildGasLimitBN = new BigNumber(res.result?.gasLimit ?? 0);
+          const quoteGasLimitBN = new BigNumber(selectQuote?.gasLimit ?? 0);
+          if (
+            (buildGasLimitBN.isNaN() || buildGasLimitBN.isZero()) &&
+            !quoteGasLimitBN.isNaN() &&
+            !quoteGasLimitBN.isZero()
+          ) {
+            res.result.gasLimit = quoteGasLimitBN.toNumber();
+          }
+          // check routes
+          if (
+            !res.result?.routesData?.length &&
+            selectQuote?.routesData?.length
+          ) {
+            res.result.routesData = selectQuote.routesData;
+          }
+
           const swapInfo = {
             sender: {
               amount: selectQuote.fromAmount,
@@ -359,8 +377,10 @@ export function useSwapBuildTx() {
   }, [
     fromToken,
     selectQuote?.fromAmount,
+    selectQuote?.gasLimit,
     selectQuote?.info.provider,
     selectQuote?.quoteResultCtx,
+    selectQuote?.routesData,
     selectQuote?.toAmount,
     slippageItem,
     swapFromAddressInfo.accountInfo?.account?.id,
