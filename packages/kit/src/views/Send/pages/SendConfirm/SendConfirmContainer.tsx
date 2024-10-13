@@ -63,6 +63,7 @@ function SendConfirmContainer() {
     transferPayload,
     feeInfoEditable,
   } = route.params;
+
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -194,9 +195,11 @@ function SendConfirmContainer() {
             networkId={networkId}
             transferPayload={transferPayload}
           />
-          {/* <TxSwapInfoContainer /> */}
-          {/* <TxSimulationContainer /> */}
-          <TxSpecialInfoContainer accountId={accountId} networkId={networkId} />
+          <TxSpecialInfoContainer
+            accountId={accountId}
+            networkId={networkId}
+            unsignedTxs={unsignedTxs}
+          />
           <TxExtraInfoContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -224,6 +227,7 @@ function SendConfirmContainer() {
       accountId,
       networkId,
       transferPayload,
+      unsignedTxs,
       signOnly,
       onSuccess,
       onFail,
