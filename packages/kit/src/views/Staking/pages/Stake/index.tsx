@@ -14,6 +14,7 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
@@ -56,12 +57,26 @@ const StakePage = () => {
           tags: [actionTag],
         },
         term: btcStakingTerm,
-        onSuccess: () => {
+        onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: tokenInfo,
             stakingProtocol: provider.name,
           });
+          const tx = txs[0];
+          if (
+            tx &&
+            provider.name.toLowerCase() ===
+              EEarnProviderEnum.Babylon.toLowerCase()
+          ) {
+            await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
+              txId: tx.decodedTx.txid,
+              action: 'stake',
+              createAt: Date.now(),
+              accountId,
+              networkId,
+            });
+          }
           onSuccess?.();
         },
       });
@@ -74,6 +89,8 @@ const StakePage = () => {
       actionTag,
       onSuccess,
       btcStakingTerm,
+      accountId,
+      networkId,
     ],
   );
 

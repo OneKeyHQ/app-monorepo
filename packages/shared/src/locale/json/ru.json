@@ -387,6 +387,7 @@
   "earn.pending_activation": "Ожидает активации",
   "earn.pending_activation_tooltip": "Новый стейкинг должен пройти примерно {number} перед тем, как стать активным и начать получать вознаграждения.",
   "earn.pending_activation_tooltip_eth": "Ваш застейканный ETH становится активным, когда валидатор достигает порога в 32 ETH.",
+  "earn.pending_transactions_data_out_of_sync": "Ожидающие транзакции, данные могут быть не синхронизированы.",
   "earn.portfolio": "Портфолио",
   "earn.portfolio_details": "Детали портфолио",
   "earn.provider_asset_staking": "{provider} {asset} ставка",

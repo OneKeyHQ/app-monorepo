@@ -84,7 +84,7 @@ function StakedValueInfo({
             </SizableText>
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="price"
+              formatter="balance"
               formatterOptions={{ tokenSymbol }}
             >
               {stakedNumber || 0}
@@ -96,7 +96,7 @@ function StakedValueInfo({
             </SizableText>
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="price"
+              formatter="balance"
               formatterOptions={{ tokenSymbol }}
             >
               {availableNumber || 0}

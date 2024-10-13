@@ -387,6 +387,7 @@
   "earn.pending_activation": "Menunggu aktivasi",
   "earn.pending_activation_tooltip": "Staking baru perlu menunggu sekitar {number} sebelum menjadi aktif dan mulai mendapatkan hadiah.",
   "earn.pending_activation_tooltip_eth": "ETH yang Anda stake akan aktif setelah validator mencapai persyaratan 32 ETH.",
+  "earn.pending_transactions_data_out_of_sync": "Transaksi tertunda, data mungkin tidak sinkron.",
   "earn.portfolio": "Portofolio",
   "earn.portfolio_details": "Detail Portofolio",
   "earn.provider_asset_staking": "{provider} {asset} mempertaruhkan",

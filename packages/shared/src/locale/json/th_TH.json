@@ -387,6 +387,7 @@
   "earn.pending_activation": "รอการเปิดใช้งาน",
   "earn.pending_activation_tooltip": "การเสนอเงินเพื่อรับผลตอบแทนใหม่ต้องรอประมาณ {number} ก่อนที่จะเริ่มทำงานและเริ่มทำการสะสมรางวัล",
   "earn.pending_activation_tooltip_eth": "ETH ที่คุณวางเดิมพันจะเปิดใช้งานเมื่อผู้ตรวจสอบถึงข้อกำหนด 32 ETH",
+  "earn.pending_transactions_data_out_of_sync": "ธุรกรรมที่รอดำเนินการ ข้อมูลอาจไม่ตรงกัน",
   "earn.portfolio": "พอร์ตฟอลิโอ",
   "earn.portfolio_details": "รายละเอียดพอร์ตฟอลิโอ",
   "earn.provider_asset_staking": "{provider} การวางเดิมพัน {asset}",

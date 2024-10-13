@@ -387,6 +387,7 @@
   "earn.pending_activation": "有効化待ち",
   "earn.pending_activation_tooltip": "新しいステーキングは、アクティブになり、報酬を獲得し始める前に、約{number}待つ必要があります。",
   "earn.pending_activation_tooltip_eth": "バリデーターが32 ETHの要件を満たすと、あなたのステークしたETHがアクティブになります。",
+  "earn.pending_transactions_data_out_of_sync": "保留中の取引、データが同期していない可能性があります。",
   "earn.portfolio": "ポートフォリオ",
   "earn.portfolio_details": "ポートフォリオの詳細",
   "earn.provider_asset_staking": "{provider} {asset}ステーキング",

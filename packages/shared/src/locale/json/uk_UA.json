@@ -387,6 +387,7 @@
   "earn.pending_activation": "Очікує активації",
   "earn.pending_activation_tooltip": "Нове ставлення потребує чекати близько {number} перед тим, як стати активним і почати отримувати нагороди.",
   "earn.pending_activation_tooltip_eth": "Ваш застейканий ETH стане активним, коли валідатор досягне вимоги в 32 ETH.",
+  "earn.pending_transactions_data_out_of_sync": "Очікувані транзакції, дані можуть бути не синхронізовані.",
   "earn.portfolio": "Портфоліо",
   "earn.portfolio_details": "Деталі портфоліо",
   "earn.provider_asset_staking": "Ставка {provider} {asset}",
