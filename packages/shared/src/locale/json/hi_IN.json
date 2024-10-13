@@ -387,6 +387,7 @@
   "earn.pending_activation": "सक्रियण बाकी",
   "earn.pending_activation_tooltip": "नई स्टेकिंग को सक्रिय होने और पुरस्कार कमाने की शुरुआत से पहले करीब {number} का इंतजार करने की आवश्यकता होती है।",
   "earn.pending_activation_tooltip_eth": "आपका स्टेक किया हुआ ETH तभी सक्रिय होगा जब सत्यापक 32 ETH की आवश्यकता पूरी करेगा।",
+  "earn.pending_transactions_data_out_of_sync": "लंबित लेन-देन, डेटा सिंक से बाहर हो सकता है।",
   "earn.portfolio": "पोर्टफोलियो",
   "earn.portfolio_details": "पोर्टफोलियो विवरण",
   "earn.provider_asset_staking": "{provider} {asset} स्टेकिंग",

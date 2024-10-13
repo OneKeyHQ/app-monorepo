@@ -721,7 +721,7 @@ function SendReplaceTxContainer() {
           accountId,
           networkId,
           unsignedTxs: [unsignedTx],
-          feeInfo: sendSelectedFeeInfo,
+          feeInfos: [sendSelectedFeeInfo],
         });
 
       // fee info pre-check
@@ -745,7 +745,7 @@ function SendReplaceTxContainer() {
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
           networkId,
-          feeInfo: sendSelectedFeeInfo,
+          feeInfos: [sendSelectedFeeInfo],
           unsignedTxs: newUnsignedTxs,
           replaceTxInfo: {
             replaceHistoryId: historyTx.id,
