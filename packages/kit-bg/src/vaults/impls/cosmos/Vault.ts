@@ -37,6 +37,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IStakeTxCosmosAmino } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -246,6 +247,12 @@ export default class VaultCosmos extends VaultBase {
       }
     });
     return this._buildEncodedTxWithFee({ transfersInfo });
+  }
+
+  override async buildStakeEncodedTx(
+    params: IStakeTxCosmosAmino,
+  ): Promise<IEncodedTxCosmos> {
+    return TransactionWrapper.fromAminoSignDoc(params, undefined).toObject();
   }
 
   private _getTransactionTypeByMessage(
