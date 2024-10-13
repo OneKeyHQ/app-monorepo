@@ -199,34 +199,20 @@ export function calculateFeeForSend({
   nativeTokenPrice,
   txSize,
   estimateFeeParams,
-  txCount = 1,
-  multiTxFeeUpRatio = BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
   txSize?: number;
   estimateFeeParams?: IEstimateFeeParams;
-  txCount?: number;
-  multiTxFeeUpRatio?: number;
 }) {
   const feeRange = calculateTotalFeeRange({
     feeInfo,
     txSize,
     estimateFeeParams,
   });
-  const total = new BigNumber(feeRange.max)
-    .times(txCount)
-    .times(txCount > 1 ? multiTxFeeUpRatio : 1)
-    .toFixed();
+  const total = new BigNumber(feeRange.max).toFixed();
 
-  const totalForDisplay = new BigNumber(feeRange.maxForDisplay)
-    .times(txCount)
-    .toFixed();
-
-  const totalMaxForDisplay = new BigNumber(feeRange.maxForDisplay)
-    .times(txCount)
-    .times(txCount > 1 ? multiTxFeeUpRatio : 1)
-    .toFixed();
+  const totalForDisplay = new BigNumber(feeRange.maxForDisplay).toFixed();
 
   const totalNative = calculateTotalFeeNative({
     amount: total,
@@ -238,20 +224,12 @@ export function calculateFeeForSend({
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
-  const totalNativeMaxForDisplay = calculateTotalFeeNative({
-    amount: totalMaxForDisplay,
-    feeInfo,
-    withoutBaseFee: feeRange.withoutBaseFee,
-  });
+
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
-    .multipliedBy(nativeTokenPrice)
-    .toFixed();
-
-  const totalFiatMaxForDisplay = new BigNumber(totalNativeMaxForDisplay)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
@@ -261,8 +239,6 @@ export function calculateFeeForSend({
     totalFiat,
     totalNativeForDisplay,
     totalFiatForDisplay,
-    totalNativeMaxForDisplay,
-    totalFiatMaxForDisplay,
     feeRange,
   };
 }

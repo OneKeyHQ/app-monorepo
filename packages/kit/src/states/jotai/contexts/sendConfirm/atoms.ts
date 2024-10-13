@@ -39,7 +39,17 @@ export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
 export const {
   atom: sendSelectedFeeInfoAtom,
   use: useSendSelectedFeeInfoAtom,
-} = contextAtom<ISendSelectedFeeInfo | undefined>(undefined);
+} = contextAtom<
+  | {
+      feeInfos: ISendSelectedFeeInfo[];
+      total: string;
+      totalNative: string;
+      totalFiat: string;
+      totalNativeForDisplay: string;
+      totalFiatForDisplay: string;
+    }
+  | undefined
+>(undefined);
 
 export const { atom: sendFeeStatusAtom, use: useSendFeeStatusAtom } =
   contextAtom<{

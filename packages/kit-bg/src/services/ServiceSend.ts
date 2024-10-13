@@ -10,10 +10,6 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
-  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
-} from '@onekeyhq/shared/src/consts/walletConsts';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -302,50 +298,26 @@ class ServiceSend extends ServiceBase {
   public async updateUnSignedTxBeforeSend({
     accountId,
     networkId,
-    feeInfo: sendSelectedFeeInfo,
+    feeInfos: sendSelectedFeeInfos,
     nativeAmountInfo,
     unsignedTxs,
     tokenApproveInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
     tokenApproveInfo?: ITokenApproveInfo;
-    feeInfo?: ISendSelectedFeeInfo;
+    feeInfos?: ISendSelectedFeeInfo[];
     nativeAmountInfo?: INativeAmountInfo;
   }) {
     const newUnsignedTxs = [];
-    const isMultiTxs = unsignedTxs.length > 1;
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
-      const feeInfo = sendSelectedFeeInfo?.feeInfo;
-
-      if (
-        isMultiTxs &&
-        (unsignedTx.swapInfo || unsignedTx.stakingInfo || i >= 1)
-      ) {
-        const isApproveTx = !unsignedTx.swapInfo && !unsignedTx.stakingInfo;
-        const multiTxFeeUpRatio = isApproveTx
-          ? BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE
-          : BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP;
-        if (feeInfo?.gas) {
-          feeInfo.gas.gasLimit = new BigNumber(feeInfo.gas.gasLimit)
-            .times(multiTxFeeUpRatio)
-            .toFixed();
-        }
-
-        if (feeInfo?.gasEIP1559) {
-          feeInfo.gasEIP1559.gasLimit = new BigNumber(
-            feeInfo.gasEIP1559.gasLimit,
-          )
-            .times(multiTxFeeUpRatio)
-            .toFixed();
-        }
-      }
+      const feeInfo = sendSelectedFeeInfos?.[i]?.feeInfo;
 
       const newUnsignedTx = await this.updateUnsignedTx({
         accountId,
         networkId,
         unsignedTx,
-        feeInfo: sendSelectedFeeInfo?.feeInfo,
+        feeInfo,
         nativeAmountInfo,
         tokenApproveInfo,
       });
@@ -366,7 +338,7 @@ class ServiceSend extends ServiceBase {
       unsignedTxs,
       signOnly,
       sourceInfo,
-      feeInfo: sendSelectedFeeInfo,
+      feeInfos: sendSelectedFeeInfos,
       replaceTxInfo,
       transferPayload,
       successfullySentTxs,
@@ -399,7 +371,7 @@ class ServiceSend extends ServiceBase {
           networkId,
           accountId,
           unsignedTx,
-          feeInfo: sendSelectedFeeInfo,
+          feeInfo: sendSelectedFeeInfos?.[i],
           transferPayload,
         });
 
@@ -546,6 +518,10 @@ class ServiceSend extends ServiceBase {
       newUnsignedTx.stakingInfo = stakingInfo;
     }
 
+    if (approveInfo) {
+      newUnsignedTx.approveInfo = approveInfo;
+    }
+
     const isNonceRequired = (
       await this.backgroundApi.serviceNetwork.getVaultSettings({
         networkId,
@@ -667,18 +643,19 @@ class ServiceSend extends ServiceBase {
     unsignedTxs: IUnsignedTxPro[];
     precheckTiming: ESendPreCheckTimingEnum;
     nativeAmountInfo?: INativeAmountInfo;
-    feeInfo?: IFeeInfoUnit;
+    feeInfos?: ISendSelectedFeeInfo[];
   }) {
     const vault = await vaultFactory.getVault({
       networkId: params.networkId,
       accountId: params.accountId,
     });
-    for (const unsignedTx of params.unsignedTxs) {
+    for (let i = 0, len = params.unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = params.unsignedTxs[i];
       await vault.precheckUnsignedTx({
         unsignedTx,
         precheckTiming: params.precheckTiming,
         nativeAmountInfo: params.nativeAmountInfo,
-        feeInfo: params.feeInfo,
+        feeInfo: params.feeInfos?.[i]?.feeInfo,
       });
     }
   }

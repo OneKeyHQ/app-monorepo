@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { IUnsignedTx } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
 import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { InfoItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
@@ -12,14 +13,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 function TronSpecialInfo({
   accountId,
   networkId,
+  unsignedTxs,
 }: {
   accountId: string;
   networkId: string;
+  unsignedTxs: IUnsignedTx[];
 }) {
   const intl = useIntl();
   const [selectedFeeInfo] = useSendSelectedFeeInfoAtom();
 
-  const feeTron = selectedFeeInfo?.feeInfo?.feeTron;
+  const feeTron = selectedFeeInfo?.feeInfos[0]?.feeInfo?.feeTron;
 
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
@@ -37,6 +40,10 @@ function TronSpecialInfo({
   }, [accountId, networkId]);
 
   if (!feeTron) return null;
+
+  if (unsignedTxs.length > 1) {
+    return null;
+  }
 
   return (
     <InfoItem
