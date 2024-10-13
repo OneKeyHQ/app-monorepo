@@ -371,3 +371,11 @@ export type IEarnEstimateFeeResp = {
     info: IToken;
   };
 };
+
+export interface IEarnBabylonTrackingItem {
+  txId: string;
+  action: 'stake' | 'claim';
+  createAt: number;
+  accountId: string;
+  networkId: string;
+}

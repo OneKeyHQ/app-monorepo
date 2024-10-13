@@ -23,6 +23,7 @@ import type {
   IClaimableListResponse,
   IEarnAccountResponse,
   IEarnAccountTokenResponse,
+  IEarnBabylonTrackingItem,
   IEarnEstimateAction,
   IEarnEstimateFeeResp,
   IEarnFAQList,
@@ -40,6 +41,7 @@ import type {
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -799,6 +801,31 @@ class ServiceStaking extends ServiceBase {
       },
     });
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async addBabylonTrackingItem(item: IEarnBabylonTrackingItem) {
+    return simpleDb.babylonSync.addTrackingItem(item);
+  }
+
+  @backgroundMethod()
+  async getBabylonTrackingItems({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const items = await simpleDb.babylonSync.getTrackingList();
+    const result = items.filter(
+      (o) => o.accountId === accountId && networkId === o.networkId,
+    );
+    return result;
+  }
+
+  @backgroundMethod()
+  async removeBabylonTrackingItem(item: { txIds: string[] }) {
+    return simpleDb.babylonSync.removeTrackingItem({ txIds: item.txIds });
   }
 }
 
