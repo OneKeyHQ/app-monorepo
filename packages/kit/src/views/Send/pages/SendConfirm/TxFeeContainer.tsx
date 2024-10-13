@@ -32,6 +32,10 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -433,39 +437,139 @@ function TxFeeContainer(props: IProps) {
       selectedFeeInfo = feeSelectorItem.feeInfo;
     }
 
-    const {
-      total,
-      totalNative,
-      totalFiat,
-      totalNativeForDisplay,
-      totalFiatForDisplay,
-      totalNativeMaxForDisplay,
-      totalFiatMaxForDisplay,
-    } = calculateFeeForSend({
-      feeInfo: selectedFeeInfo,
-      nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
-      txSize: unsignedTxs[0]?.txSize,
-      estimateFeeParams,
-      txCount: unsignedTxs.length,
-    });
+    const feeInfos: {
+      feeInfo: IFeeInfoUnit;
+      total: string;
+      totalNative: string;
+      totalFiat: string;
+      totalNativeForDisplay: string;
+      totalFiatForDisplay: string;
+    }[] = [];
+
+    let baseGasLimit =
+      selectedFeeInfo.gas?.gasLimit ?? selectedFeeInfo.gasEIP1559?.gasLimit;
+
+    let total = new BigNumber(0);
+    let totalNative = new BigNumber(0);
+    let totalFiat = new BigNumber(0);
+    let totalNativeForDisplay = new BigNumber(0);
+    let totalFiatForDisplay = new BigNumber(0);
+
+    let totalNativeMinForDisplay = new BigNumber(0);
+    let totalFiatMinForDisplay = new BigNumber(0);
+
+    for (let i = 0; i < unsignedTxs.length; i += 1) {
+      const unsignedTx = unsignedTxs[i];
+      let specialGasLimit: string | undefined;
+
+      // build second approve tx fee info base on first approve fee info
+      if (isMultiTxs && unsignedTx.approveInfo && i !== 0) {
+        specialGasLimit = new BigNumber(baseGasLimit ?? 0)
+          .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+          .toFixed();
+        baseGasLimit = specialGasLimit;
+      }
+      // build swap tx fee info base on first approve fee info
+      else if (
+        isMultiTxs &&
+        unsignedTx.swapInfo &&
+        (selectedFeeInfo.gas || selectedFeeInfo.gasEIP1559)
+      ) {
+        const swapInfo = unsignedTx.swapInfo;
+        const internalSwapGasLimit = swapInfo.swapBuildResData.result.gasLimit;
+        const internalSwapRoutes = swapInfo.swapBuildResData.result.routesData;
+
+        if (!isNil(internalSwapGasLimit)) {
+          specialGasLimit = internalSwapGasLimit.toString();
+        } else if (internalSwapRoutes && internalSwapRoutes.length > 0) {
+          const allRoutesLength = internalSwapRoutes.reduce(
+            (acc, cur) =>
+              acc.plus(cur.subRoutes?.flatMap((sub) => sub).length ?? 1),
+            new BigNumber(0),
+          );
+          specialGasLimit = new BigNumber(baseGasLimit ?? 0)
+            .times(allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP))
+            .toFixed();
+        } else {
+          specialGasLimit = new BigNumber(baseGasLimit ?? 0)
+            .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+            .toFixed();
+        }
+      }
+
+      const txFeeInfo = {
+        ...selectedFeeInfo,
+        gas: selectedFeeInfo.gas
+          ? {
+              ...selectedFeeInfo.gas,
+              gasLimit: specialGasLimit ?? selectedFeeInfo.gas?.gasLimit,
+              gasLimitForDisplay:
+                specialGasLimit ?? selectedFeeInfo.gas?.gasLimitForDisplay,
+            }
+          : undefined,
+        gasEIP1559: selectedFeeInfo.gasEIP1559
+          ? {
+              ...selectedFeeInfo.gasEIP1559,
+              gasLimit: specialGasLimit ?? selectedFeeInfo.gasEIP1559?.gasLimit,
+              gasLimitForDisplay:
+                specialGasLimit ??
+                selectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
+            }
+          : undefined,
+      };
+
+      const feeResult = calculateFeeForSend({
+        feeInfo: txFeeInfo,
+        nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
+        txSize: unsignedTx.txSize,
+        estimateFeeParams,
+      });
+
+      total = total.plus(feeResult.total);
+      totalNative = totalNative.plus(feeResult.totalNative);
+      totalFiat = totalFiat.plus(feeResult.totalFiat);
+      totalNativeForDisplay = totalNativeForDisplay.plus(
+        feeResult.totalNativeForDisplay,
+      );
+      totalFiatForDisplay = totalFiatForDisplay.plus(
+        feeResult.totalFiatForDisplay,
+      );
+
+      feeInfos.push({
+        feeInfo: txFeeInfo,
+        total: feeResult.total,
+        totalNative: feeResult.totalNative,
+        totalFiat: feeResult.totalFiat,
+        totalNativeForDisplay: feeResult.totalNativeForDisplay,
+        totalFiatForDisplay: feeResult.totalFiatForDisplay,
+      });
+    }
 
     txFeeInit.current = true;
 
+    totalNativeMinForDisplay = new BigNumber(
+      feeInfos[0]?.totalNativeForDisplay ?? 0,
+    ).times(unsignedTxs.length);
+    totalFiatMinForDisplay = new BigNumber(
+      feeInfos[0]?.totalFiatForDisplay ?? 0,
+    ).times(unsignedTxs.length);
+
     return {
       selectedFee: {
-        feeInfo: selectedFeeInfo,
-        total,
-        totalNative,
-        totalFiat,
-        totalNativeForDisplay,
-        totalFiatForDisplay,
-        totalNativeMaxForDisplay,
-        totalFiatMaxForDisplay,
+        feeInfos,
+        total: total.toFixed(),
+        totalNative: totalNative.toFixed(),
+        totalFiat: totalFiat.toFixed(),
+        totalNativeForDisplay: totalNativeForDisplay.toFixed(),
+        totalFiatForDisplay: totalFiatForDisplay.toFixed(),
+        totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
+        totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
       },
     };
   }, [
     estimateFeeParams,
     feeSelectorItems,
+    isMultiTxs,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFee?.common.nativeTokenPrice,
@@ -503,25 +607,10 @@ function TxFeeContainer(props: IProps) {
   );
 
   useEffect(() => {
-    if (selectedFee && selectedFee.feeInfo) {
+    if (selectedFee && !isEmpty(selectedFee.feeInfos)) {
       updateSendSelectedFeeInfo(selectedFee);
     }
   }, [selectedFee, updateSendSelectedFeeInfo]);
-
-  // useEffect(() => {
-  //   void backgroundApiProxy.serviceGas
-  //     .getFeePresetIndex({
-  //       networkId,
-  //     })
-  //     .then((presetIndex) => {
-  //       const index = presetIndex ?? vaultSettings?.defaultFeePresetIndex;
-  //       if (!isNil(index)) {
-  //         updateSendSelectedFee({
-  //           presetIndex: index,
-  //         });
-  //       }
-  //     });
-  // }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
     if (!isNil(vaultSettings?.defaultFeePresetIndex)) {
@@ -547,7 +636,7 @@ function TxFeeContainer(props: IProps) {
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,
-    selectedFee?.totalNative,
+    selectedFee,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
@@ -576,7 +665,7 @@ function TxFeeContainer(props: IProps) {
         <FeeEditor
           networkId={networkId}
           feeSelectorItems={feeSelectorItems}
-          selectedFee={selectedFee}
+          selectedFee={selectedFee?.feeInfos?.[0]}
           sendSelectedFee={sendSelectedFee}
           unsignedTxs={unsignedTxs}
           originalCustomFee={customFee}
@@ -648,14 +737,8 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   const renderTotalNative = useCallback(() => {
-    const commonProps = {
-      size: '$bodyMd',
-      color: '$textSubdued',
-      formatter: 'balance',
-      formatterOptions: { tokenSymbol: txFee?.common.nativeSymbol },
-    };
     if (
-      selectedFee?.totalFiatForDisplay !== selectedFee?.totalFiatMaxForDisplay
+      selectedFee?.totalFiatForDisplay !== selectedFee?.totalNativeMinForDisplay
     ) {
       return (
         <XStack alignItems="center" gap="$0.5">
@@ -667,7 +750,7 @@ function TxFeeContainer(props: IProps) {
             size="$bodyMd"
             color="$textSubdued"
           >
-            {selectedFee?.totalNativeForDisplay ?? '-'}
+            {selectedFee?.totalNativeMinForDisplay ?? '-'}
           </NumberSizeableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             ~
@@ -680,7 +763,7 @@ function TxFeeContainer(props: IProps) {
               tokenSymbol: txFee?.common.nativeSymbol,
             }}
           >
-            {selectedFee?.totalNativeMaxForDisplay ?? '-'}
+            {selectedFee?.totalNativeForDisplay ?? '-'}
           </NumberSizeableText>
         </XStack>
       );
@@ -700,17 +783,16 @@ function TxFeeContainer(props: IProps) {
     );
   }, [
     selectedFee?.totalFiatForDisplay,
-    selectedFee?.totalFiatMaxForDisplay,
     selectedFee?.totalNativeForDisplay,
-    selectedFee?.totalNativeMaxForDisplay,
+    selectedFee?.totalNativeMinForDisplay,
     txFee?.common.nativeSymbol,
   ]);
 
   const renderTotalFiat = useCallback(() => {
     if (
       selectedFee?.totalFiatForDisplay !==
-        selectedFee?.totalFiatMaxForDisplay &&
-      new BigNumber(selectedFee?.totalFiatForDisplay ?? 0).gte(0.01)
+        selectedFee?.totalFiatMinForDisplay &&
+      new BigNumber(selectedFee?.totalFiatMinForDisplay ?? 0).gte(0.01)
     ) {
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -723,7 +805,7 @@ function TxFeeContainer(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {selectedFee?.totalFiatForDisplay ?? '-'}
+            {selectedFee?.totalFiatMinForDisplay ?? '-'}
           </NumberSizeableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             ~
@@ -736,7 +818,7 @@ function TxFeeContainer(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {selectedFee?.totalFiatMaxForDisplay ?? '-'}
+            {selectedFee?.totalFiatForDisplay ?? '-'}
           </NumberSizeableText>
           )
         </SizableText>
@@ -761,7 +843,7 @@ function TxFeeContainer(props: IProps) {
     );
   }, [
     selectedFee?.totalFiatForDisplay,
-    selectedFee?.totalFiatMaxForDisplay,
+    selectedFee?.totalFiatMinForDisplay,
     settings.currencyInfo.symbol,
   ]);
   return (
