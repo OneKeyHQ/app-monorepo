@@ -148,7 +148,8 @@ export enum EStakeTxType {
 export type IStakeTxResponse =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
-  | IStakeTxEthLido;
+  | IStakeTxEthLido
+  | IStakeTxCosmosAmino;
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -170,6 +171,25 @@ export type IStakeTxEthLido = {
   to: string;
   value: string;
   data: string;
+};
+
+// Cosmos dapp interface signAmino
+export type IStakeTxCosmosAmino = {
+  readonly chain_id: string;
+  readonly account_number: string;
+  readonly sequence: string;
+  fee: {
+    amount: {
+      denom: string;
+      amount: string;
+    }[];
+    gas: string;
+  };
+  readonly msgs: {
+    type: string;
+    value: any;
+  }[];
+  readonly memo: string;
 };
 
 export type IStakeProtocolDetails = {
