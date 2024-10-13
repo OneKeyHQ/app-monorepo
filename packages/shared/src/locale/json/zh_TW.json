@@ -387,6 +387,7 @@
   "earn.pending_activation": "待啟用",
   "earn.pending_activation_tooltip": "新質押需等待約 {number} 後才會啟用並開始獲得收益。",
   "earn.pending_activation_tooltip_eth": "當驗證者達到 32 ETH 的要求時，您質押的 ETH 才會啟用。",
+  "earn.pending_transactions_data_out_of_sync": "待處理交易，數據可能不同步。",
   "earn.portfolio": "投資組合",
   "earn.portfolio_details": "投資組合詳情",
   "earn.provider_asset_staking": "{provider} {asset} 質押",
