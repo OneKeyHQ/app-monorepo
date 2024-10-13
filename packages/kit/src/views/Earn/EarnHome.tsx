@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -54,6 +55,8 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
+
+import type { ImageColorsResult } from 'react-native-image-colors';
 
 interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
@@ -125,6 +128,24 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   );
 }
 
+const parseHexColor = (hexColor: string) => {
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.075)`;
+};
+
+const parseColorResult = (result: ImageColorsResult) => {
+  if (platformEnv.isNativeIOS) {
+    if ('background' in result) {
+      return parseHexColor(result.background);
+    }
+  } else if ('vibrant' in result) {
+    return parseHexColor(result.vibrant);
+  }
+  return '$bgSubdued';
+};
+
 function RecommendedItem({
   token,
   ...rest
@@ -137,20 +158,17 @@ function RecommendedItem({
   useEffect(() => {
     const url = token?.logoURI;
     if (url) {
+      console.log('url---', url);
       void getColors(url, {
         cache: true,
         key: url,
       })
         .then((result) => {
-          if ('vibrant' in result) {
-            const hexColor = result.vibrant;
-            const r = parseInt(hexColor.slice(1, 3), 16);
-            const g = parseInt(hexColor.slice(3, 5), 16);
-            const b = parseInt(hexColor.slice(5, 7), 16);
-            setDecorationColor(`rgba(${r}, ${g}, ${b}, 0.075)`);
-          }
+          const hexColor = parseColorResult(result);
+          setDecorationColor(hexColor);
         })
-        .catch(() => {
+        .catch((e) => {
+          console.error('url-error', e);
           setDecorationColor('$bgSubdued');
         });
     }
