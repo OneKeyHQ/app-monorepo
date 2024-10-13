@@ -442,6 +442,8 @@ function HardwareUiStateContainerCmpControlled() {
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     global.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
+    // @ts-ignore
+    global.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
   }
   const dialogElement = useRef<any>(null);
   const toastElement = useRef<any>(null);
@@ -451,6 +453,8 @@ function HardwareUiStateContainerCmpControlled() {
       <ShowCustom
         // key={generateUUID()}
         ref={toastInstanceRef}
+        dismissOnOverlayPress={false}
+        disableSwipeGesture
         onClose={async (params) => {
           log('close toast:', params, state, {
             currentShouldDeviceResetToHome:
