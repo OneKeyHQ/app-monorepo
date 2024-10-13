@@ -738,7 +738,8 @@ function TxFeeContainer(props: IProps) {
 
   const renderTotalNative = useCallback(() => {
     if (
-      selectedFee?.totalFiatForDisplay !== selectedFee?.totalNativeMinForDisplay
+      selectedFee?.totalNativeForDisplay !==
+      selectedFee?.totalNativeMinForDisplay
     ) {
       return (
         <XStack alignItems="center" gap="$0.5">
@@ -782,7 +783,6 @@ function TxFeeContainer(props: IProps) {
       </NumberSizeableText>
     );
   }, [
-    selectedFee?.totalFiatForDisplay,
     selectedFee?.totalNativeForDisplay,
     selectedFee?.totalNativeMinForDisplay,
     txFee?.common.nativeSymbol,
