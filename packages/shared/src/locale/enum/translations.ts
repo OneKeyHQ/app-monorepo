@@ -392,6 +392,7 @@
   earn_pending_activation = 'earn.pending_activation',
   earn_pending_activation_tooltip = 'earn.pending_activation_tooltip',
   earn_pending_activation_tooltip_eth = 'earn.pending_activation_tooltip_eth',
+  earn_pending_transactions_data_out_of_sync = 'earn.pending_transactions_data_out_of_sync',
   earn_portfolio = 'earn.portfolio',
   earn_portfolio_details = 'earn.portfolio_details',
   earn_provider_asset_staking = 'earn.provider_asset_staking',
