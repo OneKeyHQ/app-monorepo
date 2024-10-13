@@ -103,7 +103,7 @@ function SendConfirmActionsContainer(props: IProps) {
             }
           : undefined,
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
-        feeInfo: sendSelectedFeeInfo?.feeInfo,
+        feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
     } catch (e: any) {
       setIsSubmitting(false);
@@ -120,7 +120,7 @@ function SendConfirmActionsContainer(props: IProps) {
         networkId,
         unsignedTxs,
         tokenApproveInfo,
-        feeInfo: sendSelectedFeeInfo,
+        feeInfos: sendSelectedFeeInfo?.feeInfos,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
               maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -138,8 +138,9 @@ function SendConfirmActionsContainer(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
-        feeAmount: sendSelectedFeeInfo.totalNative,
-        feeSymbol: sendSelectedFeeInfo.feeInfo.common.nativeSymbol,
+        feeAmount: sendSelectedFeeInfo.feeInfos[0]?.totalNative,
+        feeSymbol:
+          sendSelectedFeeInfo.feeInfos[0]?.feeInfo?.common.nativeSymbol,
         encodedTx: newUnsignedTxs[0].encodedTx,
       });
 
@@ -159,7 +160,7 @@ function SendConfirmActionsContainer(props: IProps) {
           accountId,
           networkId,
           unsignedTxs: newUnsignedTxs,
-          feeInfo: sendSelectedFeeInfo,
+          feeInfos: sendSelectedFeeInfo?.feeInfos,
           signOnly,
           sourceInfo,
           transferPayload,
