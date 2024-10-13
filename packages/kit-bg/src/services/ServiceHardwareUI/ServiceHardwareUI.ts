@@ -1,4 +1,3 @@
-import { EOneKeyDeviceMode, type UiResponseEvent } from '@onekeyfe/hd-core';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
@@ -26,6 +25,7 @@ import ServiceBase from '../ServiceBase';
 import { HardwareProcessingManager } from './HardwareProcessingManager';
 
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
+import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
   hideCheckingDeviceLoading?: boolean;
@@ -67,6 +67,7 @@ class ServiceHardwareUI extends ServiceBase {
 
   @backgroundMethod()
   async showConfirmOnDeviceToastDemo({ connectId }: { connectId: string }) {
+    const { EOneKeyDeviceMode } = await CoreSDKLoader();
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.REQUEST_BUTTON,
       connectId,

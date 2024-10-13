@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
@@ -291,11 +292,24 @@ function BaseDialogContainer(
     icon,
     renderIcon,
     showExitButton,
+    open,
+    onOpenChange,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
-  const [isOpen, changeIsOpen] = useState(true);
+  const [isOpenState, changeIsOpenState] = useState(true);
+  const isControlled = !isNil(open);
+  const isOpen = isControlled ? open : isOpenState;
+  const changeIsOpen = useCallback(
+    (value: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(value);
+      }
+      changeIsOpenState(value);
+    },
+    [isControlled, onOpenChange],
+  );
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
@@ -303,7 +317,7 @@ function BaseDialogContainer(
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [onClose],
+    [changeIsOpen, onClose],
   );
 
   const contextValue = useMemo(
@@ -323,7 +337,7 @@ function BaseDialogContainer(
   const handleOpen = useCallback(() => {
     changeIsOpen(true);
     onOpen?.();
-  }, [onOpen]);
+  }, [changeIsOpen, onOpen]);
 
   const handleImperativeClose = useCallback(
     (extra?: { flag?: string }) => handleClose(extra),

@@ -34,7 +34,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
@@ -63,6 +62,7 @@ function HardwareSingletonDialogCmp(
   },
   ref: ForwardedRef<IDialogInstance>,
 ) {
+  const { open } = props;
   const { state }: { state: IHardwareUiState | undefined } = props;
   const action = state?.action;
   const connectId = state?.connectId || '';
@@ -91,6 +91,9 @@ function HardwareSingletonDialogCmp(
   const content = useRef(defaultLoadingView);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
     let delayTime = SHOW_CLOSE_ACTION_MIN_DURATION;
     if (
       action &&
@@ -109,7 +112,13 @@ function HardwareSingletonDialogCmp(
     return () => {
       clearTimeout(timer);
     };
-  }, [action]);
+  }, [action, open]);
+
+  useEffect(() => {
+    if (!open) {
+      setIsShowExitButton(false);
+    }
+  }, [open]);
 
   if (action === EHardwareUiStateAction.DeviceChecking) {
     title.current = intl.formatMessage({
@@ -275,7 +284,9 @@ function HardwareUiStateContainerCmpControlled() {
 
   const hasToastAction = useCallback(
     (currentState: IHardwareUiState | undefined) => {
-      if (!currentState?.action) return false;
+      if (!currentState?.action) {
+        return false;
+      }
 
       if (
         [EHardwareUiStateAction.REQUEST_BUTTON].includes(currentState?.action)
@@ -291,6 +302,28 @@ function HardwareUiStateContainerCmpControlled() {
             EFirmwareUpdateTipMessages.InstallingFirmware
         ) {
           return true;
+        }
+      }
+
+      // **** ui-close_window from hardware may cause toast to be closed abnormally, use withHardwareProcessing to close it uniformly
+      // if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+      // return false;
+      // }
+
+      // **** should hide toast when firmware is flashing in progress
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+        return false;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        // **** should hide toast when firmware reboot to bootloader or erased
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.GoToBootloaderSuccess ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.FirmwareEraseSuccess
+        ) {
+          return false;
         }
       }
 
@@ -445,102 +478,81 @@ function HardwareUiStateContainerCmpControlled() {
     // @ts-ignore
     global.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
   }
-  const dialogElement = useRef<any>(null);
-  const toastElement = useRef<any>(null);
 
-  if (actionStatus.isToastAction) {
-    toastElement.current = (
-      <ShowCustom
-        // key={generateUUID()}
-        ref={toastInstanceRef}
-        dismissOnOverlayPress={false}
-        disableSwipeGesture
-        onClose={async (params) => {
-          log('close toast:', params, state, {
+  const toastElement = (
+    <ShowCustom
+      ref={toastInstanceRef}
+      open={actionStatus.isToastAction}
+      dismissOnOverlayPress={false}
+      disableSwipeGesture
+      onClose={async (params) => {
+        log('close toast:', params, state, {
+          currentShouldDeviceResetToHome:
+            actionStatus.currentShouldDeviceResetToHome,
+          shouldSkipCancel: shouldSkipCancelRef.current,
+        });
+        if (params?.flag !== AUTO_CLOSED_FLAG) {
+          appEventBus.emit(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            undefined,
+          );
+          await serviceHardwareUI.closeHardwareUiStateDialog({
+            connectId: state?.connectId,
+            skipDeviceCancel: shouldSkipCancelRef.current,
+            deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+          });
+        }
+      }}
+    >
+      <ConfirmOnDeviceToastContent
+        deviceType={actionStatus.currentDeviceType}
+      />
+    </ShowCustom>
+  );
+
+  const dialogElement = (
+    <HardwareSingletonDialog
+      ref={dialogInstanceRef}
+      open={actionStatus.isDialogAction}
+      state={state}
+      dismissOnOverlayPress={false}
+      // disableSwipeGesture
+      disableDrag
+      showFooter={!!actionStatus.isOperationAction}
+      onClose={async (params) => {
+        log(
+          'close dialog',
+          { params, state },
+          {
             currentShouldDeviceResetToHome:
               actionStatus.currentShouldDeviceResetToHome,
             shouldSkipCancel: shouldSkipCancelRef.current,
-          });
-          if (params?.flag !== AUTO_CLOSED_FLAG) {
-            appEventBus.emit(
-              EAppEventBusNames.CloseHardwareUiStateDialogManually,
-              undefined,
-            );
-            await serviceHardwareUI.closeHardwareUiStateDialog({
-              connectId: state?.connectId,
-              skipDeviceCancel: shouldSkipCancelRef.current,
-              deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
-            });
-          }
-        }}
-      >
-        <ConfirmOnDeviceToastContent
-          deviceType={actionStatus.currentDeviceType}
-        />
-      </ShowCustom>
-    );
-  } else {
-    // close toast not working, backdrop not removed
-    // setTimeout(async () => {
-    //   toastElement.current = null;
-    //   await toastInstanceRef?.current?.close?.({ flag: AUTO_CLOSED_FLAG });
-    // });
+          },
+        );
 
-    toastElement.current = null;
-  }
-
-  if (actionStatus.isDialogAction) {
-    dialogElement.current = (
-      <HardwareSingletonDialog
-        // key={generateUUID()}
-        ref={dialogInstanceRef}
-        state={state}
-        dismissOnOverlayPress={false}
-        // disableSwipeGesture
-        disableDrag
-        showFooter={!!actionStatus.isOperationAction}
-        onClose={async (params) => {
-          log(
-            'close dialog',
-            { params, state },
-            {
-              currentShouldDeviceResetToHome:
-                actionStatus.currentShouldDeviceResetToHome,
-              shouldSkipCancel: shouldSkipCancelRef.current,
-            },
+        if (params?.flag !== AUTO_CLOSED_FLAG) {
+          appEventBus.emit(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            undefined,
           );
-
-          if (params?.flag !== AUTO_CLOSED_FLAG) {
-            appEventBus.emit(
-              EAppEventBusNames.CloseHardwareUiStateDialogManually,
-              undefined,
-            );
-            await serviceHardwareUI.closeHardwareUiStateDialog({
-              connectId: state?.connectId,
-              reason: 'HardwareUiStateContainer onClose',
-              skipDeviceCancel: shouldSkipCancelRef.current,
-              deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
-            });
-          }
-        }}
-      />
-    );
-  } else {
-    // setTimeout(async () => {
-    //   dialogElement.current = null;
-    //   await dialogInstanceRef?.current?.close?.({ flag: AUTO_CLOSED_FLAG });
-    // });
-
-    dialogElement.current = null;
-  }
+          await serviceHardwareUI.closeHardwareUiStateDialog({
+            connectId: state?.connectId,
+            reason: 'HardwareUiStateContainer onClose',
+            skipDeviceCancel: shouldSkipCancelRef.current,
+            deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+          });
+        }
+      }}
+    />
+  );
 
   return (
     <>
       <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement.current}
+        {toastElement}
       </Portal.Body>
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        {dialogElement.current}
+        {dialogElement}
       </Portal.Body>
     </>
   );
