@@ -559,14 +559,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
               }
             }
           }
-          if (bundleParams.length) {
+          if (bundleParams.length && deviceParams?.dbDevice) {
             const sdk =
               await this.backgroundApi.serviceHardware.getSDKInstance();
             hwAllNetworkPrepareAccountsResponse = (await convertDeviceResponse(
               () =>
                 sdk.allNetworkGetAddress(
-                  deviceParams.dbDevice.connectId,
-                  deviceParams.dbDevice.deviceId,
+                  deviceParams.dbDevice?.connectId || '',
+                  deviceParams.dbDevice?.deviceId || '',
                   {
                     ...deviceParams.deviceCommonParams,
                     bundle: bundleParams,
