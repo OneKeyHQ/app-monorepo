@@ -46,6 +46,7 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 6,
 
   minTransferAmount: '0.00000546',
+  nativeMinTransferAmount: '61',
 
   accountDeriveInfo,
   networkInfo: {
