@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -82,17 +82,21 @@ export function Content({
     }
   }, [checkMeasureY, children, isOptimization]);
 
+  const height = useMemo(() => {
+    if (estimatedContentHeight) {
+      return estimatedContentHeight;
+    }
+    if (async && showLoading) {
+      return '$20';
+    }
+    return undefined;
+  }, [async, estimatedContentHeight, showLoading]);
+
   if (!children) {
     return null;
   }
   return (
-    <YStack
-      px="$5"
-      pb="$5"
-      ref={ref}
-      height={estimatedContentHeight}
-      onLayout={handleLayout}
-    >
+    <YStack px="$5" pb="$5" ref={ref} height={height} onLayout={handleLayout}>
       {isOptimization ? (
         <>
           {
