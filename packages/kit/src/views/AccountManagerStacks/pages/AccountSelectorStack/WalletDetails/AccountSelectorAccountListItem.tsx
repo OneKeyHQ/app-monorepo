@@ -273,12 +273,13 @@ export function AccountSelectorAccountListItem({
       </>
     );
   }, [
+    linkNetwork,
+    subTitleInfo.address,
     isOthersUniversal,
     index,
     accountValue,
     indexedAccount?.associateAccount?.id,
     avatarNetworkId,
-    subTitleInfo.address,
   ]);
 
   return (
