@@ -35,6 +35,7 @@ const ClearCacheOnAppContent = () => {
           signatureRecord: false,
           customToken: false,
           customRpc: false,
+          serverNetworks: false,
         } as IClearCacheOnAppState,
       }}
     >
@@ -95,6 +96,9 @@ const ClearCacheOnAppContent = () => {
               id: ETranslations.custom_rpc_title,
             })}
           />
+        </Dialog.FormField>
+        <Dialog.FormField name="serverNetworks">
+          <Checkbox label="Server Networks" />
         </Dialog.FormField>
         <Dialog.FormField name="connectSites">
           <Checkbox
