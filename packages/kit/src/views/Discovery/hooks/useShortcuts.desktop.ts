@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
@@ -16,7 +16,7 @@ import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts
 
 import { webviewRefs } from '../utils/explorerUtils';
 
-import { useActiveTabId } from './useWebTabs';
+import { useActiveTabId, useWebTabs } from './useWebTabs';
 
 export const useShortcuts = () => {
   const navigation =
@@ -36,6 +36,19 @@ export const useShortcuts = () => {
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
+  const { tabs } = useWebTabs();
+
+  const handleCloseWebTab = useCallback(() => {
+    if (!activeTabId) {
+      return;
+    }
+    const tabIndex = tabs.findIndex((t) => t.id === activeTabId);
+    if (tabs[tabIndex].isPinned) {
+      navigation.switchTab(ETabRoutes.Discovery);
+    } else {
+      closeWebTab({ tabId: activeTabId, entry: 'ShortCut' });
+    }
+  }, [activeTabId, tabs, closeWebTab, navigation]);
 
   useEffect(() => {
     const handleShortcuts = (_: any, data: EBrowserShortcutEvents) => {
@@ -70,9 +83,7 @@ export const useShortcuts = () => {
           return;
         }
         if (data === EBrowserShortcutEvents.CloseTab) {
-          if (activeTabId) {
-            closeWebTab({ tabId: activeTabId, entry: 'ShortCut' });
-          }
+          handleCloseWebTab();
           return;
         }
       }
@@ -103,5 +114,5 @@ export const useShortcuts = () => {
         ipcMessageKeys.APP_SHORCUT,
         handleShortcuts,
       );
-  }, [activeTabId, closeWebTab, navigation]);
+  }, [activeTabId, closeWebTab, navigation, handleCloseWebTab]);
 };

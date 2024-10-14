@@ -9,6 +9,7 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { ISectionListProps } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -45,7 +46,10 @@ const ChainSelectorSectionListContent = ({
   sections,
   onPressItem,
   networkId,
-}: IChainSelectorSectionListContentProps) => {
+  initialScrollIndex,
+}: IChainSelectorSectionListContentProps & {
+  initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
+}) => {
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
 
@@ -67,6 +71,7 @@ const ChainSelectorSectionListContent = ({
       sections={sections}
       keyExtractor={(item) => (item as IServerNetworkMatch).id}
       renderSectionHeader={renderSectionHeader}
+      initialScrollIndex={initialScrollIndex}
       renderItem={({
         item,
         section,
@@ -184,6 +189,57 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
 
     return _sections;
   }, [networkFuseSearch, text, networks, intl, unavailable]);
+  const initialScrollIndex = useMemo(() => {
+    if (text.trim()) {
+      return undefined;
+    }
+    let _initialScrollIndex:
+      | { sectionIndex: number; itemIndex?: number }
+      | undefined;
+    sections.forEach((section, sectionIndex) => {
+      section.data.forEach((item, itemIndex) => {
+        if (item.id === networkId && _initialScrollIndex === undefined) {
+          _initialScrollIndex = {
+            sectionIndex,
+            itemIndex: itemIndex - ((section?.title?.length ?? 0) > 0 ? 1 : 0),
+          };
+          if (
+            _initialScrollIndex &&
+            _initialScrollIndex.itemIndex !== undefined
+          ) {
+            // if (!platformEnv.isNative) {
+            //   _initialScrollIndex.itemIndex += 1;
+            // }
+            const _itemIndex = _initialScrollIndex?.itemIndex ?? 0;
+            if (_itemIndex === -1) {
+              _initialScrollIndex.itemIndex = undefined;
+            }
+            if (
+              _itemIndex === section.data.length &&
+              sectionIndex !== sections.length - 1
+            ) {
+              _initialScrollIndex.sectionIndex += 1;
+              _initialScrollIndex.itemIndex = undefined;
+            }
+          }
+        }
+      });
+    });
+    const initialScrollIndexNumber =
+      sections
+        .slice(0, _initialScrollIndex?.sectionIndex ?? 0)
+        .reduce((prev, section) => prev + section.data.length + 3, 0) +
+      (_initialScrollIndex?.itemIndex ?? 0) +
+      1;
+    if (
+      _initialScrollIndex?.sectionIndex !== undefined &&
+      initialScrollIndexNumber <= 7
+    ) {
+      return undefined;
+    }
+    return initialScrollIndexNumber;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, networkId, text]);
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
@@ -198,6 +254,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         sections={sections}
         networkId={networkId}
         onPressItem={onPressItem}
+        initialScrollIndex={initialScrollIndex}
       />
     </Stack>
   );

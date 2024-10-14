@@ -157,7 +157,7 @@ function ImportAddress() {
   const {
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
-  const { clearText } = useClipboard();
+  const { onPasteClearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
       networkId:
@@ -332,7 +332,7 @@ function ImportAddress() {
                   })}
                   testID="import-address-input"
                   size={media.gtMd ? 'medium' : 'large'}
-                  onPaste={clearText}
+                  onPaste={onPasteClearText}
                   addOns={[
                     {
                       iconName: 'ScanOutline',
