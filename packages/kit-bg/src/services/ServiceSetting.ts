@@ -244,6 +244,9 @@ class ServiceSetting extends ServiceBase {
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
+    if (values.serverNetworks) {
+      await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
+    }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
 

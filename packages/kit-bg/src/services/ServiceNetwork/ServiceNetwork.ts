@@ -64,10 +64,35 @@ class ServiceNetwork extends ServiceBase {
     if (params.excludeAllNetworkItem) {
       excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
     }
-    let networks = getPresetNetworks();
-    const customNetworks =
-      await this.backgroundApi.serviceCustomRpc.getAllCustomNetworks();
-    networks = networks.concat(customNetworks);
+
+    const presetNetworks = getPresetNetworks();
+
+    // Fetch server and custom networks
+    const [serverNetworks, customNetworks] = await Promise.all([
+      this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+      this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
+    ]);
+
+    // Create a Map to store unique networks by id
+    // Priority: serverNetworks > presetNetworks > customNetworks
+    const networkMap = new Map<string, IServerNetwork>();
+
+    // Helper function to add networks to the map
+    const addNetworks = (networks: IServerNetwork[]) => {
+      networks.forEach((network) => {
+        if (!networkMap.has(network.id)) {
+          networkMap.set(network.id, network);
+        }
+      });
+    };
+
+    // Add networks in order of priority
+    addNetworks(serverNetworks);
+    addNetworks(presetNetworks);
+    addNetworks(customNetworks);
+
+    // Convert Map back to array
+    let networks = Array.from(networkMap.values());
     if (params.excludeCustomNetwork) {
       excludeNetworkIds.push(...customNetworks.map((n) => n.id));
     }

@@ -35,6 +35,7 @@ const ClearCacheOnAppContent = () => {
           signatureRecord: false,
           customToken: false,
           customRpc: false,
+          serverNetworks: false,
         } as IClearCacheOnAppState,
       }}
     >
@@ -93,6 +94,13 @@ const ClearCacheOnAppContent = () => {
           <Checkbox
             label={intl.formatMessage({
               id: ETranslations.custom_rpc_title,
+            })}
+          />
+        </Dialog.FormField>
+        <Dialog.FormField name="serverNetworks">
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.clear_build_in_networks_data,
             })}
           />
         </Dialog.FormField>

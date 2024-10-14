@@ -21,6 +21,7 @@ import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -73,6 +74,8 @@ export class SimpleDb {
   customRpc = new SimpleDbEntityCustomRpc();
 
   customNetwork = new SimpleDbEntityCustomNetwork();
+
+  serverNetwork = new SimpleDbEntityServerNetwork();
 
   v4MigrationResult = new SimpleDbEntityV4MigrationResult();
 

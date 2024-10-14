@@ -45,6 +45,27 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
   }
 
   @backgroundMethod()
+  async updateCustomRpcEnabledStatus(params: {
+    networkId: string;
+    enabled: boolean;
+  }): Promise<void> {
+    const { networkId, enabled } = params;
+    await this.setRawData(({ rawData }) => {
+      const data: ICustomRpcDBStruct = {
+        data: { ...(rawData?.data || {}) },
+      };
+      if (data.data[networkId]) {
+        data.data[networkId] = {
+          ...data.data[networkId],
+          enabled,
+          updatedAt: Date.now(),
+        };
+      }
+      return data;
+    });
+  }
+
+  @backgroundMethod()
   async getAllCustomRpc(): Promise<IDBCustomRpc[]> {
     const rawData = await this.getRawData();
     return Object.values(rawData?.data || {}).sort(
