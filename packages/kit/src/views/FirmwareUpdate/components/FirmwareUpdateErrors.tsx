@@ -10,7 +10,6 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
@@ -29,6 +28,7 @@ import {
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

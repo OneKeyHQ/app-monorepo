@@ -17,9 +17,6 @@ import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
 import { FirmwareCheckingLoading } from '../components/FirmwareCheckingLoading';
-import { FirmwareInstallingView } from '../components/FirmwareInstallingView';
-import { FirmwareLatestVersionInstalled } from '../components/FirmwareLatestVersionInstalled';
-import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 import { FirmwareUpdateErrors } from '../components/FirmwareUpdateErrors';
 import {
   FirmwareUpdateExitPrevent,
@@ -107,36 +104,12 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    if (stepInfo.step === EFirmwareUpdateSteps.showChangeLog) {
+    if (
+      stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
+      stepInfo.step === EFirmwareUpdateSteps.showCheckList
+    ) {
       return <FirmwareChangeLogView result={result} />;
     }
-    if (stepInfo.step === EFirmwareUpdateSteps.showCheckList) {
-      return <FirmwareUpdateCheckList result={result} />;
-    }
-    if (
-      stepInfo.step === EFirmwareUpdateSteps.updateStart ||
-      stepInfo.step === EFirmwareUpdateSteps.installing ||
-      stepInfo.step === EFirmwareUpdateSteps.updateDone
-    ) {
-      const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
-      return (
-        <>
-          {!isDone ? (
-            <>
-              <FirmwareUpdateWarningMessage />
-              <FirmwareUpdateExitPrevent />
-            </>
-          ) : null}
-          <FirmwareInstallingView result={result} isDone={isDone} />
-        </>
-      );
-    }
-
-    return (
-      <>
-        <FirmwareLatestVersionInstalled />
-      </>
-    );
   }, [connectId, isLoading, result, run, stepInfo.payload, stepInfo.step]);
 
   return (

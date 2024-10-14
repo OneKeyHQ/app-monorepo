@@ -11,6 +11,13 @@ const PageFirmwareUpdateChangeLog = LazyLoadPage(
     ),
 );
 
+const PageFirmwareUpdateInstall = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/FirmwareUpdate/pages/PageFirmwareUpdateInstall'
+    ),
+);
+
 export const ModalFirmwareUpdateStack: IModalFlowNavigatorConfig<
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList
@@ -18,5 +25,9 @@ export const ModalFirmwareUpdateStack: IModalFlowNavigatorConfig<
   {
     name: EModalFirmwareUpdateRoutes.ChangeLog,
     component: PageFirmwareUpdateChangeLog,
+  },
+  {
+    name: EModalFirmwareUpdateRoutes.Install,
+    component: PageFirmwareUpdateInstall,
   },
 ];

@@ -21,9 +21,11 @@ let isNavExitConfirmShow = false;
 export function useModalExitPrevent({
   title,
   message,
+  shouldPreventRemove = true,
 }: {
   title: string;
   message: string;
+  shouldPreventRemove?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -59,7 +61,7 @@ export function useModalExitPrevent({
     },
     [message, navigation, title, intl],
   );
-  usePreventRemove(true, navPreventRemoveCallback);
+  usePreventRemove(shouldPreventRemove, navPreventRemoveCallback);
 }
 
 export function useAppExitPrevent({

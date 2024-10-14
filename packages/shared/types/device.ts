@@ -88,6 +88,24 @@ export type IBleFirmwareUpdateInfo =
 export type IBootloaderUpdateInfo =
   IFirmwareUpdateInfoBase<IBootloaderReleasePayload>;
 
+export type ICheckAllFirmwareReleaseResult = {
+  hasUpgrade: boolean | undefined;
+  features: IOneKeyDeviceFeatures | undefined;
+  isBootloaderMode: boolean;
+  deviceType: IDeviceType | undefined;
+  deviceUUID: string;
+  deviceName: string | undefined;
+  updatingConnectId: string | undefined;
+  originalConnectId: string | undefined;
+  updateInfos: {
+    firmware: IFirmwareUpdateInfo | undefined;
+    ble: IBleFirmwareUpdateInfo | undefined;
+    bootloader: IBootloaderUpdateInfo | undefined;
+    bridge: IHardwareBridgeReleasePayload | undefined;
+  };
+  totalPhase: IDeviceFirmwareType[];
+};
+
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;
 export type IDeviceResponse<T> = Response<T>;
