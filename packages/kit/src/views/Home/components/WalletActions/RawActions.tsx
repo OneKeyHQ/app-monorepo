@@ -165,6 +165,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
     <XStack
       justifyContent="space-between"
       $gtSm={{
+        flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
         gap: '$2',
       }}

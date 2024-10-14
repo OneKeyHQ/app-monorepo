@@ -202,13 +202,7 @@ function TokenDetailsHeader(props: IProps) {
           </Stack>
         </XStack>
         {/* Actions */}
-        <RawActions
-          flexDirection="column"
-          gap="$5"
-          $gtSm={{
-            flexDirection: 'row',
-          }}
-        >
+        <RawActions flexDirection="column" gap="$5">
           <ActionsRowContainer>
             <ReviewControl>
               <ActionBuy
