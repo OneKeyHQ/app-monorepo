@@ -9,6 +9,7 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
 type IStakingActivityIndicatorProps = {
@@ -95,16 +96,12 @@ export const StakingTransactionIndicator = ({
   const isPending = txs.length > 0;
   const prevIsPending = usePrevious(isPending);
 
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      void run();
-    }
-  }, [isFocused, run]);
-
-  useEffect(() => {
-    if (!isPending) return;
-    const timer = setInterval(async () => {
+  usePromiseResult(
+    async () => {
+      console.log('usePromiseResult---', new Date());
+      if (!isPending) {
+        return;
+      }
       if (accountId) {
         await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -112,9 +109,13 @@ export const StakingTransactionIndicator = ({
         });
       }
       await run();
-    }, 15 * 1000);
-    return () => clearInterval(timer);
-  }, [isPending, accountId, networkId, run]);
+    },
+    [accountId, isPending, networkId, run],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      checkIsFocused: true,
+    },
+  );
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
