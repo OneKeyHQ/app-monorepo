@@ -38,7 +38,7 @@ const SellPage = () => {
           accountId={accountId}
         >
           <SellOrBuy
-            title={intl.formatMessage({ id: ETranslations.global_sell })}
+            title={intl.formatMessage({ id: ETranslations.global_cash_out })}
             type="sell"
             networkId={networkId}
             accountId={accountId}

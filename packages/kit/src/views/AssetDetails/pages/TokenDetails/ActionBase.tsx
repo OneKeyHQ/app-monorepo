@@ -19,6 +19,7 @@ export const ActionBase = ({
   icon,
   accountId,
   walletType,
+  ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
   const { result: isSupported } = useSupportToken(
@@ -65,6 +66,7 @@ export const ActionBase = ({
       icon={icon}
       disabled={isDisabled}
       onPress={handlePress}
+      {...rest}
     />
   );
 };

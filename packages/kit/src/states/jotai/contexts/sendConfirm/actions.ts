@@ -58,8 +58,19 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   });
 
   updateSendSelectedFeeInfo = contextAtomMethod(
-    (get, set, feeInfo: ISendSelectedFeeInfo) => {
-      set(sendSelectedFeeInfoAtom(), feeInfo);
+    (
+      get,
+      set,
+      payload: {
+        feeInfos: ISendSelectedFeeInfo[];
+        total: string;
+        totalNative: string;
+        totalFiat: string;
+        totalNativeForDisplay: string;
+        totalFiatForDisplay: string;
+      },
+    ) => {
+      set(sendSelectedFeeInfoAtom(), payload);
     },
   );
 
