@@ -361,10 +361,11 @@ export type IHwAllNetworkPrepareAccountsItem = {
 
   payload?: {
     address?: string;
-    pub?: string;
-    publicKey?: string; // cosmos, sui
 
+    pub?: string;
+    publicKey?: string; // cosmos, sui, aptos 缺
     publickey?: string; // nostr
+
     npub?: string; // nostr
 
     xpub?: string;
