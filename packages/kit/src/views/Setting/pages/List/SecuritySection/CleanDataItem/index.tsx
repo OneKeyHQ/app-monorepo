@@ -98,7 +98,11 @@ const ClearCacheOnAppContent = () => {
           />
         </Dialog.FormField>
         <Dialog.FormField name="serverNetworks">
-          <Checkbox label="Server Networks" />
+          <Checkbox
+            label={intl.formatMessage({
+              id: ETranslations.clear_build_in_networks_data,
+            })}
+          />
         </Dialog.FormField>
         <Dialog.FormField name="connectSites">
           <Checkbox

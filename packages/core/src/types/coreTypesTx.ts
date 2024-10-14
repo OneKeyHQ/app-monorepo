@@ -1,4 +1,7 @@
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IApproveInfo,
+  ITransferInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -103,10 +106,12 @@ export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   swapInfo?: ISwapTxInfo | undefined;
+  approveInfo?: IApproveInfo | undefined;
   stakingInfo?: IStakingInfo;
   txSize?: number;
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
+  uuid?: string;
 };
 export type ISignedTx = {
   txid: string;
@@ -126,6 +131,7 @@ export type ISignedTxResult = ISignedTx & {
   randomSeed?: number;
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
+  uuid?: string;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
