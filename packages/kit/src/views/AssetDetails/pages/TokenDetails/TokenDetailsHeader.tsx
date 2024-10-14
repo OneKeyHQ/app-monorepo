@@ -121,7 +121,7 @@ function TokenDetailsHeader(props: IProps) {
     ],
   );
 
-  const handleOnSwap = createSwapActionHandler();
+  const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
   const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {

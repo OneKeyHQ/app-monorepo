@@ -6,10 +6,13 @@ import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -199,4 +202,52 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     activeAccount,
   ]);
   return addressInfo;
+}
+
+export function useSwapRecipientAddressInfo() {
+  const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
+  const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
+  const getToNetWorkAddressFromAccountId = usePromiseResult(
+    async () => {
+      if (
+        swapToAddressInfo.networkId &&
+        fromAccountInfo.accountInfo?.account?.id &&
+        fromAccountInfo.accountInfo?.indexedAccount?.id
+      ) {
+        const accountInfos =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId: fromAccountInfo.accountInfo?.account?.id,
+            networkId: swapToAddressInfo.networkId,
+            indexedAccountId: fromAccountInfo.accountInfo?.indexedAccount?.id,
+          });
+        return accountInfos;
+      }
+    },
+    [
+      swapToAddressInfo.networkId,
+      fromAccountInfo.accountInfo?.account?.id,
+      fromAccountInfo.accountInfo?.indexedAccount?.id,
+    ],
+    {},
+  );
+  if (
+    swapToAddressInfo.address === swapToAnotherAddressInfo.address &&
+    swapToAnotherAccountSwitchOn
+  ) {
+    if (
+      getToNetWorkAddressFromAccountId.result?.accountAddress !==
+      swapToAnotherAddressInfo.address
+    ) {
+      return {
+        accountInfo: swapToAnotherAddressInfo.accountInfo,
+        showAddress: accountUtils.shortenAddress({
+          address: swapToAnotherAddressInfo.address,
+          leadingLength: 6,
+          trailingLength: 6,
+        }),
+      };
+    }
+  }
 }

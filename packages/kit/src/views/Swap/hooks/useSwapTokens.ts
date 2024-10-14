@@ -151,7 +151,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         if (supportTypes.length > 0 && !supportTypes.includes(swapTypeSwitch)) {
           const needSwitchType = supportTypes.find((t) => t !== swapTypeSwitch);
           if (needSwitchType) {
-            void swapTypeSwitchAction(needSwitchType);
+            void swapTypeSwitchAction(
+              needSwitchType,
+              swapAddressInfoRef.current?.networkId ??
+                fromTokenRef.current?.networkId,
+            );
           }
         }
       }

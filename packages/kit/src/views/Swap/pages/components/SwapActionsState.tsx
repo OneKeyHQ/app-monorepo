@@ -7,8 +7,11 @@ import {
   Button,
   Dialog,
   EPageType,
+  Icon,
   Page,
+  SizableText,
   Stack,
+  XStack,
   YStack,
   useMedia,
   usePageType,
@@ -22,7 +25,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  useSwapAddressInfo,
+  useSwapRecipientAddressInfo,
+} from '../../hooks/useSwapAccount';
 import { useSwapActionState } from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
@@ -47,6 +53,7 @@ const SwapActionsState = ({
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const swapRecipientAddressInfo = useSwapRecipientAddressInfo();
   // const quoteLoading = useSwapQuoteLoading();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
@@ -214,7 +221,40 @@ const SwapActionsState = ({
   //     swapActionState.isApprove,
   //   ],
   // );
-
+  const recipientComponent = useMemo(() => {
+    if (swapRecipientAddressInfo?.showAddress) {
+      return (
+        <XStack
+          gap="$1"
+          {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
+        >
+          <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_page_recipient_send_to,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMd">
+            {swapRecipientAddressInfo?.showAddress}
+          </SizableText>
+          {swapRecipientAddressInfo?.accountInfo?.wallet?.name &&
+          swapRecipientAddressInfo?.accountInfo?.accountName ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {`(${swapRecipientAddressInfo?.accountInfo?.wallet?.name}-${swapRecipientAddressInfo?.accountInfo?.accountName})`}
+            </SizableText>
+          ) : null}
+        </XStack>
+      );
+    }
+    return null;
+  }, [
+    md,
+    intl,
+    pageType,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
+    swapRecipientAddressInfo?.showAddress,
+  ]);
   const actionComponent = useMemo(
     () => (
       <Stack
@@ -228,6 +268,7 @@ const SwapActionsState = ({
           : {})}
       >
         {/* {approveStepComponent} */}
+        {recipientComponent}
         <Button
           onPress={onActionHandlerBefore}
           size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
@@ -243,6 +284,7 @@ const SwapActionsState = ({
       md,
       onActionHandlerBefore,
       pageType,
+      recipientComponent,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
