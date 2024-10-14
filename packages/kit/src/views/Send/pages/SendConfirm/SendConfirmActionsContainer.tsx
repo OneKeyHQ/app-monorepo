@@ -138,9 +138,9 @@ function SendConfirmActionsContainer(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
-        feeAmount: sendSelectedFeeInfo.feeInfos[0]?.totalNative,
+        feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
         feeSymbol:
-          sendSelectedFeeInfo.feeInfos[0]?.feeInfo?.common.nativeSymbol,
+          sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
         encodedTx: newUnsignedTxs[0].encodedTx,
       });
 

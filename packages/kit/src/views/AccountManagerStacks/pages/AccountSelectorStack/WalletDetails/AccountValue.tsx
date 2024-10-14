@@ -10,11 +10,15 @@ import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function AccountValue(accountValue: {
   accountId: string;
   currency: string;
   value: Record<string, string> | string;
+  linkedAccountId?: string;
+  linkedNetworkId?: string;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
@@ -31,11 +35,27 @@ function AccountValue(accountValue: {
     if (typeof value === 'string') {
       return value;
     }
+
+    const { linkedAccountId, linkedNetworkId } = accountValue;
+
+    if (
+      linkedAccountId &&
+      linkedNetworkId &&
+      !networkUtils.isAllNetwork({ networkId: linkedNetworkId })
+    ) {
+      return value[
+        accountUtils.buildAccountValueKey({
+          accountId: linkedAccountId,
+          networkId: linkedNetworkId,
+        })
+      ];
+    }
+
     return Object.values(value).reduce(
       (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
       '0',
     );
-  }, [value]);
+  }, [value, accountValue]);
 
   return (
     <Currency
@@ -55,6 +75,8 @@ function AccountValueWithSpotlight({
   accountValue,
   isOthersUniversal,
   index,
+  linkedAccountId,
+  linkedNetworkId,
 }: {
   accountValue:
     | {
@@ -65,6 +87,8 @@ function AccountValueWithSpotlight({
     | undefined;
   isOthersUniversal: boolean;
   index: number;
+  linkedAccountId?: string;
+  linkedNetworkId?: string;
 }) {
   const isFocused = useIsFocused();
   const shouldShowSpotlight = isFocused && !isOthersUniversal && index === 0;
@@ -84,6 +108,8 @@ function AccountValueWithSpotlight({
           accountId={accountValue.accountId}
           currency={accountValue.currency}
           value={accountValue.value ?? ''}
+          linkedAccountId={linkedAccountId}
+          linkedNetworkId={linkedNetworkId}
         />
       ) : (
         <NumberSizeableTextWrapper

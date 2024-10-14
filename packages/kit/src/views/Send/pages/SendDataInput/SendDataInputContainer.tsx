@@ -535,6 +535,14 @@ function SendDataInputContainer() {
 
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
+      const isNative = tokenDetails?.info.isNative;
+
+      const minTransferAmount = isNative
+        ? vaultSettings?.nativeMinTransferAmount ??
+          vaultSettings?.minTransferAmount ??
+          '0'
+        : vaultSettings?.minTransferAmount ?? '0';
+
       if (isUseFiat) {
         if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
           isInsufficientBalance = true;
@@ -542,9 +550,7 @@ function SendDataInputContainer() {
 
         if (
           tokenDetails?.price &&
-          amountBN
-            .dividedBy(tokenDetails.price)
-            .isLessThan(vaultSettings?.minTransferAmount ?? 0)
+          amountBN.dividedBy(tokenDetails.price).isLessThan(minTransferAmount)
         ) {
           isLessThanMinTransferAmount = true;
         }
@@ -553,7 +559,7 @@ function SendDataInputContainer() {
           isInsufficientBalance = true;
         }
 
-        if (amountBN.isLessThan(vaultSettings?.minTransferAmount ?? 0)) {
+        if (amountBN.isLessThan(minTransferAmount)) {
           isLessThanMinTransferAmount = true;
         }
       }
@@ -574,10 +580,7 @@ function SendDataInputContainer() {
             id: ETranslations.send_error_minimum_amount,
           },
           {
-            amount: BigNumber.max(
-              tokenMinAmount,
-              vaultSettings?.minTransferAmount ?? '0',
-            ).toFixed(),
+            amount: BigNumber.max(tokenMinAmount, minTransferAmount).toFixed(),
             token: tokenSymbol,
           },
         );
@@ -611,17 +614,18 @@ function SendDataInputContainer() {
       return true;
     },
     [
-      isUseFiat,
-      intl,
-      tokenSymbol,
-      tokenMinAmount,
-      vaultSettings?.minTransferAmount,
-      vaultSettings?.transferZeroNativeTokenEnabled,
-      isNFT,
       tokenDetails?.info.isNative,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
       tokenDetails?.balanceParsed,
+      vaultSettings?.nativeMinTransferAmount,
+      vaultSettings?.minTransferAmount,
+      vaultSettings?.transferZeroNativeTokenEnabled,
+      isUseFiat,
+      intl,
+      tokenSymbol,
+      tokenMinAmount,
+      isNFT,
       form,
       currentAccount.accountId,
       currentAccount.networkId,

@@ -398,9 +398,11 @@ export default class Vault extends VaultBase {
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const credential = decodeSensitiveText({ encodedText: params.input });
-
+    let credential = decodeSensitiveText({ encodedText: params.input });
     let privateKey;
+    if (credential.startsWith('0x')) {
+      credential = credential.slice(2);
+    }
     if (credential.length === 160) {
       // Lotus type private key:
       try {
@@ -438,6 +440,10 @@ export default class Vault extends VaultBase {
     const isValid = /^(0x)?([a-fA-F0-9]{64}|[a-fA-F0-9]{160})$/g.test(
       privateKey,
     );
+
+    if (isValid) {
+      return this.baseValidatePrivateKey(privateKey);
+    }
 
     return Promise.resolve({
       isValid,

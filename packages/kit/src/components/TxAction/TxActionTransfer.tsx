@@ -626,7 +626,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           <XStack px="$5" pb="$2">
             {isInternalStaking && isEmpty(transfersBlock) ? null : (
               <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({ id: ETranslations.send_amount })}
+                {intl.formatMessage({
+                  id: ETranslations.global_estimated_results,
+                })}
               </SizableText>
             )}
             {swapInfo ? (
