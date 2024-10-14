@@ -39,6 +39,7 @@ import type {
   IBleFirmwareUpdateInfo,
   IBootloaderReleasePayload,
   IBootloaderUpdateInfo,
+  ICheckAllFirmwareReleaseResult,
   IDeviceFirmwareType,
   IFirmwareChangeLog,
   IFirmwareReleasePayload,
@@ -91,24 +92,6 @@ export type IUpdateFirmwareWorkflowParams = {
   backuped: boolean;
   usbConnected: boolean;
   releaseResult: ICheckAllFirmwareReleaseResult;
-};
-
-export type ICheckAllFirmwareReleaseResult = {
-  hasUpgrade: boolean | undefined;
-  features: IOneKeyDeviceFeatures | undefined;
-  isBootloaderMode: boolean;
-  deviceType: IDeviceType | undefined;
-  deviceUUID: string;
-  deviceName: string | undefined;
-  updatingConnectId: string | undefined;
-  originalConnectId: string | undefined;
-  updateInfos: {
-    firmware: IFirmwareUpdateInfo | undefined;
-    ble: IBleFirmwareUpdateInfo | undefined;
-    bootloader: IBootloaderUpdateInfo | undefined;
-    bridge: IHardwareBridgeReleasePayload | undefined;
-  };
-  totalPhase: IDeviceFirmwareType[];
 };
 
 export type IUpdateFirmwareTaskFn = ({
