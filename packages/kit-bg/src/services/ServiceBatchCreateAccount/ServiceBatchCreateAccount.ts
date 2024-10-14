@@ -687,6 +687,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       },
       {
         deviceParams,
+        skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
       },
     );
