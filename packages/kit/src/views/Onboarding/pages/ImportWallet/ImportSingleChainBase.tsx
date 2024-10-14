@@ -72,7 +72,7 @@ export function ImportSingleChainBase({
   const {
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
-  const { clearText } = useClipboard();
+  const { onPasteClearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
       networkId:
@@ -187,7 +187,7 @@ export function ImportSingleChainBase({
               placeholder={inputPlaceholder}
               size={media.gtMd ? 'medium' : 'large'}
               testID={inputTestID}
-              onPaste={clearText}
+              onPaste={onPasteClearText}
               addOns={[
                 {
                   iconName: 'ScanOutline',

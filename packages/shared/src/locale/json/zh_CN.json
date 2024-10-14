@@ -387,6 +387,7 @@
   "earn.pending_activation": "待激活",
   "earn.pending_activation_tooltip": "新质押需等待约 {number} 后才会激活并开始获得收益。",
   "earn.pending_activation_tooltip_eth": "当验证者达到 32 ETH 的要求时，您质押的 ETH 才会启用。",
+  "earn.pending_transactions_data_out_of_sync": "待处理交易，数据可能不同步。",
   "earn.portfolio": "投资组合",
   "earn.portfolio_details": "投资组合详情",
   "earn.provider_asset_staking": "{provider} {asset} 质押",
