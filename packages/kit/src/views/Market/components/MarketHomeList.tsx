@@ -177,6 +177,8 @@ function BasicMarketHomeList({
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
     if (
+      now - updateAtRef.current >
+        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
       prevCoingeckoIdsLength !== category.coingeckoIds.length ||
       (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
     ) {
