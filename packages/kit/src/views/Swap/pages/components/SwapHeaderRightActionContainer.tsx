@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IDialogInstance,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
-  Button,
   Dialog,
   SizableText,
   Stack,
@@ -31,17 +27,10 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-const SwapSettingsDialogContent = ({ onClose }: { onClose?: () => void }) => {
+const SwapSettingsDialogContent = () => {
   const intl = useIntl();
   const [{ swapBatchApproveAndSwap }, setSettings] = useSettingsPersistAtom();
-  const [swapBatchApproveAndSwapEnable, setSwapBatchApproveAndSwapEnable] =
-    useState<boolean>(swapBatchApproveAndSwap);
-  useEffect(() => {
-    if (swapBatchApproveAndSwap !== swapBatchApproveAndSwapEnable) {
-      setSwapBatchApproveAndSwapEnable(swapBatchApproveAndSwap);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
   return (
     <YStack gap="$5">
       <XStack justifyContent="space-between" alignItems="center">
@@ -58,24 +47,15 @@ const SwapSettingsDialogContent = ({ onClose }: { onClose?: () => void }) => {
           </SizableText>
         </YStack>
         <Switch
-          value={swapBatchApproveAndSwapEnable}
+          value={swapBatchApproveAndSwap}
           onChange={(v) => {
-            setSwapBatchApproveAndSwapEnable(v);
+            setSettings((s) => ({
+              ...s,
+              swapBatchApproveAndSwap: v,
+            }));
           }}
         />
       </XStack>
-      <Button
-        variant="primary"
-        onPress={() => {
-          setSettings((s) => ({
-            ...s,
-            swapBatchApproveAndSwap: swapBatchApproveAndSwapEnable,
-          }));
-          onClose?.();
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.global_confirm })}
-      </Button>
     </YStack>
   );
 };
@@ -85,7 +65,6 @@ const SwapHeaderRightActionContainer = () => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const intl = useIntl();
-  const dialogRef = useRef<IDialogInstance | undefined>();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
@@ -100,20 +79,17 @@ const SwapHeaderRightActionContainer = () => {
       screen: EModalSwapRoutes.SwapHistoryList,
     });
   }, [navigation]);
-  const contentOnClose = useCallback(() => {
-    void dialogRef.current?.close();
-  }, []);
   const onOpenSwapSettings = useCallback(() => {
-    dialogRef.current = Dialog.show({
+    Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.swap_page_settings,
       }),
-      renderContent: <SwapSettingsDialogContent onClose={contentOnClose} />,
+      renderContent: <SwapSettingsDialogContent />,
       showConfirmButton: false,
       showCancelButton: false,
       showFooter: false,
     });
-  }, [contentOnClose, intl]);
+  }, [intl]);
 
   return (
     <HeaderButtonGroup>
@@ -122,10 +98,11 @@ const SwapHeaderRightActionContainer = () => {
           <Stack borderRadius="$full" p={3} bg="$borderInfo">
             <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
           </Stack>
-          <Badge.Text
-            cursor="pointer"
-            pl="$2"
-          >{`${swapPendingStatusList.length} Pending `}</Badge.Text>
+          <Badge.Text cursor="pointer" pl="$2">{`${
+            swapPendingStatusList.length
+          } ${intl.formatMessage({
+            id: ETranslations.swap_history_detail_status_pending,
+          })} `}</Badge.Text>
         </Badge>
       ) : (
         <HeaderIconButton
