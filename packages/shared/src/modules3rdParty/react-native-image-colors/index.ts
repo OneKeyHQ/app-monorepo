@@ -11,7 +11,7 @@ const parseHexColor = (hexColor: string) => {
   return `rgba(${r}, ${g}, ${b}, 0.075)`;
 };
 
-const parseColorResult = (result: ImageColorsResult) => {
+const parseColorResult = (result: ImageColorsResult, defaultColor: string) => {
   if (platformEnv.isNativeIOS) {
     if ('background' in result) {
       return parseHexColor(result.background);
@@ -19,13 +19,13 @@ const parseColorResult = (result: ImageColorsResult) => {
   } else if ('vibrant' in result) {
     return parseHexColor(result.vibrant);
   }
-  return '$bgSubdued';
+  return defaultColor;
 };
 
 export const getPrimaryColor = async (url: string, defaultColor: string) => {
   try {
     const result = await getColors(url, { cache: true, key: url });
-    return parseColorResult(result);
+    return parseColorResult(result, defaultColor);
   } catch (e) {
     return defaultColor;
   }
