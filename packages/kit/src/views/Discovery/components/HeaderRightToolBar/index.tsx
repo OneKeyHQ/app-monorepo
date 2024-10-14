@@ -31,6 +31,7 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import SyncDappAccountToHomeProvider from '../SyncDappAccountToHomeProvider';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 
@@ -141,12 +142,6 @@ function AccountSelectorPopoverContent({
   accountsInfo: IConnectionAccountInfoWithNum[];
   afterChangeAccount: () => void;
 }) {
-  useEffect(() => {
-    console.log('Mounted AccountSelectorPopoverContent');
-    return () => {
-      console.log('Unmounted AccountSelectorPopoverContent');
-    };
-  }, []);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const { closePopover } = usePopoverContext();
   const beforeShowTrigger = useCallback(
@@ -255,6 +250,9 @@ function HeaderRightToolBar() {
             flexDirection: 'row-reverse',
           }}
         >
+          <SyncDappAccountToHomeProvider
+            dAppAccountInfos={connectedAccountsInfo}
+          />
           {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
               key={index}
