@@ -177,9 +177,8 @@ function BasicMarketHomeList({
   const fetchCategory = useCallback(async () => {
     const now = Date.now();
     if (
-      now - updateAtRef.current >
-        timerUtils.getTimeDurationMs({ seconds: 45 }) ||
-      prevCoingeckoIdsLength !== category.coingeckoIds.length
+      prevCoingeckoIdsLength !== category.coingeckoIds.length ||
+      (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
     ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
@@ -200,7 +199,6 @@ function BasicMarketHomeList({
     [fetchCategory],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
-      checkIsFocused: true,
     },
   );
 
