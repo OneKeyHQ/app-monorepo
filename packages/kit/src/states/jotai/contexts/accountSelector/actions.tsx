@@ -585,7 +585,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await Promise.all([
           generatingAccountsFn({ wallet, indexedAccount, hidden }),
-          await timerUtils.wait(1000),
+          await timerUtils.wait(100),
         ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
@@ -598,7 +598,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           step: EFinalizeWalletSetupSteps.Ready,
         });
 
-        await timerUtils.wait(0);
+        await timerUtils.wait(1000);
 
         return { wallet, indexedAccount };
       } catch (error) {
@@ -727,7 +727,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       try {
         const res = await serviceAccount.createHWHiddenWallet({
           walletId,
-          skipDeviceCancel,
+          skipDeviceCancel: options?.addDefaultNetworkAccounts
+            ? true
+            : skipDeviceCancel,
           hideCheckingDeviceLoading,
         });
         const { wallet, indexedAccount } = res;
@@ -755,8 +757,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet,
               indexedAccount,
-              skipDeviceCancel: true,
-              hideCheckingDeviceLoading: true,
+              skipDeviceCancel,
+              hideCheckingDeviceLoading: options?.showAddAccountsLoading
+                ? true
+                : hideCheckingDeviceLoading,
             });
           } finally {
             await dialog?.close();
@@ -775,9 +779,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
           const { wallet, device, indexedAccount } =
-            await this.createHWWallet.call(set, params, {
-              disableAutoSelect: true,
-            });
+            await this.createHWWallet.call(
+              set,
+              { ...params, skipDeviceCancel: true },
+              {
+                disableAutoSelect: true,
+              },
+            );
 
           let hiddenWalletCreatedResult:
             | {
@@ -795,13 +803,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 },
               );
             }
-            await timerUtils.wait(3000);
+            await timerUtils.wait(100);
 
             hiddenWalletCreatedResult = await this.createHWHiddenWallet.call(
               set,
               {
                 walletId: wallet.id,
-                skipDeviceCancel: params.skipDeviceCancel,
+                skipDeviceCancel: true,
                 hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
               },
             );
@@ -835,15 +843,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.addDefaultNetworkAccounts.call(set, {
               wallet: hidden.wallet,
               indexedAccount: hidden.indexedAccount,
-              skipDeviceCancel: params.skipDeviceCancel,
+              skipDeviceCancel: true,
               hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             });
-            await timerUtils.wait(3000);
+            await timerUtils.wait(100);
           }
           await this.addDefaultNetworkAccounts.call(set, {
             wallet,
             indexedAccount,
-            skipDeviceCancel: params.skipDeviceCancel,
+            skipDeviceCancel: false,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
           });
         },
