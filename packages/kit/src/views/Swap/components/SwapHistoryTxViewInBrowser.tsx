@@ -78,6 +78,7 @@ const ExplorersList = ({
         gap="$4"
         px="$5"
         pb="$5"
+        cursor="pointer"
         {...(!item.url && {
           opacity: 0.5,
         })}
