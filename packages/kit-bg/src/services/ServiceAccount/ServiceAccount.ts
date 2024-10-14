@@ -1463,7 +1463,6 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     const networkAccount = await vault.getAccount();
-
     return networkAccount;
   }
 

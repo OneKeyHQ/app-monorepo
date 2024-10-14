@@ -122,10 +122,11 @@ const SwapHeaderRightActionContainer = () => {
           <Stack borderRadius="$full" p={3} bg="$borderInfo">
             <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
           </Stack>
-          <Badge.Text
-            cursor="pointer"
-            pl="$2"
-          >{`${swapPendingStatusList.length} Pending `}</Badge.Text>
+          <Badge.Text cursor="pointer" pl="$2">{`${
+            swapPendingStatusList.length
+          } ${intl.formatMessage({
+            id: ETranslations.swap_history_detail_status_pending,
+          })} `}</Badge.Text>
         </Badge>
       ) : (
         <HeaderIconButton

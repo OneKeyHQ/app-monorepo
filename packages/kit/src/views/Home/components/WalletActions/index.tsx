@@ -26,6 +26,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -168,7 +169,9 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
   const handleOnSwap = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
-      params: { importNetworkId: networkId },
+      params: {
+        importNetworkId: networkId,
+      },
     });
   }, [navigation, networkId]);
   return (
