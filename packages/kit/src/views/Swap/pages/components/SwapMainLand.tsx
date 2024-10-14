@@ -20,13 +20,14 @@ import {
 } from '@onekeyhq/shared/src/routes/swap';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapDirectionType,
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 // import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import {
   useSwapQuoteEventFetching,
@@ -54,7 +55,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
-  // const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
@@ -100,18 +101,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     });
   }, [navigation, pageType]);
 
-  // const onToAnotherAddressModal = useCallback(() => {
-  //   navigation.pushModal(EModalRoutes.SwapModal, {
-  //     screen: EModalSwapRoutes.SwapToAnotherAddress,
-  //     params: {
-  //       address: toAddressInfo.address,
-  //       storeName:
-  //         pageType === EPageType.modal
-  //           ? EJotaiContextStoreNames.swapModal
-  //           : EJotaiContextStoreNames.swap,
-  //     },
-  //   });
-  // }, [navigation, pageType, toAddressInfo.address]);
+  const onToAnotherAddressModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapToAnotherAddress,
+      params: {
+        address: toAddressInfo.address,
+        storeName:
+          pageType === EPageType.modal
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
+      },
+    });
+  }, [navigation, pageType, toAddressInfo.address]);
 
   const onBuildTx = useCallback(async () => {
     await buildTx();
@@ -153,17 +154,16 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           }}
         >
           <SwapHeaderContainer
-            // pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
-            // onToAnotherAddressModal={onToAnotherAddressModal}
           />
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
+            onOpenRecipient={onToAnotherAddressModal}
           />
           {alerts.states.length > 0 &&
           !quoteLoading &&
