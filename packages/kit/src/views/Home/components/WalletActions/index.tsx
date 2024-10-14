@@ -156,6 +156,7 @@ function WalletActionSend() {
 }
 
 function WalletActionSwap({ networkId }: { networkId?: string }) {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const vaultSettings = usePromiseResult(async () => {
@@ -173,6 +174,7 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
+      label={intl.formatMessage({ id: ETranslations.global_trade })}
       disabled={vaultSettings?.disabledSwapAction}
     />
   );

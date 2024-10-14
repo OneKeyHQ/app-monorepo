@@ -122,20 +122,12 @@ import {
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
   onClickNetwork?: (type: ESwapDirectionType) => void;
-  // onToAnotherAddressModal?: () => void;
 }
 const SwapAccountAddressContainer = ({
   type,
   onClickNetwork,
-}: // onToAnotherAddressModal,
-ISwapAccountAddressContainerProps) => {
+}: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
-  // const swapAddressInfo = useSwapAddressInfo(type);
-  // const swapAnotherAddressInfo = useSwapAddressInfo(
-  //   type === ESwapDirectionType.FROM
-  //     ? ESwapDirectionType.TO
-  //     : ESwapDirectionType.FROM,
-  // );
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();

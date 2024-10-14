@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,8 +8,10 @@ import {
   Accordion,
   Dialog,
   Divider,
+  Icon,
   NumberSizeableText,
   SizableText,
+  XStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -20,11 +22,19 @@ import {
   useSwapSlippagePercentageAtom,
   useSwapSlippagePercentageCustomValueAtom,
   useSwapSlippagePercentageModeAtom,
+  useSwapToAnotherAccountAddressAtom,
   useSwapTokenMetadataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  ESwapDirectionType,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
   ISwapSlippageSegmentItem,
@@ -35,6 +45,7 @@ import type {
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -44,11 +55,13 @@ import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
+  onOpenRecipient?: () => void;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
+  onOpenRecipient,
 }: ISwapQuoteResultProps) => {
   const [openResult, setOpenResult] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -56,6 +69,9 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
+  const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
@@ -74,6 +90,23 @@ const SwapQuoteResult = ({
     },
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
+
+  const swapRecipientAddress = useMemo(() => {
+    if (
+      swapToAddressInfo.address === swapToAnotherAddressInfo.address &&
+      swapToAnotherAccountSwitchOn
+    ) {
+      return accountUtils.shortenAddress({
+        address: swapToAnotherAddressInfo.address,
+        leadingLength: 6,
+        trailingLength: 6,
+      });
+    }
+  }, [
+    swapToAddressInfo.address,
+    swapToAnotherAccountSwitchOn,
+    swapToAnotherAddressInfo.address,
+  ]);
 
   const calculateTaxItem = useCallback(
     (
@@ -226,6 +259,24 @@ const SwapQuoteResult = ({
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />
+              <SwapCommonInfoItem
+                title={intl.formatMessage({
+                  id: ETranslations.global_recipient,
+                })}
+                isLoading={swapQuoteLoading}
+                onPress={onOpenRecipient}
+                valueComponent={
+                  <XStack gap="$1">
+                    <Icon name="AddPeopleOutline" w={18} h={18} />
+                    <SizableText size="$bodyMdMedium">
+                      {swapRecipientAddress ??
+                        intl.formatMessage({
+                          id: ETranslations.address_book_empty_add_button,
+                        })}
+                    </SizableText>
+                  </XStack>
+                }
+              />
               {quoteResult?.allowanceResult ? (
                 <SwapApproveAllowanceSelectContainer
                   allowanceResult={quoteResult?.allowanceResult}

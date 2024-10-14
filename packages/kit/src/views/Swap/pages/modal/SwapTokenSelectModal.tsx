@@ -37,7 +37,6 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -272,10 +271,7 @@ const SwapTokenSelectPage = () => {
       type === ESwapDirectionType.TO &&
       fromToken
     ) {
-      res = networkIds.filter(
-        (net) =>
-          net !== fromToken?.networkId && net !== getNetworkIdsMap().onekeyall,
-      );
+      res = networkIds.filter((net) => net !== fromToken?.networkId);
     }
     if (
       type === ESwapDirectionType.TO &&

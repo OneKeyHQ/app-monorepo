@@ -29,14 +29,12 @@ import SwapInputContainer from './SwapInputContainer';
 interface ISwapQuoteInputProps {
   selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
-  // onToAnotherAddressModal?: () => void;
 }
 
 const SwapQuoteInput = ({
   onSelectToken,
   selectLoading,
-}: // onToAnotherAddressModal,
-ISwapQuoteInputProps) => {
+}: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
@@ -103,7 +101,6 @@ ISwapQuoteInputProps) => {
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
           onSelectToken={onSelectToken}
           balance={toTokenBalance}
-          // onToAnotherAddressModal={onToAnotherAddressModal}
         />
       </YStack>
     </YStack>

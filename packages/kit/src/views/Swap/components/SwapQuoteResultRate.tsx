@@ -14,10 +14,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapQuoteResultRateProps {
   rate?: string;
