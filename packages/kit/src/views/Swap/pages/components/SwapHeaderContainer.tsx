@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +6,7 @@ import type { IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   useSwapActions,
+  useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -81,14 +82,22 @@ const SwapHeaderContainer = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [fromToken] = useSwapSelectFromTokenAtom();
   const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
+  const networkIdRef = useRef(networkId);
+  if (networkIdRef.current !== networkId) {
+    networkIdRef.current = networkId;
+  }
+  if (networkIdRef.current !== fromToken?.networkId) {
+    networkIdRef.current = fromToken?.networkId;
+  }
   useEffect(() => {
     if (defaultSwapType) {
       // Avoid switching the default toToken before it has been loaded,
       // resulting in the default network toToken across chains
       setTimeout(() => {
-        void swapTypeSwitchAction(defaultSwapType, networkId);
-      }, 0);
+        void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
+      }, 10);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
