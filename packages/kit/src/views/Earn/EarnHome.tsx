@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { getColors } from 'react-native-image-colors';
 
 import type {
   IImageSourceProps,
@@ -35,6 +34,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -128,24 +128,6 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   );
 }
 
-const parseHexColor = (hexColor: string) => {
-  const r = parseInt(hexColor.slice(1, 3), 16);
-  const g = parseInt(hexColor.slice(3, 5), 16);
-  const b = parseInt(hexColor.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.075)`;
-};
-
-const parseColorResult = (result: ImageColorsResult) => {
-  if (platformEnv.isNativeIOS) {
-    if ('background' in result) {
-      return parseHexColor(result.background);
-    }
-  } else if ('vibrant' in result) {
-    return parseHexColor(result.vibrant);
-  }
-  return '$bgSubdued';
-};
-
 function RecommendedItem({
   token,
   ...rest
@@ -158,19 +140,7 @@ function RecommendedItem({
   useEffect(() => {
     const url = token?.logoURI;
     if (url) {
-      console.log('url---', url);
-      void getColors(url, {
-        cache: true,
-        key: url,
-      })
-        .then((result) => {
-          const hexColor = parseColorResult(result);
-          setDecorationColor(hexColor);
-        })
-        .catch((e) => {
-          console.error('url-error', e);
-          setDecorationColor('$bgSubdued');
-        });
+      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
     }
   }, [token?.logoURI]);
 
