@@ -112,7 +112,6 @@ export const StakingTransactionIndicator = ({
     [accountId, isPending, networkId, run],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 10 }),
-      checkIsFocused: true,
     },
   );
 
