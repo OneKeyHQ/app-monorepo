@@ -309,8 +309,7 @@ function CustomRPC() {
 
   const onToggleCustomRpcEnabledState = useCallback(
     async (item: ICustomRpcItem) => {
-      await backgroundApiProxy.serviceCustomRpc.addCustomRpc({
-        rpc: item.rpc,
+      await backgroundApiProxy.serviceCustomRpc.updateCustomRpcEnabledStatus({
         networkId: item.networkId,
         enabled: !item.enabled,
       });
@@ -398,6 +397,7 @@ function CustomRPC() {
           renderItem={({ item }) => (
             <ListItem testID="CustomRpcItemContainer">
               <Switch
+                disabled={item.isCustomNetwork}
                 size={ESwitchSize.small}
                 value={item.enabled}
                 onChange={() => onToggleCustomRpcEnabledState(item)}

@@ -25,6 +25,7 @@ import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTok
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -130,6 +131,10 @@ export class SimpleDbProxy
   customNetwork = this._createProxyService(
     'customNetwork',
   ) as SimpleDbEntityCustomNetwork;
+
+  serverNetwork = this._createProxyService(
+    'serverNetwork',
+  ) as SimpleDbEntityServerNetwork;
 
   v4MigrationResult = this._createProxyService(
     'v4MigrationResult',
