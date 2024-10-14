@@ -98,7 +98,6 @@ export const StakingTransactionIndicator = ({
 
   usePromiseResult(
     async () => {
-      console.log('usePromiseResult---', new Date());
       if (!isPending) {
         return;
       }
@@ -112,7 +111,7 @@ export const StakingTransactionIndicator = ({
     },
     [accountId, isPending, networkId, run],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 10 }),
       checkIsFocused: true,
     },
   );
