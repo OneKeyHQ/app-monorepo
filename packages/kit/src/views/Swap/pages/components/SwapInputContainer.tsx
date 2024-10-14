@@ -9,6 +9,7 @@ import {
   useSwapAlertsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -125,6 +126,12 @@ const SwapInputContainer = ({
           color:
             direction === ESwapDirectionType.TO && inputLoading
               ? '$textPlaceholder'
+              : undefined,
+          style:
+            !platformEnv.isNative && direction === ESwapDirectionType.TO
+              ? ({
+                  caretColor: 'transparent',
+                } as any)
               : undefined,
         }}
         tokenSelectorTriggerProps={{

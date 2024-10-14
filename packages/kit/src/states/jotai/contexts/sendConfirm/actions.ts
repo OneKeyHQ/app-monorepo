@@ -58,8 +58,19 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   });
 
   updateSendSelectedFeeInfo = contextAtomMethod(
-    (get, set, feeInfo: ISendSelectedFeeInfo) => {
-      set(sendSelectedFeeInfoAtom(), feeInfo);
+    (
+      get,
+      set,
+      payload: {
+        feeInfos: ISendSelectedFeeInfo[];
+        total: string;
+        totalNative: string;
+        totalFiat: string;
+        totalNativeForDisplay: string;
+        totalFiatForDisplay: string;
+      },
+    ) => {
+      set(sendSelectedFeeInfoAtom(), payload);
     },
   );
 
@@ -149,6 +160,7 @@ export function useSendConfirmActions() {
   const updateIsSinglePreset = actions.updateIsSinglePreset.use();
   const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
+
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,

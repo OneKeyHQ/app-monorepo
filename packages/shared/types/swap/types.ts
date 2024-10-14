@@ -270,6 +270,7 @@ export interface IFetchQuoteResult {
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
+  gasLimit?: number;
 }
 
 export interface IAllowanceResult {

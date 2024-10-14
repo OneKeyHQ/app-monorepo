@@ -7,6 +7,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Toast } from '../actions/Toast';
 
+import type { IPasteEventParams } from '../forms';
+
 const getClipboard = async () => {
   const str = await getStringAsync();
   return str.trim();
@@ -37,8 +39,29 @@ export function useClipboard() {
     });
   }, [intl]);
 
+  const onPasteClearText = useCallback(
+    (event: IPasteEventParams) => {
+      if (!event.nativeEvent.items?.length) {
+        return;
+      }
+
+      const hasText = event.nativeEvent.items.some(
+        (item) => item.type === 'text/plain' && item.data?.trim() !== '',
+      );
+
+      if (!hasText) {
+        return;
+      }
+
+      setTimeout(() => {
+        clearText();
+      }, 100);
+    },
+    [clearText],
+  );
+
   return useMemo(
-    () => ({ copyText, clearText, getClipboard }),
-    [clearText, copyText],
+    () => ({ copyText, clearText, onPasteClearText, getClipboard }),
+    [clearText, onPasteClearText, copyText],
   );
 }
