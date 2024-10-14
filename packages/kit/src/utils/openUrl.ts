@@ -21,6 +21,10 @@ export const openUrlByWebview = (url: string, title?: string) => {
 export const openUrl = (url: string, title?: string) => {
   if (platformEnv.isNative) {
     openUrlByWebview(url, title);
+  } else if (platformEnv.isExtension) {
+    void chrome.tabs.create({
+      url,
+    });
   } else {
     window.open(url, '_blank');
   }
