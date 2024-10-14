@@ -48,6 +48,7 @@ function SyncDappAccountToHomeCmp({
           indexedAccount,
           othersWalletAccount: undefined,
           autoChangeToAccountMatchedNetworkId: undefined,
+          forceSelectToNetworkId: networkId,
         });
       }
     };
