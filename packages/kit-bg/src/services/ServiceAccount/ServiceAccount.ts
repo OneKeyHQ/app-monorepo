@@ -1737,7 +1737,11 @@ class ServiceAccount extends ServiceBase {
     walletId,
   }: {
     walletId: string;
-  }): Promise<IDeviceSharedCallParams> {
+  }): Promise<IDeviceSharedCallParams | undefined> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return undefined;
+    }
+
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
     return {
