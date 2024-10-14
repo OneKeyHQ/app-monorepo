@@ -5,6 +5,7 @@ import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBas
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
@@ -145,4 +146,8 @@ export class SimpleDbProxy
   earn = this._createProxyService('earn') as SimpleDbEntityEarn;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
+
+  babylonSync = this._createProxyService(
+    'babylonSync',
+  ) as SimpleDbEntityBabylonSync;
 }

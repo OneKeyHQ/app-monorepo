@@ -7,6 +7,7 @@ import type {
   IButtonProps,
   IIconButtonProps,
   IKeyOfIcons,
+  IStackProps,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
@@ -20,14 +21,16 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-type IActionItemsProps = {
+export type IActionItemsProps = {
   icon?: IKeyOfIcons;
   label?: string;
+  verticalContainerProps?: IStackProps;
 } & Partial<IButtonProps & IIconButtonProps>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',
   label,
+  verticalContainerProps,
   ...rest
 }: IActionItemsProps) {
   const media = useMedia();
@@ -49,13 +52,15 @@ function ActionItem({
   }
 
   return (
-    <Stack alignItems="center">
+    <Stack alignItems="center" maxWidth={50} {...verticalContainerProps}>
       <IconButton size="large" icon={icon} {...rest} />
       <SizableText
         mt="$2"
         textAlign="center"
         size="$bodySm"
         color="$textSubdued"
+        minWidth="$20"
+        numberOfLines={1}
       >
         {label}
       </SizableText>
@@ -78,7 +83,7 @@ function ActionSell(props: IActionItemsProps) {
   const intl = useIntl();
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
       icon="MinusLargeOutline"
       {...props}
     />
@@ -123,7 +128,7 @@ function ActionBridge(props: IActionItemsProps) {
   return (
     <ActionItem
       label={intl.formatMessage({ id: ETranslations.swap_page_bridge })}
-      icon="SwitchHorOutline"
+      icon="BridgeOutline"
       {...props}
     />
   );
