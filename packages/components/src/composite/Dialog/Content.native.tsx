@@ -15,8 +15,9 @@ export function Content({
   children,
   estimatedContentHeight,
   testID,
+  async = false,
 }: IDialogContentProps) {
-  const isOptimization = !!estimatedContentHeight;
+  const isOptimization = async || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
   const timeRef = useRef(Date.now());
