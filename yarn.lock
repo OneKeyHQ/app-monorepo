@@ -6402,13 +6402,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-tab-page-view@npm:1.0.15":
-  version: 1.0.15
-  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.15"
+"@onekeyfe/react-native-tab-page-view@npm:1.0.16":
+  version: 1.0.16
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.16"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/009f15c1bd1fdd08ca278e0547d3726029d3ecec83433f56b63d0cbfd691c768612a20098ece4e443bf58c076d3ea321d500e0d0d50006194d2f837f195ad6cf
+  checksum: 10/98b31bbc39a2da22d0b092ad449c837bf93c29702624deb225cd69b257e128c934e4400f20036cf9ee0843edc07c30216fed2ff015f3bc9695fae4d87e774d4a
   languageName: node
   linkType: hard
 
@@ -6707,7 +6707,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.3"
+    electron-windows-security: "npm:0.0.4"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -6791,7 +6791,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.11"
-    "@onekeyfe/react-native-tab-page-view": "npm:1.0.15"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.0.16"
     "@onekeyfe/react-native-text-input": "npm:0.2.4"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -19714,12 +19714,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.3":
-  version: 0.0.3
-  resolution: "electron-windows-security@npm:0.0.3"
+"electron-windows-security@npm:0.0.4":
+  version: 0.0.4
+  resolution: "electron-windows-security@npm:0.0.4"
   dependencies:
     nan: "npm:2.20.0"
-  checksum: 10/d45348a8019f3f341f9a0dd34ef9a1cbaaa69744b931dff94288cae0626c8f57e93b7b3244105f00d8875324caa792277ce33c1dc3da3f020ab0d764cb44a2c8
+  checksum: 10/30163f3ecf7550921a1fe18b0a052b80d25bf6b57fe8b3c67da2c0c8eb3780bdbcb94fdf3f076ac8c32f5a62a8a9eeb1a16c9d98863602ee3220d96e4cde72a5
   languageName: node
   linkType: hard
 

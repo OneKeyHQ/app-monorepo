@@ -9,6 +9,7 @@ import {
   useSwapAlertsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -32,7 +33,6 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
-  // onToAnotherAddressModal?: () => void;
 }
 
 const SwapInputContainer = ({
@@ -44,7 +44,6 @@ const SwapInputContainer = ({
   inputLoading,
   onSelectToken,
   onBalanceMaxPress,
-  // onToAnotherAddressModal,
   balance,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
@@ -102,7 +101,6 @@ const SwapInputContainer = ({
     <YStack>
       <SwapAccountAddressContainer
         type={direction}
-        // onToAnotherAddressModal={onToAnotherAddressModal}
         onClickNetwork={onSelectToken}
       />
       <AmountInput
@@ -128,6 +126,12 @@ const SwapInputContainer = ({
           color:
             direction === ESwapDirectionType.TO && inputLoading
               ? '$textPlaceholder'
+              : undefined,
+          style:
+            !platformEnv.isNative && direction === ESwapDirectionType.TO
+              ? ({
+                  caretColor: 'transparent',
+                } as any)
               : undefined,
         }}
         tokenSelectorTriggerProps={{
