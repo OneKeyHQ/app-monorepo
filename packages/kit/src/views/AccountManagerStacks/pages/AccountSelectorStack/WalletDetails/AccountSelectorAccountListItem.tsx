@@ -249,7 +249,8 @@ export function AccountSelectorAccountListItem({
   );
 
   const renderAccountValue = useCallback(() => {
-    if (platformEnv.isE2E) return null;
+    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
+      return null;
 
     return (
       <>
