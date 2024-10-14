@@ -35,7 +35,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -55,8 +54,6 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
-
-import type { ImageColorsResult } from 'react-native-image-colors';
 
 interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
