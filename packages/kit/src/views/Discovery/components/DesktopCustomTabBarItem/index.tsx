@@ -146,6 +146,9 @@ function DesktopCustomTabBarItem({
       closeTab,
     ],
   );
+  if (!tab) {
+    return null;
+  }
   return (
     <DesktopTabItem
       showAvatar
