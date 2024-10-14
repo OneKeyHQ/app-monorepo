@@ -1397,12 +1397,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapTabSwitchType,
       swapAccountNetworkId?: string,
     ) => {
+      set(swapTypeSwitchAtom(), type);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
+      const fromNetworkDefault =
+        swapDefaultSetTokens[swapAccountNetworkId ?? ''];
       if (
         fromToken &&
-        !swapSupportNetworks.find(
+        !swapSupportNetworks.some(
           (net) => net.networkId === fromToken?.networkId,
         )
       ) {
@@ -1410,37 +1413,47 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       if (
         toToken &&
-        !swapSupportNetworks.find((net) => net.networkId === toToken?.networkId)
+        !swapSupportNetworks.some((net) => net.networkId === toToken?.networkId)
       ) {
         set(swapSelectToTokenAtom(), undefined);
       }
-      if (type === ESwapTabSwitchType.BRIDGE) {
-        if (toToken && fromToken && toToken.networkId === fromToken.networkId) {
-          set(swapSelectToTokenAtom(), undefined);
-        }
-      } else if (type === ESwapTabSwitchType.SWAP) {
-        const fromNetworkDefault =
-          swapDefaultSetTokens[swapAccountNetworkId ?? ''];
-        if (fromToken) {
+      if (
+        swapSupportNetworks.some(
+          (net) => net.networkId === swapAccountNetworkId,
+        )
+      ) {
+        if (type === ESwapTabSwitchType.BRIDGE) {
           if (
-            !fromToken.isNative &&
-            fromNetworkDefault?.fromToken &&
-            fromNetworkDefault?.fromToken.isNative
+            toToken &&
+            fromToken &&
+            toToken.networkId === fromToken.networkId
           ) {
-            set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
-          }
-          if (toToken && toToken.networkId !== fromToken.networkId) {
             set(swapSelectToTokenAtom(), undefined);
           }
-        } else if (
-          fromNetworkDefault?.fromToken &&
-          fromNetworkDefault?.fromToken?.isNative &&
-          !toToken?.isNative
-        ) {
-          set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
+          if (!fromToken && toToken?.networkId !== swapAccountNetworkId) {
+            if (fromNetworkDefault?.fromToken?.isNative) {
+              set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
+            }
+          }
+        } else if (type === ESwapTabSwitchType.SWAP) {
+          if (fromToken) {
+            if (
+              !fromToken.isNative &&
+              fromNetworkDefault?.fromToken?.isNative
+            ) {
+              set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
+            }
+            if (toToken && toToken.networkId !== fromToken.networkId) {
+              set(swapSelectToTokenAtom(), undefined);
+            }
+          } else if (
+            fromNetworkDefault?.fromToken?.isNative &&
+            !toToken?.isNative
+          ) {
+            set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
+          }
         }
       }
-      set(swapTypeSwitchAtom(), type);
     },
   );
 }
