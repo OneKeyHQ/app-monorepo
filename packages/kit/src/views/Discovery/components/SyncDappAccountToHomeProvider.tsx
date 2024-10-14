@@ -68,7 +68,7 @@ function SyncDappAccountToHomeProvider({
       }}
       enabledNum={[0]}
     >
-      <SyncDappAccountToHomeCmp dAppAccountInfos={dAppAccountInfos} />;
+      <SyncDappAccountToHomeCmp dAppAccountInfos={dAppAccountInfos} />
     </AccountSelectorProviderMirror>
   );
 }
