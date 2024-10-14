@@ -81,6 +81,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         {isTokenSelector ? (
           <TokenNameView
             name={token.name}
+            // name={token.accountId || ''}
             networkId={token.networkId}
             textProps={{
               size: '$bodyMd',
