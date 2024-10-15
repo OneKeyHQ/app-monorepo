@@ -15,6 +15,7 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -435,16 +436,60 @@ export function useSwapBuildTx() {
             }
             const createBuildTxRes = await createBuildTx();
             if (createBuildTxRes) {
-              await navigationToSendConfirm({
-                transfersInfo: createBuildTxRes.transferInfo
-                  ? [createBuildTxRes.transferInfo]
-                  : undefined,
-                encodedTx: createBuildTxRes.encodedTx,
-                swapInfo: createBuildTxRes.swapInfo,
-                approvesInfo,
-                onSuccess: handleBuildTxSuccess,
-                onCancel: cancelBuildTx,
-              });
+              if (
+                accountUtils.isHwAccount({
+                  accountId: swapFromAddressInfo.accountInfo.account.id,
+                }) ||
+                accountUtils.isOthersAccount({
+                  accountId: swapFromAddressInfo.accountInfo.account.id,
+                })
+              ) {
+                await navigationToSendConfirm({
+                  approvesInfo: [approvesInfo[0]],
+                  onSuccess: async () => {
+                    if (approvesInfo.length > 1) {
+                      await navigationToSendConfirm({
+                        approvesInfo: [approvesInfo[1]],
+                        onSuccess: async () => {
+                          await navigationToSendConfirm({
+                            transfersInfo: createBuildTxRes.transferInfo
+                              ? [createBuildTxRes.transferInfo]
+                              : undefined,
+                            encodedTx: createBuildTxRes.encodedTx,
+                            swapInfo: createBuildTxRes.swapInfo,
+                            approvesInfo,
+                            onSuccess: handleBuildTxSuccess,
+                            onCancel: cancelBuildTx,
+                          });
+                        },
+                        onCancel: cancelApproveTx,
+                      });
+                    } else {
+                      await navigationToSendConfirm({
+                        transfersInfo: createBuildTxRes.transferInfo
+                          ? [createBuildTxRes.transferInfo]
+                          : undefined,
+                        encodedTx: createBuildTxRes.encodedTx,
+                        swapInfo: createBuildTxRes.swapInfo,
+                        onSuccess: handleBuildTxSuccess,
+                        onCancel: cancelBuildTx,
+                      });
+                    }
+                  },
+                  onCancel: cancelApproveTx,
+                });
+              } else {
+                await navigationToSendConfirm({
+                  transfersInfo: createBuildTxRes.transferInfo
+                    ? [createBuildTxRes.transferInfo]
+                    : undefined,
+                  encodedTx: createBuildTxRes.encodedTx,
+                  swapInfo: createBuildTxRes.swapInfo,
+                  approvesInfo,
+                  onSuccess: handleBuildTxSuccess,
+                  onCancel: cancelBuildTx,
+                });
+              }
               void syncRecentTokenPairs({
                 swapFromToken: fromToken,
                 swapToToken: toToken,
