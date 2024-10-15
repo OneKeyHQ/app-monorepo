@@ -162,6 +162,7 @@ export type IVaultSettings = {
   estimatedFeePollingInterval: number;
 
   minTransferAmount?: string;
+  nativeMinTransferAmount?: string;
   utxoDustAmount?: string;
 
   accountType: EDBAccountType;
