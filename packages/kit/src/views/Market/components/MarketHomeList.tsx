@@ -59,6 +59,7 @@ import type {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePrevious } from '../../../hooks/usePrevious';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketMore } from './MarketMore';
@@ -169,7 +170,6 @@ function BasicMarketHomeList({
   const navigation = useAppNavigation();
 
   const updateAtRef = useRef(0);
-  const updateTimer = useRef<ReturnType<typeof setInterval>>();
 
   const [listData, setListData] = useState<IMarketToken[]>([]);
   const prevCoingeckoIdsLength = usePrevious(category.coingeckoIds.length);
@@ -179,7 +179,8 @@ function BasicMarketHomeList({
     if (
       now - updateAtRef.current >
         timerUtils.getTimeDurationMs({ seconds: 45 }) ||
-      prevCoingeckoIdsLength !== category.coingeckoIds.length
+      prevCoingeckoIdsLength !== category.coingeckoIds.length ||
+      (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
     ) {
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
@@ -193,15 +194,15 @@ function BasicMarketHomeList({
     }
   }, [category.categoryId, category.coingeckoIds, prevCoingeckoIdsLength]);
 
-  useEffect(() => {
-    void fetchCategory();
-    updateTimer.current = setInterval(() => {
-      void fetchCategory();
-    }, timerUtils.getTimeDurationMs({ seconds: 50 }));
-    return () => {
-      clearInterval(updateTimer.current);
-    };
-  }, [fetchCategory]);
+  usePromiseResult(
+    async () => {
+      await fetchCategory();
+    },
+    [fetchCategory],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+    },
+  );
 
   const { gtMd, md } = useMedia();
 

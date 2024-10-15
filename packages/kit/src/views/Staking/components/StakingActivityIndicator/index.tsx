@@ -9,6 +9,7 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
 type IStakingActivityIndicatorProps = {
@@ -102,9 +103,11 @@ export const StakingTransactionIndicator = ({
     }
   }, [isFocused, run]);
 
-  useEffect(() => {
-    if (!isPending) return;
-    const timer = setInterval(async () => {
+  usePromiseResult(
+    async () => {
+      if (!isPending) {
+        return;
+      }
       if (accountId) {
         await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -112,9 +115,12 @@ export const StakingTransactionIndicator = ({
         });
       }
       await run();
-    }, 15 * 1000);
-    return () => clearInterval(timer);
-  }, [isPending, accountId, networkId, run]);
+    },
+    [accountId, isPending, networkId, run],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+    },
+  );
 
   useEffect(() => {
     if (!isPending && prevIsPending) {
