@@ -22,11 +22,16 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapAddressInfo,
@@ -54,11 +59,13 @@ const SwapActionsState = ({
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo();
   const quoteLoading = useSwapQuoteLoading();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
@@ -233,7 +240,13 @@ const SwapActionsState = ({
     if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
       return null;
     }
-    if (swapRecipientAddressInfo?.showAddress) {
+    if (
+      swapRecipientAddressInfo?.showAddress &&
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
+      fromToken &&
+      toToken &&
+      currentQuoteRes?.toTokenInfo.networkId === toToken.networkId
+    ) {
       return (
         <XStack
           gap="$1"
@@ -267,6 +280,10 @@ const SwapActionsState = ({
     swapRecipientAddressInfo?.showAddress,
     swapRecipientAddressInfo?.accountInfo?.wallet?.name,
     swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapTypeSwitch,
+    fromToken,
+    toToken,
+    currentQuoteRes?.toTokenInfo.networkId,
     pageType,
     md,
     intl,
