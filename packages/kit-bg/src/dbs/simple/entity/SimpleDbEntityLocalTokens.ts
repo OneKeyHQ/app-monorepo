@@ -146,21 +146,26 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
 
     await this.setRawData(({ rawData }) => ({
       data: rawData?.data ?? {},
-      tokenList: merge({}, rawData?.tokenList, {
+      tokenList: {
+        ...rawData?.tokenList,
         [key]: tokenList,
-      }),
-      smallBalanceTokenList: merge({}, rawData?.smallBalanceTokenList, {
+      },
+      smallBalanceTokenList: {
+        ...rawData?.smallBalanceTokenList,
         [key]: smallBalanceTokenList,
-      }),
-      riskyTokenList: merge({}, rawData?.riskyTokenList, {
+      },
+      riskyTokenList: {
+        ...rawData?.riskyTokenList,
         [key]: riskyTokenList,
-      }),
-      tokenListMap: merge({}, rawData?.tokenListMap, {
+      },
+      tokenListMap: {
+        ...rawData?.tokenListMap,
         [key]: tokenListMap,
-      }),
-      tokenListValue: merge({}, rawData?.tokenListValue, {
+      },
+      tokenListValue: {
+        ...rawData?.tokenListValue,
         [key]: tokenListValue,
-      }),
+      },
     }));
   }
 
