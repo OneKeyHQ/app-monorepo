@@ -1,7 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -10,7 +8,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
-import { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
