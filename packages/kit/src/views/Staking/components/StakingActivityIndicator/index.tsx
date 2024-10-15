@@ -96,6 +96,13 @@ export const StakingTransactionIndicator = ({
   const isPending = txs.length > 0;
   const prevIsPending = usePrevious(isPending);
 
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) {
+      void run();
+    }
+  }, [isFocused, run]);
+
   usePromiseResult(
     async () => {
       if (!isPending) {
