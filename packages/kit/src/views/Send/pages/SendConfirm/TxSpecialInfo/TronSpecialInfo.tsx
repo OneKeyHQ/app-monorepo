@@ -22,7 +22,7 @@ function TronSpecialInfo({
   const intl = useIntl();
   const [selectedFeeInfo] = useSendSelectedFeeInfoAtom();
 
-  const feeTron = selectedFeeInfo?.feeInfos[0]?.feeInfo?.feeTron;
+  const feeTron = selectedFeeInfo?.feeInfos?.[0]?.feeInfo?.feeTron;
 
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 

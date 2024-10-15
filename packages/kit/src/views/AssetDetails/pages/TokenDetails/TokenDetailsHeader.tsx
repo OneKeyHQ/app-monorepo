@@ -121,7 +121,7 @@ function TokenDetailsHeader(props: IProps) {
     ],
   );
 
-  const handleOnSwap = createSwapActionHandler();
+  const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
   const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {
@@ -202,13 +202,7 @@ function TokenDetailsHeader(props: IProps) {
           </Stack>
         </XStack>
         {/* Actions */}
-        <RawActions
-          flexDirection="column"
-          gap="$5"
-          $gtSm={{
-            flexDirection: 'row',
-          }}
-        >
+        <RawActions flexDirection="column" gap="$5">
           <ActionsRowContainer>
             <ReviewControl>
               <ActionBuy

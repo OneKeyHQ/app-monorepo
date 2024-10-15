@@ -465,7 +465,7 @@ function TxFeeContainer(props: IProps) {
       // build second approve tx fee info base on first approve fee info
       if (isMultiTxs && unsignedTx.approveInfo && i !== 0) {
         specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-          .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+          .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE)
           .toFixed();
         baseGasLimit = specialGasLimit;
       }
@@ -483,8 +483,7 @@ function TxFeeContainer(props: IProps) {
           specialGasLimit = internalSwapGasLimit.toString();
         } else if (internalSwapRoutes && internalSwapRoutes.length > 0) {
           const allRoutesLength = internalSwapRoutes.reduce(
-            (acc, cur) =>
-              acc.plus(cur.subRoutes?.flatMap((sub) => sub).length ?? 1),
+            (acc, cur) => acc.plus(cur.subRoutes?.flat().length ?? 1),
             new BigNumber(0),
           );
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)

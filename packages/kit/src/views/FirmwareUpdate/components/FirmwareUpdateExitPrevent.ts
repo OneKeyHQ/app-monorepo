@@ -15,7 +15,11 @@ export function ForceExtensionUpdatingFromExpandTab() {
   return null;
 }
 
-export function FirmwareUpdateExitPrevent() {
+export function FirmwareUpdateExitPrevent({
+  shouldPreventRemove = true,
+}: {
+  shouldPreventRemove?: boolean;
+}) {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.update_quit_update });
   const message = intl.formatMessage({
@@ -27,6 +31,7 @@ export function FirmwareUpdateExitPrevent() {
 
   // Prevent Modal exit/back
   useModalExitPrevent({
+    shouldPreventRemove,
     title,
     message,
   });
