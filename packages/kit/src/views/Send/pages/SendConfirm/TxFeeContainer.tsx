@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -456,9 +457,6 @@ function TxFeeContainer(props: IProps) {
     let totalNativeForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
 
-    let totalNativeMinForDisplay = new BigNumber(0);
-    let totalFiatMinForDisplay = new BigNumber(0);
-
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const unsignedTx = unsignedTxs[i];
       let specialGasLimit: string | undefined;
@@ -550,12 +548,20 @@ function TxFeeContainer(props: IProps) {
 
     txFeeInit.current = true;
 
-    totalNativeMinForDisplay = new BigNumber(
-      feeInfos[0]?.totalNativeForDisplay ?? 0,
-    ).times(unsignedTxs.length);
-    totalFiatMinForDisplay = new BigNumber(
-      feeInfos[0]?.totalFiatForDisplay ?? 0,
-    ).times(unsignedTxs.length);
+    // Due to the tendency to use higher fee estimates for approve&swap multi-txs to ensure success,
+    // we adjust the displayed fee to be closer to the actual on-chain cost for the user
+    if (
+      isMultiTxs &&
+      unsignedTxs.some((tx) => tx.approveInfo) &&
+      unsignedTxs.some((tx) => tx.swapInfo)
+    ) {
+      totalNativeForDisplay = totalNativeForDisplay.times(
+        BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
+      );
+      totalFiatForDisplay = totalFiatForDisplay.times(
+        BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
+      );
+    }
 
     return {
       selectedFee: {
@@ -565,8 +571,6 @@ function TxFeeContainer(props: IProps) {
         totalFiat: totalFiat.toFixed(),
         totalNativeForDisplay: totalNativeForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
-        totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
-        totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
       },
     };
   }, [
@@ -739,41 +743,8 @@ function TxFeeContainer(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
-  const renderTotalNative = useCallback(() => {
-    if (
-      selectedFee?.totalNativeForDisplay !==
-      selectedFee?.totalNativeMinForDisplay
-    ) {
-      return (
-        <XStack alignItems="center" gap="$0.5">
-          <NumberSizeableText
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: txFee?.common.nativeSymbol,
-            }}
-            size="$bodyMd"
-            color="$textSubdued"
-          >
-            {selectedFee?.totalNativeMinForDisplay ?? '-'}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            ~
-          </SizableText>
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: txFee?.common.nativeSymbol,
-            }}
-          >
-            {selectedFee?.totalNativeForDisplay ?? '-'}
-          </NumberSizeableText>
-        </XStack>
-      );
-    }
-
-    return (
+  const renderTotalNative = useCallback(
+    () => (
       <NumberSizeableText
         size="$bodyMd"
         color="$textSubdued"
@@ -784,51 +755,12 @@ function TxFeeContainer(props: IProps) {
       >
         {selectedFee?.totalNativeForDisplay ?? '-'}
       </NumberSizeableText>
-    );
-  }, [
-    selectedFee?.totalNativeForDisplay,
-    selectedFee?.totalNativeMinForDisplay,
-    txFee?.common.nativeSymbol,
-  ]);
+    ),
+    [selectedFee?.totalNativeForDisplay, txFee?.common.nativeSymbol],
+  );
 
-  const renderTotalFiat = useCallback(() => {
-    if (
-      selectedFee?.totalFiatForDisplay !==
-        selectedFee?.totalFiatMinForDisplay &&
-      new BigNumber(selectedFee?.totalFiatMinForDisplay ?? 0).gte(0.01)
-    ) {
-      return (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          (
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-          >
-            {selectedFee?.totalFiatMinForDisplay ?? '-'}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            ~
-          </SizableText>
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{
-              currency: settings.currencyInfo.symbol,
-            }}
-          >
-            {selectedFee?.totalFiatForDisplay ?? '-'}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      );
-    }
-
-    return (
+  const renderTotalFiat = useCallback(
+    () => (
       <SizableText size="$bodyMd" color="$textSubdued">
         (
         <NumberSizeableText
@@ -843,12 +775,9 @@ function TxFeeContainer(props: IProps) {
         </NumberSizeableText>
         )
       </SizableText>
-    );
-  }, [
-    selectedFee?.totalFiatForDisplay,
-    selectedFee?.totalFiatMinForDisplay,
-    settings.currencyInfo.symbol,
-  ]);
+    ),
+    [selectedFee?.totalFiatForDisplay, settings.currencyInfo.symbol],
+  );
   return (
     <Stack
       mb="$5"
@@ -884,63 +813,6 @@ function TxFeeContainer(props: IProps) {
           : ''}
       </XStack>
     </Stack>
-    // <InfoItemGroup
-    //   animation="repeat"
-    //   animateOnly={['opacity']}
-    //   opacity={isLoading && txFeeInit.current ? 0.5 : 1}
-    // >
-    //   <InfoItem
-    //     label={intl.formatMessage({
-    //       id: ETranslations.global_est_network_fee,
-    //     })}
-    //     renderContent={
-    //       <>
-    //         <XStack gap="$1">
-    //           <XStack gap="$1">
-    //             {txFeeInit.current ? (
-    //               <NumberSizeableText
-    //                 formatter="balance"
-    //                 formatterOptions={{
-    //                   tokenSymbol: txFee?.common.nativeSymbol,
-    //                 }}
-    //                 size="$bodyMd"
-    //                 color="$textSubdued"
-    //               >
-    //                 {selectedFee?.totalNativeForDisplay ?? '0.00'}
-    //               </NumberSizeableText>
-    //             ) : (
-    //               <Stack py="$1">
-    //                 <Skeleton height="$3" width="$24" />
-    //               </Stack>
-    //             )}
-    //             {txFeeInit.current ? (
-    //               <SizableText size="$bodyMd" color="$textSubdued">
-    //                 (
-    //                 <NumberSizeableText
-    //                   size="$bodyMd"
-    //                   color="$textSubdued"
-    //                   formatter="value"
-    //                   formatterOptions={{
-    //                     currency: settings.currencyInfo.symbol,
-    //                   }}
-    //                 >
-    //                   {selectedFee?.totalFiatForDisplay ?? '0.00'}
-    //                 </NumberSizeableText>
-    //                 )
-    //               </SizableText>
-    //             ) : (
-    //               ''
-    //             )}
-    //           </XStack>
-    //           <SizableText size="$bodyMd" color="$textSubdued">
-    //             •
-    //           </SizableText>
-    //           {renderFeeEditor()}
-    //         </XStack>
-    //       </>
-    //     }
-    //   />
-    // </InfoItemGroup>
   );
 }
 export default memo(TxFeeContainer);
