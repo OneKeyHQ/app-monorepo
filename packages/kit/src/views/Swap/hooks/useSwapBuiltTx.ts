@@ -405,7 +405,7 @@ export function useSwapBuildTx() {
         if (settingsPersistAtom.swapBatchApproveAndSwap) {
           try {
             setSwapBuildTxFetching(true);
-            let approvesInfo = [];
+            let approvesInfo: IApproveInfo[] = [];
             const approveInfo: IApproveInfo = {
               owner: swapFromAddressInfo.address,
               spender: allowanceInfo.allowanceTarget,
