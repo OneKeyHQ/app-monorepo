@@ -252,6 +252,7 @@ function HeaderRightToolBar() {
         >
           <SyncDappAccountToHomeProvider
             dAppAccountInfos={connectedAccountsInfo}
+            origin={origin}
           />
           {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
