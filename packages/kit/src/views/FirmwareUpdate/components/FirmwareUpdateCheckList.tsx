@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Checkbox, SizableText, Stack } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import { Checkbox, Dialog, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
@@ -12,10 +12,10 @@ import {
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
-import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 
 export function FirmwareUpdateCheckList({
   result,
@@ -23,9 +23,9 @@ export function FirmwareUpdateCheckList({
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
-
   const [checkValueList, setCheckValueList] = useState([
     {
       label: intl.formatMessage({
@@ -50,20 +50,24 @@ export function FirmwareUpdateCheckList({
       emoji: '🔋',
       value: false,
     },
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_only_one_device_connected,
-      }),
-      emoji: '📱',
-      value: false,
-    },
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_all_other_apps_closed,
-      }),
-      emoji: '🆗',
-      value: false,
-    },
+    ...(platformEnv.isNative
+      ? []
+      : [
+          {
+            label: intl.formatMessage({
+              id: ETranslations.update_only_one_device_connected,
+            }),
+            emoji: '📱',
+            value: false,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.update_all_other_apps_closed,
+            }),
+            emoji: '🆗',
+            value: false,
+          },
+        ]),
   ]);
   const onCheckChanged = useCallback(
     (checkValue: { value: boolean }) => {
@@ -79,11 +83,6 @@ export function FirmwareUpdateCheckList({
 
   return (
     <Stack>
-      <SizableText size="$heading2xl" my="$8">
-        {intl.formatMessage({
-          id: ETranslations.update_ready_to_upgrade_checklist,
-        })}
-      </SizableText>
       <Stack gap="$3" mr="$3">
         {checkValueList.map((checkValue) => (
           <Checkbox
@@ -98,22 +97,23 @@ export function FirmwareUpdateCheckList({
           />
         ))}
       </Stack>
-      <FirmwareUpdatePageFooter
+      <Dialog.Footer
         confirmButtonProps={{
           disabled: !isAllChecked,
         }}
         onConfirm={
           result
-            ? async () => {
-                if (!result) {
-                  return;
-                }
+            ? async (dialog) => {
                 try {
+                  await dialog.close();
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateStart,
                     payload: {
                       startAtTime: Date.now(),
                     },
+                  });
+                  navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
+                    result,
                   });
                   setWorkflowIsRunning(true);
                   await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
