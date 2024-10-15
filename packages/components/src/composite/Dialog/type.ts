@@ -27,7 +27,7 @@ export type IDialogContextType = {
 export interface IDialogContentProps extends PropsWithChildren {
   estimatedContentHeight?: number;
   testID?: string;
-  async?: boolean;
+  isAsync?: boolean;
 }
 
 export type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
@@ -64,7 +64,7 @@ export interface IDialogHeaderContextType {
 
 interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
-  async?: boolean;
+  isAsync?: boolean;
   onOpen?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   icon?: IKeyOfIcons;

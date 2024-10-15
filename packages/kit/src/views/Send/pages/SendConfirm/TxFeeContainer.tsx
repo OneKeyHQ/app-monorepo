@@ -659,7 +659,7 @@ function TxFeeContainer(props: IProps) {
       title: intl.formatMessage({
         id: ETranslations.swap_history_detail_network_fee,
       }),
-      async: true,
+      isAsync: true,
       showFooter: false,
       renderContent: (
         <FeeEditor

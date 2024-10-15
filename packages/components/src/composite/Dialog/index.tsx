@@ -89,7 +89,7 @@ function DialogFrame({
   showConfirmButton = true,
   showCancelButton = true,
   testID,
-  async,
+  isAsync,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -141,7 +141,7 @@ function DialogFrame({
       {/* extra children */}
       <Content
         testID={testID}
-        async={async}
+        isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
       >
         {renderContent}

@@ -15,9 +15,9 @@ export function Content({
   children,
   estimatedContentHeight,
   testID,
-  async = false,
+  isAsync = false,
 }: IDialogContentProps) {
-  const isOptimization = async || !!estimatedContentHeight;
+  const isOptimization = isAsync || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
   const timeRef = useRef(Date.now());
@@ -86,11 +86,11 @@ export function Content({
     if (estimatedContentHeight) {
       return estimatedContentHeight;
     }
-    if (async && showLoading) {
+    if (isAsync && showLoading) {
       return '$20';
     }
     return undefined;
-  }, [async, estimatedContentHeight, showLoading]);
+  }, [isAsync, estimatedContentHeight, showLoading]);
 
   if (!children) {
     return null;
