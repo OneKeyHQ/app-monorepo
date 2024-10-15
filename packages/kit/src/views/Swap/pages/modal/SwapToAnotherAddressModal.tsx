@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Form, Page, useForm } from '@onekeyhq/components';
+import { Form, Icon, Page, useForm } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
@@ -24,6 +24,7 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
+import { SizableText, Stack, XStack } from 'tamagui';
 
 interface IFormType {
   address: IAddressInputValue;
@@ -105,7 +106,7 @@ const SwapToAnotherAddressPage = () => {
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page scrollEnabled>
-      <Page.Body px="$5" gap="$4">
+      <Page.Body px="$5" gap="$6">
         <Form form={form}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_recipient })}
@@ -137,6 +138,52 @@ const SwapToAnotherAddressPage = () => {
             />
           </Form.Field>
         </Form>
+        <Stack gap="$4">
+          <XStack>
+            <Stack
+              $md={{
+                pt: '$0.5',
+              }}
+            >
+              <Icon name="CheckRadioOutline" size="$5" color="$iconSuccess" />
+            </Stack>
+            <SizableText
+              flex={1}
+              pl="$2"
+              size="$bodyLg"
+              color="$textSubdued"
+              $gtMd={{
+                size: '$bodyMd',
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_modal_verify,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack>
+            <Stack
+              $md={{
+                pt: '$0.5',
+              }}
+            >
+              <Icon name="BlockOutline" size="$5" color="$iconCritical" />
+            </Stack>
+            <SizableText
+              flex={1}
+              pl="$2"
+              size="$bodyLg"
+              color="$textSubdued"
+              $gtMd={{
+                size: '$bodyMd',
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_modal_do_not,
+              })}
+            </SizableText>
+          </XStack>
+        </Stack>
       </Page.Body>
       <Page.Footer
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
