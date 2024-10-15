@@ -6707,7 +6707,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.4"
+    electron-windows-security: "https://github.com/OneKeyHQ/electron-windows-security.git#dc99bd64de3e864e8f6b7a4eabdb8a42d8001dcc"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -19714,12 +19714,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.4":
+"electron-windows-security@https://github.com/OneKeyHQ/electron-windows-security.git#dc99bd64de3e864e8f6b7a4eabdb8a42d8001dcc":
   version: 0.0.4
-  resolution: "electron-windows-security@npm:0.0.4"
+  resolution: "electron-windows-security@https://github.com/OneKeyHQ/electron-windows-security.git#commit=dc99bd64de3e864e8f6b7a4eabdb8a42d8001dcc"
   dependencies:
     nan: "npm:2.20.0"
-  checksum: 10/30163f3ecf7550921a1fe18b0a052b80d25bf6b57fe8b3c67da2c0c8eb3780bdbcb94fdf3f076ac8c32f5a62a8a9eeb1a16c9d98863602ee3220d96e4cde72a5
+  checksum: 10/01fae9325959577a65d2818868eb66d3bcb66d428c01ca401215c36340eff3fbb849c94a3fa9389ea77ea8978d0b473439f89e277b2f8deb5a9789064cf4e3b7
   languageName: node
   linkType: hard
 
