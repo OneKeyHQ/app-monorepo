@@ -205,7 +205,7 @@ function FeeEditor(props: IProps) {
       [networkId],
     ).result ?? [];
 
-  const maxBaseFee = new BigNumber(
+  const originalMaxBaseFee = new BigNumber(
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
   ).minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0');
 
@@ -220,8 +220,8 @@ function FeeEditor(props: IProps) {
       priorityFee: new BigNumber(
         customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
-      maxBaseFee: maxBaseFee.isGreaterThan(0)
-        ? maxBaseFee.toFixed()
+      maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
+        ? originalMaxBaseFee.toFixed()
         : customFee.gasEIP1559?.baseFeePerGas ?? '0',
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
