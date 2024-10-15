@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useBackHandler, useSheetZIndex } from '../../hooks';
+import { useBackHandler, useOverlayZIndex } from '../../hooks';
 import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -135,7 +135,7 @@ function DialogFrame({
 
   const media = useMedia();
 
-  const sheetZIndex = useSheetZIndex();
+  const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
@@ -187,7 +187,7 @@ function DialogFrame({
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
         animation="quick"
-        zIndex={sheetZIndex}
+        zIndex={zIndex}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -196,7 +196,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          zIndex={sheetProps?.zIndex || sheetZIndex}
+          zIndex={sheetProps?.zIndex || zIndex}
         />
         <Sheet.Frame
           unstyled
@@ -234,7 +234,7 @@ function DialogFrame({
             bottom={0}
             alignItems="center"
             justifyContent="center"
-            zIndex={floatingPanelProps?.zIndex}
+            zIndex={floatingPanelProps?.zIndex || zIndex}
           >
             <TMDialog.Overlay
               key="overlay"
@@ -248,7 +248,7 @@ function DialogFrame({
                 opacity: 0,
               }}
               onPress={handleBackdropPress}
-              zIndex={floatingPanelProps?.zIndex}
+              zIndex={floatingPanelProps?.zIndex || zIndex}
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
