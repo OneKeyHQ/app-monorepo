@@ -174,7 +174,7 @@ export default class Vault extends VaultBase {
           let to = message.address;
           let amount = message.amount.toString();
           if (decodedPayload.jetton) {
-            to = decodedPayload.jetton.toAddress;
+            to = message.jetton?.toAddress ?? decodedPayload.jetton.toAddress;
             amount = decodedPayload.jetton.amount;
             if (!tokenAddress) {
               const jettonData = await getJettonData({
