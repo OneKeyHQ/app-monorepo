@@ -96,4 +96,10 @@ export class WalletScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public openExpandView() {}
+
+  @LogToServer()
+  @LogToLocal()
+  public customNetworkAdded(params: { chainID: string }) {
+    return params;
+  }
 }
