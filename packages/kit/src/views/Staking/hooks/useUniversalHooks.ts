@@ -27,6 +27,7 @@ export function useUniversalStake({
       amount,
       symbol,
       term,
+      feeRate,
       provider,
       stakingInfo,
       onSuccess,
@@ -35,6 +36,7 @@ export function useUniversalStake({
       amount: string;
       symbol: string;
       term?: number;
+      feeRate?: number;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -48,6 +50,7 @@ export function useUniversalStake({
           symbol,
           term,
           provider,
+          feeRate,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
