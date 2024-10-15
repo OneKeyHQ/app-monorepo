@@ -10,6 +10,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -313,5 +314,22 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
 
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
+  }
+}
+
+export function getSwapFeeGasLimit({
+  baseGasLimit,
+  swapInfo,
+}: {
+  baseGasLimit: string | number;
+  swapInfo: ISwapTxInfo;
+}) {
+  switch (swapInfo.swapBuildResData.result.info.provider.toLowerCase()) {
+    // Some providers' default gasLimit is insufficient to commit the transaction.
+    // We increase it appropriately based on testing feedback.
+    case 'swapsocketbridge':
+      return new BigNumber(baseGasLimit).times(1.5).toFixed();
+    default:
+      return new BigNumber(baseGasLimit).toFixed();
   }
 }
