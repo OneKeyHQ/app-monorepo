@@ -172,6 +172,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.cleanManualSelectQuoteProviders.call(set);
       this.resetSwapSlippage.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
+      set(swapSelectFromTokenAtom(), token);
       if (
         token.networkId !== toToken?.networkId &&
         swapTypeSwitchValue === ESwapTabSwitchType.SWAP
@@ -192,7 +193,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
     }
-    set(swapSelectFromTokenAtom(), token);
   });
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
