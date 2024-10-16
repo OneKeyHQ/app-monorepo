@@ -32,12 +32,12 @@ export function HeaderLeft({
         num={0}
         key="accountSelectorTrigger"
         spotlightProps={{
-          isVisible: true,
+          visible: true,
           message: intl.formatMessage({
             id: ETranslations.spotlight_account_alignment_desc,
           }),
           onConfirm: () => {
-            console.log('Done')
+            console.log('Done');
           },
           childrenPaddingVertical: 0,
           tourName: ESpotlightTour.switchDappAccount,
