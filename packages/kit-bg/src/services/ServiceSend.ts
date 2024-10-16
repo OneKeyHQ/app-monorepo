@@ -88,6 +88,7 @@ class ServiceSend extends ServiceBase {
       wrappedInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -97,6 +98,7 @@ class ServiceSend extends ServiceBase {
       wrappedInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     });
   }
 
@@ -492,6 +494,7 @@ class ServiceSend extends ServiceBase {
       stakingInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -511,6 +514,7 @@ class ServiceSend extends ServiceBase {
         wrappedInfo,
         specifiedFeeRate,
         prevNonce,
+        feeInfo,
       });
     }
     if (swapInfo) {
@@ -522,6 +526,10 @@ class ServiceSend extends ServiceBase {
 
     if (approveInfo) {
       newUnsignedTx.approveInfo = approveInfo;
+    }
+
+    if (feeInfo) {
+      newUnsignedTx.feeInfo = feeInfo;
     }
 
     const isNonceRequired = (
