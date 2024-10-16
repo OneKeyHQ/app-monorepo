@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { NavBackButton, Page } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -14,6 +17,7 @@ export function HeaderLeft({
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  const intl = useIntl();
   const items = useMemo(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
@@ -30,14 +34,16 @@ export function HeaderLeft({
         spotlightProps={{
           delayMs: 300,
           isVisible: true,
-          message: 'abcdefg',
+          message: intl.formatMessage({
+            id: ETranslations.spotlight_account_alignment_desc,
+          }),
           childrenPaddingVertical: 0,
           tourName: ESpotlightTour.switchDappAccount,
         }}
       />
     );
     return accountSelectorTrigger;
-  }, [sceneName]);
+  }, [intl, sceneName]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
