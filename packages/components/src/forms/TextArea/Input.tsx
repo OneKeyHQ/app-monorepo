@@ -29,6 +29,21 @@ function BaseTextArea(
       addOnsContainerProps={{
         justifyContent: 'flex-end',
         paddingBottom: '$2',
+        borderRadius: 0,
+        gap: '$2',
+        paddingRight: '$1',
+      }}
+      addOnsItemProps={{
+        width: '$10',
+        height: '$10',
+        hoverStyle: {
+          bg: '$bgHover',
+          borderRadius: '$5',
+        },
+        pressStyle: {
+          bg: '$bgActive',
+          borderRadius: '$5',
+        },
       }}
       InputComponent={TMTextArea}
       ref={ref}
