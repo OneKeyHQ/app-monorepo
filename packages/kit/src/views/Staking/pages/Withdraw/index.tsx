@@ -14,6 +14,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
@@ -96,9 +97,13 @@ const WithdrawPage = () => {
       symbol: tokenInfo.symbol,
       action: 'unstake',
       amount: '1',
+      txId:
+        provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+          ? identity
+          : undefined,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol]);
+  }, [networkId, provider.name, tokenInfo.symbol, identity]);
 
   const unstakingPeriod = useMemo(() => {
     if (details.provider.unstakingTime) {
