@@ -31,6 +31,7 @@ export function HeaderLeft({
           delayMs: 300,
           isVisible: true,
           message: 'abcdefg',
+          childrenPaddingVertical: 0,
           tourName: ESpotlightTour.switchDappAccount,
         }}
       />
