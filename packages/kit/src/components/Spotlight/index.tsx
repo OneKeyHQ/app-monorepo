@@ -321,6 +321,7 @@ export function Spotlight(props: ISpotlightProps) {
     children,
     containerProps,
     delayMs = 0,
+    floatingOffset,
   } = props;
   const [isLocked] = useAppIsLockedAtom();
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
@@ -342,6 +343,7 @@ export function Spotlight(props: ISpotlightProps) {
       content={<SizableText size="$bodyMd">{message}</SizableText>}
       onConfirm={tourVisited}
       containerProps={containerProps}
+      floatingOffset={floatingOffset}
     >
       {children}
     </SpotlightView>
