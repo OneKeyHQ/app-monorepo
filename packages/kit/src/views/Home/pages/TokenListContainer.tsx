@@ -59,8 +59,6 @@ import { useAccountOverviewActions } from '../../../states/jotai/contexts/accoun
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -583,7 +581,9 @@ function TokenListContainer(props: ITabPageProps) {
           xpub,
         });
 
-      const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
+      let tokenList = localTokens.tokenList;
+      let smallBalanceTokenList = localTokens.smallBalanceTokenList;
+      let riskyTokenList = localTokens.riskyTokenList;
 
       if (
         isEmpty(tokenList) &&
@@ -593,8 +593,37 @@ function TokenListContainer(props: ITabPageProps) {
         return null;
       }
 
+      if (
+        (tokenList[0]?.accountId && tokenList[0]?.accountId !== accountId) ||
+        (smallBalanceTokenList[0]?.accountId &&
+          smallBalanceTokenList[0]?.accountId !== accountId) ||
+        (riskyTokenList[0]?.accountId &&
+          riskyTokenList[0]?.accountId !== accountId)
+      ) {
+        tokenList = tokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+
+        smallBalanceTokenList = smallBalanceTokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+
+        riskyTokenList = riskyTokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+      }
+
       return {
         ...localTokens,
+        tokenList,
+        smallBalanceTokenList,
+        riskyTokenList,
         accountId,
         networkId,
       };
@@ -983,13 +1012,36 @@ function TokenListContainer(props: ITabPageProps) {
           networkId,
         });
 
-      const {
-        tokenList,
-        smallBalanceTokenList,
-        riskyTokenList,
-        tokenListMap,
-        tokenListValue,
-      } = localTokens;
+      const { tokenListMap, tokenListValue } = localTokens;
+      let tokenList = localTokens.tokenList;
+      let smallBalanceTokenList = localTokens.smallBalanceTokenList;
+      let riskyTokenList = localTokens.riskyTokenList;
+
+      if (
+        (tokenList[0]?.accountId && tokenList[0]?.accountId !== accountId) ||
+        (smallBalanceTokenList[0]?.accountId &&
+          smallBalanceTokenList[0]?.accountId !== accountId) ||
+        (riskyTokenList[0]?.accountId &&
+          riskyTokenList[0]?.accountId !== accountId)
+      ) {
+        tokenList = tokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+
+        smallBalanceTokenList = smallBalanceTokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+
+        riskyTokenList = riskyTokenList.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+        }));
+      }
 
       if (
         isEmpty(tokenList) &&
