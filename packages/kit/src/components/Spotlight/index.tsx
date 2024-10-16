@@ -70,6 +70,8 @@ export type ISpotlightProps = PropsWithChildren<{
   message: string;
   tourName: ESpotlightTour;
   delayMs?: number;
+  floatingOffset?: number;
+  childrenPadding?: number;
 }>;
 
 function SpotlightContent({
