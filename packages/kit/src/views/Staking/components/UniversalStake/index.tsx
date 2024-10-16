@@ -21,12 +21,15 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
   IEarnEstimateFeeResp,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
@@ -70,8 +73,10 @@ type IUniversalStakeProps = {
   isDisabled?: boolean;
 
   estimateFeeResp?: IEarnEstimateFeeResp;
+  estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
   onConfirm?: (amount: string) => Promise<void>;
+  onFeeRateChange?: (rate: string) => void;
 };
 
 export const UniversalStake = ({
@@ -94,9 +99,11 @@ export const UniversalStake = ({
   estReceiveToken,
   estReceiveTokenRate = '1',
   estimateFeeResp,
+  estimateFeeUTXO,
   isDisabled,
   maxAmount,
   onConfirm,
+  onFeeRateChange,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -489,6 +496,13 @@ export const UniversalStake = ({
                 estFiatValue: estimateFeeResp.feeFiatValue,
               });
             }}
+          />
+        ) : null}
+        {providerName?.toLowerCase() ===
+          EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
+          <BtcFeeRateInput
+            estimateFeeUTXO={estimateFeeUTXO}
+            onFeeRateChange={onFeeRateChange}
           />
         ) : null}
       </CalculationList>
