@@ -261,7 +261,7 @@ export async function encodeJettonPayload({
     forwardPayload: params.forwardPayload
       ? TonWeb.boc.Cell.oneFromBoc(
           Buffer.from(params.forwardPayload, 'base64').toString('hex'),
-        )
+        ).bits.array
       : undefined,
   } as unknown as TransferBodyParams);
   return {
