@@ -33,6 +33,7 @@ import {
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -110,6 +111,11 @@ function SpotlightContent({
           floatingPosition.height === height
         ) {
           return;
+        }
+        if (platformEnv.isDev && floatingPosition.width === 0) {
+          throw new Error(
+            'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
+          );
         }
         setFloatingPosition({
           x,
