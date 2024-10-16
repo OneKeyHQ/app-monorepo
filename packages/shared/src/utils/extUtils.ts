@@ -57,10 +57,6 @@ function buildExtRouteUrl(
   return chrome.runtime.getURL(`/${htmlFile}${hash}`);
 }
 
-function openUrl(url: string) {
-  window.open(url, '_blank');
-}
-
 async function getTabById(tabId: number): Promise<chrome.tabs.Tab> {
   return new Promise((resolve) => {
     chrome.tabs.get(tabId, resolve);
@@ -290,7 +286,6 @@ async function openPermissionSettings() {
 }
 
 export default {
-  openUrl,
   openUrlInTab,
   openPassKeyWindow,
   openExpandTabOrSidePanel,

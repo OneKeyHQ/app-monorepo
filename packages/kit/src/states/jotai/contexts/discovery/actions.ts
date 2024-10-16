@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
   IBrowserBookmark,
   IBrowserHistory,
@@ -30,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -512,7 +512,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         if (browserTypeHandler === 'StandardBrowser') {
-          return openUrl(validatedUrl);
+          return openUrlInApp(validatedUrl);
         }
 
         const tabId = tab?.id;

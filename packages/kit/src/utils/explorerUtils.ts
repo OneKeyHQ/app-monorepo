@@ -1,6 +1,6 @@
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { openUrl } from './openUrl';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 export const openExplorerAddressUrl = async ({
   networkId,
@@ -18,7 +18,7 @@ export const openExplorerAddressUrl = async ({
     type: 'address' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  openUrl(url);
+  openUrlInApp(url);
 };
 
 export const openTransactionDetailsUrl = async ({
@@ -37,7 +37,7 @@ export const openTransactionDetailsUrl = async ({
     type: 'transaction' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  openUrl(url);
+  openUrlInApp(url);
 };
 
 export const openTokenDetailsUrl = async ({
@@ -56,5 +56,5 @@ export const openTokenDetailsUrl = async ({
     type: 'token' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  openUrl(url);
+  openUrlInApp(url);
 };

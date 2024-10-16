@@ -15,10 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { openUrl } from '../../utils/openUrl';
 
 const TRON_RESOURCE_DOC_URL =
   'https://developers.tron.network/docs/resource-model';
@@ -134,7 +134,7 @@ function ResourceDetailsContent({
           size="small"
           variant="tertiary"
           icon="QuestionmarkOutline"
-          onPress={() => openUrl(TRON_RESOURCE_DOC_URL)}
+          onPress={() => openUrlInApp(TRON_RESOURCE_DOC_URL)}
         >
           {intl.formatMessage({ id: ETranslations.global_learn_more })}
         </Button>
