@@ -164,6 +164,7 @@ class ServiceStaking extends ServiceBase {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
+      feeRate: params.feeRate,
       networkId,
       symbol,
       provider,
