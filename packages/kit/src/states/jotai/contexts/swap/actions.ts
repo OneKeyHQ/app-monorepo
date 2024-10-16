@@ -161,39 +161,81 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  selectFromToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
-    const fromToken = get(swapSelectFromTokenAtom());
-    const toToken = get(swapSelectToTokenAtom());
-    const swapTypeSwitchValue = get(swapTypeSwitchAtom());
+  needChangeToken = ({
+    token,
+    toToken,
+    swapTypeSwitchValue,
+  }: {
+    token: ISwapToken;
+    swapTypeSwitchValue: ESwapTabSwitchType;
+    toToken?: ISwapToken;
+  }) => {
     if (
-      fromToken?.networkId !== token.networkId ||
-      fromToken?.contractAddress !== token.contractAddress
+      token.networkId !== toToken?.networkId &&
+      swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
-      this.cleanManualSelectQuoteProviders.call(set);
-      this.resetSwapSlippage.call(set);
-      await this.syncNetworksSort.call(set, token.networkId);
-      set(swapSelectFromTokenAtom(), token);
-      if (
-        token.networkId !== toToken?.networkId &&
-        swapTypeSwitchValue === ESwapTabSwitchType.SWAP
-      ) {
-        const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-        if (token.isNative) {
-          set(
-            swapSelectToTokenAtom(),
-            !defaultTokenSet.toToken?.isNative
-              ? defaultTokenSet.toToken
-              : undefined,
-          );
-        } else if (
-          defaultTokenSet.fromToken &&
-          defaultTokenSet.fromToken.isNative
-        ) {
-          set(swapSelectToTokenAtom(), defaultTokenSet.fromToken);
-        }
+      const defaultTokenSet = swapDefaultSetTokens[token.networkId];
+      if (token.isNative && !defaultTokenSet.toToken?.isNative) {
+        return defaultTokenSet.toToken;
       }
+      if (!token.isNative && defaultTokenSet.fromToken?.isNative) {
+        return defaultTokenSet.fromToken;
+      }
+      return null;
     }
-  });
+  };
+
+  // selectFromToken = contextAtomMethod(
+  //   async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
+  //     const fromToken = get(swapSelectFromTokenAtom());
+  //     const toToken = get(swapSelectToTokenAtom());
+  //     const swapTypeSwitchValue = get(swapTypeSwitchAtom());
+  //     if (
+  //       fromToken?.networkId !== token.networkId ||
+  //       fromToken?.contractAddress !== token.contractAddress
+  //     ) {
+  //       this.cleanManualSelectQuoteProviders.call(set);
+  //       this.resetSwapSlippage.call(set);
+  //       await this.syncNetworksSort.call(set, token.networkId);
+  //       const needChangeToToken = this.needChangeToken({
+  //         token,
+  //         swapTypeSwitchValue,
+  //         toToken,
+  //       });
+  //       if (needChangeToToken && !disableCheckToToken) {
+  //         set(swapSelectToTokenAtom(), undefined);
+  //         set(swapSelectFromTokenAtom(), token);
+  //         set(swapSelectToTokenAtom(), needChangeToToken);
+  //       } else {
+  //         set(swapSelectFromTokenAtom(), token);
+  //       }
+  //     }
+  //   },
+  // );
+  selectFromToken = contextAtomMethod(
+    async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      const swapTypeSwitchValue = get(swapTypeSwitchAtom());
+      if (
+        fromToken?.networkId !== token.networkId ||
+        fromToken?.contractAddress !== token.contractAddress
+      ) {
+        this.cleanManualSelectQuoteProviders.call(set);
+        this.resetSwapSlippage.call(set);
+        await this.syncNetworksSort.call(set, token.networkId);
+        const needChangeToToken = this.needChangeToken({
+          token,
+          swapTypeSwitchValue,
+          toToken,
+        });
+        if (needChangeToToken && !disableCheckToToken) {
+          return { fToken: token, tToken: needChangeToToken };
+        }
+        return { fToken: token };
+      }
+    },
+  );
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     const toToken = get(swapSelectToTokenAtom());
@@ -204,8 +246,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       this.cleanManualSelectQuoteProviders.call(set);
       this.resetSwapSlippage.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
+      set(swapSelectToTokenAtom(), token);
     }
-    set(swapSelectToTokenAtom(), token);
   });
 
   alternationToken = contextAtomMethod((get, set) => {
