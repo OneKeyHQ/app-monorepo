@@ -322,7 +322,7 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
     () => ({
       isFirstVisit: times === 0,
       tourVisited,
-      times,
+      tourTimes: times,
     }),
     [times, tourVisited],
   );
