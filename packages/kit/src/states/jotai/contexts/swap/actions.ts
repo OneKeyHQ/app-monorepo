@@ -187,43 +187,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   selectFromToken = contextAtomMethod(
     async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
-      const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
-      if (
-        fromToken?.networkId !== token.networkId ||
-        fromToken?.contractAddress !== token.contractAddress
-      ) {
-        this.cleanManualSelectQuoteProviders.call(set);
-        this.resetSwapSlippage.call(set);
-        await this.syncNetworksSort.call(set, token.networkId);
-        const needChangeToToken = this.needChangeToken({
-          token,
-          swapTypeSwitchValue,
-          toToken,
-        });
-        if (needChangeToToken && !disableCheckToToken) {
-          set(swapSelectToTokenAtom(), undefined);
-          set(swapSelectFromTokenAtom(), token);
-          set(swapSelectToTokenAtom(), needChangeToToken);
-        } else {
-          set(swapSelectFromTokenAtom(), token);
-        }
+      this.cleanManualSelectQuoteProviders.call(set);
+      this.resetSwapSlippage.call(set);
+      await this.syncNetworksSort.call(set, token.networkId);
+      const needChangeToToken = this.needChangeToken({
+        token,
+        swapTypeSwitchValue,
+        toToken,
+      });
+      if (needChangeToToken && !disableCheckToToken) {
+        set(swapSelectToTokenAtom(), undefined);
+        set(swapSelectFromTokenAtom(), token);
+        set(swapSelectToTokenAtom(), needChangeToToken);
+      } else {
+        set(swapSelectFromTokenAtom(), token);
       }
     },
   );
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
-    const toToken = get(swapSelectToTokenAtom());
-    if (
-      toToken?.networkId !== token.networkId ||
-      toToken?.contractAddress !== token.contractAddress
-    ) {
-      this.cleanManualSelectQuoteProviders.call(set);
-      this.resetSwapSlippage.call(set);
-      await this.syncNetworksSort.call(set, token.networkId);
-      set(swapSelectToTokenAtom(), token);
-    }
+    this.cleanManualSelectQuoteProviders.call(set);
+    this.resetSwapSlippage.call(set);
+    await this.syncNetworksSort.call(set, token.networkId);
+    set(swapSelectToTokenAtom(), token);
   });
 
   alternationToken = contextAtomMethod((get, set) => {
