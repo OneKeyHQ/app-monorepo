@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NavBackButton, Page } from '@onekeyhq/components';
+import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -33,14 +33,17 @@ export function HeaderLeft({
         key="accountSelectorTrigger"
         spotlightProps={{
           visible: true,
-          content: intl.formatMessage({
-            id: ETranslations.spotlight_account_alignment_desc,
-          }),
+          content: (
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.spotlight_account_alignment_desc,
+              })}
+            </SizableText>
+          ),
           onConfirm: () => {
             console.log('Done');
           },
           childrenPaddingVertical: 0,
-          tourName: ESpotlightTour.switchDappAccount,
         }}
       />
     );
