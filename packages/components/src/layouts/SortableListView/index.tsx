@@ -22,9 +22,11 @@ import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { DragStart, DropResult } from 'react-beautiful-dnd';
 import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
 
-if (typeof globalThis !== 'undefined') {
+// eslint-disable-next-line unicorn/prefer-global-this
+if (typeof window !== 'undefined') {
   Object.defineProperty(
-    globalThis,
+    // eslint-disable-next-line unicorn/prefer-global-this
+    window,
     '__react-beautiful-dnd-disable-dev-warnings',
     {
       value: true,

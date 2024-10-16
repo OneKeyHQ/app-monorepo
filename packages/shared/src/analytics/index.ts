@@ -80,8 +80,10 @@ export class Analytics {
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
-      typeof globalThis !== 'undefined' &&
-      'location' in globalThis
+      // eslint-disable-next-line unicorn/prefer-global-this
+      typeof window !== 'undefined' &&
+      // eslint-disable-next-line unicorn/prefer-global-this
+      'location' in window
     ) {
       event.currentUrl = globalThis.location.href;
     }

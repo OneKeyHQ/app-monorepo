@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 const isBrowser =
-  typeof globalThis !== 'undefined' && typeof document !== 'undefined';
+  // eslint-disable-next-line unicorn/prefer-global-this
+  typeof window !== 'undefined' && typeof document !== 'undefined';
 
 function stringifyOptions(options: Record<string, string | boolean | number>) {
   return Object.keys(options).reduce((acc, key) => {

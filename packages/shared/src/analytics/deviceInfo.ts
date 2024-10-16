@@ -1,17 +1,16 @@
+/* eslint-disable unicorn/prefer-global-this */
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { IDeviceInfo, IGetDeviceInfo } from './type';
 
 const deviceInfo = {
   deviceId: generateUUID(),
-  screenHeight:
-    typeof globalThis !== 'undefined' ? window.innerHeight : undefined,
-  screenWidth:
-    typeof globalThis !== 'undefined' ? window.innerWidth : undefined,
+  screenHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
+  screenWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
   referrer: typeof document !== 'undefined' ? document.referrer : undefined,
 } as IDeviceInfo;
 
-if (typeof globalThis !== 'undefined' && window.addEventListener) {
+if (typeof window !== 'undefined' && window.addEventListener) {
   window.addEventListener('resize', () => {
     deviceInfo.screenHeight = window.innerHeight;
     deviceInfo.screenWidth = window.innerWidth;

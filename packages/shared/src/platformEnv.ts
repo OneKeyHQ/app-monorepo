@@ -215,7 +215,8 @@ const getAppChannel = (): IAppChannel | undefined => {
 };
 
 const isRuntimeBrowser: boolean =
-  typeof globalThis !== 'undefined' && !isNative;
+  // eslint-disable-next-line unicorn/prefer-global-this
+  typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
 const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';
@@ -340,6 +341,7 @@ const getBrowserInfo = () => {
 
 const isWebTouchable =
   isRuntimeBrowser &&
+  // eslint-disable-next-line unicorn/prefer-global-this
   ('ontouchstart' in globalThis || navigator.maxTouchPoints > 0);
 
 let isWebMobile = false;
