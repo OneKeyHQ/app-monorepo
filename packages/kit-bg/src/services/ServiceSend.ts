@@ -349,6 +349,7 @@ class ServiceSend extends ServiceBase {
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
+      const feeInfo = sendSelectedFeeInfos?.[i];
       if (
         !successfullySentTxs ||
         !unsignedTx.uuid ||
@@ -371,13 +372,14 @@ class ServiceSend extends ServiceBase {
           networkId,
           accountId,
           unsignedTx,
-          feeInfo: sendSelectedFeeInfos?.[i],
+          feeInfo,
           transferPayload,
         });
 
         const data = {
           signedTx,
           decodedTx,
+          feeInfo: feeInfo?.feeInfo,
         };
 
         // only fill swap(staking) tx info for batch approve&swap(staking) callback
