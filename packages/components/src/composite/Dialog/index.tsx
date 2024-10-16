@@ -89,6 +89,7 @@ function DialogFrame({
   showConfirmButton = true,
   showCancelButton = true,
   testID,
+  isAsync,
 }: IDialogProps) {
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
@@ -138,7 +139,11 @@ function DialogFrame({
     <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
-      <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
+      <Content
+        testID={testID}
+        isAsync={isAsync}
+        estimatedContentHeight={estimatedContentHeight}
+      >
         {renderContent}
       </Content>
       <Footer

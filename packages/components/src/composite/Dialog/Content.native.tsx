@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -15,8 +15,9 @@ export function Content({
   children,
   estimatedContentHeight,
   testID,
+  isAsync = false,
 }: IDialogContentProps) {
-  const isOptimization = !!estimatedContentHeight;
+  const isOptimization = isAsync || !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
   const timeRef = useRef(Date.now());
@@ -81,17 +82,21 @@ export function Content({
     }
   }, [checkMeasureY, children, isOptimization]);
 
+  const height = useMemo(() => {
+    if (estimatedContentHeight) {
+      return estimatedContentHeight;
+    }
+    if (isAsync && showLoading) {
+      return '$20';
+    }
+    return undefined;
+  }, [isAsync, estimatedContentHeight, showLoading]);
+
   if (!children) {
     return null;
   }
   return (
-    <YStack
-      px="$5"
-      pb="$5"
-      ref={ref}
-      height={estimatedContentHeight}
-      onLayout={handleLayout}
-    >
+    <YStack px="$5" pb="$5" ref={ref} height={height} onLayout={handleLayout}>
       {isOptimization ? (
         <>
           {
