@@ -1,12 +1,14 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { NavBackButton, Page, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
@@ -27,7 +29,18 @@ export function HeaderLeft({
     console.log('times: ====>>>>: ', tourTimes);
   }, [tourTimes]);
 
-  const spotlightVisible = useMemo(() => tourTimes === 1, [tourTimes]);
+  const [isFocus, setIsFocus] = useState(false);
+
+  useListenTabFocusState(
+    ETabRoutes.Home,
+    async (focus: boolean, hideByModal: boolean) => {
+      setIsFocus(!hideByModal && focus);
+    },
+  );
+  const spotlightVisible = useMemo(
+    () => tourTimes === 1 && isFocus,
+    [isFocus, tourTimes],
+  );
   const items = useMemo(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
