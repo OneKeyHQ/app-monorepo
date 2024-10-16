@@ -46,9 +46,10 @@ const SwapToAnotherAddressPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const paramAddress = route.params?.address;
-  const { accountInfo, networkId, address } = useSwapAddressInfo(
+  const { accountInfo, address, activeAccount } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
+
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const intl = useIntl();
@@ -87,12 +88,12 @@ const SwapToAnotherAddressPage = () => {
       setSwapToAddress((v) => ({
         ...v,
         address: finallyAddress,
-        networkId,
-        accountInfo,
+        networkId: activeAccount?.network?.id,
+        accountInfo: activeAccount,
       }));
       navigation.pop();
     },
-    [accountInfo, navigation, networkId, setSettings, setSwapToAddress],
+    [activeAccount, navigation, setSettings, setSwapToAddress],
   );
 
   const handleOnCancel = useCallback(() => {
