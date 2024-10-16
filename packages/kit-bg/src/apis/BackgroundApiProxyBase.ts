@@ -135,11 +135,11 @@ export class BackgroundApiProxyBase
       };
       if (sync) {
         // call without Promise result
-        window.extJsBridgeUiToBg.requestSync({
+        globalThis.extJsBridgeUiToBg.requestSync({
           data,
         });
       } else {
-        return window.extJsBridgeUiToBg.request({
+        return globalThis.extJsBridgeUiToBg.request({
           data,
         });
       }

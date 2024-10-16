@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 const isBrowser =
-  typeof window !== 'undefined' && typeof document !== 'undefined';
+  typeof globalThis !== 'undefined' && typeof document !== 'undefined';
 
 function stringifyOptions(options: Record<string, string | boolean | number>) {
   return Object.keys(options).reduce((acc, key) => {

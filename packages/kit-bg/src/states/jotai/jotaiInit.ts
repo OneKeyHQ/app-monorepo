@@ -128,7 +128,7 @@ export async function jotaiInit() {
   globalJotaiStorageReadyHandler.resolveReady(true);
 
   if (process.env.NODE_ENV !== 'production') {
-    global.$$allAtoms = allAtoms;
+    globalThis.$$allAtoms = allAtoms;
   }
 
   return atoms;

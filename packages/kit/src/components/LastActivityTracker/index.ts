@@ -80,7 +80,7 @@ const LastActivityTracker = () => {
       }
 
       if (platformEnv.isDesktop) {
-        window?.desktopApi?.setSystemIdleTime(appLockDuration * 60, () => {
+        globalThis?.desktopApi?.setSystemIdleTime(appLockDuration * 60, () => {
           void backgroundApiProxy.servicePassword.lockApp();
         });
       }
@@ -89,7 +89,7 @@ const LastActivityTracker = () => {
         chrome.idle.onStateChanged.removeListener(extHandleSystemIdle);
       }
       if (platformEnv.isDesktop) {
-        window?.desktopApi?.setSystemIdleTime(0); // set 0 to disable
+        globalThis?.desktopApi?.setSystemIdleTime(0); // set 0 to disable
       }
     }
   }, [

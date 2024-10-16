@@ -22,7 +22,7 @@ function buildLoggerConfig(): ILoggerConfig {
     enabled: {},
   };
   const defaultLoggerInstance =
-    (global.$$defaultLogger as unknown as Record<string, BaseScope>) || {};
+    (globalThis.$$defaultLogger as unknown as Record<string, BaseScope>) || {};
   Object.keys(defaultLoggerInstance)
     .sort((a, b) => natsort({ insensitive: true })(a, b))
     .forEach((scope) => {

@@ -90,7 +90,7 @@ export function createChartDom(
   chart.timeScale().fitContent();
   window.addEventListener('resize', handleResize);
   // @ts-ignore
-  window._onekey_chart = chart;
+  globalThis._onekey_chart = chart;
   return { chart, handleResize };
 }
 
@@ -112,7 +112,7 @@ export function updateChartDom({
     }),
   );
   // @ts-ignore
-  const chart = window._onekey_chart as IOnekeyChartApi;
+  const chart = globalThis._onekey_chart as IOnekeyChartApi;
   if (!chart._onekey_series) {
     const newSeries = chart.addAreaSeries({
       lineColor,

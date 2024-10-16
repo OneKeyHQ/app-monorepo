@@ -46,8 +46,7 @@ export const getHardwareSDKInstance = memoizee(
       if (!platformEnv.isNative) {
         let connectSrc = generateConnectSrc(params.hardwareConnectSrc);
         if (platformEnv.isDesktop) {
-          // @ts-expect-error
-          const { sdkConnectSrc } = window.ONEKEY_DESKTOP_GLOBALS ?? {};
+          const { sdkConnectSrc } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
           if (sdkConnectSrc) {
             connectSrc = sdkConnectSrc;
           }

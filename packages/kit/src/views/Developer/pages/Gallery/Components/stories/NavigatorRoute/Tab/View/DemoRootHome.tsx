@@ -168,7 +168,7 @@ const DemoRootHome = () => {
                       );
                     }
                   }
-                  window.location.reload();
+                  globalThis.location.reload();
                 }
               }}
             >

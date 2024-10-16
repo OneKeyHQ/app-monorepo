@@ -22,7 +22,7 @@ export class EvmConnectorManager {
     const multiInjectedProviderDiscovery = true;
     if (!this._mipd) {
       this._mipd =
-        typeof window !== 'undefined' && multiInjectedProviderDiscovery
+        typeof globalThis !== 'undefined' && multiInjectedProviderDiscovery
           ? createMipd()
           : undefined;
     }

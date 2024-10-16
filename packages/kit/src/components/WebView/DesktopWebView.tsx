@@ -47,7 +47,7 @@ export type {
 const isDev = process.env.NODE_ENV !== 'production';
 
 function usePreloadJsUrl() {
-  const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS ?? {};
+  const { preloadJsUrl } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
   useEffect(() => {
     if (preloadJsUrl) {
       return;

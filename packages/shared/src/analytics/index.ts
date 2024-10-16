@@ -80,10 +80,10 @@ export class Analytics {
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
-      typeof window !== 'undefined' &&
-      'location' in window
+      typeof globalThis !== 'undefined' &&
+      'location' in globalThis
     ) {
-      event.currentUrl = window.location.href;
+      event.currentUrl = globalThis.location.href;
     }
     const axios = this.lazyAxios();
     await axios.post('/utility/v1/track/event', {
@@ -116,4 +116,4 @@ export class Analytics {
 }
 
 export const analytics = new Analytics();
-global.$analytics = analytics;
+globalThis.$analytics = analytics;

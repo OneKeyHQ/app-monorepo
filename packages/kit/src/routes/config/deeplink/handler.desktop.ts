@@ -14,7 +14,7 @@ export const registerHandler: IRegisterHandler = (
   };
 
   try {
-    window.desktopApi.removeIpcEventListener(
+    globalThis.desktopApi.removeIpcEventListener(
       ipcMessageKeys.EVENT_OPEN_URL,
       desktopLinkingHandler,
     );
@@ -22,7 +22,7 @@ export const registerHandler: IRegisterHandler = (
     // noop
   }
 
-  window.desktopApi.addIpcEventListener(
+  globalThis.desktopApi.addIpcEventListener(
     ipcMessageKeys.EVENT_OPEN_URL,
     desktopLinkingHandler,
   );

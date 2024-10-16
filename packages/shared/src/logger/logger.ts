@@ -56,6 +56,6 @@ export class DefaultLogger {
 }
 
 const defaultLogger = new DefaultLogger();
-global.$$defaultLogger = defaultLogger;
+globalThis.$$defaultLogger = defaultLogger;
 
 export { defaultLogger };

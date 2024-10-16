@@ -1,7 +1,7 @@
 import assert from 'assert';
 import * as crypto from 'crypto';
 
-const globalCrypto = global.crypto;
+const globalCrypto = globalThis.crypto;
 
 // @ts-ignore
 assert.ok(globalCrypto?.$$isOneKeyShim, 'global crypto is not polyfilled');

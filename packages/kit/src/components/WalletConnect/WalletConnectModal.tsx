@@ -16,9 +16,9 @@ function updateModalSizeOnExtFn() {
   if (!platformEnv.isExtension) {
     return;
   }
-  if (!global.document) return;
+  if (!globalThis.document) return;
 
-  const qrModal = global.document
+  const qrModal = globalThis.document
     ?.querySelector('wcm-modal')
     ?.shadowRoot?.querySelector('#wcm-modal .wcm-card wcm-modal-router')
     ?.shadowRoot?.querySelector('.wcm-content wcm-connect-wallet-view')

@@ -364,8 +364,8 @@ export function GetStarted({
 export default GetStarted;
 
 export const openOnBoardingFromExt = () => {
-  if (platformEnv.isExtension && typeof window !== 'undefined') {
-    return window.location.hash.includes('fromExt=true');
+  if (platformEnv.isExtension && typeof globalThis !== 'undefined') {
+    return globalThis.location.hash.includes('fromExt=true');
   }
   return false;
 };

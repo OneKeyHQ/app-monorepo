@@ -402,7 +402,7 @@ async function batchGetPublicKeysAsync(
   params: IBatchGetPublicKeysAsyncParams,
 ): Promise<ISecretPublicKeyInfo[]> {
   if (platformEnv.isNative) {
-    const keys = await global.$webembedApiProxy.secret.batchGetPublicKeys(
+    const keys = await globalThis.$webembedApiProxy.secret.batchGetPublicKeys(
       params,
     );
     return keys.map((key) => ({
@@ -524,7 +524,7 @@ export function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
+    return globalThis.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
   }
   return Promise.resolve(
     mnemonicFromEntropy(params.hdCredential, params.password),
@@ -539,7 +539,7 @@ export async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
   if (platformEnv.isNative) {
-    const hex = await global.$webembedApiProxy.secret.mnemonicToSeedAsync(
+    const hex = await globalThis.$webembedApiProxy.secret.mnemonicToSeedAsync(
       params,
     );
     return Buffer.from(hex, 'hex');
@@ -558,7 +558,7 @@ export async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
+    return globalThis.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
       params,
     );
   }

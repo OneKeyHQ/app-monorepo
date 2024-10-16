@@ -33,7 +33,7 @@ function init() {
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg
-  window.extJsBridgeUiToBg = bridgeSetup.ui.createUiJsBridge({
+  globalThis.extJsBridgeUiToBg = bridgeSetup.ui.createUiJsBridge({
     receiveHandler: jsBridgeReceiveHandler,
     onPortConnect() {
       // use <WaitBackgroundReady /> instead
