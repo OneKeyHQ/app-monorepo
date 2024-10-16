@@ -14,10 +14,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import { AccountAvatar } from '../../AccountAvatar';
-import { Spotlight } from '../../Spotlight';
+import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
-import type { ISpotlightProps } from '../../Spotlight';
+import type { ISpotlightViewProps } from '../../Spotlight';
 
 export function AccountSelectorTriggerBase({
   num,
@@ -27,7 +27,7 @@ export function AccountSelectorTriggerBase({
 }: {
   num: number;
   autoWidthForHome?: boolean;
-  spotlightProps?: ISpotlightProps;
+  spotlightProps?: ISpotlightViewProps;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName, wallet },
@@ -122,7 +122,7 @@ export function AccountSelectorTriggerBase({
   );
 
   if (spotlightProps) {
-    return <Spotlight {...spotlightProps}>{content}</Spotlight>;
+    return <SpotlightView {...spotlightProps}>{content}</SpotlightView>;
   }
   return content;
 }
