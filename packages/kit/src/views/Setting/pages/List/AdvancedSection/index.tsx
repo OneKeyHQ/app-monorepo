@@ -95,6 +95,14 @@ export const AdvancedSection = () => {
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
+        onPress={onAlignPrimaryAccount}
+        icon="RefreshCcwOutline"
+        title={intl.formatMessage({
+          id: ETranslations.settings_account_sync_modal_title,
+        })}
+        drillIn
+      />
+      <ListItem
         onPress={onAddCustomNetwork}
         icon="GlobusOutline"
         title={intl.formatMessage({
@@ -114,12 +122,6 @@ export const AdvancedSection = () => {
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
         })}
-        drillIn
-      />
-      <ListItem
-        onPress={onAlignPrimaryAccount}
-        icon="BranchesOutline"
-        title="Algn primary account"
         drillIn
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}

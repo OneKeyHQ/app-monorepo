@@ -1,11 +1,15 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, Radio, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 function AlignPrimaryAccount() {
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
 
   const setAlignPrimaryAccountMode = useCallback(async (mode: string) => {
@@ -16,21 +20,43 @@ function AlignPrimaryAccount() {
 
   return (
     <Page>
-      <Page.Header title="Align primary account" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_account_sync_modal_title,
+        })}
+      />
       <Page.Body>
-        <Stack p="$5">
+        <Stack px="$5">
           <Radio
             value={settings.alignPrimaryAccountMode}
             onChange={setAlignPrimaryAccountMode}
             options={[
-              { label: 'Default', value: EAlignPrimaryAccountMode.Default },
               {
-                label: 'Align dApp and wallet account',
-                value: EAlignPrimaryAccountMode.AlignDappToWallet,
+                label: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_independent_mode_title,
+                }),
+                value: EAlignPrimaryAccountMode.Default,
+                description: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_independent_mode_description,
+                }),
               },
               {
-                label: 'Alway use primary account for all',
+                label: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_dapp_to_wallet_mode_title,
+                }),
+                value: EAlignPrimaryAccountMode.AlignDappToWallet,
+                description: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_dapp_to_wallet_mode_description,
+                }),
+              },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_wallet_to_all_mode_title,
+                }),
                 value: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+                description: intl.formatMessage({
+                  id: ETranslations.settings_account_sync_wallet_to_all_mode_description,
+                }),
               },
             ]}
           />
