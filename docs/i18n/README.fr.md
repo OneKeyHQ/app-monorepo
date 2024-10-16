@@ -9,9 +9,9 @@
 
 Après avoir récupéré le dernier code via l'outil en ligne de commande git, installez les dépendances du projet dans le répertoire racine avec la commande ``yarn``.
 
-```
-# Installer toutes les dépendances JS et les dépendances du sous-module
+Installer toutes les dépendances JS et les dépendances du sous-module
 
+```
 yarn
 ```
 

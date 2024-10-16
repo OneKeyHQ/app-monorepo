@@ -9,9 +9,9 @@
 
 Nachdem Sie den neuesten Code über das Git-Kommandozeilen-Tool geholt haben, installieren Sie die Projektabhängigkeiten im Hauptverzeichnis mit dem Befehl ``yarn``
 
-```
-# Installation aller JS-Abhängigkeiten und Submodul-Abhängigkeiten
+Installation aller JS-Abhängigkeiten und Submodul-Abhängigkeiten
 
+```
 yarn
 ```
 
