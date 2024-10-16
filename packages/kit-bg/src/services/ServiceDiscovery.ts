@@ -130,7 +130,8 @@ class ServiceDiscovery extends ServiceBase {
   @backgroundMethod()
   async checkUrlSecurity(params: { url: string; from: 'app' | 'script' }) {
     const { url } = params;
-    if (await this._isUrlExistInRiskWhiteList(url)) {
+    const isValidUrl = uriUtils.safeParseURL(url);
+    if (!isValidUrl || (await this._isUrlExistInRiskWhiteList(url))) {
       return {
         host: url,
         level: EHostSecurityLevel.Unknown,
