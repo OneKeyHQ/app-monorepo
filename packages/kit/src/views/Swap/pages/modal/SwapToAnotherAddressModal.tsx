@@ -4,7 +4,15 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Form, Icon, Page, useForm } from '@onekeyhq/components';
+import {
+  Form,
+  Icon,
+  Page,
+  SizableText,
+  Stack,
+  XStack,
+  useForm,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
@@ -24,7 +32,6 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
-import { SizableText, Stack, XStack } from 'tamagui';
 
 interface IFormType {
   address: IAddressInputValue;
