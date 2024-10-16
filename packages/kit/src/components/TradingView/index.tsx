@@ -11,17 +11,14 @@ import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import WebView from '../WebView';
 
+import { htmlCode } from './htmlCode';
+
 interface IBaseTradingViewProps {
   symbol: string;
   mode: 'overview' | 'realtime';
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
-
-const realtimeBaselUrl =
-  'https://www.tradingview-widget.com/embed-widget/advanced-chart';
-const overviewBaseUrl =
-  'https://s.tradingview.com/embed-widget/symbol-overview';
 
 export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
@@ -35,62 +32,25 @@ export function TradingView(props: ITradingViewProps) {
     }
     return `${symbol}USD`;
   }, [symbol]);
-  const navigation = useAppNavigation();
-  const openRealtimePage = useCallback(() => {
-    navigation.push(ETabMarketRoutes.MarketRealTimeTradingView, {
-      symbol,
-    });
-  }, [navigation, symbol]);
-  const url = useMemo(
-    () =>
-      mode === 'realtime'
-        ? `${realtimeBaselUrl}?${new URLSearchParams({
-            locale,
-          }).toString()}#${JSON.stringify({
-            symbol: `BINANCE:${chartSymbol}`,
-            locale,
-            theme,
-          })}`
-        : `${overviewBaseUrl}?${new URLSearchParams({
-            locale,
-          }).toString()}#${JSON.stringify({
-            'symbols': [[`COINBASE:${symbol}USD|1D`]],
-            'chartOnly': true,
-            'colorTheme': theme,
-            'autosize': true,
-            'showVolume': false,
-            'showMA': false,
-            'hideDateRanges': false,
-            'hideMarketStatus': false,
-            'hideSymbolLogo': false,
-            'scalePosition': 'right',
-            'scaleMode': 'Normal',
-            'changeMode': 'price-and-percent',
-            'chartType': 'area',
-            'maLineColor': '#2962FF',
-            'maLineWidth': 1,
-            'maLength': 9,
-            'lineWidth': 2,
-            'lineType': 0,
-            'dateRanges': [
-              '1d|1',
-              '1m|30',
-              '3m|60',
-              '12m|1D',
-              '60m|1W',
-              'all|1M',
-            ],
-          })}`,
-    [chartSymbol, locale, mode, symbol, theme],
-  );
+
+  const url = useMemo(() => {
+    if (platformEnv.isNative) {
+    } else {
+      const blob = new Blob([htmlCode], {
+        type: 'text/html',
+      });
+      return URL.createObjectURL(blob)
+    }
+  }, []);
+
   return platformEnv.isNative ? (
     <Stack style={style as any}>
-      <Button onPress={openRealtimePage}>full screen</Button>
-      <WebView src={url} />
+      {/* <Button onPress={openRealtimePage}>full screen</Button> */}
+      {/* <WebView src={url} /> */}
     </Stack>
   ) : (
     <>
-      <Button onPress={openRealtimePage}>full screen</Button>
+      {/* <Button onPress={openRealtimePage}>full screen</Button> */}
       <div style={style as any}>
         <iframe
           style={{
