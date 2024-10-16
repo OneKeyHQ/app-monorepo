@@ -160,7 +160,13 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionSwap({ networkId }: { networkId?: string }) {
+function WalletActionSwap({
+  networkId,
+  accountId,
+}: {
+  networkId?: string;
+  accountId?: string;
+}) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -182,14 +188,17 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
     <RawActions.Swap
       onPress={handleOnSwap}
       label={intl.formatMessage({ id: ETranslations.global_trade })}
-      disabled={vaultSettings?.disabledSwapAction}
+      disabled={
+        vaultSettings?.disabledSwapAction ||
+        accountUtils.isUrlAccountFn({ accountId })
+      }
     />
   );
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -197,7 +206,7 @@ function WalletActions({ ...rest }: IXStackProps) {
       <ReviewControl>
         <WalletActionBuy />
       </ReviewControl>
-      <WalletActionSwap networkId={network?.id} />
+      <WalletActionSwap networkId={network?.id} accountId={account?.id} />
       <WalletActionSend />
       <WalletActionReceive />
       <WalletActionMore />

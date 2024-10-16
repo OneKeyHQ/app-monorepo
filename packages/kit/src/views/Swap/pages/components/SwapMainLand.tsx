@@ -84,7 +84,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       fromToken: ISwapToken;
       toToken: ISwapToken;
     }) => {
-      void selectFromToken(fromToken);
+      void selectFromToken(fromToken, true);
       void selectToToken(toToken);
     },
     [selectFromToken, selectToToken],
