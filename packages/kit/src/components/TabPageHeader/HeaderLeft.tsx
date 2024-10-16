@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../AccountSelector';
+import { useSpotlight } from '../Spotlight';
 
 export function HeaderLeft({
   sceneName,
@@ -18,6 +19,13 @@ export function HeaderLeft({
   sceneName: EAccountSelectorSceneName;
 }) {
   const intl = useIntl();
+  const { times, tourVisited } = useSpotlight(ESpotlightTour.switchDappAccount);
+
+  useEffect(() => {
+    console.log('times: ====>>>>: ', times);
+  }, [times]);
+
+  const spotlightVisible = useMemo(() => times === 1, [times]);
   const items = useMemo(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
@@ -32,7 +40,7 @@ export function HeaderLeft({
         num={0}
         key="accountSelectorTrigger"
         spotlightProps={{
-          visible: true,
+          visible: spotlightVisible,
           content: (
             <SizableText size="$bodyMd">
               {intl.formatMessage({
@@ -41,14 +49,14 @@ export function HeaderLeft({
             </SizableText>
           ),
           onConfirm: () => {
-            console.log('Done');
+            void tourVisited(2);
           },
           childrenPaddingVertical: 0,
         }}
       />
     );
     return accountSelectorTrigger;
-  }, [intl, sceneName]);
+  }, [intl, sceneName, spotlightVisible, tourVisited]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}

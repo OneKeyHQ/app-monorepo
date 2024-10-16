@@ -15,7 +15,11 @@ class ServiceSpotlight extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateTourTimes(tourName: ESpotlightTour) {
+  public async updateTourTimes(params: {
+    tourName: ESpotlightTour;
+    manualTimes?: number;
+  }) {
+    const { tourName, manualTimes } = params;
     await spotlightPersistAtom.set((prev) => {
       const { data } = prev;
       const tourTimes = data[tourName] || 0;
@@ -23,7 +27,7 @@ class ServiceSpotlight extends ServiceBase {
         ...prev,
         data: {
           ...data,
-          [tourName]: tourTimes + 1,
+          [tourName]: manualTimes ?? tourTimes + 1,
         },
       };
     });

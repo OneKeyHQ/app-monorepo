@@ -4,10 +4,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+
+import { useSpotlight } from '../../../components/Spotlight';
 
 function SyncDappAccountToHomeCmp({
   dAppAccountInfos,
@@ -17,6 +20,9 @@ function SyncDappAccountToHomeCmp({
 }) {
   const actions = useAccountSelectorActions();
   const [settings] = useSettingsPersistAtom();
+  const { isFirstVisit, tourVisited } = useSpotlight(
+    ESpotlightTour.switchDappAccount,
+  );
 
   // Sync dApp account to home page
   useEffect(() => {
@@ -59,9 +65,18 @@ function SyncDappAccountToHomeCmp({
           forceSelectToNetworkId: networkId,
         });
       }
+      if (isFirstVisit) {
+        void tourVisited(1);
+      }
     };
     void sync();
-  }, [dAppAccountInfos, actions, settings.alignPrimaryAccountMode]);
+  }, [
+    dAppAccountInfos,
+    actions,
+    settings.alignPrimaryAccountMode,
+    isFirstVisit,
+    tourVisited,
+  ]);
 
   return null;
 }

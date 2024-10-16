@@ -312,13 +312,20 @@ export function SpotlightView({
 export const useSpotlight = (tourName: ESpotlightTour) => {
   const [{ data }] = useSpotlightPersistAtom();
   const times = data[tourName];
-  const tourVisited = useCallback(async () => {
-    void backgroundApiProxy.serviceSpotlight.updateTourTimes(tourName);
-  }, [tourName]);
+  const tourVisited = useCallback(
+    async (manualTimes?: number) => {
+      void backgroundApiProxy.serviceSpotlight.updateTourTimes({
+        tourName,
+        manualTimes,
+      });
+    },
+    [tourName],
+  );
   return useMemo(
     () => ({
       isFirstVisit: times === 0,
       tourVisited,
+      times,
     }),
     [times, tourVisited],
   );
@@ -354,7 +361,7 @@ export function Spotlight(props: ISpotlightProps) {
     <SpotlightView
       visible={visible}
       content={<SizableText size="$bodyMd">{message}</SizableText>}
-      onConfirm={tourVisited}
+      onConfirm={() => tourVisited()}
       containerProps={containerProps}
       floatingOffset={floatingOffset}
       childrenPaddingVertical={childrenPaddingVertical}
