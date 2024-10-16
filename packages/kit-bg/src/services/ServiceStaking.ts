@@ -790,6 +790,7 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     action: IEarnEstimateAction;
     amount: string;
+    txId?: string;
   }) {
     const { symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
