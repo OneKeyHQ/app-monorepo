@@ -5,9 +5,12 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import type { IExtensionActiveTabDAppInfo } from './useActiveTabDAppInfo';
 
@@ -29,6 +32,7 @@ export function useDappAccountSwitch({
       isOthersWallet,
     },
   } = useActiveAccount({ num: 0 });
+  const [settings] = useSettingsPersistAtom();
 
   const [shouldSwitchAccount, setShouldSwitchAccount] = useState(false);
   const [accountExist, setAccountExist] = useState(false);
@@ -52,6 +56,16 @@ export function useDappAccountSwitch({
         setShouldSwitchAccount(false);
         setAccountExist(false);
       }
+
+      if (
+        settings.alignPrimaryAccountMode ===
+          EAlignPrimaryAccountMode.AlignDappToWallet &&
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        setShouldSwitchAccount(false);
+        return;
+      }
+
       // Check if account switch is supported and if the account exists
       const { supportSwitchConnectionAccount, accountExist: _accountExist } =
         await backgroundApiProxy.serviceDApp.isSupportSwitchDAppConnectionAccount(
@@ -78,7 +92,12 @@ export function useDappAccountSwitch({
       setShouldSwitchAccount(supportSwitchConnectionAccount);
       setAccountExist(_accountExist);
     },
-    [account?.name, indexedAccount?.name, intl],
+    [
+      account?.name,
+      indexedAccount?.name,
+      intl,
+      settings.alignPrimaryAccountMode,
+    ],
   );
 
   useEffect(() => {

@@ -74,17 +74,24 @@ export const AdvancedSection = () => {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+
   const onAccountDerivation = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
+
   const onCustomRPC = useCallback(() => {
     defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomRPC);
   }, [navigation]);
+
   const onAddCustomNetwork = useCallback(() => {
     defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomNetwork);
   }, [navigation]);
+  const onAlignPrimaryAccount = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingAlignPrimaryAccount);
+  }, [navigation]);
+
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
@@ -107,6 +114,12 @@ export const AdvancedSection = () => {
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
         })}
+        drillIn
+      />
+      <ListItem
+        onPress={onAlignPrimaryAccount}
+        icon="BranchesOutline"
+        title="Algn primary account"
         drillIn
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}
