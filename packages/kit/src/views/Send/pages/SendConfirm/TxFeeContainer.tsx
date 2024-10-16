@@ -87,6 +87,19 @@ function TxFeeContainer(props: IProps) {
 
   const isMultiTxs = unsignedTxs.length > 1;
 
+  // For non-HD wallets, approve&swap transactions will be sent as separate consecutive transactions,
+  // each requiring individual confirmation
+  // (HD wallets only need to display one transaction confirmation page containing all information)
+  // The fee for this swap transaction cannot be estimated via RPC,
+  // it must be calculated based on the previous approve transaction fee
+  const isLastSwapTxWithFeeInfo = useMemo(
+    () =>
+      unsignedTxs.length === 1 &&
+      unsignedTxs[0].swapInfo &&
+      unsignedTxs[0].feeInfo,
+    [unsignedTxs],
+  );
+
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -124,6 +137,26 @@ function TxFeeContainer(props: IProps) {
             encodedTx: unsignedTxs[0].encodedTx,
           });
 
+        if (isLastSwapTxWithFeeInfo && unsignedTxs[0].feeInfo) {
+          const r = unsignedTxs[0].feeInfo;
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          return {
+            r: {
+              ...r,
+              gas: r.gas ? [r.gas] : undefined,
+              gasEIP1559: r.gasEIP1559 ? [r.gasEIP1559] : undefined,
+              feeUTXO: r.feeUTXO ? [r.feeUTXO] : undefined,
+              feeTron: r.feeTron ? [r.feeTron] : undefined,
+              gasFil: r.gasFil ? [r.gasFil] : undefined,
+              feeSol: r.feeSol ? [r.feeSol] : undefined,
+            },
+            e,
+          };
+        }
+
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           accountId,
           networkId,
@@ -158,7 +191,13 @@ function TxFeeContainer(props: IProps) {
         });
       }
     },
-    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
+    [
+      accountId,
+      isLastSwapTxWithFeeInfo,
+      networkId,
+      unsignedTxs,
+      updateSendFeeStatus,
+    ],
     {
       watchLoading: true,
       pollingInterval: vaultSettings?.estimatedFeePollingInterval
@@ -174,7 +213,8 @@ function TxFeeContainer(props: IProps) {
   const { r: txFee, e: estimateFeeParams } = result ?? {};
 
   const openFeeEditorEnabled =
-    !!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled;
+    !isLastSwapTxWithFeeInfo &&
+    (!!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled);
 
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
@@ -470,7 +510,7 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
-        isMultiTxs &&
+        (isMultiTxs || (!isMultiTxs && unsignedTx.feeInfo)) &&
         unsignedTx.swapInfo &&
         (selectedFeeInfo.gas || selectedFeeInfo.gasEIP1559)
       ) {
