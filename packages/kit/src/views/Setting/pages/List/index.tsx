@@ -15,12 +15,7 @@ import {
   useClipboard,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
-import {
-  useAppUpdatePersistAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   DISCORD_URL,

@@ -550,6 +550,7 @@ function SendDataInputContainer() {
 
         if (
           tokenDetails?.price &&
+          !new BigNumber(minTransferAmount).isZero() &&
           amountBN.dividedBy(tokenDetails.price).isLessThan(minTransferAmount)
         ) {
           isLessThanMinTransferAmount = true;
