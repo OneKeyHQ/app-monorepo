@@ -69,6 +69,7 @@ export type IStakeBaseParams = {
   provider: string;
 
   term?: number; // Babylon
+  feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
 };
