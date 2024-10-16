@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 /* eslint max-classes-per-file: "off" */
 
+import qs from 'querystring';
+
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil, omit, omitBy } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
@@ -34,6 +36,8 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
   IFetchAccountDetailsResp,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -44,29 +48,42 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
+  IEstimateGasParams,
+  IEstimateGasResp,
   IFeeInfoUnit,
+  IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IFetchHistoryTxDetailsResp,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+} from '@onekeyhq/shared/types/serverToken';
+import type {
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
-import { IStakeBaseParams } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
+  IFetchAccountTokensResp,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 import type {
@@ -282,6 +299,52 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
+    throw new NotImplemented();
+  }
+
+  async checkFeeSupportInfo(params: IMeasureRpcStatusParams): Promise<{
+    isEIP1559FeeEnabled: boolean;
+  }> {
+    throw new NotImplemented();
+  }
+
+  async fetchTokenDetails(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.fetchTokenDetailsByRpc(params);
+    }
+    return this.fetchTokenDetailsByApi(params);
+  }
+
+  async fetchTokenDetailsByApi(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const client = await this.backgroundApi.serviceToken.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      omit(params, ['walletId', 'accountId', 'signal']),
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+            walletId: params.walletId,
+          }),
+        signal: params.signal ?? undefined,
+      },
+    );
+    return resp;
+  }
+
+  async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
 }
@@ -1046,5 +1109,167 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Staking
   buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
     return Promise.resolve(params as IEncodedTx);
+  }
+
+  // Api Request
+  async fetchAccountDetails(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.fetchAccountDetailsByRpc(params);
+    }
+    return this.fetchAccountDetailsByApi(params);
+  }
+
+  async fetchAccountDetailsByApi(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const queryParams = {
+      ...omit(params, ['accountId', 'signal']),
+    };
+
+    const client = await this.backgroundApi.serviceAccountProfile.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.get<{
+      data: IFetchAccountDetailsResp;
+    }>(
+      `/wallet/v1/account/get-account?${qs.stringify(
+        omitBy(queryParams, isNil),
+      )}`,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId: params.accountId,
+          }),
+        signal: params.signal,
+      },
+    );
+
+    return resp;
+  }
+
+  async fetchAccountDetailsByRpc(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    throw new NotImplemented();
+  }
+
+  async fetchTokenList(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.fetchTokenListByRpc(params);
+    }
+    return this.fetchTokenListByApi(params);
+  }
+
+  async fetchTokenListByApi(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    const { serviceToken, serviceAccountProfile } = this.backgroundApi;
+    const { requestApiParams, flag, signal, accountId } = params;
+    const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: IFetchAccountTokensResp;
+    }>(`/wallet/v1/account/token/list?flag=${flag || ''}`, requestApiParams, {
+      signal,
+      headers: await serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      }),
+    });
+    return resp;
+  }
+
+  async fetchTokenListByRpc(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    throw new NotImplemented();
+  }
+
+  async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.estimateFeeByRpc(params);
+    }
+    return this.estimateFeeByApi(params);
+  }
+
+  async estimateFeeByApi(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const { accountId, ...rest } = params;
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IEstimateGasResp }>(
+      '/wallet/v1/account/estimate-fee',
+      rest,
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp;
+  }
+
+  async estimateFeeByRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    throw new NotImplemented();
+  }
+
+  async fetchAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId: this.networkId,
+      });
+    if (isCustomNetwork) {
+      return this.fetchAccountHistoryDetailByRpc(params);
+    }
+    return this.fetchAccountHistoryDetailByApi(params);
+  }
+
+  async fetchAccountHistoryDetailByApi(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const { accountId, ...rest } = params;
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+      '/wallet/v1/account/history/detail',
+      {
+        params: rest,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp;
+  }
+
+  async fetchAccountHistoryDetailByRpc(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    throw new NotImplemented();
   }
 }

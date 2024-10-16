@@ -16,6 +16,7 @@ type IStakingListItemProps = {
   networkId: string;
   accountId: string;
   tokenAddress: string;
+  indexedAccountId?: string;
 };
 
 const StakingEntryListItemContent = ({
@@ -53,6 +54,8 @@ const StakingEntryListItemContent = ({
         </Stack>
         <ListItem.Text
           flex={1}
+          userSelect="none"
+          cursor="default"
           primary={primary}
           secondary={
             aprValue && Number(aprValue) > 0
@@ -65,6 +68,7 @@ const StakingEntryListItemContent = ({
           secondaryTextProps={{
             size: '$bodyMdMedium',
             color: '$textSuccess',
+            userSelect: 'none',
           }}
         />
       </ListItem>
@@ -77,14 +81,15 @@ const StakingEntryListItem = ({
   accountId,
   symbol,
   aprValue,
+  indexedAccountId,
 }: IStakingListItemProps & { symbol: string; aprValue: string }) => {
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.AssetProtocolList,
-      params: { networkId, accountId, symbol, filter: true },
+      params: { networkId, accountId, symbol, indexedAccountId, filter: true },
     });
-  }, [navigation, networkId, accountId, symbol]);
+  }, [navigation, networkId, accountId, symbol, indexedAccountId]);
   const intl = useIntl();
   return (
     <StakingEntryListItemContent
@@ -105,6 +110,7 @@ export const TokenDetailStakingEntry = ({
   networkId,
   accountId,
   tokenAddress,
+  indexedAccountId,
 }: IStakingListItemProps) => {
   const { result } = usePromiseResult(async () => {
     const symbolInfo =
@@ -133,6 +139,7 @@ export const TokenDetailStakingEntry = ({
         networkId={networkId}
         accountId={accountId}
         tokenAddress={tokenAddress}
+        indexedAccountId={indexedAccountId}
         symbol={result.symbolInfo.symbol}
         aprValue={String(result.maxApr)}
       />

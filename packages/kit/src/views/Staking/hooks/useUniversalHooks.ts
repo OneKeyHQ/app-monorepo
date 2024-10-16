@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IStakeTxResponse,
@@ -28,6 +28,7 @@ export function useUniversalStake({
       amount,
       symbol,
       term,
+      feeRate,
       provider,
       stakingInfo,
       onSuccess,
@@ -36,6 +37,7 @@ export function useUniversalStake({
       amount: string;
       symbol: string;
       term?: number;
+      feeRate?: number;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -49,6 +51,7 @@ export function useUniversalStake({
           symbol,
           term,
           provider,
+          feeRate,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -59,7 +62,10 @@ export function useUniversalStake({
 
       let useFeeInTx;
       let feeInfoEditable;
-      if (networkUtils.isBTCNetwork(networkId)) {
+      if (
+        networkUtils.isBTCNetwork(networkId) &&
+        (encodedTx as IEncodedTxBtc).fee
+      ) {
         useFeeInTx = true;
         feeInfoEditable = false;
       }
@@ -137,7 +143,7 @@ export function useUniversalWithdraw({
               message,
               payload: [account.address, message],
             },
-            sceneName: EAccountSelectorSceneName.home,
+            walletInternalSign: true,
           })) as string;
 
         stakeTx =
@@ -166,10 +172,21 @@ export function useUniversalWithdraw({
         accountId,
         tx: stakeTx,
       });
+      let useFeeInTx;
+      let feeInfoEditable;
+      if (
+        networkUtils.isBTCNetwork(networkId) &&
+        (encodedTx as IEncodedTxBtc).fee
+      ) {
+        useFeeInTx = true;
+        feeInfoEditable = false;
+      }
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
         signOnly: stakingConfig?.withdrawSignOnly,
+        useFeeInTx,
+        feeInfoEditable,
         onSuccess: async (data) => {
           if (!stakingConfig?.withdrawSignOnly) {
             onSuccess?.(data);
@@ -237,11 +254,22 @@ export function useUniversalClaim({
           accountId,
           tx: stakeTx,
         });
+        let useFeeInTx;
+        let feeInfoEditable;
+        if (
+          networkUtils.isBTCNetwork(networkId) &&
+          (encodedTx as IEncodedTxBtc).fee
+        ) {
+          useFeeInTx = true;
+          feeInfoEditable = false;
+        }
         await navigationToSendConfirm({
           encodedTx,
           stakingInfo,
           onSuccess,
           onFail,
+          useFeeInTx,
+          feeInfoEditable,
         });
       };
       if (Number(amount) > 0) {

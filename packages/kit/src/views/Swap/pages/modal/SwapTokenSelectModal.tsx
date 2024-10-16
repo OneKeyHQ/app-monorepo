@@ -10,7 +10,6 @@ import {
   Alert,
   Divider,
   Empty,
-  IconButton,
   ListView,
   Page,
   SizableText,
@@ -32,10 +31,10 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,6 +53,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
+  ESwapTabSwitchType,
   ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
@@ -83,10 +83,11 @@ const SwapTokenSelectPage = () => {
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
-  const [swapNetworks] = useSwapNetworksAtom();
+  const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
@@ -103,17 +104,34 @@ const SwapTokenSelectPage = () => {
           ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
-    } else if (toToken?.networkId) {
-      return (
-        swapNetworksIncludeAllNetwork.find(
-          (item: ISwapNetwork) => item.networkId === toToken.networkId,
-        ) ?? swapNetworksIncludeAllNetwork?.[0]
-      );
+      if (toToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === toToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
+    } else {
+      if (toToken?.networkId) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === toToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
+      if (fromToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+        return (
+          swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
+          ) ?? swapNetworksIncludeAllNetwork?.[0]
+        );
+      }
     }
     return swapNetworksIncludeAllNetwork?.[0];
   }, [
     fromToken?.networkId,
     swapNetworksIncludeAllNetwork,
+    swapTypeSwitch,
     toToken?.networkId,
     type,
   ]);
@@ -242,6 +260,36 @@ const SwapTokenSelectPage = () => {
 
   const { md } = useMedia();
   const { copyText } = useClipboard();
+
+  const disableNetworks = useMemo(() => {
+    let res: string[] = [];
+    const networkIds = swapNetworksIncludeAllNetwork.map(
+      (net) => net.networkId,
+    );
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.SWAP &&
+      type === ESwapDirectionType.TO &&
+      fromToken
+    ) {
+      res = networkIds.filter((net) => net !== fromToken?.networkId);
+    }
+    if (
+      type === ESwapDirectionType.TO &&
+      fromToken &&
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE
+    ) {
+      res = networkIds.filter((net) => net === fromToken?.networkId);
+    }
+
+    if (
+      type === ESwapDirectionType.FROM &&
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
+      toToken
+    ) {
+      res = networkIds.filter((net) => net === toToken?.networkId);
+    }
+    return res;
+  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, toToken, type]);
   const renderItem = useCallback(
     ({
       item,
@@ -277,10 +325,14 @@ const SwapTokenSelectPage = () => {
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: !sameTokenDisabled(rawItem)
-          ? () => onSelectToken(rawItem)
-          : undefined,
-        disabled: sameTokenDisabled(rawItem),
+        onPress:
+          !sameTokenDisabled(rawItem) &&
+          !disableNetworks.includes(rawItem.networkId)
+            ? () => onSelectToken(rawItem)
+            : undefined,
+        disabled:
+          sameTokenDisabled(rawItem) ||
+          disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
@@ -302,43 +354,48 @@ const SwapTokenSelectPage = () => {
           <TokenListItem
             {...tokenItem}
             moreComponent={
-              <ActionList
-                title={tokenItem.tokenSymbol ?? ''}
-                disabled={rawItem.isNative}
-                renderTrigger={
-                  <IconButton variant="tertiary" icon="DotVerSolid" />
-                }
-                items={[
-                  {
-                    icon: 'Copy3Outline',
-                    label: intl.formatMessage({
-                      id: ETranslations.global_copy_token_contract,
-                    }),
-                    onPress: () => {
-                      copyText(rawItem.contractAddress);
+              <Stack alignSelf="center">
+                <ActionList
+                  title={tokenItem.tokenSymbol ?? ''}
+                  disabled={rawItem.isNative}
+                  renderTrigger={
+                    <ListItem.IconButton
+                      icon="DotVerSolid"
+                      variant="tertiary"
+                    />
+                  }
+                  items={[
+                    {
+                      icon: 'Copy3Outline',
+                      label: intl.formatMessage({
+                        id: ETranslations.global_copy_token_contract,
+                      }),
+                      onPress: () => {
+                        copyText(rawItem.contractAddress);
+                      },
+                      disabled: rawItem.isNative,
                     },
-                    disabled: rawItem.isNative,
-                  },
-                  {
-                    icon: 'OpenOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.swap_token_selector_contract_info,
-                    }),
-                    onPress: async () => {
-                      const url =
-                        await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
-                          {
-                            networkId: rawItem.networkId,
-                            type: 'token',
-                            param: rawItem.contractAddress,
-                          },
-                        );
-                      openUrlExternal(url);
+                    {
+                      icon: 'OpenOutline',
+                      label: intl.formatMessage({
+                        id: ETranslations.swap_token_selector_contract_info,
+                      }),
+                      onPress: async () => {
+                        const url =
+                          await backgroundApiProxy.serviceExplorer.buildExplorerUrl(
+                            {
+                              networkId: rawItem.networkId,
+                              type: 'token',
+                              param: rawItem.contractAddress,
+                            },
+                          );
+                        openUrlExternal(url);
+                      },
+                      disabled: rawItem.isNative,
                     },
-                    disabled: rawItem.isNative,
-                  },
-                ]}
-              />
+                  ]}
+                />
+              </Stack>
             }
           />
         </>
@@ -347,6 +404,7 @@ const SwapTokenSelectPage = () => {
     [
       alertIndex,
       copyText,
+      disableNetworks,
       intl,
       md,
       onSelectToken,
@@ -355,6 +413,20 @@ const SwapTokenSelectPage = () => {
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
+
+  const disableMoreNetworks = useMemo(() => {
+    let res = false;
+    const liveNetworksCount =
+      swapNetworksIncludeAllNetwork.length - disableNetworks.length;
+    if (md) {
+      if (liveNetworksCount <= swapNetworksCommonCountMD) {
+        res = true;
+      }
+    } else if (liveNetworksCount <= swapNetworksCommonCount) {
+      res = true;
+    }
+    return res;
+  }, [disableNetworks.length, md, swapNetworksIncludeAllNetwork.length]);
 
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
@@ -428,11 +500,14 @@ const SwapTokenSelectPage = () => {
           onMoreNetwork={() => {
             openChainSelector({
               defaultNetworkId: currentSelectNetwork?.networkId,
-              networkIds: swapNetworks.map((item) => item.networkId),
+              networkIds: swapAllSupportNetworks
+                .filter((item) => !item.isAllNetworks)
+                .filter((item) => !disableNetworks.includes(item.networkId))
+                .map((item) => item.networkId),
               grouped: false,
               onSelect: (network) => {
                 if (!network) return;
-                const findSwapNetwork = swapNetworks.find(
+                const findSwapNetwork = swapAllSupportNetworks.find(
                   (net) => net.networkId === network.id,
                 );
                 if (!findSwapNetwork) return;
@@ -444,6 +519,8 @@ const SwapTokenSelectPage = () => {
           networks={networkFilterData.swapNetworksCommon}
           moreNetworksCount={networkFilterData.swapNetworksMoreCount}
           selectedNetwork={currentSelectNetwork}
+          disableNetworks={disableNetworks}
+          disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (

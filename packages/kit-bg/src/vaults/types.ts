@@ -161,6 +161,7 @@ export type IVaultSettings = {
   estimatedFeePollingInterval: number;
 
   minTransferAmount?: string;
+  nativeMinTransferAmount?: string;
   utxoDustAmount?: string;
 
   accountType: EDBAccountType;
@@ -221,6 +222,8 @@ export type IVaultSettings = {
   maxSendFeeUpRatio?: {
     [networkId: string]: number;
   };
+
+  maxSendCanNotSentFullAmount?: boolean;
 
   preCheckDappTxFeeInfoRequired?: boolean;
 
@@ -459,6 +462,7 @@ export interface IBuildUnsignedTxParams {
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
+  prevNonce?: number;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
@@ -504,12 +508,13 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
 
 export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
-  feeInfo?: ISendSelectedFeeInfo;
+  feeInfos?: ISendSelectedFeeInfo[];
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
+  successfullySentTxs?: string[];
 }
 
 export interface ISignMessageParams {

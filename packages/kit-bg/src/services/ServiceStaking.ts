@@ -23,6 +23,7 @@ import type {
   IClaimableListResponse,
   IEarnAccountResponse,
   IEarnAccountTokenResponse,
+  IEarnBabylonTrackingItem,
   IEarnEstimateAction,
   IEarnEstimateFeeResp,
   IEarnFAQList,
@@ -40,6 +41,7 @@ import type {
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -162,6 +164,7 @@ class ServiceStaking extends ServiceBase {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
+      feeRate: params.feeRate,
       networkId,
       symbol,
       provider,
@@ -528,7 +531,10 @@ class ServiceStaking extends ServiceBase {
 
     const uniqueAccountParams = Array.from(
       new Map(
-        accountParams.map((item) => [JSON.stringify(item), item]),
+        accountParams.map((item) => [
+          `${item.networkId}-${item.accountAddress}-${item.publicKey || ''}`,
+          item,
+        ]),
       ).values(),
     );
     return this.getAccountAsset(uniqueAccountParams);
@@ -655,6 +661,9 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
   }) {
     const { accountId, networkId, indexedAccountId } = params;
+    if (!accountId && !indexedAccountId) {
+      return null;
+    }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error('networkId should not be all network');
     }
@@ -781,6 +790,7 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     action: IEarnEstimateAction;
     amount: string;
+    txId?: string;
   }) {
     const { symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -793,6 +803,31 @@ class ServiceStaking extends ServiceBase {
       },
     });
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async addBabylonTrackingItem(item: IEarnBabylonTrackingItem) {
+    return simpleDb.babylonSync.addTrackingItem(item);
+  }
+
+  @backgroundMethod()
+  async getBabylonTrackingItems({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const items = await simpleDb.babylonSync.getTrackingList();
+    const result = items.filter(
+      (o) => o.accountId === accountId && networkId === o.networkId,
+    );
+    return result;
+  }
+
+  @backgroundMethod()
+  async removeBabylonTrackingItem(item: { txIds: string[] }) {
+    return simpleDb.babylonSync.removeTrackingItem({ txIds: item.txIds });
   }
 }
 

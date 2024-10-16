@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isNil, unset } from 'lodash';
 
 import type {
   IUnsignedMessage,
@@ -14,6 +14,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFeeInfoUnit,
@@ -71,14 +72,6 @@ class ServiceSend extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
-    if (unsignedTx.swapInfo) {
-      decodedTx.toAddressLabel =
-        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
-    }
-
-    if (unsignedTx.stakingInfo) {
-      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
-    }
     return decodedTx;
   }
 
@@ -94,6 +87,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -102,6 +96,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       specifiedFeeRate,
+      prevNonce,
     });
   }
 
@@ -177,6 +172,14 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   public async preCheckIsFeeInfoOverflow(params: IPreCheckFeeInfoParams) {
     try {
+      const isCustomNetwork =
+        await this.backgroundApi.serviceNetwork.isCustomNetwork({
+          networkId: params.networkId,
+        });
+      // custom network will skip pre-check
+      if (isCustomNetwork) {
+        return false;
+      }
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
@@ -230,6 +233,7 @@ class ServiceSend extends ServiceBase {
 
     tx.swapInfo = unsignedTx.swapInfo;
     tx.stakingInfo = unsignedTx.stakingInfo;
+    tx.uuid = unsignedTx.uuid;
     return tx;
   }
 
@@ -294,24 +298,26 @@ class ServiceSend extends ServiceBase {
   public async updateUnSignedTxBeforeSend({
     accountId,
     networkId,
-    feeInfo: sendSelectedFeeInfo,
+    feeInfos: sendSelectedFeeInfos,
     nativeAmountInfo,
     unsignedTxs,
     tokenApproveInfo,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
     tokenApproveInfo?: ITokenApproveInfo;
-    feeInfo?: ISendSelectedFeeInfo;
+    feeInfos?: ISendSelectedFeeInfo[];
     nativeAmountInfo?: INativeAmountInfo;
   }) {
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
+      const feeInfo = sendSelectedFeeInfos?.[i]?.feeInfo;
+
       const newUnsignedTx = await this.updateUnsignedTx({
         accountId,
         networkId,
         unsignedTx,
-        feeInfo: sendSelectedFeeInfo?.feeInfo,
+        feeInfo,
         nativeAmountInfo,
         tokenApproveInfo,
       });
@@ -332,56 +338,75 @@ class ServiceSend extends ServiceBase {
       unsignedTxs,
       signOnly,
       sourceInfo,
-      feeInfo: sendSelectedFeeInfo,
+      feeInfos: sendSelectedFeeInfos,
       replaceTxInfo,
       transferPayload,
+      successfullySentTxs,
     } = params;
+
+    const isMultiTxs = unsignedTxs.length > 1;
 
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
-      const signedTx = signOnly
-        ? await this.signTransaction({
-            unsignedTx,
-            accountId,
-            networkId,
-            signOnly: true,
-          })
-        : await this.signAndSendTransaction({
-            unsignedTx,
-            networkId,
-            accountId,
-            signOnly: false,
-          });
-      const decodedTx = await this.buildDecodedTx({
-        networkId,
-        accountId,
-        unsignedTx,
-        feeInfo: sendSelectedFeeInfo,
-        transferPayload,
-      });
-
-      const data = {
-        signedTx,
-        decodedTx,
-      };
-
-      result.push(data);
-
-      await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-        data,
-        sourceInfo,
-      );
-      if (signedTx && !signOnly) {
-        await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+      if (
+        !successfullySentTxs ||
+        !unsignedTx.uuid ||
+        !successfullySentTxs.includes(unsignedTx.uuid)
+      ) {
+        const signedTx = signOnly
+          ? await this.signTransaction({
+              unsignedTx,
+              accountId,
+              networkId,
+              signOnly: true,
+            })
+          : await this.signAndSendTransaction({
+              unsignedTx,
+              networkId,
+              accountId,
+              signOnly: false,
+            });
+        const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
-          data: {
-            signedTx,
-            decodedTx,
-          },
-          replaceTxInfo,
+          unsignedTx,
+          feeInfo: sendSelectedFeeInfos?.[i],
+          transferPayload,
         });
+
+        const data = {
+          signedTx,
+          decodedTx,
+        };
+
+        // only fill swap(staking) tx info for batch approve&swap(staking) callback
+        if (
+          !isMultiTxs ||
+          (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+        ) {
+          result.push(data);
+        }
+
+        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+          data,
+          sourceInfo,
+        );
+        if (signedTx && !signOnly) {
+          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx,
+              decodedTx,
+            },
+            replaceTxInfo,
+          });
+        }
+
+        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
+          successfullySentTxs.push(unsignedTx.uuid);
+        }
       }
     }
 
@@ -464,6 +489,7 @@ class ServiceSend extends ServiceBase {
       swapInfo,
       stakingInfo,
       specifiedFeeRate,
+      prevNonce,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -482,6 +508,7 @@ class ServiceSend extends ServiceBase {
         transfersInfo,
         wrappedInfo,
         specifiedFeeRate,
+        prevNonce,
       });
     }
     if (swapInfo) {
@@ -489,6 +516,10 @@ class ServiceSend extends ServiceBase {
     }
     if (stakingInfo) {
       newUnsignedTx.stakingInfo = stakingInfo;
+    }
+
+    if (approveInfo) {
+      newUnsignedTx.approveInfo = approveInfo;
     }
 
     const isNonceRequired = (
@@ -511,6 +542,9 @@ class ServiceSend extends ServiceBase {
         nonceInfo: { nonce },
       });
     }
+
+    newUnsignedTx.uuid = generateUUID();
+
     return newUnsignedTx;
   }
 
@@ -609,18 +643,19 @@ class ServiceSend extends ServiceBase {
     unsignedTxs: IUnsignedTxPro[];
     precheckTiming: ESendPreCheckTimingEnum;
     nativeAmountInfo?: INativeAmountInfo;
-    feeInfo?: IFeeInfoUnit;
+    feeInfos?: ISendSelectedFeeInfo[];
   }) {
     const vault = await vaultFactory.getVault({
       networkId: params.networkId,
       accountId: params.accountId,
     });
-    for (const unsignedTx of params.unsignedTxs) {
+    for (let i = 0, len = params.unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = params.unsignedTxs[i];
       await vault.precheckUnsignedTx({
         unsignedTx,
         precheckTiming: params.precheckTiming,
         nativeAmountInfo: params.nativeAmountInfo,
-        feeInfo: params.feeInfo,
+        feeInfo: params.feeInfos?.[i]?.feeInfo,
       });
     }
   }

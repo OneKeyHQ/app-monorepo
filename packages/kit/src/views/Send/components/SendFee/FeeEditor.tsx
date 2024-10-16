@@ -175,6 +175,8 @@ function FeeEditor(props: IProps) {
   const intl = useIntl();
   const dialog = useDialogInstance();
 
+  const isMultiTxs = unsignedTxs.length > 1;
+
   const [feeSelectorItems, setFeeSelectorItems] =
     useState<IFeeSelectorItem[]>(feeSelectorItemsProp);
 
@@ -203,6 +205,10 @@ function FeeEditor(props: IProps) {
       [networkId],
     ).result ?? [];
 
+  const originalMaxBaseFee = new BigNumber(
+    customFee?.gasEIP1559?.maxFeePerGas ?? '0',
+  ).minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0');
+
   const form = useForm({
     defaultValues: {
       gasLimit: new BigNumber(
@@ -214,9 +220,9 @@ function FeeEditor(props: IProps) {
       priorityFee: new BigNumber(
         customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
-      maxBaseFee: new BigNumber(customFee?.gasEIP1559?.maxFeePerGas ?? '0')
-        .minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0')
-        .toFixed(),
+      maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
+        ? originalMaxBaseFee.toFixed()
+        : customFee.gasEIP1559?.baseFeePerGas ?? '0',
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -1197,22 +1203,6 @@ function FeeEditor(props: IProps) {
         {priorityFeeAlert && currentFeeType === EFeeType.Custom ? (
           <Alert type="warning" mt="$4" title={priorityFeeAlert} />
         ) : null}
-        {vaultSettings?.editFeeEnabled ? (
-          <Button
-            mt="$4"
-            disabled={isSaveFeeDisabled}
-            variant="primary"
-            size="large"
-            $gtMd={
-              {
-                size: 'medium',
-              } as any
-            }
-            onPress={handleApplyFeeInfo}
-          >
-            {intl.formatMessage({ id: ETranslations.action_save })}
-          </Button>
-        ) : null}
       </>
     );
   }, [
@@ -1223,14 +1213,11 @@ function FeeEditor(props: IProps) {
     feeAlert,
     feeSelectorItems,
     feeSymbol,
-    handleApplyFeeInfo,
     intl,
-    isSaveFeeDisabled,
     nativeSymbol,
     nativeTokenPrice,
     priorityFeeAlert,
     unsignedTxs,
-    vaultSettings?.editFeeEnabled,
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
     watchAllFields.feeRate,
@@ -1241,7 +1228,6 @@ function FeeEditor(props: IProps) {
   ]);
 
   const renderFeeDetails = useCallback(() => {
-    if (!vaultSettings?.checkFeeDetailEnabled) return null;
     const feeInfoItems: IFeeInfoItem[] = [];
 
     const fee =
@@ -1268,12 +1254,35 @@ function FeeEditor(props: IProps) {
           }),
         });
       }
+    } else if (isMultiTxs && fee?.gasEIP1559) {
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
+        customValue: fee.gasEIP1559.maxFeePerGas,
+        customSymbol: fee.common.feeSymbol,
+      });
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.form__priority_fee }),
+        customValue: fee.gasEIP1559.maxPriorityFeePerGas,
+        customSymbol: fee.common.feeSymbol,
+      });
+    } else if (isMultiTxs && fee?.gas) {
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.global_gas_price }),
+        customValue: fee.gas.gasPrice,
+        customSymbol: fee.common.feeSymbol,
+      });
     }
 
     return (
       <>
         {feeInfoItems.map((feeInfo, index) => (
-          <FeeInfoItem feeInfo={feeInfo} key={index} pb="$2" />
+          <FeeInfoItem
+            {...(index !== 0 && {
+              pt: '$2',
+            })}
+            feeInfo={feeInfo}
+            key={index}
+          />
         ))}
       </>
     );
@@ -1283,7 +1292,7 @@ function FeeEditor(props: IProps) {
     customFee,
     feeSelectorItems,
     intl,
-    vaultSettings?.checkFeeDetailEnabled,
+    isMultiTxs,
   ]);
 
   useEffect(() => {
@@ -1312,7 +1321,23 @@ function FeeEditor(props: IProps) {
         borderTopColor="$borderSubdued"
       >
         {renderFeeDetails()}
-        {renderFeeOverview()}
+        {isMultiTxs ? null : renderFeeOverview()}
+        {vaultSettings?.editFeeEnabled ? (
+          <Button
+            mt="$4"
+            disabled={isSaveFeeDisabled}
+            variant="primary"
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as any
+            }
+            onPress={handleApplyFeeInfo}
+          >
+            {intl.formatMessage({ id: ETranslations.action_save })}
+          </Button>
+        ) : null}
       </Stack>
     </>
   );

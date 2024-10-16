@@ -140,9 +140,15 @@ function AccountEditButtonView({
     }
 
     if (isHwOrQrAccount) {
+      let showExportPublicKey = true;
+
+      // qr wallet firmware does not support verify and confirm public key currently
+      if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+        showExportPublicKey = false;
+      }
       return {
         showExportPrivateKey: false,
-        showExportPublicKey: true,
+        showExportPublicKey,
       };
     }
 
@@ -156,6 +162,7 @@ function AccountEditButtonView({
     isHwOrQrAccount,
     isImportedAccount,
     isWatchingAccount,
+    wallet?.id,
   ]);
 
   const estimatedContentHeight = useCallback(async () => {

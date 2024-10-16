@@ -155,7 +155,14 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionSwap({ networkId }: { networkId?: string }) {
+function WalletActionSwap({
+  networkId,
+  accountId,
+}: {
+  networkId?: string;
+  accountId?: string;
+}) {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const vaultSettings = usePromiseResult(async () => {
@@ -167,20 +174,26 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
   const handleOnSwap = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
-      params: { importNetworkId: networkId },
+      params: {
+        importNetworkId: networkId,
+      },
     });
   }, [navigation, networkId]);
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
-      disabled={vaultSettings?.disabledSwapAction}
+      label={intl.formatMessage({ id: ETranslations.global_trade })}
+      disabled={
+        vaultSettings?.disabledSwapAction ||
+        accountUtils.isUrlAccountFn({ accountId })
+      }
     />
   );
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -188,7 +201,7 @@ function WalletActions({ ...rest }: IXStackProps) {
       <ReviewControl>
         <WalletActionBuy />
       </ReviewControl>
-      <WalletActionSwap networkId={network?.id} />
+      <WalletActionSwap networkId={network?.id} accountId={account?.id} />
       <WalletActionSend />
       <WalletActionReceive />
       <WalletActionMore />

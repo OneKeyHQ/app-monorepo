@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,9 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
+import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalStake } from '../../components/UniversalStake';
@@ -32,6 +35,16 @@ const StakePage = () => {
   const tokenInfo = token.info;
 
   const actionTag = buildLocalTxStatusSyncId(details);
+  const [btcFeeRate, setBtcFeeRate] = useState<string | undefined>();
+  const btcFeeRateInit = useRef<boolean>(false);
+
+  const onFeeRateChange = useMemo(() => {
+    if (
+      provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+    ) {
+      return (value: string) => setBtcFeeRate(value);
+    }
+  }, [provider.name]);
 
   const btcStakingTerm = useMemo<number | undefined>(() => {
     if (provider?.minStakeTerm) {
@@ -56,12 +69,27 @@ const StakePage = () => {
           tags: [actionTag],
         },
         term: btcStakingTerm,
-        onSuccess: () => {
+        feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
+        onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: tokenInfo,
             stakingProtocol: provider.name,
           });
+          const tx = txs[0];
+          if (
+            tx &&
+            provider.name.toLowerCase() ===
+              EEarnProviderEnum.Babylon.toLowerCase()
+          ) {
+            await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
+              txId: tx.decodedTx.txid,
+              action: 'stake',
+              createAt: Date.now(),
+              accountId,
+              networkId,
+            });
+          }
           onSuccess?.();
         },
       });
@@ -74,6 +102,9 @@ const StakePage = () => {
       actionTag,
       onSuccess,
       btcStakingTerm,
+      accountId,
+      networkId,
+      btcFeeRate,
     ],
   );
 
@@ -81,19 +112,14 @@ const StakePage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const isReachBabylonCap = useMemo<boolean | undefined>(() => {
-    if (provider && provider.name === 'babylon') {
-      const { stakingCap, totalStaked } = provider;
-      return (
-        Number(stakingCap) > 0 &&
-        Number(totalStaked) > 0 &&
-        Number(totalStaked) > Number(stakingCap)
-      );
+    if (provider && provider.name === EEarnProviderEnum.Babylon.toLowerCase()) {
+      return provider.stakeDisable;
     }
     return false;
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () => provider.name.toLowerCase() === 'lido',
+    () => provider.name.toLowerCase() === EEarnProviderEnum.Lido.toLowerCase(),
     [provider],
   );
 
@@ -107,6 +133,37 @@ const StakePage = () => {
     });
     return resp;
   }, [networkId, provider.name, tokenInfo.symbol]);
+
+  const { result: estimateFeeUTXO } = usePromiseResult(async () => {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return;
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const accountAddress = account.address;
+    const result = await backgroundApiProxy.serviceGas.estimateFee({
+      accountId,
+      networkId,
+      accountAddress,
+    });
+    return result.feeUTXO?.filter(
+      (o): o is Required<Pick<IFeeUTXO, 'feeRate'>> => o.feeRate !== undefined,
+    );
+  }, [accountId, networkId]);
+
+  useEffect(() => {
+    if (
+      estimateFeeUTXO &&
+      estimateFeeUTXO.length === 3 &&
+      !btcFeeRateInit.current
+    ) {
+      const [, normalFee] = estimateFeeUTXO;
+      setBtcFeeRate(normalFee.feeRate);
+      btcFeeRateInit.current = true;
+    }
+  }, [estimateFeeUTXO]);
 
   return (
     <Page scrollEnabled>
@@ -140,6 +197,8 @@ const StakePage = () => {
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
           estimateFeeResp={estimateFeeResp}
+          estimateFeeUTXO={estimateFeeUTXO}
+          onFeeRateChange={onFeeRateChange}
         />
       </Page.Body>
     </Page>

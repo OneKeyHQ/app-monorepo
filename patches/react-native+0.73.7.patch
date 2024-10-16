@@ -1,0 +1,328 @@
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+index 582b49c..5232919 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Multiline/RCTUITextView.mm
+@@ -13,6 +13,10 @@
+ #import <React/RCTBackedTextInputDelegateAdapter.h>
+ #import <React/RCTTextAttributes.h>
+ 
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextView {
+   UILabel *_placeholderView;
+   UITextView *_detachedTextView;
+@@ -166,7 +170,32 @@ - (void)setSelectedTextRange:(UITextRange *)selectedTextRange notifyDelegate:(BO
+ - (void)paste:(id)sender
+ {
+   _textWasPasted = YES;
+-  [super paste:sender];
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++  if (clipboard.hasImages) {
++    for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++      if ([itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++        for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++          if (UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++            NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++            NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++            NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++            NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            NSData *fileData = [clipboard dataForPasteboardType:identifier];
++            [fileData writeToFile:filePath atomically:YES];
++            [_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++            break;
++          }
++        }
++        break;
++      }
++    }
++  } else {
++    if (clipboard.hasStrings) {
++      [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++    }
++    [super paste:sender];
++  }
+ }
+ 
+ // Turn off scroll animation to fix flaky scrolling.
+@@ -257,7 +286,9 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+   if (_contextMenuHidden) {
+     return NO;
+   }
+-
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+index 7187177..748c4cc 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegate.h
+@@ -36,6 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
+ - (void)textInputDidChange;
+ 
+ - (void)textInputDidChangeSelection;
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data;
+ 
+ @optional
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+index f1c32e6..0ce9dfe 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.h
+@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
+ - (void)selectedTextRangeWasSet;
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
+ 
+ @end
+ 
+@@ -30,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
+ - (instancetype)initWithTextView:(UITextView<RCTBackedTextInputViewProtocol> *)backedTextInputView;
+ 
+ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)textRange;
++- (void)didPaste:(NSString *)type withData:(NSString *)data;
+ 
+ @end
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+index 9dca6a5..b2c6b53 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBackedTextInputDelegateAdapter.mm
+@@ -147,6 +147,11 @@ - (void)selectedTextRangeWasSet
+   [self textFieldProbablyDidChangeSelection];
+ }
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textFieldProbablyDidChangeSelection
+@@ -290,6 +295,11 @@ - (void)skipNextTextInputDidChangeSelectionEventWithTextRange:(UITextRange *)tex
+   _previousSelectedTextRange = textRange;
+ }
+ 
++- (void)didPaste:(NSString *)type withData:(NSString *)data
++{
++  [_backedTextInputView.textInputDelegate textInputDidPaste:type withData:data];
++}
++
+ #pragma mark - Generalization
+ 
+ - (void)textViewProbablyDidChangeSelection
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+index 209947d..5092dbd 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.h
+@@ -38,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onChangeSync;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onTextInput;
+ @property (nonatomic, copy, nullable) RCTDirectEventBlock onScroll;
++@property (nonatomic, copy, nullable) RCTDirectEventBlock onPaste;
+ 
+ @property (nonatomic, assign) NSInteger mostRecentEventCount;
+ @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+index b0d71dc..2e42fc9 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
+@@ -562,6 +562,26 @@ - (void)textInputDidChangeSelection
+   });
+ }
+ 
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (!_onPaste) {
++    return;
++  }
++
++  NSMutableArray *items = [NSMutableArray new];
++  [items addObject:@{
++    @"type" : type,
++    @"data" : data,
++  }];
++
++  NSDictionary *payload = @{
++    @"target" : self.reactTag,
++    @"items" : items,
++  };
++
++  _onPaste(payload);
++}
++
+ - (void)updateLocalData
+ {
+   [self enforceTextAttributesIfNeeded];
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+index a19b555..8146c0d 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
+@@ -66,6 +66,7 @@ @implementation RCTBaseTextInputViewManager {
+ RCT_EXPORT_VIEW_PROPERTY(onSelectionChange, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onTextInput, RCTDirectEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onScroll, RCTDirectEventBlock)
++RCT_EXPORT_VIEW_PROPERTY(onPaste, RCTDirectEventBlock)
+ 
+ RCT_EXPORT_VIEW_PROPERTY(mostRecentEventCount, NSInteger)
+ 
+diff --git a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+index 4d0afd9..507df43 100644
+--- a/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
++++ b/node_modules/react-native/Libraries/Text/TextInput/Singleline/RCTUITextField.mm
+@@ -12,6 +12,10 @@
+ #import <React/RCTUtils.h>
+ #import <React/UIView+React.h>
+ 
++#import <MobileCoreServices/MobileCoreServices.h>
++#import <MobileCoreServices/UTType.h>
++#import <UIKit/UIKit.h>
++
+ @implementation RCTUITextField {
+   RCTBackedTextFieldDelegateAdapter *_textInputDelegateAdapter;
+   NSDictionary<NSAttributedStringKey, id> *_defaultTextAttributes;
+@@ -139,6 +143,10 @@ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+     return NO;
+   }
+ 
++  if (action == @selector(paste:) && [UIPasteboard generalPasteboard].hasImages) {
++    return YES;
++  }
++
+   return [super canPerformAction:action withSender:sender];
+ }
+ 
+@@ -204,7 +212,32 @@ - (void)setSelectedTextRange:(UITextRange *)selectedTextRange notifyDelegate:(BO
+ - (void)paste:(id)sender
+ {
+   _textWasPasted = YES;
+-  [super paste:sender];
++  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
++  if (clipboard.hasImages) {
++    for (NSItemProvider *itemProvider in clipboard.itemProviders) {
++      if ([itemProvider hasItemConformingToTypeIdentifier:(NSString *)kUTTypeImage]) {
++        for (NSString *identifier in itemProvider.registeredTypeIdentifiers) {
++          if (UTTypeConformsTo((__bridge CFStringRef)identifier, kUTTypeImage)) {
++            NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassMIMEType);
++            NSString *fileExtension = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)identifier, kUTTagClassFilenameExtension);
++            NSString *fileName = [NSString stringWithFormat:@"%@.%@", [[NSUUID UUID] UUIDString], fileExtension];
++            NSString *filePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
++            NSURL *fileURL = [NSURL fileURLWithPath:filePath];
++            NSData *fileData = [clipboard dataForPasteboardType:identifier];
++            [fileData writeToFile:filePath atomically:YES];
++            [_textInputDelegateAdapter didPaste:MIMEType withData:[fileURL absoluteString]];
++            break;
++          }
++        }
++        break;
++      }
++    }
++  } else {
++    if (clipboard.hasStrings) {
++      [_textInputDelegateAdapter didPaste:@"text/plain" withData:clipboard.string];
++    }
++    [super paste:sender];
++  }
+ }
+ 
+ #pragma mark - Layout
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+index e7b69bf..5e63273 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
+@@ -266,6 +266,13 @@ - (void)prepareForRecycle
+   [_backedTextInputView resignFirstResponder];
+ }
+ 
++- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
++{
++  if (_eventEmitter) {
++    static_cast<const TextInputEventEmitter &>(*_eventEmitter).onPaste(std::string([type UTF8String]), std::string([data UTF8String]));
++  }
++}
++
+ #pragma mark - RCTBackedTextInputDelegate
+ 
+ - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/React/Fabric/RCTThirdPartyFabricComponentsProvider.h b/node_modules/react-native/React/Fabric/RCTThirdPartyFabricComponentsProvider.h
+new file mode 100644
+index 0000000..e95b895
+--- /dev/null
++++ b/node_modules/react-native/React/Fabric/RCTThirdPartyFabricComponentsProvider.h
+@@ -0,0 +1,33 @@
++
++/*
++ * This code was generated by [react-native-codegen](https://www.npmjs.com/package/react-native-codegen).
++ *
++ * Do not edit this file as changes may cause incorrect behavior and will be lost
++ * once the code is regenerated.
++ *
++ * @generated by GenerateRCTThirdPartyFabricComponentsProviderH
++ */
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wreturn-type-c-linkage"
++
++#import <React/RCTComponentViewProtocol.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++Class<RCTComponentViewProtocol> RCTThirdPartyFabricComponentsProvider(const char *name);
++
++#ifndef RCT_DYNAMIC_FRAMEWORKS
++
++
++
++#endif
++
++#ifdef __cplusplus
++}
++#endif
++
++#pragma GCC diagnostic pop
++
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp
+index 88ae3f3..7439eeb 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.cpp
+@@ -76,6 +76,19 @@ static jsi::Value keyPressMetricsPayload(
+   return payload;
+ };
+ 
++void TextInputEventEmitter::onPaste(const std::string& type, const std::string& data) const {
++  dispatchEvent("onPaste", [type, data](jsi::Runtime& runtime) {
++    auto payload = jsi::Object(runtime);
++    auto items = jsi::Array(runtime, 1);
++    auto item = jsi::Object(runtime);
++    item.setProperty(runtime, "type", type);
++    item.setProperty(runtime, "data", data);
++    items.setValueAtIndex(runtime, 0, item);
++    payload.setProperty(runtime, "items", items);
++    return payload;
++  });
++}
++
+ void TextInputEventEmitter::onFocus(
+     const TextInputMetrics& textInputMetrics) const {
+   dispatchTextInputEvent("focus", textInputMetrics);
+diff --git a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.h b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.h
+index 0ab2b18..781f083 100644
+--- a/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.h
++++ b/node_modules/react-native/ReactCommon/react/renderer/components/textinput/iostextinput/react/renderer/components/iostextinput/TextInputEventEmitter.h
+@@ -47,6 +47,7 @@ class TextInputEventEmitter : public ViewEventEmitter {
+   void onKeyPress(const KeyPressMetrics& keyPressMetrics) const;
+   void onKeyPressSync(const KeyPressMetrics& keyPressMetrics) const;
+   void onScroll(const TextInputMetrics& textInputMetrics) const;
++  void onPaste(const std::string& type, const std::string& data) const;
+ 
+  private:
+   void dispatchTextInputEvent(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import SwapHeaderRightActionContainer from '../components/SwapHeaderRightActionContainer';
 import SwapMainLandWithPageType from '../components/SwapMainLand';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -23,7 +22,7 @@ const SwapMainLandModalPage = () => {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapMainLand>>();
-  const { importFromToken, importNetworkId, importToToken } =
+  const { importFromToken, importNetworkId, importToToken, swapTabSwitchType } =
     route.params ?? {};
   const [, setSettings] = useSettingsAtom();
   useEffect(() => {
@@ -33,16 +32,19 @@ const SwapMainLandModalPage = () => {
       swapToAnotherAccountSwitchOn: false,
     }));
   }, [setSettings]);
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_swap })}
-        headerRight={headerRight}
+        title={intl.formatMessage({ id: ETranslations.global_trade })}
       />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
-        swapInitParams={{ importFromToken, importNetworkId, importToToken }}
+        swapInitParams={{
+          importFromToken,
+          importNetworkId,
+          importToToken,
+          swapTabSwitchType,
+        }}
       />
     </Page>
   );

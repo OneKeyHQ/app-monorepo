@@ -15,12 +15,7 @@ import {
   useClipboard,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
-import {
-  useAppUpdatePersistAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   DISCORD_URL,
@@ -137,20 +132,6 @@ const SocialButtonGroup = () => {
 };
 
 export default function SettingListModal() {
-  const route = useRoute();
-  const flag = (route.params as { flag?: string })?.flag ?? '';
-  const { setWebAuthEnable } = useWebAuthActions();
-  const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
-  useEffect(() => {
-    if (flag === 'webAuthRegistration' && !credId) {
-      void (async () => {
-        const res = await setWebAuthEnable(true);
-        if (res) {
-          await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(true);
-        }
-      })();
-    }
-  }, [flag, setWebAuthEnable, credId]);
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 

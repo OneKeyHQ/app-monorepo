@@ -7,6 +7,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 export enum EChainSelectorPages {
   AccountChainSelector = 'AccountChainSelector',
   ChainSelector = 'ChainSelector',
+  AddCustomNetwork = 'AddCustomNetwork',
 }
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
@@ -25,4 +26,15 @@ export type IChainSelectorParams = {
 export type IChainSelectorParamList = {
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
+  [EChainSelectorPages.AddCustomNetwork]: {
+    state: 'add' | 'edit';
+    networkId?: string;
+    networkName?: string;
+    rpcUrl?: string;
+    chainId?: number;
+    symbol?: string;
+    blockExplorerUrl?: string;
+    onSuccess?: (network: IServerNetwork) => void;
+    onDeleteSuccess?: () => void;
+  };
 };

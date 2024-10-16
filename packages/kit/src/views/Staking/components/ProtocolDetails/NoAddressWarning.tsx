@@ -113,6 +113,17 @@ export function NoAddressWarning({
     return null;
   }
 
+  if (!accountId && !indexedAccountId) {
+    return (
+      <Alert
+        type="critical"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_button_no_connected_wallet,
+        })}
+      />
+    );
+  }
+
   return (
     <Alert
       type="warning"

@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -7,9 +9,9 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type {
+import {
   EChainSelectorPages,
-  IChainSelectorParamList,
+  type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -37,12 +39,22 @@ type IChainSelectorBaseProps = {
 
 type IAccountChainSelectorProps = IChainSelectorBaseProps & {
   onPressItem: (item: IServerNetwork) => void;
+  onAddCustomNetwork?: () => void;
+  onEditCustomNetwork?: ({
+    network,
+    refreshNetworkData,
+  }: {
+    network: IServerNetwork;
+    refreshNetworkData: () => void;
+  }) => void;
 };
 
 const EditableAccountChainSelector = ({
   num,
   networkIds,
   onPressItem,
+  onAddCustomNetwork,
+  onEditCustomNetwork,
 }: IAccountChainSelectorProps) => {
   const {
     activeAccount: { network, account, wallet },
@@ -70,6 +82,13 @@ const EditableAccountChainSelector = ({
       frequentlyUsedItems={chainSelectorNetworks.frequentlyUsedItems}
       allNetworkItem={chainSelectorNetworks.allNetworkItem}
       onPressItem={onPressItem}
+      onAddCustomNetwork={onAddCustomNetwork}
+      onEditCustomNetwork={(item: IServerNetwork) =>
+        onEditCustomNetwork?.({
+          network: item,
+          refreshNetworkData: refreshLocalData,
+        })
+      }
       onFrequentlyUsedItemsChange={async (items) => {
         const pinnedNetworkIds =
           await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworkIds();
@@ -190,16 +209,57 @@ function AccountChainSelector({
 }: IChainSelectorBaseProps) {
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
-  const handleListItemPress = (item: IServerNetwork) => {
-    void actions.current.updateSelectedAccountNetwork({
-      num,
-      networkId: item.id,
+  const handleListItemPress = useCallback(
+    (item: IServerNetwork) => {
+      void actions.current.updateSelectedAccountNetwork({
+        num,
+        networkId: item.id,
+      });
+      navigation.popStack();
+    },
+    [actions, num, navigation],
+  );
+  const onAddCustomNetwork = useCallback(() => {
+    navigation.push(EChainSelectorPages.AddCustomNetwork, {
+      state: 'add',
+      onSuccess: (network: IServerNetwork) => {
+        handleListItemPress(network);
+      },
     });
-    navigation.popStack();
-  };
+  }, [navigation, handleListItemPress]);
+  const onEditCustomNetwork = useCallback(
+    async ({
+      network,
+      refreshNetworkData,
+    }: {
+      network: IServerNetwork;
+      refreshNetworkData: () => void;
+    }) => {
+      const rpcInfo =
+        await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+          network.id,
+        );
+      navigation.push(EChainSelectorPages.AddCustomNetwork, {
+        state: 'edit',
+        networkId: network.id,
+        networkName: network.name,
+        rpcUrl: rpcInfo?.rpc ?? '',
+        chainId: network.chainId,
+        symbol: network.symbol,
+        blockExplorerUrl: network.explorerURL,
+        onSuccess: () => refreshNetworkData(),
+        onDeleteSuccess: () => {
+          navigation.pop();
+        },
+      });
+    },
+    [navigation],
+  );
   return editable ? (
     <EditableAccountChainSelector
       onPressItem={handleListItemPress}
+      onAddCustomNetwork={onAddCustomNetwork}
+      onEditCustomNetwork={onEditCustomNetwork}
       num={num}
       networkIds={networkIds}
     />
@@ -219,6 +279,7 @@ export default function ChainSelectorPage({
   EChainSelectorPages.AccountChainSelector
 >) {
   const { num, sceneName, sceneUrl, networkIds, editable } = route.params;
+
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}

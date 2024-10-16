@@ -64,7 +64,7 @@ export function AccountSelectorAccountListItem({
   selectedAccount: IAccountSelectorSelectedAccount;
   accountsValue: {
     accountId: string;
-    value: string | undefined;
+    value: Record<string, string> | string | undefined;
     currency: string | undefined;
   }[];
   linkNetwork: boolean | undefined;
@@ -167,35 +167,6 @@ export function AccountSelectorAccountListItem({
     [linkNetwork, subTitleInfo.isEmptyAddress],
   );
 
-  const renderAccountValue = useCallback(() => {
-    if (platformEnv.isE2E || linkNetwork) return null;
-
-    return (
-      <>
-        <AccountValueWithSpotlight
-          isOthersUniversal={isOthersUniversal}
-          index={index}
-          accountValue={accountValue}
-        />
-        {subTitleInfo.address ? (
-          <Stack
-            mx="$1.5"
-            w="$1"
-            h="$1"
-            bg="$iconSubdued"
-            borderRadius="$full"
-          />
-        ) : null}
-      </>
-    );
-  }, [
-    linkNetwork,
-    isOthersUniversal,
-    index,
-    accountValue,
-    subTitleInfo.address,
-  ]);
-
   const actionButton = useMemo(() => {
     if (editMode) {
       return (
@@ -276,6 +247,40 @@ export function AccountSelectorAccountListItem({
     () => !editMode && !shouldShowCreateAddressButton,
     [editMode, shouldShowCreateAddressButton],
   );
+
+  const renderAccountValue = useCallback(() => {
+    if (platformEnv.isE2E || (linkNetwork && !subTitleInfo.address))
+      return null;
+
+    return (
+      <>
+        <AccountValueWithSpotlight
+          isOthersUniversal={isOthersUniversal}
+          index={index}
+          accountValue={accountValue}
+          linkedAccountId={indexedAccount?.associateAccount?.id}
+          linkedNetworkId={avatarNetworkId}
+        />
+        {subTitleInfo.address ? (
+          <Stack
+            mx="$1.5"
+            w="$1"
+            h="$1"
+            bg="$iconSubdued"
+            borderRadius="$full"
+          />
+        ) : null}
+      </>
+    );
+  }, [
+    linkNetwork,
+    subTitleInfo.address,
+    isOthersUniversal,
+    index,
+    accountValue,
+    indexedAccount?.associateAccount?.id,
+    avatarNetworkId,
+  ]);
 
   return (
     <ListItem

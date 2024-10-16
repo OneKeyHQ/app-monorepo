@@ -70,19 +70,7 @@ function BookmarkListModal() {
                 required: {
                   value: true,
                   message: intl.formatMessage({
-                    id: ETranslations.explore_enter_bookmark_name,
-                  }),
-                },
-                minLength: {
-                  value: 1,
-                  message: intl.formatMessage({
-                    id: ETranslations.explore_bookmark_at_least,
-                  }),
-                },
-                maxLength: {
-                  value: 24,
-                  message: intl.formatMessage({
-                    id: ETranslations.explore_bookmark_exceed,
+                    id: ETranslations.global_name,
                   }),
                 },
               }}

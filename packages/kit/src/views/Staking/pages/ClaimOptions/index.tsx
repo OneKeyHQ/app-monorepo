@@ -60,10 +60,20 @@ const ClaimOptions = () => {
           label: EEarnLabels.Claim,
           protocol: provider,
           protocolLogoURI: details.provider.logoURI,
-          send: { token: details.token.info, amount: item.amount },
+          receive: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],
         },
-        onSuccess: () => {
+        onSuccess: async (txs) => {
+          const tx = txs[0];
+          if (tx) {
+            await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
+              txId: item.id,
+              action: 'claim',
+              createAt: Date.now(),
+              accountId,
+              networkId,
+            });
+          }
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: details.token.info,

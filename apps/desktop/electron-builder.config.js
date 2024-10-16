@@ -1,3 +1,5 @@
+const DLLs = require('./electron-dll.config');
+
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 
@@ -92,6 +94,7 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
+    'extraFiles': [...DLLs],
     'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,

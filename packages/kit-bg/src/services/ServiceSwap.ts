@@ -160,6 +160,8 @@ export default class ServiceSwap extends ServiceBase {
             logoURI: clientNetwork.logoURI,
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
+            supportCrossChainSwap: network.supportCrossChainSwap,
+            supportSingleSwap: network.supportSingleSwap,
           };
         }
         return null;
@@ -1080,6 +1082,43 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async swapRecentTokenSync() {
+    const recentTokenPairs =
+      await this.backgroundApi.simpleDb.swapConfigs.getRecentTokenPairs();
+
+    // To avoid getting the token balance information of the last transaction, we need to get the token base information again
+    const recentTokenPairsBase = recentTokenPairs.map((tokenPairs) => {
+      const { fromToken, toToken } = tokenPairs;
+      return {
+        fromToken: {
+          networkId: fromToken.networkId,
+          contractAddress: fromToken.contractAddress,
+          symbol: fromToken.symbol,
+          decimals: fromToken.decimals,
+          name: fromToken.name,
+          logoURI: fromToken.logoURI,
+          networkLogoURI: fromToken.networkLogoURI,
+          isNative: fromToken.isNative,
+        },
+        toToken: {
+          networkId: toToken.networkId,
+          contractAddress: toToken.contractAddress,
+          symbol: toToken.symbol,
+          decimals: toToken.decimals,
+          name: toToken.name,
+          logoURI: toToken.logoURI,
+          networkLogoURI: toToken.networkLogoURI,
+          isNative: toToken.isNative,
+        },
+      };
+    });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapRecentTokenPairs: recentTokenPairsBase,
+    }));
+  }
+
+  @backgroundMethod()
   async swapRecentTokenPairsUpdate({
     fromToken,
     toToken,
@@ -1158,16 +1197,31 @@ export default class ServiceSwap extends ServiceBase {
       },
       ...recentTokenPairs,
     ];
-    if (newRecentTokenPairs.length > maxRecentTokenPairs) {
-      newRecentTokenPairs = newRecentTokenPairs.slice(0, maxRecentTokenPairs);
+
+    let singleChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId === t.toToken.networkId,
+    );
+    let crossChainTokenPairs = newRecentTokenPairs.filter(
+      (t) => t.fromToken.networkId !== t.toToken.networkId,
+    );
+
+    if (singleChainTokenPairs.length > maxRecentTokenPairs) {
+      singleChainTokenPairs = singleChainTokenPairs.slice(
+        0,
+        maxRecentTokenPairs,
+      );
     }
+    if (crossChainTokenPairs.length > maxRecentTokenPairs) {
+      crossChainTokenPairs = crossChainTokenPairs.slice(0, maxRecentTokenPairs);
+    }
+    newRecentTokenPairs = [...singleChainTokenPairs, ...crossChainTokenPairs];
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapRecentTokenPairs: newRecentTokenPairs,
     }));
     await this.backgroundApi.simpleDb.swapConfigs.addRecentTokenPair(
-      fromToken,
-      toToken,
+      fromTokenBaseInfo,
+      toTokenBaseInfo,
       isExit,
     );
   }

@@ -94,6 +94,16 @@ export type IOnChainHistoryTx = {
   outputs?: IOnChainHistoryTxUTXOOutput[];
 
   tokenApprove?: IOnChainHistoryTxApprove;
+
+  tokenActive?: {
+    token: string;
+    from: string;
+  };
+
+  contractCall?: {
+    functionName?: string;
+  };
+
   // TODO: on chain swap info
   swapInfo?: any;
 
@@ -204,3 +214,17 @@ export type IAllNetworkHistoryExtraItem = {
   accountAddress: string;
   accountXpub?: string;
 };
+
+export interface IServerFetchAccountHistoryDetailParams {
+  accountId: string;
+  networkId: string;
+  txid: string;
+  accountAddress?: string;
+  xpub?: string;
+}
+
+export interface IServerFetchAccountHistoryDetailResp {
+  data: {
+    data: IFetchHistoryTxDetailsResp;
+  };
+}

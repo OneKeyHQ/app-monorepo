@@ -2,7 +2,7 @@ import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Stack, XStack } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,6 +17,7 @@ type IEditableListItemProps = {
   isDraggable?: boolean;
   isDisabled?: boolean;
   isEditable?: boolean;
+  isCustomNetworkEditable?: boolean;
   drag?: () => void;
   dragProps?: Record<string, any>;
 };
@@ -74,20 +75,18 @@ export const EditableListItem = ({
   isDisabled,
   isDraggable,
   isEditable = true,
+  isCustomNetworkEditable,
 }: IEditableListItemProps) => {
   const intl = useIntl();
-  const { isEditMode, networkId, onPressItem } = useContext(
-    EditableChainSelectorContext,
-  );
-
-  const opacity = isDisabled ? 0.7 : 1;
+  const { isEditMode, networkId, onPressItem, onEditCustomNetwork } =
+    useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
-    if (!isEditMode && !isDisabled) {
+    if (!isEditMode) {
       return () => onPressItem?.(item);
     }
     return undefined;
-  }, [isEditMode, isDisabled, item, onPressItem]);
+  }, [isEditMode, item, onPressItem]);
 
   return (
     <ListItem
@@ -99,29 +98,44 @@ export const EditableListItem = ({
       }
       titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
-      renderAvatar={<NetworkAvatarBase logoURI={item.logoURI} size="$8" />}
-      opacity={opacity}
+      renderAvatar={
+        <NetworkAvatarBase
+          logoURI={item.logoURI}
+          isCustomNetwork={item.isCustomNetwork}
+          networkName={item.name}
+          size="$8"
+        />
+      }
       onPress={onPress}
+      disabled={isDisabled}
     >
-      {isEditable && isEditMode && !isDisabled && !isDraggable ? (
-        <EditableListItemPinOrNot item={item} />
-      ) : null}
-      {networkId === item.id && !isEditMode ? (
-        <ListItem.CheckMark key="checkmark" />
-      ) : null}
-      {isEditMode && isDraggable ? (
-        <XStack>
-          <EditableListItemPinOrNot item={item} />
-          <Stack w="$5" />
+      <XStack gap="$5">
+        {isCustomNetworkEditable && isEditMode && !isDisabled ? (
           <ListItem.IconButton
-            key="darg"
-            cursor="move"
-            icon="DragOutline"
-            onPressIn={drag}
-            dataSet={dragProps}
+            icon="PencilOutline"
+            title={intl.formatMessage({ id: ETranslations.global_edit })}
+            onPress={() => onEditCustomNetwork?.(item)}
           />
-        </XStack>
-      ) : null}
+        ) : null}
+        {isEditable && isEditMode && !isDisabled && !isDraggable ? (
+          <EditableListItemPinOrNot item={item} />
+        ) : null}
+        {isEditMode && isDraggable ? (
+          <>
+            <EditableListItemPinOrNot item={item} />
+            <ListItem.IconButton
+              key="darg"
+              cursor="move"
+              icon="DragOutline"
+              onPressIn={drag}
+              dataSet={dragProps}
+            />
+          </>
+        ) : null}
+        {networkId === item.id && !isEditMode ? (
+          <ListItem.CheckMark key="checkmark" />
+        ) : null}
+      </XStack>
     </ListItem>
   );
 };

@@ -722,7 +722,22 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
+  return `evm--${chainId}`;
+}
+
+function buildAccountValueKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}_${networkId}`;
+}
+
 export default {
+  buildAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
@@ -777,4 +792,5 @@ export default {
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  buildCustomEvmNetworkId,
 };

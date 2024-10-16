@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { getColors } from 'react-native-image-colors';
 
 import type {
   IImageSourceProps,
@@ -35,6 +34,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -60,6 +60,13 @@ interface ITokenAccount extends IEarnAccountToken {
 }
 
 const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
+const getNumberColor = (
+  value: string | number,
+  defaultColor: ISizableTextProps['color'] = '$textSuccess',
+): ISizableTextProps['color'] =>
+  (typeof value === 'string' ? Number(value) : value) === 0
+    ? '$textDisabled'
+    : defaultColor;
 
 const toTokenProviderListPage = async (
   navigation: ReturnType<typeof useAppNavigation>,
@@ -130,18 +137,7 @@ function RecommendedItem({
   useEffect(() => {
     const url = token?.logoURI;
     if (url) {
-      void getColors(url, {
-        cache: true,
-        key: url,
-      }).then((result) => {
-        if ('vibrant' in result) {
-          const hexColor = result.vibrant;
-          const r = parseInt(hexColor.slice(1, 3), 16);
-          const g = parseInt(hexColor.slice(3, 5), 16);
-          const b = parseInt(hexColor.slice(5, 7), 16);
-          setDecorationColor(`rgba(${r}, ${g}, ${b}, 0.075)`);
-        }
-      });
+      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
     }
   }, [token?.logoURI]);
 
@@ -171,7 +167,8 @@ function RecommendedItem({
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      bg={decorationColor || '$bgSubdued'}
+      // bg={decorationColor || '$bgSubdued'} // $bgSubdued is the default color. Will cause a blink.
+      bg={decorationColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"
@@ -412,6 +409,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         <NumberSizeableText
           size="$heading5xl"
           formatter="price"
+          color={getNumberColor(totalFiatValue, '$text')}
           formatterOptions={{ currency: settings.currencyInfo.symbol }}
           numberOfLines={1}
         >
@@ -430,10 +428,10 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
           formatter="price"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
-            showPlusMinusSigns: Number(earnings24h) === 0,
+            showPlusMinusSigns: Number(earnings24h) !== 0,
           }}
           size="$bodyLgMedium"
-          color="$textSuccess"
+          color={getNumberColor(earnings24h)}
           numberOfLines={1}
           $gtLg={{
             size: '$heading5xl',

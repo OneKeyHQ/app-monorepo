@@ -1,4 +1,7 @@
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -9,9 +12,17 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { IDecodedTxActionTokenApprove } from '../tx';
+
 export enum EProtocolOfExchange {
-  SWAP = 'Swap',
+  SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+}
+
+export enum ESwapTabSwitchType {
+  SWAP = 'swap',
+  BRIDGE = 'bridge',
+  LIMIT = 'limit',
 }
 
 export enum ESwapReceiveAddressType {
@@ -44,6 +55,7 @@ export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importNetworkId?: string;
+  swapTabSwitchType?: ESwapTabSwitchType;
 }
 
 // token & network
@@ -51,6 +63,8 @@ export interface ISwapInitParams {
 export interface ISwapNetworkBase {
   networkId: string;
   defaultSelectToken?: { from?: string; to?: string };
+  supportCrossChainSwap?: boolean;
+  supportSingleSwap?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -221,6 +235,13 @@ export interface ISwapTokenMetadata {
   };
 }
 
+export interface IQuoteTip {
+  icon?: string;
+  title?: string;
+  detail?: string;
+  link?: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   info: IFetchQuoteInfo;
@@ -248,6 +269,8 @@ export interface IFetchQuoteResult {
   supportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
+  quoteShowTip?: IQuoteTip;
+  gasLimit?: number;
 }
 
 export interface IAllowanceResult {
@@ -296,6 +319,7 @@ export interface ISwapState {
 
 export interface ISwapCheckWarningDef {
   swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
+  swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
 }
 
 export enum ESwapAlertLevel {
@@ -303,12 +327,33 @@ export enum ESwapAlertLevel {
   WARNING = 'warning',
   ERROR = 'error',
 }
+
+export enum ESwapAlertActionType {
+  CREATE_ADDRESS = 'create_address',
+  TOKEN_DETAIL_FETCHING = 'token_detail_fetching',
+}
+
+export interface ISwapAlertActionData {
+  num?: number;
+  key?: string;
+  account?: {
+    walletId: IDBWalletId | undefined;
+    networkId: string | undefined;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+  };
+}
 export interface ISwapAlertState {
+  title?: string;
+  icon?: IKeyOfIcons;
   message?: string;
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
-  cb?: () => void;
-  cbLabel?: string;
+  action?: {
+    actionType: ESwapAlertActionType;
+    actionLabel?: string;
+    actionData?: ISwapAlertActionData;
+  };
 }
 
 export interface ISwapQuoteEventAutoSlippage {
@@ -378,6 +423,7 @@ export interface ISwapTxInfo {
   accountAddress: string;
   receivingAddress: string;
   swapBuildResData: IFetchBuildTxResponse;
+  swapRequiredApproves?: IDecodedTxActionTokenApprove[];
 }
 
 export interface IEVMTransaction {

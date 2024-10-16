@@ -37,6 +37,7 @@ export enum EAppEventBusNames {
   RenameDBAccounts = 'RenameDBAccounts',
   CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
+  OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
@@ -76,6 +77,7 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  AddedCustomNetwork = 'AddedCustomNetwork',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -110,6 +112,9 @@ export interface IAppEventBusPayload {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+  };
+  [EAppEventBusNames.OnSwitchDAppNetwork]: {
+    state: 'switching' | 'completed';
   };
   [EAppEventBusNames.DAppNetworkUpdate]: {
     networkId: string;
@@ -221,6 +226,7 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.AddedCustomNetwork]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

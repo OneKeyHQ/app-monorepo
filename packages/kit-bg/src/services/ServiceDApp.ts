@@ -38,7 +38,7 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -49,10 +49,13 @@ import type {
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
@@ -247,13 +250,13 @@ class ServiceDApp extends ServiceBase {
     unsignedMessage,
     accountId,
     networkId,
-    sceneName,
+    walletInternalSign,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
-    sceneName?: EAccountSelectorSceneName;
+    walletInternalSign?: boolean;
   }) {
     if (!accountId || !networkId) {
       throw new Error('accountId and networkId required');
@@ -265,7 +268,7 @@ class ServiceDApp extends ServiceBase {
         unsignedMessage,
         accountId,
         networkId,
-        sceneName,
+        walletInternalSign,
       },
       fullScreen: !platformEnv.isNativeIOS,
     });
@@ -299,6 +302,27 @@ class ServiceDApp extends ServiceBase {
       },
       fullScreen: true,
     }) as Promise<ISignedTxPro>;
+  }
+
+  @backgroundMethod()
+  async openAddCustomNetworkModal({
+    request,
+    params,
+  }: {
+    request: IJsBridgeMessagePayload;
+    params: IAddEthereumChainParameter;
+  }): Promise<IServerNetwork> {
+    return this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.AddCustomNetworkModal,
+      ],
+      params: {
+        networkInfo: params,
+      },
+      fullScreen: true,
+    }) as Promise<IServerNetwork>;
   }
 
   // connection allowance
@@ -1072,6 +1096,17 @@ class ServiceDApp extends ServiceBase {
     skipParseResponse?: boolean;
     origin: string;
   }) {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      const vault = await vaultFactory.getChainOnlyVault({
+        networkId,
+      });
+      const result = await vault.proxyJsonRPCCall(request);
+      return [result];
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
       data: {

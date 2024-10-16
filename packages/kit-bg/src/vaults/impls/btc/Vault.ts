@@ -129,7 +129,39 @@ export default class VaultBtc extends VaultBase {
     const { inputs, outputs, inputsToSign, psbtHex } = encodedTx;
 
     if (psbtHex && Array.isArray(inputsToSign)) {
-      return this.buildDecodedPsbtTx(params);
+      const decodedPsbt = await this.buildDecodedPsbtTx(params);
+      const decodedPsbtAction = decodedPsbt.actions[0];
+      if (stakingInfo) {
+        const accountAddress = await this.getAccountAddress();
+        const { send } = stakingInfo;
+        const action = await this.buildInternalStakingAction({
+          accountAddress,
+          stakingInfo,
+          stakingToAddress: decodedPsbtAction.assetTransfer?.to,
+        });
+
+        let sendNativeTokenAmountBN = new BigNumber(0);
+        let sendNativeTokenAmountValueBN = new BigNumber(0);
+
+        if (send && send.token.isNative) {
+          sendNativeTokenAmountBN = new BigNumber(send.amount);
+          sendNativeTokenAmountValueBN = sendNativeTokenAmountBN.shiftedBy(
+            send.token.decimals,
+          );
+          decodedPsbt.nativeAmount = sendNativeTokenAmountBN.toFixed();
+          decodedPsbt.nativeAmountValue =
+            sendNativeTokenAmountValueBN.toFixed();
+        }
+
+        if (action.assetTransfer) {
+          action.assetTransfer.utxoFrom =
+            decodedPsbtAction.assetTransfer?.utxoFrom;
+          action.assetTransfer.utxoTo = decodedPsbtAction.assetTransfer?.utxoTo;
+        }
+        decodedPsbt.actions = [action];
+      }
+
+      return decodedPsbt;
     }
 
     const network = await this.getNetwork();
@@ -264,6 +296,7 @@ export default class VaultBtc extends VaultBase {
         action.assetTransfer.utxoFrom = utxoFrom;
         action.assetTransfer.utxoTo = originalUtxoTo;
       }
+      actions = [action];
     } else if (nativeToken) {
       actions = [
         {

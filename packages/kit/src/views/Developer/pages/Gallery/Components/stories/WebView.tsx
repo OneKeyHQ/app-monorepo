@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react';
 
 import { Button, Input, Page } from '@onekeyhq/components';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export default function WebviewGallery() {
   const [url, setUrl] = useState('https://www.baidu.com');
   const openWebView = useCallback(() => {
-    openUrl(url);
+    openUrlInApp(url);
   }, [url]);
   return (
     <Page>

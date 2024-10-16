@@ -31,7 +31,10 @@ import type {
 } from '@onekeyhq/shared/types/proxy';
 
 import simpleDb from '../dbs/simple/simpleDb';
-import { activeAccountValueAtom } from '../states/jotai/atoms';
+import {
+  activeAccountValueAtom,
+  currencyPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -92,27 +95,16 @@ class ServiceAccountProfile extends ServiceBase {
       xpub?: string;
     },
   ): Promise<IFetchAccountDetailsResp> {
-    const queryParams = {
-      ...omit(params, ['accountId', 'signal']),
-    };
-
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
     const controller = new AbortController();
     this._fetchAccountDetailsControllers.push(controller);
-    const resp = await client.get<{
-      data: IFetchAccountDetailsResp;
-    }>(
-      `/wallet/v1/account/get-account?${qs.stringify(
-        omitBy(queryParams, isNil),
-      )}`,
-      {
-        headers: await this._getWalletTypeHeader({
-          accountId: params.accountId,
-        }),
-        signal: controller.signal,
-      },
-    );
-
+    const resp = await vault.fetchAccountDetails({
+      ...params,
+      signal: controller.signal,
+    });
     return resp.data.data;
   }
 
@@ -151,6 +143,13 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     toAddress: string;
   }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      return { isContract: false, interacted: 'unknown' };
+    }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
       const resp = await client.get<{
@@ -433,6 +432,72 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateAllNetworkAccountValue(params: {
+    accountId: string;
+    value: Record<string, string>;
+    currency: string;
+    updateAll?: boolean;
+  }) {
+    const { currency, value, updateAll } = params;
+
+    const currencyItems = (await currencyPersistAtom.get()).currencyItems;
+
+    let usdValue: Record<string, string> = value;
+
+    if (currency !== 'usd') {
+      const currencyInfo = currencyItems.find((item) => item.id === currency);
+
+      if (!currencyInfo) {
+        throw new Error('Currency not found');
+      }
+      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
+        acc[n] = new BigNumber(v)
+          .div(new BigNumber(currencyInfo.value))
+          .toString();
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    const usdAccountValue = {
+      ...params,
+      value: usdValue,
+      currency: 'usd',
+    };
+
+    if (updateAll) {
+      await activeAccountValueAtom.set(usdAccountValue);
+    } else {
+      const accountsValue =
+        await simpleDb.accountValue.getAllNetworkAccountsValue({
+          accounts: [{ accountId: params.accountId }],
+        });
+      const currentAccountValue = accountsValue?.[0];
+      if (currentAccountValue?.accountId !== params.accountId) {
+        return;
+      }
+
+      await activeAccountValueAtom.set({
+        ...usdAccountValue,
+        value: {
+          ...currentAccountValue.value,
+          ...usdValue,
+        },
+      });
+    }
+
+    await simpleDb.accountValue.updateAllNetworkAccountValue(usdAccountValue);
+  }
+
+  @backgroundMethod()
+  async getAllNetworkAccountsValue(params: {
+    accounts: { accountId: string }[];
+  }) {
+    const accountsValue =
+      await simpleDb.accountValue.getAllNetworkAccountsValue(params);
+    return accountsValue;
+  }
+
+  @backgroundMethod()
   async getAccountsValue(params: { accounts: { accountId: string }[] }) {
     const accountsValue = await simpleDb.accountValue.getAccountsValue(params);
     return accountsValue;
@@ -443,8 +508,11 @@ class ServiceAccountProfile extends ServiceBase {
     accountId: string;
     value: string;
     currency: string;
+    shouldUpdateActiveAccountValue?: boolean;
   }) {
-    await activeAccountValueAtom.set(params);
+    if (params.shouldUpdateActiveAccountValue) {
+      await activeAccountValueAtom.set(params);
+    }
 
     await simpleDb.accountValue.updateAccountValue(params);
   }

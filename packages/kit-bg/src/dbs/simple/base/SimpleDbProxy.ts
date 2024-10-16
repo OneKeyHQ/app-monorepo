@@ -5,10 +5,12 @@ import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBas
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
@@ -23,6 +25,7 @@ import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTok
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -125,6 +128,14 @@ export class SimpleDbProxy
 
   customRpc = this._createProxyService('customRpc') as SimpleDbEntityCustomRpc;
 
+  customNetwork = this._createProxyService(
+    'customNetwork',
+  ) as SimpleDbEntityCustomNetwork;
+
+  serverNetwork = this._createProxyService(
+    'serverNetwork',
+  ) as SimpleDbEntityServerNetwork;
+
   v4MigrationResult = this._createProxyService(
     'v4MigrationResult',
   ) as SimpleDbEntityV4MigrationResult;
@@ -140,4 +151,8 @@ export class SimpleDbProxy
   earn = this._createProxyService('earn') as SimpleDbEntityEarn;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
+
+  babylonSync = this._createProxyService(
+    'babylonSync',
+  ) as SimpleDbEntityBabylonSync;
 }

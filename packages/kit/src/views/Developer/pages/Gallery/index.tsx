@@ -466,6 +466,13 @@ const TradingViewGallery = LazyLoadPage(
     ),
 );
 
+const LetterAvatarGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LetterAvatar'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -673,5 +680,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTradingViewGallery,
     component: TradingViewGallery,
+  },
+  {
+    name: EGalleryRoutes.LetterAvatarGallery,
+    component: LetterAvatarGallery,
   },
 ];

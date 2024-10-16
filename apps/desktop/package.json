@@ -39,11 +39,12 @@
     "electron-log": "5.2.0",
     "electron-store": "^8.2.0",
     "electron-updater": "6.1.8",
+    "electron-windows-security": "0.0.5",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.3.0",
+    "@electron/notarize": "2.3.2",
     "@electron/remote": "^2.0.1",
     "@types/adm-zip": "^0",
     "@types/electron-localshortcut": "^3.1.0",

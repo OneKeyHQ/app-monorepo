@@ -8,7 +8,6 @@ import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -27,6 +26,7 @@ import type {
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+// import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import {
@@ -61,7 +61,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
-  const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -85,7 +84,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       fromToken: ISwapToken;
       toToken: ISwapToken;
     }) => {
-      void selectFromToken(fromToken);
+      void selectFromToken(fromToken, true);
       void selectToToken(toToken);
     },
     [selectFromToken, selectToToken],
@@ -151,25 +150,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           flex={1}
           $gtMd={{
             flex: 'unset',
-            pt: '$5',
+            pt: pageType === EPageType.modal ? '$2.5' : '$5',
           }}
         >
-          {pageType !== EPageType.modal ? <SwapHeaderContainer /> : null}
+          <SwapHeaderContainer
+            defaultSwapType={swapInitParams?.swapTabSwitchType}
+          />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
-            onToAnotherAddressModal={onToAnotherAddressModal}
           />
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
+            onOpenRecipient={onToAnotherAddressModal}
           />
           {alerts.states.length > 0 &&
           !quoteLoading &&
           !quoteEventFetching &&
-          alerts.quoteId === (quoteResult?.quoteId ?? '') &&
-          !selectTokenDetailLoading.from &&
-          !selectTokenDetailLoading.to ? (
+          alerts.quoteId === (quoteResult?.quoteId ?? '') ? (
             <SwapAlertContainer alerts={alerts.states} />
           ) : null}
           <SwapRecentTokenPairsGroup

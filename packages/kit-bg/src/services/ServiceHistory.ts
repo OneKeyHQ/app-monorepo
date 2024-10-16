@@ -23,6 +23,7 @@ import type {
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
+  IServerFetchAccountHistoryDetailParams,
 } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -526,6 +527,15 @@ class ServiceHistory extends ServiceBase {
       accountId,
       networkId,
     });
+
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+        networkId,
+      });
+    if (isCustomNetwork) {
+      return [];
+    }
+
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     let extraParams: any;
@@ -634,33 +644,24 @@ class ServiceHistory extends ServiceBase {
         accountAddress: accountAddress || '',
       });
 
-      const requestParams = withUTXOs
+      const requestParams: IServerFetchAccountHistoryDetailParams = withUTXOs
         ? {
+            accountId,
             networkId,
             txid,
             ...extraParams,
           }
         : {
+            accountId,
             networkId,
             txid,
             xpub,
             accountAddress,
             ...extraParams,
           };
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      const resp = await vault.fetchAccountHistoryDetail(requestParams);
 
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
-        '/wallet/v1/account/history/detail',
-        {
-          params: requestParams,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
       return resp.data.data;
     } catch (e) {
       console.log(e);

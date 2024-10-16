@@ -1,4 +1,4 @@
-import type { IToken, ITokenData } from './token';
+import type { IToken } from './token';
 
 export type IAllowanceOverview = {
   allowance: string;
@@ -45,6 +45,8 @@ export type IStakeProviderInfo = {
   type?: 'native' | 'liquid';
   isStaking?: boolean;
 
+  unstakingTime?: number;
+
   // native token only
   minTransactionFee?: string;
 
@@ -56,6 +58,7 @@ export type IStakeProviderInfo = {
   unbondingTime?: number;
   stakingCap?: string;
   earnPoints?: boolean;
+  stakeDisable?: boolean;
 };
 
 export type IStakeBaseParams = {
@@ -66,6 +69,7 @@ export type IStakeBaseParams = {
   provider: string;
 
   term?: number; // Babylon
+  feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
 };
@@ -145,7 +149,8 @@ export enum EStakeTxType {
 export type IStakeTxResponse =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
-  | IStakeTxEthLido;
+  | IStakeTxEthLido
+  | IStakeTxCosmosAmino;
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -169,6 +174,25 @@ export type IStakeTxEthLido = {
   data: string;
 };
 
+// Cosmos dapp interface signAmino
+export type IStakeTxCosmosAmino = {
+  readonly chain_id: string;
+  readonly account_number: string;
+  readonly sequence: string;
+  fee: {
+    amount: {
+      denom: string;
+      amount: string;
+    }[];
+    gas: string;
+  };
+  readonly msgs: {
+    type: string;
+    value: any;
+  }[];
+  readonly memo: string;
+};
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
@@ -180,6 +204,8 @@ export type IStakeProtocolDetails = {
   rewards?: string;
   earnings24h?: string;
   provider: IStakeProviderInfo;
+  totalStaked?: string;
+  stakingCap?: string;
   token: {
     balance: string;
     balanceParsed: string;
@@ -346,3 +372,11 @@ export type IEarnEstimateFeeResp = {
     info: IToken;
   };
 };
+
+export interface IEarnBabylonTrackingItem {
+  txId: string;
+  action: 'stake' | 'claim';
+  createAt: number;
+  accountId: string;
+  networkId: string;
+}

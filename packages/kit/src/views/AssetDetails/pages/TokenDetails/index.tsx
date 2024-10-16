@@ -229,6 +229,7 @@ function TokenDetails() {
         deriveType={deriveType}
         tokenInfo={tokenInfo}
         isAllNetworks={isAllNetworks}
+        indexedAccountId={account?.indexedAccountId}
         listViewContentContainerStyle={{ pt: '$5' }}
       />
     );
@@ -243,10 +244,11 @@ function TokenDetails() {
     tokenInfo,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
+    account,
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

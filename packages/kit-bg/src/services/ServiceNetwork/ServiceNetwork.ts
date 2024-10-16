@@ -51,6 +51,7 @@ class ServiceNetwork extends ServiceBase {
   async getAllNetworks(
     params: {
       excludeAllNetworkItem?: boolean;
+      excludeCustomNetwork?: boolean;
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
@@ -63,7 +64,38 @@ class ServiceNetwork extends ServiceBase {
     if (params.excludeAllNetworkItem) {
       excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
     }
-    let networks = getPresetNetworks();
+
+    const presetNetworks = getPresetNetworks();
+
+    // Fetch server and custom networks
+    const [serverNetworks, customNetworks] = await Promise.all([
+      this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+      this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
+    ]);
+
+    // Create a Map to store unique networks by id
+    // Priority: serverNetworks > presetNetworks > customNetworks
+    const networkMap = new Map<string, IServerNetwork>();
+
+    // Helper function to add networks to the map
+    const addNetworks = (networks: IServerNetwork[]) => {
+      networks.forEach((network) => {
+        if (!networkMap.has(network.id)) {
+          networkMap.set(network.id, network);
+        }
+      });
+    };
+
+    // Add networks in order of priority
+    addNetworks(serverNetworks);
+    addNetworks(presetNetworks);
+    addNetworks(customNetworks);
+
+    // Convert Map back to array
+    let networks = Array.from(networkMap.values());
+    if (params.excludeCustomNetwork) {
+      excludeNetworkIds.push(...customNetworks.map((n) => n.id));
+    }
     if (uniqByImpl) {
       networks = uniqBy(networks, (n) => n.impl);
     }
@@ -935,6 +967,19 @@ class ServiceNetwork extends ServiceBase {
       unavailableItems: unavailableNetworks,
       allNetworkItem,
     };
+  }
+
+  @backgroundMethod()
+  async isCustomNetwork({ networkId }: { networkId: string }) {
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    return !!network.isCustomNetwork;
+  }
+
+  @backgroundMethod()
+  async clearNetworkVaultSettingsCache() {
+    void this._getNetworkVaultSettings.clear();
   }
 }
 

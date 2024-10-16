@@ -8,12 +8,15 @@ import {
   Accordion,
   Dialog,
   Divider,
+  Icon,
   NumberSizeableText,
   SizableText,
+  XStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippageDialogOpeningAtom,
@@ -35,6 +38,7 @@ import type {
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
+import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -42,14 +46,15 @@ import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
-  receivedAddress?: string;
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
+  onOpenRecipient?: () => void;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
+  onOpenRecipient,
 }: ISwapQuoteResultProps) => {
   const [openResult, setOpenResult] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -57,6 +62,8 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
@@ -76,6 +83,10 @@ const SwapQuoteResult = ({
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
 
+  const swapRecipientAddress = useSwapRecipientAddressInfo(
+    settingsPersistAtom.swapEnableRecipientAddress,
+  );
+
   const calculateTaxItem = useCallback(
     (
       tokenBuyTaxBps: BigNumber,
@@ -86,7 +97,12 @@ const SwapQuoteResult = ({
       const finalShowTax = showTax.dividedBy(100).toNumber();
       return (
         <SwapCommonInfoItem
-          title={`${tokenInfo?.symbol ?? ''} buy/sell tax`}
+          title={intl.formatMessage(
+            {
+              id: ETranslations.swap_page_buy_sell_tax,
+            },
+            { token: `${tokenInfo?.symbol ?? ''}` },
+          )}
           isLoading={swapQuoteLoading}
           valueComponent={
             <SizableText size="$bodyMdMedium">{`${finalShowTax}%`}</SizableText>
@@ -94,7 +110,7 @@ const SwapQuoteResult = ({
         />
       );
     },
-    [swapQuoteLoading],
+    [intl, swapQuoteLoading],
   );
 
   const tokenMetadataParse = useCallback(
@@ -193,17 +209,19 @@ const SwapQuoteResult = ({
             bg="$transparent"
             p="$0"
             cursor="pointer"
+            disabled={!quoteResult?.info.provider || swapQuoteLoading}
           >
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
                 rate={quoteResult?.instantRate}
                 fromToken={fromToken}
                 toToken={toToken}
+                isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
                 providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
                 onOpenResult={
-                  quoteResult?.info.provider
+                  quoteResult?.info.provider && !swapQuoteLoading
                     ? () => setOpenResult(!openResult)
                     : undefined
                 }
@@ -220,6 +238,29 @@ const SwapQuoteResult = ({
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />
+              {swapProviderSupportReceiveAddress &&
+              settingsPersistAtom.swapEnableRecipientAddress ? (
+                <SwapCommonInfoItem
+                  title={intl.formatMessage({
+                    id: ETranslations.global_recipient,
+                  })}
+                  isLoading={swapQuoteLoading}
+                  onPress={onOpenRecipient}
+                  valueComponent={
+                    <XStack gap="$1">
+                      {!swapRecipientAddress?.showAddress ? (
+                        <Icon name="AddPeopleOutline" w={18} h={18} />
+                      ) : null}
+                      <SizableText size="$bodyMdMedium">
+                        {swapRecipientAddress?.showAddress ??
+                          intl.formatMessage({
+                            id: ETranslations.swap_page_recipient_edit,
+                          })}
+                      </SizableText>
+                    </XStack>
+                  }
+                />
+              ) : null}
               {quoteResult?.allowanceResult ? (
                 <SwapApproveAllowanceSelectContainer
                   allowanceResult={quoteResult?.allowanceResult}
@@ -232,6 +273,7 @@ const SwapQuoteResult = ({
                   providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
                   providerName={quoteResult?.info.providerName ?? ''}
                   isLoading={swapQuoteLoading}
+                  isBest={quoteResult.isBest}
                   fromToken={fromToken}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
@@ -244,9 +286,7 @@ const SwapQuoteResult = ({
                   }
                 />
               ) : null}
-              {quoteResult?.toAmount &&
-              !quoteResult?.allowanceResult &&
-              !quoteResult?.unSupportSlippage ? (
+              {quoteResult?.toAmount && !quoteResult?.unSupportSlippage ? (
                 <SwapSlippageTriggerContainer
                   isLoading={swapQuoteLoading}
                   onPress={slippageHandleClick}

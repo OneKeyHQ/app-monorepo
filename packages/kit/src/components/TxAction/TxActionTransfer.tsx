@@ -18,6 +18,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
@@ -556,6 +557,42 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       const transferExtraElements: React.ReactElement[] = [];
 
+      if (swapInfo?.swapRequiredApproves) {
+        swapInfo.swapRequiredApproves.forEach((approve) => {
+          let approveContent = '';
+          if (new BigNumber(approve.amount).eq(0)) {
+            approveContent = intl.formatMessage(
+              {
+                id: ETranslations.global_revoke_approve,
+              },
+              {
+                symbol: approve.symbol,
+              },
+            );
+          } else {
+            approveContent = intl.formatMessage(
+              { id: ETranslations.form__approve_str },
+              {
+                amount: approve.isInfiniteAmount
+                  ? intl.formatMessage({
+                      id: ETranslations.swap_page_provider_approve_amount_un_limit,
+                    })
+                  : approve.amount,
+                symbol: approve.symbol,
+              },
+            );
+          }
+
+          transferChangeElements.push(
+            <ListItem key={`${approve.tokenIdOnNetwork}-approve`}>
+              <Token isNFT={false} tokenImageUri={approve.icon} />
+              <Stack flex={1}>
+                <SizableText size="$bodyLgMedium">{approveContent}</SizableText>
+              </Stack>
+            </ListItem>,
+          );
+        });
+      }
       transfersBlock.forEach((block) => {
         const { transfersInfo } = block;
         transfersInfo.forEach((transfer) =>
@@ -569,8 +606,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
-                  block.direction === EDecodedTxDirection.OUT &&
-                  !isUTXO
+                  block.direction === EDecodedTxDirection.OUT
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount
                 } ${
@@ -590,7 +626,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           <XStack px="$5" pb="$2">
             {isInternalStaking && isEmpty(transfersBlock) ? null : (
               <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({ id: ETranslations.send_amount })}
+                {intl.formatMessage({
+                  id: ETranslations.global_estimated_results,
+                })}
               </SizableText>
             )}
             {swapInfo ? (
@@ -809,7 +847,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isInternalStaking,
       isSendNativeToken,
-      isUTXO,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.logoURI,

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -17,14 +18,19 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { BabylonTrackingAlert } from '../../components/BabylonTrackingAlert';
 import {
   PageFrame,
   isErrorState,
   isLoadingState,
 } from '../../components/PageFrame';
 import { ProtocolDetails } from '../../components/ProtocolDetails';
+import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
+import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSection';
+import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
@@ -71,6 +77,37 @@ const ProtocolDetailsPage = () => {
   const handleWithdraw = useHandleWithdraw();
   const handleStake = useHandleStake();
 
+  const { result: trackingResp, run: refreshTracking } = usePromiseResult(
+    async () => {
+      if (
+        provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase() ||
+        !earnAccount
+      ) {
+        return [];
+      }
+      const items =
+        await backgroundApiProxy.serviceStaking.getBabylonTrackingItems({
+          accountId: earnAccount.accountId,
+          networkId: earnAccount.networkId,
+        });
+      return items;
+    },
+    [provider, earnAccount],
+    { initResult: [] },
+  );
+
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) {
+      void refreshTracking();
+    }
+  }, [isFocused, refreshTracking]);
+
+  const onRefreshTracking = useCallback(async () => {
+    void run();
+    void refreshTracking();
+  }, [run, refreshTracking]);
+
   const onStake = useCallback(async () => {
     await handleStake({
       details: result,
@@ -82,6 +119,7 @@ const ProtocolDetailsPage = () => {
       onSuccess: async () => {
         if (networkUtils.isBTCNetwork(networkId)) {
           await run();
+          await refreshTracking();
         }
       },
     });
@@ -94,6 +132,7 @@ const ProtocolDetailsPage = () => {
     symbol,
     provider,
     run,
+    refreshTracking,
   ]);
 
   const onWithdraw = useCallback(async () => {
@@ -129,7 +168,7 @@ const ProtocolDetailsPage = () => {
           label: EEarnLabels.Claim,
           protocol: result.provider.name,
           protocolLogoURI: result.provider.logoURI,
-          send: { token: result.token.info, amount: amount ?? '0' },
+          receive: { token: result.token.info, amount: amount ?? '0' },
           tags: [buildLocalTxStatusSyncId(result)],
         },
       });
@@ -216,19 +255,39 @@ const ProtocolDetailsPage = () => {
           error={isErrorState({ result, isLoading })}
           onRefresh={run}
         >
-          <ProtocolDetails
-            accountId={accountId}
-            networkId={networkId}
-            indexedAccountId={indexedAccountId}
-            earnAccount={earnAccount}
-            details={result}
-            onClaim={onClaim}
-            onWithdraw={onWithdraw}
-            onPortfolioDetails={onPortfolioDetails}
-            onCreateAddress={onCreateAddress}
-            withdrawButtonProps={withdrawButtonProps}
-            stakeButtonProps={stakeButtonProps}
-          />
+          <ProtocolDetails details={result}>
+            {earnAccount?.accountAddress ? (
+              <>
+                <StakedValueSection
+                  details={result}
+                  stakeButtonProps={stakeButtonProps}
+                  withdrawButtonProps={withdrawButtonProps}
+                />
+                <PortfolioSection
+                  details={result}
+                  onClaim={onClaim}
+                  onWithdraw={onWithdraw}
+                  onPortfolioDetails={onPortfolioDetails}
+                />
+                {trackingResp.length > 0 ? (
+                  <BabylonTrackingAlert
+                    accountId={earnAccount.accountId}
+                    networkId={networkId}
+                    provider={provider}
+                    symbol={symbol}
+                    onRefresh={onRefreshTracking}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <NoAddressWarning
+                accountId={accountId}
+                networkId={networkId}
+                indexedAccountId={indexedAccountId}
+                onCreateAddress={onCreateAddress}
+              />
+            )}
+          </ProtocolDetails>
           {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({

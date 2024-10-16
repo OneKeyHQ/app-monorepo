@@ -7,6 +7,7 @@ import type {
   IButtonProps,
   IIconButtonProps,
   IKeyOfIcons,
+  IStackProps,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
@@ -20,14 +21,16 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-type IActionItemsProps = {
+export type IActionItemsProps = {
   icon?: IKeyOfIcons;
   label?: string;
+  verticalContainerProps?: IStackProps;
 } & Partial<IButtonProps & IIconButtonProps>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',
   label,
+  verticalContainerProps,
   ...rest
 }: IActionItemsProps) {
   const media = useMedia();
@@ -49,13 +52,15 @@ function ActionItem({
   }
 
   return (
-    <Stack alignItems="center">
+    <Stack alignItems="center" maxWidth={50} {...verticalContainerProps}>
       <IconButton size="large" icon={icon} {...rest} />
       <SizableText
         mt="$2"
         textAlign="center"
         size="$bodySm"
         color="$textSubdued"
+        minWidth="$20"
+        numberOfLines={1}
       >
         {label}
       </SizableText>
@@ -78,7 +83,7 @@ function ActionSell(props: IActionItemsProps) {
   const intl = useIntl();
   return (
     <ActionItem
-      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      label={intl.formatMessage({ id: ETranslations.global_cash_out })}
       icon="MinusLargeOutline"
       {...props}
     />
@@ -118,6 +123,17 @@ function ActionSwap(props: IActionItemsProps) {
   );
 }
 
+function ActionBridge(props: IActionItemsProps) {
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.swap_page_bridge })}
+      icon="BridgeOutline"
+      {...props}
+    />
+  );
+}
+
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
   const media = useMedia();
@@ -149,6 +165,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
     <XStack
       justifyContent="space-between"
       $gtSm={{
+        flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
         gap: '$2',
       }}
@@ -165,5 +182,6 @@ RawActions.Sell = ActionSell;
 RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
+RawActions.Bridge = ActionBridge;
 
 export { RawActions, ActionItem };

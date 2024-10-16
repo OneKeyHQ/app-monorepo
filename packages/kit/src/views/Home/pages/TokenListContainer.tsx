@@ -58,6 +58,7 @@ import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 
@@ -206,7 +207,12 @@ function TokenListContainer(props: ITabPageProps) {
         updateAccountWorth({
           accountId: account.id,
           initialized: true,
-          worth: accountWorth.toFixed(),
+          worth: {
+            [accountUtils.buildAccountValueKey({
+              accountId: account.id,
+              networkId: network.id,
+            })]: accountWorth.toFixed(),
+          },
           createAtNetworkWorth: accountWorth.toFixed(),
           merge: false,
         });
@@ -384,7 +390,12 @@ function TokenListContainer(props: ITabPageProps) {
         updateAccountWorth({
           accountId: account?.id ?? '',
           initialized: true,
-          worth: accountWorth.toFixed(),
+          worth: {
+            [accountUtils.buildAccountValueKey({
+              accountId,
+              networkId,
+            })]: accountWorth.toFixed(),
+          },
           createAtNetworkWorth: createAtNetworkWorth.toFixed(),
           merge: true,
         });
@@ -582,7 +593,11 @@ function TokenListContainer(props: ITabPageProps) {
         return null;
       }
 
-      return localTokens;
+      return {
+        ...localTokens,
+        accountId,
+        networkId,
+      };
     },
     [],
   );
@@ -601,6 +616,8 @@ function TokenListContainer(props: ITabPageProps) {
           [key: string]: ITokenFiat;
         };
         tokenListValue: string;
+        networkId: string;
+        accountId: string;
       }[];
       accountId: string;
       networkId: string;
@@ -610,7 +627,7 @@ function TokenListContainer(props: ITabPageProps) {
       let tokenListMap: {
         [key: string]: ITokenFiat;
       } = {};
-      let tokenListValue = new BigNumber(0);
+      let tokenListValue: Record<string, string> = {};
       data.forEach((item) => {
         tokenList.push(...item.tokenList, ...item.smallBalanceTokenList);
         riskyTokenList.push(...item.riskyTokenList);
@@ -618,7 +635,13 @@ function TokenListContainer(props: ITabPageProps) {
           ...tokenListMap,
           ...item.tokenListMap,
         };
-        tokenListValue = tokenListValue.plus(item.tokenListValue ?? 0);
+        tokenListValue = {
+          ...tokenListValue,
+          [accountUtils.buildAccountValueKey({
+            accountId: item.accountId,
+            networkId: item.networkId,
+          })]: item.tokenListValue,
+        };
       });
 
       refreshTokenListMap({
@@ -668,7 +691,15 @@ function TokenListContainer(props: ITabPageProps) {
         updateAccountWorth({
           accountId: account?.id ?? '',
           initialized: true,
-          worth: tokenListValue.toFixed(),
+          worth: tokenListValue,
+          createAtNetworkWorth:
+            tokenListValue[
+              accountUtils.buildAccountValueKey({
+                accountId: account?.id ?? '',
+                networkId: account?.createAtNetwork ?? '',
+              })
+            ],
+          updateAll: true,
         });
         updateAccountOverviewState({
           isRefreshing: false,
@@ -681,6 +712,7 @@ function TokenListContainer(props: ITabPageProps) {
       }
     },
     [
+      account?.createAtNetwork,
       account?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
@@ -745,7 +777,7 @@ function TokenListContainer(props: ITabPageProps) {
     let riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
-    let accountWorth = new BigNumber(0);
+    let accountsWorth: Record<string, string> = {};
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -802,10 +834,17 @@ function TokenListContainer(props: ITabPageProps) {
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        accountWorth = accountWorth
-          .plus(r.tokens.fiatValue ?? '0')
+        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0')
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+        accountsWorth = {
+          ...accountsWorth,
+          [accountUtils.buildAccountValueKey({
+            accountId: r.accountId ?? '',
+            networkId: r.networkId ?? '',
+          })]: accountWorth.toFixed(),
+        };
 
         if (
           account?.id &&
@@ -870,7 +909,8 @@ function TokenListContainer(props: ITabPageProps) {
       updateAccountWorth({
         accountId: account?.id ?? '',
         initialized: true,
-        worth: accountWorth.toFixed(),
+        updateAll: true,
+        worth: accountsWorth,
         createAtNetworkWorth: createAtNetworkWorth.toFixed(),
       });
 
@@ -968,6 +1008,18 @@ function TokenListContainer(props: ITabPageProps) {
           handleClearAllNetworkData();
         }
       } else {
+        updateAccountWorth({
+          accountId,
+          initialized: true,
+          worth: {
+            [accountUtils.buildAccountValueKey({
+              accountId,
+              networkId,
+            })]: tokenListValue,
+          },
+          createAtNetworkWorth: tokenListValue,
+          merge: false,
+        });
         refreshTokenList({
           tokens: tokenList,
           keys: `${accountId}_${networkId}_local`,
@@ -1000,13 +1052,6 @@ function TokenListContainer(props: ITabPageProps) {
           tokens: tokenListMap,
         });
 
-        updateAccountWorth({
-          accountId,
-          initialized: true,
-          worth: tokenListValue,
-          createAtNetworkWorth: tokenListValue,
-          merge: false,
-        });
         updateAccountOverviewState({
           isRefreshing: false,
           initialized: true,
@@ -1157,17 +1202,11 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-  const isUrlAccount = accountUtils.isUrlAccountFn({
-    accountId: account?.id ?? '',
-  });
-  return isUrlAccount ? (
-    <UrlAccountHomeTokenListProviderMirror>
+
+  return (
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <TokenListContainer showWalletActions {...props} />
-    </UrlAccountHomeTokenListProviderMirror>
-  ) : (
-    <HomeTokenListProviderMirror>
-      <TokenListContainer showWalletActions {...props} />
-    </HomeTokenListProviderMirror>
+    </HomeTokenListProviderMirrorWrapper>
   );
 });
 TokenListContainerWithProvider.displayName = 'TokenListContainerWithProvider';

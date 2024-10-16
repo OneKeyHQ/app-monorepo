@@ -73,4 +73,6 @@ export enum EGalleryRoutes {
   ComponentCurrency = 'component-Currency',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
   ComponentTradingViewGallery = 'component-TradingView',
+  PasswordKeyboardGallery = 'component-PasswordKeyboard',
+  LetterAvatarGallery = 'component-LetterAvatar',
 }
