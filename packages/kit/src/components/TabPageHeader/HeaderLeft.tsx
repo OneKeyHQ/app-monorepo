@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { NavBackButton, Page } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -24,7 +24,16 @@ export function HeaderLeft({
     }
 
     const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome num={0} key="accountSelectorTrigger" />
+      <AccountSelectorTriggerHome
+        num={0}
+        key="accountSelectorTrigger"
+        spotlightProps={{
+          delayMs: 300,
+          isVisible: true,
+          message: 'abcdefg',
+          tourName: ESpotlightTour.switchDappAccount,
+        }}
+      />
     );
     return accountSelectorTrigger;
   }, [sceneName]);

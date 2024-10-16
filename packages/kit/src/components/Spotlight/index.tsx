@@ -41,7 +41,7 @@ import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View as NativeView } from 'react-native';
 
-export type ISpotlightProps = PropsWithChildren<{
+export type ISpotlightViewProps = PropsWithChildren<{
   containerProps?: IStackStyle;
   content: ReactElement;
   childrenPadding?: number;
@@ -58,11 +58,20 @@ interface IFloatingPosition {
   height: number;
 }
 
-type ISpotlightContentEvent = ISpotlightProps & {
+type ISpotlightContentEvent = ISpotlightViewProps & {
   triggerRef: RefObject<NativeView>;
   floatingOffset: number;
   childrenPadding: number;
 };
+
+export type ISpotlightProps = PropsWithChildren<{
+  containerProps?: ISpotlightViewProps['containerProps'];
+  isVisible?: boolean;
+  message: string;
+  tourName: ESpotlightTour;
+  delayMs?: number;
+}>;
+
 function SpotlightContent({
   initProps,
   triggerPropsRef,
@@ -159,10 +168,11 @@ function SpotlightContent({
 
   const handleBackPress = useCallback(() => true, []);
   useBackHandler(handleBackPress);
-
+  console.log('visible && isRendered', visible && isRendered);
   if (visible && isRendered)
     return (
       <Stack
+        testID="spotlight-content"
         animation="quick"
         bg="rgba(0,0,0,0.3)"
         position="absolute"
@@ -226,7 +236,7 @@ export function SpotlightView({
   floatingOffset = 12,
   visible = false,
   onConfirm,
-}: ISpotlightProps) {
+}: ISpotlightViewProps) {
   const defer = useDeferredPromise();
   const triggerRef = useRef<IElement | null>(null);
   const triggerPropsRef = useRef<{
@@ -303,14 +313,7 @@ export const useSpotlight = (tourName: ESpotlightTour) => {
   );
 };
 
-export function Spotlight(props: {
-  containerProps?: ISpotlightProps['containerProps'];
-  isVisible?: boolean;
-  message: string;
-  tourName: ESpotlightTour;
-  delayMs?: number;
-  children: ReactNode;
-}) {
+export function Spotlight(props: ISpotlightProps) {
   const {
     isVisible,
     tourName,
