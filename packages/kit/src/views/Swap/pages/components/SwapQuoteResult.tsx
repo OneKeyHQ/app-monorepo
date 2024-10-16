@@ -257,7 +257,7 @@ const SwapQuoteResult = ({
                       <SizableText size="$bodyMdMedium">
                         {swapRecipientAddress?.showAddress ??
                           intl.formatMessage({
-                            id: ETranslations.address_book_empty_add_button,
+                            id: ETranslations.swap_page_recipient_edit,
                           })}
                       </SizableText>
                     </XStack>
