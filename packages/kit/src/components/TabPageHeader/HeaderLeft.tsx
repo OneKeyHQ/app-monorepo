@@ -33,7 +33,7 @@ export function HeaderLeft({
         key="accountSelectorTrigger"
         spotlightProps={{
           visible: true,
-          message: intl.formatMessage({
+          content: intl.formatMessage({
             id: ETranslations.spotlight_account_alignment_desc,
           }),
           onConfirm: () => {
