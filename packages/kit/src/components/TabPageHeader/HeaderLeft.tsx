@@ -19,13 +19,15 @@ export function HeaderLeft({
   sceneName: EAccountSelectorSceneName;
 }) {
   const intl = useIntl();
-  const { times, tourVisited } = useSpotlight(ESpotlightTour.switchDappAccount);
+  const { tourTimes, tourVisited } = useSpotlight(
+    ESpotlightTour.switchDappAccount,
+  );
 
   useEffect(() => {
-    console.log('times: ====>>>>: ', times);
-  }, [times]);
+    console.log('times: ====>>>>: ', tourTimes);
+  }, [tourTimes]);
 
-  const spotlightVisible = useMemo(() => times === 1, [times]);
+  const spotlightVisible = useMemo(() => tourTimes === 1, [tourTimes]);
   const items = useMemo(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return (
