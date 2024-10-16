@@ -44,7 +44,8 @@ import type { View as NativeView } from 'react-native';
 export type ISpotlightViewProps = PropsWithChildren<{
   containerProps?: IStackStyle;
   content: ReactElement;
-  childrenPadding?: number;
+  childrenPaddingVertical?: number;
+  childrenPaddingHorizontal?: number;
   floatingOffset?: number;
   visible: boolean;
   onConfirm?: () => void;
@@ -61,7 +62,8 @@ interface IFloatingPosition {
 type ISpotlightContentEvent = ISpotlightViewProps & {
   triggerRef: RefObject<NativeView>;
   floatingOffset: number;
-  childrenPadding: number;
+  childrenPaddingVertical?: number;
+  childrenPaddingHorizontal?: number;
 };
 
 export type ISpotlightProps = PropsWithChildren<{
@@ -71,7 +73,8 @@ export type ISpotlightProps = PropsWithChildren<{
   tourName: ESpotlightTour;
   delayMs?: number;
   floatingOffset?: number;
-  childrenPadding?: number;
+  childrenPaddingVertical?: number;
+  childrenPaddingHorizontal?: number;
 }>;
 
 function SpotlightContent({
@@ -138,7 +141,8 @@ function SpotlightContent({
     content,
     onConfirm,
     floatingOffset,
-    childrenPadding,
+    childrenPaddingHorizontal = 8,
+    childrenPaddingVertical = 8,
   } = props;
 
   const isRendered = floatingPosition.width > 0;
@@ -151,8 +155,8 @@ function SpotlightContent({
               floatingPosition.y +
               floatingPosition.height +
               floatingOffset +
-              childrenPadding,
-            left: gtMd ? floatingPosition.x - childrenPadding : '$4',
+              childrenPaddingVertical,
+            left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
             right: gtMd ? undefined : '$4',
             maxWidth: gtMd ? 354 : undefined,
           }
@@ -163,14 +167,14 @@ function SpotlightContent({
       floatingPosition.height,
       floatingPosition.x,
       floatingOffset,
-      childrenPadding,
+      childrenPaddingVertical,
       gtMd,
+      childrenPaddingHorizontal,
     ],
   );
 
   const handleBackPress = useCallback(() => true, []);
   useBackHandler(handleBackPress);
-  console.log('visible && isRendered', visible && isRendered);
   if (visible && isRendered)
     return (
       <Stack
@@ -191,10 +195,11 @@ function SpotlightContent({
           position="absolute"
           pointerEvents="none"
           bg="$bg"
-          top={floatingPosition.y - childrenPadding}
-          left={floatingPosition.x - childrenPadding}
+          top={floatingPosition.y - childrenPaddingVertical}
+          left={floatingPosition.x - childrenPaddingHorizontal}
           borderRadius="$3"
-          padding={childrenPadding}
+          px={childrenPaddingHorizontal}
+          py={childrenPaddingVertical}
         >
           {children}
         </Stack>
@@ -234,7 +239,8 @@ export function SpotlightView({
   children,
   replaceChildren,
   content,
-  childrenPadding = 8,
+  childrenPaddingVertical,
+  childrenPaddingHorizontal,
   floatingOffset = 12,
   visible = false,
   onConfirm,
@@ -258,7 +264,8 @@ export function SpotlightView({
         onConfirm,
         triggerRef: triggerRef as any,
         floatingOffset,
-        childrenPadding,
+        childrenPaddingVertical,
+        childrenPaddingHorizontal,
       });
     });
   }, [
@@ -269,7 +276,8 @@ export function SpotlightView({
     onConfirm,
     replaceChildren,
     visible,
-    childrenPadding,
+    childrenPaddingVertical,
+    childrenPaddingHorizontal,
   ]);
 
   return (
@@ -290,7 +298,8 @@ export function SpotlightView({
               content,
               onConfirm,
               floatingOffset,
-              childrenPadding,
+              childrenPaddingVertical,
+              childrenPaddingHorizontal,
               triggerRef: triggerRef as any,
             }}
           />
@@ -324,6 +333,8 @@ export function Spotlight(props: ISpotlightProps) {
     containerProps,
     delayMs = 0,
     floatingOffset,
+    childrenPaddingVertical,
+    childrenPaddingHorizontal,
   } = props;
   const [isLocked] = useAppIsLockedAtom();
   const { isFirstVisit, tourVisited } = useSpotlight(tourName);
@@ -346,6 +357,8 @@ export function Spotlight(props: ISpotlightProps) {
       onConfirm={tourVisited}
       containerProps={containerProps}
       floatingOffset={floatingOffset}
+      childrenPaddingVertical={childrenPaddingVertical}
+      childrenPaddingHorizontal={childrenPaddingHorizontal}
     >
       {children}
     </SpotlightView>
