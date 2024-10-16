@@ -181,37 +181,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (!token.isNative && defaultTokenSet.fromToken?.isNative) {
         return defaultTokenSet.fromToken;
       }
-      return null;
     }
+    return null;
   };
 
-  // selectFromToken = contextAtomMethod(
-  //   async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
-  //     const fromToken = get(swapSelectFromTokenAtom());
-  //     const toToken = get(swapSelectToTokenAtom());
-  //     const swapTypeSwitchValue = get(swapTypeSwitchAtom());
-  //     if (
-  //       fromToken?.networkId !== token.networkId ||
-  //       fromToken?.contractAddress !== token.contractAddress
-  //     ) {
-  //       this.cleanManualSelectQuoteProviders.call(set);
-  //       this.resetSwapSlippage.call(set);
-  //       await this.syncNetworksSort.call(set, token.networkId);
-  //       const needChangeToToken = this.needChangeToken({
-  //         token,
-  //         swapTypeSwitchValue,
-  //         toToken,
-  //       });
-  //       if (needChangeToToken && !disableCheckToToken) {
-  //         set(swapSelectToTokenAtom(), undefined);
-  //         set(swapSelectFromTokenAtom(), token);
-  //         set(swapSelectToTokenAtom(), needChangeToToken);
-  //       } else {
-  //         set(swapSelectFromTokenAtom(), token);
-  //       }
-  //     }
-  //   },
-  // );
   selectFromToken = contextAtomMethod(
     async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
       const fromToken = get(swapSelectFromTokenAtom());
@@ -230,9 +203,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken,
         });
         if (needChangeToToken && !disableCheckToToken) {
-          return { fToken: token, tToken: needChangeToToken };
+          set(swapSelectToTokenAtom(), undefined);
+          set(swapSelectFromTokenAtom(), token);
+          set(swapSelectToTokenAtom(), needChangeToToken);
+        } else {
+          set(swapSelectFromTokenAtom(), token);
         }
-        return { fToken: token };
       }
     },
   );
