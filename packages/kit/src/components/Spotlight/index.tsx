@@ -112,11 +112,6 @@ function SpotlightContent({
         ) {
           return;
         }
-        if (platformEnv.isDev && floatingPosition.width === 0) {
-          throw new Error(
-            'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
-          );
-        }
         setFloatingPosition({
           x,
           y,
@@ -152,6 +147,12 @@ function SpotlightContent({
   } = props;
 
   const isRendered = floatingPosition.width > 0;
+
+  if (platformEnv.isDev && !isRendered) {
+    throw new Error(
+      'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
+    );
+  }
 
   const floatingStyle = useMemo(
     () =>
