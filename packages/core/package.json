@@ -24,7 +24,7 @@
     "@mymonero/mymonero-keyimage-cache": "^3.0.0",
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
-    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
+    "@onekeyfe/cardano-coin-selection-asmjs": "1.1.1",
     "@onekeyfe/kaspa-core-lib": "^1.0.1",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.87.7",
