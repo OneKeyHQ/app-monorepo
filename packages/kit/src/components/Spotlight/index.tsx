@@ -312,13 +312,17 @@ export function SpotlightView({
 export const useSpotlight = (tourName: ESpotlightTour) => {
   const [{ data }] = useSpotlightPersistAtom();
   const times = data[tourName];
-  const tourVisited = useCallback(async () => {
-    void backgroundApiProxy.serviceSpotlight.updateTourTimes(tourName);
-  }, [tourName]);
+  const tourVisited = useCallback(
+    async (t?: number) => {
+      void backgroundApiProxy.serviceSpotlight.updateTourTimes(tourName, t);
+    },
+    [tourName],
+  );
   return useMemo(
     () => ({
       isFirstVisit: times === 0,
       tourVisited,
+      times,
     }),
     [times, tourVisited],
   );
