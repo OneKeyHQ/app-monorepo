@@ -105,21 +105,6 @@ const SwapHeaderContainer = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // const onSwapLimit = useCallback(() => {
-  //   Dialog.confirm({
-  //     icon: 'InfoCircleOutline',
-  //     showCancelButton: false,
-  //     onConfirmText: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_button,
-  //     }),
-  //     title: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_title,
-  //     }),
-  //     description: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_content,
-  //     }),
-  //   });
-  // }, [intl]);
 
   return (
     <XStack justifyContent="space-between">

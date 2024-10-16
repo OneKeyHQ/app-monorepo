@@ -19,6 +19,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToAnotherAccountAddressAtom,
@@ -165,10 +166,12 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       address: undefined | string;
       networkId: undefined | string;
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
+      activeAccount: IAccountSelectorActiveAccountInfo | undefined;
     } = {
       networkId: undefined,
       address: undefined,
       accountInfo: undefined,
+      activeAccount: undefined,
     };
 
     if (
@@ -184,6 +187,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: swapToAnotherAccountAddressAtom.address,
         networkId: swapToAnotherAccountAddressAtom.networkId,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
+        activeAccount: { ...activeAccount },
       };
     }
     if (activeAccount) {
@@ -192,6 +196,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
         address: activeAccount.account?.address,
         networkId: activeAccount.network?.id,
         accountInfo: { ...activeAccount },
+        activeAccount: { ...activeAccount },
       };
     }
     return res;
@@ -204,13 +209,17 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   return addressInfo;
 }
 
-export function useSwapRecipientAddressInfo() {
+export function useSwapRecipientAddressInfo(enable: boolean) {
   const fromAccountInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAddressInfo] = useSwapToAnotherAccountAddressAtom();
   const getToNetWorkAddressFromAccountId = usePromiseResult(
     async () => {
+      if (!enable) {
+        return null;
+      }
       if (
         swapToAddressInfo.networkId &&
         fromAccountInfo.accountInfo?.account?.id &&
@@ -226,6 +235,7 @@ export function useSwapRecipientAddressInfo() {
       }
     },
     [
+      enable,
       swapToAddressInfo.networkId,
       fromAccountInfo.accountInfo?.account?.id,
       fromAccountInfo.accountInfo?.indexedAccount?.id,
@@ -237,8 +247,11 @@ export function useSwapRecipientAddressInfo() {
     swapToAnotherAccountSwitchOn
   ) {
     if (
-      getToNetWorkAddressFromAccountId.result?.accountAddress !==
-      swapToAnotherAddressInfo.address
+      getToNetWorkAddressFromAccountId?.result?.accountAddress &&
+      getToNetWorkAddressFromAccountId?.result?.accountAddress !==
+        swapToAnotherAddressInfo.address &&
+      swapToAnotherAddressInfo.networkId ===
+        currentQuoteRes?.toTokenInfo.networkId
     ) {
       return {
         accountInfo: swapToAnotherAddressInfo.accountInfo,

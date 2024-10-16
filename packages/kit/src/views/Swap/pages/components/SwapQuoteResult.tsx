@@ -24,14 +24,10 @@ import {
   useSwapSlippagePercentageCustomValueAtom,
   useSwapSlippagePercentageModeAtom,
   useSwapTokenMetadataAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ESwapSlippageSegmentKey,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
   ISwapSlippageSegmentItem,
@@ -66,7 +62,6 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
@@ -88,7 +83,9 @@ const SwapQuoteResult = ({
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
 
-  const swapRecipientAddress = useSwapRecipientAddressInfo();
+  const swapRecipientAddress = useSwapRecipientAddressInfo(
+    settingsPersistAtom.swapEnableRecipientAddress,
+  );
 
   const calculateTaxItem = useCallback(
     (
@@ -242,7 +239,7 @@ const SwapQuoteResult = ({
             >
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
-              swapTypeSwitch === ESwapTabSwitchType.BRIDGE ? (
+              settingsPersistAtom.swapEnableRecipientAddress ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.global_recipient,

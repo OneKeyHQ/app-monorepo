@@ -19,6 +19,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useInAppNotificationAtom,
+  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,35 +28,69 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+const SwapSettingsCommonItem = ({
+  value,
+  onChange,
+  title,
+  content,
+}: {
+  title: string;
+  content: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) => (
+  <XStack justifyContent="space-between" alignItems="center">
+    <YStack flex={1}>
+      <SizableText size="$bodyLgMedium">{title}</SizableText>
+      <SizableText size="$bodyMd">{content}</SizableText>
+    </YStack>
+    <Switch value={value} onChange={onChange} />
+  </XStack>
+);
+
 const SwapSettingsDialogContent = () => {
   const intl = useIntl();
-  const [{ swapBatchApproveAndSwap }, setSettings] = useSettingsPersistAtom();
-
+  const [{ swapBatchApproveAndSwap, swapEnableRecipientAddress }, setSettings] =
+    useSettingsPersistAtom();
+  const [, setNoPersistSettings] = useSettingsAtom();
   return (
     <YStack gap="$5">
-      <XStack justifyContent="space-between" alignItems="center">
-        <YStack>
-          <SizableText size="$bodyLgMedium">
-            {intl.formatMessage({
-              id: ETranslations.swap_page_settings_simple_mode,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.swap_page_settings_simple_mode_content,
-            })}
-          </SizableText>
-        </YStack>
-        <Switch
-          value={swapBatchApproveAndSwap}
-          onChange={(v) => {
-            setSettings((s) => ({
+      <SwapSettingsCommonItem
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_settings_simple_mode,
+        })}
+        content={intl.formatMessage({
+          id: ETranslations.swap_page_settings_simple_mode_content,
+        })}
+        value={swapBatchApproveAndSwap}
+        onChange={(v) => {
+          setSettings((s) => ({
+            ...s,
+            swapBatchApproveAndSwap: v,
+          }));
+        }}
+      />
+      <SwapSettingsCommonItem
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_settings_recipient_title,
+        })}
+        content={intl.formatMessage({
+          id: ETranslations.swap_page_settings_recipient_content,
+        })}
+        value={swapEnableRecipientAddress}
+        onChange={(v) => {
+          setSettings((s) => ({
+            ...s,
+            swapEnableRecipientAddress: v,
+          }));
+          if (!v) {
+            setNoPersistSettings((s) => ({
               ...s,
-              swapBatchApproveAndSwap: v,
+              swapToAnotherAccountSwitchOn: false,
             }));
-          }}
-        />
-      </XStack>
+          }
+        }}
+      />
     </YStack>
   );
 };

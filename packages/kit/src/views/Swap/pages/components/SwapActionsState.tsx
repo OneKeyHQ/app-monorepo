@@ -23,15 +23,11 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapAddressInfo,
@@ -65,8 +61,10 @@ const SwapActionsState = ({
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const swapRecipientAddressInfo = useSwapRecipientAddressInfo();
+  const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
+  const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
+    swapEnableRecipientAddress,
+  );
   const quoteLoading = useSwapQuoteLoading();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const handleApprove = useCallback(() => {
@@ -172,6 +170,22 @@ const SwapActionsState = ({
     swapActionState.isRefreshQuote,
   ]);
 
+  const shouldShowRecipient = useMemo(
+    () =>
+      swapEnableRecipientAddress &&
+      swapRecipientAddressInfo?.showAddress &&
+      fromToken &&
+      toToken &&
+      currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
+    [
+      swapEnableRecipientAddress,
+      currentQuoteRes?.toTokenInfo.networkId,
+      fromToken,
+      swapRecipientAddressInfo?.showAddress,
+      toToken,
+    ],
+  );
+
   const approveStepComponent = useMemo(
     () =>
       swapActionState.isApprove && !swapBatchApproveAndSwap && !quoteLoading ? (
@@ -240,15 +254,10 @@ const SwapActionsState = ({
     if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
       return null;
     }
-    if (
-      swapRecipientAddressInfo?.showAddress &&
-      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
-      fromToken &&
-      toToken &&
-      currentQuoteRes?.toTokenInfo.networkId === toToken.networkId
-    ) {
+    if (shouldShowRecipient) {
       return (
         <XStack
+          flex={1}
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
@@ -265,7 +274,12 @@ const SwapActionsState = ({
 
             {swapRecipientAddressInfo?.accountInfo?.wallet?.name &&
             swapRecipientAddressInfo?.accountInfo?.accountName ? (
-              <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+              <SizableText
+                numberOfLines={1}
+                flexShrink={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
                 {`(${swapRecipientAddressInfo?.accountInfo?.wallet?.name}-${swapRecipientAddressInfo?.accountInfo?.accountName})`}
               </SizableText>
             ) : null}
@@ -277,16 +291,13 @@ const SwapActionsState = ({
   }, [
     swapActionState.isApprove,
     swapBatchApproveAndSwap,
-    swapRecipientAddressInfo?.showAddress,
-    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
-    swapRecipientAddressInfo?.accountInfo?.accountName,
-    swapTypeSwitch,
-    fromToken,
-    toToken,
-    currentQuoteRes?.toTokenInfo.networkId,
+    shouldShowRecipient,
     pageType,
     md,
     intl,
+    swapRecipientAddressInfo?.showAddress,
+    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
   ]);
   const actionComponent = useMemo(
     () => (
@@ -295,7 +306,7 @@ const SwapActionsState = ({
         {...(pageType === EPageType.modal && !md
           ? {
               flexDirection: 'row',
-              justifyContent: swapRecipientAddressInfo?.showAddress
+              justifyContent: shouldShowRecipient
                 ? 'space-between'
                 : 'flex-end',
               alignItems: 'center',
@@ -321,10 +332,10 @@ const SwapActionsState = ({
       onActionHandlerBefore,
       pageType,
       recipientComponent,
+      shouldShowRecipient,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
-      swapRecipientAddressInfo?.showAddress,
     ],
   );
 
