@@ -63,6 +63,7 @@ export type IInputProps = {
   InputComponent?: ComponentType;
   InputComponentStyle?: IStackStyle;
   addOnsContainerProps?: IStackProps;
+  addOnsItemProps?: IStackProps;
   displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
@@ -154,6 +155,7 @@ function BaseInput(
     error,
     containerProps,
     addOnsContainerProps,
+    addOnsItemProps,
     readonly,
     autoFocus,
     selectTextOnFocus,
@@ -428,6 +430,7 @@ function BaseInput(
                         iconColor={getIconColor()}
                         error={error}
                         onPress={onPress}
+                        {...addOnsItemProps}
                       />
                     )}
                   </Group.Item>

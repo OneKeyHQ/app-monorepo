@@ -27,7 +27,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { useAccountData } from '../../../hooks/useAccountData';
-import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
@@ -295,6 +295,13 @@ function TokenSelector() {
 }
 
 export default function TokenSelectorModal() {
+  const route =
+    useRoute<
+      RouteProp<IAssetSelectorParamList, EAssetSelectorRoutes.TokenSelector>
+    >();
+
+  const { accountId } = route.params;
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -302,9 +309,9 @@ export default function TokenSelectorModal() {
       }}
       enabledNum={[num]}
     >
-      <HomeTokenListProviderMirror>
+      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
         <TokenSelector />
-      </HomeTokenListProviderMirror>
+      </HomeTokenListProviderMirrorWrapper>
     </AccountSelectorProviderMirror>
   );
 }
