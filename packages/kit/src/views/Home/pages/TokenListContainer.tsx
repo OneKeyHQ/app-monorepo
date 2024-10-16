@@ -58,6 +58,7 @@ import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 
@@ -1201,17 +1202,11 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-  const isUrlAccount = accountUtils.isUrlAccountFn({
-    accountId: account?.id ?? '',
-  });
-  return isUrlAccount ? (
-    <UrlAccountHomeTokenListProviderMirror>
+
+  return (
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <TokenListContainer showWalletActions {...props} />
-    </UrlAccountHomeTokenListProviderMirror>
-  ) : (
-    <HomeTokenListProviderMirror>
-      <TokenListContainer showWalletActions {...props} />
-    </HomeTokenListProviderMirror>
+    </HomeTokenListProviderMirrorWrapper>
   );
 });
 TokenListContainerWithProvider.displayName = 'TokenListContainerWithProvider';
