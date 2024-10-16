@@ -50,6 +50,7 @@ type IFormValues = {
   networkId?: string;
   deriveType?: IAccountDeriveTypes | '';
   rawKeyContent: string;
+  hiddenKeyContent?: string;
 };
 
 function ExportPrivateKeysPage({
@@ -127,6 +128,7 @@ function ExportPrivateKeysPage({
       networkId: initialNetworkId,
       deriveType: activeAccount?.deriveType ?? undefined,
       rawKeyContent: '',
+      hiddenKeyContent: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -134,13 +136,20 @@ function ExportPrivateKeysPage({
 
   const networkIdValue = form.watch('networkId');
   const deriveTypeValue = form.watch('deriveType');
-  const rawKeyValue = form.watch('rawKeyContent');
 
-  const reset = useCallback(() => {
-    form.setValue('rawKeyContent', '');
-    form.clearErrors('rawKeyContent');
-    setSecureEntry(true);
-  }, [form]);
+  const reset = useCallback(
+    (key?: keyof IFormValues) => {
+      if (key) {
+        form.setValue(key, '');
+      } else {
+        form.setValue('rawKeyContent', '');
+        form.clearErrors('rawKeyContent');
+        form.setValue('hiddenKeyContent', '');
+        setSecureEntry(true);
+      }
+    },
+    [form],
+  );
 
   const generateKey = useCallback(
     async ({
@@ -148,13 +157,15 @@ function ExportPrivateKeysPage({
       indexedAccountId,
       networkId,
       deriveType,
+      showText = false,
     }: {
       accountId: string | undefined;
       indexedAccountId: string | undefined;
       networkId: string;
       deriveType: IAccountDeriveTypes | undefined | '';
+      showText?: boolean;
     }) => {
-      reset();
+      reset(showText ? undefined : 'hiddenKeyContent');
       if ((!indexedAccountId && !accountId) || !networkId) {
         return;
       }
@@ -172,7 +183,7 @@ function ExportPrivateKeysPage({
             accountName,
           });
         if (key) {
-          form.setValue('rawKeyContent', key);
+          form.setValue(showText ? 'rawKeyContent' : 'hiddenKeyContent', key);
         }
       } catch (error) {
         const ignoreErrorClasses: Array<EOneKeyErrorClassNames | undefined> = [
@@ -194,14 +205,17 @@ function ExportPrivateKeysPage({
   const generateKeyDebounced = useDebouncedCallback(generateKey, 600);
 
   const refreshKey = useCallback(
-    async ({ noDebouncedCall }: { noDebouncedCall?: boolean } = {}) => {
-      reset();
+    async ({
+      noDebouncedCall,
+      showText = false,
+    }: { noDebouncedCall?: boolean; showText?: boolean } = {}) => {
       const fn = noDebouncedCall ? generateKey : generateKeyDebounced;
       await fn({
         accountId: account?.id,
         indexedAccountId: indexedAccount?.id,
         networkId: networkIdValue || '',
         deriveType: deriveTypeValue,
+        showText,
       });
     },
     [
@@ -211,7 +225,6 @@ function ExportPrivateKeysPage({
       generateKeyDebounced,
       indexedAccount?.id,
       networkIdValue,
-      reset,
     ],
   );
 
@@ -225,8 +238,9 @@ function ExportPrivateKeysPage({
         testID: 'account-key-show-btn',
         iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: async () => {
+          const rawKeyValue = form.getValues('rawKeyContent') || '';
           if (!rawKeyValue) {
-            await refreshKey({ noDebouncedCall: true });
+            await refreshKey({ noDebouncedCall: true, showText: true });
           } else {
             reset();
           }
@@ -237,9 +251,11 @@ function ExportPrivateKeysPage({
         iconName: 'Copy3Outline',
         testID: 'account-key-copy-btn',
         onPress: async () => {
-          if (!rawKeyValue) {
+          let keyContent = form.getValues('hiddenKeyContent') || '';
+          if (!keyContent) {
             await refreshKey({ noDebouncedCall: true });
           }
+          keyContent = form.getValues('hiddenKeyContent') || '';
           if (exportType === 'privateKey') {
             showCopyPrivateKeysDialog({
               title: intl.formatMessage({
@@ -250,24 +266,15 @@ function ExportPrivateKeysPage({
               }),
               showCheckBox: true,
               defaultChecked: false,
-              rawKeyContent: form.getValues('rawKeyContent') || '',
+              rawKeyContent: keyContent,
             });
           } else {
-            clipboard.copyText(form.getValues('rawKeyContent'));
+            clipboard.copyText(keyContent);
           }
         },
       },
     ],
-    [
-      clipboard,
-      exportType,
-      form,
-      intl,
-      rawKeyValue,
-      refreshKey,
-      reset,
-      secureEntry,
-    ],
+    [clipboard, exportType, form, intl, refreshKey, reset, secureEntry],
   );
 
   useEffect(() => {

@@ -175,6 +175,8 @@ function FeeEditor(props: IProps) {
   const intl = useIntl();
   const dialog = useDialogInstance();
 
+  const isMultiTxs = unsignedTxs.length > 1;
+
   const [feeSelectorItems, setFeeSelectorItems] =
     useState<IFeeSelectorItem[]>(feeSelectorItemsProp);
 
@@ -203,6 +205,10 @@ function FeeEditor(props: IProps) {
       [networkId],
     ).result ?? [];
 
+  const originalMaxBaseFee = new BigNumber(
+    customFee?.gasEIP1559?.maxFeePerGas ?? '0',
+  ).minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0');
+
   const form = useForm({
     defaultValues: {
       gasLimit: new BigNumber(
@@ -214,9 +220,9 @@ function FeeEditor(props: IProps) {
       priorityFee: new BigNumber(
         customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
-      maxBaseFee: new BigNumber(customFee?.gasEIP1559?.maxFeePerGas ?? '0')
-        .minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0')
-        .toFixed(),
+      maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
+        ? originalMaxBaseFee.toFixed()
+        : customFee.gasEIP1559?.baseFeePerGas ?? '0',
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -1222,7 +1228,6 @@ function FeeEditor(props: IProps) {
   ]);
 
   const renderFeeDetails = useCallback(() => {
-    if (!vaultSettings?.checkFeeDetailEnabled) return null;
     const feeInfoItems: IFeeInfoItem[] = [];
 
     const fee =
@@ -1249,12 +1254,35 @@ function FeeEditor(props: IProps) {
           }),
         });
       }
+    } else if (isMultiTxs && fee?.gasEIP1559) {
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.fee_max_fee }),
+        customValue: fee.gasEIP1559.maxFeePerGas,
+        customSymbol: fee.common.feeSymbol,
+      });
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.form__priority_fee }),
+        customValue: fee.gasEIP1559.maxPriorityFeePerGas,
+        customSymbol: fee.common.feeSymbol,
+      });
+    } else if (isMultiTxs && fee?.gas) {
+      feeInfoItems.push({
+        label: intl.formatMessage({ id: ETranslations.global_gas_price }),
+        customValue: fee.gas.gasPrice,
+        customSymbol: fee.common.feeSymbol,
+      });
     }
 
     return (
       <>
         {feeInfoItems.map((feeInfo, index) => (
-          <FeeInfoItem feeInfo={feeInfo} key={index} pb="$2" />
+          <FeeInfoItem
+            {...(index !== 0 && {
+              pt: '$2',
+            })}
+            feeInfo={feeInfo}
+            key={index}
+          />
         ))}
       </>
     );
@@ -1264,7 +1292,7 @@ function FeeEditor(props: IProps) {
     customFee,
     feeSelectorItems,
     intl,
-    vaultSettings?.checkFeeDetailEnabled,
+    isMultiTxs,
   ]);
 
   useEffect(() => {
@@ -1279,8 +1307,6 @@ function FeeEditor(props: IProps) {
     };
   }, []);
 
-  const isMultiTxs = unsignedTxs.length > 1;
-
   return (
     <>
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
@@ -1290,11 +1316,11 @@ function FeeEditor(props: IProps) {
         </Stack>
       </ScrollView>
       <Stack
-        pt={isMultiTxs ? '$0' : '$4'}
+        pt="$4"
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
       >
-        {isMultiTxs ? null : renderFeeDetails()}
+        {renderFeeDetails()}
         {isMultiTxs ? null : renderFeeOverview()}
         {vaultSettings?.editFeeEnabled ? (
           <Button
