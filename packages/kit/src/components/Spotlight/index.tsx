@@ -149,7 +149,7 @@ function SpotlightContent({
   const isRendered = floatingPosition.width > 0;
 
   if (platformEnv.isDev && !isRendered) {
-    throw new Error(
+    console.error(
       'The Spotlight on the current page is not visible, so the measured width is 0. Please change the visibility to true when the page is focused',
     );
   }
