@@ -1,6 +1,8 @@
 import {
   BtcDappNetworkTypes,
+  BtcDappUniSetChainTypes,
   EBtcDappNetworkTypeEnum,
+  EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
@@ -88,6 +90,24 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
   }
 }
 
+export function getBtcDappUniSetChainName(network: IServerNetwork) {
+  if (network && isBTCNetwork(network.id)) {
+    if (network.isTestnet) {
+      if (network.id === getNetworkIdsMap().sbtc) {
+        return Promise.resolve(
+          BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_SIGNET],
+        );
+      }
+      return Promise.resolve(
+        BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_TESTNET],
+      );
+    }
+    return Promise.resolve(
+      BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET],
+    );
+  }
+}
+
 function isAllNetwork({
   networkId,
 }: {
@@ -145,4 +165,5 @@ export default {
   isAllNetwork,
   getDefaultDeriveTypeVisibleNetworks,
   toNetworkIdFallback,
+  getBtcDappUniSetChainName,
 };

@@ -34,6 +34,38 @@ export const BtcDappNetworkTypes: {
   },
 ];
 
+export enum EBtcDappUniSetChainTypeEnum {
+  BITCOIN_MAINNET = 'BITCOIN_MAINNET',
+  BITCOIN_TESTNET = 'BITCOIN_TESTNET',
+  BITCOIN_SIGNET = 'BITCOIN_SIGNET',
+}
+
+// https://docs.unisat.io/dev/unisat-developer-center/unisat-wallet/supported-chains
+export const BtcDappUniSetChainTypes: Record<
+  EBtcDappUniSetChainTypeEnum,
+  {
+    name: string;
+    enum: string;
+    network: IBtcDappNetworkName;
+  }
+> = {
+  [EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET]: {
+    name: 'Bitcoin Mainnet',
+    enum: EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET,
+    network: 'livenet',
+  },
+  [EBtcDappUniSetChainTypeEnum.BITCOIN_TESTNET]: {
+    name: 'Bitcoin Testnet',
+    enum: EBtcDappUniSetChainTypeEnum.BITCOIN_TESTNET,
+    network: 'testnet',
+  },
+  [EBtcDappUniSetChainTypeEnum.BITCOIN_SIGNET]: {
+    name: 'Bitcoin Signet',
+    enum: EBtcDappUniSetChainTypeEnum.BITCOIN_SIGNET,
+    network: 'testnet',
+  },
+};
+
 export type ISwitchNetworkParams = { network: IBtcDappNetworkName };
 export type ISendBitcoinParams = {
   toAddress: string;
