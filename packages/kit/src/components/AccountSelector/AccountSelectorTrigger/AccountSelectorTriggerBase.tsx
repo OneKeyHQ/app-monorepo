@@ -85,16 +85,22 @@ export function AccountSelectorTriggerBase({
           pl="$2"
           pr="$1"
           minWidth={0}
-          // flex={1}
+          flexShrink={1}
           flex={platformEnv.isNative ? undefined : 1}
         >
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={0}
+          >
             {wallet?.name ||
               intl.formatMessage({ id: ETranslations.global_no_wallet })}
           </SizableText>
           <SizableText
             size="$bodyMdMedium"
             numberOfLines={1}
+            flexShrink={0}
             testID="account-name"
           >
             {accountName ||
