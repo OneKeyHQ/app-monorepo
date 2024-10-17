@@ -221,6 +221,9 @@ export const DevSettingsSection = () => {
           value={I18nManager.isRTL}
         />
       </SectionPressItem>
+      <SectionFieldItem name="showTradingView" title="显示 Trading View">
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="开发者悬浮窗"
