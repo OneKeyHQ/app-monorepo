@@ -408,6 +408,46 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
+  @providerApiMethod()
+  async metamask_logWeb3ShimUsage() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_registerOnboarding() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_scanQRCode() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_getCapabilities() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_sendCalls() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_getCallsStatus() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_showCallsStatus() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  async wallet_getSnaps() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
   autoFixPersonalSignMessage({ message }: { message: string }) {
     let messageFixed = message;
     try {
