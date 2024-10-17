@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
@@ -5,13 +6,14 @@ import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IInputProps } from '.';
-import type { IKeyOfIcons, IXStackProps } from '../../primitives';
+import type { IKeyOfIcons, IXStackProps, SizeTokens } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 type IExtraProps = {
   label?: string;
   iconName?: IKeyOfIcons;
   iconColor?: ColorTokens;
+  iconSize?: SizeTokens;
   size?: IInputProps['size'];
   error?: boolean;
   loading?: boolean;
@@ -27,6 +29,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
     loading,
     iconName,
     iconColor,
+    iconSize,
     disabled,
     error,
     onPress,
@@ -35,6 +38,12 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
 
   const sharedStyles = getSharedInputStyles({ disabled, error });
 
+  const sizeForIcon = useMemo(() => {
+    if (iconSize) {
+      return iconSize;
+    }
+    return size === 'small' ? '$5' : '$6';
+  }, [iconSize, size]);
   return (
     <XStack
       ref={ref}
@@ -63,11 +72,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
         </YStack>
       ) : (
         iconName && (
-          <Icon
-            name={iconName}
-            color={iconColor}
-            size={size === 'small' ? '$5' : '$6'}
-          />
+          <Icon name={iconName} color={iconColor} size={sizeForIcon} />
         )
       )}
       {label ? (

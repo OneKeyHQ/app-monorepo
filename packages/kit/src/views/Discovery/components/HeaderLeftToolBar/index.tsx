@@ -1,17 +1,14 @@
-import {
-  Icon,
-  Input,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { useState } from 'react';
+
+import { Input, Popover, Stack, XStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
+import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
+import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
 function HeaderLeftToolBar({
   url,
@@ -42,35 +39,9 @@ function HeaderLeftToolBar({
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
 }) {
-  const media = useMedia();
-  const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
-  if (media.md) {
-    return (
-      <Stack
-        flex={1}
-        alignItems="center"
-        flexDirection="row"
-        onPress={() => onSearch?.(url)}
-        mr="$4"
-        bg="$bgStrong"
-        py="$2"
-        px="$2.5"
-        borderRadius="$full"
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-      >
-        <Icon
-          size="$5"
-          color="$iconSubdued"
-          name={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
-        />
-        <SizableText size="$bodyLg" flex={1} numberOfLines={1} ml="$2">
-          {url}
-        </SizableText>
-      </Stack>
-    );
-  }
+  const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+  const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
+  const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const inputProps = {
     onPress: () => {
       onSearch?.(url);
@@ -97,35 +68,60 @@ function HeaderLeftToolBar({
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
-      <Input
-        containerProps={{ ml: '$6', w: '$80' } as any}
-        size="small"
-        leftIconName={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
-        value={hiddenHttpsUrl}
-        selectTextOnFocus
-        testID="explore-index-search-input"
-        addOns={[
-          {
-            iconName: isBookmark ? 'StarSolid' : 'StarOutline',
-            onPress: () => onBookmarkPress?.(!isBookmark),
-            testID: `action-header-item-${
-              !isBookmark ? 'bookmark' : 'remove-bookmark'
-            }`,
-            ...(isBookmark && {
-              iconColor: '$icon',
-            }),
-          },
-          {
-            iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-            onPress: () => onPinnedPress?.(!isPinned),
-            testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
-            ...(isPinned && {
-              iconColor: '$icon',
-            }),
-          },
-        ]}
-        {...(inputProps as any)}
-      />
+      <Stack>
+        <Input
+          containerProps={{ ml: '$6', w: '$80' } as any}
+          size="small"
+          leftAddOnProps={{
+            ...iconConfig,
+            iconSize: '$4',
+            mr: '$-2',
+            onPress: () => {
+              setDappInfoIsOpen(true);
+            },
+          }}
+          pb="$1.5"
+          value={hiddenHttpsUrl}
+          selectTextOnFocus
+          testID="explore-index-search-input"
+          addOns={[
+            {
+              iconName: isBookmark ? 'StarSolid' : 'StarOutline',
+              onPress: () => onBookmarkPress?.(!isBookmark),
+              testID: `action-header-item-${
+                !isBookmark ? 'bookmark' : 'remove-bookmark'
+              }`,
+              ...(isBookmark && {
+                iconColor: '$icon',
+              }),
+            },
+            {
+              iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+              onPress: () => onPinnedPress?.(!isPinned),
+              testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
+              ...(isPinned && {
+                iconColor: '$icon',
+              }),
+            },
+          ]}
+          {...(inputProps as any)}
+        />
+        <Stack ml={24}>
+          <Popover
+            placement="bottom-start"
+            title="dApp info"
+            open={dappInfoIsOpen}
+            onOpenChange={setDappInfoIsOpen}
+            renderTrigger={<Stack />}
+            renderContent={({ closePopover }) => (
+              <DappInfoPopoverContent
+                hostSecurity={hostSecurity}
+                closePopover={closePopover}
+              />
+            )}
+          />
+        </Stack>
+      </Stack>
     </XStack>
   );
 }
