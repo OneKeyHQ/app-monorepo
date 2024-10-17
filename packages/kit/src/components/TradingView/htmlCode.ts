@@ -65,7 +65,7 @@ export const useHtmlCode = (symbol: string) => {
       <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
       {
-      "fullscreen": true,
+      "show_popup_button": false,
       "autosize": true,
       "symbol": "KRAKEN:${symbol.toUpperCase()}USD",
       "interval": "D",
@@ -75,7 +75,6 @@ export const useHtmlCode = (symbol: string) => {
       "locale": "${locale}",
       "hide_legend": true,
       "allow_symbol_change": false,
-      "hideSymbolSearch": false,
       "save_image": false,
       "withdateranges": true,
       "widgetbar": {
