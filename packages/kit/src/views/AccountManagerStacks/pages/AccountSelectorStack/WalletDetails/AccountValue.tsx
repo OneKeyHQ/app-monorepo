@@ -57,7 +57,7 @@ function AccountValue(accountValue: {
     );
   }, [value, accountValue]);
 
-  return (
+  return accountValueString ? (
     <Currency
       hideValue
       numberOfLines={1}
@@ -68,6 +68,15 @@ function AccountValue(accountValue: {
     >
       {accountValueString}
     </Currency>
+  ) : (
+    <NumberSizeableTextWrapper
+      formatter="value"
+      hideValue
+      size="$bodyMd"
+      color="$textDisabled"
+    >
+      --
+    </NumberSizeableTextWrapper>
   );
 }
 

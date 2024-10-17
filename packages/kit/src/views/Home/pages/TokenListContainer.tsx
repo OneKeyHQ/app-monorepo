@@ -59,8 +59,6 @@ import { useAccountOverviewActions } from '../../../states/jotai/contexts/accoun
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -595,6 +593,9 @@ function TokenListContainer(props: ITabPageProps) {
 
       return {
         ...localTokens,
+        tokenList,
+        smallBalanceTokenList,
+        riskyTokenList,
         accountId,
         networkId,
       };

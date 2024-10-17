@@ -5,7 +5,7 @@ import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
-import type { IFeeInfoUnit } from './fee';
+import type { IFeeInfoUnit, ISendSelectedFeeInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
@@ -214,6 +214,7 @@ export type IDecodedTxAction = {
 export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;
+  feeInfo?: IFeeInfoUnit;
 };
 
 export type IReplaceTxInfo = {
