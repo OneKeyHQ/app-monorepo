@@ -164,6 +164,7 @@ class ServiceStaking extends ServiceBase {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
+      feeRate: params.feeRate,
       networkId,
       symbol,
       provider,
@@ -789,6 +790,7 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     action: IEarnEstimateAction;
     amount: string;
+    txId?: string;
   }) {
     const { symbol, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);

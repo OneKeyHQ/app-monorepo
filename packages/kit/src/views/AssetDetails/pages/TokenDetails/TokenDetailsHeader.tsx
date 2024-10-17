@@ -20,6 +20,7 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from './ActionBuy';
@@ -141,6 +142,11 @@ function TokenDetailsHeader(props: IProps) {
     [wallet?.type],
   );
 
+  const disableSwapAction = useMemo(
+    () => accountUtils.isUrlAccountFn({ accountId }),
+    [accountId],
+  );
+
   const renderTokenIcon = useCallback(() => {
     if (isLoadingTokenDetails)
       return <Skeleton radius="round" h="$12" w="$12" />;
@@ -213,8 +219,14 @@ function TokenDetailsHeader(props: IProps) {
               />
             </ReviewControl>
 
-            <RawActions.Swap onPress={handleOnSwap} />
-            <RawActions.Bridge onPress={handleOnBridge} />
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+            />
+            <RawActions.Bridge
+              onPress={handleOnBridge}
+              disabled={disableSwapAction}
+            />
             <ReviewControl>
               <ActionSell
                 networkId={networkId}
