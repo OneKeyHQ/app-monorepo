@@ -80,7 +80,7 @@ export enum EDAppModalPageStatus {
 }
 
 export enum EAlignPrimaryAccountMode {
-  Default = 'Default',
+  Independent = 'Independent',
   AlignDappToWallet = 'AlignDappToWallet',
-  AlwaysUsePrimaryAccount = 'AlwaysUsePrimaryAccount',
+  // AlwaysUsePrimaryAccount = 'AlwaysUsePrimaryAccount',
 }
