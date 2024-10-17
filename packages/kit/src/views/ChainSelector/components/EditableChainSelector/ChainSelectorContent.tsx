@@ -289,7 +289,11 @@ export const EditableChainSelectorContent = ({
       networkId,
       onPressItem,
       onAddCustomNetwork,
-      onEditCustomNetwork,
+      onEditCustomNetwork: (network: IServerNetwork) => {
+        // Save list edits before editing custom network
+        onFrequentlyUsedItemsChange?.(tempFrequentlyUsedItems);
+        onEditCustomNetwork?.(network);
+      },
       isEditMode,
       searchText: searchTextTrim,
       allNetworkItem,
@@ -301,6 +305,7 @@ export const EditableChainSelectorContent = ({
       onPressItem,
       onAddCustomNetwork,
       onEditCustomNetwork,
+      onFrequentlyUsedItemsChange,
       isEditMode,
       searchTextTrim,
       allNetworkItem,
