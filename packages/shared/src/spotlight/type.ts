@@ -2,6 +2,7 @@ export enum ESpotlightTour {
   createAllNetworks = 'createAllNetworks',
   oneKeyProBanner = 'oneKeyProBanner',
   allNetworkAccountValue = 'allNetworkAccountValue',
+  switchDappAccount = 'switchDappAccount',
 }
 
 export type ITourTripTimes = number;

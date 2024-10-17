@@ -16,6 +16,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import SyncDappAccountToHomeProvider from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -193,6 +194,10 @@ function DAppConnectExtensionFloatingTrigger() {
       borderTopWidth="$px"
       borderColor="$borderSubdued"
     >
+      <SyncDappAccountToHomeProvider
+        origin={result?.origin ?? ''}
+        dAppAccountInfos={result?.connectedAccountsInfo}
+      />
       <HeightTransition>
         {shouldSwitchAccount ? (
           <XStack

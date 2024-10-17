@@ -61,6 +61,10 @@ const NotificationsSettings = LazyLoadPage(
     ),
 );
 
+const AlignPrimaryAccountModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/AlignPrimaryAccount'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -116,6 +120,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingNotifications,
     component: NotificationsSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingAlignPrimaryAccount,
+    component: AlignPrimaryAccountModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

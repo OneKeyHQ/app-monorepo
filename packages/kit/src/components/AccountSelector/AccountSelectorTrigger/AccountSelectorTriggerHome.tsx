@@ -1,12 +1,21 @@
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
-export function AccountSelectorTriggerHome({ num }: { num: number }) {
+import type { ISpotlightViewProps } from '../../Spotlight';
+
+export function AccountSelectorTriggerHome({
+  num,
+  spotlightProps,
+}: {
+  num: number;
+  spotlightProps?: ISpotlightViewProps;
+}) {
   return (
     <AccountSelectorTriggerBase
+      editable
       autoWidthForHome
       num={num}
       linkNetwork={false}
-      editable
+      spotlightProps={spotlightProps}
     />
   );
 }

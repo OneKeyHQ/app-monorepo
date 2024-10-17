@@ -32,6 +32,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EReasonForNeedPassword,
@@ -415,6 +416,14 @@ class ServiceSetting extends ServiceBase {
       accountId,
     });
     return isTaprootPath(account.path) || isTaprootAddress(account.address);
+  }
+
+  @backgroundMethod()
+  public async setAlignPrimaryAccountMode(mode: EAlignPrimaryAccountMode) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      alignPrimaryAccountMode: mode,
+    }));
   }
 }
 

@@ -1,6 +1,7 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -35,7 +36,9 @@ export type ISettingsPersistAtom = {
     symbol: string;
     id: string;
   };
+  alignPrimaryAccountMode?: EAlignPrimaryAccountMode;
 };
+
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
   theme: 'system',
   lastLocale: 'system',
@@ -58,6 +61,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
     id: 'usd',
     symbol: '$',
   },
+  alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlignDappToWallet,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

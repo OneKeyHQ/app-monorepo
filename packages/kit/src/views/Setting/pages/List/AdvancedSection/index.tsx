@@ -74,19 +74,34 @@ export const AdvancedSection = () => {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+
   const onAccountDerivation = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
+
   const onCustomRPC = useCallback(() => {
     defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomRPC);
   }, [navigation]);
+
   const onAddCustomNetwork = useCallback(() => {
     defaultLogger.setting.page.enterCustomRPC();
     navigation.push(EModalSettingRoutes.SettingCustomNetwork);
   }, [navigation]);
+  const onAlignPrimaryAccount = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingAlignPrimaryAccount);
+  }, [navigation]);
+
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
+      <ListItem
+        onPress={onAlignPrimaryAccount}
+        icon="RefreshCcwOutline"
+        title={intl.formatMessage({
+          id: ETranslations.settings_account_sync_modal_title,
+        })}
+        drillIn
+      />
       <ListItem
         onPress={onAddCustomNetwork}
         icon="GlobusOutline"
