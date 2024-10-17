@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 
 import { Button, SizableText, TextArea, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parsePrimaryType } from '@onekeyhq/shared/src/signMessage';
 import {
   EMessageTypesAptos,
   EMessageTypesBtc,
@@ -140,8 +142,18 @@ function DAppSignMessageContent({
     );
   }, [intl, unsignedMessage, showRawMessage]);
 
+  const primaryType = usePromiseResult(
+    async () => parsePrimaryType({ unsignedMessage }),
+    [unsignedMessage],
+  );
+
   return (
     <YStack justifyContent="center">
+      {primaryType.result ? (
+        <SizableText color="$text" size="$headingMd" mb="$2">
+          {`Primary Type: ${primaryType.result}`}
+        </SizableText>
+      ) : null}
       <SizableText color="$text" size="$headingMd" mb="$2">
         {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
       </SizableText>

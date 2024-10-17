@@ -17,7 +17,8 @@ import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isEthSignType,
-  isPermitSignType,
+  isPrimaryTypeOrderSign,
+  isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -137,9 +138,13 @@ function SignMessageModal() {
     [networkId],
   );
 
-  const isPermitSignMethod = isPermitSignType({ unsignedMessage });
+  const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
+  const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
   const isRiskSignMethod =
-    isEthSignType({ unsignedMessage }) || isPermitSignMethod;
+    isEthSignType({ unsignedMessage }) ||
+    isPermitSignMethod ||
+    isOrderSignMethod;
+
   useEffect(() => {
     if (
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -259,7 +264,7 @@ function SignMessageModal() {
             urlSecurityInfo={urlSecurityInfo}
             displaySignMessageAlert={isRiskSignMethod}
             signMessageAlertProps={
-              isPermitSignMethod
+              isPermitSignMethod || isOrderSignMethod
                 ? {
                     type: 'warning',
                     icon: 'InfoSquareSolid',
