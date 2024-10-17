@@ -53,7 +53,7 @@ export function TradingView(props: ITradingViewProps) {
           frameBorder="0"
           title="TradingView"
           src={url}
-          sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin"
+          sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
         />
       </div>
     </>
