@@ -2,7 +2,7 @@ import { useMedia, usePropsAndStyle } from '@tamagui/core';
 
 import type { IStackStyle } from '@onekeyhq/components';
 
-import { useHtmlCode } from './htmlCode';
+import { useTradingViewUri } from './useTradingViewUri';
 import { WebView } from './WebView';
 
 import type { ViewStyle } from 'react-native';
@@ -18,7 +18,7 @@ export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { symbol } = restProps as IBaseTradingViewProps;
   const { gtMd } = useMedia();
-  const htmlCode = useHtmlCode(symbol, { hideSideToolbar: !gtMd });
+  const uri = useTradingViewUri(symbol, { hideSideToolbar: !gtMd });
 
-  return <WebView htmlCode={htmlCode} style={style as ViewStyle} />;
+  return <WebView uri={uri} style={style as ViewStyle} />;
 }
