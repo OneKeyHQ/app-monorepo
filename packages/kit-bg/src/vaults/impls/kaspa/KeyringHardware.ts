@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -24,14 +25,33 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
+import type {
+  AllNetworkAddressParams,
+  KaspaSignTransactionParams,
+} from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.kaspa.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'kaspa';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    const chainId = await this.getNetworkChainId();
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+      prefix: chainId,
+    };
+  }
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -45,20 +65,43 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             pathPrefix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const chainId = await this.getNetworkChainId();
-            const response = await sdk.kaspaGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${index}`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                prefix: chainId,
-                scheme: EKaspaSignType.Schnorr,
-              })),
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const chainId = await this.getNetworkChainId();
+            // const response = await sdk.kaspaGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${index}`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     prefix: chainId,
+            //     scheme: EKaspaSignType.Schnorr,
+            //   })),
+            // });
+            // return response;
           },
         });
         const ret: ICoreApiGetAddressItem[] = [];

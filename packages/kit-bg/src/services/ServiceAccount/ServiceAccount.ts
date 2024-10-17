@@ -102,6 +102,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  IHwAllNetworkPrepareAccountsResponse,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
@@ -117,6 +118,7 @@ export type IAddHDOrHWAccountsParams = {
   names?: Array<string>;
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
+  hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -129,8 +131,8 @@ export type IAddHDOrHWAccountsResult = {
   networkId: string;
   walletId: string;
   indexedAccountId: string | undefined;
-  accounts: IDBAccount[];
   indexes: number[] | undefined;
+  accounts: IBatchCreateAccount[];
   deriveType: IAccountDeriveTypes;
 };
 
@@ -290,6 +292,33 @@ class ServiceAccount extends ServiceBase {
     return localDb.getIndexedAccountSafe({ id });
   }
 
+  async buildPrepareHdOrHwIndexes({
+    indexedAccountId,
+    indexes,
+  }: {
+    indexedAccountId: string | undefined;
+    indexes: number[] | undefined;
+  }) {
+    const usedIndexes = indexes || [];
+    if (indexedAccountId) {
+      const indexedAccount = await this.getIndexedAccount({
+        id: indexedAccountId,
+      });
+      usedIndexes.unshift(indexedAccount.index);
+    }
+    if (usedIndexes.some((index) => index >= 2 ** 31)) {
+      throw new OneKeyInternalError(
+        'addHDAccounts ERROR: Invalid child index, should be less than 2^31.',
+      );
+    }
+    if (usedIndexes.length <= 0) {
+      throw new OneKeyInternalError({
+        message: 'addHDAccounts ERROR: indexed is empty',
+      });
+    }
+    return usedIndexes;
+  }
+
   async getPrepareHDOrHWAccountsParams({
     walletId,
     networkId,
@@ -298,6 +327,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
     deriveType,
     confirmOnDevice,
+    hwAllNetworkPrepareAccountsResponse,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -306,6 +336,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
+    hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -327,23 +358,10 @@ class ServiceAccount extends ServiceBase {
     // postAccountAdded
     // active first account
 
-    const usedIndexes = indexes || [];
-    if (indexedAccountId) {
-      const indexedAccount = await this.getIndexedAccount({
-        id: indexedAccountId,
-      });
-      usedIndexes.unshift(indexedAccount.index);
-    }
-    if (usedIndexes.some((index) => index >= 2 ** 31)) {
-      throw new OneKeyInternalError(
-        'addHDAccounts ERROR: Invalid child index, should be less than 2^31.',
-      );
-    }
-    if (usedIndexes.length <= 0) {
-      throw new OneKeyInternalError({
-        message: 'addHDAccounts ERROR: indexed is empty',
-      });
-    }
+    const usedIndexes = await this.buildPrepareHdOrHwIndexes({
+      indexedAccountId,
+      indexes,
+    });
 
     // const usedPurpose = await getVaultSettingsDefaultPurpose({ networkId });
     const deriveInfo =
@@ -365,6 +383,7 @@ class ServiceAccount extends ServiceBase {
         indexes: usedIndexes,
         names,
         deriveInfo,
+        hwAllNetworkPrepareAccountsResponse,
       };
       prepareParams = hwParams;
     } else {
@@ -506,29 +525,39 @@ class ServiceAccount extends ServiceBase {
   ): Promise<IAddHDOrHWAccountsResult | undefined> {
     // addHDOrHWAccounts
     const {
+      walletId,
+      networkId,
+      deriveType,
       indexes,
       indexedAccountId,
-      deriveType,
-      skipDeviceCancel,
-      hideCheckingDeviceLoading,
+      ...others
     } = params;
 
-    const { accounts, networkId, walletId } = await this.prepareHdOrHwAccounts(
-      params,
-    );
-
-    await localDb.addAccountsToWallet({
-      allAccountsBelongToNetworkId: networkId,
-      walletId,
-      accounts,
-    });
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
-    return {
-      networkId,
-      walletId,
+    const usedIndexes = await this.buildPrepareHdOrHwIndexes({
       indexedAccountId,
-      accounts,
+      indexes,
+    });
+
+    const { accountsForCreate } =
+      await this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+        {
+          mode: 'normal',
+          params: {
+            walletId: walletId || '',
+            networkId: networkId || '',
+            deriveType,
+            indexes: usedIndexes,
+            saveToDb: true,
+            ...others,
+          },
+        },
+      );
+
+    return {
+      networkId: networkId || '',
+      walletId: walletId || '',
+      indexedAccountId,
+      accounts: accountsForCreate,
       indexes,
       deriveType,
     };
@@ -850,17 +879,18 @@ class ServiceAccount extends ServiceBase {
         walletId,
       });
 
-      return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-        async () => {
-          const accounts = await vault.keyring.prepareAccounts(prepareParams);
-          return buildResult(accounts?.[0]);
-        },
-        {
-          deviceParams,
-          skipDeviceCancelAtFirst: true,
-          debugMethodName: 'exportAccountPublicKey.prepareAccounts',
-        },
-      );
+      // const accounts = await vault.keyring.prepareAccounts(prepareParams);
+      const { accountsForCreate } =
+        await this.backgroundApi.serviceBatchCreateAccount.previewBatchBuildAccounts(
+          {
+            walletId,
+            networkId,
+            deriveType,
+            indexes: prepareParams.indexes,
+            showOnOneKey: true,
+          },
+        );
+      return buildResult(accountsForCreate?.[0]);
     }
     return buildResult(account);
   }
@@ -1691,7 +1721,11 @@ class ServiceAccount extends ServiceBase {
     walletId,
   }: {
     walletId: string;
-  }): Promise<IDeviceSharedCallParams> {
+  }): Promise<IDeviceSharedCallParams | undefined> {
+    if (!accountUtils.isHwWallet({ walletId })) {
+      return undefined;
+    }
+
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
     return {
@@ -2189,10 +2223,20 @@ class ServiceAccount extends ServiceBase {
           return addresses.map((address) => address.address);
         }
 
-        const accounts = await vault.keyring.prepareAccounts(prepareParams);
+        // const accounts = await vault.keyring.prepareAccounts(prepareParams);
+        const { accountsForCreate } =
+          await this.backgroundApi.serviceBatchCreateAccount.previewBatchBuildAccounts(
+            {
+              walletId,
+              networkId,
+              deriveType: params.deriveType,
+              indexes: prepareParams.indexes,
+              showOnOneKey: true,
+            },
+          );
         const results: string[] = [];
-        for (let i = 0; i < accounts.length; i += 1) {
-          const account = accounts[i];
+        for (let i = 0; i < accountsForCreate.length; i += 1) {
+          const account = accountsForCreate[i];
           if (vaultSettings.accountType === EDBAccountType.VARIANT) {
             const address = (account as IDBVariantAccount).addresses[networkId];
             if (address) {

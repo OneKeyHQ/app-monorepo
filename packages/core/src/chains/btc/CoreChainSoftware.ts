@@ -739,6 +739,8 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
     const { pathPrefix } = slicePathTemplate(template);
 
+    // 0 -> 0'
+    // 1 -> 1'
     // relPaths:  ["0'", "1'"]
     const relPaths: string[] = indexes.map(
       (index) => `${index.toString()}'`, // btc

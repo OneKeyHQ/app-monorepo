@@ -44,6 +44,19 @@ function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   return accountId.split(SEPERATOR)[0] || '';
 }
 
+/**
+ * m/44'/60'/x'/0/0 -> m/44'/60' for prefix, {index}/0/0 for suffix
+ * @param template derivation path template
+ * @returns string
+ */
+function slicePathTemplate(template: string) {
+  const [prefix, suffix] = template.split(INDEX_PLACEHOLDER);
+  return {
+    pathPrefix: prefix.slice(0, -1), // m/44'/60'
+    pathSuffix: `{index}${suffix}`, // {index}/0/0
+  };
+}
+
 function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
@@ -52,6 +65,131 @@ function normalizePathTemplate({ template }: { template: string }) {
   return template
     .replace('*', () => INDEX_PLACEHOLDER) // replace first * with INDEX_PLACEHOLDER
     .replace(/\*/g, '0'); // replace other * with 0
+}
+
+function findIndexFromTemplate({
+  template,
+  path,
+}: {
+  template: string;
+  path: string;
+}) {
+  const templateItems = template.split('/');
+  const pathItems = path.split('/');
+  for (let i = 0; i < templateItems.length; i += 1) {
+    const tplItem = templateItems[i];
+    const pathItem = pathItems[i];
+    if (tplItem === INDEX_PLACEHOLDER && pathItem) {
+      return Number(pathItem);
+    }
+    if (tplItem === `${INDEX_PLACEHOLDER}'` && pathItem) {
+      return Number(pathItem.replace(/'+$/, ''));
+    }
+  }
+  return undefined;
+}
+
+function buildPathFromTemplate({
+  template,
+  index,
+}: {
+  template: string;
+  index: number;
+}) {
+  return normalizePathTemplate({ template }).replace(
+    INDEX_PLACEHOLDER,
+    index.toString(),
+  );
+}
+
+function removePathLastSegment({
+  path,
+  removeCount,
+}: {
+  path: string;
+  removeCount: number;
+}) {
+  const arr = path.split('/');
+  return arr.slice(0, -removeCount).filter(Boolean).join('/');
+}
+
+function buildUtxoAddressRelPath({
+  isChange = false,
+  addressIndex = 0,
+}: { isChange?: boolean; addressIndex?: number } = {}) {
+  const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
+  return addressRelPath;
+}
+
+// m/84'/0'/0' -> m/44'/81297820149147'/0'
+function buildBtcToLnPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 84' -> 44'
+  let transformedPath = path.replace(/84'/, "44'");
+  const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  const replacementCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/44'/${targetCoinType})'`, 'g'),
+    `m/44'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// m/44'/81297820149147'/0' -> m/84'/0'/0'
+function buildLnToBtcPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 44' -> 84'
+  let transformedPath = path.replace(/44'/, "84'");
+  const targetCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  const replacementCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/84'/${targetCoinType})'`, 'g'),
+    `m/84'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+function formatUtxoPath(path: string): string {
+  // Split the path into an array by '/'
+  const parts = path.split('/');
+
+  // Check if the path starts with 'm'
+  if (parts[0] !== 'm') {
+    throw new Error('Invalid UTXO path: path should start with "m"');
+  }
+
+  // Check if the path has at least three hardened levels
+  if (parts.length < 4) {
+    throw new Error(
+      'Invalid UTXO path: path should have at least three hardened levels',
+    );
+  }
+
+  // Check if the first three levels are hardened
+  for (let i = 1; i <= 3; i += 1) {
+    if (!parts[i].endsWith("'")) {
+      throw new Error(`Invalid UTXO path: level ${i} should be hardened`);
+    }
+  }
+
+  // Extract the first three levels and recombine them into a new path
+  const newPath = parts.slice(0, 4).join('/');
+
+  return newPath;
 }
 
 function shortenAddress({
@@ -232,41 +370,6 @@ function isWatchingAccount({ accountId }: { accountId: string }) {
 function isImportedAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
-}
-
-function buildPathFromTemplate({
-  template,
-  index,
-}: {
-  template: string;
-  index: number;
-}) {
-  return normalizePathTemplate({ template }).replace(
-    INDEX_PLACEHOLDER,
-    index.toString(),
-  );
-}
-
-function findIndexFromTemplate({
-  template,
-  path,
-}: {
-  template: string;
-  path: string;
-}) {
-  const templateItems = template.split('/');
-  const pathItems = path.split('/');
-  for (let i = 0; i < templateItems.length; i += 1) {
-    const tplItem = templateItems[i];
-    const pathItem = pathItems[i];
-    if (tplItem === INDEX_PLACEHOLDER && pathItem) {
-      return Number(pathItem);
-    }
-    if (tplItem === `${INDEX_PLACEHOLDER}'` && pathItem) {
-      return Number(pathItem.replace(/'+$/, ''));
-    }
-  }
-  return undefined;
 }
 
 function buildHDAccountId({
@@ -592,48 +695,6 @@ function buildExternalAccountId({
   return accountId;
 }
 
-// m/84'/0'/0' -> m/44'/81297820149147'/0'
-function buildBtcToLnPath({
-  path,
-  isTestnet,
-}: {
-  path: string;
-  isTestnet: boolean;
-}) {
-  // purpose 84' -> 44'
-  let transformedPath = path.replace(/84'/, "44'");
-  const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
-  const replacementCoinType = isTestnet
-    ? COINTYPE_LIGHTNING_TESTNET
-    : COINTYPE_LIGHTNING;
-  transformedPath = transformedPath.replace(
-    new RegExp(`(^m/44'/${targetCoinType})'`, 'g'),
-    `m/44'/${replacementCoinType}'`,
-  );
-  return transformedPath;
-}
-
-// m/44'/81297820149147'/0' -> m/84'/0'/0'
-function buildLnToBtcPath({
-  path,
-  isTestnet,
-}: {
-  path: string;
-  isTestnet: boolean;
-}) {
-  // purpose 44' -> 84'
-  let transformedPath = path.replace(/44'/, "84'");
-  const targetCoinType = isTestnet
-    ? COINTYPE_LIGHTNING_TESTNET
-    : COINTYPE_LIGHTNING;
-  const replacementCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
-  transformedPath = transformedPath.replace(
-    new RegExp(`(^m/84'/${targetCoinType})'`, 'g'),
-    `m/84'/${replacementCoinType}'`,
-  );
-  return transformedPath;
-}
-
 // hd-1--m/84'/0'/0' -> hd-1--m/44'/81297820149147'/0'
 function buildLightningAccountId({
   accountId,
@@ -653,57 +714,9 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
-function formatUtxoPath(path: string): string {
-  // Split the path into an array by '/'
-  const parts = path.split('/');
-
-  // Check if the path starts with 'm'
-  if (parts[0] !== 'm') {
-    throw new Error('Invalid UTXO path: path should start with "m"');
-  }
-
-  // Check if the path has at least three hardened levels
-  if (parts.length < 4) {
-    throw new Error(
-      'Invalid UTXO path: path should have at least three hardened levels',
-    );
-  }
-
-  // Check if the first three levels are hardened
-  for (let i = 1; i <= 3; i += 1) {
-    if (!parts[i].endsWith("'")) {
-      throw new Error(`Invalid UTXO path: level ${i} should be hardened`);
-    }
-  }
-
-  // Extract the first three levels and recombine them into a new path
-  const newPath = parts.slice(0, 4).join('/');
-
-  return newPath;
-}
-
 // buildDeviceName() move to deviceUtils.buildDeviceName()
 function buildDeviceDbId() {
   return generateUUID();
-}
-
-function buildUtxoAddressRelPath({
-  isChange = false,
-  addressIndex = 0,
-}: { isChange?: boolean; addressIndex?: number } = {}) {
-  const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
-  return addressRelPath;
-}
-
-function removePathLastSegment({
-  path,
-  removeCount,
-}: {
-  path: string;
-  removeCount: number;
-}) {
-  const arr = path.split('/');
-  return arr.slice(0, -removeCount).filter(Boolean).join('/');
 }
 
 function buildHiddenWalletName({
@@ -771,6 +784,7 @@ export default {
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
+  slicePathTemplate,
   beautifyPathTemplate,
   getDeviceIdFromWallet,
   getWalletIdFromAccountId,

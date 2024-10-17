@@ -202,22 +202,55 @@ const DialogGallery = () => (
           <YStack gap="$2">
             <Button
               onPress={async () => {
-                const d = Dialog.show({
-                  title: 'Lorem ipsum',
+                let d = Dialog.show({
+                  title: 'Lorem ipsum 1111',
                   icon: 'PlaceholderOutline',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   tone: 'default',
                 });
                 // not working
-                // await d.close();
+                await d.close();
+
+                d = Dialog.show({
+                  title: 'Lorem ipsum 2222',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
 
                 // working, should wait Dialog open animation done
-                await timerUtils.wait(350);
-                await d.close();
+                // await timerUtils.wait(350);
+                // await d.close();
               }}
             >
-              ShowAndCloseDialog
+              ShowAndCloseDialog1
+            </Button>
+            <Button
+              onPress={async () => {
+                let d = Dialog.show({
+                  title: 'Lorem ipsum 1111',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+
+                d = Dialog.show({
+                  title: 'Lorem ipsum 2222',
+                  icon: 'PlaceholderOutline',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                  tone: 'default',
+                });
+
+                // working, should wait Dialog open animation done
+                // await timerUtils.wait(350);
+                // await d.close();
+              }}
+            >
+              ShowAndCloseDialog2
             </Button>
             <Button
               onPress={() =>

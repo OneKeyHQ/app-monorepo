@@ -28,11 +28,11 @@ import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 export type IWithHardwareProcessingControlParams = {
-  skipDeviceCancel?: boolean;
-  skipCloseHardwareUiStateDialog?: boolean;
+  hideCheckingDeviceLoading?: boolean;
+  skipDeviceCancel?: boolean; // cancel device at end
+  skipCloseHardwareUiStateDialog?: boolean; // close state dialog at end
   skipDeviceCancelAtFirst?: boolean;
   skipWaitingAnimationAtFirst?: boolean;
-  hideCheckingDeviceLoading?: boolean;
 };
 
 export type IWithHardwareProcessingOptions = {
@@ -44,6 +44,7 @@ export type ICloseHardwareUiStateDialogParams = {
   skipDeviceCancel?: boolean;
   delay?: number;
   connectId: string | undefined;
+  walletId?: string;
   reason?: string;
   deviceResetToHome?: boolean;
   hardClose?: boolean; // hard close dialog by event bus
@@ -62,6 +63,24 @@ class ServiceHardwareUI extends ServiceBase {
     return (
       await this.backgroundApi.serviceHardware.getSDKInstance()
     ).uiResponse(response);
+  }
+
+  @backgroundMethod()
+  async showConfirmOnDeviceToastDemo({ connectId }: { connectId: string }) {
+    const { EOneKeyDeviceMode } = await CoreSDKLoader();
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId,
+      payload: {
+        deviceType: 'classic',
+        uiRequestType: EHardwareUiStateAction.REQUEST_BUTTON,
+        eventType: '',
+        deviceId: '',
+        connectId,
+        rawPayload: {},
+        deviceMode: EOneKeyDeviceMode.normal,
+      },
+    });
   }
 
   @backgroundMethod()
@@ -164,16 +183,46 @@ class ServiceHardwareUI extends ServiceBase {
     }
   }
 
+  closeHardwareUiStateDialogTimer: ReturnType<typeof setTimeout> | undefined;
+
   @backgroundMethod()
-  async closeHardwareUiStateDialog({
-    skipDeviceCancel,
-    delay,
-    connectId,
-    reason,
-    deviceResetToHome = true,
-    hardClose,
-  }: ICloseHardwareUiStateDialogParams) {
+  async closeHardwareUiStateDialog(params: ICloseHardwareUiStateDialogParams) {
+    clearTimeout(this.closeHardwareUiStateDialogTimer);
+
+    this.closeHardwareUiStateDialogTimer = setTimeout(
+      () =>
+        this.closeHardwareUiStateDialogFn({
+          ...params,
+          skipDeviceCancel: true,
+        }),
+      600,
+    );
+
+    await this.closeHardwareUiStateDialogFn(params);
+  }
+
+  @backgroundMethod()
+  async closeHardwareUiStateDialogFn(
+    params: ICloseHardwareUiStateDialogParams,
+  ) {
+    let {
+      skipDeviceCancel = true,
+      delay,
+      connectId,
+      walletId,
+      reason,
+      deviceResetToHome = true,
+      hardClose,
+    } = params;
+
     try {
+      if (!connectId && walletId) {
+        const device =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+          });
+        connectId = device?.connectId;
+      }
       console.log(`closeHardwareUiStateDialog: ${reason || 'no reason'}`);
       if (delay) {
         await timerUtils.wait(delay);
@@ -186,7 +235,8 @@ class ServiceHardwareUI extends ServiceBase {
         }
         console.log('closeHardwareUiStateDialog cancel device: ', connectId);
         // do not wait cancel, may cause caller stuck
-        void this.backgroundApi.serviceHardware.cancel(connectId, {
+        void this.backgroundApi.serviceHardware.cancel({
+          connectId,
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
@@ -195,78 +245,122 @@ class ServiceHardwareUI extends ServiceBase {
     }
   }
 
+  processingNestedNum = 0;
+
+  isOuterProcessing() {
+    return this.processingNestedNum === 1;
+  }
+
   async withHardwareProcessing<T>(
     fn: () => Promise<T>,
     params: IWithHardwareProcessingOptions,
   ): Promise<T> {
+    clearTimeout(this.closeHardwareUiStateDialogTimer);
+    clearTimeout(this.backgroundApi.serviceHardware.cancelTimer);
     const {
       deviceParams,
-      skipDeviceCancel,
-      skipCloseHardwareUiStateDialog,
-      skipDeviceCancelAtFirst,
+      skipDeviceCancel = false,
+      skipCloseHardwareUiStateDialog = false,
+      skipDeviceCancelAtFirst = true,
       skipWaitingAnimationAtFirst,
       hideCheckingDeviceLoading,
       debugMethodName,
     } = params;
-    defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(params);
-
-    // >>> mock hardware connectId
-    // if (deviceParams?.dbDevice && deviceParams) {
-    //   deviceParams.dbDevice.connectId = '11111';
-    // }
-
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
-    if (connectId && !hideCheckingDeviceLoading) {
-      await this.showCheckingDeviceDialog({
-        connectId,
-      });
-    }
-
-    defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
-      message: 'cancelableDelay',
-    });
-
-    // TODO: Dialog 和 Toast 在执行 show ，但是动画未结束时，立即调用 close 无效，将导致 Dialog 和 Toast 一直显示
-    // wait action animation done
-    // action dialog may call getFeatures of the hardware when it is closed
-    if (connectId && !skipWaitingAnimationAtFirst) {
-      await this.hardwareProcessingManager.cancelableDelay(connectId, 350);
-    }
-    defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone({
-      message: 'cancelableDelay',
-    });
-
-    // test delay
-    // await timerUtils.wait(6000);
-
-    let isMutexLocked =
-      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
-    if (isMutexLocked) {
-      await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
-      isMutexLocked =
-        this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
-      if (isMutexLocked) {
-        throw new Error(
-          appLocale.intl.formatMessage({
-            id: ETranslations.feedback_hardware_is_busy,
-          }),
-        );
-      }
-    }
 
     let deviceResetToHome = true;
+    let isBusy = false;
     try {
-      defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
-        message: 'cancelAtFirst',
-      });
-      if (connectId && !skipDeviceCancelAtFirst) {
-        await this.backgroundApi.serviceHardware.cancel(connectId);
-        await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
+      if (this.processingNestedNum <= 0) {
+        this.processingNestedNum = 0;
       }
-      defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone({
-        message: 'cancelAtFirst',
-      });
+      this.processingNestedNum += 1;
+
+      defaultLogger.hardware.sdkLog.consoleLog('withHardwareProcessing');
+      defaultLogger.account.accountCreatePerf.withHardwareProcessingStart(
+        params,
+      );
+
+      const waitForCancelDone = async () => {
+        if (
+          this.backgroundApi.serviceHardware.isLastCancelLessThanMsAgo(
+            connectId,
+            2000,
+          )
+        ) {
+          await timerUtils.wait(2000);
+        }
+      };
+
+      if (this.isOuterProcessing()) {
+        // >>> mock hardware connectId
+        // if (deviceParams?.dbDevice && deviceParams) {
+        //   deviceParams.dbDevice.connectId = '11111';
+        // }
+
+        if (connectId && !hideCheckingDeviceLoading) {
+          await this.showCheckingDeviceDialog({
+            connectId,
+          });
+        }
+
+        await waitForCancelDone();
+
+        defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
+          message: 'cancelableDelay',
+        });
+
+        // Dialog 和 Toast 在执行 show ，但是动画未结束时，立即调用 close 无效，将导致 Dialog 和 Toast 一直显示
+        // wait action animation done
+        // action dialog may call getFeatures of the hardware when it is closed
+        // if (connectId && !skipWaitingAnimationAtFirst) {
+        //   await this.hardwareProcessingManager.cancelableDelay(connectId, 350);
+        // }
+
+        defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone(
+          {
+            message: 'cancelableDelay',
+          },
+        );
+      } else {
+        await waitForCancelDone();
+      }
+
+      // test delay
+      // await timerUtils.wait(6000);
+
+      let isMutexLocked =
+        this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
+      if (isMutexLocked) {
+        await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
+        isMutexLocked =
+          this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
+        if (isMutexLocked) {
+          isBusy = true;
+          throw new Error(
+            appLocale.intl.formatMessage({
+              id: ETranslations.feedback_hardware_is_busy,
+            }),
+          );
+        }
+      }
+
+      if (this.isOuterProcessing()) {
+        // TODO wait 3s if device is canceling
+        defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
+          message: 'cancelAtFirst',
+        });
+        if (connectId && !skipDeviceCancelAtFirst && this.isOuterProcessing()) {
+          // await this.backgroundApi.serviceHardware.cancel(connectId);
+          // await this.hardwareProcessingManager.cancelableDelay(connectId, 600);
+        }
+        defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessingDone(
+          {
+            message: 'cancelAtFirst',
+          },
+        );
+      }
 
       defaultLogger.account.accountCreatePerf.withHardwareProcessingRunFn();
       const r = await fn();
@@ -326,18 +420,28 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      if (connectId) {
+      if (connectId && this.isOuterProcessing()) {
         if (!skipCloseHardwareUiStateDialog) {
+          const closeDialogParams = {
+            // skipDeviceCancel: true,
+            skipDeviceCancel: skipDeviceCancel ?? false, // auto cancel if device call interaction action
+            deviceResetToHome,
+          };
+          if (isBusy) {
+            closeDialogParams.skipDeviceCancel = true;
+            closeDialogParams.deviceResetToHome = false;
+          }
           await this.closeHardwareUiStateDialog({
             connectId,
-            skipDeviceCancel, // auto cancel if device call interaction action
-            deviceResetToHome,
+            skipDeviceCancel: closeDialogParams.skipDeviceCancel,
+            deviceResetToHome: closeDialogParams.deviceResetToHome,
           });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );
       }
+      this.processingNestedNum -= 1;
     }
   }
 }

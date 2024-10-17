@@ -260,14 +260,15 @@ function BatchCreateAccountPreviewPage({
               toIndex: toIndexInPage,
             },
           );
+
         const { accountsForCreate } =
-          await backgroundApiProxy.serviceBatchCreateAccount.batchBuildAccounts(
+          await backgroundApiProxy.serviceBatchCreateAccount.previewBatchBuildAccounts(
             {
               walletId,
               networkId,
               deriveType,
               indexes,
-              saveToDb: false,
+              saveToCache: true,
             },
           );
         return accountsForCreate;
@@ -779,10 +780,12 @@ function BatchCreateAccountPreviewPage({
                 isAdvancedMode
                   ? {
                       mode: 'advanced',
+                      saveToCache: true,
                       params: checkIsDefined(advancedParams),
                     }
                   : {
                       mode: 'normal',
+                      saveToCache: true,
                       params: checkIsDefined(normalParams),
                     },
               );
