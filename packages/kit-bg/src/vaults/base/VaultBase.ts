@@ -1177,6 +1177,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   ): Promise<IFetchServerTokenListResponse> {
     const { serviceToken, serviceAccountProfile } = this.backgroundApi;
     const { requestApiParams, flag, signal, accountId } = params;
+    if (requestApiParams.contractList) {
+      requestApiParams.contractList = requestApiParams.contractList.filter(
+        (contract): contract is string =>
+          contract !== null && typeof contract === 'string',
+      );
+    }
     const client = await serviceToken.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: IFetchAccountTokensResp;
