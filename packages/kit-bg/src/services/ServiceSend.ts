@@ -88,6 +88,7 @@ class ServiceSend extends ServiceBase {
       wrappedInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -97,6 +98,7 @@ class ServiceSend extends ServiceBase {
       wrappedInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     });
   }
 
@@ -349,6 +351,7 @@ class ServiceSend extends ServiceBase {
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const unsignedTx = unsignedTxs[i];
+      const feeInfo = sendSelectedFeeInfos?.[i];
       if (
         !successfullySentTxs ||
         !unsignedTx.uuid ||
@@ -371,13 +374,14 @@ class ServiceSend extends ServiceBase {
           networkId,
           accountId,
           unsignedTx,
-          feeInfo: sendSelectedFeeInfos?.[i],
+          feeInfo,
           transferPayload,
         });
 
         const data = {
           signedTx,
           decodedTx,
+          feeInfo: feeInfo?.feeInfo,
         };
 
         // only fill swap(staking) tx info for batch approve&swap(staking) callback
@@ -490,6 +494,7 @@ class ServiceSend extends ServiceBase {
       stakingInfo,
       specifiedFeeRate,
       prevNonce,
+      feeInfo,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -509,6 +514,7 @@ class ServiceSend extends ServiceBase {
         wrappedInfo,
         specifiedFeeRate,
         prevNonce,
+        feeInfo,
       });
     }
     if (swapInfo) {
@@ -520,6 +526,10 @@ class ServiceSend extends ServiceBase {
 
     if (approveInfo) {
       newUnsignedTx.approveInfo = approveInfo;
+    }
+
+    if (feeInfo) {
+      newUnsignedTx.feeInfo = feeInfo;
     }
 
     const isNonceRequired = (
