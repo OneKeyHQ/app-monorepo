@@ -25,10 +25,6 @@ export function HeaderLeft({
     ESpotlightTour.switchDappAccount,
   );
 
-  useEffect(() => {
-    console.log('times: ====>>>>: ', tourTimes);
-  }, [tourTimes]);
-
   const [isFocus, setIsFocus] = useState(false);
 
   useListenTabFocusState(

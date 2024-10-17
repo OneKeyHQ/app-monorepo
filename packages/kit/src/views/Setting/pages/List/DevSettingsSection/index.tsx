@@ -451,11 +451,8 @@ export const DevSettingsSection = () => {
       />
       <SectionPressItem
         title="Reset Spotlight"
-        subtitle="Will reset after 5 seconds."
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
-          // setTimeout(() => {
-          // }, 5000);
         }}
       />
       {platformEnv.isNativeAndroid ? (

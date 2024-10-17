@@ -9,6 +9,7 @@ import {
   EPageType,
   Icon,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -20,7 +21,10 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -29,7 +33,10 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { useSwapActionState } from '../../hooks/useSwapState';
+import {
+  useSwapActionState,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
@@ -47,14 +54,19 @@ const SwapActionsState = ({
   onWrapped,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
-  // const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
-  const swapRecipientAddressInfo = useSwapRecipientAddressInfo();
-  // const quoteLoading = useSwapQuoteLoading();
+  const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
+  const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
+    swapEnableRecipientAddress,
+  );
+  const quoteLoading = useSwapQuoteLoading();
+  const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -158,102 +170,134 @@ const SwapActionsState = ({
     swapActionState.isRefreshQuote,
   ]);
 
-  // const approveStepComponent = useMemo(
-  //   () =>
-  //     swapActionState.isApprove && !quoteLoading ? (
-  //       <XStack
-  //         gap="$1"
-  //         {...(pageType === EPageType.modal && !md ? {} : { pb: '$5' })}
-  //       >
-  //         <Popover
-  //           title={intl.formatMessage({ id: ETranslations.global_approve })}
-  //           placement="top-start"
-  //           renderContent={
-  //             <SizableText
-  //               size="$bodyLg"
-  //               $gtMd={{
-  //                 size: '$bodyMd',
-  //                 pt: '$5',
-  //               }}
-  //               pb="$5"
-  //               px="$5"
-  //             >
-  //               {intl.formatMessage({
-  //                 id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-  //               })}
-  //             </SizableText>
-  //           }
-  //           renderTrigger={
-  //             <XStack
-  //               userSelect="none"
-  //               hoverStyle={{
-  //                 opacity: 0.5,
-  //               }}
-  //             >
-  //               <SizableText size="$bodyMdMedium" pr="$1">
-  //                 {intl.formatMessage(
-  //                   { id: ETranslations.swap_page_swap_steps_1 },
-  //                   { tokenSymbol: fromToken?.symbol ?? '' },
-  //                 )}
-  //               </SizableText>
-  //               <Icon
-  //                 size="$5"
-  //                 color="$iconSubdued"
-  //                 name="QuestionmarkOutline"
-  //               />
-  //             </XStack>
-  //           }
-  //         />
-  //         <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
-  //         <SizableText size="$bodyMd" color="$textSubdued">
-  //           {intl.formatMessage({
-  //             id: ETranslations.swap_page_swap_steps_2,
-  //           })}
-  //         </SizableText>
-  //       </XStack>
-  //     ) : null,
-  //   [
-  //     fromToken?.symbol,
-  //     intl,
-  //     md,
-  //     pageType,
-  //     quoteLoading,
-  //     swapActionState.isApprove,
-  //   ],
-  // );
+  const shouldShowRecipient = useMemo(
+    () =>
+      swapEnableRecipientAddress &&
+      swapRecipientAddressInfo?.showAddress &&
+      fromToken &&
+      toToken &&
+      currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
+    [
+      swapEnableRecipientAddress,
+      currentQuoteRes?.toTokenInfo.networkId,
+      fromToken,
+      swapRecipientAddressInfo?.showAddress,
+      toToken,
+    ],
+  );
+
+  const approveStepComponent = useMemo(
+    () =>
+      swapActionState.isApprove && !swapBatchApproveAndSwap && !quoteLoading ? (
+        <XStack
+          gap="$1"
+          {...(pageType === EPageType.modal && !md ? {} : { pb: '$5' })}
+        >
+          <Popover
+            title={intl.formatMessage({ id: ETranslations.global_approve })}
+            placement="top-start"
+            renderContent={
+              <SizableText
+                size="$bodyLg"
+                $gtMd={{
+                  size: '$bodyMd',
+                  pt: '$5',
+                }}
+                pb="$5"
+                px="$5"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+                })}
+              </SizableText>
+            }
+            renderTrigger={
+              <XStack
+                userSelect="none"
+                hoverStyle={{
+                  opacity: 0.5,
+                }}
+              >
+                <SizableText size="$bodyMdMedium" pr="$1">
+                  {intl.formatMessage(
+                    { id: ETranslations.swap_page_swap_steps_1 },
+                    { tokenSymbol: fromToken?.symbol ?? '' },
+                  )}
+                </SizableText>
+                <Icon
+                  size="$5"
+                  color="$iconSubdued"
+                  name="QuestionmarkOutline"
+                />
+              </XStack>
+            }
+          />
+          <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_page_swap_steps_2,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null,
+    [
+      fromToken?.symbol,
+      swapBatchApproveAndSwap,
+      intl,
+      md,
+      pageType,
+      quoteLoading,
+      swapActionState.isApprove,
+    ],
+  );
   const recipientComponent = useMemo(() => {
-    if (swapRecipientAddressInfo?.showAddress) {
+    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+      return null;
+    }
+    if (shouldShowRecipient) {
       return (
         <XStack
+          flex={1}
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
           <Icon name="AddedPeopleOutline" w="$5" h="$5" />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_page_recipient_send_to,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            {swapRecipientAddressInfo?.showAddress}
-          </SizableText>
-          {swapRecipientAddressInfo?.accountInfo?.wallet?.name &&
-          swapRecipientAddressInfo?.accountInfo?.accountName ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {`(${swapRecipientAddressInfo?.accountInfo?.wallet?.name}-${swapRecipientAddressInfo?.accountInfo?.accountName})`}
+          <XStack flex={1} flexWrap="wrap" gap="$1">
+            <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_recipient_send_to,
+              })}
             </SizableText>
-          ) : null}
+            <SizableText flexShrink={0} size="$bodyMd">
+              {swapRecipientAddressInfo?.showAddress}
+            </SizableText>
+
+            {swapRecipientAddressInfo?.accountInfo?.wallet?.name &&
+            swapRecipientAddressInfo?.accountInfo?.accountName ? (
+              <SizableText
+                numberOfLines={1}
+                flexShrink={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${swapRecipientAddressInfo?.accountInfo?.wallet?.name}-${swapRecipientAddressInfo?.accountInfo?.accountName})`}
+              </SizableText>
+            ) : null}
+          </XStack>
         </XStack>
       );
     }
     return null;
   }, [
+    swapActionState.isApprove,
+    swapBatchApproveAndSwap,
+    shouldShowRecipient,
+    pageType,
     md,
     intl,
-    pageType,
-    swapRecipientAddressInfo?.accountInfo?.accountName,
-    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
     swapRecipientAddressInfo?.showAddress,
+    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
+    swapRecipientAddressInfo?.accountInfo?.accountName,
   ]);
   const actionComponent = useMemo(
     () => (
@@ -262,12 +306,14 @@ const SwapActionsState = ({
         {...(pageType === EPageType.modal && !md
           ? {
               flexDirection: 'row',
-              justifyContent: 'flex-end',
+              justifyContent: shouldShowRecipient
+                ? 'space-between'
+                : 'flex-end',
               alignItems: 'center',
             }
           : {})}
       >
-        {/* {approveStepComponent} */}
+        {approveStepComponent}
         {recipientComponent}
         <Button
           onPress={onActionHandlerBefore}
@@ -281,10 +327,12 @@ const SwapActionsState = ({
       </Stack>
     ),
     [
+      approveStepComponent,
       md,
       onActionHandlerBefore,
       pageType,
       recipientComponent,
+      shouldShowRecipient,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,

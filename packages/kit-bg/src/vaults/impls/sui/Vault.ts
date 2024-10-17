@@ -136,9 +136,14 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
     const recipient = hexUtils.addHexPrefix(to);
     const sender = hexUtils.addHexPrefix(account.address);
-    if (!tokenInfo?.decimals) {
+    if (
+      !tokenInfo ||
+      typeof tokenInfo.decimals !== 'number' ||
+      tokenInfo.decimals < 0
+    ) {
       throw new OneKeyInternalError('Token decimals is required');
     }
+
     const amountValue = new BigNumber(amount)
       .shiftedBy(tokenInfo.decimals)
       .toFixed();

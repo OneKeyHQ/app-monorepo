@@ -35,7 +35,7 @@ function AlignPrimaryAccount() {
                 label: intl.formatMessage({
                   id: ETranslations.settings_account_sync_independent_mode_title,
                 }),
-                value: EAlignPrimaryAccountMode.Default,
+                value: EAlignPrimaryAccountMode.Independent,
                 description: intl.formatMessage({
                   id: ETranslations.settings_account_sync_independent_mode_description,
                 }),
@@ -49,15 +49,15 @@ function AlignPrimaryAccount() {
                   id: ETranslations.settings_account_sync_dapp_to_wallet_mode_description,
                 }),
               },
-              {
-                label: intl.formatMessage({
-                  id: ETranslations.settings_account_sync_wallet_to_all_mode_title,
-                }),
-                value: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
-                description: intl.formatMessage({
-                  id: ETranslations.settings_account_sync_wallet_to_all_mode_description,
-                }),
-              },
+              // {
+              //   label: intl.formatMessage({
+              //     id: ETranslations.settings_account_sync_wallet_to_all_mode_title,
+              //   }),
+              //   value: EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount,
+              //   description: intl.formatMessage({
+              //     id: ETranslations.settings_account_sync_wallet_to_all_mode_description,
+              //   }),
+              // },
             ]}
           />
         </Stack>
