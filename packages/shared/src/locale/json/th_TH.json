@@ -1664,6 +1664,7 @@
   "slippage_tolerance.warning_message_1": "การทนต่อการลื่นไถลที่สูงอาจทำให้คุณสูญเสียสินทรัพย์",
   "slippage_tolerance.warning_message_2": "การสไลป์ที่ต่ำกว่า {number}% อาจทำให้การซื้อขายล้มเหลว",
   "speed_up_cancellation": "เร่งการยกเลิก",
+  "spotlight.account_alignment_desc": "OneKey ตอนนี้ตั้งค่าเริ่มต้นให้สลับไปยังบัญชี dApp ที่คุณใช้ล่าสุดโดยอัตโนมัติ หากต้องการเปลี่ยนการตั้งค่านี้ ไปที่ การตั้งค่า > จัดแนบบัญชีหลัก",
   "spotlight.enable_account_asset_message": "หากยอดคงเหลือหายไป ให้ไปที่ \"เครือข่าย\" บนหน้าแรกและเลือก \"ทุกเครือข่าย\" ก่อน",
   "spotlight.enable_network_message": "ถ้าคุณไม่เห็นสินทรัพย์ใด ๆ ระบุไว้ใต้ 'All Networks,' คลิกที่นี่เพื่อเพิ่มเครือข่ายที่หายไป",
   "swap_account.from_address": "{addrss}",
