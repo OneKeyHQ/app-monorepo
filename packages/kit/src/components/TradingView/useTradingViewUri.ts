@@ -67,7 +67,7 @@ export const useTradingViewUri = (
       'support_host': 'https://www.tradingview.com',
       'isTransparent': 'true',
     };
-    return `https://www.tradingview-widget.com/embed-widget/advanced-chart/t=${Date.now()}?locale=${locale}#${JSON.stringify(
+    return `https://www.tradingview-widget.com/embed-widget/advanced-chart/?t=${Date.now()}&locale=${locale}#${JSON.stringify(
       params,
     )}`;
   }, [hideSideToolbar, locale, symbol, theme, timezone]);
