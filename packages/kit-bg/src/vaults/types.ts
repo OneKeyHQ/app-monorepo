@@ -236,6 +236,8 @@ export type IVaultSettings = {
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
   isNativeTokenContractAddressEmpty?: boolean;
+
+  canEditNonce?: boolean;
 };
 
 export type IVaultFactoryOptions = {
