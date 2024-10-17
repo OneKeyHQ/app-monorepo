@@ -96,6 +96,6 @@ export const useHtmlCode = () => {
   </body>
 </html>
 `,
-    [locale, theme],
+    [locale, theme, timezone],
   );
 };
