@@ -109,6 +109,7 @@ function TxActionCommonTitle({
     <XStack alignItems="center">
       <SizableText
         numberOfLines={1}
+        flexShrink={1}
         size="$bodyLgMedium"
         {...(tableLayout && {
           size: '$bodyMdMedium',
