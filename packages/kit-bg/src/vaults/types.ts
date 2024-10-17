@@ -511,6 +511,7 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
   prevNonce?: number;
+  feeInfo?: IFeeInfoUnit;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
