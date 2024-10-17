@@ -137,6 +137,7 @@ function BasicInvestmentDetails() {
         }}
         avatarProps={{
           src: tokenInfo.logoURI,
+          networkId: tokenInfo.networkId,
         }}
         renderItemText={
           <XStack justifyContent="space-between" flex={1}>

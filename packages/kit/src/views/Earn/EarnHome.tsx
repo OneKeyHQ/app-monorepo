@@ -629,7 +629,6 @@ function BasicEarnHome() {
             .then(actions.current.updateAvailableAssets);
         });
       }
-
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
       const fetchAndUpdateAction = async () => {
         const earnAccount =
