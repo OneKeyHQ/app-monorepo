@@ -2,6 +2,12 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalAssetDetailRoutes,
+  IModalAssetDetailsParamList,
+} from '@onekeyhq/shared/src/routes/assetDetails';
+
+import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
@@ -48,8 +54,8 @@ const HistoryList = LazyLoad(
 );
 
 export const StakingModalRouter: IModalFlowNavigatorConfig<
-  EModalStakingRoutes,
-  IModalStakingParamList
+  EModalStakingRoutes | EModalAssetDetailRoutes,
+  IModalStakingParamList & IModalAssetDetailsParamList
 >[] = [
   {
     name: EModalStakingRoutes.ProtocolDetails,
@@ -95,4 +101,8 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.HistoryList,
     component: HistoryList,
   },
+  ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
+    EModalStakingRoutes | EModalAssetDetailRoutes,
+    IModalStakingParamList & IModalAssetDetailsParamList
+  >[]),
 ];
