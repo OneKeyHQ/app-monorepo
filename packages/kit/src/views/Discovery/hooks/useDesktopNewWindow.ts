@@ -27,12 +27,12 @@ export function useDesktopNewWindow() {
     [gtMd, handleOpenWebSite, navigation],
   );
   useEffect(() => {
-    window.desktopApi?.addIpcEventListener(
+    globalThis.desktopApi?.addIpcEventListener(
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
       onNewWindow,
     );
     return () => {
-      window.desktopApi?.removeIpcEventListener(
+      globalThis.desktopApi?.removeIpcEventListener(
         ipcMessageKeys.WEBVIEW_NEW_WINDOW,
         onNewWindow,
       );

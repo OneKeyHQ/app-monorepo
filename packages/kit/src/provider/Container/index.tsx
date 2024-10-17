@@ -30,7 +30,7 @@ const PageTrackerContainer = LazyLoad(
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
-  global.$rootAppNavigation = navigation;
+  globalThis.$rootAppNavigation = navigation;
   return null;
 }
 

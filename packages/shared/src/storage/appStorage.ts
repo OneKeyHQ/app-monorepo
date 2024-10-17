@@ -37,9 +37,9 @@ export const mockStorage = mockStorageInstance;
  */
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appStorage = appStorage;
+  globalThis.$$appStorage = appStorage;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$$appStorage.print = createPrintMethod({ storage: appStorage });
+  globalThis.$$appStorage.print = createPrintMethod({ storage: appStorage });
 }
 
 export default buildAppStorageFactory(appStorage);

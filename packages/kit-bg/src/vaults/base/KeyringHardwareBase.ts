@@ -32,7 +32,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
-      await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
+      await globalThis?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
     const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
 
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();

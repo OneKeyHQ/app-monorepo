@@ -42,8 +42,11 @@ class GlobalErrorHandler {
       nativePromiseRejectionTracker.setErrorTracker(map.nativeErrorListener);
     } else {
       // web or service-worker(ext mv3)
-      global.addEventListener('error', map.errorListener);
-      global.addEventListener('unhandledrejection', map.promiseErrorListener);
+      globalThis.addEventListener('error', map.errorListener);
+      globalThis.addEventListener(
+        'unhandledrejection',
+        map.promiseErrorListener,
+      );
     }
     this.listenersMap.set(listener, map);
   }
@@ -54,10 +57,10 @@ class GlobalErrorHandler {
       nativePromiseRejectionTracker.setErrorTracker(noop);
     } else {
       if (map?.errorListener) {
-        global.removeEventListener('error', map?.errorListener);
+        globalThis.removeEventListener('error', map?.errorListener);
       }
       if (map?.promiseErrorListener) {
-        global.removeEventListener(
+        globalThis.removeEventListener(
           'unhandledrejection',
           map?.promiseErrorListener,
         );
@@ -70,7 +73,7 @@ const globalErrorHandler = new GlobalErrorHandler();
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  global.$$globalErrorHandler = globalErrorHandler;
+  globalThis.$$globalErrorHandler = globalErrorHandler;
 }
 
 export { globalErrorHandler };

@@ -732,7 +732,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const cache = get(phishingLruCacheAtom());
         cache.set(origin, true);
         set(phishingLruCacheAtom(), cache);
-        window.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
+        globalThis.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
       } catch {
         // ignore
       }

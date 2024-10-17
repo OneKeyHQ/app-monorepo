@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // Open firefox popup, wait for 5s, do NOT click anything
 function checkPerformance() {
   if (platformEnv.isRuntimeFirefox && platformEnv.isDev) {
-    const { addEventListener } = window;
+    const { addEventListener } = globalThis;
     setTimeout(() => {
       let times = 0;
       const startTime = Date.now();
@@ -47,7 +47,7 @@ function optimize() {
     platformEnv.isRuntimeFirefox &&
     platformEnv.isExtensionUiPopup &&
     // @ts-ignore
-    !window.addEventListenerOrigin
+    !globalThis.addEventListenerOrigin
   ) {
     // remove firefox resize event handlers after popui resize ready (600ms)
     setTimeout(() => {
@@ -55,7 +55,7 @@ function optimize() {
     }, 600);
 
     // @ts-ignore
-    window.addEventListenerOrigin = window.addEventListener;
+    globalThis.addEventListenerOrigin = window.addEventListener;
     window.addEventListener = (
       type: string,
       listener: any,
@@ -68,7 +68,7 @@ function optimize() {
       }
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      window.addEventListenerOrigin(type, listener, options, ...others);
+      globalThis.addEventListenerOrigin(type, listener, options, ...others);
     };
   }
 }

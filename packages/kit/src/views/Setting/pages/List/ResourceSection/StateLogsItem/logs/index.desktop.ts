@@ -1,3 +1,3 @@
 export const exportLogs = async () => {
-  window.desktopApi.openLoggerFile();
+  globalThis.desktopApi.openLoggerFile();
 };

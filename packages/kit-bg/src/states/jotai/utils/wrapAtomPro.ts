@@ -30,7 +30,7 @@ export function wrapAtomPro(
     set: IJotaiSetter;
   }) => {
     if (proxyToBg && platformEnv.isExtensionUi) {
-      await global.$jotaiBgSync.proxyStateUpdateActionFromUiToBg({
+      await globalThis.$jotaiBgSync.proxyStateUpdateActionFromUiToBg({
         name,
         payload,
       });
@@ -38,7 +38,7 @@ export function wrapAtomPro(
     }
     await set(baseAtom, payload);
     if (platformEnv.isExtensionBackground) {
-      await global.$jotaiBgSync.broadcastStateUpdateFromBgToUi({
+      await globalThis.$jotaiBgSync.broadcastStateUpdateFromBgToUi({
         name,
         payload,
       });

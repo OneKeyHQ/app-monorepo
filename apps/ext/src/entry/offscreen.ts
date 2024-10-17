@@ -17,7 +17,7 @@ function checkPortEstablished() {
   // @ts-ignore
   if (!offscreenBridge?.portToBg) {
     clearInterval(timer);
-    window.location.reload();
+    globalThis.location.reload();
   }
 }
 timer = setInterval(

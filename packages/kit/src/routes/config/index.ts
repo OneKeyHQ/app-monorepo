@@ -116,7 +116,7 @@ const useBuildLinking = (): LinkingOptions<any> => {
          /ui-expand-tab.html/#/   not working for Windows Chrome
          /ui-expand-tab.html#/    works fine
         */
-        if (newPath === '/' && window.location.href.endsWith('#/')) {
+        if (newPath === '/' && globalThis.location.href.endsWith('#/')) {
           // fix the scenarios of /#, #/, and /#/
           return extHtmlFileUrl;
         }

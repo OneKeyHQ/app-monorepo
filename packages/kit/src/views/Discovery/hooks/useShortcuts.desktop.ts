@@ -100,17 +100,17 @@ export const useShortcuts = () => {
       }
 
       if (data === EBrowserShortcutEvents.CloseTab) {
-        window.desktopApi.quitApp();
+        globalThis.desktopApi.quitApp();
       } else if (data === EBrowserShortcutEvents.Refresh) {
-        window.desktopApi.reload();
+        globalThis.desktopApi.reload();
       }
     };
-    window.desktopApi.addIpcEventListener(
+    globalThis.desktopApi.addIpcEventListener(
       ipcMessageKeys.APP_SHORCUT,
       handleShortcuts,
     );
     return () =>
-      window.desktopApi.removeIpcEventListener(
+      globalThis.desktopApi.removeIpcEventListener(
         ipcMessageKeys.APP_SHORCUT,
         handleShortcuts,
       );

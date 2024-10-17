@@ -60,7 +60,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
+    return globalThis.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -338,7 +338,7 @@ async function base64ImageToBitmap({
   height: number;
 }): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+    return globalThis.$webembedApiProxy.imageUtils.base64ImageToBitmap({
       base64,
       width,
       height,

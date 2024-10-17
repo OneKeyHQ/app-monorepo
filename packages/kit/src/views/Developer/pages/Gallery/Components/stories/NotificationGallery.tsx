@@ -130,7 +130,7 @@ function NotificationGallery() {
               </Button>
               <Button
                 onPress={() => {
-                  window.desktopApi.callDevOnlyApi({
+                  globalThis.desktopApi.callDevOnlyApi({
                     module: 'shell',
                     method: 'openExternal',
                     params: [

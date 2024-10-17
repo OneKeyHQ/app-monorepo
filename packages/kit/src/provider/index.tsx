@@ -19,11 +19,11 @@ import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
   // @ts-ignore
-  window._frameTimestamp = null;
+  globalThis._frameTimestamp = null;
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$Toast = Toast;
+  globalThis.$$Toast = Toast;
 }
 
 const LastActivityTracker = LazyLoad(

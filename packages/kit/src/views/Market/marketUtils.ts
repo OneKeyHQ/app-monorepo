@@ -7,7 +7,7 @@ import type { IAppNavigation } from '../../hooks/useAppNavigation';
 export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
   const origin =
     platformEnv.isWeb && !platformEnv.isDev
-      ? window.location.origin
+      ? globalThis.location.origin
       : WEB_APP_URL;
   const path = `/market/tokens/${coinGeckoId}`;
   return `${origin}${path}`;

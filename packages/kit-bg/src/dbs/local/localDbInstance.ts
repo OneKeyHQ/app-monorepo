@@ -6,6 +6,6 @@ import type { LocalDbBase } from './LocalDbBase';
 
 const localDb: LocalDbBase = new LocalDbIndexed();
 if (process.env.NODE_ENV !== 'production') {
-  global.$$localDb = localDb;
+  globalThis.$$localDb = localDb;
 }
 export default localDb;

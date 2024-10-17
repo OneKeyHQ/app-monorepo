@@ -53,7 +53,7 @@ export function startKeepAlivePolling() {
   const doPolling = async () => {
     const msg: IKeepAlivePayloadMessage | undefined = {
       keepAlive: true,
-      origin: window?.location?.origin,
+      origin: globalThis?.location?.origin,
     };
     try {
       // @ts-ignore

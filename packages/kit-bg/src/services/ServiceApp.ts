@@ -46,14 +46,14 @@ class ServiceApp extends ServiceBase {
       return RNRestart.restart();
     }
     if (platformEnv.isDesktop) {
-      return window.desktopApi?.reload?.();
+      return globalThis.desktopApi?.reload?.();
     }
     // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
     if (platformEnv.isExtensionBackground) {
       return chrome.runtime.reload();
     }
     if (platformEnv.isRuntimeBrowser) {
-      return window?.location?.reload?.();
+      return globalThis?.location?.reload?.();
     }
   }
 
@@ -108,7 +108,7 @@ class ServiceApp extends ServiceBase {
 
     if (platformEnv.isRuntimeBrowser) {
       try {
-        global.localStorage.clear();
+        globalThis.localStorage.clear();
       } catch {
         console.error('window.localStorage.clear() error');
       }
@@ -123,7 +123,7 @@ class ServiceApp extends ServiceBase {
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       // reset route/href
       try {
-        global.$navigationRef.current?.navigate(ERootRoutes.Main, {
+        globalThis.$navigationRef.current?.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Home,
           params: {
             screen: ETabHomeRoutes.TabHome,

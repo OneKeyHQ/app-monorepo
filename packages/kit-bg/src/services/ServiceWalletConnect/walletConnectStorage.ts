@@ -74,10 +74,10 @@ const walletConnectStorage = {
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  global.$$walletConnectStorage = walletConnectStorage;
+  globalThis.$$walletConnectStorage = walletConnectStorage;
   // @ts-ignore
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$$walletConnectStorage.test = () => {
+  globalThis.$$walletConnectStorage.test = () => {
     void walletConnectStorage.dappSideStorage.getSessions().then((r) => {
       console.log(r?.[0]?.self?.metadata?.url);
       console.log(r?.[0]?.peer?.metadata?.url);

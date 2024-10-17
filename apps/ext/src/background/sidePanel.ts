@@ -72,7 +72,7 @@ export const setupSidePanelPortInUI = () => {
         case 'pushModal':
           {
             const { screen, params } = payload.modalParams;
-            global.$navigationRef.current?.navigate(screen, params);
+            globalThis.$navigationRef.current?.navigate(screen, params);
           }
           break;
         default:

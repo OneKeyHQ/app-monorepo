@@ -96,7 +96,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
       'JotaiContextRootProvidersAutoMount mapEntries:',
       mapEntries,
       getJotaiContextTrackerMap(),
-      global.$$jotaiContextStore,
+      globalThis.$$jotaiContextStore,
     );
   }
   return (

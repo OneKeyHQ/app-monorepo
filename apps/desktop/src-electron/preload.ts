@@ -122,6 +122,9 @@ declare global {
     desktopApi: IDesktopAPI;
     INJECT_PATH: string;
   }
+
+  // eslint-disable-next-line vars-on-top, no-var
+  var desktopApi: IDesktopAPI;
 }
 
 ipcRenderer.on(
@@ -134,17 +137,19 @@ ipcRenderer.on(
   ) => {
     // for DesktopWebView:
     //    const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
-    window.ONEKEY_DESKTOP_GLOBALS = globals;
+    globalThis.ONEKEY_DESKTOP_GLOBALS = globals;
     // contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS', globals);
   },
 );
 
-window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS || [];
+globalThis.ONEKEY_DESKTOP_DEEP_LINKS =
+  globalThis.ONEKEY_DESKTOP_DEEP_LINKS || [];
 ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
-  if (window.ONEKEY_DESKTOP_DEEP_LINKS) {
-    window.ONEKEY_DESKTOP_DEEP_LINKS.push(data);
+  if (globalThis.ONEKEY_DESKTOP_DEEP_LINKS) {
+    globalThis.ONEKEY_DESKTOP_DEEP_LINKS.push(data);
   }
-  window.ONEKEY_DESKTOP_DEEP_LINKS = window.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
+  globalThis.ONEKEY_DESKTOP_DEEP_LINKS =
+    globalThis.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
 });
 
 const validChannels = [
@@ -198,8 +203,8 @@ const updateGlobalTitleBarBackgroundColor = () => {
         color = darkColor;
       } else if (theme === 'light') {
         color = lightColor;
-      } else if (window.matchMedia) {
-        color = window.matchMedia('(prefers-color-scheme: dark)').matches
+      } else if (globalThis.matchMedia) {
+        color = globalThis.matchMedia('(prefers-color-scheme: dark)').matches
           ? darkColor
           : lightColor;
       } else {
@@ -395,11 +400,11 @@ const desktopApi = Object.freeze({
     ipcRenderer.sendSync(ipcMessageKeys.APP_DEV_ONLY_API, params),
 });
 
-window.desktopApi = desktopApi;
+globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 
 if (!isMac) {
-  window.addEventListener('DOMContentLoaded', () => {
+  globalThis.addEventListener('DOMContentLoaded', () => {
     // eslint-disable-next-line no-new
     globalTitleBar = new Titlebar({
       icon: nativeImage.createFromPath(

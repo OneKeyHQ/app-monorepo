@@ -14,7 +14,7 @@ import {
 import type { IPrefType } from '../../types/desktop';
 
 const openUrlByWebview = (url: string, title?: string) => {
-  global.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+  globalThis.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.WebViewModal,
     params: {
       screen: EModalWebViewRoutes.WebView,
@@ -58,7 +58,7 @@ export const openSettings = (prefType: IPrefType) => {
     // Notifications.openSettingsAsync();
     void linkingOpenSettings();
   } else {
-    window?.desktopApi?.openPreferences(prefType);
+    globalThis?.desktopApi?.openPreferences(prefType);
   }
 };
 

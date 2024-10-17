@@ -76,7 +76,7 @@ function injectDevToolsButton() {
       setTimeout(() => {
         iframe.src = IFRAME_URL;
         setTimeout(() => {
-          window.location.reload();
+          globalThis.location.reload();
         }, 500);
       }, 1000);
 
@@ -94,7 +94,7 @@ function injectDevToolsButton() {
 function inject() {
   // setTimeout delay required
   setTimeout(() => {
-    window.addEventListener('DOMContentLoaded', () => {
+    globalThis.addEventListener('DOMContentLoaded', () => {
       injectDevToolsButton();
     });
     injectDevToolsButton();

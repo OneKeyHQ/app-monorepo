@@ -34,19 +34,19 @@ function interceptTimerWithDisable() {
 }
 
 function enableSetTimeout() {
-  global.$$onekeyDisabledSetTimeout = undefined;
+  globalThis.$$onekeyDisabledSetTimeout = undefined;
 }
 
 function disableSetTimeout() {
-  global.$$onekeyDisabledSetTimeout = true;
+  globalThis.$$onekeyDisabledSetTimeout = true;
 }
 
 function enableSetInterval() {
-  global.$$onekeyDisabledSetInterval = undefined;
+  globalThis.$$onekeyDisabledSetInterval = undefined;
 }
 
 function disableSetInterval() {
-  global.$$onekeyDisabledSetInterval = true;
+  globalThis.$$onekeyDisabledSetInterval = true;
 }
 
 const MS_ONE_SECOND = 1000;
