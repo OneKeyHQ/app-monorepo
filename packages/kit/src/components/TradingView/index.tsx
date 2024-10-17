@@ -11,7 +11,7 @@ import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import WebView from '../WebView';
 
-import { htmlCode } from './htmlCode';
+import { useHtmlCode } from './htmlCode';
 
 interface IBaseTradingViewProps {
   symbol: string;
@@ -23,8 +23,7 @@ export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { symbol, mode } = restProps as IBaseTradingViewProps;
-  const theme = useThemeVariant();
-  const locale = useLocaleVariant();
+
   const chartSymbol = useMemo(() => {
     const s = symbol.toLowerCase();
     if (s === 'usdc' || s === 'usdt') {
@@ -33,15 +32,16 @@ export function TradingView(props: ITradingViewProps) {
     return `${symbol}USD`;
   }, [symbol]);
 
+  const htmlCode = useHtmlCode();
   const url = useMemo(() => {
     if (platformEnv.isNative) {
     } else {
       const blob = new Blob([htmlCode], {
         type: 'text/html',
       });
-      return URL.createObjectURL(blob)
+      return URL.createObjectURL(blob);
     }
-  }, []);
+  }, [htmlCode]);
 
   return platformEnv.isNative ? (
     <Stack style={style as any}>
