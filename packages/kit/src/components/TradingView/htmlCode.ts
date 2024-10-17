@@ -31,7 +31,10 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
   'zh-TW': 'zh_TW',
 };
 
-export const useHtmlCode = (symbol: string) => {
+export const useHtmlCode = (
+  symbol: string,
+  { hideSideToolbar = false }: { hideSideToolbar?: boolean },
+) => {
   const theme = useThemeVariant();
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
@@ -87,7 +90,7 @@ export const useHtmlCode = (symbol: string) => {
           }
       },
       "calendar": false,
-      "hide_side_toolbar": 0,
+      "hide_side_toolbar": ${hideSideToolbar ? 1 : 0},
       "support_host": "https://www.tradingview.com",
       "isTransparent": true
     }
@@ -96,6 +99,6 @@ export const useHtmlCode = (symbol: string) => {
   </body>
 </html>
 `,
-    [locale, symbol, theme, timezone],
+    [hideSideToolbar, locale, symbol, theme, timezone],
   );
 };

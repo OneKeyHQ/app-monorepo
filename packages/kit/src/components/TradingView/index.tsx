@@ -1,17 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useMedia, usePropsAndStyle } from '@tamagui/core';
 
-import { usePropsAndStyle } from '@tamagui/core';
-
-import { Button, type IStackStyle, Stack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
-
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLocaleVariant } from '../../hooks/useLocaleVariant';
-import { useThemeVariant } from '../../hooks/useThemeVariant';
-import WebView from '../WebView';
+import type { IStackStyle } from '@onekeyhq/components';
 
 import { useHtmlCode } from './htmlCode';
+import { WebView } from './WebView';
+
+import type { ViewStyle } from 'react-native';
 
 interface IBaseTradingViewProps {
   symbol: string;
@@ -22,40 +16,9 @@ export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
 export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
-  const { symbol, mode } = restProps as IBaseTradingViewProps;
+  const { symbol } = restProps as IBaseTradingViewProps;
+  const { gtMd } = useMedia();
+  const htmlCode = useHtmlCode(symbol, { hideSideToolbar: !gtMd });
 
-  const htmlCode = useHtmlCode(symbol);
-  const url = useMemo(() => {
-    if (platformEnv.isNative) {
-    } else {
-      const blob = new Blob([htmlCode], {
-        type: 'text/html',
-      });
-      return URL.createObjectURL(blob);
-    }
-  }, [htmlCode]);
-
-  return platformEnv.isNative ? (
-    <Stack style={style as any}>
-      {/* <Button onPress={openRealtimePage}>full screen</Button> */}
-      {/* <WebView src={url} /> */}
-    </Stack>
-  ) : (
-    <>
-      {/* <Button onPress={openRealtimePage}>full screen</Button> */}
-      <div style={style as any}>
-        <iframe
-          style={{
-            height: '100%',
-            width: '100%',
-            border: 0,
-          }}
-          frameBorder="0"
-          title="TradingView"
-          src={url}
-          sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
-        />
-      </div>
-    </>
-  );
+  return <WebView htmlCode={htmlCode} style={style as ViewStyle} />;
 }
