@@ -12,12 +12,14 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
+import {
+  EModalAssetDetailRoutes,
+  type EModalStakingRoutes,
+  type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeHistory } from '@onekeyhq/shared/types/staking';
@@ -39,31 +41,49 @@ type IHistoryItemProps = {
   provider?: string;
 };
 
-const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => (
-  <ListItem
-    avatarProps={{
-      src: token?.logoURI,
-    }}
-    title={item.title}
-    subtitle={provider ? capitalizeString(provider) : undefined}
-  >
-    <YStack>
-      {item.amount && Number(item.amount) > 0 ? (
-        <NumberSizeableText
-          size="$bodyLgMedium"
-          formatter="balance"
-          color={item.direction === 'receive' ? '$textSuccess' : undefined}
-          formatterOptions={{
-            tokenSymbol: token?.symbol,
-            showPlusMinusSigns: true,
-          }}
-        >
-          {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
-        </NumberSizeableText>
-      ) : null}
-    </YStack>
-  </ListItem>
-);
+const HistoryItem = ({ item, provider, token }: IHistoryItemProps) => {
+  const navigation = useAppNavigation();
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.HistoryList
+  >();
+  const { accountId, networkId } = route.params;
+  const onPress = useCallback(() => {
+    navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+      networkId,
+      accountId,
+      transactionHash: item.txHash,
+      historyTx: undefined,
+      isAllNetworks: false,
+    });
+  }, [accountId, networkId, item, navigation]);
+  return (
+    <ListItem
+      avatarProps={{
+        src: token?.logoURI,
+      }}
+      title={item.title}
+      subtitle={provider ? capitalizeString(provider) : undefined}
+      onPress={onPress}
+    >
+      <YStack>
+        {item.amount && Number(item.amount) > 0 ? (
+          <NumberSizeableText
+            size="$bodyLgMedium"
+            formatter="balance"
+            color={item.direction === 'receive' ? '$textSuccess' : undefined}
+            formatterOptions={{
+              tokenSymbol: token?.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {`${item.direction === 'send' ? '-' : '+'}${item.amount}`}
+          </NumberSizeableText>
+        ) : null}
+      </YStack>
+    </ListItem>
+  );
+};
 
 type IHistorySectionItem = {
   title: string;
