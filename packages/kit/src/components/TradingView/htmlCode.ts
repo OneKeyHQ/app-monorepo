@@ -1,4 +1,51 @@
-export const htmlCode = `
+import { useMemo } from 'react';
+
+import { useCalendars } from 'expo-localization';
+
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+
+import { useLocaleVariant } from '../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
+
+// https://www.tradingview.com/charting-library-docs/latest/core_concepts/Localization/
+const localeMap: Record<ILocaleJSONSymbol, string> = {
+  bn: 'en',
+  de: 'de',
+  en: 'en',
+  'en-US': 'en',
+  es: 'es',
+  'fr-FR': 'fr',
+  'hi-IN': 'en',
+  id: 'id',
+  'it-IT': 'it',
+  'ja-JP': 'ja',
+  'ko-KR': 'ko',
+  pt: 'pt',
+  'pt-BR': 'pt',
+  ru: 'ru',
+  'th-TH': 'th',
+  'uk-UA': 'ru',
+  vi: 'vi',
+  'zh-CN': 'zh_CN',
+  'zh-HK': 'zh_HK',
+  'zh-TW': 'zh_TW',
+};
+
+export const useHtmlCode = () => {
+  const theme = useThemeVariant();
+  const systemLocale = useLocaleVariant();
+  const locale = useMemo(
+    () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
+    [systemLocale],
+  );
+  const calendars = useCalendars();
+
+  const timezone = useMemo(
+    () => calendars[0].timeZone || 'Etc/UTC',
+    [calendars],
+  );
+  return useMemo(
+    () => `
 <!doctype html>
 <html lang="en">
   <head>
@@ -22,10 +69,10 @@ export const htmlCode = `
       "autosize": true,
       "symbol": "NASDAQ:AAPL",
       "interval": "D",
-      "timezone": "Etc/UTC",
-      "theme": "dark",
+      "timezone": "${timezone}",
+      "theme": "${theme}",
       "style": "1",
-      "locale": "en",
+      "locale": "${locale}",
       "hide_legend": true,
       "allow_symbol_change": false,
       "hideSymbolSearch": false,
@@ -48,4 +95,7 @@ export const htmlCode = `
     </div>
   </body>
 </html>
-`;
+`,
+    [locale, theme],
+  );
+};
