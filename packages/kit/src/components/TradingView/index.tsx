@@ -24,15 +24,7 @@ export function TradingView(props: ITradingViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { symbol, mode } = restProps as IBaseTradingViewProps;
 
-  const chartSymbol = useMemo(() => {
-    const s = symbol.toLowerCase();
-    if (s === 'usdc' || s === 'usdt') {
-      return symbol;
-    }
-    return `${symbol}USD`;
-  }, [symbol]);
-
-  const htmlCode = useHtmlCode();
+  const htmlCode = useHtmlCode(symbol);
   const url = useMemo(() => {
     if (platformEnv.isNative) {
     } else {
