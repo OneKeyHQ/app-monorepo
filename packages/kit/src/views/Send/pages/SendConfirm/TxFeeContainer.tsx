@@ -30,7 +30,6 @@ import {
   calculateFeeForSend,
   getFeeIcon,
   getFeeLabel,
-  getSwapFeeGasLimit,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -519,10 +518,7 @@ function TxFeeContainer(props: IProps) {
         const internalSwapRoutes = swapInfo.swapBuildResData.result.routesData;
 
         if (!isNil(internalSwapGasLimit)) {
-          specialGasLimit = getSwapFeeGasLimit({
-            baseGasLimit: internalSwapGasLimit,
-            swapInfo,
-          });
+          specialGasLimit = new BigNumber(internalSwapGasLimit).toFixed();
         } else if (internalSwapRoutes && internalSwapRoutes.length > 0) {
           const allRoutesLength = internalSwapRoutes.reduce(
             (acc, cur) => acc.plus(cur.subRoutes?.flat().length ?? 1),
