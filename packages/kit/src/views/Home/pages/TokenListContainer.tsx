@@ -581,9 +581,7 @@ function TokenListContainer(props: ITabPageProps) {
           xpub,
         });
 
-      let tokenList = localTokens.tokenList;
-      let smallBalanceTokenList = localTokens.smallBalanceTokenList;
-      let riskyTokenList = localTokens.riskyTokenList;
+      const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
 
       if (
         isEmpty(tokenList) &&
@@ -591,32 +589,6 @@ function TokenListContainer(props: ITabPageProps) {
         isEmpty(smallBalanceTokenList)
       ) {
         return null;
-      }
-
-      if (
-        (tokenList[0]?.accountId && tokenList[0]?.accountId !== accountId) ||
-        (smallBalanceTokenList[0]?.accountId &&
-          smallBalanceTokenList[0]?.accountId !== accountId) ||
-        (riskyTokenList[0]?.accountId &&
-          riskyTokenList[0]?.accountId !== accountId)
-      ) {
-        tokenList = tokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
-
-        smallBalanceTokenList = smallBalanceTokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
-
-        riskyTokenList = riskyTokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
       }
 
       return {
@@ -1012,36 +984,13 @@ function TokenListContainer(props: ITabPageProps) {
           networkId,
         });
 
-      const { tokenListMap, tokenListValue } = localTokens;
-      let tokenList = localTokens.tokenList;
-      let smallBalanceTokenList = localTokens.smallBalanceTokenList;
-      let riskyTokenList = localTokens.riskyTokenList;
-
-      if (
-        (tokenList[0]?.accountId && tokenList[0]?.accountId !== accountId) ||
-        (smallBalanceTokenList[0]?.accountId &&
-          smallBalanceTokenList[0]?.accountId !== accountId) ||
-        (riskyTokenList[0]?.accountId &&
-          riskyTokenList[0]?.accountId !== accountId)
-      ) {
-        tokenList = tokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
-
-        smallBalanceTokenList = smallBalanceTokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
-
-        riskyTokenList = riskyTokenList.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-        }));
-      }
+      const {
+        tokenList,
+        smallBalanceTokenList,
+        riskyTokenList,
+        tokenListMap,
+        tokenListValue,
+      } = localTokens;
 
       if (
         isEmpty(tokenList) &&

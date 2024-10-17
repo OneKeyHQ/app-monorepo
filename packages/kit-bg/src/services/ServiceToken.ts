@@ -477,11 +477,49 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
-    return this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
-      networkId,
-      accountAddress,
-      xpub,
-    });
+    const localTokens =
+      await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
+        networkId,
+        accountAddress,
+        xpub,
+      });
+
+    let tokenList = localTokens.tokenList;
+    let smallBalanceTokenList = localTokens.smallBalanceTokenList;
+    let riskyTokenList = localTokens.riskyTokenList;
+
+    if (
+      (tokenList[0]?.accountId && tokenList[0]?.accountId !== accountId) ||
+      (smallBalanceTokenList[0]?.accountId &&
+        smallBalanceTokenList[0]?.accountId !== accountId) ||
+      (riskyTokenList[0]?.accountId &&
+        riskyTokenList[0]?.accountId !== accountId)
+    ) {
+      tokenList = tokenList.map((token) => ({
+        ...token,
+        accountId,
+        networkId,
+      }));
+
+      smallBalanceTokenList = smallBalanceTokenList.map((token) => ({
+        ...token,
+        accountId,
+        networkId,
+      }));
+
+      riskyTokenList = riskyTokenList.map((token) => ({
+        ...token,
+        accountId,
+        networkId,
+      }));
+    }
+
+    return {
+      ...localTokens,
+      tokenList,
+      smallBalanceTokenList,
+      riskyTokenList,
+    };
   }
 }
 
