@@ -51,11 +51,13 @@ function useSwapWarningCheck() {
       address: undefined,
       networkId: undefined,
       accountInfo: undefined,
+      activeAccount: undefined,
     },
     swapToAddressInfo: {
       address: undefined,
       networkId: undefined,
       accountInfo: undefined,
+      activeAccount: undefined,
     },
   });
   const isFocused = useIsFocused();

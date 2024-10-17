@@ -19,6 +19,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAddEthereumChainParameter } from '@onekeyhq/kit-bg/src/providers/ProviderApiEthereum';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
@@ -48,6 +49,9 @@ function AddCustomNetwork() {
     symbol: routeSymbol,
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
+
+  const isNewNetwork = !!routeChainId;
+
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
@@ -167,6 +171,9 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
+        defaultLogger.account.wallet.customNetworkAdded({
+          chainID: String(finalChainId),
+        });
       }, 500);
       Toast.success({
         title: intl.formatMessage({

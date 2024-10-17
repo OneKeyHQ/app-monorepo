@@ -208,12 +208,7 @@ export async function serializeUnsignedTransaction({
             )
           : message.payload,
       sendMode: message.sendMode,
-      stateInit:
-        typeof message.stateInit === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(
-              Buffer.from(message.stateInit, 'base64').toString('hex'),
-            )
-          : message.stateInit,
+      stateInit: undefined,
     })),
     true,
     encodedTx.validUntil,
@@ -266,7 +261,7 @@ export async function encodeJettonPayload({
     forwardPayload: params.forwardPayload
       ? TonWeb.boc.Cell.oneFromBoc(
           Buffer.from(params.forwardPayload, 'base64').toString('hex'),
-        )
+        ).bits.array
       : undefined,
   } as unknown as TransferBodyParams);
   return {

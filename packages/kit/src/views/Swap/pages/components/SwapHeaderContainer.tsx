@@ -10,6 +10,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
@@ -95,27 +96,15 @@ const SwapHeaderContainer = ({
     if (defaultSwapType) {
       // Avoid switching the default toToken before it has been loaded,
       // resulting in the default network toToken across chains
-      setTimeout(() => {
-        void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
-      }, 10);
+      setTimeout(
+        () => {
+          void swapTypeSwitchAction(defaultSwapType, networkIdRef.current);
+        },
+        platformEnv.isExtension ? 100 : 10,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // const onSwapLimit = useCallback(() => {
-  //   Dialog.confirm({
-  //     icon: 'InfoCircleOutline',
-  //     showCancelButton: false,
-  //     onConfirmText: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_button,
-  //     }),
-  //     title: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_title,
-  //     }),
-  //     description: intl.formatMessage({
-  //       id: ETranslations.swap_page_limit_dialog_content,
-  //     }),
-  //   });
-  // }, [intl]);
 
   return (
     <XStack justifyContent="space-between">
