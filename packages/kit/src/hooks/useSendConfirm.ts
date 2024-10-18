@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -41,6 +42,7 @@ type IBuildUnsignedTxParams = {
   signOnly?: boolean;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
+  feeInfo?: IFeeInfoUnit;
 };
 
 function useSendConfirm(params: IParams) {
