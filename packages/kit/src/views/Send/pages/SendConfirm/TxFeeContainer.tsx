@@ -24,6 +24,7 @@ import {
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
+  useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
@@ -75,6 +76,7 @@ function TxFeeContainer(props: IProps) {
   const [isSinglePreset] = useIsSinglePresetAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
+  const [sendTxStatus] = useSendTxStatusAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -205,7 +207,9 @@ function TxFeeContainer(props: IProps) {
           })
         : undefined,
       overrideIsFocused: (isPageFocused) =>
-        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
+        isPageFocused &&
+        sendSelectedFee.feeType !== EFeeType.Custom &&
+        !sendTxStatus.isSubmitting,
     },
   );
 

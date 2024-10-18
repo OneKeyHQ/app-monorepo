@@ -620,8 +620,8 @@ export default class Vault extends VaultBase {
     const encodedTxWithFee = { ...encodedTx };
 
     if (!isNil(gasInfo?.gasLimit)) {
-      encodedTxWithFee.gas = gasInfo.gasLimit;
-      encodedTxWithFee.gasLimit = gasInfo.gasLimit;
+      encodedTxWithFee.gas = toBigIntHex(new BigNumber(gasInfo.gasLimit));
+      encodedTxWithFee.gasLimit = toBigIntHex(new BigNumber(gasInfo.gasLimit));
     }
 
     if (feeInfo.gasEIP1559) {
