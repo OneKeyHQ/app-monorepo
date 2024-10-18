@@ -50,8 +50,6 @@ function AddCustomNetwork() {
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
 
-  const isNewNetwork = !!routeChainId;
-
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();

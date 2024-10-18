@@ -40,7 +40,7 @@ const AlertContext = createStyledContext<{
   fullBleed: false,
 });
 
-type IAlertProps = {
+export type IAlertProps = {
   type?: IAlertType;
   fullBleed?: boolean;
   title?: string;
