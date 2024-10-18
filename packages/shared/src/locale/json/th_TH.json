@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "ข้อความธรรมดา",
   "dapp_connect.order_alert": "คุณกำลังใช้การอนุญาตการสั่งซื้อ โปรดแน่ใจว่า dApp นั้นน่าเชื่อถือเพื่อหลีกเลี่ยงการสูญเสียทรัพย์สิน",
   "dapp_connect.pay_to_node": "ชำระเงินไปยัง Lightning Node",
-  "dapp_connect.permit_sign_alert": "คุณกำลังใช้การอนุญาตอนุญาต โปรดตรวจสอบให้แน่ใจว่า dApp นั้นน่าเชื่อถือเพื่อหลีกเลี่ยงการสูญเสียทรัพย์สิน",
+  "dapp_connect.permit_sign_alert": "คุณกำลังใช้การอนุญาต {type} โปรดตรวจสอบให้แน่ใจว่า dApp นั้นน่าเชื่อถือเพื่อหลีกเลี่ยงการสูญเสียทรัพย์สิน",
   "dapp_connect.proceed_at_my_own_risk": "ดำเนินการตามความเสี่ยงของฉันเอง",
   "dapp_connect.registration_successful": "การลงทะเบียนสำเร็จ",
   "dapp_connect.request_for_lnurl_linking_key": "คำขอสำหรับ LNURL linking key",
