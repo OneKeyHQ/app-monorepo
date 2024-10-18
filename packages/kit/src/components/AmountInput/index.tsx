@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -82,6 +82,16 @@ export function AmountInput({
   });
   const [selection, setSelection] = useState({ start: 0, end: 0 });
 
+  const handleChangeText = useCallback(
+    (text: string) => {
+      // Keep compatibility with Chinese keyboard input
+      // Replace the Chinese full-width period with the standard period
+      const sanitizedText = text.replace('。', '.');
+      onChange?.(sanitizedText);
+    },
+    [onChange],
+  );
+
   const InputElement = useMemo(() => {
     if (inputProps?.loading)
       return (
@@ -103,7 +113,7 @@ export function AmountInput({
           borderWidth: 0,
         }}
         value={value}
-        onChangeText={onChange}
+        onChangeText={platformEnv.isNative ? onChange : handleChangeText}
         // maybe should replace with ref.current.setNativeProps({ selection })
         {...(platformEnv.isNativeAndroid && {
           selection,
