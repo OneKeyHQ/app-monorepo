@@ -12,6 +12,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import Link from '@onekeyhq/components/src/Link';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
@@ -297,26 +298,41 @@ const WalletPreCheckMemo = memo(WalletPreCheck);
 
 const storageKey = '$onekey-webapp-v4-warning-closed-time';
 function V4Warning() {
+  const intl = useIntl();
   const closedTime = localStorage.getItem(storageKey);
   const [show, setShow] = useState(
     // 检查是否显示警告:
     // 如果没有关闭时间记录，或者上次关闭时间距今超过24小时，则显示警告
     !closedTime || Date.now() - Number(closedTime) > 1000 * 60 * 60 * 24,
   );
+  const renderLink = useCallback(
+    (chunks: string) => (
+      <Link href="https://1key.so/" color="text-highlight" fontWeight="bold">
+        {chunks}
+      </Link>
+    ),
+    [],
+  );
   if (!show) {
     return null;
   }
   return (
     <Box
-      backgroundColor="background-selected"
+      backgroundColor="surface-highlight-default"
       display="flex"
       flexDirection="row"
       justifyContent="space-between"
       alignItems="center"
-      px={4}
+      px={8}
+      py={2}
     >
-      <Text color="text-critical">
-        Current version is v4, no longer maintained
+      <Text color="text-highlight">
+        {intl.formatMessage(
+          { id: 'v4_to_v5_banner_text' },
+          {
+            tag: renderLink,
+          },
+        )}
       </Text>
       <Button
         type="plain"
@@ -326,7 +342,7 @@ function V4Warning() {
           localStorage.setItem(storageKey, Date.now().toString());
         }}
       >
-        x
+        {intl.formatMessage({ id: 'action__close' })}
       </Button>
     </Box>
   );

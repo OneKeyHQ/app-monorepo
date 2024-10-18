@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "하드웨어 지갑",
   "wallet__imported_accounts": "단일 체인 계정",
   "wallet__wallet": "지갑",
-  "wallet__watched_accounts": "시청 계정"
+  "wallet__watched_accounts": "시청 계정",
+  "v4_to_v5_banner_text": "현재 사용 중인 OneKey v4는 더 이상 지원되지 않습니다. 새로운 기능과 개선 사항을 즐기려면 <tag>OneKey v5</tag>로 전환하세요!"
 }

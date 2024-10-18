@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Техник хангамжийн түрийвч",
   "wallet__imported_accounts": "Нэг хэлхээтэй дансууд",
   "wallet__wallet": "Түрийвч",
-  "wallet__watched_accounts": "Үзсэн бүртгэлүүд"
+  "wallet__watched_accounts": "Үзсэн бүртгэлүүд",
+  "v4_to_v5_banner_text": "Та одоогоор дэмжлэггүй болсон OneKey v4 дээр байна. Шинэ боломжууд болон сайжруулалтуудыг ашиглахын тулд <tag>OneKey v5</tag> руу шилжээрэй!"
 }

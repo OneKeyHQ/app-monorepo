@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "硬件钱包",
   "wallet__imported_accounts": "单链账户",
   "wallet__wallet": "钱包",
-  "wallet__watched_accounts": "观察账户"
+  "wallet__watched_accounts": "观察账户",
+  "v4_to_v5_banner_text": "当前版本为 OneKey v4，此版本已不再维护。立即前往 <tag>OneKey v5</tag>，体验更安全、更丰富的功能！"
 }

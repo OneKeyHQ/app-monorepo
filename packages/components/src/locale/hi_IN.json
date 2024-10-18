@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "हार्डवेयर वॉलेट",
   "wallet__imported_accounts": "एकल-श्रृंखला खाते",
   "wallet__wallet": "बटुआ",
-  "wallet__watched_accounts": "देखे गए खाते"
+  "wallet__watched_accounts": "देखे गए खाते",
+  "v4_to_v5_banner_text": "आप वर्तमान में OneKey v4 पर हैं, जो अब समर्थित नहीं है। नए फीचर्स और सुधारों का आनंद लेने के लिए <tag>OneKey v5</tag> पर स्विच करें!"
 }

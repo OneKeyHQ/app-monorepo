@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Billetera física",
   "wallet__imported_accounts": "Cuentas de cadena única",
   "wallet__wallet": "Billetera",
-  "wallet__watched_accounts": "Cuentas vigiladas"
+  "wallet__watched_accounts": "Cuentas vigiladas",
+  "v4_to_v5_banner_text": "Actualmente estás en OneKey v4, que ya no está soportado. Cambia a <tag>OneKey v5</tag> para disfrutar de nuevas funciones y mejoras."
 }

@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "হার্ডওয়্যার ওয়ালেট",
   "wallet__imported_accounts": "একক-চেইন অ্যাকাউন্ট",
   "wallet__wallet": "ওয়ালেট",
-  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা"
+  "wallet__watched_accounts": "অ্যাকাউন্ট দেখা",
+  "v4_to_v5_banner_text": "আপনি বর্তমানে OneKey v4 ব্যবহার করছেন, যা আর সমর্থিত নয়। নতুন বৈশিষ্ট্য এবং উন্নতিগুলি উপভোগ করতে <tag>OneKey v5</tag> এ স্যুইচ করুন!"
 }

@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "محفظة الأجهزة",
   "wallet__imported_accounts": "حسابات سلسلة واحدة",
   "wallet__wallet": "محفظة",
-  "wallet__watched_accounts": "حسابات مراقب"
+  "wallet__watched_accounts": "حسابات مراقب",
+  "v4_to_v5_banner_text": "أنت حاليًا على OneKey v4، الذي لم يعد مدعومًا. انتقل إلى <tag>OneKey v5</tag> للاستمتاع بالميزات والتحسينات الجديدة!"
 }

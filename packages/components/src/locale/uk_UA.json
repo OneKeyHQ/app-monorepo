@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Апаратний гаманець",
   "wallet__imported_accounts": "Одноланцюгові облікові записи",
   "wallet__wallet": "гаманець",
-  "wallet__watched_accounts": "Переглянуті акаунти"
+  "wallet__watched_accounts": "Переглянуті акаунти",
+  "v4_to_v5_banner_text": "Ви зараз використовуєте OneKey v4, яка більше не підтримується. Перейдіть на <tag>OneKey v5</tag>, щоб насолоджуватися новими функціями та покращеннями!"
 }

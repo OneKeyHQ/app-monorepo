@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Portafoglio hardware",
   "wallet__imported_accounts": "Conti a catena singola",
   "wallet__wallet": "Portafoglio",
-  "wallet__watched_accounts": "Conti guardati"
+  "wallet__watched_accounts": "Conti guardati",
+  "v4_to_v5_banner_text": "Attualmente stai utilizzando OneKey v4, che non è più supportato. Passa a <tag>OneKey v5</tag> per usufruire di nuove funzionalità e miglioramenti!"
 }

@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Carteira de Hardware",
   "wallet__imported_accounts": "Contas de cadeia única",
   "wallet__wallet": "Carteira",
-  "wallet__watched_accounts": "Contas monitoradas"
+  "wallet__watched_accounts": "Contas monitoradas",
+  "v4_to_v5_banner_text": "Você está atualmente no OneKey v4, que não é mais suportado. Mude para <tag>OneKey v5</tag> para aproveitar novos recursos e melhorias!"
 }
