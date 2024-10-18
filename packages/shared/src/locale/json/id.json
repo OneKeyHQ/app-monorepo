@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "Teks Biasa",
   "dapp_connect.order_alert": "Anda menggunakan otorisasi pesanan, pastikan dApp dapat dipercaya untuk menghindari kehilangan aset.",
   "dapp_connect.pay_to_node": "Bayar ke Node Lightning",
-  "dapp_connect.permit_sign_alert": "Anda menggunakan otorisasi Izin, pastikan dApp dapat dipercaya untuk menghindari kehilangan aset.",
+  "dapp_connect.permit_sign_alert": "Anda menggunakan otorisasi {type} , pastikan dApp dapat dipercaya untuk menghindari kehilangan aset.",
   "dapp_connect.proceed_at_my_own_risk": "Lanjutkan dengan risiko saya sendiri",
   "dapp_connect.registration_successful": "Pendaftaran Berhasil",
   "dapp_connect.request_for_lnurl_linking_key": "Permintaan untuk kunci tautan LNURL",
