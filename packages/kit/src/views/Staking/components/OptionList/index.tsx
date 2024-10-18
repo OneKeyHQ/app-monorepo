@@ -170,10 +170,10 @@ const ListEmptyComponent = () => {
     <Empty
       icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({
-        id: ETranslations.global_no_transactions_yet,
+        id: ETranslations.earn_no_orders,
       })}
       description={intl.formatMessage({
-        id: ETranslations.global_no_transactions_yet_desc,
+        id: ETranslations.earn_no_orders_desc,
       })}
     />
   );
