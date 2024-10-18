@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "Texto simples",
   "dapp_connect.order_alert": "Você está usando autorização de pedido, certifique-se de que o dApp é confiável para evitar perda de ativos.",
   "dapp_connect.pay_to_node": "Pague para o Nó Lightning",
-  "dapp_connect.permit_sign_alert": "Você está usando autorização Permit, certifique-se de que o dApp é confiável para evitar perda de ativos.",
+  "dapp_connect.permit_sign_alert": "Você está usando a autorização {type} , certifique-se de que o dApp é confiável para evitar perda de ativos.",
   "dapp_connect.proceed_at_my_own_risk": "Prossiga por minha conta e risco",
   "dapp_connect.registration_successful": "Registro bem-sucedido",
   "dapp_connect.request_for_lnurl_linking_key": "Solicitação para chave de linkagem LNURL",

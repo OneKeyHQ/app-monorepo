@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "प्लेनटेक्स्ट",
   "dapp_connect.order_alert": "आप ऑर्डर प्राधिकरण का उपयोग कर रहे हैं, सुनिश्चित करें कि संपत्ति के नुकसान से बचने के लिए dApp भरोसेमंद है।",
   "dapp_connect.pay_to_node": "लाइटनिंग नोड को भुगतान करें",
-  "dapp_connect.permit_sign_alert": "आप परमिट प्राधिकरण का उपयोग कर रहे हैं, सुनिश्चित करें कि संपत्ति के नुकसान से बचने के लिए dApp भरोसेमंद है।",
+  "dapp_connect.permit_sign_alert": "आप {type} प्राधिकरण का उपयोग कर रहे हैं, सुनिश्चित करें कि संपत्ति हानि से बचने के लिए dApp भरोसेमंद है।",
   "dapp_connect.proceed_at_my_own_risk": "मेरे खुद के जोखिम पर आगे बढ़ें",
   "dapp_connect.registration_successful": "पंजीकरण सफल",
   "dapp_connect.request_for_lnurl_linking_key": "LNURL लिंकिंगकी के लिए अनुरोध",
