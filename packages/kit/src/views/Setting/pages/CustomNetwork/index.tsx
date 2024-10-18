@@ -31,6 +31,19 @@ import { useDappCloseHandler } from '../../../DAppConnection/pages/DappOpenModal
 
 import type { RouteProp } from '@react-navigation/core';
 
+const parseChainId = (chainId: string | number): string => {
+  if (typeof chainId === 'number') {
+    return chainId.toString();
+  }
+  if (typeof chainId === 'string') {
+    if (chainId.startsWith('0x')) {
+      return parseInt(chainId, 16).toString();
+    }
+    return chainId;
+  }
+  return '';
+};
+
 function AddCustomNetwork() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -57,10 +70,21 @@ function AddCustomNetwork() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const getInitialChainId = () => {
+    if (routeChainId) {
+      return String(routeChainId);
+    }
+    if (networkInfo?.chainId) {
+      return parseChainId(networkInfo.chainId);
+    }
+    return '';
+  };
+
   const form = useForm<{
     networkName: string;
     rpcUrl: string;
-    chainId: number;
+    chainId: string;
     symbol: string;
     blockExplorerUrl: string;
   }>({
@@ -68,9 +92,7 @@ function AddCustomNetwork() {
     defaultValues: {
       networkName: routeNetworkName ?? networkInfo?.chainName ?? '',
       rpcUrl: routeRpcUrl ?? networkInfo?.rpcUrls?.[0] ?? '',
-      chainId:
-        routeChainId ??
-        (networkInfo?.chainId ? Number(networkInfo?.chainId) : undefined),
+      chainId: getInitialChainId(),
       symbol: routeSymbol ?? networkInfo?.nativeCurrency?.symbol ?? '',
       blockExplorerUrl:
         routeBlockExplorerUrl ?? networkInfo?.blockExplorerUrls?.[0] ?? '',
@@ -87,11 +109,10 @@ function AddCustomNetwork() {
             rpcUrl,
           });
         if (chainId) {
-          form.setValue('chainId', chainId);
+          form.setValue('chainId', parseChainId(chainId));
         }
         return chainId;
       } catch (error) {
-        // @ts-expect-error
         form.setValue('chainId', '');
         throw error;
       } finally {
@@ -113,7 +134,7 @@ function AddCustomNetwork() {
       const { networkName, rpcUrl, chainId, symbol, blockExplorerUrl } =
         form.getValues();
 
-      let finalChainId = chainId;
+      let finalChainId = parseInt(chainId, 10);
       try {
         if (!finalChainId) {
           const chainIdFromRpc = await getChainId(rpcUrl);

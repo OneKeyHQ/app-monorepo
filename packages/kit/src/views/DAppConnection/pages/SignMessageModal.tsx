@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IAlertProps } from '@onekeyhq/components';
 import {
   Divider,
   Page,
@@ -144,12 +145,12 @@ function SignMessageModal() {
     isEthSignType({ unsignedMessage }) ||
     isPermitSignMethod ||
     isOrderSignMethod;
+  const isSignTypedDataV3orV4Method =
+    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
+    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
 
   useEffect(() => {
-    if (
-      unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
-      unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4
-    ) {
+    if (isSignTypedDataV3orV4Method) {
       void backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
         networkId,
         accountId,
@@ -158,7 +159,7 @@ function SignMessageModal() {
       });
     }
   }, [
-    unsignedMessage.type,
+    isSignTypedDataV3orV4Method,
     $sourceInfo?.origin,
     accountId,
     networkId,
@@ -250,6 +251,31 @@ function SignMessageModal() {
     ],
   );
 
+  const getSignMessageAlertProps = (): IAlertProps | undefined => {
+    if (!isSignTypedDataV3orV4Method) {
+      return undefined;
+    }
+
+    let type: IAlertProps['type'] = 'default';
+    let messageType = 'signTypedData';
+
+    if (isPermitSignMethod || isOrderSignMethod) {
+      type = 'warning';
+      messageType = isPermitSignMethod ? 'permit' : 'order';
+    }
+
+    return {
+      type,
+      icon: 'InfoSquareSolid',
+      title: intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_permit_sign_alert,
+        },
+        { type: messageType },
+      ),
+    };
+  };
+
   return (
     <DappOpenModalPage dappApprove={dappApprove}>
       <>
@@ -262,20 +288,10 @@ function SignMessageModal() {
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
-            displaySignMessageAlert={isRiskSignMethod}
-            signMessageAlertProps={
-              isPermitSignMethod || isOrderSignMethod
-                ? {
-                    type: 'warning',
-                    icon: 'InfoSquareSolid',
-                    title: intl.formatMessage({
-                      id: isPermitSignMethod
-                        ? ETranslations.dapp_connect_permit_sign_alert
-                        : ETranslations.dapp_connect_order_alert,
-                    }),
-                  }
-                : undefined
+            displaySignMessageAlert={
+              isRiskSignMethod || isSignTypedDataV3orV4Method
             }
+            signMessageAlertProps={getSignMessageAlertProps()}
           >
             {walletInternalSign ? (
               <WalletAccountListItem

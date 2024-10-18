@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "Klartext",
   "dapp_connect.order_alert": "Verwenden Sie eine Bestellautorisierung nur bei vertrauenswürdigen dApps, um Vermögensverluste zu vermeiden.",
   "dapp_connect.pay_to_node": "Zahlung an Lightning Node",
-  "dapp_connect.permit_sign_alert": "Verwenden Sie die Genehmigungsautorisierung nur bei vertrauenswürdigen dApps.",
+  "dapp_connect.permit_sign_alert": "Sie verwenden {type} -Autorisierung. Stellen Sie sicher, dass die dApp vertrauenswürdig ist, um einen Vermögensverlust zu vermeiden.",
   "dapp_connect.proceed_at_my_own_risk": "Auf eigenes Risiko fortfahren",
   "dapp_connect.registration_successful": "Registrierung erfolgreich",
   "dapp_connect.request_for_lnurl_linking_key": "Anfrage für LNURL linking key",

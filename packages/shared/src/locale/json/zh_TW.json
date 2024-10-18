@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "純文字",
   "dapp_connect.order_alert": "您正在使用訂單操作，請確保當前 dApp 可信，否則可能導致資產損失。",
   "dapp_connect.pay_to_node": "支付至閃電節點",
-  "dapp_connect.permit_sign_alert": "您正在使用 Permit 授權，請確保當前 dApp 可信，否則可能導致資產損失。",
+  "dapp_connect.permit_sign_alert": "您正在使用 {type} 授權，請確保當前 dApp 可信，否則可能導致資產損失。",
   "dapp_connect.proceed_at_my_own_risk": "自行承擔風險",
   "dapp_connect.registration_successful": "註冊成功",
   "dapp_connect.request_for_lnurl_linking_key": "請求 LNURL 連結密鑰",

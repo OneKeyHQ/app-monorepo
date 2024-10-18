@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "プレーンテキスト",
   "dapp_connect.order_alert": "注文承認を使用している場合、資産の損失を避けるためにdAppが信頼できるものであることを確認してください。",
   "dapp_connect.pay_to_node": "Lightning Nodeに支払う",
-  "dapp_connect.permit_sign_alert": "Permit認証を使用している場合、資産の損失を避けるためにdAppが信頼できることを確認してください。",
+  "dapp_connect.permit_sign_alert": "{type}認証を使用しています。資産の損失を避けるために、dApp が信頼できるものであることを確認してください。",
   "dapp_connect.proceed_at_my_own_risk": "自己のリスクで進む",
   "dapp_connect.registration_successful": "登録成功",
   "dapp_connect.request_for_lnurl_linking_key": "LNURLリンキングキーのリクエスト",

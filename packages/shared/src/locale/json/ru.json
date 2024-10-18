@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "Простой текст",
   "dapp_connect.order_alert": "Вы используете авторизацию заказов. Убедитесь, что dApp заслуживает доверия, чтобы избежать потери активов.",
   "dapp_connect.pay_to_node": "Оплата на Lightning Node",
-  "dapp_connect.permit_sign_alert": "Вы используете авторизацию Permit, убедитесь, что dApp заслуживает доверия, чтобы избежать потери активов.",
+  "dapp_connect.permit_sign_alert": "Вы используете авторизацию {type} , убедитесь, что dApp заслуживает доверия, чтобы избежать потери активов.",
   "dapp_connect.proceed_at_my_own_risk": "Продолжить на свой страх и риск",
   "dapp_connect.registration_successful": "Регистрация успешна",
   "dapp_connect.request_for_lnurl_linking_key": "Запрос на связывающий ключ LNURL",

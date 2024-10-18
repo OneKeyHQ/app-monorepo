@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "플레인텍스트",
   "dapp_connect.order_alert": "주문 승인을 사용하고 있으니 자산 손실을 방지하기 위해 dApp이 신뢰할 수 있는지 확인하세요.",
   "dapp_connect.pay_to_node": "라이트닝 노드에 지불하다",
-  "dapp_connect.permit_sign_alert": "허가 권한을 사용하고 있으므로 자산 손실을 방지하기 위해 dApp이 신뢰할 수 있는지 확인하세요.",
+  "dapp_connect.permit_sign_alert": "{type} 권한을 사용하고 있으니 자산 손실을 방지하기 위해 dApp이 신뢰할 수 있는지 확인하세요.",
   "dapp_connect.proceed_at_my_own_risk": "나의 책임하에 진행",
   "dapp_connect.registration_successful": "등록 성공",
   "dapp_connect.request_for_lnurl_linking_key": "LNURL 연결키 요청",
