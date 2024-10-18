@@ -242,6 +242,26 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
     ],
     {},
   );
+
+  const getToAddressAccountInfos = usePromiseResult(
+    async () => {
+      if (
+        swapToAnotherAddressInfo.networkId &&
+        swapToAnotherAddressInfo.address
+      ) {
+        const res =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId: swapToAnotherAddressInfo.networkId,
+            address: swapToAnotherAddressInfo.address,
+          });
+        if (res.length > 0) {
+          return res[0];
+        }
+      }
+    },
+    [swapToAnotherAddressInfo.address, swapToAnotherAddressInfo.networkId],
+    {},
+  );
   if (
     swapToAddressInfo.address === swapToAnotherAddressInfo.address &&
     swapToAnotherAccountSwitchOn
@@ -254,12 +274,24 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
         currentQuoteRes?.toTokenInfo.networkId
     ) {
       return {
-        accountInfo: swapToAnotherAddressInfo.accountInfo,
+        accountInfo:
+          swapToAnotherAddressInfo.accountInfo?.account?.address ===
+          swapToAnotherAddressInfo.address
+            ? {
+                walletName: swapToAnotherAddressInfo.accountInfo?.wallet?.name,
+                accountName: swapToAnotherAddressInfo.accountInfo?.accountName,
+                accountId: swapToAnotherAddressInfo.accountInfo?.account?.id,
+              }
+            : getToAddressAccountInfos.result,
         showAddress: accountUtils.shortenAddress({
           address: swapToAnotherAddressInfo.address,
           leadingLength: 6,
           trailingLength: 6,
         }),
+        isExtAccount:
+          swapToAnotherAddressInfo.accountInfo?.account?.address !==
+            swapToAnotherAddressInfo.address &&
+          !getToAddressAccountInfos.result,
       };
     }
   }
