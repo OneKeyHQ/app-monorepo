@@ -464,7 +464,7 @@ export function useSwapBuildTx() {
                             onCancel: cancelBuildTx,
                           });
                         },
-                        onCancel: cancelApproveTx,
+                        onCancel: cancelBuildTx,
                       });
                     } else {
                       await navigationToSendConfirm({
@@ -479,7 +479,7 @@ export function useSwapBuildTx() {
                       });
                     }
                   },
-                  onCancel: cancelApproveTx,
+                  onCancel: cancelBuildTx,
                 });
               } else {
                 await navigationToSendConfirm({

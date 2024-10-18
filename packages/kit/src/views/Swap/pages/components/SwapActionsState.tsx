@@ -257,9 +257,10 @@ const SwapActionsState = ({
     if (shouldShowRecipient) {
       return (
         <XStack
-          flex={1}
           gap="$1"
-          {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
+          {...(pageType === EPageType.modal && !md
+            ? { flex: 1 }
+            : { pb: '$4' })}
         >
           <Stack>
             <Icon name="AddedPeopleOutline" w="$5" h="$5" />
