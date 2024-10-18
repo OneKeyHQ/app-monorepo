@@ -309,8 +309,14 @@ function MarketDetail({
   const defer = useDeferredPromise();
 
   const tokenPriceChart = useMemo(
-    () => <TokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />,
-    [coinGeckoId, defer],
+    () => (
+      <TokenPriceChart
+        coinGeckoId={coinGeckoId}
+        defer={defer}
+        symbol={tokenDetail?.symbol}
+      />
+    ),
+    [coinGeckoId, defer, tokenDetail?.symbol],
   );
 
   return (
