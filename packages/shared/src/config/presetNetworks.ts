@@ -1583,7 +1583,67 @@ const zircuit: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
-  'defaultEnabled': false,
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const neox: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '47763',
+  'id': 'evm--47763',
+  'name': 'Neo X Mainnet',
+  'symbol': 'GAS',
+  'code': 'neox',
+  'shortcode': 'neox',
+  'shortname': 'neox',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'gas',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1729061779597.0.9121560531109869.0.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const azero: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '41455',
+  'id': 'evm--41455',
+  'name': 'Aleph Zero EVM',
+  'symbol': 'AZERO',
+  'code': 'alephazero',
+  'shortcode': 'alephazero',
+  'shortname': 'azero',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'azero',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1729154636018.0.4269239559207918.0.svg',
+  'defaultEnabled': true,
   'backendIndex': false,
 };
 
@@ -2540,6 +2600,8 @@ export const presetNetworksMap = {
   aurora,
   holesky,
   zircuit,
+  neox,
+  azero,
 
   // cosmos
   celestia,
@@ -2648,6 +2710,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   aurora,
   holesky,
   zircuit,
+  neox,
+  azero,
   // cosmos
   celestia,
   secret,
