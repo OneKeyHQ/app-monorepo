@@ -268,6 +268,7 @@
   dapp_connect_nostr_event_kind_9735 = 'dapp_connect.nostr_event_kind_9735',
   dapp_connect_nostr_event_kind_unknown = 'dapp_connect.nostr_event_kind_unknown',
   dapp_connect_nostr_plaintext = 'dapp_connect.nostr_plaintext',
+  dapp_connect_order_alert = 'dapp_connect.order_alert',
   dapp_connect_pay_to_node = 'dapp_connect.pay_to_node',
   dapp_connect_permit_sign_alert = 'dapp_connect.permit_sign_alert',
   dapp_connect_proceed_at_my_own_risk = 'dapp_connect.proceed_at_my_own_risk',

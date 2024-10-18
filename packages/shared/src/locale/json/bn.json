@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "ঝাপ",
   "dapp_connect.nostr_event_kind_unknown": "Nostr {kind} ইভেন্ট",
   "dapp_connect.nostr_plaintext": "প্লেইনটেক্সট",
+  "dapp_connect.order_alert": "আপনি অর্ডার অনুমোদন ব্যবহার করছেন, নিশ্চিত করুন যে সম্পদের ক্ষতি এড়াতে dApp বিশ্বস্ত।",
   "dapp_connect.pay_to_node": "লাইটনিং নোডে পে করুন",
   "dapp_connect.permit_sign_alert": "আপনি পারমিট অনুমোদন ব্যবহার করছেন, নিশ্চিত করুন যে সম্পদের ক্ষতি এড়াতে dApp বিশ্বস্ত।",
   "dapp_connect.proceed_at_my_own_risk": "নিজের ঝুঁকিতে এগিয়ে যান",

@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Zap",
   "dapp_connect.nostr_event_kind_unknown": "Evento Nostr {kind}",
   "dapp_connect.nostr_plaintext": "Testo semplice",
+  "dapp_connect.order_alert": "Se utilizzi l'autorizzazione degli ordini, assicurati che la dApp sia affidabile per evitare perdite di risorse.",
   "dapp_connect.pay_to_node": "Paga al Nodo Lightning",
   "dapp_connect.permit_sign_alert": "Se utilizzi l'autorizzazione Permit, assicurati che la dApp sia affidabile per evitare perdite di risorse.",
   "dapp_connect.proceed_at_my_own_risk": "Procedere a mio rischio e pericolo",

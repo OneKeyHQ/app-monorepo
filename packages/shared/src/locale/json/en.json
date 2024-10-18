@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Zap",
   "dapp_connect.nostr_event_kind_unknown": "Nostr {kind} event",
   "dapp_connect.nostr_plaintext": "Plaintext",
+  "dapp_connect.order_alert": "You are using order authorization, ensure the dApp is trustworthy to avoid asset loss.",
   "dapp_connect.pay_to_node": "Pay to Lightning Node",
   "dapp_connect.permit_sign_alert": "You’re using Permit authorization, ensure the dApp is trustworthy to avoid asset loss.",
   "dapp_connect.proceed_at_my_own_risk": "Proceed at my own risk",

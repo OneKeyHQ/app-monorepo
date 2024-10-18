@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Зап",
   "dapp_connect.nostr_event_kind_unknown": "Подія Nostr {kind}",
   "dapp_connect.nostr_plaintext": "Простий текст",
+  "dapp_connect.order_alert": "Ви використовуєте авторизацію замовлення, переконайтеся, що dApp надійний, щоб уникнути втрати активів.",
   "dapp_connect.pay_to_node": "Оплатити до Lightning Node",
   "dapp_connect.permit_sign_alert": "Ви використовуєте авторизацію дозволу, переконайтеся, що dApp надійний, щоб уникнути втрати активів.",
   "dapp_connect.proceed_at_my_own_risk": "Продовжувати на власний ризик",

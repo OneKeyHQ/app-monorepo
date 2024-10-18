@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "打閃",
   "dapp_connect.nostr_event_kind_unknown": "Nostr {kind} 事件",
   "dapp_connect.nostr_plaintext": "純文字",
+  "dapp_connect.order_alert": "您正在使用訂單操作，請確保當前 dApp 可信，否則可能導致資產損失。",
   "dapp_connect.pay_to_node": "支付給閃電網絡節點",
   "dapp_connect.permit_sign_alert": "您正在使用 Permit 授權，請確保當前 dApp 可信，否則可能導致資產損失。",
   "dapp_connect.proceed_at_my_own_risk": "自行承擔風險",
