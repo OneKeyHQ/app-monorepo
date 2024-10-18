@@ -42,7 +42,7 @@ const SwapSettingsCommonItem = ({
   <XStack justifyContent="space-between" alignItems="center">
     <YStack flex={1}>
       <SizableText size="$bodyLgMedium">{title}</SizableText>
-      <SizableText size="$bodyMd">{content}</SizableText>
+      <SizableText size="$bodyMd" color="$textSubdued" width='95%'>{content}</SizableText>
     </YStack>
     <Switch value={value} onChange={onChange} />
   </XStack>
