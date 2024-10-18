@@ -86,17 +86,17 @@ export function useSwapFromAccountNetworkSync() {
       }
       if (fromTokenRef.current && toTokenRef.current) {
         if (
-          // 选择的 toToken 网络与当前账户网络不相同，需要重置
+          // The selected toToken network is not the same as the current account network and needs to be reset
           (swapToAnotherAccountRef.current?.networkId &&
             toTokenRef.current?.networkId !==
               swapToAnotherAccountRef.current?.networkId) ||
-          // 账户被清空，需要重置
+          // The account is empty and needs to be reset
           (!swapToAnotherAccountRef.current?.networkId &&
             !swapToAccountRef.current?.account &&
             swapToAccountRef.current?.wallet) ||
-          // 不支持 发送到不同地址的渠道商，需要重置
+          // Does not support sending to a different address of the channel provider, need to reset
           swapProviderSupportReceiveAddressRef.current === false ||
-          // 选择往 to 账户，但是没有确认，回到 swap 页面需要重置
+          // Select to account, but no confirmation, return to the swap page needs to reset
           (!swapToAnotherAccountRef.current.address &&
             swapToAccountRef.current.account?.id !==
               swapFromAccountRef.current.account?.id)
