@@ -1,6 +1,5 @@
 import { useOnRouterChange } from '@onekeyhq/components';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export default function useListenTabFocusState(
   tabName: ETabRoutes | ETabRoutes[],
@@ -8,6 +7,11 @@ export default function useListenTabFocusState(
 ) {
   const tabNames = Array.isArray(tabName) ? tabName : [tabName];
   useOnRouterChange((state) => {
+    // the state may be undefined when initializing the interface on the Ext.
+    if (!state) {
+      callback(tabName === ETabRoutes.Home, false);
+      return;
+    }
     const rootState = state?.routes.find(
       ({ name }) => name === ERootRoutes.Main,
     )?.state;

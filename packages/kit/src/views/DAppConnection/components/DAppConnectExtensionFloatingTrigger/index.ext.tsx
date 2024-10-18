@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   HeightTransition,
@@ -180,6 +180,16 @@ function DAppConnectExtensionFloatingTrigger() {
     );
   }, [result, hideAccountSelectorTrigger, refreshConnectionInfo]);
 
+  const renderSyncDappAccountToHomeProvider = useMemo(
+    () => (
+      <SyncDappAccountToHomeProvider
+        origin={result?.origin ?? ''}
+        dAppAccountInfos={result?.connectedAccountsInfo ?? null}
+      />
+    ),
+    [result?.connectedAccountsInfo, result?.origin],
+  );
+
   if (!result?.showFloatingPanel) {
     return null;
   }
@@ -194,10 +204,7 @@ function DAppConnectExtensionFloatingTrigger() {
       borderTopWidth="$px"
       borderColor="$borderSubdued"
     >
-      <SyncDappAccountToHomeProvider
-        origin={result?.origin ?? ''}
-        dAppAccountInfos={result?.connectedAccountsInfo}
-      />
+      {renderSyncDappAccountToHomeProvider}
       <HeightTransition>
         {shouldSwitchAccount ? (
           <XStack
@@ -227,7 +234,6 @@ function DAppConnectExtensionFloatingTrigger() {
           </XStack>
         ) : null}
       </HeightTransition>
-
       <XStack
         group
         alignItems="center"
