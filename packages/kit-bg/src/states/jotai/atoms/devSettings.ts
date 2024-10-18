@@ -12,6 +12,8 @@ export interface IDevSettings {
   alwaysSignOnlySendTx?: boolean;
   // show dev export private key
   showDevExportPrivateKey?: boolean;
+  // show trading view
+  showTradingView?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -31,6 +33,7 @@ export const {
     settings: {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
       showDevOverlayWindow: !!platformEnv.isE2E,
+      showTradingView: false,
     },
   },
 });
