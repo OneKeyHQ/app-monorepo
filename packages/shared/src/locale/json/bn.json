@@ -265,7 +265,7 @@
   "dapp_connect.nostr_plaintext": "প্লেইনটেক্সট",
   "dapp_connect.order_alert": "আপনি অর্ডার অনুমোদন ব্যবহার করছেন, নিশ্চিত করুন যে সম্পদের ক্ষতি এড়াতে dApp বিশ্বস্ত।",
   "dapp_connect.pay_to_node": "লাইটনিং নোডে পে করুন",
-  "dapp_connect.permit_sign_alert": "আপনি পারমিট অনুমোদন ব্যবহার করছেন, নিশ্চিত করুন যে সম্পদের ক্ষতি এড়াতে dApp বিশ্বস্ত।",
+  "dapp_connect.permit_sign_alert": "আপনি {type} অনুমোদন ব্যবহার করছেন, নিশ্চিত করুন যে সম্পদের ক্ষতি এড়াতে dApp বিশ্বস্ত।",
   "dapp_connect.proceed_at_my_own_risk": "নিজের ঝুঁকিতে এগিয়ে যান",
   "dapp_connect.registration_successful": "নিবন্ধন সফল",
   "dapp_connect.request_for_lnurl_linking_key": "LNURL লিঙ্কিংকি জন্য অনুরোধ",
