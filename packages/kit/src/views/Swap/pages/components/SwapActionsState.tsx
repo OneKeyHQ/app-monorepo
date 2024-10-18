@@ -261,7 +261,9 @@ const SwapActionsState = ({
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
-          <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+          <Stack>
+            <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+          </Stack>
           <XStack flex={1} flexWrap="wrap" gap="$1">
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
