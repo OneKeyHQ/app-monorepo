@@ -240,7 +240,8 @@ export type IBabylonPortfolioStatus =
   | 'active'
   | 'withdraw_requested'
   | 'claimable'
-  | 'claimed';
+  | 'claimed'
+  | 'local_pending_activation'; // local_pending_activation created by client side ;
 
 export type IBabylonPortfolioItem = {
   txId: string;
@@ -379,4 +380,6 @@ export interface IEarnBabylonTrackingItem {
   createAt: number;
   accountId: string;
   networkId: string;
+  amount: string;
+  minStakeTerm?: number;
 }

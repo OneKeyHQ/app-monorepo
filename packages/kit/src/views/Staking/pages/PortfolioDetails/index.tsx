@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -84,6 +84,7 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
     'overflow': 'critical',
     'claimable': 'info',
     'claimed': 'default',
+    'local_pending_activation': 'default',
   };
   const intl = useIntl();
 
@@ -102,14 +103,16 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
               </Badge>
             ))}
           </XStack>
-          <Button
-            onPress={onPress}
-            size="small"
-            variant="tertiary"
-            iconAfter="OpenOutline"
-          >
-            {accountUtils.shortenAddress({ address: item.txId })}
-          </Button>
+          {item.txId ? (
+            <Button
+              onPress={onPress}
+              size="small"
+              variant="tertiary"
+              iconAfter="OpenOutline"
+            >
+              {accountUtils.shortenAddress({ address: item.txId })}
+            </Button>
+          ) : null}
         </XStack>
         <XStack p={14} alignItems="center">
           <Stack pr={12}>
@@ -119,31 +122,35 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
             <SizableText size="$headingLg">
               {item.amount} {network?.symbol ?? ''}
             </SizableText>
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{ currency: symbol }}
-            >
-              {item.fiatValue}
-            </NumberSizeableText>
+            {item.fiatValue ? (
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: symbol }}
+              >
+                {item.fiatValue}
+              </NumberSizeableText>
+            ) : null}
           </Stack>
         </XStack>
-        <XStack p={14} bg="$bgSubdued" alignItems="center">
-          <Icon
-            width={20}
-            height={20}
-            name="Calendar2Outline"
-            color="$iconSubdued"
-          />
-          <XStack w="$1.5" />
-          <SizableText size="$bodyMd">
-            {`${intl.formatMessage(
-              { id: ETranslations.earn_number_day },
-              { number: day },
-            )} • ${startDate} - ${endDate}`}
-          </SizableText>
-        </XStack>
+        {item.startTime && item.endTime ? (
+          <XStack p={14} bg="$bgSubdued" alignItems="center">
+            <Icon
+              width={20}
+              height={20}
+              name="Calendar2Outline"
+              color="$iconSubdued"
+            />
+            <XStack w="$1.5" />
+            <SizableText size="$bodyMd">
+              {`${intl.formatMessage(
+                { id: ETranslations.earn_number_day },
+                { number: day },
+              )} • ${startDate} - ${endDate}`}
+            </SizableText>
+          </XStack>
+        ) : null}
       </Stack>
     </Stack>
   );
@@ -156,6 +163,7 @@ const PortfolioDetails = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ProtocolDetails
   >();
+  const intl = useIntl();
   const { accountId, networkId, symbol, provider } = route.params;
   const { result, isLoading, run } = usePromiseResult(
     () =>
@@ -167,6 +175,10 @@ const PortfolioDetails = () => {
           provider,
         }),
         backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
+        backgroundApiProxy.serviceStaking.getPendingActivationPortfolioList({
+          accountId,
+          networkId,
+        }),
       ]),
     [accountId, networkId, symbol, provider],
     { watchLoading: true },
@@ -177,7 +189,13 @@ const PortfolioDetails = () => {
     ),
     [result],
   );
-  const intl = useIntl();
+
+  const data = useMemo(() => {
+    if (!result) return [];
+    const [v1, , v3] = result;
+    return [...v3, ...v1];
+  }, [result]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -193,7 +211,7 @@ const PortfolioDetails = () => {
           {result ? (
             <ListView
               estimatedItemSize={164}
-              data={result[0]}
+              data={data}
               renderItem={renderItem}
               ListFooterComponent={<Stack h="$2" />}
               ItemSeparatorComponent={ItemSeparatorComponent}

@@ -25,6 +25,9 @@ export const useBabylonStatusMap = () => {
       'overflow': intl.formatMessage({ id: ETranslations.earn_overflow }),
       'claimable': intl.formatMessage({ id: ETranslations.earn_claimable }),
       'claimed': intl.formatMessage({ id: ETranslations.earn_claimed }),
+      'local_pending_activation': intl.formatMessage({
+        id: ETranslations.earn_pending_activation,
+      }),
     }),
     [intl],
   );
@@ -44,6 +47,8 @@ export const getBabylonPortfolioTags = (
         return ['claimable'];
       case 'claimed':
         return ['claimed'];
+      case 'local_pending_activation':
+        return ['local_pending_activation'];
       default:
         return [];
     }
@@ -58,6 +63,8 @@ export const getBabylonPortfolioTags = (
       return ['claimable'];
     case 'claimed':
       return ['claimed'];
+    case 'local_pending_activation':
+      return ['local_pending_activation'];
     default:
       return [];
   }
