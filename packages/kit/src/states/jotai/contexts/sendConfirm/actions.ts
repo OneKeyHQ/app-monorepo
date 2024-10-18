@@ -122,9 +122,13 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set,
       status: {
         isInsufficientNativeBalance?: boolean;
+        isSubmitting?: boolean;
       },
     ) => {
-      set(sendTxStatusAtom(), status);
+      set(sendTxStatusAtom(), {
+        ...get(sendTxStatusAtom()),
+        ...status,
+      });
     },
   );
 

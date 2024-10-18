@@ -90,8 +90,10 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
   contextAtom<{
     isInsufficientNativeBalance?: boolean;
+    isSubmitting?: boolean;
   }>({
     isInsufficientNativeBalance: false,
+    isSubmitting: false,
   });
 
 export const { atom: preCheckTxStatusAtom, use: usePreCheckTxStatusAtom } =

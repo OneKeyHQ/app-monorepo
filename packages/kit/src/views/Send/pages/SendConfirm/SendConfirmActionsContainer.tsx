@@ -59,7 +59,6 @@ function SendConfirmActionsContainer(props: IProps) {
     feeInfoEditable,
   } = props;
   const intl = useIntl();
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmitted = useRef(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -72,6 +71,7 @@ function SendConfirmActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [tokenApproveInfo] = useTokenApproveInfoAtom();
+  const { updateSendTxStatus } = useSendConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
   const dappApprove = useDappApproveAction({
@@ -88,7 +88,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const handleOnConfirm = useCallback(async () => {
     const { serviceSend } = backgroundApiProxy;
 
-    setIsSubmitting(true);
+    updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
 
     // Pre-check before submit
@@ -106,7 +106,7 @@ function SendConfirmActionsContainer(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
     } catch (e: any) {
-      setIsSubmitting(false);
+      updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
       void dappApprove.reject(e);
@@ -128,7 +128,7 @@ function SendConfirmActionsContainer(props: IProps) {
           : undefined,
       });
     } catch (e: any) {
-      setIsSubmitting(false);
+      updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
       isSubmitted.current = false;
       void dappApprove.reject(e);
@@ -148,7 +148,7 @@ function SendConfirmActionsContainer(props: IProps) {
         const isConfirmed = await showFeeInfoOverflowConfirm();
         if (!isConfirmed) {
           isSubmitted.current = false;
-          setIsSubmitting(false);
+          updateSendTxStatus({ isSubmitting: false });
           return;
         }
       }
@@ -183,8 +183,6 @@ function SendConfirmActionsContainer(props: IProps) {
         interactContract: undefined,
       });
 
-      onSuccess?.(result);
-      setIsSubmitting(false);
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.feedback_transaction_submitted,
@@ -196,8 +194,10 @@ function SendConfirmActionsContainer(props: IProps) {
       void dappApprove.resolve({ result: signedTx });
 
       navigation.popStack();
+      updateSendTxStatus({ isSubmitting: false });
+      onSuccess?.(result);
     } catch (e: any) {
-      setIsSubmitting(false);
+      updateSendTxStatus({ isSubmitting: false });
       // show toast by @toastIfError() in background method
       // Toast.error({
       //   title: (e as Error).message,
@@ -208,6 +208,7 @@ function SendConfirmActionsContainer(props: IProps) {
       throw e;
     }
   }, [
+    updateSendTxStatus,
     sendSelectedFeeInfo,
     networkId,
     accountId,
@@ -222,7 +223,6 @@ function SendConfirmActionsContainer(props: IProps) {
     signOnly,
     sourceInfo,
     transferPayload,
-    successfullySentTxs,
     onSuccess,
     intl,
     navigation,
@@ -242,7 +242,7 @@ function SendConfirmActionsContainer(props: IProps) {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isSubmitting) return true;
+    if (sendTxStatus.isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
 
@@ -250,7 +250,7 @@ function SendConfirmActionsContainer(props: IProps) {
     if (preCheckTxStatus.errorMessage) return true;
   }, [
     sendFeeStatus.errMessage,
-    isSubmitting,
+    sendTxStatus.isSubmitting,
     nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
@@ -268,10 +268,10 @@ function SendConfirmActionsContainer(props: IProps) {
       <Page.FooterActions
         confirmButtonProps={{
           disabled: isSubmitDisabled,
-          loading: isSubmitting,
+          loading: sendTxStatus.isSubmitting,
         }}
         cancelButtonProps={{
-          disabled: isSubmitting,
+          disabled: sendTxStatus.isSubmitting,
         }}
         onConfirmText={
           signOnly
