@@ -129,7 +129,7 @@ export function AmountInput({
         {...inputProps}
       />
     );
-  }, [inputProps, onChange, value, selection]);
+  }, [inputProps, value, onChange, handleChangeText, selection]);
 
   const AmountElement = useMemo(() => {
     if (!valueProps) {
