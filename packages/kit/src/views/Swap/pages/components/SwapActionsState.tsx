@@ -261,7 +261,9 @@ const SwapActionsState = ({
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
-          <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+          <Stack>
+            <Icon name="AddedPeopleOutline" w="$5" h="$5" />
+          </Stack>
           <XStack flex={1} flexWrap="wrap" gap="$1">
             <SizableText flexShrink={0} size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
@@ -272,17 +274,24 @@ const SwapActionsState = ({
               {swapRecipientAddressInfo?.showAddress}
             </SizableText>
 
-            {swapRecipientAddressInfo?.accountInfo?.wallet?.name &&
-            swapRecipientAddressInfo?.accountInfo?.accountName ? (
-              <SizableText
-                numberOfLines={1}
-                flexShrink={0}
-                size="$bodyMd"
-                color="$textSubdued"
-              >
-                {`(${swapRecipientAddressInfo?.accountInfo?.wallet?.name}-${swapRecipientAddressInfo?.accountInfo?.accountName})`}
-              </SizableText>
-            ) : null}
+            <SizableText
+              numberOfLines={1}
+              flexShrink={0}
+              size="$bodyMd"
+              color="$textSubdued"
+            >
+              {`(${
+                !swapRecipientAddressInfo?.isExtAccount
+                  ? `${
+                      swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                    }-${
+                      swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                    }`
+                  : intl.formatMessage({
+                      id: ETranslations.swap_page_recipient_external_account,
+                    })
+              })`}
+            </SizableText>
           </XStack>
         </XStack>
       );
@@ -296,8 +305,9 @@ const SwapActionsState = ({
     md,
     intl,
     swapRecipientAddressInfo?.showAddress,
-    swapRecipientAddressInfo?.accountInfo?.wallet?.name,
+    swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.isExtAccount,
   ]);
   const actionComponent = useMemo(
     () => (

@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Zap",
   "dapp_connect.nostr_event_kind_unknown": "Sự kiện Nostr {kind}",
   "dapp_connect.nostr_plaintext": "Văn bản gốc",
+  "dapp_connect.order_alert": "Khi bạn sử dụng quyền ủy quyền đơn hàng, hãy đảm bảo dApp đáng tin cậy để tránh mất tài sản.",
   "dapp_connect.pay_to_node": "Thanh toán cho Nút Lightning",
   "dapp_connect.permit_sign_alert": "Bạn đang sử dụng quyền cấp phép, hãy đảm bảo dApp đáng tin cậy để tránh mất tài sản.",
   "dapp_connect.proceed_at_my_own_risk": "Tiếp tục theo rủi ro của riêng tôi",

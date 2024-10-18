@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Зап",
   "dapp_connect.nostr_event_kind_unknown": "Событие Nostr {kind}",
   "dapp_connect.nostr_plaintext": "Простой текст",
+  "dapp_connect.order_alert": "Вы используете авторизацию заказов. Убедитесь, что dApp заслуживает доверия, чтобы избежать потери активов.",
   "dapp_connect.pay_to_node": "Оплата на Lightning Node",
   "dapp_connect.permit_sign_alert": "Вы используете авторизацию Permit, убедитесь, что dApp заслуживает доверия, чтобы избежать потери активов.",
   "dapp_connect.proceed_at_my_own_risk": "Продолжить на свой страх и риск",

@@ -263,6 +263,7 @@
   "dapp_connect.nostr_event_kind_9735": "Zap",
   "dapp_connect.nostr_event_kind_unknown": "Nostr {kind} Veranstaltung",
   "dapp_connect.nostr_plaintext": "Klartext",
+  "dapp_connect.order_alert": "Verwenden Sie eine Bestellautorisierung nur bei vertrauenswürdigen dApps, um Vermögensverluste zu vermeiden.",
   "dapp_connect.pay_to_node": "Zahlung an Lightning Node",
   "dapp_connect.permit_sign_alert": "Verwenden Sie die Genehmigungsautorisierung nur bei vertrauenswürdigen dApps.",
   "dapp_connect.proceed_at_my_own_risk": "Auf eigenes Risiko fortfahren",

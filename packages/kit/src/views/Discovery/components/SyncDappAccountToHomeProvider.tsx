@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -23,6 +23,11 @@ function SyncDappAccountToHomeCmp({
   const { isFirstVisit, tourVisited } = useSpotlight(
     ESpotlightTour.switchDappAccount,
   );
+  const isFirstVisitRef = useRef(isFirstVisit);
+
+  useEffect(() => {
+    isFirstVisitRef.current = isFirstVisit;
+  }, [isFirstVisit]);
 
   // Sync dApp account to home page
   useEffect(() => {
@@ -65,7 +70,7 @@ function SyncDappAccountToHomeCmp({
           forceSelectToNetworkId: networkId,
         });
       }
-      if (isFirstVisit) {
+      if (isFirstVisitRef.current) {
         void tourVisited(1);
       }
     };
@@ -74,7 +79,6 @@ function SyncDappAccountToHomeCmp({
     dAppAccountInfos,
     actions,
     settings.alignPrimaryAccountMode,
-    isFirstVisit,
     tourVisited,
   ]);
 
