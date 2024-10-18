@@ -29,3 +29,36 @@ export const useBabylonStatusMap = () => {
     [intl],
   );
 };
+
+export const getBabylonPortfolioTags = (
+  item: IBabylonPortfolioItem,
+): IBabylonStatus[] => {
+  // 正常状态
+  if (!item.isOverflow) {
+    switch (item.status) {
+      case 'active':
+        return ['active'];
+      case 'withdraw_requested':
+        return ['active', 'withdraw_requested'];
+      case 'claimable':
+        return ['claimable'];
+      case 'claimed':
+        return ['claimed'];
+      default:
+        return [];
+    }
+  }
+  // 溢出状态
+  switch (item.status) {
+    case 'active':
+      return ['overflow'];
+    case 'withdraw_requested':
+      return ['withdraw_requested'];
+    case 'claimable':
+      return ['claimable'];
+    case 'claimed':
+      return ['claimed'];
+    default:
+      return [];
+  }
+};

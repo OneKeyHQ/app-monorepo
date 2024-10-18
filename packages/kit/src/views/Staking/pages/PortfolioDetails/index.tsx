@@ -40,7 +40,7 @@ import {
 } from '../../components/PageFrame';
 import {
   type IBabylonStatus,
-  getBabylonPortfolioStatus,
+  getBabylonPortfolioTags,
   useBabylonStatusMap,
 } from '../../utils/babylon';
 
@@ -96,18 +96,11 @@ const PortfolioItem = ({ item, network }: IPortfolioItemProps) => {
       >
         <XStack px={14} pt={14} justifyContent="space-between">
           <XStack gap="$1">
-            {getBabylonPortfolioStatus(item) === 'withdraw_requested' ? (
-              <Badge badgeType={statusBadgeType.active}>
-                {statusMap.active}
+            {getBabylonPortfolioTags(item).map((tag) => (
+              <Badge key={tag} badgeType={statusBadgeType[tag] ?? 'default'}>
+                {statusMap[tag]}
               </Badge>
-            ) : null}
-            <Badge
-              badgeType={
-                statusBadgeType[getBabylonPortfolioStatus(item)] ?? 'default'
-              }
-            >
-              {statusMap[getBabylonPortfolioStatus(item)]}
-            </Badge>
+            ))}
           </XStack>
           <Button
             onPress={onPress}
