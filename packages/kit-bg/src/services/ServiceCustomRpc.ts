@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
@@ -227,12 +228,14 @@ class ServiceCustomRpc extends ServiceBase {
       ) {
         return this.fetchNetworkFromServer();
       }
+      defaultLogger.account.wallet.getServerNetworks(networks);
       return networks;
     });
   }
 
   @backgroundMethod()
   public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
+    defaultLogger.account.wallet.fetchNetworkFromServer();
     // Request /wallet/v1/network/list to get all evm networks
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{ data: IServerNetwork[] }>(
@@ -267,6 +270,7 @@ class ServiceCustomRpc extends ServiceBase {
       }
     }
 
+    defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
   }
 }
