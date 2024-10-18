@@ -837,6 +837,7 @@ class Engine {
       '128': OnekeyNetwork.xmr,
       '111111': OnekeyNetwork.kaspa,
       '29223': OnekeyNetwork.nexa,
+      '5757': OnekeyNetwork.stacks,
       '1900': OnekeyNetwork.xna,
       '29538': OnekeyNetwork.dnx,
     }[coinType];

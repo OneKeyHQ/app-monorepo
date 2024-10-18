@@ -70,6 +70,7 @@ const icons = {
   SecretNetworkIllus: () => null,
   SolanaIllus: () => null,
   StarBadgeIllus: () => null,
+  Stacks: () => null,
   StarcoinIllus: () => null,
   SuiIllus: () => null,
   TerraIllus: () => null,

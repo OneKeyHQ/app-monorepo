@@ -52,6 +52,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_STACKS,
   IMPL_STC,
   IMPL_SUI,
   IMPL_TBTC,
@@ -67,6 +68,7 @@ import { createVaultSettings } from '../vaults/factory.createVaultSettings';
 
 import type { DBAccount } from '../types/account';
 import type { AccountNameInfo } from '../types/network';
+import { COINTYPE_STACKS } from '../../../shared/src/engine/engineConsts';
 
 enum Curve {
   SECP256K1 = 'secp256k1',
@@ -96,6 +98,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_XMR]: COINTYPE_XMR,
   [IMPL_KASPA]: COINTYPE_KASPA,
   [IMPL_NEXA]: COINTYPE_NEXA,
+  [IMPL_STACKS]: COINTYPE_STACKS,
   [IMPL_LIGHTNING]: COINTYPE_LIGHTNING,
   [IMPL_LIGHTNING_TESTNET]: COINTYPE_LIGHTNING_TESTNET,
   [IMPL_NOSTR]: COINTYPE_NOSTR,
@@ -138,6 +141,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_DOT]: AccountType.VARIANT,
   [IMPL_XMR]: AccountType.VARIANT,
   [IMPL_KASPA]: AccountType.SIMPLE,
+  [IMPL_STACKS]: AccountType.SIMPLE,
   [IMPL_LIGHTNING]: AccountType.VARIANT,
   [IMPL_LIGHTNING_TESTNET]: AccountType.VARIANT,
   [IMPL_NOSTR]: AccountType.VARIANT,
@@ -175,6 +179,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_DOT]: Curve.ED25519,
   [IMPL_XMR]: Curve.ED25519,
   [IMPL_KASPA]: Curve.SECP256K1,
+  [IMPL_STACKS]: Curve.SECP256K1,
   [IMPL_LIGHTNING]: Curve.SECP256K1,
   [IMPL_LIGHTNING_TESTNET]: Curve.SECP256K1,
   [IMPL_NOSTR]: Curve.SECP256K1,
