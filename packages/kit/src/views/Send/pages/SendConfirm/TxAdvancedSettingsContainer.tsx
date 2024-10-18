@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   Form,
   Input,
   TextAreaInput,
@@ -16,6 +17,11 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import {
+  InfoItem,
+  InfoItemGroup,
+} from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 
 type IProps = {
   accountId: string;
@@ -28,11 +34,26 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [settings] = useSettingsPersistAtom();
 
+  const [shouldShowSettings, setShouldShowSettings] = useState<boolean>(false);
+
   const vaultSettings = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],
   ).result;
+
+  const dataContent = useMemo(() => {
+    if (!unsignedTxs || unsignedTxs.length === 0) {
+      return '';
+    }
+    return unsignedTxs.reduce((acc, unsignedTx) => {
+      const tx = unsignedTx.encodedTx as IEncodedTxEvm;
+      if (tx && tx.data) {
+        return acc ? `${acc}\n\n${tx.data}` : tx.data;
+      }
+      return acc;
+    }, '');
+  }, [unsignedTxs]);
 
   const canEditNonce = useMemo(
     () =>
@@ -58,63 +79,98 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const handleValidateNonce = useCallback(() => {}, []);
   const handleValidateData = useCallback(() => {}, []);
 
+  const renderAdvancedSettings = useCallback(
+    () => (
+      <Form form={form}>
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.global_nonce,
+          })}
+          name="nonce"
+          rules={{
+            min: 0,
+            required: true,
+            validate: handleValidateNonce,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              const value = e.target?.value;
+              const valueBN = new BigNumber(value ?? 0);
+              if (!valueBN.isInteger() || valueBN.isNegative()) {
+                return;
+              }
+              form.setValue('nonce', valueBN.toFixed());
+            },
+          }}
+          description={intl.formatMessage(
+            {
+              id: ETranslations.global_nonce_desc,
+            },
+            {
+              'amount': currentNonce,
+            },
+          )}
+          labelAddon={
+            <Button size="small" variant="tertiary" icon="WalletOutline">
+              {intl.formatMessage({
+                id: ETranslations.global_nonce_faq,
+              })}
+            </Button>
+          }
+        >
+          <Input flex={1} />
+        </Form.Field>
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.global_hex_data,
+          })}
+          name="data"
+          rules={{
+            validate: handleValidateData,
+          }}
+          labelAddon={
+            <Button size="small" variant="tertiary" icon="WalletOutline">
+              {intl.formatMessage({
+                id: ETranslations.global_hex_data_faq,
+              })}
+            </Button>
+          }
+        >
+          <TextAreaInput flex={1} />
+        </Form.Field>
+      </Form>
+    ),
+    [currentNonce, form, handleValidateData, handleValidateNonce, intl],
+  );
+
+  if (!canEditNonce && dataContent === '') {
+    return null;
+  }
+
   return (
-    <Form form={form}>
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.global_nonce,
-        })}
-        name="nonce"
-        rules={{
-          min: 0,
-          required: true,
-          validate: handleValidateNonce,
-          onChange: (e: { target: { name: string; value: string } }) => {
-            const value = e.target?.value;
-            const valueBN = new BigNumber(value ?? 0);
-            if (!valueBN.isInteger() || valueBN.isNegative()) {
-              return;
-            }
-            form.setValue('nonce', valueBN.toFixed());
-          },
-        }}
-        description={intl.formatMessage(
-          {
-            id: ETranslations.global_nonce_desc,
-          },
-          {
-            'amount': currentNonce,
-          },
-        )}
-        labelAddon={
-          <Button size="small" variant="tertiary" icon="WalletOutline">
-            {intl.formatMessage({
-              id: ETranslations.global_nonce_faq,
-            })}
-          </Button>
-        }
-      >
-        <Input flex={1} />
-      </Form.Field>
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.global_hex_data,
-        })}
-        name="data"
-        rules={{
-          validate: handleValidateData,
-        }}
-        labelAddon={
-          <Button size="small" variant="tertiary" icon="WalletOutline">
-            {intl.formatMessage({
-              id: ETranslations.global_hex_data_faq,
-            })}
-          </Button>
-        }
-      >
-        <TextAreaInput flex={1} />
-      </Form.Field>
-    </Form>
+    <>
+      <Divider mx="$5" />
+      <InfoItemGroup>
+        <InfoItem
+          label={
+            <Button
+              alignSelf="flex-start"
+              variant="tertiary"
+              size="small"
+              iconAfter={
+                shouldShowSettings
+                  ? 'ChevronDownSmallOutline'
+                  : 'ChevronRightSmallOutline'
+              }
+              onPress={() => setShouldShowSettings((prev) => !prev)}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_advanced_settings,
+              })}
+            </Button>
+          }
+          renderContent={shouldShowSettings ? renderAdvancedSettings() : null}
+        />
+      </InfoItemGroup>
+    </>
   );
 }
 
