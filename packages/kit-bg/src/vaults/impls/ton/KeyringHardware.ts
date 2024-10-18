@@ -118,7 +118,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: account.path,
       ...deviceCommonParams,
       destination: msg.address,
-      tonAmount: Number(msg.amount.toString()),
+      tonAmount: msg.amount.toString(),
       seqno: encodedTx.sequenceNo || 0,
       expireAt: encodedTx.validUntil || 0,
       comment: msg.payload,
@@ -128,11 +128,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
     if (msg.jetton?.amount) {
       hwParams.destination = msg.jetton.toAddress;
-      hwParams.jettonAmount = Number(msg.jetton.amount);
+      hwParams.jettonAmount = msg.jetton.amount;
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
       hwParams.jettonWalletAddress = msg.jetton.jettonWalletAddress;
       if (msg.jetton.fwdFee) {
-        hwParams.fwdFee = Number(msg.jetton.fwdFee);
+        hwParams.fwdFee = msg.jetton.fwdFee;
       }
       hwParams.comment = undefined;
       if (msg.jetton.fwdPayload) {
@@ -158,7 +158,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       hwParams.extPayload = [];
       encodedTx.messages.slice(1).forEach((extMsg) => {
         hwParams.extDestination?.push(extMsg.address);
-        hwParams.extTonAmount?.push(Number(extMsg.amount.toString()));
+        hwParams.extTonAmount?.push(extMsg.amount.toString());
         hwParams.extPayload?.push(extMsg.payload ?? '');
       });
     }
