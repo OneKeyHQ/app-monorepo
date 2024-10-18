@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Ví phần cứng",
   "wallet__imported_accounts": "Tài khoản chuỗi đơn",
   "wallet__wallet": "Cái ví",
-  "wallet__watched_accounts": "Tài khoản đã theo dõi"
+  "wallet__watched_accounts": "Tài khoản đã theo dõi",
+  "v4_to_v5_banner_text": "Bạn hiện đang sử dụng OneKey v4, phiên bản này không còn được hỗ trợ. Hãy chuyển sang <tag>OneKey v5</tag> để tận hưởng các tính năng và cải tiến mới!"
 }

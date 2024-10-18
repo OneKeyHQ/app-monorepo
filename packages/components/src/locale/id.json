@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Dompet Perangkat Keras",
   "wallet__imported_accounts": "Akun rantai tunggal",
   "wallet__wallet": "Dompet",
-  "wallet__watched_accounts": "Akun khusus tontonan"
+  "wallet__watched_accounts": "Akun khusus tontonan",
+  "v4_to_v5_banner_text": "Anda saat ini menggunakan OneKey v4, yang tidak lagi didukung. Beralihlah ke <tag>OneKey v5</tag> untuk menikmati fitur dan peningkatan baru!"
 }

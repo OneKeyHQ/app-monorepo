@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "กระเป๋าเงินฮาร์ดแวร์",
   "wallet__imported_accounts": "บัญชีโซ่เดียว",
   "wallet__wallet": "กระเป๋าสตางค์",
-  "wallet__watched_accounts": "ดูบัญชี"
+  "wallet__watched_accounts": "ดูบัญชี",
+  "v4_to_v5_banner_text": "คุณกำลังใช้ OneKey v4 ซึ่งไม่ได้รับการสนับสนุนอีกต่อไป เปลี่ยนไปใช้ <tag>OneKey v5</tag> เพื่อเพลิดเพลินกับฟีเจอร์ใหม่และการปรับปรุง!"
 }

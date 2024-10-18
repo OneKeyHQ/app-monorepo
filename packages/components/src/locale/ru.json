@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Аппаратный кошелек",
   "wallet__imported_accounts": "Счета с одной цепью",
   "wallet__wallet": "Бумажник",
-  "wallet__watched_accounts": "Просмотренные аккаунты"
+  "wallet__watched_accounts": "Просмотренные аккаунты",
+  "v4_to_v5_banner_text": "Вы используете OneKey v4, который больше не поддерживается. Переключитесь на <tag>OneKey v5</tag>, чтобы воспользоваться новыми функциями и улучшениями!"
 }

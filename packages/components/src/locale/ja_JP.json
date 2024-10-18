@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "ハードウェアウォレット",
   "wallet__imported_accounts": "シングルチェーンアカウント",
   "wallet__wallet": "ウォレット",
-  "wallet__watched_accounts": "閲覧用アカウント"
+  "wallet__watched_accounts": "閲覧用アカウント",
+  "v4_to_v5_banner_text": "現在、サポートが終了したOneKey v4を使用しています。新機能と改善を楽しむために、<tag>OneKey v5</tag>に切り替えてください！"
 }

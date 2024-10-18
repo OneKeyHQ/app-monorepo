@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Portefeuille matériel",
   "wallet__imported_accounts": "Comptes à chaîne unique",
   "wallet__wallet": "Portefeuille",
-  "wallet__watched_accounts": "Comptes surveillés"
+  "wallet__watched_accounts": "Comptes surveillés",
+  "v4_to_v5_banner_text": "Vous utilisez actuellement OneKey v4, qui n'est plus pris en charge. Passez à <tag>OneKey v5</tag> pour profiter de nouvelles fonctionnalités et améliorations !"
 }

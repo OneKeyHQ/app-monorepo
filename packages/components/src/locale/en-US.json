@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Single-chain Accounts",
   "wallet__wallet": "Wallet",
-  "wallet__watched_accounts": "Watch-only Accounts"
+  "wallet__watched_accounts": "Watch-only Accounts",
+  "v4_to_v5_banner_text": "You’re currently on OneKey v4, which is no longer supported. Switch to <tag>OneKey v5</tag> to enjoy new features and improvements!"
 }

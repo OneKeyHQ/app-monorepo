@@ -1,11 +1,18 @@
 import type { FC } from 'react';
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Text,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import Link from '@onekeyhq/components/src/Link';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
@@ -289,10 +296,63 @@ function WalletPreCheck() {
 }
 const WalletPreCheckMemo = memo(WalletPreCheck);
 
+const storageKey = '$onekey-webapp-v4-warning-closed-time';
+function V4Warning() {
+  const intl = useIntl();
+  const closedTime = localStorage.getItem(storageKey);
+  const [show, setShow] = useState(
+    // 检查是否显示警告:
+    // 如果没有关闭时间记录，或者上次关闭时间距今超过24小时，则显示警告
+    !closedTime || Date.now() - Number(closedTime) > 1000 * 60 * 60 * 24,
+  );
+  const renderLink = useCallback(
+    (chunks: string) => (
+      <Link href="https://1key.so/" color="text-highlight" fontWeight="bold">
+        {chunks}
+      </Link>
+    ),
+    [],
+  );
+  if (!show) {
+    return null;
+  }
+  return (
+    <Box
+      backgroundColor="surface-highlight-default"
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      px={8}
+      py={2}
+    >
+      <Text color="text-highlight">
+        {intl.formatMessage(
+          { id: 'v4_to_v5_banner_text' },
+          {
+            tag: renderLink,
+          },
+        )}
+      </Text>
+      <Button
+        type="plain"
+        size="sm"
+        onPress={() => {
+          setShow(false);
+          localStorage.setItem(storageKey, Date.now().toString());
+        }}
+      >
+        {intl.formatMessage({ id: 'action__close' })}
+      </Button>
+    </Box>
+  );
+}
+
 const Wallet = () => (
   <>
     <WalletPreCheckMemo />
     <Box flex={1}>
+      {platformEnv.isWeb ? <V4Warning /> : null}
       <IdentityAssertion>
         <WalletTabsMemo />
       </IdentityAssertion>

@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Hardware-Geldbörse",
   "wallet__imported_accounts": "Single-Chain-Konten",
   "wallet__wallet": "Brieftasche",
-  "wallet__watched_accounts": "Beobachtete Konten"
+  "wallet__watched_accounts": "Beobachtete Konten",
+  "v4_to_v5_banner_text": "Sie verwenden derzeit OneKey v4, das nicht mehr unterstützt wird. Wechseln Sie zu <tag>OneKey v5</tag>, um neue Funktionen und Verbesserungen zu genießen!"
 }

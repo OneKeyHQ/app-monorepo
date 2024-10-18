@@ -3001,5 +3001,6 @@
   "wallet__hardware_wallet": "Hardware Wallet",
   "wallet__imported_accounts": "Mga Single-chain na Account",
   "wallet__wallet": "wallet",
-  "wallet__watched_accounts": "Mga Napanood na Account"
+  "wallet__watched_accounts": "Mga Napanood na Account",
+  "v4_to_v5_banner_text": "Kasalukuyan kang gumagamit ng OneKey v4, na hindi na sinusuportahan. Lumipat sa <tag>OneKey v5</tag> upang ma-enjoy ang mga bagong tampok at pagpapabuti!"
 }
