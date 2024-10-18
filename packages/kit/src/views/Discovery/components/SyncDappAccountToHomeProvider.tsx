@@ -25,6 +25,10 @@ function SyncDappAccountToHomeCmp({
   );
   const isFirstVisitRef = useRef(isFirstVisit);
 
+  useEffect(() => {
+    isFirstVisitRef.current = isFirstVisit;
+  }, [isFirstVisit]);
+
   // Sync dApp account to home page
   useEffect(() => {
     const sync = async () => {
