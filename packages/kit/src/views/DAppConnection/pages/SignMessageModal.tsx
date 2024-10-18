@@ -269,7 +269,9 @@ function SignMessageModal() {
                     type: 'warning',
                     icon: 'InfoSquareSolid',
                     title: intl.formatMessage({
-                      id: ETranslations.dapp_connect_permit_sign_alert,
+                      id: isPermitSignMethod
+                        ? ETranslations.dapp_connect_permit_sign_alert
+                        : ETranslations.dapp_connect_order_alert,
                     }),
                   }
                 : undefined
