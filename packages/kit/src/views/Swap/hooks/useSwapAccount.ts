@@ -33,6 +33,7 @@ export function useSwapFromAccountNetworkSync() {
   const { activeAccount: toActiveAccount } = useActiveAccount({
     num: 1,
   });
+  const { activeAccount: fromActiveAccount } = useActiveAccount({ num: 0 });
   const [swapToAnotherAccount, setSwapToAnotherAccount] =
     useSwapToAnotherAccountAddressAtom();
   const [swapProviderSupportReceiveAddress] =
@@ -44,9 +45,14 @@ export function useSwapFromAccountNetworkSync() {
   const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>();
   const swapToAnotherAccountRef = useRef(swapToAnotherAccount);
   const swapToAccountRef = useRef(toActiveAccount);
+  const swapFromAccountRef = useRef(fromActiveAccount);
   if (swapToAccountRef.current !== toActiveAccount) {
     swapToAccountRef.current = toActiveAccount;
   }
+  if (swapFromAccountRef.current !== fromActiveAccount) {
+    swapFromAccountRef.current = fromActiveAccount;
+  }
+
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
@@ -78,31 +84,42 @@ export function useSwapFromAccountNetworkSync() {
           networkId: toTokenRef.current?.networkId,
         });
       }
-      if (
-        fromTokenRef.current &&
-        toTokenRef.current &&
-        ((swapToAnotherAccountRef.current?.networkId &&
-          toTokenRef.current?.networkId !==
-            swapToAnotherAccountRef.current?.networkId) ||
+      if (fromTokenRef.current && toTokenRef.current) {
+        if (
+          // 选择的 toToken 网络与当前账户网络不相同，需要重置
+          (swapToAnotherAccountRef.current?.networkId &&
+            toTokenRef.current?.networkId !==
+              swapToAnotherAccountRef.current?.networkId) ||
+          // 账户被清空，需要重置
           (!swapToAnotherAccountRef.current?.networkId &&
             !swapToAccountRef.current?.account &&
             swapToAccountRef.current?.wallet) ||
-          swapProviderSupportReceiveAddressRef.current === false)
-      ) {
-        setSettings((v) => ({
-          ...v,
-          swapToAnotherAccountSwitchOn: false,
-        }));
-        setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
-        // should wait account async finish
-        setTimeout(() => {
-          if (toTokenRef.current) {
-            void updateSelectedAccountNetwork({
-              num: 1,
-              networkId: toTokenRef.current?.networkId,
-            });
-          }
-        }, 500);
+          // 不支持 发送到不同地址的渠道商，需要重置
+          swapProviderSupportReceiveAddressRef.current === false ||
+          // 选择往 to 账户，但是没有确认，回到 swap 页面需要重置
+          (!swapToAnotherAccountRef.current.address &&
+            swapToAccountRef.current.account?.id !==
+              swapFromAccountRef.current.account?.id)
+        ) {
+          setSettings((v) => ({
+            ...v,
+            swapToAnotherAccountSwitchOn: false,
+          }));
+          setSwapToAnotherAccount((v) => ({ ...v, address: undefined }));
+          // should wait account async finish
+          setTimeout(() => {
+            if (
+              toTokenRef.current?.networkId &&
+              swapToAccountRef.current.network?.id &&
+              toTokenRef.current?.networkId !==
+                swapToAccountRef.current.network.id
+            )
+              void updateSelectedAccountNetwork({
+                num: 1,
+                networkId: toTokenRef.current?.networkId,
+              });
+          }, 500);
+        }
       }
     }, 100),
     [setSettings, updateSelectedAccountNetwork],
@@ -129,8 +146,10 @@ export function useSwapFromAccountNetworkSync() {
     }
   }, [
     checkTokenForAccountNetworkDebounce,
-    fromToken,
-    toToken,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
     swapProviderSupportReceiveAddress,
     pageType,
   ]);
@@ -148,8 +167,10 @@ export function useSwapFromAccountNetworkSync() {
     checkTokenForAccountNetworkDebounce,
     isFocused,
     pageType,
-    fromToken,
-    toToken,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
     swapProviderSupportReceiveAddress,
   ]);
 }

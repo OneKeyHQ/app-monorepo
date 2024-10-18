@@ -1447,6 +1447,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
     ) => {
       set(swapTypeSwitchAtom(), type);
+      this.cleanManualSelectQuoteProviders.call(set);
+      this.resetSwapSlippage.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -1491,6 +1493,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             });
             if (needChangeToToken) {
               set(swapSelectToTokenAtom(), needChangeToToken);
+              void this.syncNetworksSort.call(set, needChangeToToken.networkId);
             }
           }
         } else if (type === ESwapTabSwitchType.SWAP) {
@@ -1504,15 +1507,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (toToken?.networkId !== fromToken?.networkId) {
             if (
               !fromToken?.isNative &&
+              fromNetworkDefault?.fromToken &&
               fromNetworkDefault?.fromToken?.isNative
             ) {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
+              void this.syncNetworksSort.call(
+                set,
+                fromNetworkDefault.fromToken?.networkId,
+              );
             } else if (
               fromToken?.isNative &&
               fromNetworkDefault.toToken &&
               !fromNetworkDefault.toToken.isNative
             ) {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.toToken);
+              void this.syncNetworksSort.call(
+                set,
+                fromNetworkDefault?.toToken?.networkId,
+              );
             } else {
               set(swapSelectToTokenAtom(), undefined);
               set(swapSelectedToTokenBalanceAtom(), '');
