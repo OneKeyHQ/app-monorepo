@@ -104,8 +104,9 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const form = useForm({
     defaultValues: {
       nonce: canEditNonce
-        ? new BigNumber(unsignedTxs[0].nonce ?? 0).toFixed()
+        ? new BigNumber(currentNonce ?? 0).toFixed()
         : undefined,
+      data: dataContent,
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
