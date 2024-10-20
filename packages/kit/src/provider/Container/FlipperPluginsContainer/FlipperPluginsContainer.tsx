@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -14,7 +15,7 @@ export function FlipperPluginsContainer() {
       console.log('FlipperPluginsContainer realm ready');
       setRealmReady(true);
     };
-    if (global.$$realm) {
+    if (appGlobals.$$realm) {
       fn();
     }
     appEventBus.on(EAppEventBusNames.RealmInit, fn);
@@ -24,12 +25,12 @@ export function FlipperPluginsContainer() {
   }, []);
   const realmPlugin = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
-      if (realmReady && global.$$realm && platformEnv.isNative) {
+      if (realmReady && appGlobals.$$realm && platformEnv.isNative) {
         console.log('FlipperPluginsContainer render realm plugin');
         const RealmFlipperPlugin = (
           require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device')
         ).default;
-        return <RealmFlipperPlugin realms={[global.$$realm]} />;
+        return <RealmFlipperPlugin realms={[appGlobals.$$realm]} />;
       }
     }
     return null;

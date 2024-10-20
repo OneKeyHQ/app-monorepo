@@ -2,6 +2,7 @@
 import { flatten, uniqBy } from 'lodash';
 
 import { decryptVerifyString } from '@onekeyhq/core/src/secret';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
@@ -158,10 +159,10 @@ class ServiceV4Migration extends ServiceBase {
     );
     if (platformEnv.isNative) {
       console.log({
-        dbVersion: (await (global.$$localDbV4 as V4LocalDbRealm).readyDb)?.realm
-          ?.schemaVersion,
-        dbName: (await (global.$$localDbV4 as V4LocalDbRealm).readyDb)?.realm
-          ?.path,
+        dbVersion: (await (appGlobals.$$localDbV4 as V4LocalDbRealm).readyDb)
+          ?.realm?.schemaVersion,
+        dbName: (await (appGlobals.$$localDbV4 as V4LocalDbRealm).readyDb)
+          ?.realm?.path,
       });
     }
     return result;

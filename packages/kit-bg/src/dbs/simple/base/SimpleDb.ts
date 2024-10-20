@@ -1,6 +1,7 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -40,6 +41,8 @@ export class SimpleDb {
   browserHistory = new SimpleDbEntityBrowserHistory();
 
   accountSelector = new SimpleDbEntityAccountSelector();
+
+  appCleanup = new SimpleDbEntityAppCleanup();
 
   swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
 

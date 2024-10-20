@@ -11,10 +11,12 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import appGlobals from '../appGlobals';
+
 import type { IPrefType } from '../../types/desktop';
 
 const openUrlByWebview = (url: string, title?: string) => {
-  global.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+  appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.WebViewModal,
     params: {
       screen: EModalWebViewRoutes.WebView,

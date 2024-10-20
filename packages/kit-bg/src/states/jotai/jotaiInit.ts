@@ -1,5 +1,6 @@
 import { isNil, isPlainObject } from 'lodash';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 import { EAtomNames } from './atomNames';
@@ -128,7 +129,7 @@ export async function jotaiInit() {
   globalJotaiStorageReadyHandler.resolveReady(true);
 
   if (process.env.NODE_ENV !== 'production') {
-    global.$$allAtoms = allAtoms;
+    appGlobals.$$allAtoms = allAtoms;
   }
 
   return atoms;

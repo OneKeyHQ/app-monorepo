@@ -2,6 +2,7 @@
 
 // TODO: remove components from background.
 // import { Toast } from '@onekeyhq/components';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getBackgroundServiceApi,
@@ -135,11 +136,11 @@ export class BackgroundApiProxyBase
       };
       if (sync) {
         // call without Promise result
-        window.extJsBridgeUiToBg.requestSync({
+        appGlobals.extJsBridgeUiToBg.requestSync({
           data,
         });
       } else {
-        return window.extJsBridgeUiToBg.request({
+        return appGlobals.extJsBridgeUiToBg.request({
           data,
         });
       }

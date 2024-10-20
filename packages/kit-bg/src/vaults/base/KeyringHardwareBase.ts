@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
@@ -32,7 +33,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
-      await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
+      await appGlobals?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
     const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
 
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();
