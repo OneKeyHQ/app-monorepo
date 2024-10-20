@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { utils } from 'ethers';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -16,8 +18,12 @@ import {
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import {
+  useSendConfirmActions,
+  useUnsignedTxsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { checkIsEvmNativeTransfer } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -68,6 +74,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [settings] = useSettingsPersistAtom();
+  const { updateTxAdvancedSettings } = useSendConfirmActions().current;
 
   const [shouldShowSettings, setShouldShowSettings] = useState<boolean>(false);
 
@@ -99,66 +106,145 @@ function TxAdvancedSettingsContainer(props: IProps) {
     [settings.isCustomNonceEnabled, unsignedTxs, vaultSettings?.canEditNonce],
   );
 
-  const currentNonce = unsignedTxs[0].nonce;
+  const canEditData = useMemo(
+    () =>
+      unsignedTxs.length === 1 &&
+      checkIsEvmNativeTransfer({
+        tx: unsignedTxs[0].encodedTx as IEncodedTxEvm,
+      }),
+    [unsignedTxs],
+  );
+
+  const currentNonce = new BigNumber(unsignedTxs[0].nonce ?? 0).toFixed();
 
   const form = useForm({
     defaultValues: {
-      nonce: canEditNonce
-        ? new BigNumber(currentNonce ?? 0).toFixed()
-        : undefined,
+      nonce: currentNonce,
       data: dataContent,
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
 
-  const handleValidateNonce = useCallback(() => {}, []);
-  const handleValidateData = useCallback(() => {}, []);
+  const handleValidateNonce = useCallback(
+    async (value: string) => {
+      if (value === '') {
+        return true;
+      }
+
+      const nonceBN = new BigNumber(value ?? 0);
+      if (nonceBN.isLessThan(currentNonce)) {
+        return intl.formatMessage({
+          id: ETranslations.global_nonce_error_lower,
+        });
+      }
+
+      const pendingTxsNonceList =
+        await backgroundApiProxy.serviceHistory.getAccountLocalPendingTxsNonceList(
+          {
+            accountId,
+            networkId,
+          },
+        );
+
+      if (pendingTxsNonceList.includes(nonceBN.toNumber())) {
+        return intl.formatMessage({
+          id: ETranslations.global_nonce_error_lower,
+        });
+      }
+
+      if (nonceBN.isGreaterThan(currentNonce)) {
+        return intl.formatMessage({
+          id: ETranslations.global_nonce_error_higher,
+        });
+      }
+
+      return true;
+    },
+    [accountId, currentNonce, intl, networkId],
+  );
+  const handleValidateData = useCallback(
+    (value: string) => {
+      if (
+        checkIsEvmNativeTransfer({
+          tx: {
+            data: value,
+          } as IEncodedTxEvm,
+        })
+      ) {
+        return true;
+      }
+
+      if (!utils.isHexString(value)) {
+        return intl.formatMessage({
+          id: ETranslations.global_hex_data_error,
+        });
+      }
+
+      return true;
+    },
+    [intl],
+  );
+
+  const handleDataOnChange = useDebouncedCallback(
+    (e: { target: { name: string; value: string } }) => {
+      const value = e.target?.value;
+      if (!form.getFieldState('data').invalid) {
+        updateTxAdvancedSettings({ data: value });
+      }
+    },
+    1000,
+  );
 
   const renderAdvancedSettings = useCallback(
     () => (
       <Form form={form}>
-        <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.global_nonce,
-          })}
-          name="nonce"
-          rules={{
-            min: 0,
-            required: true,
-            validate: handleValidateNonce,
-            onChange: (e: { target: { name: string; value: string } }) => {
-              const value = e.target?.value;
-              const valueBN = new BigNumber(value ?? 0);
-              if (!valueBN.isInteger() || valueBN.isNegative()) {
-                return;
-              }
-              form.setValue('nonce', valueBN.toFixed());
-            },
-          }}
-          description={intl.formatMessage(
-            {
-              id: ETranslations.global_nonce_desc,
-            },
-            {
-              'amount': currentNonce,
-            },
-          )}
-          labelAddon={
-            <Button
-              size="small"
-              variant="tertiary"
-              icon="WalletOutline"
-              onPress={() => showNonceFaq()}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_nonce_faq,
-              })}
-            </Button>
-          }
-        >
-          <Input flex={1} />
-        </Form.Field>
+        {canEditNonce ? (
+          <Form.Field
+            label={intl.formatMessage({
+              id: ETranslations.global_nonce,
+            })}
+            name="nonce"
+            rules={{
+              validate: handleValidateNonce,
+              onChange: (e: { target: { name: string; value: string } }) => {
+                const value = e.target?.value;
+                const valueBN = new BigNumber(value ?? 0);
+                if (
+                  valueBN.isNaN() ||
+                  !valueBN.isInteger() ||
+                  valueBN.isNegative()
+                ) {
+                  return;
+                }
+                form.setValue('nonce', valueBN.toFixed());
+                updateTxAdvancedSettings({ nonce: valueBN.toFixed() });
+              },
+            }}
+            description={intl.formatMessage(
+              {
+                id: ETranslations.global_nonce_desc,
+              },
+              {
+                'amount': currentNonce,
+              },
+            )}
+            labelAddon={
+              <Button
+                size="small"
+                variant="tertiary"
+                icon="WalletOutline"
+                onPress={() => showNonceFaq()}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_nonce_faq,
+                })}
+              </Button>
+            }
+          >
+            <Input flex={1} placeholder={currentNonce} />
+          </Form.Field>
+        ) : null}
         <Form.Field
           label={intl.formatMessage({
             id: ETranslations.global_hex_data,
@@ -166,6 +252,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
           name="data"
           rules={{
             validate: handleValidateData,
+            onChange: handleDataOnChange,
           }}
           labelAddon={
             <Button
@@ -180,11 +267,21 @@ function TxAdvancedSettingsContainer(props: IProps) {
             </Button>
           }
         >
-          <TextAreaInput flex={1} />
+          <TextAreaInput editable={canEditData} flex={1} />
         </Form.Field>
       </Form>
     ),
-    [currentNonce, form, handleValidateData, handleValidateNonce, intl],
+    [
+      canEditData,
+      canEditNonce,
+      currentNonce,
+      form,
+      handleDataOnChange,
+      handleValidateData,
+      handleValidateNonce,
+      intl,
+      updateTxAdvancedSettings,
+    ],
   );
 
   if (!canEditNonce && dataContent === '') {

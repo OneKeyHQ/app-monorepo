@@ -114,3 +114,12 @@ export const { atom: tokenApproveInfoAtom, use: useTokenApproveInfoAtom } =
     allowance: '',
     isUnlimited: false,
   });
+
+export const { atom: txAdvancedSettingsAtom, use: useTxAdvancedSettingsAtom } =
+  contextAtom<{
+    nonce: string;
+    data: string;
+  }>({
+    nonce: '',
+    data: '',
+  });

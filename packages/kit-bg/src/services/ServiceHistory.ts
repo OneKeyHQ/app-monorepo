@@ -861,6 +861,29 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getAccountLocalPendingTxsNonceList(params: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId } = params;
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+    return this.backgroundApi.simpleDb.localHistory.getPendingNonceList({
+      networkId,
+      accountAddress,
+      xpub,
+    });
+  }
+
+  @backgroundMethod()
   public async saveSendConfirmHistoryTxs(params: {
     networkId: string;
     accountId: string;
