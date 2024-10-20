@@ -291,6 +291,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
+      {/* Re-render the entire list after each text update */}
       {isPending ? null : renderSections}
     </Stack>
   );
