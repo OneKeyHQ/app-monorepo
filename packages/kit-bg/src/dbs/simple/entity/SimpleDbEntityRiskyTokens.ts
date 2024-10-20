@@ -18,7 +18,7 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
 
   @backgroundMethod()
   async addConfirmedRiskTokens(tokens: string[]) {
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       confirmedRiskTokens: Array.from(
         new Set([...(rawData?.confirmedRiskTokens ?? []), ...tokens]),
       ),

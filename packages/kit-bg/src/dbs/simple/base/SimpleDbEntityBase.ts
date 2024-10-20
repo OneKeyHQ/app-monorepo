@@ -2,10 +2,8 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorageInstance from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
-import type WebStorage from '@onekeyhq/shared/src/storage/WebStorage';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
@@ -85,8 +83,8 @@ abstract class SimpleDbEntityBase<T> {
   async setRawData(
     dataOrBuilder:
       | T
-      | ((options: { rawData: T | null | undefined }) => T)
-      | ((options: { rawData: T | null | undefined }) => Promise<T>),
+      | ((rawData: T | null | undefined) => T)
+      | ((rawData: T | null | undefined) => Promise<T>),
   ) {
     return this.mutex.runExclusive(async () => {
       const updatedAt = Date.now();
@@ -94,7 +92,7 @@ abstract class SimpleDbEntityBase<T> {
 
       if (isFunction(dataOrBuilder)) {
         const rawData = await this.getRawData();
-        data = await dataOrBuilder({ rawData });
+        data = await dataOrBuilder(rawData);
       } else {
         data = dataOrBuilder;
       }

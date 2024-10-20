@@ -41,7 +41,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     value: string;
     currency: string;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data = { ...rawData?.data };
       if (data[accountId]) {
         data[accountId].value = value;
@@ -65,13 +65,13 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     updateAll?: boolean;
   }) {
     if (updateAll) {
-      await this.setRawData(({ rawData }) => {
+      await this.setRawData((rawData) => {
         const all = { ...rawData?.all };
         all[accountId] = { value, currency };
         return { all, data: { ...rawData?.data } };
       });
     } else {
-      await this.setRawData(({ rawData }) => {
+      await this.setRawData((rawData) => {
         const all = { ...rawData?.all };
         all[accountId] = {
           value: {

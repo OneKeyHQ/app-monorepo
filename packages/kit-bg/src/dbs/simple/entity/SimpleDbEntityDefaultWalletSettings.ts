@@ -19,7 +19,7 @@ export class SimpleDbEntityDefaultWalletSettings extends SimpleDbEntityBase<IDef
   override enableCache = false;
 
   async setIsDefaultWallet(isDefaultWallet: boolean) {
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       if (!rawData) {
         return {
           isDefaultWallet,
@@ -34,7 +34,7 @@ export class SimpleDbEntityDefaultWalletSettings extends SimpleDbEntityBase<IDef
   }
 
   async addExcludeDapp(dappOrigin: string) {
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       if (!rawData) {
         return {
           isDefaultWallet: true,
@@ -54,7 +54,7 @@ export class SimpleDbEntityDefaultWalletSettings extends SimpleDbEntityBase<IDef
   }
 
   async removeExcludeDapp(dappOrigin: string) {
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       if (!rawData) {
         return {
           isDefaultWallet: true,
