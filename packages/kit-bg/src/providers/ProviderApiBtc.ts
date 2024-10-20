@@ -22,10 +22,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  ISendBitcoinParams,
-  ISignMessageParams,
-  ISwitchNetworkParams,
+import {
+  BtcDappUniSetChainTypes,
+  EBtcDappUniSetChainTypeEnum,
+  type ISendBitcoinParams,
+  type ISignMessageParams,
+  type ISwitchNetworkParams,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 import type {
   IPushPsbtParams,
@@ -186,15 +188,95 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Unrecognized network ${networkName}.`,
       });
     }
-    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-      oldNetworkId,
-      newNetworkId: networkId,
-    });
-    this.notifyNetworkChangedToDappSite(request.origin ?? '');
+    try {
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        oldNetworkId,
+        newNetworkId: networkId,
+      });
+      this.notifyNetworkChangedToDappSite(request.origin ?? '');
+    } catch (e: any) {
+      const { message } = e || {};
+      throw web3Errors.provider.custom({
+        code: 4000,
+        message: message ?? 'Switch network failed',
+      });
+    }
     const network = await this.getNetwork(request);
     return network;
+  }
+
+  @providerApiMethod()
+  public async getChain(request: IJsBridgeMessagePayload) {
+    try {
+      const networks =
+        await this.backgroundApi.serviceDApp.getConnectedNetworks({
+          origin: request.origin ?? '',
+          scope: request.scope ?? this.providerName,
+        });
+      if (Array.isArray(networks) && networks.length) {
+        return await networkUtils.getBtcDappUniSetChainName(networks[0]);
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  @providerApiMethod()
+  public async switchChain(
+    request: IJsBridgeMessagePayload,
+    params: { chain: EBtcDappUniSetChainTypeEnum },
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      return;
+    }
+    const { accountInfo: { networkId: oldNetworkId } = {} } = accountsInfo[0];
+
+    if (!oldNetworkId) {
+      return undefined;
+    }
+
+    let networkId;
+    if (params.chain === EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET) {
+      networkId = getNetworkIdsMap().btc;
+    } else if (params.chain === EBtcDappUniSetChainTypeEnum.BITCOIN_TESTNET) {
+      networkId = getNetworkIdsMap().tbtc;
+    } else if (params.chain === EBtcDappUniSetChainTypeEnum.BITCOIN_SIGNET) {
+      networkId = getNetworkIdsMap().sbtc;
+    }
+
+    if (!networkId) {
+      throw web3Errors.provider.custom({
+        code: 4000,
+        message: `Unrecognized network ${params.chain}.`,
+      });
+    }
+
+    const chain = BtcDappUniSetChainTypes[params.chain];
+
+    try {
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+        oldNetworkId,
+        newNetworkId: networkId,
+      });
+      this.notifyNetworkChangedToDappSite(request.origin ?? '');
+      return chain;
+    } catch (e: any) {
+      const { message } = e || {};
+      throw web3Errors.provider.custom({
+        code: 4000,
+        message: message ?? 'Switch network failed',
+      });
+    }
   }
 
   @providerApiMethod()
