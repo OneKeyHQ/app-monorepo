@@ -141,10 +141,7 @@ function SignMessageModal() {
 
   const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
   const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
-  const isRiskSignMethod =
-    isEthSignType({ unsignedMessage }) ||
-    isPermitSignMethod ||
-    isOrderSignMethod;
+  const isRiskSignMethod = isEthSignType({ unsignedMessage });
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
