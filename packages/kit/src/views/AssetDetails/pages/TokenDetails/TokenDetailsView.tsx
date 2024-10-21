@@ -19,6 +19,8 @@ function TokenDetailsViews(props: IProps) {
     props;
 
   const intl = useIntl();
+  const [overviewInit, setOverviewInit] = useState(false);
+  const [historyInit, setHistoryInit] = useState(false);
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
@@ -60,8 +62,19 @@ function TokenDetailsViews(props: IProps) {
   }
   return (
     <>
-      <TokenDetailsHeader {...props} accountId={currentAccountId} />
-      <TokenDetailsHistory {...props} accountId={currentAccountId} />
+      <TokenDetailsHeader
+        {...props}
+        accountId={currentAccountId}
+        setOverviewInit={setOverviewInit}
+        overviewInit={overviewInit}
+        historyInit={historyInit}
+      />
+      <TokenDetailsHistory
+        {...props}
+        accountId={currentAccountId}
+        setHistoryInit={setHistoryInit}
+        historyInit={historyInit}
+      />
     </>
   );
 }

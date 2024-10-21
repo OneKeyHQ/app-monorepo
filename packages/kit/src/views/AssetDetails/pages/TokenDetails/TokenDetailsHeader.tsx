@@ -41,7 +41,13 @@ function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
   );
 }
 
-function TokenDetailsHeader(props: IProps) {
+function TokenDetailsHeader(
+  props: IProps & {
+    setOverviewInit: (value: boolean) => void;
+    overviewInit: boolean;
+    historyInit: boolean;
+  },
+) {
   const {
     accountId,
     networkId,
@@ -51,6 +57,9 @@ function TokenDetailsHeader(props: IProps) {
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
+    setOverviewInit,
+    overviewInit,
+    historyInit,
   } = props;
   const navigation = useAppNavigation();
 
@@ -70,6 +79,11 @@ function TokenDetailsHeader(props: IProps) {
     deriveType,
   });
 
+  const initialized = useMemo(
+    () => overviewInit && historyInit,
+    [overviewInit, historyInit],
+  );
+
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
       async () => {
@@ -79,9 +93,10 @@ function TokenDetailsHeader(props: IProps) {
             networkId,
             contractList: [tokenInfo.address],
           });
+        setOverviewInit(true);
         return tokensDetails[0];
       },
-      [accountId, networkId, tokenInfo.address],
+      [accountId, networkId, setOverviewInit, tokenInfo.address],
       {
         watchLoading: true,
       },
@@ -216,16 +231,17 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                disabled={!initialized}
               />
             </ReviewControl>
 
             <RawActions.Swap
               onPress={handleOnSwap}
-              disabled={disableSwapAction}
+              disabled={disableSwapAction || !initialized}
             />
             <RawActions.Bridge
               onPress={handleOnBridge}
-              disabled={disableSwapAction}
+              disabled={disableSwapAction || !initialized}
             />
             <ReviewControl>
               <ActionSell
@@ -233,13 +249,17 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                disabled={!initialized}
               />
             </ReviewControl>
           </ActionsRowContainer>
           <ActionsRowContainer>
-            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Send
+              onPress={handleSendPress}
+              disabled={!initialized}
+            />
             <RawActions.Receive
-              disabled={isReceiveDisabled}
+              disabled={isReceiveDisabled || !initialized}
               onPress={() => handleOnReceive(tokenInfo)}
             />
             <Stack
