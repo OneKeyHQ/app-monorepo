@@ -1,5 +1,10 @@
+import { ANALYTICS_EVENT_PATH } from '@onekeyhq/shared/src/analytics';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
+
+export const isEnableLogNetwork = (path = '') =>
+  !path.includes(ANALYTICS_EVENT_PATH);
 
 export class NetworkScene extends BaseScene {
   @LogToLocal({ level: 'debug' })

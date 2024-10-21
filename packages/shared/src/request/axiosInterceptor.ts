@@ -11,6 +11,7 @@ import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
+import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 import platformEnv from '../platformEnv';
 
 import {
@@ -29,7 +30,9 @@ axios.interceptors.request.use(async (config) => {
     const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
 
     if (!isOneKeyDomain) {
-      defaultLogger.app.network.start('axios', config.method, config.url);
+      if (isEnableLogNetwork(config.url)) {
+        defaultLogger.app.network.start('axios', config.method, config.url);
+      }
       return config;
     }
   } catch (e) {
@@ -41,12 +44,14 @@ axios.interceptors.request.use(async (config) => {
     config.headers[key] = val;
   });
 
-  defaultLogger.app.network.start(
-    'axios',
-    config.method,
-    config.url,
-    headers[HEADER_REQUEST_ID_KEY],
-  );
+  if (isEnableLogNetwork(config.url)) {
+    defaultLogger.app.network.start(
+      'axios',
+      config.method,
+      config.url,
+      headers[HEADER_REQUEST_ID_KEY],
+    );
+  }
   return config;
 });
 
@@ -57,14 +62,16 @@ axios.interceptors.response.use(
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
       if (!isOneKeyDomain) {
-        defaultLogger.app.network.end({
-          requestType: 'axios',
-          method: config.method as string,
-          path: config.url as string,
-          statusCode: response.status,
-          requestId: config.headers[HEADER_REQUEST_ID_KEY],
-          responseCode: response.data.code,
-        });
+        if (isEnableLogNetwork(config.url)) {
+          defaultLogger.app.network.end({
+            requestType: 'axios',
+            method: config.method as string,
+            path: config.url as string,
+            statusCode: response.status,
+            requestId: config.headers[HEADER_REQUEST_ID_KEY],
+            responseCode: response.data.code,
+          });
+        }
         return response;
       }
     } catch (e) {
@@ -72,10 +79,6 @@ axios.interceptors.response.use(
     }
 
     const data = response.data as IOneKeyAPIBaseResponse;
-
-    // test code
-    // data.code = 4485;
-    // data.message = 'hhhh';
 
     if (data.code !== 0) {
       const requestIdKey = HEADER_REQUEST_ID_KEY;
@@ -92,15 +95,17 @@ axios.interceptors.response.use(
         requestId: `RequestId: ${config.headers[requestIdKey] as string}`,
       });
     }
-    defaultLogger.app.network.end({
-      requestType: 'axios',
-      method: config.method as string,
-      path: config.url as string,
-      statusCode: response.status,
-      requestId: config.headers[HEADER_REQUEST_ID_KEY],
-      responseCode: data.code,
-      responseErrorMessage: data.code !== 0 ? data.message : '',
-    });
+    if (isEnableLogNetwork(config.url)) {
+      defaultLogger.app.network.end({
+        requestType: 'axios',
+        method: config.method as string,
+        path: config.url as string,
+        statusCode: response.status,
+        requestId: config.headers[HEADER_REQUEST_ID_KEY],
+        responseCode: data.code,
+        responseErrorMessage: data.code !== 0 ? data.message : '',
+      });
+    }
     return response;
   },
   async (error) => {
