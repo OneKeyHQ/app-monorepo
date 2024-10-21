@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -86,6 +87,9 @@ class ServiceFiatCrypto extends ServiceBase {
   ): Promise<IFiatCryptoToken[]> {
     const { networkId, accountId } = params;
     let address: string | undefined;
+    const walletId = accountId
+      ? accountUtils.getWalletIdFromAccountId({ accountId })
+      : undefined;
     if (accountId && !networkUtils.isAllNetwork({ networkId })) {
       address = await this.backgroundApi.serviceAccount.getAccountAddressForApi(
         {
@@ -94,12 +98,22 @@ class ServiceFiatCrypto extends ServiceBase {
         },
       );
     }
-    const result = await this._getTokensList({
+    let result = await this._getTokensList({
       networkId,
       address,
       type: params.type,
     });
     defaultLogger.fiatCrypto.request.getTokensList({ params, result });
+    if (walletId) {
+      const { networkIdsIncompatible } =
+        await this.backgroundApi.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          { walletId },
+        );
+      if (networkIdsIncompatible.length > 0) {
+        const incompatibleSet = new Set(networkIdsIncompatible);
+        result = result.filter((o) => !incompatibleSet.has(o.networkId));
+      }
+    }
     return result;
   }
 
