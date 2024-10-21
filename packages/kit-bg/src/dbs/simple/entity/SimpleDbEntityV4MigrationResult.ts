@@ -66,7 +66,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     if (!v4walletId || !v5walletId) {
       return;
     }
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       const v4: IV4MigrationResultDetailV4 = rawData?.migrated?.v4 ?? {};
       const v5: IV4MigrationResultDetailV4 = rawData?.migrated?.v5 ?? {};
       return {
@@ -101,7 +101,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
     if (!v4accountId || !v5accountId) {
       return;
     }
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       const v4: IV4MigrationResultDetailV4 = rawData?.migrated?.v4 ?? {};
       const v5: IV4MigrationResultDetailV4 = rawData?.migrated?.v5 ?? {};
       return {
@@ -131,7 +131,7 @@ export class SimpleDbEntityV4MigrationResult extends SimpleDbEntityBase<IV4Migra
   }: {
     v5indexedAccountId: string;
   }) {
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       const v4: IV4MigrationResultDetailV4 = rawData?.migrated?.v4 ?? {};
       const v5: IV4MigrationResultDetailV5 = rawData?.migrated?.v5 ?? {};
       return {

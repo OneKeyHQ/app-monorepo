@@ -12,6 +12,7 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -99,6 +100,10 @@ class BackgroundApiProxy
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
 
   serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
+
+  serviceAppCleanup = this._createProxyService(
+    'serviceAppCleanup',
+  ) as ServiceAppCleanup;
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 

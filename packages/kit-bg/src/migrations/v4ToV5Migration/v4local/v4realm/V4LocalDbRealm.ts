@@ -1,6 +1,7 @@
 // eslint-disable-next-line max-classes-per-file
 import Realm from 'realm';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
@@ -52,7 +53,7 @@ export class V4LocalDbRealm extends V4LocalDbBase {
       },
     });
     if (process.env.NODE_ENV !== 'production') {
-      global.$$realm = realm;
+      appGlobals.$$realmV4 = realm;
       setTimeout(() => {
         appEventBus.emit(EAppEventBusNames.V4RealmInit, undefined);
       }, 3000);

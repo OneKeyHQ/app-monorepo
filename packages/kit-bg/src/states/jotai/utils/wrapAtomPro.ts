@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,7 +31,7 @@ export function wrapAtomPro(
     set: IJotaiSetter;
   }) => {
     if (proxyToBg && platformEnv.isExtensionUi) {
-      await global.$jotaiBgSync.proxyStateUpdateActionFromUiToBg({
+      await appGlobals.$jotaiBgSync?.proxyStateUpdateActionFromUiToBg({
         name,
         payload,
       });
@@ -38,7 +39,7 @@ export function wrapAtomPro(
     }
     await set(baseAtom, payload);
     if (platformEnv.isExtensionBackground) {
-      await global.$jotaiBgSync.broadcastStateUpdateFromBgToUi({
+      await appGlobals.$jotaiBgSync?.broadcastStateUpdateFromBgToUi({
         name,
         payload,
       });

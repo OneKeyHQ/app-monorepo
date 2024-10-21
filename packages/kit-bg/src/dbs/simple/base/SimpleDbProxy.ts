@@ -5,6 +5,7 @@ import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBas
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -53,6 +54,10 @@ export class SimpleDbProxy
   browserTabs = this._createProxyService(
     'browserTabs',
   ) as SimpleDbEntityBrowserTabs;
+
+  appCleanup = this._createProxyService(
+    'appCleanup',
+  ) as SimpleDbEntityAppCleanup;
 
   browserBookmarks = this._createProxyService(
     'browserBookmarks',

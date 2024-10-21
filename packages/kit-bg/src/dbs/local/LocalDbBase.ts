@@ -449,12 +449,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getCredentials(): Promise<IDBCredentialBase[]> {
+  async getAllCredentials(): Promise<IDBCredentialBase[]> {
     const db = await this.readyDb;
     const { records: credentials } = await db.getAllRecords({
       name: ELocalDBStoreNames.Credential,
     });
     return credentials;
+  }
+
+  async removeCredentials({
+    credentials,
+  }: {
+    credentials: IDBCredentialBase[];
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        ids: credentials.map((item) => item.id),
+      });
+    });
   }
 
   async getCredential(credentialId: string): Promise<IDBCredentialBase> {
@@ -817,9 +832,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (wallet) {
       // TODO performance
-      const { records } = await db.getAllRecords({
-        name: ELocalDBStoreNames.IndexedAccount,
-      });
+      const { indexedAccounts: records } = await this.getAllIndexedAccounts();
       console.log('getIndexedAccountsOfWallet', records);
       accounts = records.filter((item) => item.walletId === walletId);
     }
@@ -2483,10 +2496,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!wallet) {
       return { accounts: [] };
     }
-    const { records: accounts } = await db.getAllRecords({
-      name: ELocalDBStoreNames.Account,
-      ids: wallet.accounts, // filter by ids for better performance
+    const { accounts } = await this.getAllAccounts({
+      ids: wallet.accounts, // // filter by ids for better performance
     });
+
     return {
       accounts: accounts
         .filter(
@@ -2511,9 +2524,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccountId: string;
   }) {
     const db = await this.readyDb;
-    const { records: accounts } = await db.getAllRecords({
-      name: ELocalDBStoreNames.Account,
-    });
+    const { accounts } = await this.getAllAccounts();
     return accounts
       .filter(
         (account) =>
@@ -2594,12 +2605,100 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async getAllIndexedAccounts() {
+    const { records: indexedAccounts } = await this.getAllRecords({
+      name: ELocalDBStoreNames.IndexedAccount,
+    });
+    return { indexedAccounts };
+  }
+
   async getAllAccounts({ ids }: { ids?: string[] } = {}) {
     const { records: accounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.Account,
       ids,
     });
     return { accounts };
+  }
+
+  async removeIndexedAccounts({
+    indexedAccounts,
+  }: {
+    indexedAccounts: IDBIndexedAccount[];
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: indexedAccounts.map((item) => item.id),
+      });
+    });
+  }
+
+  // TODO remove associated account
+  async removeIndexedAccount({
+    indexedAccountId,
+    walletId,
+  }: {
+    indexedAccountId: string;
+    walletId: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: [indexedAccountId],
+      });
+    });
+  }
+
+  async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
+    const db = await this.readyDb;
+    const walletToRemovedAccountsMap: Record<string, string[]> = {};
+
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: accounts.map((item) => {
+          const accountId = item.id;
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId,
+          });
+
+          if (walletId) {
+            walletToRemovedAccountsMap[walletId] = [
+              ...(walletToRemovedAccountsMap[walletId] || []),
+              accountId,
+            ];
+          }
+          return accountId;
+        }),
+      });
+    });
+
+    const mapEntries = Object.entries(walletToRemovedAccountsMap);
+    if (mapEntries.length > 0) {
+      await db.withTransaction(async (tx) => {
+        for (const [walletId, accountIds] of mapEntries) {
+          if (!walletId || !accountIds || accountIds.length === 0) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          await this.txUpdateWallet({
+            tx,
+            walletId,
+            updater: (wallet) => {
+              wallet.accounts = (wallet.accounts || []).filter(
+                (id) => !accountIds.includes(id),
+              );
+              return wallet;
+            },
+          });
+        }
+      });
+    }
   }
 
   async removeAccount({
@@ -2637,24 +2736,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ids: [accountId],
         });
       }
-    });
-  }
-
-  // TODO remove associated account
-  async removeIndexedAccount({
-    indexedAccountId,
-    walletId,
-  }: {
-    indexedAccountId: string;
-    walletId: string;
-  }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.IndexedAccount,
-        ids: [indexedAccountId],
-      });
     });
   }
 

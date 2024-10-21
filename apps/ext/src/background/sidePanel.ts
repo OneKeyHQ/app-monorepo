@@ -1,3 +1,4 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -72,7 +73,7 @@ export const setupSidePanelPortInUI = () => {
         case 'pushModal':
           {
             const { screen, params } = payload.modalParams;
-            global.$navigationRef.current?.navigate(screen, params);
+            appGlobals.$navigationRef.current?.navigate(screen, params);
           }
           break;
         default:

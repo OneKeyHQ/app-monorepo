@@ -2,6 +2,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
 import '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
@@ -61,7 +62,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     jotaiBgSync.setBackgroundApi(this as any);
     this.allAtoms = jotaiInit();
     if (process.env.NODE_ENV !== 'production') {
-      global.$$backgroundApi = this as any;
+      appGlobals.$$backgroundApi = this as any;
     }
     // this.startDemoNowTimeUpdateInterval();
     appEventBus.registerBroadcastMethods(

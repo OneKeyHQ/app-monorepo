@@ -13,6 +13,7 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
@@ -96,7 +97,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
       'JotaiContextRootProvidersAutoMount mapEntries:',
       mapEntries,
       getJotaiContextTrackerMap(),
-      global.$$jotaiContextStore,
+      appGlobals.$$jotaiContextStore,
     );
   }
   return (

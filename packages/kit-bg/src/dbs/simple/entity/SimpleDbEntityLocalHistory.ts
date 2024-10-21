@@ -432,7 +432,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   @backgroundMethod()
   async clearLocalHistoryPendingTxs() {
-    return this.setRawData(({ rawData }) => {
+    return this.setRawData((rawData) => {
       const confirmedTxs = rawData?.confirmedTxs || {};
       return {
         ...(rawData ?? {}),

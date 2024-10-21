@@ -1,33 +1,35 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+
 import type { IAdaSdk, IEnsureSDKReady, IGetCardanoApi } from './types';
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 
 const composeTxPlan = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.composeTxPlan(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.composeTxPlan(...args);
 
 const signTransaction = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.signTransaction(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.signTransaction(...args);
 
 const hwSignTransaction = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.hwSignTransaction(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.hwSignTransaction(...args);
 
 const txToOneKey = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.txToOneKey(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.txToOneKey(...args);
 
 const dAppGetBalance = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.dAppGetBalance(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.dAppGetBalance(...args);
 
 const dAppGetAddresses = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.dAppGetAddresses(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.dAppGetAddresses(...args);
 
 const dAppGetUtxos = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.dAppGetUtxos(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.dAppGetUtxos(...args);
 
 const dAppConvertCborTxToEncodeTx = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.dAppConvertCborTxToEncodeTx(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.dAppConvertCborTxToEncodeTx(...args);
 
 const dAppSignData = async (...args: any[]) =>
-  global.$offscreenApiProxy.adaSdk.dAppSignData(...args);
+  appGlobals.$offscreenApiProxy.adaSdk.dAppSignData(...args);
 
 const getCardanoApi: IGetCardanoApi = async () =>
   Promise.resolve({

@@ -14,7 +14,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
 
   @backgroundMethod()
   async addCustomRpc({ rpcInfo }: { rpcInfo: IDBCustomRpc }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
@@ -35,7 +35,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
 
   @backgroundMethod()
   async deleteCustomRpc(networkId: string) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
@@ -50,7 +50,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
     enabled: boolean;
   }): Promise<void> {
     const { networkId, enabled } = params;
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomRpcDBStruct = {
         data: { ...(rawData?.data || {}) },
       };

@@ -50,7 +50,7 @@ export class V4SimpleDb {
 // }
 
 // if (process.env.NODE_ENV !== 'production') {
-//   global.$$simpleDbV4 = v4simpleDb;
+//   appGlobals.$$simpleDbV4 = v4simpleDb;
 // }
 
 // export default v4simpleDb;

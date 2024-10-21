@@ -1,6 +1,7 @@
 import { createStore } from 'jotai';
 
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 
 import type { IJotaiContextStore } from './createJotaiContext';
@@ -49,11 +50,11 @@ class JotaiContextStore {
 
 const jotaiContextStore = new JotaiContextStore();
 if (process.env.NODE_ENV !== 'production') {
-  global.$$jotaiContextStore = jotaiContextStore;
-  global.$$jotaiContextStorePrint = () => {
-    console.log(global.$$jotaiContextStore);
+  appGlobals.$$jotaiContextStore = jotaiContextStore;
+  appGlobals.$$jotaiContextStorePrint = () => {
+    console.log(appGlobals.$$jotaiContextStore);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    global.$$allAtoms.jotaiContextStoreMapAtom.get().then(console.log);
+    appGlobals.$$allAtoms.jotaiContextStoreMapAtom.get().then(console.log);
   };
 }
 export { jotaiContextStore };

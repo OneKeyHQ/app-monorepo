@@ -2,6 +2,8 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
+import appGlobals from '../appGlobals';
+
 import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
@@ -24,9 +26,9 @@ export const mockStorage = mockStorageInstance;
  */
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appStorage = appStorage;
+  appGlobals.$$appStorage = appStorage;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$$appStorage.print = createPrintMethod({ storage: appStorage });
+  appGlobals.$$appStorage.print = createPrintMethod({ storage: appStorage });
 }
 
 export default buildAppStorageFactory(appStorage);

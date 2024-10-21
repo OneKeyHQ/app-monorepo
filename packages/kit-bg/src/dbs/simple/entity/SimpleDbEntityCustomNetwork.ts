@@ -18,7 +18,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
   @backgroundMethod()
   async upsertCustomNetwork(params: { networkInfo: IServerNetwork }) {
     const { networkInfo } = params;
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
@@ -37,7 +37,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
   @backgroundMethod()
   async deleteCustomNetwork(params: { networkId: string }) {
     const { networkId } = params;
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
@@ -67,7 +67,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
     status: ENetworkStatus;
   }) {
     const { networkId, status } = params;
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
         data: { ...(rawData?.data || {}) },
       };

@@ -22,6 +22,8 @@ import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
 import { setupSidePanelPortInBg } from '../background/sidePanel';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+
 function initBackground() {
   // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
@@ -104,8 +106,8 @@ if (!platformEnv.isManifestV3) {
   );
 }
 
-global.$offscreenApiProxy = offscreenApiProxy;
+appGlobals.$offscreenApiProxy = offscreenApiProxy;
 if (process.env.NODE_ENV !== 'production') {
-  void global.$offscreenApiProxy.adaSdk.sayHello().then(console.log);
+  void appGlobals.$offscreenApiProxy.adaSdk.sayHello().then(console.log);
 }
 export {};

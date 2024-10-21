@@ -3,6 +3,7 @@ import {
   validateMnemonic as tonValidateMnemonicFn,
 } from 'tonweb-mnemonic';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -33,7 +34,9 @@ function tonRevealEntropyToMnemonic(
 
 async function tonValidateMnemonic(mnemonicArray: string[]): Promise<boolean> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.tonValidateMnemonic(mnemonicArray);
+    return appGlobals.$webembedApiProxy.secret.tonValidateMnemonic(
+      mnemonicArray,
+    );
   }
   return tonValidateMnemonicFn(mnemonicArray);
 }
@@ -42,7 +45,9 @@ async function tonMnemonicToKeyPair(
   mnemonicArray: string[],
 ): Promise<ReturnType<typeof tonMnemonicToKeyPairFn>> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.tonMnemonicToKeyPair(mnemonicArray);
+    return appGlobals.$webembedApiProxy.secret.tonMnemonicToKeyPair(
+      mnemonicArray,
+    );
   }
   return tonMnemonicToKeyPairFn(mnemonicArray);
 }
