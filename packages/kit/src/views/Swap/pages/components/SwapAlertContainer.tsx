@@ -85,65 +85,84 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     },
     [createAddress, intl, setAccountManualCreatingAtom],
   );
-  if (alertsSorted?.some((item) => item.alertLevel === ESwapAlertLevel.ERROR)) {
-    return (
-      <YStack gap="$2.5">
-        {alertsSorted
-          .filter((item) => item.alertLevel === ESwapAlertLevel.ERROR)
-          .reverse()
-          .map((item, index) => {
-            const { message } = item;
-            return <Alert key={index} type="critical" description={message} />;
-          })}
-      </YStack>
-    );
-  }
+
+  const haveErrorAlert = useMemo(
+    () =>
+      alertsSorted?.some((item) => item.alertLevel === ESwapAlertLevel.ERROR),
+    [alertsSorted],
+  );
+
+  const getAlertType = useCallback((level?: ESwapAlertLevel) => {
+    if (level === ESwapAlertLevel.ERROR) {
+      return 'critical';
+    }
+    return level === ESwapAlertLevel.WARNING ? 'warning' : 'default';
+  }, []);
+
+  const createAlert = useCallback(
+    (item: ISwapAlertState, index: number) => {
+      const { alertLevel, title, icon, message, action } = item;
+      if (
+        action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
+        action?.actionData?.key === accountManualCreatingAtom.key &&
+        !accountManualCreatingAtom.isLoading &&
+        !createAddressError
+      ) {
+        return null;
+      }
+      if (
+        (selectTokenDetailLoading.from || selectTokenDetailLoading.to) &&
+        action?.actionType === ESwapAlertActionType.TOKEN_DETAIL_FETCHING
+      ) {
+        return null;
+      }
+      if (
+        haveErrorAlert &&
+        item.alertLevel !== ESwapAlertLevel.ERROR &&
+        item.action?.actionType !== ESwapAlertActionType.CREATE_ADDRESS
+      ) {
+        return null;
+      }
+      return (
+        <Alert
+          key={index}
+          type={getAlertType(alertLevel)}
+          title={title}
+          icon={icon}
+          description={message}
+          action={
+            action?.actionLabel
+              ? {
+                  primary: action?.actionLabel ?? '',
+                  onPrimaryPress: () => {
+                    void handleAlertAction(action);
+                  },
+                  isPrimaryLoading:
+                    accountManualCreatingAtom.key === action?.actionData?.key &&
+                    accountManualCreatingAtom.isLoading,
+                }
+              : undefined
+          }
+        />
+      );
+    },
+    [
+      accountManualCreatingAtom.isLoading,
+      accountManualCreatingAtom.key,
+      createAddressError,
+      getAlertType,
+      handleAlertAction,
+      haveErrorAlert,
+      selectTokenDetailLoading.from,
+      selectTokenDetailLoading.to,
+    ],
+  );
 
   return (
     <YStack gap="$2.5">
-      {alertsSorted?.map((item, index) => {
-        const { message, alertLevel, action, title, icon } = item;
-        // Avoid the intermediate state where the alert action still exists after creating the address loading
-        if (
-          action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
-          action?.actionData?.key === accountManualCreatingAtom.key &&
-          !accountManualCreatingAtom.isLoading &&
-          !createAddressError
-        ) {
-          return null;
-        }
-        if (
-          (selectTokenDetailLoading.from || selectTokenDetailLoading.to) &&
-          action?.actionType === ESwapAlertActionType.TOKEN_DETAIL_FETCHING
-        ) {
-          return null;
-        }
-        return (
-          <Alert
-            key={index}
-            type={
-              alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'
-            }
-            title={title}
-            icon={icon}
-            description={message}
-            action={
-              action?.actionLabel
-                ? {
-                    primary: action?.actionLabel ?? '',
-                    onPrimaryPress: () => {
-                      void handleAlertAction(action);
-                    },
-                    isPrimaryLoading:
-                      accountManualCreatingAtom.key ===
-                        action?.actionData?.key &&
-                      accountManualCreatingAtom.isLoading,
-                  }
-                : undefined
-            }
-          />
-        );
-      }) ?? null}
+      {(haveErrorAlert ? alertsSorted.reverse() : alertsSorted).map(
+        (item, index) => createAlert(item, index),
+      )}
     </YStack>
   );
 };
