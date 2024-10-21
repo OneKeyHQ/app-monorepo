@@ -2600,8 +2600,6 @@ export const presetNetworksMap = {
   aurora,
   holesky,
   zircuit,
-  neox,
-  azero,
 
   // cosmos
   celestia,
@@ -2710,8 +2708,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   aurora,
   holesky,
   zircuit,
-  neox,
-  azero,
   // cosmos
   celestia,
   secret,
