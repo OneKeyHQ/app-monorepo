@@ -246,7 +246,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTabIndex >= 0) {
             const newActiveTab = tabs[newActiveTabIndex];
             newActiveTab.isActive = true;
-            this.setCurrentWebTab.call(set, newActiveTab.id);
+            // Refresh the list after closing WebView in Electron to improve list fluidity
+            setTimeout(
+              () => {
+                this.setCurrentWebTab.call(set, newActiveTab.id);
+              },
+              platformEnv.isDesktop ? 200 : 0,
+            );
           }
         }
       }
