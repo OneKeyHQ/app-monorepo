@@ -1,4 +1,11 @@
-import { type FC, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -133,6 +140,12 @@ const usePending = () => {
       }
     },
     [clearPendingTimer],
+  );
+  useEffect(
+    () => () => {
+      clearTimeout(timerIdRef.current);
+    },
+    [],
   );
   return [isPending, changeIsPending] as ReturnType<typeof useState>;
 };
