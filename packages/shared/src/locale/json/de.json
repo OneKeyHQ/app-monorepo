@@ -941,7 +941,7 @@
   "global.nonce_error_higher": "Nonce ist höher, das bedeutet, dass die Transaktion in die Warteschlange gestellt wird, bis die Transaktionen davor bestätigt sind",
   "global.nonce_error_lower": "Nonce wurde verwendet und kann dazu führen, dass diese Transaktion fehlschlägt",
   "global.nonce_faq": "Was ist Nonce?",
-  "global.nonce_faq_desc": "Aktivieren Sie diese Option, um die Nonce (Transaktionsnummer) auf Bestätigungsbildschirmen zu ändern. Dies ist eine erweiterte Funktion. Verwenden Sie sie mit Vorsicht.",
+  "global.nonce_faq_desc": "Sie haben die Anzeige von Transaktionsseriennummern (Nonce) aktiviert. Sie können die Seriennummern bearbeiten, um die Transaktionsreihenfolge Ihres Girokontos anzupassen. Dies ist eine erweiterte Funktion, verwenden Sie sie mit Vorsicht.",
   "global.not_available": "Nicht verfügbar",
   "global.notifications": "Benachrichtigungen",
   "global.number_accounts": "{number} Konten",

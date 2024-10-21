@@ -941,7 +941,7 @@
   "global.nonce_error_higher": "El nonce es más alto, significa que la transacción quedará en cola hasta que se confirmen las transacciones anteriores.",
   "global.nonce_error_lower": "Se ha utilizado Nonce y puede provocar que esta transacción falle",
   "global.nonce_faq": "¿Qué es Nonce?",
-  "global.nonce_faq_desc": "Active esta opción para cambiar el nonce (número de transacción) en las pantallas de confirmación. Esta es una función avanzada, utilícela con precaución.",
+  "global.nonce_faq_desc": "Habilitó la visualización de números de serie de transacciones (nonce). Puede editar los números de serie para ajustar el orden de las transacciones de su cuenta actual. Esta es una función avanzada, utilícela con precaución.",
   "global.not_available": "No disponible",
   "global.notifications": "Notificaciones",
   "global.number_accounts": "{number} Cuentas",

@@ -7,13 +7,17 @@ export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
+export function checkIsEmptyData(data?: string) {
+  return !data || data === '0x' || data === '0x0' || data === '0';
+}
+
 export function checkIsEvmNativeTransfer({
   tx,
 }: {
   tx: ethers.Transaction | IEncodedTxEvm;
 }) {
   const { data } = tx;
-  return !data || data === '0x' || data === '0x0' || data === '0';
+  return checkIsEmptyData(data);
 }
 
 function toBigNumberField(

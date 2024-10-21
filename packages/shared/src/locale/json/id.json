@@ -941,7 +941,7 @@
   "global.nonce_error_higher": "Nonce lebih tinggi, artinya transaksi akan diantrekan sampai transaksi di depannya dikonfirmasi",
   "global.nonce_error_lower": "Nonce telah digunakan dan dapat menyebabkan transaksi ini gagal",
   "global.nonce_faq": "Apa itu Nonce?",
-  "global.nonce_faq_desc": "Aktifkan ini untuk mengubah nonce (nomor transaksi) pada layar konfirmasi. Ini adalah fitur tingkat lanjut, gunakan dengan hati-hati.",
+  "global.nonce_faq_desc": "Anda telah mengaktifkan tampilan nomor seri transaksi (nonce). Anda dapat mengedit nomor seri untuk menyesuaikan urutan transaksi akun Anda saat ini. Ini adalah fitur tingkat lanjut, gunakan dengan hati-hati.",
   "global.not_available": "Tidak tersedia",
   "global.notifications": "Pemberitahuan",
   "global.number_accounts": "{number} Akun",

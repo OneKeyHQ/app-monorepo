@@ -209,7 +209,7 @@ export const showBalanceDetailsDialog = ({
     ),
     showCancelButton: false,
     onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.balance_detail_button_done,
+      id: ETranslations.global_ok,
     }),
     onConfirm: async ({ close }) => {
       await close();

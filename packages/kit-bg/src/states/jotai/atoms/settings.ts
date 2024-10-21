@@ -37,6 +37,7 @@ export type ISettingsPersistAtom = {
     id: string;
   };
   alignPrimaryAccountMode?: EAlignPrimaryAccountMode;
+  isCustomNonceEnabled: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -62,6 +63,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
     symbol: '$',
   },
   alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlignDappToWallet,
+  isCustomNonceEnabled: false,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
