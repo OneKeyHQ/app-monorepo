@@ -272,10 +272,12 @@ function SendDataInputContainer() {
       };
 
     if (isUseFiat) {
-      const originalAmount = amountBN
-        .dividedBy(tokenPrice)
-        .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
-        .toFixed();
+      const originalAmount = new BigNumber(tokenPrice).isGreaterThan(0)
+        ? amountBN
+            .dividedBy(tokenPrice)
+            .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
+            .toFixed()
+        : '0';
       return {
         amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
         originalAmount,

@@ -19,6 +19,7 @@ export const ActionBase = ({
   icon,
   accountId,
   walletType,
+  disabled,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,7 @@ export const ActionBase = ({
       loading={loading}
       label={label}
       icon={icon}
-      disabled={isDisabled}
+      disabled={disabled || isDisabled}
       onPress={handlePress}
       {...rest}
     />

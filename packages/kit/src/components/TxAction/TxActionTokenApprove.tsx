@@ -247,7 +247,15 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         maxWidth="$96"
         flex={1}
       >
-        <SizableText size="$bodyLgMedium">{content}</SizableText>
+        <SizableText
+          size="$bodyLgMedium"
+          wordWrap="break-word"
+          style={{
+            wordBreak: 'break-all',
+          }}
+        >
+          {content}
+        </SizableText>
         <Button
           size="small"
           variant="tertiary"
