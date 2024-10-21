@@ -267,7 +267,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, text]);
 
-  const renderSections = useMemo(
+  const renderSections = useCallback(
     () =>
       sections.length ? (
         <ChainSelectorSectionListContent
@@ -292,7 +292,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
         />
       </Stack>
       {/* Re-render the entire list after each text update */}
-      {isPending ? null : renderSections}
+      {isPending ? null : renderSections()}
     </Stack>
   );
 };
