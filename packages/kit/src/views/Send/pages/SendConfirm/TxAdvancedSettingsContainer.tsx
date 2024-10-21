@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
-import { isNil } from 'lodash';
+import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -23,7 +23,7 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { checkIsEvmNativeTransfer } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
+import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -74,9 +74,11 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [settings] = useSettingsPersistAtom();
-  const { updateTxAdvancedSettings } = useSendConfirmActions().current;
+  const { updateTxAdvancedSettings, updateUnsignedTxs } =
+    useSendConfirmActions().current;
 
   const [shouldShowSettings, setShouldShowSettings] = useState<boolean>(false);
+  const [originalData, setOriginalData] = useState<string>('');
 
   const vaultSettings = usePromiseResult(
     async () =>
@@ -107,12 +109,8 @@ function TxAdvancedSettingsContainer(props: IProps) {
   );
 
   const canEditData = useMemo(
-    () =>
-      unsignedTxs.length === 1 &&
-      checkIsEvmNativeTransfer({
-        tx: unsignedTxs[0].encodedTx as IEncodedTxEvm,
-      }),
-    [unsignedTxs],
+    () => unsignedTxs.length === 1 && checkIsEmptyData(originalData),
+    [unsignedTxs, originalData],
   );
 
   const currentNonce = new BigNumber(unsignedTxs[0].nonce ?? 0).toFixed();
@@ -165,13 +163,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   );
   const handleValidateData = useCallback(
     (value: string) => {
-      if (
-        checkIsEvmNativeTransfer({
-          tx: {
-            data: value,
-          } as IEncodedTxEvm,
-        })
-      ) {
+      if (checkIsEmptyData(value)) {
         return true;
       }
 
@@ -187,10 +179,20 @@ function TxAdvancedSettingsContainer(props: IProps) {
   );
 
   const handleDataOnChange = useDebouncedCallback(
-    (e: { target: { name: string; value: string } }) => {
+    async (e: { target: { name: string; value: string } }) => {
       const value = e.target?.value;
       if (!form.getFieldState('data').invalid) {
-        updateTxAdvancedSettings({ data: value });
+        const newUnsignedTx =
+          await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            accountId,
+            networkId,
+            unsignedTx: unsignedTxs[0],
+            dataInfo: {
+              data: value,
+            },
+          });
+        updateTxAdvancedSettings({ dataChanged: true });
+        updateUnsignedTxs([newUnsignedTx]);
       }
     },
     1000,
@@ -209,16 +211,25 @@ function TxAdvancedSettingsContainer(props: IProps) {
               validate: handleValidateNonce,
               onChange: (e: { target: { name: string; value: string } }) => {
                 const value = e.target?.value;
-                const valueBN = new BigNumber(value ?? 0);
-                if (
-                  valueBN.isNaN() ||
-                  !valueBN.isInteger() ||
-                  valueBN.isNegative()
-                ) {
-                  return;
+                let finalValue = '';
+
+                if (value === '') {
+                  finalValue = '';
+                } else {
+                  const formattedValue = parseInt(value, 10);
+
+                  if (isNaN(formattedValue)) {
+                    form.setValue('nonce', '');
+                    finalValue = '';
+                  } else {
+                    form.setValue('nonce', String(formattedValue));
+                    finalValue = String(formattedValue);
+                  }
                 }
-                form.setValue('nonce', valueBN.toFixed());
-                updateTxAdvancedSettings({ nonce: valueBN.toFixed() });
+
+                updateTxAdvancedSettings({
+                  nonce: finalValue,
+                });
               },
             }}
             description={intl.formatMessage(
@@ -283,6 +294,11 @@ function TxAdvancedSettingsContainer(props: IProps) {
       updateTxAdvancedSettings,
     ],
   );
+
+  useEffect(() => {
+    setOriginalData(dataContent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!canEditNonce && dataContent === '') {
     return null;

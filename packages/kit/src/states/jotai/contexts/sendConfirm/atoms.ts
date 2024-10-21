@@ -118,8 +118,8 @@ export const { atom: tokenApproveInfoAtom, use: useTokenApproveInfoAtom } =
 export const { atom: txAdvancedSettingsAtom, use: useTxAdvancedSettingsAtom } =
   contextAtom<{
     nonce: string;
-    data: string;
+    dataChanged: boolean;
   }>({
     nonce: '',
-    data: '',
+    dataChanged: false,
   });

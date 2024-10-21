@@ -144,7 +144,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   );
 
   updateTxAdvancedSettings = contextAtomMethod(
-    (get, set, payload: { nonce?: string; data?: string }) => {
+    (get, set, payload: { nonce?: string; dataChanged?: boolean }) => {
       set(txAdvancedSettingsAtom(), {
         ...get(txAdvancedSettingsAtom()),
         ...payload,

@@ -475,6 +475,7 @@ export interface IUpdateUnsignedTxParams {
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
+  dataInfo?: { data: string };
 }
 export interface IBroadcastTransactionParams {
   accountId: string;
