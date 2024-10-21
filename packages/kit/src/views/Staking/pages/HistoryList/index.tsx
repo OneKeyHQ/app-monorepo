@@ -186,6 +186,11 @@ const HistoryList = () => {
 
       // local history items
       if (stakeTag) {
+        // refresh account history
+        await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+        });
         const localItems =
           await backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
             accountId,

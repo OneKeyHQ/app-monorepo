@@ -829,6 +829,38 @@ class ServiceStaking extends ServiceBase {
   async removeBabylonTrackingItem(item: { txIds: string[] }) {
     return simpleDb.babylonSync.removeTrackingItem({ txIds: item.txIds });
   }
+
+  @backgroundMethod()
+  async getPendingActivationPortfolioList({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IBabylonPortfolioItem[]> {
+    const trackingItems = await this.getBabylonTrackingItems({
+      accountId,
+      networkId,
+    });
+    const pendingActivationItems = trackingItems.filter(
+      (o) => o.action === 'stake',
+    );
+    return pendingActivationItems.map((o) => {
+      const item = {
+        txId: '',
+        status: 'local_pending_activation',
+        amount: o.amount,
+        fiatValue: '',
+        lockBlocks: 0,
+        isOverflow: '',
+      } as IBabylonPortfolioItem;
+      if (o.minStakeTerm && o.createAt) {
+        item.startTime = o.createAt;
+        item.endTime = o.createAt + o.minStakeTerm;
+      }
+      return item;
+    });
+  }
 }
 
 export default ServiceStaking;
