@@ -86,7 +86,7 @@ const BtcFeeRateInputDialogContent = ({
     const feeRateBN = new BigNumber(customFeeRate);
     if (
       feeRateBN.isNaN() ||
-      feeRateBN.isLessThanOrEqualTo(DEFAULT_FEE_RATE_MIN) ||
+      feeRateBN.isLessThan(DEFAULT_FEE_RATE_MIN) ||
       feeRateBN.isGreaterThan(DEFAULT_FEE_RATE_MAX)
     ) {
       return intl.formatMessage(

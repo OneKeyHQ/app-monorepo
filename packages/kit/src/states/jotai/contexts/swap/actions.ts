@@ -222,6 +222,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return null;
   };
 
+  resetSwapTokenData = contextAtomMethod(async (get, set, type) => {
+    if (type === ESwapDirectionType.FROM) {
+      set(swapSelectFromTokenAtom(), undefined);
+      set(swapSelectedFromTokenBalanceAtom(), '');
+    } else {
+      set(swapSelectToTokenAtom(), undefined);
+      set(swapSelectedToTokenBalanceAtom(), '');
+    }
+    set(swapQuoteListAtom(), []);
+    set(rateDifferenceAtom(), undefined);
+  });
+
   selectFromToken = contextAtomMethod(
     async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
       const toToken = get(swapSelectToTokenAtom());
@@ -239,6 +251,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapSelectFromTokenAtom(), token);
         set(swapSelectToTokenAtom(), needChangeToToken);
       } else {
+        if (
+          toToken?.networkId !== token.networkId &&
+          swapTypeSwitchValue === ESwapTabSwitchType.SWAP
+        ) {
+          void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
+        }
         set(swapSelectFromTokenAtom(), token);
       }
     },
@@ -1460,14 +1478,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (net) => net.networkId === fromToken?.networkId,
         )
       ) {
-        set(swapSelectFromTokenAtom(), undefined);
+        void this.resetSwapTokenData.call(set, ESwapDirectionType.FROM);
       }
       if (
         toToken &&
         !swapSupportNetworks.some((net) => net.networkId === toToken?.networkId)
       ) {
-        set(swapSelectToTokenAtom(), undefined);
-        set(swapSelectedToTokenBalanceAtom(), '');
+        void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
       }
       if (
         swapSupportNetworks.some(
@@ -1526,8 +1543,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 fromNetworkDefault?.toToken?.networkId,
               );
             } else {
-              set(swapSelectToTokenAtom(), undefined);
-              set(swapSelectedToTokenBalanceAtom(), '');
+              void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
             }
           }
         }
