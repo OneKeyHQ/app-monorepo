@@ -39,9 +39,9 @@ function SectionButton({ children, ...rest }: IButtonProps) {
 
 export function DashboardSectionHeader({
   children,
-  isShowSectionHeaderBorder = true,
+  showSectionHeaderBorder = true,
   ...rest
-}: IXStackProps & { isShowSectionHeaderBorder?: boolean }) {
+}: IXStackProps & { showSectionHeaderBorder?: boolean }) {
   return (
     <XStack
       alignItems="center"
@@ -50,7 +50,7 @@ export function DashboardSectionHeader({
       $gtMd={{
         pt: '$1',
         mt: '$1',
-        borderTopWidth: isShowSectionHeaderBorder ? 1 : 0,
+        borderTopWidth: showSectionHeaderBorder ? 1 : 0,
         borderColor: '$borderSubdued',
       }}
       {...rest}

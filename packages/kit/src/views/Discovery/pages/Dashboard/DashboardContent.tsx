@@ -142,7 +142,7 @@ function DashboardContent({
         ) : null}
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <BookmarksAndHistoriesSection
-            isShowSectionHeaderBorder={isShowBanner}
+            showSectionHeaderBorder={isShowBanner}
             key="BookmarksAndHistoriesSection"
             bookmarksData={bookmarksData}
             historiesData={historiesData}

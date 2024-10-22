@@ -135,9 +135,9 @@ export function BookmarksAndHistoriesSection({
   historiesData,
   onPressMore,
   handleOpenWebSite,
-  isShowSectionHeaderBorder,
+  showSectionHeaderBorder,
 }: {
-  isShowSectionHeaderBorder?: boolean;
+  showSectionHeaderBorder?: boolean;
   bookmarksData: IBrowserBookmark[] | undefined;
   historiesData: IBrowserHistory[] | undefined;
   onPressMore: (isHistoriesView: boolean) => void;
@@ -158,7 +158,7 @@ export function BookmarksAndHistoriesSection({
   return (
     <Stack px="$5" minHeight="$40">
       <DashboardSectionHeader
-        isShowSectionHeaderBorder={isShowSectionHeaderBorder}
+        showSectionHeaderBorder={showSectionHeaderBorder}
       >
         <DashboardSectionHeader.Heading
           selected={!isHistoriesView}
