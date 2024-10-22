@@ -33,15 +33,20 @@ const SwapSettingsCommonItem = ({
   onChange,
   title,
   content,
+  badgeContent,
 }: {
   title: string;
   content: string;
+  badgeContent?: string;
   value: boolean;
   onChange: (v: boolean) => void;
 }) => (
   <XStack justifyContent="space-between" alignItems="center">
-    <YStack flex={1}>
-      <SizableText size="$bodyLgMedium">{title}</SizableText>
+    <YStack flex={1} gap='$0.5'>
+      <XStack alignItems="center" gap="$1.5">
+        <SizableText size="$bodyLgMedium">{title}</SizableText>
+        {badgeContent ? <Badge badgeSize="sm" badgeType='success'>{badgeContent}</Badge> : null}
+      </XStack>
       <SizableText size="$bodyMd" color="$textSubdued" width="95%">
         {content}
       </SizableText>
@@ -64,6 +69,7 @@ const SwapSettingsDialogContent = () => {
         content={intl.formatMessage({
           id: ETranslations.swap_page_settings_simple_mode_content,
         })}
+        badgeContent="Beta"
         value={swapBatchApproveAndSwap}
         onChange={(v) => {
           setSettings((s) => ({
