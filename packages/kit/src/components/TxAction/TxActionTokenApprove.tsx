@@ -248,6 +248,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         flex={1}
       >
         <SizableText
+          maxWidth="90%"
           size="$bodyLgMedium"
           wordWrap="break-word"
           style={{
