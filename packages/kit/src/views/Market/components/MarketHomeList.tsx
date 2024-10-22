@@ -182,12 +182,12 @@ function BasicMarketHomeList({
       prevCoingeckoIdsLength !== category.coingeckoIds.length ||
       (prevCoingeckoIdsLength === 0 && category.coingeckoIds.length === 0)
     ) {
+      updateAtRef.current = now;
       const response = await backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
         category.coingeckoIds,
         true,
       );
-      updateAtRef.current = now;
       void InteractionManager.runAfterInteractions(() => {
         setListData(response);
       });
@@ -203,6 +203,10 @@ function BasicMarketHomeList({
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
     },
   );
+
+  useEffect(() => {
+    void fetchCategory();
+  }, [fetchCategory]);
 
   const { gtMd, md } = useMedia();
 
