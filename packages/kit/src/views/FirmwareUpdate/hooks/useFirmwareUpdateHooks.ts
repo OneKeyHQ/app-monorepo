@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Alert, BackHandler } from 'react-native';
 
 import { Dialog, usePreventRemove } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,6 +71,7 @@ export function useAppExitPrevent({
   message: string;
   title: string;
 }) {
+  const intl = useIntl();
   // Prevents web page refresh/exit
   useEffect(() => {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionUiPopup) {
@@ -84,6 +86,43 @@ export function useAppExitPrevent({
       };
     }
   }, [message]);
+
+  // Prevent Android exit
+  // https://reactnavigation.org/docs/7.x/preventing-going-back
+  useEffect(() => {
+    const onBackPress = () => {
+      Alert.alert(
+        title,
+        message,
+        [
+          {
+            text: intl.formatMessage({ id: ETranslations.global_cancel }),
+            onPress: () => {
+              // Do nothing
+            },
+            style: 'cancel',
+          },
+          {
+            text: intl.formatMessage({ id: ETranslations.global_quit }),
+            onPress: () => BackHandler.exitApp(),
+          },
+        ],
+        { cancelable: false },
+      );
+
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onBackPress,
+    );
+
+    return () => backHandler.remove();
+  }, [message, title, intl]);
+
+  // Prevent Desktop exit
+  // TODO
 }
 
 export function useExtensionUpdatingFromExpandTab() {
