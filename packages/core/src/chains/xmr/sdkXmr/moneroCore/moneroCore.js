@@ -512,7 +512,7 @@ var MyMoneroLibAppCpp = (() => {
 
     function missingLibrarySymbol(sym) {
       if (
-        typeof window !== 'undefined' &&
+        typeof globalThis !== 'undefined' &&
         !Object.getOwnPropertyDescriptor(globalThis, sym)
       ) {
         Object.defineProperty(globalThis, sym, {
