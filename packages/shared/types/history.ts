@@ -144,6 +144,8 @@ export type IAccountHistoryTx = {
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;
+
+  originalId?: string; // for ton
 };
 
 export type IHistoryListSectionGroup = {
