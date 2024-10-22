@@ -111,35 +111,37 @@ function DashboardContent({
     [navigation],
   );
 
-  const content = useMemo(
-    () => (
+  const content = useMemo(() => {
+    const isShowBanner = !Array.isArray(homePageData?.banners);
+    return (
       <>
-        <DashboardBanner
-          key="Banner"
-          banners={
-            Array.isArray(homePageData?.banners) ? homePageData?.banners : []
-          }
-          handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-            if (useSystemBrowser && webSite?.url) {
-              openUrlExternal(webSite.url);
-            } else if (webSite?.url) {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
+        {isShowBanner ? (
+          <DashboardBanner
+            key="Banner"
+            banners={homePageData?.banners || []}
+            handleOpenWebSite={({ webSite, useSystemBrowser }) => {
+              if (useSystemBrowser && webSite?.url) {
+                openUrlExternal(webSite.url);
+              } else if (webSite?.url) {
+                handleOpenWebSite({
+                  switchToMultiTabBrowser: gtMd,
+                  webSite,
+                  navigation,
+                  shouldPopNavigation: false,
+                });
+              }
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: webSite?.url || '',
+                dappName: webSite?.title || '',
+                enterMethod: EEnterMethod.banner,
               });
-            }
-            defaultLogger.discovery.dapp.enterDapp({
-              dappDomain: webSite?.url || '',
-              dappName: webSite?.title || '',
-              enterMethod: EEnterMethod.banner,
-            });
-          }}
-          isLoading={isLoading}
-        />
+            }}
+            isLoading={isLoading}
+          />
+        ) : null}
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <BookmarksAndHistoriesSection
+            isShowSectionHeaderBorder={isShowBanner}
             key="BookmarksAndHistoriesSection"
             bookmarksData={bookmarksData}
             historiesData={historiesData}
@@ -184,19 +186,18 @@ function DashboardContent({
           />
         </ReviewControl>
       </>
-    ),
-    [
-      homePageData?.banners,
-      homePageData?.categories,
-      isLoading,
-      bookmarksData,
-      historiesData,
-      onPressMore,
-      handleOpenWebSite,
-      gtMd,
-      navigation,
-    ],
-  );
+    );
+  }, [
+    homePageData?.banners,
+    homePageData?.categories,
+    isLoading,
+    bookmarksData,
+    historiesData,
+    onPressMore,
+    handleOpenWebSite,
+    gtMd,
+    navigation,
+  ]);
 
   if (platformEnv.isNative) {
     return (
