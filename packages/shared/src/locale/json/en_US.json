@@ -941,7 +941,7 @@
   "global.nonce_error_higher": "Nonce is higher, it means that the transaction will be queued until the transactions in front of it are confirmed",
   "global.nonce_error_lower": "Nonce has been used and may cause this transaction to fail",
   "global.nonce_faq": "What’s Nonce?",
-  "global.nonce_faq_desc": "Turn this on to change the nonce (transaction number) on confirmation screens. This is an advanced feature, use cautiously.",
+  "global.nonce_faq_desc": "You have enabled the display of transaction serial numbers (nonce). You can edit the serial numbers to adjust the transaction order of your current account. This is an advanced feature, use cautiously.",
   "global.not_available": "Not available",
   "global.notifications": "Notifications",
   "global.number_accounts": "{number} Accounts",

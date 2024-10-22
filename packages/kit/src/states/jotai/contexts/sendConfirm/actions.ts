@@ -24,6 +24,7 @@ import {
   sendSelectedFeeInfoAtom,
   sendTxStatusAtom,
   tokenApproveInfoAtom,
+  txAdvancedSettingsAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -141,6 +142,15 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(tokenApproveInfoAtom(), payload);
     },
   );
+
+  updateTxAdvancedSettings = contextAtomMethod(
+    (get, set, payload: { nonce?: string; dataChanged?: boolean }) => {
+      set(txAdvancedSettingsAtom(), {
+        ...get(txAdvancedSettingsAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -164,6 +174,7 @@ export function useSendConfirmActions() {
   const updateIsSinglePreset = actions.updateIsSinglePreset.use();
   const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
+  const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
 
   return useRef({
     updateUnsignedTxs,
@@ -178,5 +189,6 @@ export function useSendConfirmActions() {
     updateIsSinglePreset,
     updatePreCheckTxStatus,
     updateTokenApproveInfo,
+    updateTxAdvancedSettings,
   });
 }

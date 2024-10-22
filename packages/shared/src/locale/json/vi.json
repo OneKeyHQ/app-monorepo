@@ -941,7 +941,7 @@
   "global.nonce_error_higher": "Nonce cao hơn, nghĩa là giao dịch sẽ được xếp hàng cho đến khi các giao dịch trước nó được xác nhận",
   "global.nonce_error_lower": "Nonce đã được sử dụng và có thể khiến giao dịch này không thành công",
   "global.nonce_faq": "Nonce là gì?",
-  "global.nonce_faq_desc": "Bật tính năng này để thay đổi nonce (số giao dịch) trên màn hình xác nhận. Đây là tính năng nâng cao, hãy sử dụng thận trọng.",
+  "global.nonce_faq_desc": "Bạn đã bật tính năng hiển thị số sê-ri giao dịch (nonce). Bạn có thể chỉnh sửa số sê-ri để điều chỉnh thứ tự giao dịch của tài khoản hiện tại. Đây là tính năng nâng cao, hãy sử dụng thận trọng.",
   "global.not_available": "Không có sẵn",
   "global.notifications": "Thông báo",
   "global.number_accounts": "{number} Tài khoản",
