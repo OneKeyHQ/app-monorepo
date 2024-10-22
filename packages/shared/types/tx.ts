@@ -126,6 +126,8 @@ export type IDecodedTx = {
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
   nativeAmountValue?: string;
+
+  originalTxId?: string; // for ton
 };
 
 export type IDecodedTxActionBase = {
