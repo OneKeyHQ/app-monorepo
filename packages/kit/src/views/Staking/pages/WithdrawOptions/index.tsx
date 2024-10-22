@@ -101,7 +101,9 @@ const WithdrawOptions = () => {
         >
           {result ? (
             <OptionList
-              ListHeaderComponent={ListHeaderComponent}
+              ListHeaderComponent={
+                result.items.length > 0 ? ListHeaderComponent : undefined
+              }
               items={result.items}
               token={result.token}
               network={result.network}

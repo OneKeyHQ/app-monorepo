@@ -221,6 +221,9 @@ export const DevSettingsSection = () => {
           value={I18nManager.isRTL}
         />
       </SectionPressItem>
+      <SectionFieldItem name="showTradingView" title="显示 Trading View">
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="开发者悬浮窗"
@@ -451,11 +454,8 @@ export const DevSettingsSection = () => {
       />
       <SectionPressItem
         title="Reset Spotlight"
-        subtitle="Will reset after 5 seconds."
         onPress={() => {
-          setTimeout(() => {
-            void backgroundApiProxy.serviceSpotlight.reset();
-          }, 5000);
+          void backgroundApiProxy.serviceSpotlight.reset();
         }}
       />
       {platformEnv.isNativeAndroid ? (

@@ -16,12 +16,16 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import type { IProps } from '.';
 
-function TokenDetailsHistory(props: IProps) {
+function TokenDetailsHistory(
+  props: IProps & {
+    setHistoryInit: (value: boolean) => void;
+    historyInit: boolean;
+  },
+) {
   const navigation = useAppNavigation();
 
-  const [initialized, setInitialized] = useState(false);
-
-  const { accountId, networkId, tokenInfo } = props;
+  const { accountId, networkId, tokenInfo, historyInit, setHistoryInit } =
+    props;
 
   /**
    * since some tokens are slow to load history,
@@ -39,10 +43,10 @@ function TokenDetailsHistory(props: IProps) {
         networkId,
         tokenIdOnNetwork: tokenInfo.address,
       });
-      setInitialized(true);
+      setHistoryInit(true);
       return r.txs;
     },
-    [accountId, networkId, tokenInfo.address],
+    [accountId, networkId, setHistoryInit, tokenInfo.address],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -98,7 +102,7 @@ function TokenDetailsHistory(props: IProps) {
     <ProviderJotaiContextHistoryList>
       <TxHistoryListView
         hideValue
-        initialized={initialized}
+        initialized={historyInit}
         isLoading={isLoadingTokenHistory}
         data={tokenHistory ?? []}
         onPressHistory={handleHistoryItemPress}

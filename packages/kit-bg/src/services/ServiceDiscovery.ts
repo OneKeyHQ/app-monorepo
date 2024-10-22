@@ -1,4 +1,7 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 import { isNumber } from 'lodash';
+import { LRUCache } from 'lru-cache';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
 import type {
@@ -32,8 +35,14 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
+  private signedMessageCache: LRUCache<string, boolean>;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    this.signedMessageCache = new LRUCache<string, boolean>({
+      max: 100,
+      ttl: timerUtils.getTimeDurationMs({ minute: 60 }),
+    });
   }
 
   @backgroundMethod()
@@ -130,7 +139,8 @@ class ServiceDiscovery extends ServiceBase {
   @backgroundMethod()
   async checkUrlSecurity(params: { url: string; from: 'app' | 'script' }) {
     const { url } = params;
-    if (await this._isUrlExistInRiskWhiteList(url)) {
+    const isValidUrl = uriUtils.safeParseURL(url);
+    if (!isValidUrl || (await this._isUrlExistInRiskWhiteList(url))) {
       return {
         host: url,
         level: EHostSecurityLevel.Unknown,
@@ -296,6 +306,42 @@ class ServiceDiscovery extends ServiceBase {
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     return data?.data ?? [];
+  }
+
+  @backgroundMethod()
+  async postSignTypedDataMessage(params: {
+    networkId: string;
+    accountId: string;
+    origin: string;
+    typedData: string;
+  }) {
+    const { networkId, accountId, origin, typedData } = params;
+
+    const cacheKey = bytesToHex(
+      sha256(`${networkId}__${accountId}__${origin}__${typedData}`),
+    );
+
+    if (this.signedMessageCache.has(cacheKey)) {
+      return;
+    }
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    try {
+      await client.post('/wallet/v1/network/sign-typed-data', {
+        accountAddress,
+        networkId,
+        data: JSON.parse(typedData),
+        origin,
+      });
+      this.signedMessageCache.set(cacheKey, true);
+    } catch {
+      // ignore error
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   HeightTransition,
@@ -16,6 +16,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import SyncDappAccountToHomeProvider from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -179,6 +180,16 @@ function DAppConnectExtensionFloatingTrigger() {
     );
   }, [result, hideAccountSelectorTrigger, refreshConnectionInfo]);
 
+  const renderSyncDappAccountToHomeProvider = useMemo(
+    () => (
+      <SyncDappAccountToHomeProvider
+        origin={result?.origin ?? ''}
+        dAppAccountInfos={result?.connectedAccountsInfo ?? null}
+      />
+    ),
+    [result?.connectedAccountsInfo, result?.origin],
+  );
+
   if (!result?.showFloatingPanel) {
     return null;
   }
@@ -193,6 +204,7 @@ function DAppConnectExtensionFloatingTrigger() {
       borderTopWidth="$px"
       borderColor="$borderSubdued"
     >
+      {renderSyncDappAccountToHomeProvider}
       <HeightTransition>
         {shouldSwitchAccount ? (
           <XStack
@@ -222,7 +234,6 @@ function DAppConnectExtensionFloatingTrigger() {
           </XStack>
         ) : null}
       </HeightTransition>
-
       <XStack
         group
         alignItems="center"

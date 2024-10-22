@@ -3,9 +3,18 @@ import { useCallback, useMemo, useState } from 'react';
 import * as ethUtils from 'ethereumjs-util';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, TextArea, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Button,
+  SizableText,
+  TextAreaInput,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parsePrimaryType } from '@onekeyhq/shared/src/signMessage';
 import {
   EMessageTypesAptos,
   EMessageTypesBtc,
@@ -134,19 +143,35 @@ function DAppSignMessageContent({
               })}
         </Button>
         {showRawMessage ? (
-          <TextArea editable={false} numberOfLines={11} value={text} />
+          <TextAreaInput editable={false} numberOfLines={11} value={text} />
         ) : null}
       </YStack>
     );
   }, [intl, unsignedMessage, showRawMessage]);
 
+  const primaryType = usePromiseResult(
+    async () => parsePrimaryType({ unsignedMessage }),
+    [unsignedMessage],
+  );
+
   return (
     <YStack justifyContent="center">
-      <SizableText color="$text" size="$headingMd" mb="$2">
-        {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
-      </SizableText>
+      <XStack alignItems="center" justifyContent="space-between">
+        <SizableText color="$text" size="$headingMd" mb="$2">
+          {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
+        </SizableText>
+        {primaryType.result ? (
+          <Badge badgeType="info" badgeSize="sm">
+            {primaryType.result}
+          </Badge>
+        ) : null}
+      </XStack>
       <YStack gap="$2">
-        <TextArea value={parseMessage} editable={false} numberOfLines={11} />
+        <TextAreaInput
+          value={parseMessage}
+          editable={false}
+          numberOfLines={11}
+        />
         {renderRawMessage()}
       </YStack>
     </YStack>

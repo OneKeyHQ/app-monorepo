@@ -27,7 +27,7 @@ type IFeeRateOption = { feeType: IFeeRateType; value: string };
 
 type IEstimateFeeRequiredUTXO = Required<Pick<IFeeUTXO, 'feeRate'>>;
 
-const DEFAULT_FEE_RATE_MIN = 0;
+const DEFAULT_FEE_RATE_MIN = 1;
 const DEFAULT_FEE_RATE_MAX = 1_000_000;
 
 const BtcFeeRateInputDialogContent = ({
@@ -86,7 +86,7 @@ const BtcFeeRateInputDialogContent = ({
     const feeRateBN = new BigNumber(customFeeRate);
     if (
       feeRateBN.isNaN() ||
-      feeRateBN.isLessThanOrEqualTo(DEFAULT_FEE_RATE_MIN) ||
+      feeRateBN.isLessThan(DEFAULT_FEE_RATE_MIN) ||
       feeRateBN.isGreaterThan(DEFAULT_FEE_RATE_MAX)
     ) {
       return intl.formatMessage(

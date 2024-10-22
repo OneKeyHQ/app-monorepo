@@ -1,12 +1,7 @@
 import { type PropsWithChildren, useCallback } from 'react';
 
-import {
-  SizableText,
-  Skeleton,
-  Stack,
-  YStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import type { IAlertProps } from '@onekeyhq/components';
+import { SizableText, Skeleton, Stack, YStack } from '@onekeyhq/components';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppRiskyAlert } from './DAppRiskyAlert';
@@ -21,7 +16,8 @@ function DAppRequestLayout({
   urlSecurityInfo,
   favicon,
   children,
-  isRiskSignMethod,
+  displaySignMessageAlert,
+  signMessageAlertProps,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -29,10 +25,9 @@ function DAppRequestLayout({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
-  isRiskSignMethod?: boolean;
+  displaySignMessageAlert?: boolean;
+  signMessageAlertProps?: IAlertProps;
 }>) {
-  const { top } = useSafeAreaInsets();
-
   const renderSubtitle = useCallback(() => {
     if (!subtitleShown) {
       return null;
@@ -57,13 +52,11 @@ function DAppRequestLayout({
   }, [subtitle, subtitleShown]);
 
   return (
-    <Stack
-      $md={{
-        mt: top,
-      }}
-    >
+    <Stack>
       <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />
-      {isRiskSignMethod ? <DAppSignMessageAlert /> : null}
+      {displaySignMessageAlert ? (
+        <DAppSignMessageAlert signMessageAlertProps={signMessageAlertProps} />
+      ) : null}
       <Stack p="$5" gap="$8">
         <Stack gap="$2.5">
           <DAppSiteMark

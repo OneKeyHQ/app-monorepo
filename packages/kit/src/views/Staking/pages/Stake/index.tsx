@@ -88,6 +88,8 @@ const StakePage = () => {
               createAt: Date.now(),
               accountId,
               networkId,
+              amount,
+              minStakeTerm: provider.minStakeTerm,
             });
           }
           onSuccess?.();

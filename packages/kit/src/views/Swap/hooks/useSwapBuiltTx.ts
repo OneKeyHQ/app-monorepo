@@ -446,23 +446,24 @@ export function useSwapBuildTx() {
               ) {
                 await navigationToSendConfirm({
                   approvesInfo: [approvesInfo[0]],
-                  onSuccess: async () => {
+                  onSuccess: async (data: ISendTxOnSuccessData[]) => {
                     if (approvesInfo.length > 1) {
                       await navigationToSendConfirm({
                         approvesInfo: [approvesInfo[1]],
-                        onSuccess: async () => {
+                        feeInfo: data?.[0]?.feeInfo,
+                        onSuccess: async (dataRes: ISendTxOnSuccessData[]) => {
                           await navigationToSendConfirm({
                             transfersInfo: createBuildTxRes.transferInfo
                               ? [createBuildTxRes.transferInfo]
                               : undefined,
                             encodedTx: createBuildTxRes.encodedTx,
+                            feeInfo: dataRes?.[0]?.feeInfo,
                             swapInfo: createBuildTxRes.swapInfo,
-                            approvesInfo,
                             onSuccess: handleBuildTxSuccess,
                             onCancel: cancelBuildTx,
                           });
                         },
-                        onCancel: cancelApproveTx,
+                        onCancel: cancelBuildTx,
                       });
                     } else {
                       await navigationToSendConfirm({
@@ -471,12 +472,13 @@ export function useSwapBuildTx() {
                           : undefined,
                         encodedTx: createBuildTxRes.encodedTx,
                         swapInfo: createBuildTxRes.swapInfo,
+                        feeInfo: data?.[0]?.feeInfo,
                         onSuccess: handleBuildTxSuccess,
                         onCancel: cancelBuildTx,
                       });
                     }
                   },
-                  onCancel: cancelApproveTx,
+                  onCancel: cancelBuildTx,
                 });
               } else {
                 await navigationToSendConfirm({

@@ -4,6 +4,9 @@ import { defaultLoggerConfig } from '../loggerConfig';
 
 import type { IMethodDecoratorMetadata, Metadata } from '../types';
 
+let prevRawMsg: string | undefined;
+let repeatContentCount = 0;
+
 export const logFn = ({
   scopeName,
   sceneName,
@@ -31,8 +34,13 @@ export const logFn = ({
     const config = await defaultLoggerConfig.savedLoggerConfigAsync;
     const shouldLogToConsole =
       !platformEnv.isDev || !!config?.enabled?.[scopeName]?.[sceneName];
-    const prefix = `***log*** ${scopeName} => ${sceneName} => ${methodName} : `;
+    const prefix = `${scopeName} => ${sceneName} => ${methodName} : `;
     let msg = `${prefix} ${rawMsg}`;
+    if (prevRawMsg === rawMsg) {
+      repeatContentCount += 1;
+      return;
+    }
+    prevRawMsg = rawMsg;
 
     if (process.env.NODE_ENV !== 'production' && platformEnv.isNative) {
       // RN chrome remote console cannot display correct JSON stringify strings, so change to single quotes
@@ -61,6 +69,10 @@ export const logFn = ({
 
           const logger = getLoggerExtension(''); // use root logger instance
           if (shouldLogToConsole) {
+            if (repeatContentCount > 0) {
+              logger[metadata.level](`---[${repeatContentCount}]`);
+              repeatContentCount = 0;
+            }
             logger[metadata.level](msg);
             if (metadata.level === 'error') {
               console.error(timestamp(), msg);

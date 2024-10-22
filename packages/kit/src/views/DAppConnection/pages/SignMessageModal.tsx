@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IAlertProps } from '@onekeyhq/components';
 import {
   Divider,
   Page,
@@ -15,6 +16,11 @@ import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/compo
 import { AccountSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isEthSignType,
+  isPrimaryTypeOrderSign,
+  isPrimaryTypePermitSign,
+} from '@onekeyhq/shared/src/signMessage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   validateSignMessageData,
@@ -133,7 +139,29 @@ function SignMessageModal() {
     [networkId],
   );
 
-  const isRiskSignMethod = unsignedMessage.type === EMessageTypesEth.ETH_SIGN;
+  const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
+  const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
+  const isRiskSignMethod = isEthSignType({ unsignedMessage });
+  const isSignTypedDataV3orV4Method =
+    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
+    unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
+
+  useEffect(() => {
+    if (isSignTypedDataV3orV4Method) {
+      void backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
+        networkId,
+        accountId,
+        origin: $sourceInfo?.origin ?? '',
+        typedData: unsignedMessage.message,
+      });
+    }
+  }, [
+    isSignTypedDataV3orV4Method,
+    $sourceInfo?.origin,
+    accountId,
+    networkId,
+    unsignedMessage.message,
+  ]);
 
   const subtitle = useMemo(() => {
     if (!currentNetwork?.name) {
@@ -220,6 +248,31 @@ function SignMessageModal() {
     ],
   );
 
+  const getSignMessageAlertProps = (): IAlertProps | undefined => {
+    if (!isSignTypedDataV3orV4Method) {
+      return undefined;
+    }
+
+    let type: IAlertProps['type'] = 'default';
+    let messageType = 'signTypedData';
+
+    if (isPermitSignMethod || isOrderSignMethod) {
+      type = 'warning';
+      messageType = isPermitSignMethod ? 'permit' : 'order';
+    }
+
+    return {
+      type,
+      icon: 'InfoSquareSolid',
+      title: intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_permit_sign_alert,
+        },
+        { type: messageType },
+      ),
+    };
+  };
+
   return (
     <DappOpenModalPage dappApprove={dappApprove}>
       <>
@@ -232,7 +285,10 @@ function SignMessageModal() {
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
-            isRiskSignMethod={isRiskSignMethod}
+            displaySignMessageAlert={
+              isRiskSignMethod || isSignTypedDataV3orV4Method
+            }
+            signMessageAlertProps={getSignMessageAlertProps()}
           >
             {walletInternalSign ? (
               <WalletAccountListItem

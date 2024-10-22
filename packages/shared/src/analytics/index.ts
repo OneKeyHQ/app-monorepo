@@ -7,6 +7,11 @@ import { getDeviceInfo } from './deviceInfo';
 
 import type { AxiosInstance } from 'axios';
 
+export const ANALYTICS_EVENT_PATH = '/utility/v1/track';
+
+const TRACK_EVENT_PATH = `${ANALYTICS_EVENT_PATH}/event`;
+const TRACK_ATTRIBUTES_PATH = `${ANALYTICS_EVENT_PATH}/attributes`;
+
 export class Analytics {
   private instanceId = '';
 
@@ -70,9 +75,9 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isDev || platformEnv.isE2E) {
-      return;
-    }
+    // if (platformEnv.isDev || platformEnv.isE2E) {
+    //   return;
+    // }
     const event = {
       ...eventProps,
       distinct_id: this.instanceId,
@@ -88,7 +93,7 @@ export class Analytics {
       event.currentUrl = globalThis.location.href;
     }
     const axios = this.lazyAxios();
-    await axios.post('/utility/v1/track/event', {
+    await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
     });
@@ -99,7 +104,7 @@ export class Analytics {
       return;
     }
     const axios = this.lazyAxios();
-    await axios.post('/utility/v1/track/attributes', {
+    await axios.post(TRACK_ATTRIBUTES_PATH, {
       distinctId: this.instanceId,
       attributes: {
         ...attributes,

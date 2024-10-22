@@ -78,3 +78,9 @@ export type IConnectedAccountInfo = {
 export enum EDAppModalPageStatus {
   Confirmed = 'Confirmed',
 }
+
+export enum EAlignPrimaryAccountMode {
+  Independent = 'Independent',
+  AlignDappToWallet = 'AlignDappToWallet',
+  // AlwaysUsePrimaryAccount = 'AlwaysUsePrimaryAccount',
+}
