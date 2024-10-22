@@ -239,16 +239,21 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     if (!pendingTxs || !pendingTxs.length) return;
 
     const newPendingTxs: IAccountHistoryTx[] = [];
-
-    for (const tx of pendingTxs) {
+    for (const pendingTx of pendingTxs) {
       const onChainHistoryTx = onChainHistoryTxs?.find(
-        (item) => item.id === tx.id,
+        (item) =>
+          item.id === pendingTx.id ||
+          (item.originalId && item.originalId === pendingTx.id),
       );
 
-      const confirmedTx = confirmedTxs?.find((item) => item.id === tx.id);
+      const confirmedTx = confirmedTxs?.find(
+        (item) =>
+          item.id === pendingTx.id ||
+          (item.originalId && item.originalId === pendingTx.id),
+      );
 
       if (!onChainHistoryTx && !confirmedTx) {
-        newPendingTxs.push(tx);
+        newPendingTxs.push(pendingTx);
       }
     }
 
