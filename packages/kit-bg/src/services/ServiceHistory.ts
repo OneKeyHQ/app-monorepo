@@ -145,6 +145,7 @@ class ServiceHistory extends ServiceBase {
         }
         confirmedTxs.push({
           ...localHistoryPendingTx,
+          originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
@@ -153,6 +154,7 @@ class ServiceHistory extends ServiceBase {
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
+            originalTxId: localHistoryPendingTx.decodedTx.originalTxId,
             status:
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
