@@ -112,7 +112,8 @@ function DashboardContent({
   );
 
   const content = useMemo(() => {
-    const isShowBanner = !Array.isArray(homePageData?.banners);
+    const isShowBanner =
+      Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
     return (
       <>
         {isShowBanner ? (
