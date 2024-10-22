@@ -17,7 +17,7 @@ export function offscreenSetup() {
       }
     },
   });
-  window.extJsBridgeOffscreenToBg = offscreenBridge;
+  globalThis.extJsBridgeOffscreenToBg = offscreenBridge;
 
   return offscreenBridge;
 

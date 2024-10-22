@@ -117,7 +117,7 @@ const newFetch = async function (
 };
 console.log('fetchInterceptor.ts', fetch);
 // @ts-ignore
-if (global.fetch && !global.fetch.isNormalizedByOneKey) {
+if (globalThis.fetch && !globalThis.fetch.isNormalizedByOneKey) {
   // **** for global instance of fetch
-  global.fetch = newFetch;
+  globalThis.fetch = newFetch;
 }

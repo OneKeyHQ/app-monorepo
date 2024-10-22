@@ -254,5 +254,5 @@ const XMLHttpRequestShim = class XMLHttpRequest extends Dispatch {
   }
 };
 
-global.XMLHttpRequest = global.XMLHttpRequest || XMLHttpRequestShim;
-export default global.XMLHttpRequest;
+globalThis.XMLHttpRequest = globalThis.XMLHttpRequest || XMLHttpRequestShim;
+export default globalThis.XMLHttpRequest;

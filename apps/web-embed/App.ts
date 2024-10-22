@@ -16,21 +16,21 @@ const handler = async (payload: IJsBridgeMessagePayload) =>
   );
 
 const init = (times = 0) => {
-  if (!global.$onekey && times < 5000) {
+  if (!globalThis.$onekey && times < 5000) {
     setTimeout(() => {
       init(times + 1);
     }, 15);
     return;
   }
-  global.$onekey.$private.webembedReceiveHandler = handler;
-  void global.$onekey.$private
+  globalThis.$onekey.$private.webembedReceiveHandler = handler;
+  void globalThis.$onekey.$private
     .request({
       method: 'getSensitiveEncodeKey',
     })
     .then((key) => {
       if (key) {
         setBgSensitiveTextEncodeKey(key as string);
-        void global.$onekey.$private.request({
+        void globalThis.$onekey.$private.request({
           method: 'webEmbedApiReady',
         });
         printMessageToBody('web-embed init success!');
@@ -43,4 +43,4 @@ const init = (times = 0) => {
 init();
 
 printMessageToBody('web-embed init...');
-printMessageToBody(`${window.location.href}`);
+printMessageToBody(`${globalThis.location.href}`);

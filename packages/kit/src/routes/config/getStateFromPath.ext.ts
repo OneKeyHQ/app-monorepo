@@ -86,7 +86,7 @@ type ParsedRoute = {
  */
 
 // ---CHANGED Begin----: initial path from url
-let initialPath: string | undefined = window.location.pathname;
+let initialPath: string | undefined = globalThis.location.pathname;
 // ---CHANGED end----
 
 // ---CHANGED Begin----: replace `export default` by `export function`
@@ -97,7 +97,7 @@ export function getStateFromPath<ParamList extends {}>(
 ): ResultState | undefined {
 
   // ---CHANGED Begin----: support hash router
-  path = window.location.hash.split('#').pop() || '/';
+  path = globalThis.location.hash.split('#').pop() || '/';
   // ---CHANGED end----
 
   if (options) {

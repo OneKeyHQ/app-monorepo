@@ -22,10 +22,16 @@ import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { DragStart, DropResult } from 'react-beautiful-dnd';
 import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
 
+// eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
-  Object.defineProperty(window, '__react-beautiful-dnd-disable-dev-warnings', {
-    value: true,
-  });
+  Object.defineProperty(
+    // eslint-disable-next-line unicorn/prefer-global-this
+    window,
+    '__react-beautiful-dnd-disable-dev-warnings',
+    {
+      value: true,
+    },
+  );
 }
 
 function FragmentComponent({

@@ -364,8 +364,9 @@ export function GetStarted({
 export default GetStarted;
 
 export const openOnBoardingFromExt = () => {
+  // eslint-disable-next-line unicorn/prefer-global-this
   if (platformEnv.isExtension && typeof window !== 'undefined') {
-    return window.location.hash.includes('fromExt=true');
+    return globalThis.location.hash.includes('fromExt=true');
   }
   return false;
 };

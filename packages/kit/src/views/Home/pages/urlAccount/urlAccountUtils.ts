@@ -113,7 +113,7 @@ export async function buildUrlAccountLandingRoute({
   if (includingOrigin) {
     const origin =
       platformEnv.isWeb && !platformEnv.isDev
-        ? window.location.origin
+        ? globalThis.location.origin
         : WEB_APP_URL;
     return `${origin}${path}`;
   }
@@ -149,9 +149,9 @@ export async function replaceUrlAccountLandingRoute({
       address,
       networkId,
     });
-    window.history.replaceState(null, '', url);
+    globalThis.history.replaceState(null, '', url);
   } else {
-    window.history.replaceState(null, '', '/');
+    globalThis.history.replaceState(null, '', '/');
   }
   if (accountUtils.isUrlAccountFn({ accountId: account?.id })) {
     savePrevUrlAccount({ address, networkId });

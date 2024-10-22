@@ -16,7 +16,7 @@ const isSupportBiologyAuthFn = () =>
   new Promise<boolean>((resolve) => {
     const result = platformEnv.isE2E
       ? false
-      : window?.desktopApi?.canPromptTouchID();
+      : globalThis?.desktopApi?.canPromptTouchID();
     resolve(!!result);
   });
 
@@ -46,7 +46,7 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       //  so it needs the corresponding text in the system default language.
       const locale = getDefaultLocale();
       const messages = await getLocaleMessages(locale);
-      const result = await window?.desktopApi?.promptTouchID(
+      const result = await globalThis?.desktopApi?.promptTouchID(
         messages[ETranslations.global_unlock],
       );
       return result.success

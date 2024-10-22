@@ -103,6 +103,22 @@ declare global {
     ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
 
+  // All website
+  var ethereum: any;
+  var web3: any;
+  var $onekey: IWindowOneKeyHub;
+
+  // Native App webview content
+  var ReactNativeWebView: WebView;
+
+  // Desktop internal (main,renderer)
+  var ONEKEY_DESKTOP_GLOBALS: Record<any, any>;
+
+  // Ext internal (ui,background,contentScript)
+  var extJsBridgeUiToBg: JsBridgeBase;
+  var extJsBridgeOffscreenToBg: JsBridgeBase;
+  var ONEKEY_DESKTOP_DEEP_LINKS: any[];
+
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Error extends Error {
     $$autoPrintErrorIgnore?: boolean;

@@ -553,7 +553,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     try {
       let base: string | undefined;
       try {
-        base = window.location.toString();
+        base = globalThis.location.toString();
       } catch {
         // we just want to avoid the error about location in Deno
       }

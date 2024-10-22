@@ -46,6 +46,7 @@ const jsRules = {
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',
   'unicorn/numeric-separators-style': 'error',
+  'unicorn/prefer-global-this': 'error',
 };
 const restrictedImportsPatterns = [
   {

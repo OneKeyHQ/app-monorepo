@@ -70,4 +70,4 @@ export class JotaiBgSync {
 
 export const jotaiBgSync = new JotaiBgSync();
 // use global var to avoid circular dependency
-global.$jotaiBgSync = jotaiBgSync;
+globalThis.$jotaiBgSync = jotaiBgSync;

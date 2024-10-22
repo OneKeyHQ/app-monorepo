@@ -11,7 +11,7 @@ export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
 export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 
 // for background open modal
-global.$navigationRef = rootNavigationRef;
+globalThis.$navigationRef = rootNavigationRef;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<

@@ -29,7 +29,7 @@ export const useSyncThemeVariant = platformEnv.isNative
           localStorage.setItem(THEME_PRELOAD_STORAGE_KEY, theme);
           // startup theme on desktop: apps/desktop/src-electron/app.ts 213L
           if (platformEnv.isDesktop) {
-            window.desktopApi?.changeTheme(theme);
+            globalThis.desktopApi?.changeTheme(theme);
           }
         });
       }, [theme]);

@@ -201,7 +201,7 @@ class ServiceDApp extends ServiceBase {
       }
     } else {
       const doOpenModal = () =>
-        global.$navigationRef.current?.navigate(
+        globalThis.$navigationRef.current?.navigate(
           modalParams.screen,
           modalParams.params,
         );

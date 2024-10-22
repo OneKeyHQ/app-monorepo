@@ -1,7 +1,7 @@
 import type { IAdaSdk, IEnsureSDKReady } from './types';
 
 const getCardanoApi = async () =>
-  Promise.resolve(global.$webembedApiProxy.chainAdaLegacy);
+  Promise.resolve(globalThis.$webembedApiProxy.chainAdaLegacy);
 
 const ensureSDKReady: IEnsureSDKReady = async () => Promise.resolve(true);
 

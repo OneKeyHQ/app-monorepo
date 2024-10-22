@@ -13,6 +13,6 @@ const backgroundApiProxy = new BackgroundApiProxy({
   backgroundApi,
 });
 
-global.$backgroundApiProxy = backgroundApiProxy;
+globalThis.$backgroundApiProxy = backgroundApiProxy;
 
 export default backgroundApiProxy;

@@ -290,7 +290,7 @@ class ServiceDiscovery extends ServiceBase {
     if (platformEnv.isNative) {
       WebViewCleaner.clearAll();
     } else if (platformEnv.isDesktop) {
-      window.desktopApi.clearWebViewCache();
+      globalThis.desktopApi.clearWebViewCache();
     }
   }
 

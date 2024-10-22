@@ -20,7 +20,7 @@ if (platformEnv.isExtensionUi) {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$simpleDb = simpleDb;
+  globalThis.$$simpleDb = simpleDb;
 }
 
 ensureRunOnBackground();
