@@ -99,7 +99,7 @@ const SwapCommonInfoItem = ({
         {isLoading ? (
           <Stack py="$1">
             <Skeleton h="$3" w="$24" />
-          </Stack>  
+          </Stack>
         ) : (
           rightTrigger
         )}
