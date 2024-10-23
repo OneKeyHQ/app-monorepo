@@ -112,6 +112,7 @@ export type IDecodedTx = {
   xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
+  approveInfo?: IApproveInfo;
   totalFeeInNative?: string;
   totalFeeFiatValue?: string;
 
