@@ -4,8 +4,11 @@ import { defaultLoggerConfig } from '../loggerConfig';
 
 import type { IMethodDecoratorMetadata, Metadata } from '../types';
 
-let prevRawMsg: string | undefined;
+let prevMsg: string | undefined;
 let repeatContentCount = 0;
+
+const isLocalOrConsole = (metadata: IMethodDecoratorMetadata) =>
+  metadata.type === 'local' || metadata.type === 'console';
 
 export const logFn = ({
   scopeName,
@@ -36,11 +39,13 @@ export const logFn = ({
       !platformEnv.isDev || !!config?.enabled?.[scopeName]?.[sceneName];
     const prefix = `${scopeName} => ${sceneName} => ${methodName} : `;
     let msg = `${prefix} ${rawMsg}`;
-    if (prevRawMsg === rawMsg) {
-      repeatContentCount += 1;
-      return;
+    if (isLocalOrConsole(metadata)) {
+      if (prevMsg === msg) {
+        repeatContentCount += 1;
+        return;
+      }
+      prevMsg = msg;
     }
-    prevRawMsg = rawMsg;
 
     if (process.env.NODE_ENV !== 'production' && platformEnv.isNative) {
       // RN chrome remote console cannot display correct JSON stringify strings, so change to single quotes
