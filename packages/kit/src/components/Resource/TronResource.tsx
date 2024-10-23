@@ -136,7 +136,9 @@ function ResourceDetailsContent({
           icon="QuestionmarkOutline"
           onPress={() => openUrlInApp(TRON_RESOURCE_DOC_URL)}
         >
-          {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          {intl.formatMessage({
+            id: ETranslations.global_energy_bandwidth_learn,
+          })}
         </Button>
       </XStack>
       {isLoading ? (
