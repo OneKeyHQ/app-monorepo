@@ -157,9 +157,7 @@ export function BookmarksAndHistoriesSection({
 
   return (
     <Stack px="$5" minHeight="$40">
-      <DashboardSectionHeader
-        showSectionHeaderBorder={showSectionHeaderBorder}
-      >
+      <DashboardSectionHeader showSectionHeaderBorder={showSectionHeaderBorder}>
         <DashboardSectionHeader.Heading
           selected={!isHistoriesView}
           onPress={() => setIsHistoriesView(false)}
