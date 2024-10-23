@@ -24,7 +24,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
@@ -166,6 +166,18 @@ export default function NotificationsSettings() {
                     }}
                   />
                 </ListItem>
+                {settings?.accountActivityPushEnabled ? (
+                  <ListItem
+                    title="Manage"
+                    subtitle="Choose the account for notifications."
+                    drillIn
+                    onPress={() => {
+                      navigation.push(
+                        EModalSettingRoutes.SettingManageAccountActivity,
+                      );
+                    }}
+                  />
+                ) : null}
                 {/* <ListItem>
           <ListItem.Text
             flex={1}
