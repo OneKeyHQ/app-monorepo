@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+
+import { useNavigation } from '@react-navigation/native';
 import { Camera } from 'react-native-camera-kit/src';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -13,26 +16,43 @@ export function ScanCamera({
   handleScanResult,
   ...rest
 }: IScanCameraProps) {
-  if (!isActive) {
-    return null;
-  }
+  const [isFocus, setIsFocus] = useState(false);
+  const navigation = useNavigation();
+  useEffect(() => {
+    const focusUnsubscribe = navigation.addListener('focus', () => {
+      setIsFocus(true);
+    });
+
+    const blurUnsubscribe = navigation.addListener('blur', () => {
+      setIsFocus(false);
+    });
+    return () => {
+      setTimeout(() => {
+        blurUnsubscribe();
+        focusUnsubscribe();
+      });
+    };
+  }, [navigation]);
+
   return (
     <>
-      <Camera
-        ref={(ref) =>
-          ref === null && defaultLogger.scanQrCode.readQrCode.releaseCamera()
-        }
-        style={{ flex: 1 }}
-        resizeMode="cover"
-        scanBarcode
-        onReadCode={({ nativeEvent: { codeStringValue } }) => {
-          if (typeof codeStringValue !== 'string') {
-            return;
+      {isFocus ? (
+        <Camera
+          ref={(ref) =>
+            ref === null && defaultLogger.scanQrCode.readQrCode.releaseCamera()
           }
-          handleScanResult?.(codeStringValue);
-        }}
-        {...rest}
-      />
+          style={{ flex: 1 }}
+          resizeMode="cover"
+          scanBarcode
+          onReadCode={({ nativeEvent: { codeStringValue } }) => {
+            if (typeof codeStringValue !== 'string') {
+              return;
+            }
+            handleScanResult?.(codeStringValue);
+          }}
+          {...rest}
+        />
+      ) : null}
       {children}
     </>
   );

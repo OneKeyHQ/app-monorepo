@@ -10,18 +10,10 @@ export type { IScanCameraProps };
 
 export function ScanCamera({
   style,
-  isActive,
   children,
   handleScanResult,
   ...rest
 }: IScanCameraProps) {
-  if (!isActive) {
-    // void navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-    //   stream.getVideoTracks().forEach((track) => track.stop());
-    //   stream.getTracks().forEach((track) => track.stop());
-    // });
-    return null;
-  }
   return (
     <Camera
       ref={(ref) =>
