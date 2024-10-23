@@ -11,6 +11,7 @@ import {
 } from '@magiceden-oss/open_creator_protocol';
 import {
   Metadata,
+  PROGRAM_ADDRESS,
   TokenRecord,
   TokenStandard,
   TokenState,
@@ -299,7 +300,6 @@ export default class Vault extends VaultBase {
                 destinationAta,
                 amount,
                 metadata: metadata as Metadata,
-                programId: tokenProgramId,
               })),
             );
           } else {
@@ -474,7 +474,6 @@ export default class Vault extends VaultBase {
     destinationAta,
     amount,
     metadata,
-    programId,
   }: {
     mint: PublicKey;
     source: PublicKey;
@@ -483,7 +482,6 @@ export default class Vault extends VaultBase {
     destinationAta: PublicKey;
     amount: string;
     metadata: Metadata;
-    programId?: PublicKey;
   }) {
     const client = await this.getClient();
     const instructions: TransactionInstruction[] = [];
@@ -521,6 +519,7 @@ export default class Vault extends VaultBase {
         destinationOwner: destination,
         destination: destinationAta,
         payer: source,
+        systemProgram: SystemProgram.programId,
         splTokenProgram: TOKEN_PROGRAM_ID,
         splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
@@ -539,11 +538,7 @@ export default class Vault extends VaultBase {
       };
 
       instructions.push(
-        createTokenMetadataTransferInstruction(
-          transferAccounts,
-          transferArgs,
-          programId,
-        ),
+        createTokenMetadataTransferInstruction(transferAccounts, transferArgs),
       );
     }
 
@@ -704,6 +699,7 @@ export default class Vault extends VaultBase {
       actions = await this._decodeNativeTxActions({
         nativeTx,
         isNFT: transferPayload?.isNFT,
+        amountToSend: transferPayload?.amountToSend,
       });
     }
 
@@ -754,9 +750,11 @@ export default class Vault extends VaultBase {
   async _decodeNativeTxActions({
     nativeTx,
     isNFT,
+    amountToSend,
   }: {
     nativeTx: INativeTxSol;
     isNFT: boolean | undefined;
+    amountToSend: string | undefined;
   }) {
     const actions: Array<IDecodedTxAction> = [];
 
@@ -766,6 +764,7 @@ export default class Vault extends VaultBase {
       nativeTx,
       client,
     });
+
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now
       if (
@@ -835,10 +834,16 @@ export default class Vault extends VaultBase {
         instruction.programId.toString() === TOKEN_2022_PROGRAM_ID.toString()
       ) {
         try {
-          const programId =
-            instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
-              ? TOKEN_PROGRAM_ID
-              : TOKEN_2022_PROGRAM_ID;
+          let programId = TOKEN_PROGRAM_ID;
+
+          if (instruction.programId.toString() === PROGRAM_ADDRESS) {
+            programId = new PublicKey(PROGRAM_ADDRESS);
+          } else {
+            programId =
+              instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+                ? TOKEN_PROGRAM_ID
+                : TOKEN_2022_PROGRAM_ID;
+          }
 
           const {
             data: { instruction: instructionType },
@@ -905,6 +910,35 @@ export default class Vault extends VaultBase {
           }
         } catch {
           // pass
+        }
+      } else if (instruction.programId.toString() === PROGRAM_ADDRESS) {
+        const [, owner, , destination, tokenAddress] = instruction.keys;
+        const fromAddress = owner.pubkey.toString();
+        const toAddress = destination.pubkey.toString();
+        const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          tokenIdOnNetwork: tokenAddress.pubkey.toString(),
+        });
+        if (tokenInfo) {
+          const transfer: IDecodedTxTransferInfo = {
+            from: fromAddress,
+            to: toAddress,
+            tokenIdOnNetwork: tokenAddress.pubkey.toString(),
+            icon: tokenInfo.logoURI ?? '',
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            amount: amountToSend ?? '1',
+            isNFT,
+          };
+
+          actions.push(
+            await this.buildTxTransferAssetAction({
+              from: fromAddress,
+              to: toAddress,
+              transfers: [transfer],
+            }),
+          );
         }
       }
     }
