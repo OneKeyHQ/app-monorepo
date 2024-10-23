@@ -33681,19 +33681,19 @@ __metadata:
   linkType: hard
 
 "secp256k1@npm:^3.0.1, secp256k1@npm:^3.7.1":
-  version: 3.8.0
-  resolution: "secp256k1@npm:3.8.0"
+  version: 3.8.1
+  resolution: "secp256k1@npm:3.8.1"
   dependencies:
     bindings: "npm:^1.5.0"
     bip66: "npm:^1.1.5"
     bn.js: "npm:^4.11.8"
     create-hash: "npm:^1.2.0"
     drbg.js: "npm:^1.0.1"
-    elliptic: "npm:^6.5.2"
+    elliptic: "npm:^6.5.7"
     nan: "npm:^2.14.0"
     node-gyp: "npm:latest"
     safe-buffer: "npm:^5.1.2"
-  checksum: 10/45e65c68affb228fa253297188ba64c60c39a0f0defc80578ca50e0dda188efb109e9711f9d434672d3e1507860434a9c4bf16bf41a91d67ae50d32f8f6e2059
+  checksum: 10/dfe9621aea56268878ed384cbf8aac55ad7d3a887816d6e130d202ad679a25546f0079b22ab462f605c30668733e6b7676e4e77c63542d6fc45a7a5ad9ebb3f4
   languageName: node
   linkType: hard
 
