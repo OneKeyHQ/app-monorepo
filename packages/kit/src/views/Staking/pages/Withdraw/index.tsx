@@ -125,9 +125,9 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(
-            Number(active ?? 0) + Number(overflow ?? 0),
-          ).toFixed()}
+          balance={BigNumber(active ?? 0)
+            .plus(overflow ?? 0)
+            .toFixed()}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
