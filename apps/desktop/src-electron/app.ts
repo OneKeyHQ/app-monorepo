@@ -133,6 +133,7 @@ const initMenu = () => {
         { type: 'separator' },
         {
           label: i18nText(ETranslations.menu_lock_now),
+          accelerator: 'CmdOrCtrl+Shift+L',
           click: () => {
             showMainWindow();
             const safelyMainWindow = getSafelyMainWindow();
