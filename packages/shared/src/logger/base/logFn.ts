@@ -7,9 +7,6 @@ import type { IMethodDecoratorMetadata, Metadata } from '../types';
 let prevMsg: string | undefined;
 let repeatContentCount = 0;
 
-const isLocalOrConsole = (metadata: IMethodDecoratorMetadata) =>
-  metadata.type === 'local' || metadata.type === 'console';
-
 export const logFn = ({
   scopeName,
   sceneName,
@@ -39,7 +36,7 @@ export const logFn = ({
       !platformEnv.isDev || !!config?.enabled?.[scopeName]?.[sceneName];
     const prefix = `${scopeName} => ${sceneName} => ${methodName} : `;
     let msg = `${prefix} ${rawMsg}`;
-    if (isLocalOrConsole(metadata)) {
+    if (metadata.type === 'local') {
       if (prevMsg === msg) {
         repeatContentCount += 1;
         return;
