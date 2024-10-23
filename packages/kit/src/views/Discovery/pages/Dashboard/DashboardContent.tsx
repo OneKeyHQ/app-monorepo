@@ -116,30 +116,28 @@ function DashboardContent({
       Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
     return (
       <>
-        {isShowBanner ? (
-          <DashboardBanner
-            key="Banner"
-            banners={homePageData?.banners || []}
-            handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-              if (useSystemBrowser && webSite?.url) {
-                openUrlExternal(webSite.url);
-              } else if (webSite?.url) {
-                handleOpenWebSite({
-                  switchToMultiTabBrowser: gtMd,
-                  webSite,
-                  navigation,
-                  shouldPopNavigation: false,
-                });
-              }
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: webSite?.url || '',
-                dappName: webSite?.title || '',
-                enterMethod: EEnterMethod.banner,
+        <DashboardBanner
+          key="Banner"
+          banners={homePageData?.banners || []}
+          handleOpenWebSite={({ webSite, useSystemBrowser }) => {
+            if (useSystemBrowser && webSite?.url) {
+              openUrlExternal(webSite.url);
+            } else if (webSite?.url) {
+              handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
+                webSite,
+                navigation,
+                shouldPopNavigation: false,
               });
-            }}
-            isLoading={isLoading}
-          />
-        ) : null}
+            }
+            defaultLogger.discovery.dapp.enterDapp({
+              dappDomain: webSite?.url || '',
+              dappName: webSite?.title || '',
+              enterMethod: EEnterMethod.banner,
+            });
+          }}
+          isLoading={isLoading}
+        />
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <BookmarksAndHistoriesSection
             showSectionHeaderBorder={isShowBanner}
