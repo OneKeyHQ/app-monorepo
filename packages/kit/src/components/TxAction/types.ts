@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {

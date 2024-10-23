@@ -269,6 +269,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
               tokenDecimals,
               tokenSymbol,
               tokenAddress,
+              approveInfo: decodedTx.approveInfo,
               onResetTokenApproveInfo: handleResetApproveInfo,
               onChangeTokenApproveInfo: handleChangeApproveInfo,
             })

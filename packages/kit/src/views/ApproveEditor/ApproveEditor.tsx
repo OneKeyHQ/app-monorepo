@@ -9,10 +9,12 @@ import {
   Dialog,
   Form,
   Input,
+  NumberSizeableText,
   Skeleton,
   Switch,
   useForm,
 } from '@onekeyhq/components';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -27,6 +29,7 @@ export type IProps = {
   tokenAddress: string;
   tokenDecimals: number;
   tokenSymbol: string;
+  approveInfo?: IApproveInfo;
   onResetTokenApproveInfo: () => void;
   onChangeTokenApproveInfo: ({
     allowance,
@@ -52,6 +55,7 @@ function ApproveEditor(props: IProps) {
     tokenSymbol,
     onResetTokenApproveInfo,
     onChangeTokenApproveInfo,
+    approveInfo,
   } = props;
 
   const { result, isLoading } = usePromiseResult(
@@ -69,13 +73,6 @@ function ApproveEditor(props: IProps) {
 
   const tokenDetails = result?.[0];
 
-  const handleValidateApproveAmount = useCallback((value: string) => {
-    if (value === 'RESET') {
-      return 'RESET';
-    }
-    return true;
-  }, []);
-
   const unlimitedText = intl.formatMessage({
     id: ETranslations.swap_page_provider_approve_amount_un_limit,
   });
@@ -90,6 +87,29 @@ function ApproveEditor(props: IProps) {
   });
 
   const watchAllFields = form.watch();
+
+  const handleValidateApproveAmount = useCallback(
+    (value: string) => {
+      if (value === 'RESET') {
+        return 'RESET';
+      }
+
+      if (approveInfo) {
+        if (form.getValues('isUnlimited')) {
+          return true;
+        }
+        const valueBN = new BigNumber(value);
+        if (valueBN.isLessThan(approveInfo.amount)) {
+          return intl.formatMessage({
+            id: ETranslations.approve_edit_less_than_swap,
+          });
+        }
+      }
+
+      return true;
+    },
+    [approveInfo, form, intl],
+  );
 
   return (
     <>
@@ -142,7 +162,16 @@ function ApproveEditor(props: IProps) {
                   }
                 }}
               >
-                {tokenDetails?.balanceParsed ?? '-'}
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  formatter="balance"
+                  formatterOptions={{
+                    tokenSymbol,
+                  }}
+                  color="$textSubdued"
+                >
+                  {tokenDetails?.balanceParsed ?? '-'}
+                </NumberSizeableText>
               </Button>
             )
           }
@@ -178,6 +207,7 @@ function ApproveEditor(props: IProps) {
               } else {
                 form.setValue('allowance', isUnlimited ? '' : allowance);
               }
+              void form.trigger('allowance');
             },
           }}
         >
@@ -185,6 +215,9 @@ function ApproveEditor(props: IProps) {
         </Form.Field>
       </Form>
       <Dialog.Footer
+        confirmButtonProps={{
+          disabled: !form.formState.isValid,
+        }}
         onConfirm={async ({ close }) => {
           const currentAllowance = form.getValues('allowance');
           const currentIsUnlimited = form.getValues('isUnlimited');
