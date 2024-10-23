@@ -4,8 +4,9 @@ import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightni
 import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import type { IFeeInfoUnit, ISendSelectedFeeInfo } from './fee';
+import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
@@ -217,6 +218,7 @@ export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;
   feeInfo?: IFeeInfoUnit;
+  approveInfo?: IApproveInfo;
 };
 
 export type IReplaceTxInfo = {

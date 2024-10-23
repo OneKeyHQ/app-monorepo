@@ -383,6 +383,14 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         tokenApproveInfo,
       });
+
+      if (unsignedTx.approveInfo) {
+        unsignedTx.approveInfo = {
+          ...unsignedTx.approveInfo,
+          amount: tokenApproveInfo.allowance,
+          isMax: tokenApproveInfo.isUnlimited,
+        };
+      }
     }
 
     if (feeInfo) {
