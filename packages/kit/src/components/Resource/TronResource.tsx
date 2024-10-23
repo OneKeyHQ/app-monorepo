@@ -21,7 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 const TRON_RESOURCE_DOC_URL =
-  'https://developers.tron.network/docs/resource-model';
+  'https://help.onekey.so/hc/articles/11039593254799';
 
 function ResourceDetails({
   name,
@@ -136,7 +136,9 @@ function ResourceDetailsContent({
           icon="QuestionmarkOutline"
           onPress={() => openUrlInApp(TRON_RESOURCE_DOC_URL)}
         >
-          {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          {intl.formatMessage({
+            id: ETranslations.global_energy_bandwidth_learn,
+          })}
         </Button>
       </XStack>
       {isLoading ? (
