@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import {
@@ -26,7 +27,6 @@ import {
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useOptions } from '../../AppAutoLock/useOptions';
-import { Section } from '../Section';
 
 import { CleanDataItem } from './CleanDataItem';
 

@@ -15,6 +15,7 @@ import {
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -37,8 +38,6 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-
-import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
