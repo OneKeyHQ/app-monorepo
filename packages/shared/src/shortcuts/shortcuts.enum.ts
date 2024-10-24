@@ -17,76 +17,84 @@ export enum EShortcutEvents {
   TabSwap = 'TabSwap',
   TabMarket = 'TabMarket',
   TabBrowser = 'TabBrowser',
+  ViewHistory = 'ViewHistory',
+  ViewBookmark = 'ViewBookmark',
 }
-
-const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
 
 export const shortcutsMap: Record<
   EShortcutEvents,
   { keys: string[]; desc: string }
 > = {
   [EShortcutEvents.GoBackHistory]: {
-    keys: [CmdOrCtrl, '['],
+    keys: [shortcutsKeys.CmdOrCtrl, '['],
     desc: 'Go back history',
   },
   [EShortcutEvents.GoForwardHistory]: {
-    keys: [CmdOrCtrl, ']'],
+    keys: [shortcutsKeys.CmdOrCtrl, ']'],
     desc: 'Go forward history',
   },
   [EShortcutEvents.Refresh]: {
-    keys: [CmdOrCtrl, 'R'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'R'],
     desc: 'Refresh',
   },
   [EShortcutEvents.NewTab]: {
-    keys: [CmdOrCtrl, 'T'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'T'],
     desc: 'New Tab',
   },
   [EShortcutEvents.NewTab2]: {
-    keys: [CmdOrCtrl, 'N'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'N'],
     desc: 'New Tab2',
   },
   [EShortcutEvents.CloseTab]: {
-    keys: [CmdOrCtrl, 'W'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'W'],
     desc: 'Close Tab',
   },
   [EShortcutEvents.SideBar]: {
-    keys: [CmdOrCtrl, 'S'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'S'],
     desc: 'Open / Close SideBar',
   },
   [EShortcutEvents.SearchInPage]: {
-    keys: [CmdOrCtrl, 'F'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'F'],
     desc: 'Search in Page',
   },
   [EShortcutEvents.CopyAddress]: {
-    keys: [CmdOrCtrl, shortcutsKeys.Shift, 'C'],
+    keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],
     desc: 'Copy Address',
   },
   [EShortcutEvents.AccountSelector]: {
-    keys: [CmdOrCtrl, 'P'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'P'],
     desc: 'Account Selector',
   },
   [EShortcutEvents.NetworkSelector]: {
-    keys: [CmdOrCtrl, 'O'],
+    keys: [shortcutsKeys.CmdOrCtrl, 'O'],
     desc: 'Network Selector',
   },
   [EShortcutEvents.TabWallet]: {
-    keys: [CmdOrCtrl, '1'],
+    keys: [shortcutsKeys.CmdOrCtrl, '1'],
     desc: 'Wallet Tab',
   },
   [EShortcutEvents.TabEarn]: {
-    keys: [CmdOrCtrl, '2'],
+    keys: [shortcutsKeys.CmdOrCtrl, '2'],
     desc: 'Earn Tab',
   },
   [EShortcutEvents.TabSwap]: {
-    keys: [CmdOrCtrl, '3'],
+    keys: [shortcutsKeys.CmdOrCtrl, '3'],
     desc: 'Swap Tab',
   },
   [EShortcutEvents.TabMarket]: {
-    keys: [CmdOrCtrl, '4'],
+    keys: [shortcutsKeys.CmdOrCtrl, '4'],
     desc: 'Market Tab',
   },
   [EShortcutEvents.TabBrowser]: {
-    keys: [CmdOrCtrl, '5'],
+    keys: [shortcutsKeys.CmdOrCtrl, '5'],
     desc: 'Browser Tab',
+  },
+  [EShortcutEvents.ViewHistory]: {
+    keys: [shortcutsKeys.CmdOrCtrl, 'Y'],
+    desc: 'View History',
+  },
+  [EShortcutEvents.ViewBookmark]: {
+    keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'B'],
+    desc: 'View Bookmark',
   },
 };
