@@ -232,8 +232,9 @@ class ServiceAddressBook extends ServiceBase {
     const items = await this.getItems();
     const data = items.filter((i) => i.id !== id);
     await this.setItems(data, password);
-    if (data.length > 0) {
-      data.forEach((o) => {
+    const remove = items.filter((i) => i.id === id);
+    if (remove.length > 0) {
+      remove.forEach((o) => {
         defaultLogger.setting.page.removeAddressBook({ network: o.networkId });
       });
     }

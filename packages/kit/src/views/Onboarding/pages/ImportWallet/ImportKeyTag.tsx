@@ -67,10 +67,10 @@ export function ImportKeyTag() {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
       });
-
       defaultLogger.account.wallet.importWallet({
         importMethod: 'keyTag',
       });
+      defaultLogger.setting.page.keyTagImportResult({ isSuccess: true });
     },
     [navigation],
   );

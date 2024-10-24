@@ -17,6 +17,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ONEKEY_KEY_TAG_PURCHASE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalKeyTagRoutes,
@@ -36,6 +37,7 @@ const UserOptions = () => {
   }, [navigation]);
   const onImport = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    defaultLogger.setting.page.keyTagImport();
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.ImportKeyTag,
     });
