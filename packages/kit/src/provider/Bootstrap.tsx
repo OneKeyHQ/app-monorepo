@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EDiscoveryModalRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ETabRoutes,
@@ -140,6 +141,12 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
+            break;
+          case EShortcutEvents.NewTab:
+          case EShortcutEvents.NewTab2:
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.SearchModal,
+            });
             break;
           default:
             break;

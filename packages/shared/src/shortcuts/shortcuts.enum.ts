@@ -5,6 +5,7 @@ export enum EShortcutEvents {
   GoForwardHistory = 'GoForwardHistory',
   Refresh = 'Refresh',
   NewTab = 'NewTab',
+  NewTab2 = 'NewTab2',
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
@@ -39,6 +40,10 @@ export const shortcutsMap: Record<
   [EShortcutEvents.NewTab]: {
     keys: [CmdOrCtrl, 'T'],
     desc: 'New Tab',
+  },
+  [EShortcutEvents.NewTab2]: {
+    keys: [CmdOrCtrl, 'N'],
+    desc: 'New Tab2',
   },
   [EShortcutEvents.CloseTab]: {
     keys: [CmdOrCtrl, 'W'],
