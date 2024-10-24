@@ -37,6 +37,7 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
@@ -364,6 +365,7 @@ function DesktopCustomTabBar() {
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
                 })}
+                shortcutKey={EShortcutEvents.NewTab}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {
