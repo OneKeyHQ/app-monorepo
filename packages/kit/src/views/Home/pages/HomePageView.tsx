@@ -3,7 +3,15 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Page,
+  SizableText,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -30,6 +38,7 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -88,6 +97,8 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
+
+  const netInfo = useNetInfo();
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -233,11 +244,22 @@ export function HomePageView({
       content = renderHomePageContent();
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
-
+    console.log(netInfo);
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
+          {netInfo.isConnected ? null : (
+            <Alert
+              type="critical"
+              icon="CloudOffOutline"
+              title={intl.formatMessage({
+                id: ETranslations.feedback_you_are_offline,
+              })}
+              closable={false}
+              fullBleed
+            />
+          )}
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
@@ -251,7 +273,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, renderHomePageContent]);
+  }, [ready, wallet, netInfo, sceneName, intl, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

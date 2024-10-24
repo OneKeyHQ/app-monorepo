@@ -6457,6 +6457,7 @@ __metadata:
     "@polkadot/extension-inject": "npm:0.46.6"
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
+    "@react-native-community/netinfo": "npm:^11.4.1"
     "@sentry/babel-plugin-component-annotate": "npm:2.21.1"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.108.0"
@@ -8680,6 +8681,15 @@ __metadata:
   bin:
     react-native: build/bin.js
   checksum: 10/a0a27bb471107a818f56a41969bf4298b9bcba5054ac5a6258c2d6b698797f3acfbef7d9c18960706bcce39f751adcae5a8d7a3ac908d22eefa4b88de82db46d
+  languageName: node
+  linkType: hard
+
+"@react-native-community/netinfo@npm:^11.4.1":
+  version: 11.4.1
+  resolution: "@react-native-community/netinfo@npm:11.4.1"
+  peerDependencies:
+    react-native: ">=0.59"
+  checksum: 10/47f0d61072ca04a545784daaa44a5b1927eb788a3521dce5462184855733485c3b58c52d2a9b790b5c784e806fb342c83bc14e348cc7e55263b63d31e1862f9d
   languageName: node
   linkType: hard
 
