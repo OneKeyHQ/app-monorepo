@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
@@ -38,7 +39,6 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-import { useNetInfo } from '@react-native-community/netinfo';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
