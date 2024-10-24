@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  Image,
   SizableText,
   Skeleton,
   View,
@@ -332,9 +331,12 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
 
   const [showNoAddress, setShowNoAddress] = useState(false);
 
-  const addressText = accountUtils.shortenAddress({
-    address: account?.address || '',
-  });
+  const addressText =
+    !account?.address && account?.addressDetail.isValid
+      ? account?.name
+      : accountUtils.shortenAddress({
+          address: account?.address || '',
+        });
 
   useEffect(() => {
     if (!addressText) {
