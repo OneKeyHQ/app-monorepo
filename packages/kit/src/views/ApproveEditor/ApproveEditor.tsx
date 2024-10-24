@@ -144,7 +144,10 @@ function ApproveEditor(props: IProps) {
 
               const dp = valueBN.decimalPlaces();
               if (dp && dp > tokenDecimals) {
-                form.setValue('allowance', valueBN.toFixed(tokenDecimals));
+                form.setValue(
+                  'allowance',
+                  valueBN.toFixed(tokenDecimals, BigNumber.ROUND_FLOOR),
+                );
               }
             },
           }}
