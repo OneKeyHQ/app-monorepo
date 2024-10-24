@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
 
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  isEthSignType,
+  isPrimaryTypeOrderSign,
+  isPrimaryTypePermitSign,
+} from '@onekeyhq/shared/src/signMessage';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -9,10 +15,10 @@ import {
 
 function useRiskDetection({
   origin,
-  isRiskSignMethod,
+  unsignedMessage,
 }: {
   origin: string;
-  isRiskSignMethod?: boolean;
+  unsignedMessage?: IUnsignedMessage;
 }) {
   const [continueOperate, setContinueOperate] = useState(false);
 
@@ -28,6 +34,25 @@ function useRiskDetection({
     () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,
     [urlSecurityInfo],
   );
+
+  const isRiskSignMethod = useMemo(() => {
+    if (!unsignedMessage) return false;
+    if (isEthSignType({ unsignedMessage })) {
+      return true;
+    }
+    if (!urlSecurityInfo) {
+      return false;
+    }
+    if (
+      (isPrimaryTypePermitSign({ unsignedMessage }) ||
+        isPrimaryTypeOrderSign({ unsignedMessage })) &&
+      riskLevel !== EHostSecurityLevel.Security
+    ) {
+      return true;
+    }
+    return false;
+  }, [unsignedMessage, riskLevel, urlSecurityInfo]);
+
   const showContinueOperate = useMemo(() => {
     if (isRiskSignMethod) {
       return true;
@@ -51,6 +76,7 @@ function useRiskDetection({
     setContinueOperate,
     urlSecurityInfo,
     riskLevel,
+    isRiskSignMethod,
   };
 }
 
