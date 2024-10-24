@@ -40,6 +40,9 @@ function useRiskDetection({
     if (isEthSignType({ unsignedMessage })) {
       return true;
     }
+    if (!urlSecurityInfo) {
+      return false;
+    }
     if (
       (isPrimaryTypePermitSign({ unsignedMessage }) ||
         isPrimaryTypeOrderSign({ unsignedMessage })) &&
@@ -48,7 +51,7 @@ function useRiskDetection({
       return true;
     }
     return false;
-  }, [unsignedMessage, riskLevel]);
+  }, [unsignedMessage, riskLevel, urlSecurityInfo]);
 
   const showContinueOperate = useMemo(() => {
     if (isRiskSignMethod) {
