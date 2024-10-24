@@ -2,13 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Input,
-  Shortcut,
-  View,
-  XStack,
-  useShortcuts,
-} from '@onekeyhq/components';
+import { Input, Shortcut, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
@@ -16,7 +10,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 
 const SEARCH_IN_PAGE_KEY = EShortcutEvents.SearchInPage;
 export function UniversalSearchInput() {
@@ -31,14 +25,7 @@ export function UniversalSearchInput() {
     });
   }, [navigation]);
 
-  const isFocus = useRouteIsFocused();
-
-  const onShortCuts = useCallback(() => {
-    if (isFocus) {
-      toUniversalSearchPage();
-    }
-  }, [isFocus, toUniversalSearchPage]);
-  useShortcuts(SEARCH_IN_PAGE_KEY, onShortCuts);
+  useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
 
   return (
     <XStack w={280}>

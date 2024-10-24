@@ -21,10 +21,12 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -149,6 +151,8 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
+  useShortcutsOnRouteFocused(EShortcutEvents.CopyAddress, handleAddressOnPress);
+
   if (walletAddressEnable) {
     return <AllNetworkAccountSelector num={num} />;
   }
@@ -157,6 +161,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   if (account?.address) {
     return (
       <Tooltip
+        shortcutKey={EShortcutEvents.CopyAddress}
         renderContent={intl.formatMessage({
           id: ETranslations.global_copy_address,
         })}

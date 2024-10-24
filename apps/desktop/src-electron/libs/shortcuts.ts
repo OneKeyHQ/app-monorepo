@@ -14,6 +14,8 @@ export function registerShortcuts(callback: (event: EShortcutEvents) => void) {
               switch (key) {
                 case shortcutsKeys.CmdOrCtrl:
                   return 'CmdOrCtrl';
+                case shortcutsKeys.Shift:
+                  return 'Shift';
                 default:
                   return key;
               }

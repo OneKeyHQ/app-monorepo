@@ -130,6 +130,7 @@ export function Tooltip({
     if (typeof renderContent === 'string') {
       return (
         <TooltipText
+          shortcutKey={shortcutKey}
           onDisplayChange={setIsShow}
           onDisabledChange={setIsDisabled}
         >
@@ -139,7 +140,7 @@ export function Tooltip({
     }
 
     return renderContent;
-  }, [renderContent]);
+  }, [renderContent, shortcutKey]);
 
   return (
     <TMTooltip

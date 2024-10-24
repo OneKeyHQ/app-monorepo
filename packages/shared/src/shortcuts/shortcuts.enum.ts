@@ -8,6 +8,7 @@ export enum EShortcutEvents {
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
+  CopyAddress = 'CopyAddress',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
@@ -43,5 +44,9 @@ export const shortcutsMap: Record<
   [EShortcutEvents.SearchInPage]: {
     keys: [CmdOrCtrl, 'F'],
     desc: 'Search in Page',
+  },
+  [EShortcutEvents.CopyAddress]: {
+    keys: [CmdOrCtrl, shortcutsKeys.Shift, 'C'],
+    desc: 'Copy Address',
   },
 };
