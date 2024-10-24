@@ -1,3 +1,8 @@
+import { useMemo } from 'react';
+
+import { shortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+
 import { SizableText, Stack, XStack } from '../../primitives';
 
 import type { ISizableTextProps } from '../../primitives';
@@ -27,14 +32,23 @@ function ShortCutKey(props: ISizableTextProps) {
   );
 }
 
-export type IShortcut = XStackProps;
+export type IShortcut = XStackProps & {
+  shortcutKey?: EShortcutEvents;
+};
+
+function ShortcutContent({ shortcutKey }: { shortcutKey: EShortcutEvents }) {
+  return useMemo(() => {
+    const keys = shortcutsMap[shortcutKey].keys;
+    return keys.map((key) => <ShortCutKey key={key}>{key}</ShortCutKey>);
+  }, [shortcutKey]);
+}
 
 export function Shortcut(props: IShortcut) {
-  const { children, ...rest } = props;
+  const { children, shortcutKey, ...rest } = props;
 
   return (
     <XStack gap="$1" {...rest}>
-      {children}
+      {shortcutKey ? <ShortcutContent shortcutKey={shortcutKey} /> : children}
     </XStack>
   );
 }

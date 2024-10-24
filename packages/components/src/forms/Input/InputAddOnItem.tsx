@@ -9,7 +9,7 @@ import type { IKeyOfIcons, IXStackProps } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 type IExtraProps = {
-  label?: string;
+  label?: string | ReactElement;
   iconName?: IKeyOfIcons;
   iconColor?: ColorTokens;
   size?: IInputProps['size'];
