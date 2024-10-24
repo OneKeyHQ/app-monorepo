@@ -21,6 +21,8 @@ export enum EShortcutEvents {
   ViewBookmark = 'ViewBookmark',
   AddOrRemoveBookmark = 'AddOrRemoveBookmark',
   PinOrUnpinTab = 'PinOrUnpinTab',
+  ChangeCurrentTabUrl = 'ChangeCurrentTabUrl',
+  ReOpenLastClosedTab = 'ReOpenLastClosedTab',
 }
 
 export const shortcutsMap: Record<
@@ -106,5 +108,13 @@ export const shortcutsMap: Record<
   [EShortcutEvents.PinOrUnpinTab]: {
     keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'P'],
     desc: 'Pin or Unpin Tab',
+  },
+  [EShortcutEvents.ChangeCurrentTabUrl]: {
+    keys: [shortcutsKeys.CmdOrCtrl, 'L'],
+    desc: 'Change Current Tab Url',
+  },
+  [EShortcutEvents.ReOpenLastClosedTab]: {
+    keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'T'],
+    desc: 'ReOpen Last Closed Tab',
   },
 };
