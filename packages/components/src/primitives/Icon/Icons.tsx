@@ -35,6 +35,7 @@ const icons = {
   CheckboxIndeterminateCustom: () =>
     import("./react/custom/CheckboxIndeterminate"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
+  ShortcutsCustom: () => import("./react/custom/Shortcuts"),
   AkashIllus: () => import("./react/illus/Akash"),
   AlgorandIllus: () => import("./react/illus/Algorand"),
   AllNetworksIllus: () => import("./react/illus/AllNetworks"),

@@ -2,7 +2,6 @@ import type {
   ComponentType,
   CompositionEventHandler,
   ForwardedRef,
-  ReactComponentElement,
   RefObject,
 } from 'react';
 import {
@@ -404,6 +403,7 @@ function BaseInput(
                   loading,
                   testID = '',
                   renderContent,
+                  tooltipProps,
                 },
                 index,
               ) => {
@@ -418,11 +418,11 @@ function BaseInput(
                 };
 
                 return (
-                  <Group.Item key={`${iconName || index}-${label || index}`}>
+                  <Group.Item key={`${iconName || index}-${index}`}>
                     {renderContent ?? (
                       <InputAddOnItem
                         testID={testID}
-                        key={`${iconName || ''}-${label || ''}`}
+                        key={`${iconName || ''}-${index}`}
                         label={label}
                         loading={loading}
                         size={size}
@@ -430,6 +430,7 @@ function BaseInput(
                         iconColor={getIconColor()}
                         error={error}
                         onPress={onPress}
+                        tooltipProps={tooltipProps}
                         {...addOnsItemProps}
                       />
                     )}

@@ -27,6 +27,7 @@ import {
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
@@ -51,6 +52,7 @@ function TabItemView({
   onPress: () => void;
   options: BottomTabNavigationOptions & {
     actionList?: IActionListSection[];
+    shortcutKey?: EShortcutEvents;
   };
   isCollapse?: boolean;
 }) {
@@ -68,6 +70,7 @@ function TabItemView({
         onPress={onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
+        shortcutKey={options.shortcutKey}
         tabBarStyle={options.tabBarStyle}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}

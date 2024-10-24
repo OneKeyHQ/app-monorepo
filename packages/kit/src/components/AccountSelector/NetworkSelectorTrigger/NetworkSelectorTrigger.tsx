@@ -7,13 +7,16 @@ import {
   NATIVE_HIT_SLOP,
   Select,
   SizableText,
+  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
@@ -91,50 +94,72 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
-  return (
-    <XStack
-      testID="account-network-trigger-button"
-      role="button"
-      flexShrink={1}
-      alignItems="center"
-      p="$1"
-      m="$-1"
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusVisibleStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
-      hitSlop={NATIVE_HIT_SLOP}
-      userSelect="none"
-      onPress={showChainSelector}
-    >
-      <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText
-        testID="account-network-trigger-button-text"
-        pl="$2"
-        size="$bodyMd"
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.NetworkSelector,
+    showChainSelector,
+  );
+
+  const trigger = useMemo(
+    () => (
+      <XStack
+        testID="account-network-trigger-button"
+        role="button"
         flexShrink={1}
-        numberOfLines={1}
+        alignItems="center"
+        p="$1"
+        m="$-1"
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        hitSlop={NATIVE_HIT_SLOP}
+        userSelect="none"
+        onPress={showChainSelector}
       >
-        {network?.isAllNetworks
-          ? intl.formatMessage({ id: ETranslations.global_all_networks })
-          : network?.name}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
-    </XStack>
+        <NetworkAvatar networkId={network?.id} size="$5" />
+        <SizableText
+          testID="account-network-trigger-button-text"
+          pl="$2"
+          size="$bodyMd"
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {network?.isAllNetworks
+            ? intl.formatMessage({ id: ETranslations.global_all_networks })
+            : network?.name}
+        </SizableText>
+        <Icon
+          name="ChevronDownSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+          flexShrink={0}
+        />
+      </XStack>
+    ),
+    [
+      intl,
+      network?.id,
+      network?.isAllNetworks,
+      network?.name,
+      showChainSelector,
+    ],
+  );
+  return (
+    <Tooltip
+      shortcutKey={EShortcutEvents.NetworkSelector}
+      renderTrigger={trigger}
+      renderContent={intl.formatMessage({ id: ETranslations.global_account })}
+      placement="bottom"
+    />
   );
 }
 export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);

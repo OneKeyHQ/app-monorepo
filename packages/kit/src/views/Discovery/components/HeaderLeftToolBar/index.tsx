@@ -1,8 +1,13 @@
+import { useCallback } from 'react';
+
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   Input,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -10,6 +15,9 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 
@@ -42,8 +50,31 @@ function HeaderLeftToolBar({
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
 }) {
+  const intl = useIntl();
   const media = useMedia();
   const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+
+  const handleBookmark = useCallback(() => {
+    onBookmarkPress?.(!isBookmark);
+  }, [isBookmark, onBookmarkPress]);
+
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.AddOrRemoveBookmark,
+    handleBookmark,
+  );
+
+  const handlePin = useCallback(() => {
+    onPinnedPress?.(!isPinned);
+  }, [isPinned, onPinnedPress]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, handlePin);
+
+  const onChangeUrl = useCallback(() => {
+    onSearch?.(url);
+  }, [onSearch, url]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, onChangeUrl);
+
   if (media.md) {
     return (
       <Stack
@@ -76,22 +107,38 @@ function HeaderLeftToolBar({
       onSearch?.(url);
     },
   };
+
   return (
     <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.GoBackHistory}>
+              {intl.formatMessage({ id: ETranslations.shortcut_go_back })}
+            </Tooltip.Text>
+          }
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
           testID="browser-bar-go-back"
         />
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.GoForwardHistory}>
+              {intl.formatMessage({ id: ETranslations.shortcut_go_forward })}
+            </Tooltip.Text>
+          }
           icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
           testID="browser-bar-go-forward"
         />
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.Refresh}>
+              {intl.formatMessage({ id: ETranslations.global_refresh })}
+            </Tooltip.Text>
+          }
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
@@ -108,6 +155,14 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
+            tooltipProps: {
+              shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
+              renderContent: intl.formatMessage({
+                id: isBookmark
+                  ? ETranslations.explore_remove_bookmark
+                  : ETranslations.explore_add_bookmark,
+              }),
+            },
             testID: `action-header-item-${
               !isBookmark ? 'bookmark' : 'remove-bookmark'
             }`,
@@ -118,6 +173,14 @@ function HeaderLeftToolBar({
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
+            tooltipProps: {
+              shortcutKey: EShortcutEvents.PinOrUnpinTab,
+              renderContent: intl.formatMessage({
+                id: isPinned
+                  ? ETranslations.explore_unpin
+                  : ETranslations.explore_pin,
+              }),
+            },
             testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
             ...(isPinned && {
               iconColor: '$icon',

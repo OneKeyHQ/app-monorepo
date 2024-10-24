@@ -1,5 +1,5 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
@@ -9,6 +9,10 @@ import { useDebouncedCallback } from 'use-debounce';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  type EShortcutEvents,
+  shortcutsMap,
+} from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -35,7 +39,7 @@ export interface IActionListItemProps {
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   disabled?: boolean;
   testID?: string;
-  shortcutKeys?: string[];
+  shortcutKeys?: string[] | EShortcutEvents;
 }
 
 export function ActionListItem({
@@ -61,6 +65,16 @@ export function ActionListItem({
     },
     [onClose, onPress],
   );
+
+  const keys = useMemo(() => {
+    if (shortcutKeys) {
+      if (Array.isArray(shortcutKeys)) {
+        return shortcutKeys;
+      }
+      return shortcutsMap[shortcutKeys].keys;
+    }
+    return undefined;
+  }, [shortcutKeys]);
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -114,10 +128,10 @@ export function ActionListItem({
           </SizableText>
         </XStack>
         {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-        shortcutKeys?.length ? (
+        keys?.length ? (
           <XStack>
             <Shortcut>
-              {shortcutKeys.map((key) => (
+              {keys.map((key) => (
                 <Shortcut.Key key={key}>{key}</Shortcut.Key>
               ))}
             </Shortcut>

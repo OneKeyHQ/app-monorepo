@@ -37,10 +37,11 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
-import { useShortcuts } from '../../hooks/useShortcuts';
+import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -49,7 +50,7 @@ const TIMESTAMP_DIFF_MULTIPLIER = 2;
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
-  useShortcuts();
+  useDiscoveryShortcuts();
   // register desktop new window event
   useDesktopNewWindow();
 
@@ -364,6 +365,7 @@ function DesktopCustomTabBar() {
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
                 })}
+                shortcutKey={EShortcutEvents.NewTab}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {

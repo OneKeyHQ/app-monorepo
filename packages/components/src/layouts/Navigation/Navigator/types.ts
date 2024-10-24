@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';
@@ -39,6 +40,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   exact?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
+  shortcutKey?: EShortcutEvents;
 }
 
 export interface ICommonNavigatorConfig<
