@@ -105,20 +105,18 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       useEffect(() => {
-        if (platformEnv.isDesktop) {
-          window.desktopApi.on('update/checkForUpdates', () => {
-            void onCheckUpdateRef.current();
-          });
+        window.desktopApi.on('update/checkForUpdates', () => {
+          void onCheckUpdateRef.current();
+        });
 
-          const debounceOpenSettings = debounce((isVisible: boolean) => {
-            openSettingsRef.current(isVisible);
-          }, 250);
-          window.desktopApi.on('app/openSettings', debounceOpenSettings);
+        const debounceOpenSettings = debounce((isVisible: boolean) => {
+          openSettingsRef.current(isVisible);
+        }, 250);
+        window.desktopApi.on('app/openSettings', debounceOpenSettings);
 
-          window.desktopApi.on('app/lockNow', () => {
-            void useOnLockRef.current();
-          });
-        }
+        window.desktopApi.on('app/lockNow', () => {
+          void useOnLockRef.current();
+        });
       }, []);
     }
   : () => undefined;
