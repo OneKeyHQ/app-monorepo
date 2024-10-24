@@ -9,6 +9,7 @@ export enum EShortcutEvents {
   SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
   CopyAddress = 'CopyAddress',
+  AccountSelector = 'AccountSelector',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
@@ -48,5 +49,9 @@ export const shortcutsMap: Record<
   [EShortcutEvents.CopyAddress]: {
     keys: [CmdOrCtrl, shortcutsKeys.Shift, 'C'],
     desc: 'Copy Address',
+  },
+  [EShortcutEvents.AccountSelector]: {
+    keys: [CmdOrCtrl, 'P'],
+    desc: 'Account Selector',
   },
 };

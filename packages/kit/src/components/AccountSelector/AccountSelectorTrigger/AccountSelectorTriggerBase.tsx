@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   SizableText,
+  Tooltip,
   View,
   XStack,
   useMedia,
@@ -12,7 +13,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
@@ -127,8 +130,23 @@ export function AccountSelectorTriggerBase({
     ],
   );
 
-  if (spotlightProps) {
-    return <SpotlightView {...spotlightProps}>{content}</SpotlightView>;
-  }
-  return content;
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.AccountSelector,
+    showAccountSelector,
+  );
+
+  const children = spotlightProps ? (
+    <SpotlightView {...spotlightProps}>{content}</SpotlightView>
+  ) : (
+    content
+  );
+
+  return (
+    <Tooltip
+      shortcutKey={EShortcutEvents.AccountSelector}
+      renderTrigger={children}
+      renderContent={intl.formatMessage({ id: ETranslations.global_account })}
+      placement="bottom"
+    />
+  );
 }
