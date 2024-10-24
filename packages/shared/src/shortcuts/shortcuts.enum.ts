@@ -7,6 +7,8 @@ export enum EShortcutEvents {
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
+  Lock = 'Lock',
+  Settings = 'Settings',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
@@ -35,5 +37,9 @@ export const shortcutsMap = {
   [EShortcutEvents.SideBar]: {
     keys: [CmdOrCtrl, 'S'],
     desc: 'Open / Close SideBar',
+  },
+  [EShortcutEvents.Settings]: {
+    keys: [CmdOrCtrl, ','],
+    desc: 'Open Settings',
   },
 };
