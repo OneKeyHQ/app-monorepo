@@ -7,7 +7,6 @@ export enum EShortcutEvents {
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
-  Settings = 'Settings',
   SearchInPage = 'SearchInPage',
 }
 
@@ -40,10 +39,6 @@ export const shortcutsMap: Record<
   [EShortcutEvents.SideBar]: {
     keys: [CmdOrCtrl, 'S'],
     desc: 'Open / Close SideBar',
-  },
-  [EShortcutEvents.Settings]: {
-    keys: [CmdOrCtrl, ','],
-    desc: 'Open Settings',
   },
   [EShortcutEvents.SearchInPage]: {
     keys: [CmdOrCtrl, 'F'],
