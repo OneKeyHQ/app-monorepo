@@ -40,7 +40,7 @@ import {
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
-import { useShortcuts } from '../../hooks/useShortcuts';
+import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -49,7 +49,7 @@ const TIMESTAMP_DIFF_MULTIPLIER = 2;
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
-  useShortcuts();
+  useDiscoveryShortcuts();
   // register desktop new window event
   useDesktopNewWindow();
 

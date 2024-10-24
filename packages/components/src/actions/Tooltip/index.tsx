@@ -7,8 +7,13 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  type EShortcutEvents,
+  shortcutsMap,
+} from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { SizableText } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
+import { Shortcut } from '../Shortcut';
 
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
@@ -18,10 +23,16 @@ export function TooltipText({
   children,
   onDisplayChange,
   onDisabledChange,
+  shortcutKey,
 }: ISizableTextProps & {
+  shortcutKey?: EShortcutEvents;
   onDisplayChange?: (isShow: boolean) => void;
   onDisabledChange?: (isShow: boolean) => void;
 }) {
+  const shortcutsKeys = useMemo(
+    () => (shortcutKey ? shortcutsMap[shortcutKey].keys : []),
+    [shortcutKey],
+  );
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll
@@ -63,7 +74,18 @@ export function TooltipText({
       };
     }
   }, [onDisabledChange, onDisplayChange]);
-  return <SizableText size="$bodySm">{children}</SizableText>;
+  return (
+    <XStack>
+      <SizableText size="$bodySm">{children}</SizableText>
+      {shortcutsKeys.length ? (
+        <Shortcut pl="$2">
+          {shortcutsKeys.map((key) => (
+            <Shortcut.Key key={key}>{key}</Shortcut.Key>
+          ))}
+        </Shortcut>
+      ) : null}
+    </XStack>
+  );
 }
 
 const transformOriginMap: Record<
@@ -88,6 +110,7 @@ export function Tooltip({
   renderTrigger,
   renderContent,
   placement = 'bottom',
+  shortcutKey,
   ...props
 }: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';

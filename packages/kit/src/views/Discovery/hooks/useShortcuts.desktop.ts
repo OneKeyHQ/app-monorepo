@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
+import { useShortcuts } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -12,13 +13,13 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId, useWebTabs } from './useWebTabs';
 
-export const useShortcuts = () => {
+export const useDiscoveryShortcuts = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
@@ -50,11 +51,11 @@ export const useShortcuts = () => {
     }
   }, [activeTabId, tabs, closeWebTab, navigation]);
 
-  useEffect(() => {
-    const handleShortcuts = (_: any, data: EBrowserShortcutEvents) => {
+  const handleShortcuts = useCallback(
+    (data: EShortcutEvents) => {
       // only handle shortcuts when at browser tab
       if (isAtBrowserTab.current) {
-        if (data === EBrowserShortcutEvents.GoForwardHistory) {
+        if (data === EShortcutEvents.GoForwardHistory) {
           try {
             (
               webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
@@ -63,7 +64,7 @@ export const useShortcuts = () => {
             // empty
           }
         }
-        if (data === EBrowserShortcutEvents.GoBackHistory) {
+        if (data === EShortcutEvents.GoBackHistory) {
           try {
             (
               webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
@@ -72,7 +73,7 @@ export const useShortcuts = () => {
             // empty
           }
         }
-        if (data === EBrowserShortcutEvents.Refresh) {
+        if (data === EShortcutEvents.Refresh) {
           try {
             (
               webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
@@ -82,13 +83,13 @@ export const useShortcuts = () => {
           }
           return;
         }
-        if (data === EBrowserShortcutEvents.CloseTab) {
+        if (data === EShortcutEvents.CloseTab) {
           handleCloseWebTab();
           return;
         }
       }
       if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-        if (data === EBrowserShortcutEvents.NewTab) {
+        if (data === EShortcutEvents.NewTab) {
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.SearchModal,
           });
@@ -99,20 +100,14 @@ export const useShortcuts = () => {
         return;
       }
 
-      if (data === EBrowserShortcutEvents.CloseTab) {
+      if (data === EShortcutEvents.CloseTab) {
         window.desktopApi.quitApp();
-      } else if (data === EBrowserShortcutEvents.Refresh) {
+      } else if (data === EShortcutEvents.Refresh) {
         window.desktopApi.reload();
       }
-    };
-    window.desktopApi.addIpcEventListener(
-      ipcMessageKeys.APP_SHORCUT,
-      handleShortcuts,
-    );
-    return () =>
-      window.desktopApi.removeIpcEventListener(
-        ipcMessageKeys.APP_SHORCUT,
-        handleShortcuts,
-      );
-  }, [activeTabId, closeWebTab, navigation, handleCloseWebTab]);
+    },
+    [activeTabId, handleCloseWebTab, navigation],
+  );
+
+  useShortcuts(undefined, handleShortcuts);
 };

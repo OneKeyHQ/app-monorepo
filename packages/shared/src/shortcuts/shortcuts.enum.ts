@@ -1,33 +1,39 @@
-export enum EBrowserShortcutEvents {
+import { shortcutsKeys } from './shortcutsKeys.enum';
+
+export enum EShortcutEvents {
   GoBackHistory = 'GoBackHistory',
   GoForwardHistory = 'GoForwardHistory',
   Refresh = 'Refresh',
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
+  SideBar = 'SideBar',
 }
 
-export const getShortcutsMap: () => Record<
-  EBrowserShortcutEvents,
-  { keys: string | null; desc: string }
-> = () => ({
-  [EBrowserShortcutEvents.GoBackHistory]: {
-    keys: 'CmdOrCtrl+[',
+const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
+
+export const shortcutsMap = {
+  [EShortcutEvents.GoBackHistory]: {
+    keys: [CmdOrCtrl, '['],
     desc: 'Go back history',
   },
-  [EBrowserShortcutEvents.GoForwardHistory]: {
-    keys: 'CmdOrCtrl+]',
+  [EShortcutEvents.GoForwardHistory]: {
+    keys: [CmdOrCtrl, ']'],
     desc: 'Go forward history',
   },
-  [EBrowserShortcutEvents.Refresh]: {
-    keys: 'CmdOrCtrl+R',
+  [EShortcutEvents.Refresh]: {
+    keys: [CmdOrCtrl, 'R'],
     desc: 'Refresh',
   },
-  [EBrowserShortcutEvents.NewTab]: {
-    keys: 'CmdOrCtrl+T',
+  [EShortcutEvents.NewTab]: {
+    keys: [CmdOrCtrl, 'T'],
     desc: 'New Tab',
   },
-  [EBrowserShortcutEvents.CloseTab]: {
-    keys: 'CmdOrCtrl+W',
+  [EShortcutEvents.CloseTab]: {
+    keys: [CmdOrCtrl, 'W'],
     desc: 'Close Tab',
   },
-});
+  [EShortcutEvents.SideBar]: {
+    keys: [CmdOrCtrl, 'S'],
+    desc: 'Open / Close SideBar',
+  },
+};
