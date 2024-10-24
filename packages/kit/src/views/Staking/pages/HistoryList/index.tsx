@@ -210,7 +210,7 @@ const HistoryList = () => {
         const localNormalizedItems = localItems.map<IStakeHistory>((o) => {
           const action = o.stakingInfo.send ?? o.stakingInfo.receive;
           return {
-            txHash: o.id,
+            txHash: o.decodedTx.txid,
             timestamp: o.decodedTx.createdAt ?? o.decodedTx.updatedAt ?? 0,
             title: labelFn(o.stakingInfo.label),
             direction: o.stakingInfo.send ? 'send' : 'receive',
