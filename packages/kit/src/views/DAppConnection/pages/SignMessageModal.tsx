@@ -16,6 +16,7 @@ import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/compo
 import { AccountSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isEthSignType,
   isPrimaryTypeOrderSign,
@@ -289,6 +290,7 @@ function SignMessageModal() {
               isRiskSignMethod || isSignTypedDataV3orV4Method
             }
             signMessageAlertProps={getSignMessageAlertProps()}
+            fullScreen={!platformEnv.isNativeIOS}
           >
             {walletInternalSign ? (
               <WalletAccountListItem
