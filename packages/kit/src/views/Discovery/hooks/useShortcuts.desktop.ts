@@ -89,7 +89,7 @@ export const useDiscoveryShortcuts = () => {
         }
       }
       if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-        if (data === EShortcutEvents.NewTab) {
+        if (data === EShortcutEvents.SearchInPage) {
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.SearchModal,
           });
