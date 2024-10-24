@@ -96,6 +96,11 @@ function WeblnSendPaymentModal() {
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       if (isLoading) return;
+      const isValid = await useFormReturn.trigger();
+      if (!isValid) {
+        return;
+      }
+
       setIsLoading(true);
 
       const formValue = useFormReturn.getValues();

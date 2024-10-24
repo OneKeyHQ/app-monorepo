@@ -26,6 +26,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
+import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -47,7 +48,19 @@ type IProps = {
   hideValue?: boolean;
 };
 
-const ListFooterComponent = () => <Stack h="$5" />;
+const ListFooterComponent = () => {
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+  return (
+    <>
+      <Stack h="$5" />
+      {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+    </>
+  );
+};
 
 function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
   const { title, titleKey, data } = props;

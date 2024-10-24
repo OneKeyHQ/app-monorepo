@@ -125,11 +125,11 @@ function AddCustomNetwork() {
   const [isLoading, setIsLoading] = useState(false);
   const onSubmit = useCallback(async () => {
     try {
-      setIsLoading(true);
       const isValid = await form.trigger();
       if (!isValid) {
         return;
       }
+      setIsLoading(true);
 
       const { networkName, rpcUrl, chainId, symbol, blockExplorerUrl } =
         form.getValues();
