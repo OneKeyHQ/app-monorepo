@@ -132,7 +132,7 @@ export const useDiscoveryShortcuts = () => {
           break;
       }
     },
-    [activeTabId, handleCloseWebTab, navigation],
+    [activeTabId, copyText, handleCloseWebTab, navigation],
   );
 
   useShortcuts(undefined, handleShortcuts);

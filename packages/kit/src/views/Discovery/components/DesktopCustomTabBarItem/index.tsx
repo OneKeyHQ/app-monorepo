@@ -89,7 +89,7 @@ function DesktopCustomTabBarItem({
       {
         items: [
           {
-            shortcutKeys: EShortcutEvents.CopyLink,
+            shortcutKeys: EShortcutEvents.CopyAddressOrUrl,
             label: intl.formatMessage({
               id: ETranslations.global_copy_url,
             }),

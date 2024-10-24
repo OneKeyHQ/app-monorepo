@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +15,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -50,6 +53,22 @@ function HeaderLeftToolBar({
   const intl = useIntl();
   const media = useMedia();
   const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+
+  const handleBookmark = useCallback(() => {
+    onBookmarkPress?.(!isBookmark);
+  }, [isBookmark, onBookmarkPress]);
+
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.AddOrRemoveBookmark,
+    handleBookmark,
+  );
+
+  const handlePin = useCallback(() => {
+    onPinnedPress?.(!isPinned);
+  }, [isPinned, onPinnedPress]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, handlePin);
+
   if (media.md) {
     return (
       <Stack
@@ -82,6 +101,7 @@ function HeaderLeftToolBar({
       onSearch?.(url);
     },
   };
+
   return (
     <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
@@ -129,6 +149,14 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
+            tooltipProps: {
+              shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
+              renderContent: intl.formatMessage({
+                id: isBookmark
+                  ? ETranslations.explore_remove_bookmark
+                  : ETranslations.explore_add_bookmark,
+              }),
+            },
             testID: `action-header-item-${
               !isBookmark ? 'bookmark' : 'remove-bookmark'
             }`,
@@ -139,6 +167,14 @@ function HeaderLeftToolBar({
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
+            tooltipProps: {
+              shortcutKey: EShortcutEvents.PinOrUnpinTab,
+              renderContent: intl.formatMessage({
+                id: isPinned
+                  ? ETranslations.explore_unpin
+                  : ETranslations.explore_pin,
+              }),
+            },
             testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
             ...(isPinned && {
               iconColor: '$icon',
