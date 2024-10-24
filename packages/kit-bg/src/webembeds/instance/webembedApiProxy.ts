@@ -1,8 +1,10 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -14,7 +16,7 @@ import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
 
 class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
-  // backgroundApiProxy = global.$backgroundApiProxy;
+  // backgroundApiProxy = appGlobals.$backgroundApiProxy;
   // backgroundApiProxy = backgroundApiProxy;
 
   override checkEnvAvailable(): void {
@@ -52,12 +54,15 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
-    return global.$backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
+    return checkIsDefined(
+      appGlobals?.$backgroundApiProxy,
+    ).serviceDApp.callWebEmbedApiProxy(message);
   }
 
   async isSDKReady(): Promise<boolean> {
-    const isWebEmbedApiReady =
-      await global.$backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
+    const isWebEmbedApiReady = await checkIsDefined(
+      appGlobals?.$backgroundApiProxy,
+    ).serviceDApp.isWebEmbedApiReady();
     return Promise.resolve(!!isWebEmbedApiReady);
   }
 
@@ -77,4 +82,4 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
 const webembedApiProxy = new WebembedApiProxy();
 export default webembedApiProxy;
-global.$webembedApiProxy = webembedApiProxy;
+appGlobals.$webembedApiProxy = webembedApiProxy;

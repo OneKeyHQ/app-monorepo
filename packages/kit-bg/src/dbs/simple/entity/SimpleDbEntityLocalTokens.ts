@@ -46,7 +46,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
       })),
       '$key',
     );
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: merge({}, rawData?.data, tokenMap),
       tokenList: rawData?.tokenList ?? {},
       smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
@@ -144,7 +144,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
 
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
       tokenList: {
         ...rawData?.tokenList,

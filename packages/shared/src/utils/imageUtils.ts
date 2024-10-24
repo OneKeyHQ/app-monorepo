@@ -7,6 +7,7 @@ import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNumber } from 'lodash';
 import { Image as RNImage } from 'react-native';
 
+import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
 import bufferUtils from './bufferUtils';
@@ -60,7 +61,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
+    return appGlobals.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -338,7 +339,7 @@ async function base64ImageToBitmap({
   height: number;
 }): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+    return appGlobals.$webembedApiProxy.imageUtils.base64ImageToBitmap({
       base64,
       width,
       height,

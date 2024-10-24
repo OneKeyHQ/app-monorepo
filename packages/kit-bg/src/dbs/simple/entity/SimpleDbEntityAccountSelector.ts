@@ -84,7 +84,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       sceneName,
       sceneUrl,
     });
-    await this.setRawData(({ rawData: data }) => {
+    await this.setRawData((data) => {
       // eslint-disable-next-line no-param-reassign
       data = data || {
         selectorInfo: {},
@@ -175,7 +175,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
       networkId,
     });
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData) {
         throw new Error('rawData is undefined');
       }

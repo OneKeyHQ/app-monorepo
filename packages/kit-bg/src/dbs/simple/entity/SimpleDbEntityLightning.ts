@@ -16,7 +16,7 @@ export class SimpleDbEntityLightning extends SimpleDbEntityBase<ILightningDB> {
     address: string;
     credential: string;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.tokens) {
         return {
           tokens: {

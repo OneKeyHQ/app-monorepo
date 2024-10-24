@@ -7,6 +7,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
+import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
@@ -362,7 +363,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appEventBus = appEventBus;
+  appGlobals.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };

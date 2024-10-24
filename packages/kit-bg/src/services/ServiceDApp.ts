@@ -7,6 +7,7 @@ import type {
   ISignedTxPro,
   IUnsignedMessage,
 } from '@onekeyhq/core/src/types';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
@@ -201,7 +202,7 @@ class ServiceDApp extends ServiceBase {
       }
     } else {
       const doOpenModal = () =>
-        global.$navigationRef.current?.navigate(
+        appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
           modalParams.params,
         );
