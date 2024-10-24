@@ -55,55 +55,65 @@ export const useDiscoveryShortcuts = () => {
     (data: EShortcutEvents) => {
       // only handle shortcuts when at browser tab
       if (isAtBrowserTab.current) {
-        if (data === EShortcutEvents.GoForwardHistory) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.goForward();
-          } catch {
-            // empty
-          }
+        switch (data) {
+          case EShortcutEvents.GoForwardHistory:
+            try {
+              (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.goForward();
+            } catch {
+              // empty
+            }
+            break;
+          case EShortcutEvents.GoBackHistory:
+            try {
+              (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.goBack();
+            } catch {
+              // empty
+            }
+            break;
+          case EShortcutEvents.Refresh:
+            if (isAtBrowserTab.current) {
+              try {
+                (
+                  webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+                )?.reload();
+              } catch {
+                // empty
+              }
+            } else {
+              window.desktopApi.quitApp();
+            }
+            break;
+          case EShortcutEvents.CloseTab:
+            if (isAtBrowserTab.current) {
+              handleCloseWebTab();
+            } else {
+              window.desktopApi.quitApp();
+            }
+            return;
+          case EShortcutEvents.SearchInPage:
+            if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
+              navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                screen: EDiscoveryModalRoutes.SearchModal,
+              });
+            }
+            break;
+          case EShortcutEvents.ViewHistory:
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.HistoryListModal,
+            });
+            break;
+          case EShortcutEvents.ViewBookmark:
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.BookmarkListModal,
+            });
+            break;
+          default:
+            break;
         }
-        if (data === EShortcutEvents.GoBackHistory) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.goBack();
-          } catch {
-            // empty
-          }
-        }
-        if (data === EShortcutEvents.Refresh) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.reload();
-          } catch {
-            // empty
-          }
-          return;
-        }
-        if (data === EShortcutEvents.CloseTab) {
-          handleCloseWebTab();
-          return;
-        }
-      }
-      if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-        if (data === EShortcutEvents.SearchInPage) {
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.SearchModal,
-          });
-        }
-      }
-
-      if (isAtBrowserTab.current) {
-        return;
-      }
-
-      if (data === EShortcutEvents.CloseTab) {
-        window.desktopApi.quitApp();
-      } else if (data === EShortcutEvents.Refresh) {
-        window.desktopApi.reload();
       }
     },
     [activeTabId, handleCloseWebTab, navigation],
