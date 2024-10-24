@@ -69,6 +69,12 @@ function HeaderLeftToolBar({
 
   useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, handlePin);
 
+  const onChangeUrl = useCallback(() => {
+    onSearch?.(url);
+  }, [onSearch, url]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, onChangeUrl);
+
   if (media.md) {
     return (
       <Stack
