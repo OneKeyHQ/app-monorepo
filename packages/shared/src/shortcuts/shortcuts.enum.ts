@@ -7,13 +7,15 @@ export enum EShortcutEvents {
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
-  Lock = 'Lock',
   Settings = 'Settings',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
 
-export const shortcutsMap = {
+export const shortcutsMap: Record<
+  EShortcutEvents,
+  { keys: string[]; desc: string }
+> = {
   [EShortcutEvents.GoBackHistory]: {
     keys: [CmdOrCtrl, '['],
     desc: 'Go back history',
