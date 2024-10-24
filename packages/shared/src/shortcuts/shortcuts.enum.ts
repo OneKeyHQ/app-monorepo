@@ -11,6 +11,11 @@ export enum EShortcutEvents {
   CopyAddress = 'CopyAddress',
   AccountSelector = 'AccountSelector',
   NetworkSelector = 'NetworkSelector',
+  TabWallet = 'TabWallet',
+  TabEarn = 'TabEarn',
+  TabSwap = 'TabSwap',
+  TabMarket = 'TabMarket',
+  TabBrowser = 'TabBrowser',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
@@ -58,5 +63,25 @@ export const shortcutsMap: Record<
   [EShortcutEvents.NetworkSelector]: {
     keys: [CmdOrCtrl, 'O'],
     desc: 'Network Selector',
+  },
+  [EShortcutEvents.TabWallet]: {
+    keys: [CmdOrCtrl, '1'],
+    desc: 'Wallet Tab',
+  },
+  [EShortcutEvents.TabEarn]: {
+    keys: [CmdOrCtrl, '2'],
+    desc: 'Earn Tab',
+  },
+  [EShortcutEvents.TabSwap]: {
+    keys: [CmdOrCtrl, '3'],
+    desc: 'Swap Tab',
+  },
+  [EShortcutEvents.TabMarket]: {
+    keys: [CmdOrCtrl, '4'],
+    desc: 'Market Tab',
+  },
+  [EShortcutEvents.TabBrowser]: {
+    keys: [CmdOrCtrl, '5'],
+    desc: 'Browser Tab',
   },
 };
