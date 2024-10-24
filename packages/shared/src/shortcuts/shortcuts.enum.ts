@@ -10,6 +10,7 @@ export enum EShortcutEvents {
   SearchInPage = 'SearchInPage',
   CopyAddress = 'CopyAddress',
   AccountSelector = 'AccountSelector',
+  NetworkSelector = 'NetworkSelector',
 }
 
 const CmdOrCtrl = shortcutsKeys.CmdOrCtrl;
@@ -53,5 +54,9 @@ export const shortcutsMap: Record<
   [EShortcutEvents.AccountSelector]: {
     keys: [CmdOrCtrl, 'P'],
     desc: 'Account Selector',
+  },
+  [EShortcutEvents.NetworkSelector]: {
+    keys: [CmdOrCtrl, 'O'],
+    desc: 'Network Selector',
   },
 };
