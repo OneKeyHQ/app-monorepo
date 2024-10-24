@@ -1,8 +1,11 @@
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   Input,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -10,6 +13,8 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 
@@ -42,6 +47,7 @@ function HeaderLeftToolBar({
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
 }) {
+  const intl = useIntl();
   const media = useMedia();
   const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
   if (media.md) {
@@ -80,18 +86,33 @@ function HeaderLeftToolBar({
     <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.GoBackHistory}>
+              {intl.formatMessage({ id: ETranslations.shortcut_go_back })}
+            </Tooltip.Text>
+          }
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
           testID="browser-bar-go-back"
         />
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.GoForwardHistory}>
+              {intl.formatMessage({ id: ETranslations.shortcut_go_forward })}
+            </Tooltip.Text>
+          }
           icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
           testID="browser-bar-go-forward"
         />
         <HeaderIconButton
+          title={
+            <Tooltip.Text shortcutKey={EShortcutEvents.Refresh}>
+              {intl.formatMessage({ id: ETranslations.global_refresh })}
+            </Tooltip.Text>
+          }
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
