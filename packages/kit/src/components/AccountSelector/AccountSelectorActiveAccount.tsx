@@ -151,7 +151,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
-  useShortcutsOnRouteFocused(EShortcutEvents.CopyAddress, handleAddressOnPress);
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.CopyAddressOrUrl,
+    handleAddressOnPress,
+  );
 
   if (walletAddressEnable) {
     return <AllNetworkAccountSelector num={num} />;
@@ -161,7 +164,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   if (account?.address) {
     return (
       <Tooltip
-        shortcutKey={EShortcutEvents.CopyAddress}
+        shortcutKey={EShortcutEvents.CopyAddressOrUrl}
         renderContent={intl.formatMessage({
           id: ETranslations.global_copy_address,
         })}

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { useShortcuts } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { useClipboard, useShortcuts } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -20,6 +19,7 @@ import { webviewRefs } from '../utils/explorerUtils';
 import { useActiveTabId, useWebTabs } from './useWebTabs';
 
 export const useDiscoveryShortcuts = () => {
+  const { copyText } = useClipboard();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
@@ -55,6 +55,20 @@ export const useDiscoveryShortcuts = () => {
     (data: EShortcutEvents) => {
       // only handle shortcuts when at browser tab
       switch (data) {
+        case EShortcutEvents.CopyAddressOrUrl:
+          if (isAtBrowserTab.current) {
+            try {
+              const url = (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.getURL();
+              if (url) {
+                copyText(url);
+              }
+            } catch {
+              // empty
+            }
+          }
+          break;
         case EShortcutEvents.GoForwardHistory:
           if (isAtBrowserTab.current) {
             try {

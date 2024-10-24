@@ -9,7 +9,7 @@ export enum EShortcutEvents {
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
   SearchInPage = 'SearchInPage',
-  CopyAddress = 'CopyAddress',
+  CopyAddressOrUrl = 'CopyAddressOrUrl',
   AccountSelector = 'AccountSelector',
   NetworkSelector = 'NetworkSelector',
   TabWallet = 'TabWallet',
@@ -19,6 +19,8 @@ export enum EShortcutEvents {
   TabBrowser = 'TabBrowser',
   ViewHistory = 'ViewHistory',
   ViewBookmark = 'ViewBookmark',
+  AddOrRemoveBookmark = 'AddOrRemoveBookmark',
+  PinOrUnpinTab = 'PinOrUnpinTab',
 }
 
 export const shortcutsMap: Record<
@@ -57,7 +59,7 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, 'F'],
     desc: 'Search in Page',
   },
-  [EShortcutEvents.CopyAddress]: {
+  [EShortcutEvents.CopyAddressOrUrl]: {
     keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],
     desc: 'Copy Address',
   },
@@ -96,5 +98,13 @@ export const shortcutsMap: Record<
   [EShortcutEvents.ViewBookmark]: {
     keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'B'],
     desc: 'View Bookmark',
+  },
+  [EShortcutEvents.AddOrRemoveBookmark]: {
+    keys: [shortcutsKeys.CmdOrCtrl, 'D'],
+    desc: 'Add or Remove Bookmark',
+  },
+  [EShortcutEvents.PinOrUnpinTab]: {
+    keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'P'],
+    desc: 'Pin or Unpin Tab',
   },
 };
