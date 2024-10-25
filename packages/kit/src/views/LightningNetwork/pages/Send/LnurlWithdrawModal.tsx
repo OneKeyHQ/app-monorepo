@@ -84,6 +84,10 @@ function LnurlWithdrawModal() {
     async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
+      const isValid = await useFormReturn.trigger();
+      if (!isValid) {
+        return;
+      }
       setIsLoading(true);
 
       const { serviceLightning } = backgroundApiProxy;
