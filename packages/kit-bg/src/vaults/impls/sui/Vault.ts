@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { getFullnodeUrl } from '@mysten/sui/client';
 import {
   SUI_TYPE_ARG,
   TransactionBlock,
@@ -42,7 +43,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
-import { SuiJsonRpcClient } from './sdkSui/SuiJsonRpcClient';
+import { OneKeySuiTransport } from './sdkSui/SuiTransport';
 import {
   moveCallTxnName,
   normalizeSuiCoinType,
@@ -93,12 +94,12 @@ export default class Vault extends VaultBase {
   }
 
   getSuiClient() {
-    const rpcClient = new SuiJsonRpcClient({
+    const transport = new OneKeySuiTransport({
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     });
-    return new OneKeySuiClient(undefined, {
-      rpcClient,
+    return new OneKeySuiClient({
+      transport,
     });
   }
 
