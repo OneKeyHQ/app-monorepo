@@ -1507,6 +1507,9 @@ class ServiceAccount extends ServiceBase {
   async getAllAccounts({ ids }: { ids?: string[] } = {}) {
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
     const { accounts } = await localDb.getAllAccounts({ ids });
+    const invisibleWallet: {
+      [walletId: string]: true;
+    } = {};
     const removedWallet: {
       [walletId: string]: true;
     } = {};
@@ -1520,12 +1523,16 @@ class ServiceAccount extends ServiceBase {
           accountId: id,
         });
         if (walletId) {
-          if (removedWallet[walletId]) {
+          if (removedWallet[walletId] || invisibleWallet[walletId]) {
             return null;
           }
           const wallet = await this.getWalletSafe({ walletId });
           if (!wallet) {
             removedWallet[walletId] = true;
+            return null;
+          }
+          if (localDb.isTempWalletRemoved({ wallet })) {
+            invisibleWallet[walletId] = true;
             return null;
           }
         }
@@ -1958,6 +1965,9 @@ class ServiceAccount extends ServiceBase {
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
     const result = await localDb.setWalletNameAndAvatar(params);
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.WalletRename, {
+      walletId: params.walletId,
+    });
     return result;
   }
 
