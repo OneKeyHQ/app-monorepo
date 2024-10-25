@@ -222,7 +222,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
     <Tooltip
       shortcutKey={EShortcutEvents.NetworkSelector}
       renderTrigger={trigger}
-      renderContent={intl.formatMessage({ id: ETranslations.global_account })}
+      renderContent={intl.formatMessage({ id: ETranslations.global_network })}
       placement="bottom"
     />
   );

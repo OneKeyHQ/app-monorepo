@@ -124,7 +124,14 @@ export function ShortcutsActionButton() {
           ].filter(Boolean) as IActionListItemProps[],
         },
       ]}
-      renderTrigger={<IconButton ml="$2" flex={1} icon="DotHorOutline" />}
+      renderTrigger={
+        <IconButton
+          ml="$2"
+          flex={1}
+          icon="DotHorOutline"
+          backgroundColor="$bgApp"
+        />
+      }
     />
   ) : null;
 }
