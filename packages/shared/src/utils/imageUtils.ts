@@ -257,7 +257,6 @@ async function getBase64FromRequiredImageSource(
 function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-
     image.onload = () => resolve(image);
     image.onerror = (e) => reject(e);
     image.src = dataUrl;
@@ -359,4 +358,5 @@ export default {
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
   base64ImageToBitmap,
+  buildHtmlImage,
 };
