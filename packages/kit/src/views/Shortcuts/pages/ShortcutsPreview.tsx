@@ -1,9 +1,15 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Page, Shortcut } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EShortcutEvents,
+  shortcutsMap,
+} from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 const sections = [
@@ -12,11 +18,11 @@ const sections = [
     items: [
       {
         titleId: ETranslations.shortcuts_account_selector,
-        keys: [shortcutsKeys.CmdOrCtrl, 'P'],
+        shortcutKey: EShortcutEvents.AccountSelector,
       },
       {
         titleId: ETranslations.shortcuts_network_selector,
-        keys: [shortcutsKeys.CmdOrCtrl, 'O'],
+        shortcutKey: EShortcutEvents.NetworkSelector,
       },
       {
         titleId: ETranslations.settings_settings,
@@ -27,27 +33,27 @@ const sections = [
           ETranslations.shortcut_show_sidebar,
           ETranslations.shortcut_hide_sidebar,
         ],
-        keys: [shortcutsKeys.CmdOrCtrl, 'S'],
+        shortcutKey: EShortcutEvents.SideBar,
       },
       {
         titleId: ETranslations.shortcuts_go_to_wallet_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, '1'],
+        shortcutKey: EShortcutEvents.TabWallet,
       },
       {
         titleId: ETranslations.shortcuts_go_to_earn_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, '2'],
+        shortcutKey: EShortcutEvents.TabEarn,
       },
       {
         titleId: ETranslations.shortcuts_go_to_swap_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, '3'],
+        shortcutKey: EShortcutEvents.TabSwap,
       },
       {
         titleId: ETranslations.shortcuts_go_to_market_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, '4'],
+        shortcutKey: EShortcutEvents.TabMarket,
       },
       {
         titleId: ETranslations.shortcuts_go_to_browser_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, '5'],
+        shortcutKey: EShortcutEvents.TabBrowser,
       },
       {
         titleId: ETranslations.settings_lock_now,
@@ -64,59 +70,91 @@ const sections = [
     items: [
       {
         titleId: ETranslations.explore_new_tab,
-        keys: [shortcutsKeys.CmdOrCtrl, 'T'],
+        shortcutKey: EShortcutEvents.NewTab,
       },
       {
         titleId: ETranslations.global_refresh,
-        keys: [shortcutsKeys.CmdOrCtrl, 'R'],
+        shortcutKey: EShortcutEvents.Refresh,
       },
       {
-        titleId: ETranslations.global_close,
-        keys: [shortcutsKeys.CmdOrCtrl, 'W'],
+        titleId: ETranslations.shortcut_go_forward,
+        shortcutKey: EShortcutEvents.GoForwardHistory,
       },
       {
-        titleId: ETranslations.explore_open_in_browser,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'T'],
-      },
-      {
-        titleId: ETranslations.explore_add_bookmark,
-        keys: [shortcutsKeys.CmdOrCtrl, 'D'],
-      },
-      {
-        titleId: ETranslations.global_pin_to_top,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'P'],
+        titleId: ETranslations.shortcut_go_back,
+        shortcutKey: EShortcutEvents.GoBackHistory,
       },
       {
         titleId: ETranslations.global_copy_url,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],
+        shortcutKey: EShortcutEvents.CopyAddressOrUrl,
       },
       {
-        titleId: ETranslations.explore_tab_prompt,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Alt, shortcutsKeys.Up],
-      },
-      {
-        titleId: ETranslations.explore_tab_prompt,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Alt, shortcutsKeys.Down],
-      },
-      {
-        titleId: ETranslations.explore_tab_prompt,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Right],
-      },
-      {
-        titleId: ETranslations.global_backup,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Left],
-      },
-      {
-        titleId: ETranslations.explore_history,
-        keys: [shortcutsKeys.CmdOrCtrl, 'Y'],
+        titleId: ETranslations.shortcuts_close_current_tab,
+        shortcutKey: EShortcutEvents.CloseTab,
       },
       {
         titleId: ETranslations.explore_bookmarks,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'B'],
+        shortcutKey: EShortcutEvents.ViewBookmark,
+      },
+      {
+        titleIds: [
+          ETranslations.explore_add_bookmark,
+          ETranslations.explore_remove_bookmark,
+        ],
+        shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
+      },
+      {
+        titleId: ETranslations.explore_history,
+        shortcutKey: EShortcutEvents.ViewHistory,
+      },
+      {
+        titleIds: [
+          ETranslations.global_pin_to_top,
+          ETranslations.global_unpin_from_top,
+        ],
+        shortcutKey: EShortcutEvents.PinOrUnpinTab,
+      },
+      {
+        titleId: ETranslations.global_copy_url,
+        shortcutKey: EShortcutEvents.CopyAddressOrUrl,
       },
     ],
   },
 ];
+
+function ShortcutItem({
+  titleId,
+  titleIds,
+  keys,
+  shortcutKey,
+}: {
+  titleId?: ETranslations;
+  titleIds?: ETranslations[];
+  keys?: string[];
+  shortcutKey?: EShortcutEvents;
+}) {
+  const intl = useIntl();
+  const title = useMemo(
+    () =>
+      titleIds
+        ? titleIds.map((id) => intl.formatMessage({ id })).join(' / ')
+        : intl.formatMessage({ id: titleId }),
+    [intl, titleId, titleIds],
+  );
+  const sKeys = useMemo(
+    () => (shortcutKey ? shortcutsMap[shortcutKey].keys : keys),
+    [keys, shortcutKey],
+  );
+  return (
+    <ListItem title={title}>
+      <Shortcut>
+        {sKeys?.map((key) => (
+          <Shortcut.Key key={key}>{key}</Shortcut.Key>
+        ))}
+      </Shortcut>
+    </ListItem>
+  );
+}
 
 function ShortcutsPreview() {
   const intl = useIntl();
@@ -130,24 +168,17 @@ function ShortcutsPreview() {
       <Page.Body userSelect="none">
         {sections.map(({ titleId, items }) => (
           <Section title={intl.formatMessage({ id: titleId })} key={titleId}>
-            {items.map(({ titleId: subTitleId, keys, titleIds }) => (
-              <ListItem
-                title={
-                  titleIds
-                    ? titleIds
-                        .map((id) => intl.formatMessage({ id }))
-                        .join(' / ')
-                    : intl.formatMessage({ id: subTitleId })
-                }
-                key={subTitleId}
-              >
-                <Shortcut>
-                  {keys.map((key) => (
-                    <Shortcut.Key key={key}>{key}</Shortcut.Key>
-                  ))}
-                </Shortcut>
-              </ListItem>
-            ))}
+            {items.map(
+              ({ titleId: subTitleId, keys, titleIds, shortcutKey }) => (
+                <ShortcutItem
+                  key={subTitleId}
+                  titleId={subTitleId}
+                  keys={keys}
+                  titleIds={titleIds}
+                  shortcutKey={shortcutKey}
+                />
+              ),
+            )}
           </Section>
         ))}
       </Page.Body>
