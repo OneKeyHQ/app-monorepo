@@ -17,7 +17,6 @@ import { AccountSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/compo
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  isEthSignType,
   isPrimaryTypeOrderSign,
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
@@ -141,7 +140,6 @@ function SignMessageModal() {
 
   const isPermitSignMethod = isPrimaryTypePermitSign({ unsignedMessage });
   const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
-  const isRiskSignMethod = isEthSignType({ unsignedMessage });
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
@@ -181,7 +179,8 @@ function SignMessageModal() {
     setContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', isRiskSignMethod });
+    isRiskSignMethod,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
