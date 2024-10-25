@@ -23,8 +23,10 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -33,8 +35,6 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 export function NFTDetails() {
   const intl = useIntl();
