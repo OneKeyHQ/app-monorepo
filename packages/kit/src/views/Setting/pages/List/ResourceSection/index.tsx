@@ -69,7 +69,7 @@ function ListShortcutsItem() {
     <ListItem
       onPress={toShortcutsPage}
       icon="ShortcutsCustom"
-      title="Shortcuts"
+      title={intl.formatMessage({ id: ETranslations.settings_shortcuts })}
       drillIn
     />
   );

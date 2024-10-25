@@ -102,7 +102,7 @@ export function ShortcutsActionButton() {
               label: intl.formatMessage({
                 id: ETranslations.settings_shortcuts,
               }),
-              icon: 'BookmarkOutline',
+              icon: 'ShortcutsCustom',
               onPress: () => {
                 navigation.pushModal(EModalRoutes.ShortcutsModal, {
                   screen: EModalShortcutsRoutes.ShortcutsPreview,

@@ -127,7 +127,11 @@ function ShortcutsPreview() {
   const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle="Shortcuts" />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.settings_shortcuts,
+        })}
+      />
       <Page.Body userSelect="none">
         {sections.map(({ titleId, items }) => (
           <Section title={intl.formatMessage({ id: titleId })} key={titleId}>
