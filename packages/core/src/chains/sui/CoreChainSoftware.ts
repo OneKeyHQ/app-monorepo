@@ -1,5 +1,4 @@
-import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
-import { toBase64 } from '@mysten/sui/utils';
+import { Ed25519Keypair, Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import {
   IntentScope,
   bcs,
@@ -81,7 +80,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new NotImplemented();;
     const {
       unsignedTx,
       account: { pub },
@@ -93,21 +91,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (!unsignedTx.rawTxUnsigned) {
       throw new Error('unsignedTx.rawTxUnsigned is undefined');
     }
-    const txnBytes = bufferUtils.toBuffer(unsignedTx.rawTxUnsigned);
-    const txBytes = bufferUtils.toBuffer(handleSignData(txnBytes));
-    const [signature] = await signer.sign(txBytes);
 
-    const serializeSignature = toSerializedSignature({
-      signatureScheme: 'ED25519',
-      signature,
-      pubKey: new Ed25519PublicKey(bufferUtils.hexToBytes(checkIsDefined(pub))),
-    });
+    const prvKey = await signer.getPrvkey();
+    const keypair = Ed25519Keypair.fromSecretKey(prvKey);
+    const txBytes = bufferUtils.toBuffer(unsignedTx.rawTxUnsigned);
+    const signResult = await keypair.signTransaction(txBytes);
 
     return {
       txid: '',
-      rawTx: toBase64(txnBytes),
+      rawTx: signResult.bytes,
       signatureScheme: 'ed25519',
-      signature: serializeSignature,
+      signature: signResult.signature,
       publicKey: hexUtils.addHexPrefix(checkIsDefined(pub)),
       encodedTx: unsignedTx.encodedTx,
     };
