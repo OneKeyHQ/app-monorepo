@@ -1,9 +1,9 @@
+import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
+import { toBase64 } from '@mysten/sui/utils';
 import {
-  Ed25519PublicKey,
   IntentScope,
   bcs,
   messageWithIntent,
-  toB64,
   toSerializedSignature,
 } from '@mysten/sui.js';
 import { blake2b } from '@noble/hashes/blake2b';
@@ -105,7 +105,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     return {
       txid: '',
-      rawTx: toB64(txnBytes),
+      rawTx: toBase64(txnBytes),
       signatureScheme: 'ed25519',
       signature: serializeSignature,
       publicKey: hexUtils.addHexPrefix(checkIsDefined(pub)),
