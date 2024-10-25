@@ -270,7 +270,9 @@ function BasicActionList({
 
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
-              {sectionIdx > 0 ? <Divider mx="$2" my="$1" /> : null}
+              {sectionIdx > 0 && section.items.length > 0 ? (
+                <Divider mx="$2" my="$1" />
+              ) : null}
               {section.title ? (
                 <Heading
                   size="$headingXs"
