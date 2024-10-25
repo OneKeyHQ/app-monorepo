@@ -1,10 +1,5 @@
 import { Ed25519Keypair, Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
-import {
-  IntentScope,
-  bcs,
-  messageWithIntent,
-  toSerializedSignature,
-} from '@mysten/sui.js';
+import { IntentScope, messageWithIntent } from '@mysten/sui.js';
 import { blake2b } from '@noble/hashes/blake2b';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -108,28 +103,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new NotImplemented();;
-    // eslint-disable-next-line prefer-destructuring
     const unsignedMsg = payload.unsignedMsg;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const messageScope = messageWithIntent(
-      IntentScope.PersonalMessage,
-      bcs
-        .ser(['vector', 'u8'], bufferUtils.hexToBytes(unsignedMsg.message))
-        .toBytes(),
-    );
-    const digest = blake2b(messageScope, { dkLen: 32 });
-    const [signature] = await signer.sign(Buffer.from(digest));
-    return toSerializedSignature({
-      signatureScheme: 'ED25519',
-      signature,
-      pubKey: new Ed25519PublicKey(
-        bufferUtils.hexToBytes(checkIsDefined(payload.account.pub)),
-      ),
-    });
+    const prvKey = await signer.getPrvkey();
+    const keypair = Ed25519Keypair.fromSecretKey(prvKey);
+    const messageBytes = bufferUtils.toBuffer(unsignedMsg.message);
+    const signature = await keypair.signPersonalMessage(messageBytes);
+    return signature.signature;
   }
 
   override async getAddressFromPrivate(
