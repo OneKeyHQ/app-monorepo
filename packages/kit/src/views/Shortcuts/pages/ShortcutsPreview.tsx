@@ -11,47 +11,42 @@ const sections = [
     titleId: ETranslations.global_general,
     items: [
       {
-        titleId: ETranslations.global_search_account_selector,
+        titleId: ETranslations.shortcuts_account_selector,
         keys: [shortcutsKeys.CmdOrCtrl, 'P'],
       },
       {
-        titleId: ETranslations.network_selector_unavailable_networks,
+        titleId: ETranslations.shortcuts_network_selector,
         keys: [shortcutsKeys.CmdOrCtrl, 'O'],
-      },
-      {
-        titleId: ETranslations.global_search,
-        keys: [shortcutsKeys.CmdOrCtrl, 'F'],
       },
       {
         titleId: ETranslations.settings_settings,
         keys: [shortcutsKeys.CmdOrCtrl, ','],
       },
       {
-        titleId: ETranslations.global_copy_address,
-        keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],
-      },
-      {
-        titleId: ETranslations.open_as_sidebar,
+        titleIds: [
+          ETranslations.shortcut_show_sidebar,
+          ETranslations.shortcut_hide_sidebar,
+        ],
         keys: [shortcutsKeys.CmdOrCtrl, 'S'],
       },
       {
-        titleId: ETranslations.global_wallet,
+        titleId: ETranslations.shortcuts_go_to_wallet_tab,
         keys: [shortcutsKeys.CmdOrCtrl, '1'],
       },
       {
-        titleId: ETranslations.global_earn,
+        titleId: ETranslations.shortcuts_go_to_earn_tab,
         keys: [shortcutsKeys.CmdOrCtrl, '2'],
       },
       {
-        titleId: ETranslations.global_swap,
+        titleId: ETranslations.shortcuts_go_to_swap_tab,
         keys: [shortcutsKeys.CmdOrCtrl, '3'],
       },
       {
-        titleId: ETranslations.global_market,
+        titleId: ETranslations.shortcuts_go_to_market_tab,
         keys: [shortcutsKeys.CmdOrCtrl, '4'],
       },
       {
-        titleId: ETranslations.global_browser,
+        titleId: ETranslations.shortcuts_go_to_browser_tab,
         keys: [shortcutsKeys.CmdOrCtrl, '5'],
       },
       {
@@ -135,9 +130,15 @@ function ShortcutsPreview() {
       <Page.Body userSelect="none">
         {sections.map(({ titleId, items }) => (
           <Section title={intl.formatMessage({ id: titleId })} key={titleId}>
-            {items.map(({ titleId: subTitleId, keys }) => (
+            {items.map(({ titleId: subTitleId, keys, titleIds }) => (
               <ListItem
-                title={intl.formatMessage({ id: subTitleId })}
+                title={
+                  titleIds
+                    ? titleIds
+                        .map((id) => intl.formatMessage({ id }))
+                        .join(' / ')
+                    : intl.formatMessage({ id: subTitleId })
+                }
                 key={subTitleId}
               >
                 <Shortcut>
@@ -147,12 +148,6 @@ function ShortcutsPreview() {
                 </Shortcut>
               </ListItem>
             ))}
-            <ListItem title="Account Selector">
-              <Shortcut>
-                <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
-                <Shortcut.Key>P</Shortcut.Key>
-              </Shortcut>
-            </ListItem>
           </Section>
         ))}
       </Page.Body>
