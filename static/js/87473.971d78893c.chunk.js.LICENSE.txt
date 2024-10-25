@@ -1,0 +1,27 @@
+/*! https://mths.be/punycode v1.4.1 by @mathias */
+
+/*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) */
+
+/***
+ * @license
+ * https://github.com/bitcoincashjs/cashaddr
+ * Copyright (c) 2017 Emilio Almansi
+ * Distributed under the MIT software license, see the accompanying
+ * file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+ */
+
+//!LogBuffer("$$$$ gas: ", gas.toString("hex"), writer.bufs)
+
+//!LogBuffer("$$$$ inputs.length: ", this.inputs.length, writer.bufs)
+
+//!LogBuffer("$$$$ nLockTime: ", this.nLockTime, writer.bufs)
+
+//!LogBuffer("$$$$ outputs.length: ", this.outputs.length, writer.bufs)
+
+//!LogBuffer("$$$$ payload: ", payload.toString("hex"), writer.bufs)
+
+//!LogBuffer("$$$$ subnetworkId: ", subnetworkId.toString("hex"), writer.bufs)
+
+//!LogBuffer("$$$$ unknown: ", unknown.toString("hex"), writer.bufs)
+
+//!LogBuffer("$$$$ version: ", this.version, writer.bufs)

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkweb=self.webpackChunkweb||[]).push([[79931],{479931:(e,s,t)=>{t.r(s),t.d(s,{test:()=>test});var test=function(){alert("asyncImportTest")}}}]);
