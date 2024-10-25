@@ -21,14 +21,16 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 
+import type { IWebTab } from '../../types';
+
 export function ShortcutsActionButton() {
   const { gtMd } = useMedia();
   const { activeTabId: id } = useActiveTabId();
   const intl = useIntl();
-  const { tab } = useWebTabDataById(id as string);
+  const { tab }: { tab: IWebTab | undefined } = useWebTabDataById(id as string);
   const navigation = useAppNavigation();
   const { result: tabDetail, run } = usePromiseResult(async () => {
-    const origin = tab?.url ? new URL(tab.url).origin : null;
+    const origin = tab?.url ? new URL(tab?.url).origin : null;
     let hasConnectedAccount = false;
     if (origin) {
       const connectedAccounts =
@@ -41,7 +43,7 @@ export function ShortcutsActionButton() {
   }, [tab]);
 
   const handleDisconnect = useCallback(async () => {
-    const url = tab.url;
+    const url = tab?.url;
     const { origin } = new URL(url ?? '');
     if (origin) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
@@ -51,7 +53,7 @@ export function ShortcutsActionButton() {
       });
       setTimeout(() => run(), 200);
     }
-  }, [run, tab.url]);
+  }, [run, tab?.url]);
   // For dApp connection state update
   useEffect(() => {
     const fn = () => setTimeout(() => run(), 200);
