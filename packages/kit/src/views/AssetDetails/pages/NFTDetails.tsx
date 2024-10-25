@@ -34,6 +34,7 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 export function NFTDetails() {
   const intl = useIntl();
@@ -158,7 +159,7 @@ export function NFTDetails() {
             id: ETranslations.nft_collect_to_touch,
           },
           {
-            device: String(device.deviceType).toUpperCase(),
+            device: stringUtils.capitalizeWords(String(device.deviceType)),
           },
         ),
         icon: 'InboxOutline',

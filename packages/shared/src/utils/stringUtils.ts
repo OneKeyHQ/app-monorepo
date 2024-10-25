@@ -27,9 +27,14 @@ function randomString(
   return result;
 }
 
+function capitalizeWords(str: string): string {
+  return str.replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 export default {
   stableStringify,
   safeStringify,
   randomString,
   equalsIgnoreCase,
+  capitalizeWords,
 };
