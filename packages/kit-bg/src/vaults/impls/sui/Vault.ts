@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { getFullnodeUrl } from '@mysten/sui/client';
+import { toBase64 } from '@mysten/sui/utils';
 import {
   SUI_TYPE_ARG,
   TransactionBlock,
@@ -7,6 +7,7 @@ import {
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
+import { Transaction } from 'ethersV6';
 import { get, isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
@@ -44,6 +45,7 @@ import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
 import { OneKeySuiTransport } from './sdkSui/SuiTransport';
+import transactionUtils from './sdkSui/transactions';
 import {
   moveCallTxnName,
   normalizeSuiCoinType,
@@ -149,12 +151,12 @@ export default class Vault extends VaultBase {
       .shiftedBy(tokenInfo.decimals)
       .toFixed();
     const client = await this.getClient();
-    const transaction = await createCoinSendTransaction({
+    const transaction = await transactionUtils.createTokenTransaction({
       client,
-      address: sender,
-      to: recipient,
+      sender,
+      recipient,
       amount: amountValue,
-      coinType: normalizeSuiCoinType(tokenInfo.address),
+      coinType: tokenInfo.address,
     });
 
     return {
@@ -352,14 +354,22 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError('Invalid transfer object');
       }
 
-      const newTx = await createCoinSendTransaction({
+      // TODO: max send logic
+      const newTx = await transactionUtils.createTokenTransaction({
         client,
-        address: oldTx.blockData.sender ?? (await this.getAccountAddress()),
-        to,
+        sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+        recipient: to,
         amount: '100',
         coinType: SUI_TYPE_ARG,
-        isPayAllSui: true,
       });
+      // createCoinSendTransaction({
+      //   client,
+      //   address: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+      //   to,
+      //   amount: '100',
+      //   coinType: SUI_TYPE_ARG,
+      //   isPayAllSui: true,
+      // });
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),
