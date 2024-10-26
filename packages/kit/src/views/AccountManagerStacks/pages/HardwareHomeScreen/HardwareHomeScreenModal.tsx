@@ -16,12 +16,12 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -38,12 +38,12 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import hardwareHomeScreenData from './hardwareHomeScreenData';
 import uploadedHomeScreenCache from './uploadedHomeScreenCache';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { DimensionValue } from 'react-native';
 import type {
   IHardwareHomeScreenData,
   IHardwareHomeScreenName,
 } from './hardwareHomeScreenData';
-import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { DimensionValue } from 'react-native';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
@@ -307,7 +307,14 @@ export default function HardwareHomeScreenModal({
       let customHex = '';
       if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
         const imgUri =
-          (await imageUtils.getBase64FromRequiredImageSource(item?.source)) ||
+          (await imageUtils.getBase64FromRequiredImageSource(
+            item?.source,
+            (...args) => {
+              defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
+                ...args,
+              );
+            },
+          )) ||
           item?.uri ||
           '';
         console.log('imgUri >>>>>>>>>>>>>>>>>++++++++>>> ', imgUri, item);

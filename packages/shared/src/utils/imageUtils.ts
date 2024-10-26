@@ -4,7 +4,7 @@ import {
   documentDirectory,
 } from 'expo-file-system';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
-import { isArray, isNumber } from 'lodash';
+import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 
 import platformEnv from '../platformEnv';
@@ -16,6 +16,8 @@ import type {
   ImageResult,
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
+
+type ICommonImageLogFn = (...args: string[]) => void;
 
 const range = (length: number) => [...Array(length).keys()];
 
@@ -171,18 +173,21 @@ async function resizeImage(params: {
 
 async function getBase64FromImageUriNative(
   uri: string,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
   try {
+    // remote uri
     if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      const savedPath = `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`;
+      logFn?.('(native) download remote image', savedPath, uri);
       // eslint-disable-next-line no-param-reassign
-      ({ uri } = await RNDownloadAsync(
-        uri,
-        `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`,
-      ));
+      ({ uri } = await RNDownloadAsync(uri, savedPath));
+      logFn?.('(native) download to local uri', uri);
     }
     const base64 = await RNReadAsStringAsync(uri, {
       encoding: 'base64',
     });
+    logFn?.('(native) local uri to base64', uri, base64);
     return prefixBase64Uri(base64, 'image/jpeg');
   } catch (error) {
     return undefined;
@@ -212,6 +217,7 @@ async function getBase64FromImageUriWeb(
 
 async function getBase64FromImageUri(
   uri: string | undefined,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
   if (!uri) {
     return undefined;
@@ -222,36 +228,64 @@ async function getBase64FromImageUri(
   }
 
   if (platformEnv.isNative) {
-    return getBase64FromImageUriNative(uri);
+    return getBase64FromImageUriNative(uri, logFn);
   }
   return getBase64FromImageUriWeb(uri);
 }
 
 async function getUriFromRequiredImageSource(
-  source: ImageSourcePropType | undefined,
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
-  if (platformEnv.isNative && source) {
+  try {
+    logFn?.(
+      'ImageSource type',
+      `isString=${isString(source).toString()}`,
+      `isArray=${isArray(source).toString()}`,
+      `isNumber=${isNumber(source).toString()}`,
+      `isNil=${isNil(source).toString()}`,
+      `isObject=${isObject(source) ? Object.keys(source).join(',') : 'false'}`,
+    );
+  } catch (error) {
+    // ignore
+  }
+
+  if (platformEnv.isNative && !isNil(source) && !isString(source)) {
+    if (isNumber(source)) {
+      try {
+        logFn?.('(native) ImageSource number', source.toString());
+      } catch (error) {
+        // ignore
+      }
+    }
     const resolvedAssetSource = RNImage.resolveAssetSource(source);
     const uri = resolvedAssetSource.uri;
+    logFn?.('(native) ImageSource resolved to local uri', uri);
     return uri;
   }
   if (typeof source === 'string') {
+    logFn?.('ImageSource is string', source);
     return source;
   }
   if (isArray(source)) {
+    logFn?.('ImageSource is array');
     return undefined;
   }
   if (isNumber(source)) {
+    logFn?.('ImageSource is number', source.toString());
     return undefined;
   }
+  logFn?.('ImageSource source.uri', source?.uri || '');
   return source?.uri;
 }
 
 async function getBase64FromRequiredImageSource(
-  source: ImageSourcePropType | undefined,
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
-  const uri = await getUriFromRequiredImageSource(source);
-  return getBase64FromImageUri(uri);
+  const uri = await getUriFromRequiredImageSource(source, logFn);
+  logFn?.('getUriFromRequiredImageSource uri', uri || '');
+  return getBase64FromImageUri(uri, logFn);
 }
 
 function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {

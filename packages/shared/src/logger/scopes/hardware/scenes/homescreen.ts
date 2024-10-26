@@ -1,3 +1,5 @@
+import { isString } from 'lodash';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
 
@@ -37,5 +39,11 @@ export class HardwareHomeScreenScene extends BaseScene {
       customHexPreDefined: params.customHexPreDefined?.slice(0, 10),
       selectedItemHex: params.selectedItemHex?.slice(0, 10),
     };
+  }
+
+  @LogToLocal()
+  public getBase64FromRequiredImageSource(...args: string[]) {
+    const output = ([] as string[]).concat(args);
+    return output.filter(isString);
   }
 }
