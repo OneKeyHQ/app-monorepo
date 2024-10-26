@@ -1,11 +1,13 @@
 import {
-  downloadAsync as RNDownloadAsync,
-  readAsStringAsync as RNReadAsStringAsync,
+  downloadAsync as ExpoFSDownloadAsync,
+  readAsStringAsync as ExpoFSReadAsStringAsync,
   documentDirectory,
 } from 'expo-file-system';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
+import RNFS from 'react-native-fs';
+import RNImgToBase64 from 'react-native-image-base64';
 
 import platformEnv from '../platformEnv';
 
@@ -171,6 +173,66 @@ async function resizeImage(params: {
   return { ...imageResult, hex };
 }
 
+async function getRNLocalImageBase64(uri: string, logFn?: ICommonImageLogFn) {
+  const errors: string[] = [];
+  let base64a: string | undefined;
+  let base64b: string | undefined;
+  let base64c: string | undefined;
+  let base64d: string | undefined;
+
+  // **** use expo-file-system
+  try {
+    base64a = await ExpoFSReadAsStringAsync(uri, {
+      encoding: 'base64',
+    });
+  } catch (error) {
+    errors.push(
+      'ExpoFSReadAsStringAsync error',
+      (error as Error)?.message || '',
+    );
+  }
+
+  // **** use react-native-image-base64
+  try {
+    base64b = await RNImgToBase64.getBase64String(uri);
+  } catch (error) {
+    errors.push(
+      'RNImgToBase64.getBase64String error',
+      (error as Error)?.message || '',
+    );
+  }
+
+  // **** use react-native-fs
+  try {
+    base64c = await RNFS.readFile(uri, 'base64');
+  } catch (error) {
+    errors.push('RNFS.readFile error', (error as Error)?.message || '');
+  }
+
+  let uri2: string | undefined;
+  try {
+    uri2 = RNFS.MainBundlePath + uri;
+    base64d = await RNFS.readFile(uri2, 'base64');
+  } catch (error) {
+    errors.push('RNFS.readFile uri2 error', (error as Error)?.message || '');
+  }
+
+  logFn?.('getRNLocalImageBase64 errors', errors.join(';;;'));
+  logFn?.(
+    'getRNLocalImageBase64 base64',
+    base64a || '',
+    base64b || '',
+    base64c || '',
+    base64d || '',
+  );
+
+  const base64 = base64a || base64b || base64c || base64d;
+  if (!base64) {
+    throw new Error('getRNLocalImageBase64 failed');
+  }
+  return base64;
+}
+
 async function getBase64FromImageUriNative(
   uri: string,
   logFn?: ICommonImageLogFn,
@@ -181,15 +243,18 @@ async function getBase64FromImageUriNative(
       const savedPath = `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`;
       logFn?.('(native) download remote image', savedPath, uri);
       // eslint-disable-next-line no-param-reassign
-      ({ uri } = await RNDownloadAsync(uri, savedPath));
+      ({ uri } = await ExpoFSDownloadAsync(uri, savedPath));
       logFn?.('(native) download to local uri', uri);
     }
-    const base64 = await RNReadAsStringAsync(uri, {
-      encoding: 'base64',
-    });
+    const base64 = await getRNLocalImageBase64(uri, logFn);
     logFn?.('(native) local uri to base64', uri, base64);
     return prefixBase64Uri(base64, 'image/jpeg');
   } catch (error) {
+    logFn?.(
+      '(native) local uri to base64 ERROR',
+      uri,
+      (error as Error | undefined)?.message || 'unknown error',
+    );
     return undefined;
   }
 }
