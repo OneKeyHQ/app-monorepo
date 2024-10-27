@@ -5,7 +5,13 @@ import BigNumber from 'bignumber.js';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { OneKeySuiClient } from './ClientSui';
-import type { CoinStruct } from '@mysten/sui/client';
+import type { BalanceChange, CoinStruct } from '@mysten/sui/client';
+
+export enum ESuiTransactionType {
+  ContractInteraction = 'ContractInteraction',
+  TokenTransfer = 'Token Transfer',
+  Unknown = 'UNKNOWN',
+}
 
 async function getAllCoinsByCoinType({
   client,
@@ -107,6 +113,111 @@ async function createTokenTransaction({
   return tx;
 }
 
+function analyzeTransactionType(tx: Transaction) {
+  const commands = tx.getData().commands;
+  const hasMoveCall = commands.some((cmd) => cmd.$kind === 'MoveCall');
+  if (hasMoveCall) {
+    return ESuiTransactionType.ContractInteraction;
+  }
+
+  const transferCommands = commands.filter(
+    (cmd) => cmd.$kind === 'TransferObjects',
+  );
+  if (transferCommands.length) {
+    return ESuiTransactionType.TokenTransfer;
+  }
+  return ESuiTransactionType.Unknown;
+}
+
+interface ITransferDetail {
+  from: string;
+  to: string;
+  amount: string;
+  tokenAddress: string;
+  gasFee?: string;
+}
+function parseTransferDetails({
+  balanceChanges,
+}: {
+  balanceChanges: BalanceChange[];
+}) {
+  const transfers: ITransferDetail[] = [];
+
+  const changesByCoinType = new Map<string, BalanceChange[]>();
+  balanceChanges.forEach((change) => {
+    const changes = changesByCoinType.get(change.coinType) || [];
+    changes.push(change);
+    changesByCoinType.set(change.coinType, changes);
+  });
+
+  // Process transfers for each token type
+  for (const [tokenType, changes] of changesByCoinType.entries()) {
+    const negativeChanges = changes.filter((c) =>
+      new BigNumber(c.amount).isLessThan(0),
+    );
+    const positiveChanges = changes.filter((c) =>
+      new BigNumber(c.amount).isGreaterThan(0),
+    );
+
+    // If there's only one negative record, it might be a self-transfer
+    if (tokenType === SUI_TYPE_ARG) {
+      // If there's only one negative record, it might be a self-transfer
+      if (negativeChanges.length === 1 && positiveChanges.length === 0) {
+        const change = negativeChanges[0];
+        transfers.push({
+          from: (change.owner as { AddressOwner: string }).AddressOwner,
+          to: (change.owner as { AddressOwner: string }).AddressOwner,
+          amount: new BigNumber(0).toString(), // Actual transfer amount is 0
+          tokenAddress: tokenType,
+          gasFee: new BigNumber(change.amount).abs().toString(), // Gas fee is the absolute value of the negative change
+        });
+      }
+      // Regular transfer
+      else if (positiveChanges.length > 0) {
+        positiveChanges.forEach((posChange) => {
+          const sender = negativeChanges.sort((a, b) =>
+            new BigNumber(b.amount).minus(a.amount).toNumber(),
+          )[0];
+
+          if (sender) {
+            const transferAmount = new BigNumber(posChange.amount);
+            const negativeAmount = new BigNumber(sender.amount).abs();
+            const gasFee = negativeAmount.minus(transferAmount);
+
+            transfers.push({
+              from: (sender.owner as { AddressOwner: string }).AddressOwner,
+              to: (posChange.owner as { AddressOwner: string }).AddressOwner,
+              amount: transferAmount.toString(),
+              tokenAddress: tokenType,
+              gasFee: gasFee.toString(),
+            });
+          }
+        });
+      }
+    } else if (positiveChanges.length > 0) {
+      // Transfers for other tokens
+      positiveChanges.forEach((posChange) => {
+        const sender = negativeChanges.sort((a, b) =>
+          new BigNumber(b.amount).minus(a.amount).toNumber(),
+        )[0];
+
+        if (sender) {
+          transfers.push({
+            from: (sender.owner as { AddressOwner: string }).AddressOwner,
+            to: (posChange.owner as { AddressOwner: string }).AddressOwner,
+            amount: new BigNumber(posChange.amount).toString(),
+            tokenAddress: tokenType,
+          });
+        }
+      });
+    }
+  }
+
+  return transfers;
+}
+
 export default {
   createTokenTransaction,
+  analyzeTransactionType,
+  parseTransferDetails,
 };

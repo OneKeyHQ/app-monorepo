@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import {
   SUI_TYPE_ARG,
   TransactionBlock,
   builder,
+  getTotalGasUsed,
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
-import { Transaction } from 'ethersV6';
 import { get, isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
@@ -45,7 +46,7 @@ import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
 import { OneKeySuiTransport } from './sdkSui/SuiTransport';
-import transactionUtils from './sdkSui/transactions';
+import transactionUtils, { ESuiTransactionType } from './sdkSui/transactions';
 import {
   moveCallTxnName,
   normalizeSuiCoinType,
@@ -171,6 +172,99 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx?.encodedTx as IEncodedTxSui;
     const { swapInfo } = unsignedTx;
+
+    const tx = Transaction.from(encodedTx.rawTx);
+    tx.setSender(tx.blockData.sender ?? (await this.getAccountAddress()));
+    console.log('tx: ======>>>: ', tx);
+
+    console.log('transactionUtils: ', transactionUtils);
+    const transactionType = transactionUtils.analyzeTransactionType(tx);
+    console.log('transactionType: ', transactionType);
+
+    let actions: IDecodedTxAction[] = [];
+
+    if (transactionType === ESuiTransactionType.TokenTransfer) {
+      console.log('unsignedTx.transfersInfo: ', unsignedTx.transfersInfo);
+      if (unsignedTx.transfersInfo?.[0]) {
+        const { from, to, amount, tokenInfo } = unsignedTx.transfersInfo[0];
+        const token = await this.backgroundApi.serviceToken.getToken({
+          networkId: this.networkId,
+          accountId: this.accountId,
+          tokenIdOnNetwork: tokenInfo?.address ?? '',
+        });
+        const action = await this.buildTxTransferAssetAction({
+          from,
+          to,
+          transfers: [
+            {
+              from,
+              to,
+              amount,
+              icon: token?.logoURI ?? '',
+              symbol: token?.symbol ?? '',
+              name: token?.name ?? '',
+              tokenIdOnNetwork: token?.address ?? '',
+              isNative: token?.isNative,
+            },
+          ],
+        });
+        console.log('action: ', action);
+        actions.push(action);
+      } else {
+        // use dry-run result to create action
+        const client = await this.getClient();
+        const buildTx = await tx.build({ client });
+        const dryRunResult = await client.dryRunTransactionBlock({
+          transactionBlock: buildTx,
+        });
+        console.log('dry run result: ', dryRunResult);
+        const transfers = transactionUtils.parseTransferDetails({
+          balanceChanges: dryRunResult.balanceChanges,
+        });
+        console.log('transfers: ', transfers);
+        if (transfers.length > 0) {
+          const action = await this.buildTxTransferAssetAction({
+            from: transfers[0].from,
+            to: transfers[0].to,
+            transfers: (
+              await Promise.all(
+                transfers.map(async (transfer) => {
+                  const token = await this.backgroundApi.serviceToken.getToken({
+                    networkId: this.networkId,
+                    accountId: this.accountId,
+                    tokenIdOnNetwork: transfer.tokenAddress,
+                  });
+                  if (
+                    token?.decimals === undefined ||
+                    token?.decimals === null ||
+                    Number.isNaN(token?.decimals)
+                  ) {
+                    return null;
+                  }
+                  return {
+                    from: transfer.from,
+                    to: transfer.to,
+                    amount: new BigNumber(transfer.amount)
+                      .shiftedBy(-token.decimals)
+                      .toString(),
+                    icon: token?.logoURI ?? '',
+                    symbol: token?.symbol ?? '',
+                    name: token?.name ?? '',
+                    tokenIdOnNetwork: token?.address ?? '',
+                    isNative: token?.isNative,
+                  };
+                }),
+              )
+            ).filter(Boolean),
+          });
+          actions.push(action);
+        }
+      }
+      // const amount = new BigNumber(unsignedTx.transfersInfo?.[0].amount ?? '0');
+    } else if (transactionType === ESuiTransactionType.ContractInteraction) {
+      // TODO: contract interaction
+    }
+
     const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
     if (!transactionBlock) {
       throw new OneKeyInternalError('Failed to decode transaction');
@@ -184,101 +278,101 @@ export default class Vault extends VaultBase {
       gasLimit = gasConfig.budget.toString() ?? '0';
     }
 
-    let actions: IDecodedTxAction[] = [];
-    let toAddress = '';
+    // let actions: IDecodedTxAction[] = [];
+    const toAddress = '';
 
-    try {
-      for (const transaction of transactions) {
-        switch (transaction.kind) {
-          case 'TransferObjects': {
-            const { action, to } = await this._buildTxActionFromTransferObjects(
-              {
-                transaction,
-                transactions,
-                inputs,
-                payments: gasConfig.payment,
-              },
-            );
-            if (action) {
-              actions.push(action);
-            }
-            toAddress = to;
-            break;
-          }
-          case 'MoveCall': {
-            if (transaction.kind !== 'MoveCall') break;
-            const args: string[] = [];
-            let argInput;
-            for (const arg of transaction.arguments ?? []) {
-              switch (arg.kind) {
-                case 'Input':
-                case 'Result':
-                case 'NestedResult':
-                  argInput = inputs[arg.index];
-                  if (argInput.type === 'pure') {
-                    const argValue = get(
-                      argInput.value,
-                      'Pure',
-                      argInput.value,
-                    );
+    // try {
+    //   for (const transaction of transactions) {
+    //     switch (transaction.kind) {
+    //       case 'TransferObjects': {
+    //         const { action, to } = await this._buildTxActionFromTransferObjects(
+    //           {
+    //             transaction,
+    //             transactions,
+    //             inputs,
+    //             payments: gasConfig.payment,
+    //           },
+    //         );
+    //         if (action) {
+    //           actions.push(action);
+    //         }
+    //         toAddress = to;
+    //         break;
+    //       }
+    //       case 'MoveCall': {
+    //         if (transaction.kind !== 'MoveCall') break;
+    //         const args: string[] = [];
+    //         let argInput;
+    //         for (const arg of transaction.arguments ?? []) {
+    //           switch (arg.kind) {
+    //             case 'Input':
+    //             case 'Result':
+    //             case 'NestedResult':
+    //               argInput = inputs[arg.index];
+    //               if (argInput.type === 'pure') {
+    //                 const argValue = get(
+    //                   argInput.value,
+    //                   'Pure',
+    //                   argInput.value,
+    //                 );
 
-                    try {
-                      args.push(builder.de('vector<u8>', argValue));
-                    } catch (e) {
-                      try {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                        args.push(argValue.toString());
-                      } catch (error) {
-                        // ignore
-                      }
-                    }
-                  } else if (argInput.type === 'object') {
-                    try {
-                      args.push(JSON.stringify(argInput.value));
-                    } catch (e) {
-                      args.push('unable to parse object');
-                    }
-                  }
-                  break;
+    //                 try {
+    //                   args.push(builder.de('vector<u8>', argValue));
+    //                 } catch (e) {
+    //                   try {
+    //                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    //                     args.push(argValue.toString());
+    //                   } catch (error) {
+    //                     // ignore
+    //                   }
+    //                 }
+    //               } else if (argInput.type === 'object') {
+    //                 try {
+    //                   args.push(JSON.stringify(argInput.value));
+    //                 } catch (e) {
+    //                   args.push('unable to parse object');
+    //                 }
+    //               }
+    //               break;
 
-                default:
-              }
-            }
+    //             default:
+    //           }
+    //         }
 
-            const callName = moveCallTxnName(transaction.target).split('::');
-            toAddress = `${callName?.[1]}::${callName?.[2]}`;
-            actions.push({
-              type: EDecodedTxActionType.FUNCTION_CALL,
-              'functionCall': {
-                from: account.address,
-                to: `${callName?.[1]}::${callName?.[2]}`,
-                functionName: callName?.[0] ?? '',
-                args,
-                icon: network.logoURI ?? '',
-              },
-            });
-            break;
-          }
-          case 'MakeMoveVec':
-          case 'SplitCoins':
-          case 'MergeCoins':
-            break;
-          default:
-            actions.push({
-              type: EDecodedTxActionType.UNKNOWN,
-              direction: EDecodedTxDirection.OTHER,
-              unknownAction: {
-                from: account.address,
-                to: '',
-                icon: network.logoURI ?? '',
-              },
-            });
-            break;
-        }
-      }
-    } catch (e) {
-      // ignore parse error
-    }
+    //         const callName = moveCallTxnName(transaction.target).split('::');
+    //         toAddress = `${callName?.[1]}::${callName?.[2]}`;
+    //         actions.push({
+    //           type: EDecodedTxActionType.FUNCTION_CALL,
+    //           'functionCall': {
+    //             from: account.address,
+    //             to: `${callName?.[1]}::${callName?.[2]}`,
+    //             functionName: callName?.[0] ?? '',
+    //             args,
+    //             icon: network.logoURI ?? '',
+    //           },
+    //         });
+    //         break;
+    //       }
+    //       case 'MakeMoveVec':
+    //       case 'SplitCoins':
+    //       case 'MergeCoins':
+    //         break;
+    //       default:
+    //         actions.push({
+    //           type: EDecodedTxActionType.UNKNOWN,
+    //           direction: EDecodedTxDirection.OTHER,
+    //           unknownAction: {
+    //             from: account.address,
+    //             to: '',
+    //             icon: network.logoURI ?? '',
+    //           },
+    //         });
+    //         break;
+    //     }
+    //   }
+    // } catch (e) {
+    //   // ignore parse error
+    // }
 
     if (swapInfo) {
       actions = [
