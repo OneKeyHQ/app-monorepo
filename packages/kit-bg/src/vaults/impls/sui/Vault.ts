@@ -181,6 +181,8 @@ export default class Vault extends VaultBase {
     const transactionType = transactionUtils.analyzeTransactionType(tx);
     console.log('transactionType: ', transactionType);
 
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
     let actions: IDecodedTxAction[] = [];
 
     if (transactionType === ESuiTransactionType.TokenTransfer) {
@@ -260,125 +262,27 @@ export default class Vault extends VaultBase {
           actions.push(action);
         }
       }
-      // const amount = new BigNumber(unsignedTx.transfersInfo?.[0].amount ?? '0');
     } else if (transactionType === ESuiTransactionType.ContractInteraction) {
-      // TODO: contract interaction
+      const contractInfo = transactionUtils.parseMoveCall(tx);
+      if (contractInfo) {
+        actions.push({
+          type: EDecodedTxActionType.FUNCTION_CALL,
+          functionCall: {
+            from: account.address,
+            to: contractInfo.contractTo,
+            functionName: contractInfo.contractName,
+            icon: network.logoURI ?? '',
+            args: [],
+          },
+        });
+      }
     }
-
-    const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
-    if (!transactionBlock) {
-      throw new OneKeyInternalError('Failed to decode transaction');
-    }
-
-    const network = await this.getNetwork();
-    const account = await this.getAccount();
-    const { inputs, transactions, gasConfig } = transactionBlock.blockData;
-    let gasLimit = '0';
-    if (gasConfig.budget) {
-      gasLimit = gasConfig.budget.toString() ?? '0';
-    }
-
-    // let actions: IDecodedTxAction[] = [];
-    const toAddress = '';
-
-    // try {
-    //   for (const transaction of transactions) {
-    //     switch (transaction.kind) {
-    //       case 'TransferObjects': {
-    //         const { action, to } = await this._buildTxActionFromTransferObjects(
-    //           {
-    //             transaction,
-    //             transactions,
-    //             inputs,
-    //             payments: gasConfig.payment,
-    //           },
-    //         );
-    //         if (action) {
-    //           actions.push(action);
-    //         }
-    //         toAddress = to;
-    //         break;
-    //       }
-    //       case 'MoveCall': {
-    //         if (transaction.kind !== 'MoveCall') break;
-    //         const args: string[] = [];
-    //         let argInput;
-    //         for (const arg of transaction.arguments ?? []) {
-    //           switch (arg.kind) {
-    //             case 'Input':
-    //             case 'Result':
-    //             case 'NestedResult':
-    //               argInput = inputs[arg.index];
-    //               if (argInput.type === 'pure') {
-    //                 const argValue = get(
-    //                   argInput.value,
-    //                   'Pure',
-    //                   argInput.value,
-    //                 );
-
-    //                 try {
-    //                   args.push(builder.de('vector<u8>', argValue));
-    //                 } catch (e) {
-    //                   try {
-    //                     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    //                     args.push(argValue.toString());
-    //                   } catch (error) {
-    //                     // ignore
-    //                   }
-    //                 }
-    //               } else if (argInput.type === 'object') {
-    //                 try {
-    //                   args.push(JSON.stringify(argInput.value));
-    //                 } catch (e) {
-    //                   args.push('unable to parse object');
-    //                 }
-    //               }
-    //               break;
-
-    //             default:
-    //           }
-    //         }
-
-    //         const callName = moveCallTxnName(transaction.target).split('::');
-    //         toAddress = `${callName?.[1]}::${callName?.[2]}`;
-    //         actions.push({
-    //           type: EDecodedTxActionType.FUNCTION_CALL,
-    //           'functionCall': {
-    //             from: account.address,
-    //             to: `${callName?.[1]}::${callName?.[2]}`,
-    //             functionName: callName?.[0] ?? '',
-    //             args,
-    //             icon: network.logoURI ?? '',
-    //           },
-    //         });
-    //         break;
-    //       }
-    //       case 'MakeMoveVec':
-    //       case 'SplitCoins':
-    //       case 'MergeCoins':
-    //         break;
-    //       default:
-    //         actions.push({
-    //           type: EDecodedTxActionType.UNKNOWN,
-    //           direction: EDecodedTxDirection.OTHER,
-    //           unknownAction: {
-    //             from: account.address,
-    //             to: '',
-    //             icon: network.logoURI ?? '',
-    //           },
-    //         });
-    //         break;
-    //     }
-    //   }
-    // } catch (e) {
-    //   // ignore parse error
-    // }
 
     if (swapInfo) {
       actions = [
         await this.buildInternalSwapAction({
           swapInfo,
-          swapToAddress: toAddress,
+          swapToAddress: '',
         }),
       ];
     }

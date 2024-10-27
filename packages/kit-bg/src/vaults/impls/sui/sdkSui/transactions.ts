@@ -216,8 +216,28 @@ function parseTransferDetails({
   return transfers;
 }
 
+function parseMoveCall(transaction: Transaction) {
+  const tx = transaction.getData();
+  if (!tx.commands || !tx.commands.length) {
+    return null;
+  }
+  const firstMoveCallCommand = tx.commands.find((i) => i.$kind === 'MoveCall');
+
+  if (!firstMoveCallCommand) {
+    return null;
+  }
+
+  const functionName = firstMoveCallCommand.MoveCall.function;
+  const moduleName = firstMoveCallCommand.MoveCall.module;
+  return {
+    contractName: functionName,
+    contractTo: `${moduleName}::${functionName}`,
+  };
+}
+
 export default {
   createTokenTransaction,
   analyzeTransactionType,
   parseTransferDetails,
+  parseMoveCall,
 };
