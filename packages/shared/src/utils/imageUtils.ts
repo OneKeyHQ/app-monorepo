@@ -324,12 +324,12 @@ async function getBase64FromImageUriWeb(
 }
 
 async function getBase64FromImageUri({
-  nativeModuleId,
   uri,
+  nativeModuleId,
   logFn,
 }: {
-  nativeModuleId?: number;
   uri: string | undefined;
+  nativeModuleId?: number;
   logFn?: ICommonImageLogFn;
 }): Promise<string | undefined> {
   if (!uri) {

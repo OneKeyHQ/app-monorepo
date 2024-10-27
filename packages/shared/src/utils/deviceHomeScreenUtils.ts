@@ -117,7 +117,9 @@ async function imagePathToHex(
     ...DEFAULT_T1_HOME_SCREEN_INFORMATION,
   };
 
-  const base64 = await imageUtils.getBase64FromImageUri(base64OrUri);
+  const base64 = await imageUtils.getBase64FromImageUri({
+    uri: base64OrUri,
+  });
   if (!base64) {
     throw new Error('imagePathToHex ERROR: base64 is null');
   }
