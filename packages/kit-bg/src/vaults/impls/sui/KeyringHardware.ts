@@ -1,4 +1,6 @@
-import { Ed25519PublicKey, toB64, toSerializedSignature } from '@mysten/sui.js';
+import { toSerializedSignature } from '@mysten/sui/cryptography';
+import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
+import { toBase64 } from '@mysten/sui/utils';
 
 import { handleSignData } from '@onekeyhq/core/src/chains/sui/CoreChainSoftware';
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
@@ -155,12 +157,14 @@ export class KeyringHardware extends KeyringHardwareBase {
       const serializeSignature = toSerializedSignature({
         signatureScheme: 'ED25519',
         signature: bufferUtils.hexToBytes(signature),
-        pubKey: new Ed25519PublicKey(bufferUtils.hexToBytes(senderPublicKey)),
+        publicKey: new Ed25519PublicKey(
+          bufferUtils.hexToBytes(senderPublicKey),
+        ),
       });
 
       return {
         txid: '',
-        rawTx: toB64(initialTransaction),
+        rawTx: toBase64(initialTransaction),
         signatureScheme: 'ed25519',
         signature: serializeSignature,
         publicKey: hexUtils.addHexPrefix(senderPublicKey),
@@ -191,7 +195,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         return toSerializedSignature({
           signatureScheme: 'ED25519',
           signature: bufferUtils.hexToBytes(response.payload.signature),
-          pubKey: new Ed25519PublicKey(
+          publicKey: new Ed25519PublicKey(
             bufferUtils.hexToBytes(checkIsDefined(dbAccount.pub)),
           ),
         });

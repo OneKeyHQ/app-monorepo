@@ -1,8 +1,10 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG } from '@mysten/sui.js';
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { normalizeSuiCoinType } from './utils';
 
 import type { OneKeySuiClient } from './ClientSui';
 import type { BalanceChange, CoinStruct } from '@mysten/sui/client';
@@ -68,12 +70,14 @@ async function createTokenTransaction({
   recipient,
   amount,
   coinType,
+  maxSendNativeToken = false,
 }: {
   client: OneKeySuiClient;
   sender: string;
   recipient: string;
   amount: string;
   coinType: string;
+  maxSendNativeToken?: boolean;
 }) {
   const tx = new Transaction();
   const allCoins = await getAllCoinsByCoinType({
@@ -91,6 +95,25 @@ async function createTokenTransaction({
     throw new Error('Insufficient balance');
   }
 
+  // Max send native token
+  if (maxSendNativeToken && coinType === SUI_TYPE_ARG) {
+    tx.transferObjects([tx.gas], recipient);
+    tx.setGasPayment(
+      allCoins
+        .filter(
+          (coin) =>
+            normalizeSuiCoinType(coin.coinType) ===
+            normalizeSuiCoinType(coinType),
+        )
+        .map((coin) => ({
+          objectId: coin.coinObjectId,
+          digest: coin.digest,
+          version: coin.version,
+        })),
+    );
+
+    return tx;
+  }
   // Native token
   if (coinType === SUI_TYPE_ARG) {
     const coin = tx.splitCoins(tx.gas, [amount]);
@@ -98,7 +121,8 @@ async function createTokenTransaction({
   } else {
     // Token transfer
     const [primaryCoin, ...mergeCoins] = allCoins.filter(
-      (coin) => coin.coinType === coinType,
+      (coin) =>
+        normalizeSuiCoinType(coin.coinType) === normalizeSuiCoinType(coinType),
     );
     const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
     if (mergeCoins.length) {

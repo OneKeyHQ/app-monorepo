@@ -1,21 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Transaction } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
-import {
-  SUI_TYPE_ARG,
-  TransactionBlock,
-  builder,
-  getTotalGasUsed,
-  isValidSuiAddress,
-} from '@mysten/sui.js';
+import { SUI_TYPE_ARG, isValidSuiAddress } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
-import { get, isEmpty } from 'lodash';
+import { isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -27,10 +19,8 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
-  EDecodedTxDirection,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
@@ -44,7 +34,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
-import { createCoinSendTransaction } from './sdkSui/coin-helper';
 import { OneKeySuiTransport } from './sdkSui/SuiTransport';
 import transactionUtils, { ESuiTransactionType } from './sdkSui/transactions';
 import { waitPendingTransaction } from './sdkSui/utils';
@@ -66,11 +55,6 @@ import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
 } from '@mysten/sui/client';
-import type {
-  SuiGasData,
-  TransactionBlockInput,
-  TransferObjectsTransaction,
-} from '@mysten/sui.js';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
@@ -173,7 +157,6 @@ export default class Vault extends VaultBase {
 
     const tx = Transaction.from(encodedTx.rawTx);
     tx.setSender(tx.blockData.sender ?? (await this.getAccountAddress()));
-    console.log('tx: ======>>>: ', tx);
 
     console.log('transactionUtils: ', transactionUtils);
     const transactionType = transactionUtils.analyzeTransactionType(tx);
@@ -346,22 +329,15 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError('Invalid transfer object');
       }
 
-      // TODO: max send logic
+      // max send logic
       const newTx = await transactionUtils.createTokenTransaction({
         client,
         sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
-        amount: '100',
+        amount: nativeAmountInfo.maxSendAmount,
         coinType: SUI_TYPE_ARG,
+        maxSendNativeToken: true,
       });
-      // createCoinSendTransaction({
-      //   client,
-      //   address: oldTx.blockData.sender ?? (await this.getAccountAddress()),
-      //   to,
-      //   amount: '100',
-      //   coinType: SUI_TYPE_ARG,
-      //   isPayAllSui: true,
-      // });
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),
@@ -373,9 +349,11 @@ export default class Vault extends VaultBase {
     }
 
     if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
-      const newTx = TransactionBlock.from(encodedTx.rawTx);
+      const newTx = Transaction.from(encodedTx.rawTx);
       newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
       newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
+      // newTx.setGasPrice(new BigNumber(feeInfo.gas.gasPrice).toNumber());
+      // newTx.setGasBudget(new BigNumber(feeInfo.gas.gasLimit).toNumber());
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),

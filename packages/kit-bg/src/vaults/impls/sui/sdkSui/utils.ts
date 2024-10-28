@@ -1,5 +1,5 @@
 import { Transaction } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui.js';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';

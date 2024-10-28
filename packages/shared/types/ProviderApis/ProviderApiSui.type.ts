@@ -1,8 +1,8 @@
 import type {
   ExecuteTransactionRequestType,
-  SignedTransaction,
+  // SignedTransaction,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui.js';
+} from '@mysten/sui/client';
 
 type IIdentifierString = `${string}:${string}`;
 type IIdentifierArray = readonly IIdentifierString[];
@@ -36,8 +36,8 @@ export type ISignTransactionBlockInput = {
   account: IWalletAccount;
   chain: IIdentifierString;
 };
-
-export type ISignTransactionBlockOutput = SignedTransaction;
+// TODO: ISignTransactionBlockOutput type
+export type ISignTransactionBlockOutput = any;
 
 export type ISignMessageInput = {
   messageSerialize: string;
