@@ -1062,6 +1062,13 @@ function TokenListContainer(props: ITabPageProps) {
           initialized: true,
           isRefreshing: false,
         });
+
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.TOKENS,
+          accountId,
+          networkId,
+        });
       }
     };
 
