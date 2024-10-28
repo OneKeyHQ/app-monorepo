@@ -79,7 +79,6 @@ function TokenListContainer(props: ITabPageProps) {
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
-  const initializingTokenList = useRef(false);
 
   const tokenListRef = useRef<{
     keys: string;
@@ -1083,16 +1082,9 @@ function TokenListContainer(props: ITabPageProps) {
           networkId,
         });
       }
-      initializingTokenList.current = false;
     };
 
-    if (
-      account?.id &&
-      network?.id &&
-      wallet?.id &&
-      !initializingTokenList.current
-    ) {
-      initializingTokenList.current = true;
+    if (account?.id && network?.id && wallet?.id) {
       void initTokenListData({
         accountId: account.id,
         networkId: network.id,
