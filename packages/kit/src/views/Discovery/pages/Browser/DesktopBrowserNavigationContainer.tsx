@@ -4,6 +4,7 @@ import { Freeze } from 'react-freeze';
 
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
@@ -12,6 +13,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
 import {
@@ -106,6 +108,66 @@ function DesktopBrowserNavigationBar({
     ],
   );
 
+  const handleBookmark = useCallback(
+    (isBookmark: boolean) => {
+      onPressBookmark(isBookmark);
+    },
+    [onPressBookmark],
+  );
+
+  const handlePin = useCallback(
+    (pinned: boolean) => {
+      void setPinnedTab({ id, pinned });
+    },
+    [id, setPinnedTab],
+  );
+
+  const handleSearch = useCallback(
+    (url: string) => {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+        params: {
+          useCurrentWindow: true,
+          tabId: id,
+          url,
+        },
+      });
+    },
+    [id, navigation],
+  );
+
+  const onShortcutsBookmark = useCallback(() => {
+    if (isActive) {
+      const isBookmark = tab?.isBookmark ?? false;
+      handleBookmark(!isBookmark);
+    }
+  }, [handleBookmark, isActive, tab?.isBookmark]);
+
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.AddOrRemoveBookmark,
+    onShortcutsBookmark,
+  );
+
+  const onShortcutsPin = useCallback(() => {
+    if (isActive) {
+      const isPinned = tab?.isPinned ?? false;
+      handlePin(!isPinned);
+    }
+  }, [handlePin, isActive, tab?.isPinned]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, onShortcutsPin);
+
+  const onShortcutsChangeUrl = useCallback(() => {
+    if (isActive) {
+      handleSearch(tab.url);
+    }
+  }, [handleSearch, isActive, tab.url]);
+
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.ChangeCurrentTabUrl,
+    onShortcutsChangeUrl,
+  );
+
   return (
     <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
       <DesktopBrowserInfoBar
@@ -117,19 +179,8 @@ function DesktopBrowserNavigationBar({
         isBookmark={tab?.isBookmark ?? false}
         onBookmarkPress={onPressBookmark}
         isPinned={tab?.isPinned ?? false}
-        onPinnedPress={(pinned) => {
-          void setPinnedTab({ id, pinned });
-        }}
-        onSearch={(url: string) => {
-          navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.SearchModal,
-            params: {
-              useCurrentWindow: true,
-              tabId: id,
-              url,
-            },
-          });
-        }}
+        onPinnedPress={handlePin}
+        onSearch={handleSearch}
       />
     </Freeze>
   );
