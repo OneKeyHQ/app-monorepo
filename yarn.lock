@@ -6850,7 +6850,6 @@ __metadata:
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
     react-native-get-random-values: "npm:1.9.0"
-    react-native-image-base64: "npm:^0.1.4"
     react-native-image-colors: "npm:^2.4.0"
     react-native-image-crop-picker: "npm:^0.41.2"
     react-native-keyboard-manager: "npm:^6.5.11-1"
@@ -31815,13 +31814,6 @@ __metadata:
   peerDependencies:
     react-native: ">=0.56"
   checksum: 10/8af3ee2de0b1f811088fb068e1caddb5ea0dd31c7f8f411854d95758b19c7380d4153e8ba6879e971a76fa84c0b5f933aad5342fc023fda3bc9b2e974e039505
-  languageName: node
-  linkType: hard
-
-"react-native-image-base64@npm:^0.1.4":
-  version: 0.1.4
-  resolution: "react-native-image-base64@npm:0.1.4"
-  checksum: 10/d76fe536046239c364dc0c7384dca4eedf634879ca47713ea08e0b5e2a0d25aa78fdeea8bd92e02d610975f46d6b2c220626497c7967157a0e712b7d5f5636a7
   languageName: node
   linkType: hard
 

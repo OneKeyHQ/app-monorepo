@@ -8,7 +8,6 @@ import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 import RNFS from 'react-native-fs';
-import RNImgToBase64 from 'react-native-image-base64';
 
 import platformEnv from '../platformEnv';
 
@@ -206,54 +205,57 @@ async function getRNLocalImageBase64({
   }
 
   // **** use expo-asset
-  if (isNumber(nativeModuleId)) {
-    try {
-      const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
-      downloadedUri = loadAsyncResult?.[0]?.localUri;
-      downloadedUri1 = (loadAsyncResult || [])
-        .map((item) => item?.uri || '')
-        .join(',');
-      downloadedUri2 = (loadAsyncResult || [])
-        .map((item) => item?.localUri || '')
-        .join(',');
-
-      if (downloadedUri) {
-        base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
-          encoding: 'base64',
-        });
-      }
-    } catch (error) {
-      errors.push(
-        'ExpoFSReadAsStringAsync downloadedUri error',
-        (error as Error)?.message || '',
-      );
-    }
-  }
+  // https://stackoverflow.com/a/77425150
+  //
+  // if (isNumber(nativeModuleId)) {
+  //   try {
+  //     const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
+  //     downloadedUri = loadAsyncResult?.[0]?.localUri;
+  //     downloadedUri1 = (loadAsyncResult || [])
+  //       .map((item) => item?.uri || '')
+  //       .join(',');
+  //     downloadedUri2 = (loadAsyncResult || [])
+  //       .map((item) => item?.localUri || '')
+  //       .join(',');
+  //     if (downloadedUri) {
+  //       base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
+  //         encoding: 'base64',
+  //       });
+  //     }
+  //   } catch (error) {
+  //     errors.push(
+  //       'ExpoFSReadAsStringAsync downloadedUri error',
+  //       (error as Error)?.message || '',
+  //     );
+  //   }
+  // }
 
   // **** use react-native-image-base64
-  try {
-    base64b = await RNImgToBase64.getBase64String(uri);
-  } catch (error) {
-    errors.push(
-      'RNImgToBase64.getBase64String error',
-      (error as Error)?.message || '',
-    );
-  }
+  // import RNImgToBase64 from 'react-native-image-base64';
+  //
+  // try {
+  //   base64b = await RNImgToBase64.getBase64String(uri);
+  // } catch (error) {
+  //   errors.push(
+  //     'RNImgToBase64.getBase64String error',
+  //     (error as Error)?.message || '',
+  //   );
+  // }
 
   // **** use react-native-fs
-  try {
-    base64c = await RNFS.readFile(uri, 'base64');
-  } catch (error) {
-    errors.push('RNFS.readFile error', (error as Error)?.message || '');
-  }
-
+  // try {
+  //   base64c = await RNFS.readFile(uri, 'base64');
+  // } catch (error) {
+  //   errors.push('RNFS.readFile error', (error as Error)?.message || '');
+  // }
+  //
   let uri2: string | undefined;
-  try {
-    uri2 = RNFS.MainBundlePath + uri;
-    base64d = await RNFS.readFile(uri2, 'base64');
-  } catch (error) {
-    errors.push('RNFS.readFile uri2 error', (error as Error)?.message || '');
-  }
+  // try {
+  //   uri2 = RNFS.MainBundlePath + uri;
+  //   base64d = await RNFS.readFile(uri2, 'base64');
+  // } catch (error) {
+  //   errors.push('RNFS.readFile uri2 error', (error as Error)?.message || '');
+  // }
 
   logFn?.('getRNLocalImageBase64 errors', errors.join('  |||   '));
   logFn?.('getRNLocalImageBase64 uris', uri, downloadedUri || '', uri2 || '');
@@ -274,8 +276,6 @@ async function getRNLocalImageBase64({
     throw new Error('getRNLocalImageBase64 failed');
   }
 
-  // TODO use Expo Asset
-  // https://stackoverflow.com/a/77425150
   return base64;
 }
 
