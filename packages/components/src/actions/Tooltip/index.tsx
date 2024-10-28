@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EShortcutEvents,
   shortcutsMap,
@@ -30,7 +31,10 @@ export function TooltipText({
   onDisabledChange?: (isShow: boolean) => void;
 }) {
   const shortcutsKeys = useMemo(
-    () => (shortcutKey ? shortcutsMap[shortcutKey].keys : []),
+    () =>
+      platformEnv.isDesktop && shortcutKey
+        ? shortcutsMap[shortcutKey].keys
+        : [],
     [shortcutKey],
   );
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -77,7 +81,7 @@ export function TooltipText({
   return (
     <XStack>
       <SizableText size="$bodySm">{children}</SizableText>
-      {shortcutsKeys.length ? (
+      {platformEnv.isDesktop && shortcutsKeys.length ? (
         <Shortcut pl="$2">
           {shortcutsKeys.map((key) => (
             <Shortcut.Key key={key}>{key}</Shortcut.Key>
