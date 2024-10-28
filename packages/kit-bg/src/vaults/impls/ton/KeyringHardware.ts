@@ -17,6 +17,8 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -174,21 +176,28 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Failed to sign message');
     }
     const signature = bufferUtils.hexToBytes(result.signature);
-    let signingMessage = serializeUnsignedTx.signingMessage;
+    const signingMessage = serializeUnsignedTx.signingMessage;
     const signingMessageHexFromHw = result.signning_message as string;
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
     ).toString('hex');
+    const signingMessageHash = Buffer.from(
+      await signingMessage.hash(),
+    ).toString('hex');
     if (
-      !result.skip_validate &&
-      signingMessageHexFromHw !== signingMessageHex
+      signingMessageHexFromHw !== signingMessageHex &&
+      signingMessageHexFromHw !== signingMessageHash
     ) {
       console.warn(
         'signingMessage mismatch',
         signingMessageHexFromHw,
         signingMessageHex,
       );
-      signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_failed_to_sign_transaction,
+        }),
+      );
     }
     const signedTx = serializeSignedTx({
       fromAddress: encodedTx.from,
