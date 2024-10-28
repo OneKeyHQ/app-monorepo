@@ -19,6 +19,7 @@ import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcuts
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useActiveTabIdAtom } from '../../../../states/jotai/contexts/discovery';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 
 function HeaderLeftToolBar({
@@ -52,28 +53,8 @@ function HeaderLeftToolBar({
 }) {
   const intl = useIntl();
   const media = useMedia();
+
   const { isHttpsUrl, hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
-
-  const handleBookmark = useCallback(() => {
-    onBookmarkPress?.(!isBookmark);
-  }, [isBookmark, onBookmarkPress]);
-
-  useShortcutsOnRouteFocused(
-    EShortcutEvents.AddOrRemoveBookmark,
-    handleBookmark,
-  );
-
-  const handlePin = useCallback(() => {
-    onPinnedPress?.(!isPinned);
-  }, [isPinned, onPinnedPress]);
-
-  useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, handlePin);
-
-  const onChangeUrl = useCallback(() => {
-    onSearch?.(url);
-  }, [onSearch, url]);
-
-  useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, onChangeUrl);
 
   if (media.md) {
     return (
