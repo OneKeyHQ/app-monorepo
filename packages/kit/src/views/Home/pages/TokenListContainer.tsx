@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -78,6 +79,7 @@ function TokenListContainer(props: ITabPageProps) {
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+  const initializingTokenList = useRef(false);
 
   const tokenListRef = useRef<{
     keys: string;
@@ -959,7 +961,17 @@ function TokenListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
-    const initTokenListState = async (accountId: string, networkId: string) => {
+    const initTokenListData = async ({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    }: {
+      accountId: string;
+      networkId: string;
+      accountAddress: string;
+      xpub: string;
+    }) => {
       updateSearchKey('');
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId,
@@ -977,11 +989,12 @@ function TokenListContainer(props: ITabPageProps) {
         });
         return;
       }
-
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId,
           networkId,
+          accountAddress,
+          xpub,
         });
 
       const {
@@ -1070,13 +1083,27 @@ function TokenListContainer(props: ITabPageProps) {
           networkId,
         });
       }
+      initializingTokenList.current = false;
     };
 
-    if (account?.id && network?.id && wallet?.id) {
-      void initTokenListState(account.id, network.id);
+    if (
+      account?.id &&
+      network?.id &&
+      wallet?.id &&
+      !initializingTokenList.current
+    ) {
+      initializingTokenList.current = true;
+      void initTokenListData({
+        accountId: account.id,
+        networkId: network.id,
+        accountAddress: account.address,
+        xpub:
+          (account as IDBUtxoAccount)?.xpubSegwit ||
+          (account as IDBUtxoAccount)?.xpub,
+      });
     }
   }, [
-    account?.id,
+    account,
     handleClearAllNetworkData,
     network?.id,
     refreshAllTokenList,
