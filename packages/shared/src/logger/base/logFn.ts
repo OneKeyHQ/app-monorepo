@@ -72,7 +72,7 @@ export const logFn = ({
           const logger = getLoggerExtension(''); // use root logger instance
           if (shouldLogToConsole) {
             if (repeatContentCount > 0) {
-              logger[metadata.level](`---[${repeatContentCount}]`);
+              logger[metadata.level](`└───[${repeatContentCount} repeat]`);
               repeatContentCount = 0;
             }
             logger[metadata.level](msg);
