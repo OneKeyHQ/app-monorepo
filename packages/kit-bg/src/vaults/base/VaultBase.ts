@@ -101,7 +101,8 @@ import {
 
 import { VaultContext } from './VaultContext';
 
-import type { KeyringBase } from './KeyringBase';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { MessageDescriptor } from 'react-intl';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -123,8 +124,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import type { MessageDescriptor } from 'react-intl';
+import type { KeyringBase } from './KeyringBase';
 
 export type IVaultInitConfig = {
   keyringCreator: (vault: VaultBase) => Promise<KeyringBase>;
@@ -958,11 +958,27 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // TODO resetCache after dbAccount and network DB updated
   // TODO add memo
   async getAccount(): Promise<INetworkAccount> {
+    const startNow = Date.now();
+    let now = Date.now();
+    const processEachAccountTimeInfo: {
+      [name: string]: number;
+    } = {};
+    const resetNow = () => {
+      now = Date.now();
+    };
+    const logTime = (name: string) => {
+      processEachAccountTimeInfo[name] = Date.now() - now;
+      resetNow();
+    };
+
+    resetNow();
     const account: IDBAccount =
       await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: this.accountId,
       });
+    logTime('getDBAccount');
 
+    resetNow();
     if (
       !accountUtils.isAccountCompatibleWithNetwork({
         account,
@@ -975,8 +991,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         } ${account.id?.slice(0, 30)}`,
       );
     }
+    logTime('isAccountCompatibleWithNetwork');
 
+    resetNow();
     const networkInfo = await this.getNetworkInfo();
+    logTime('getNetworkInfo');
 
     const externalAccount = account as IDBExternalAccount;
     let externalAccountAddress = '';
@@ -999,31 +1018,43 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         return addresses?.[index] || addresses?.[fallbackIndex] || '';
       };
 
+      resetNow();
       externalAccountAddress = buildExternalAccountAddress({
         key: this.networkId,
         fallbackIndex: -1,
       });
+      logTime('buildExternalAccountAddress1');
+
       if (!externalAccountAddress) {
+        resetNow();
         const impl = await this.getNetworkImpl();
+        logTime('getNetworkImpl');
+
+        resetNow();
         externalAccountAddress = buildExternalAccountAddress({
           key: impl,
           fallbackIndex: 0,
         });
+        logTime('buildExternalAccountAddress2');
       }
       if (!externalAccountAddress) {
+        resetNow();
         externalAccountAddress = buildExternalAccountAddress({
           key: this.networkId,
           fallbackIndex: 0,
         });
+        logTime('buildExternalAccountAddress3');
       }
     }
 
+    resetNow();
     const addressDetail = await this.buildAccountAddressDetail({
       networkInfo,
       account,
       networkId: this.networkId,
       externalAccountAddress,
     });
+    logTime('buildAccountAddressDetail');
 
     // always use addressDetail.address as account.address, which is normalized and validated
     const address = addressDetail?.address || '';
@@ -1034,6 +1065,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     ) {
       throw new Error('VaultBase.getAccount ERROR: address is invalid');
     }
+
+    console.log(
+      'getAccount Time',
+      Date.now() - startNow,
+      processEachAccountTimeInfo,
+    );
+
     return {
       ...account,
       addressDetail,

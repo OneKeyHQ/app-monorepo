@@ -2098,8 +2098,33 @@ class ServiceAccount extends ServiceBase {
     if (networkUtils.isAllNetwork({ networkId })) {
       return '';
     }
+    const startNow = Date.now();
+    let now = Date.now();
+    const processEachAccountTimeInfo: {
+      [name: string]: number;
+    } = {};
+    const resetNow = () => {
+      now = Date.now();
+    };
+    const logTime = (name: string) => {
+      processEachAccountTimeInfo[name] = Date.now() - now;
+      resetNow();
+    };
+
+    resetNow();
     const vault = await vaultFactory.getVault({ accountId, networkId });
-    return vault.getAccountXpub();
+    logTime('getVault');
+
+    resetNow();
+    const xpub = await vault.getAccountXpub();
+    logTime('getAccountXpub');
+
+    console.log(
+      'getAccountXpub Time',
+      Date.now() - startNow,
+      processEachAccountTimeInfo,
+    );
+    return xpub;
   }
 
   // Get Address for each chain when request the API
