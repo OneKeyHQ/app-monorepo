@@ -176,7 +176,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Failed to sign message');
     }
     const signature = bufferUtils.hexToBytes(result.signature);
-    const signingMessage = serializeUnsignedTx.signingMessage;
+    let signingMessage = serializeUnsignedTx.signingMessage;
     const signingMessageHexFromHw = result.signning_message as string;
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
@@ -184,15 +184,23 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signingMessageHash = Buffer.from(
       await signingMessage.hash(),
     ).toString('hex');
+    // For Pro, check the boc
     if (
-      signingMessageHexFromHw !== signingMessageHex &&
-      signingMessageHexFromHw !== signingMessageHash
+      !result.skip_validate &&
+      signingMessageHexFromHw !== signingMessageHex
     ) {
       console.warn(
         'signingMessage mismatch',
         signingMessageHexFromHw,
         signingMessageHex,
       );
+      signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+    }
+    // For 1S, check the hash
+    if (
+      result.skip_validate &&
+      signingMessageHexFromHw !== signingMessageHash
+    ) {
       throw new Error(
         appLocale.intl.formatMessage({
           id: ETranslations.feedback_failed_to_sign_transaction,
