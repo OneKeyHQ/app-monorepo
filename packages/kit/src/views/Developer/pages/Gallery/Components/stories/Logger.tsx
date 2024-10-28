@@ -42,7 +42,14 @@ const LoggerDemo = () => {
             <Button
               onPress={() => defaultLogger.demo.math.logSensitiveMessage(1, 2)}
             >
-              Log #4
+              logSensitiveMessage
+            </Button>
+            <Button
+              onPress={() =>
+                defaultLogger.app.page.pageView('HelloWorld.'.repeat(100_000))
+              }
+            >
+              Log large content
             </Button>
             <Button
               onPress={() =>

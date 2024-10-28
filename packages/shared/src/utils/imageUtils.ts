@@ -1,11 +1,13 @@
+import { Asset } from 'expo-asset';
 import {
-  downloadAsync as RNDownloadAsync,
-  readAsStringAsync as RNReadAsStringAsync,
+  downloadAsync as ExpoFSDownloadAsync,
+  readAsStringAsync as ExpoFSReadAsStringAsync,
   documentDirectory,
 } from 'expo-file-system';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
-import { isArray, isNumber } from 'lodash';
+import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
+import RNFS from 'react-native-fs';
 
 import platformEnv from '../platformEnv';
 
@@ -16,6 +18,8 @@ import type {
   ImageResult,
 } from 'expo-image-manipulator';
 import type { ImageSourcePropType } from 'react-native';
+
+type ICommonImageLogFn = (...args: string[]) => void;
 
 const range = (length: number) => [...Array(length).keys()];
 
@@ -169,22 +173,143 @@ async function resizeImage(params: {
   return { ...imageResult, hex };
 }
 
-async function getBase64FromImageUriNative(
-  uri: string,
-): Promise<string | undefined> {
+async function getRNLocalImageBase64({
+  nativeModuleId,
+  uri,
+  logFn,
+}: {
+  nativeModuleId?: number;
+  uri: string;
+  logFn?: ICommonImageLogFn;
+}) {
+  const errors: string[] = [];
+  let downloadedUri: string | undefined | null;
+  let downloadedUri1: string | undefined | null;
+  let downloadedUri2: string | undefined | null;
+  let base64a: string | undefined;
+  let base64a1: string | undefined;
+  let base64b: string | undefined;
+  let base64c: string | undefined;
+  let base64d: string | undefined;
+
+  // **** use expo-file-system
   try {
-    if (uri.startsWith('http://') || uri.startsWith('https://')) {
-      // eslint-disable-next-line no-param-reassign
-      ({ uri } = await RNDownloadAsync(
-        uri,
-        `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`,
-      ));
-    }
-    const base64 = await RNReadAsStringAsync(uri, {
+    base64a = await ExpoFSReadAsStringAsync(uri, {
       encoding: 'base64',
     });
+  } catch (error) {
+    errors.push(
+      'ExpoFSReadAsStringAsync error',
+      (error as Error)?.message || '',
+    );
+  }
+
+  // **** use expo-asset
+  // https://stackoverflow.com/a/77425150
+  //
+  // if (isNumber(nativeModuleId)) {
+  //   try {
+  //     const loadAsyncResult = await Asset.loadAsync(nativeModuleId);
+  //     downloadedUri = loadAsyncResult?.[0]?.localUri;
+  //     downloadedUri1 = (loadAsyncResult || [])
+  //       .map((item) => item?.uri || '')
+  //       .join(',');
+  //     downloadedUri2 = (loadAsyncResult || [])
+  //       .map((item) => item?.localUri || '')
+  //       .join(',');
+  //     if (downloadedUri) {
+  //       base64a1 = await ExpoFSReadAsStringAsync(downloadedUri, {
+  //         encoding: 'base64',
+  //       });
+  //     }
+  //   } catch (error) {
+  //     errors.push(
+  //       'ExpoFSReadAsStringAsync downloadedUri error',
+  //       (error as Error)?.message || '',
+  //     );
+  //   }
+  // }
+
+  // **** use react-native-image-base64
+  // import RNImgToBase64 from 'react-native-image-base64';
+  //
+  // try {
+  //   base64b = await RNImgToBase64.getBase64String(uri);
+  // } catch (error) {
+  //   errors.push(
+  //     'RNImgToBase64.getBase64String error',
+  //     (error as Error)?.message || '',
+  //   );
+  // }
+
+  // **** use react-native-fs
+  // try {
+  //   base64c = await RNFS.readFile(uri, 'base64');
+  // } catch (error) {
+  //   errors.push('RNFS.readFile error', (error as Error)?.message || '');
+  // }
+  //
+  let uri2: string | undefined;
+  // try {
+  //   uri2 = RNFS.MainBundlePath + uri;
+  //   base64d = await RNFS.readFile(uri2, 'base64');
+  // } catch (error) {
+  //   errors.push('RNFS.readFile uri2 error', (error as Error)?.message || '');
+  // }
+
+  logFn?.('getRNLocalImageBase64 errors', errors.join('  |||   '));
+  logFn?.('getRNLocalImageBase64 uris', uri, downloadedUri || '', uri2 || '');
+  logFn?.('getRNLocalImageBase64 downloadedUri', downloadedUri || '');
+  logFn?.('getRNLocalImageBase64 downloadedUri1', downloadedUri1 || '');
+  logFn?.('getRNLocalImageBase64 downloadedUri2', downloadedUri2 || '');
+  logFn?.(
+    'getRNLocalImageBase64 base64',
+    base64a || '',
+    base64a1 || '',
+    base64b || '',
+    base64c || '',
+    base64d || '',
+  );
+
+  const base64 = base64a || base64a1 || base64b || base64c || base64d;
+  if (!base64) {
+    throw new Error('getRNLocalImageBase64 failed');
+  }
+
+  return base64;
+}
+
+async function getBase64FromImageUriNative({
+  nativeModuleId,
+  uri,
+  logFn,
+}: {
+  nativeModuleId?: number;
+  uri: string;
+  logFn?: ICommonImageLogFn;
+}): Promise<string | undefined> {
+  try {
+    // remote uri
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      const savedPath = `${documentDirectory || ''}tmp-get-rn-image-base64.jpg`;
+      logFn?.('(native) download remote image', savedPath, uri);
+      // eslint-disable-next-line no-param-reassign
+      ({ uri } = await ExpoFSDownloadAsync(uri, savedPath));
+      logFn?.('(native) download to local uri', uri);
+    }
+    const base64 = await getRNLocalImageBase64({
+      nativeModuleId,
+      uri,
+      logFn,
+    });
+    logFn?.('(native) local uri to base64', uri, base64);
     return prefixBase64Uri(base64, 'image/jpeg');
   } catch (error) {
+    logFn?.(
+      '(native) local uri to base64 ERROR',
+      uri,
+      (error as Error | undefined)?.message || 'unknown error',
+    );
     return undefined;
   }
 }
@@ -210,9 +335,15 @@ async function getBase64FromImageUriWeb(
   }
 }
 
-async function getBase64FromImageUri(
-  uri: string | undefined,
-): Promise<string | undefined> {
+async function getBase64FromImageUri({
+  uri,
+  nativeModuleId,
+  logFn,
+}: {
+  uri: string | undefined;
+  nativeModuleId?: number;
+  logFn?: ICommonImageLogFn;
+}): Promise<string | undefined> {
   if (!uri) {
     return undefined;
   }
@@ -222,36 +353,72 @@ async function getBase64FromImageUri(
   }
 
   if (platformEnv.isNative) {
-    return getBase64FromImageUriNative(uri);
+    return getBase64FromImageUriNative({ nativeModuleId, uri, logFn });
   }
   return getBase64FromImageUriWeb(uri);
 }
 
 async function getUriFromRequiredImageSource(
-  source: ImageSourcePropType | undefined,
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
-  if (platformEnv.isNative && source) {
+  try {
+    logFn?.(
+      'ImageSource type',
+      `isString=${isString(source).toString()}`,
+      `isArray=${isArray(source).toString()}`,
+      `isNumber=${isNumber(source).toString()}`,
+      `isNil=${isNil(source).toString()}`,
+      `isObject=${isObject(source) ? Object.keys(source).join(',') : 'false'}`,
+    );
+  } catch (error) {
+    // ignore
+  }
+
+  if (platformEnv.isNative && !isNil(source) && !isString(source)) {
+    if (isNumber(source)) {
+      try {
+        logFn?.('(native) ImageSource number', source.toString());
+      } catch (error) {
+        // ignore
+      }
+    }
     const resolvedAssetSource = RNImage.resolveAssetSource(source);
     const uri = resolvedAssetSource.uri;
+    logFn?.(
+      '(native) ImageSource resolved to local uri',
+      uri,
+      resolvedAssetSource.uri,
+    );
     return uri;
   }
   if (typeof source === 'string') {
+    logFn?.('ImageSource is string', source);
     return source;
   }
   if (isArray(source)) {
+    logFn?.('ImageSource is array');
     return undefined;
   }
   if (isNumber(source)) {
+    logFn?.('ImageSource is number', source.toString());
     return undefined;
   }
+  logFn?.('ImageSource source.uri', source?.uri || '');
   return source?.uri;
 }
 
 async function getBase64FromRequiredImageSource(
-  source: ImageSourcePropType | undefined,
+  source: ImageSourcePropType | string | undefined,
+  logFn?: ICommonImageLogFn,
 ): Promise<string | undefined> {
-  const uri = await getUriFromRequiredImageSource(source);
-  return getBase64FromImageUri(uri);
+  const uri = await getUriFromRequiredImageSource(source, logFn);
+  logFn?.('getUriFromRequiredImageSource uri', uri || '');
+  return getBase64FromImageUri({
+    nativeModuleId: isNumber(source) ? source : undefined,
+    uri,
+    logFn,
+  });
 }
 
 function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {

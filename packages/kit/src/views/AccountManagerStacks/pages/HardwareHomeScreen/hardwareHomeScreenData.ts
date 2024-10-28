@@ -1,5 +1,7 @@
 import type { IImageSourcePropType } from '@onekeyhq/components/src/primitives/Image/type';
 
+import classicMiniHomeScreenCustomHex from './classicMiniHomeScreenCustomHex';
+
 export type IHardwareHomeScreenName =
   | 'blank'
   | 'original'
@@ -168,6 +170,7 @@ const pro: IHardwareHomeScreenData[] = [
 
 export default {
   classicMini,
+  classicMiniHomeScreenCustomHex,
   touch,
   pro,
 };
