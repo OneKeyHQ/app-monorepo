@@ -5,6 +5,7 @@ import { isNil } from 'lodash';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
+  Button,
   Icon,
   IconButton,
   Image,
@@ -21,8 +22,10 @@ import type {
   IDeviceHomeScreenConfig,
   IDeviceHomeScreenSizeInfo,
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAccountManagerStacksRoutes,
@@ -299,6 +302,48 @@ export default function HardwareHomeScreenModal({
     uploadedHomeScreenCache.saveCache(device?.id, uploadItem);
   }, [result?.config, device.deviceType, device?.id, uploadItems]);
 
+  const buildItemCustomHex = useCallback(
+    async (item: IHardwareHomeScreenData) => {
+      let customHex = '';
+      if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
+        const imgUri =
+          (await imageUtils.getBase64FromRequiredImageSource(
+            item?.source,
+            (...args) => {
+              defaultLogger.hardware.homescreen.getBase64FromRequiredImageSource(
+                ...args,
+              );
+            },
+          )) ||
+          item?.uri ||
+          '';
+        console.log('imgUri >>>>>>>>>>>>>>>>>++++++++>>> ', imgUri, item);
+        if (!imgUri) {
+          throw new Error('Error imgUri not defined');
+        }
+        customHex = await deviceHomeScreenUtils.imagePathToHex(
+          imgUri,
+          device.deviceType,
+        );
+      }
+      return customHex;
+    },
+    [device.deviceType],
+  );
+
+  const printAllItemsCustomHex = useCallback(async () => {
+    const data = await Promise.all(
+      (result?.dataList || []).map(async (item) => ({
+        name: item.name,
+        customHex: await buildItemCustomHex(item),
+        // hex: item.hex,
+      })),
+    );
+    console.log('printAllItemsCustomHex', data);
+    console.log('printAllItemsCustomHex string', JSON.stringify(data));
+    return data;
+  }, [result?.dataList, buildItemCustomHex]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header title="HomeScreen" />
@@ -367,6 +412,9 @@ export default function HardwareHomeScreenModal({
               }}
             />
           ) : null}
+          {platformEnv.isDev ? (
+            <Button onPress={printAllItemsCustomHex}>AllHex</Button>
+          ) : null}
         </XStack>
       </Page.Body>
       <Page.Footer
@@ -382,32 +430,38 @@ export default function HardwareHomeScreenModal({
             }
             setIsLoading(true);
 
+            let buildCustomHexError: string | undefined = '';
             let customHex = '';
-            if (deviceHomeScreenUtils.isMonochromeScreen(device.deviceType)) {
-              const imgUri =
-                (await imageUtils.getBase64FromRequiredImageSource(
-                  selectedItem?.source,
-                )) ||
-                selectedItem?.uri ||
-                '';
-              console.log(
-                'imgUri >>>>>>>>>>>>>>>>>++++++++>>> ',
-                imgUri,
-                selectedItem,
-              );
-              if (!imgUri) {
-                throw new Error('Error imgUri not defined');
-              }
-              customHex = await deviceHomeScreenUtils.imagePathToHex(
-                imgUri,
-                device.deviceType,
-              );
+            try {
+              customHex = await buildItemCustomHex(selectedItem);
+            } catch (error) {
+              buildCustomHexError = (error as Error | undefined)?.message;
             }
+            const customHexPreDefined =
+              hardwareHomeScreenData.classicMiniHomeScreenCustomHex.find(
+                (item) => item.name === selectedItem.name,
+              )?.customHex;
+
+            const imgHex =
+              customHex || customHexPreDefined || selectedItem.hex || '';
+
+            defaultLogger.hardware.homescreen.setHomeScreen({
+              buildCustomHexError,
+              deviceId: device?.id,
+              deviceType: device.deviceType,
+              deviceName: device.name,
+              imgName: selectedItem.name,
+              imgHex,
+              customHex,
+              customHexPreDefined,
+              selectedItemHex: selectedItem.hex,
+              isUserUpload: selectedItem.isUserUpload,
+            });
 
             await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
               dbDeviceId: device?.id,
               imgName: selectedItem.name,
-              imgHex: customHex || selectedItem.hex || '',
+              imgHex,
               thumbnailHex: selectedItem.thumbnailHex || '',
               isUserUpload: selectedItem.isUserUpload,
             });
@@ -419,6 +473,9 @@ export default function HardwareHomeScreenModal({
             });
             // Do not close the current page, let the user switch wallpapers and preview them on the device
             // close();
+          } catch (error) {
+            errorToastUtils.toastIfError(error);
+            throw error;
           } finally {
             setIsLoading(false);
           }
