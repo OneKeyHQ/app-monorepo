@@ -80,6 +80,6 @@ export function stringifyFunc(...args: any[]): string {
   const stringifiedLog = stableStringify(argsNew);
 
   return stringifiedLog.length > LOG_STRING_LIMIT
-    ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...(truncated)`
+    ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...(auto-truncated)`
     : stringifiedLog;
 }

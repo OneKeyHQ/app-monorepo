@@ -60,6 +60,11 @@ function WeblnMakeInvoiceModal() {
   const onConfirm = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       if (isLoading) return;
+      const isValid = await useFormReturn.trigger();
+      if (!isValid) {
+        return;
+      }
+
       if (!networkId || !accountId) return;
       setIsLoading(true);
       const values = useFormReturn.getValues();

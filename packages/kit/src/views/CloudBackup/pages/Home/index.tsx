@@ -15,6 +15,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BackupDeviceList from '../../components/BackupDeviceList';
@@ -41,6 +42,9 @@ export default function Home() {
         title: `${e?.message ?? e}`,
       });
     }
+    defaultLogger.setting.page.backup({
+      backupMethod: platformEnv.isNativeAndroid ? 'Google' : 'iCloud',
+    });
   }, [backupToggleDialog]);
 
   const renderBackupStatus = useCallback(() => {
