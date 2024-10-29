@@ -79,7 +79,7 @@ export function TooltipText({
     }
   }, [onDisabledChange, onDisplayChange]);
   return (
-    <XStack>
+    <XStack ai="center">
       <SizableText size="$bodySm">{children}</SizableText>
       {platformEnv.isDesktop && shortcutsKeys.length ? (
         <Shortcut pl="$2">

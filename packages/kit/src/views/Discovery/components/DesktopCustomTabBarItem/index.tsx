@@ -17,6 +17,7 @@ import { useWebTabDataById } from '../../hooks/useWebTabs';
 function DesktopCustomTabBarItem({
   id,
   activeTabId,
+  shortcutKey,
   onPress,
   onBookmarkPress,
   onPinnedPress,
@@ -26,6 +27,7 @@ function DesktopCustomTabBarItem({
   testID,
 }: IPropsWithTestId<{
   id: string;
+  shortcutKey?: EShortcutEvents;
   activeTabId: string | null;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
@@ -157,6 +159,7 @@ function DesktopCustomTabBarItem({
   return (
     <DesktopTabItem
       showAvatar
+      shortcutKey={shortcutKey}
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}
