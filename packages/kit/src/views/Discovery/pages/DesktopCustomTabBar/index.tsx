@@ -81,6 +81,7 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabs,
+    reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
@@ -220,11 +221,14 @@ function DesktopCustomTabBar() {
             }
           }
           break;
+        case EShortcutEvents.ReOpenLastClosedTab:
+          reOpenLastClosedTab();
+          break;
         default:
           break;
       }
     },
-    [navigation, result?.pinnedTabs, setCurrentWebTab],
+    [navigation, reOpenLastClosedTab, result?.pinnedTabs, setCurrentWebTab],
   );
 
   useShortcuts(undefined, handleShortcuts);

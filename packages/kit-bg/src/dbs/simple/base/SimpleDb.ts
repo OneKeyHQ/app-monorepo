@@ -3,6 +3,7 @@ import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -32,6 +33,8 @@ export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
+
+  browserClosedTabs = new SimpleDbEntityBrowserClosedTabs();
 
   browserRiskWhiteList = new SimpleDbEntityBrowserRiskWhiteList();
 
