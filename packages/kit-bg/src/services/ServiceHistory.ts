@@ -286,17 +286,27 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
-    const networksWithChangedPendingTxs = new Set<string>();
+    const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     localHistoryPendingTxs.forEach((tx) => {
       const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
       if (!txInResult) {
-        networksWithChangedPendingTxs.add(tx.decodedTx.networkId);
+        accountsWithChangedPendingTxs.add(
+          `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
+        );
       }
     });
 
     return {
       txs: result,
-      networksWithChangedPendingTxs: Array.from(networksWithChangedPendingTxs),
+      accountsWithChangedPendingTxs: Array.from(
+        accountsWithChangedPendingTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
     };
   }
 
