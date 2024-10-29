@@ -23,6 +23,10 @@ export enum EShortcutEvents {
   PinOrUnpinTab = 'PinOrUnpinTab',
   ChangeCurrentTabUrl = 'ChangeCurrentTabUrl',
   ReOpenLastClosedTab = 'ReOpenLastClosedTab',
+  TabPin6 = 'TabPin6',
+  TabPin7 = 'TabPin7',
+  TabPin8 = 'TabPin8',
+  TabPin9 = 'TabPin9',
 }
 
 export const shortcutsMap: Record<
@@ -92,6 +96,22 @@ export const shortcutsMap: Record<
   [EShortcutEvents.TabBrowser]: {
     keys: [shortcutsKeys.CmdOrCtrl, '5'],
     desc: 'Browser Tab',
+  },
+  [EShortcutEvents.TabPin6]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '6'],
+    desc: 'Pin Tab 6',
+  },
+  [EShortcutEvents.TabPin7]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '7'],
+    desc: 'Pin Tab 6',
+  },
+  [EShortcutEvents.TabPin8]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '8'],
+    desc: 'Pin Tab 6',
+  },
+  [EShortcutEvents.TabPin9]: {
+    keys: [shortcutsKeys.CmdOrCtrl, '9'],
+    desc: 'Pin Tab 6',
   },
   [EShortcutEvents.ViewHistory]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'Y'],
