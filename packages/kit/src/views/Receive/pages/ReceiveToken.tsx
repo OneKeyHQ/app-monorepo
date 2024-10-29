@@ -9,6 +9,7 @@ import {
   BlurView,
   Button,
   ConfirmHighlighter,
+  Dialog,
   Empty,
   Heading,
   Icon,
@@ -225,7 +226,9 @@ function ReceiveToken() {
             icon="Copy3Outline"
             disabled={isVerifying}
             loading={isVerifying}
-            onPress={() => copyText(account?.address ?? '')}
+            onPress={() => {
+              copyText(account?.address ?? '');
+            }}
           >
             {intl.formatMessage({
               id: ETranslations.global_copy_address,
@@ -244,7 +247,27 @@ function ReceiveToken() {
           <Button
             size="medium"
             variant="tertiary"
-            onPress={() => setAddressState(EAddressState.ForceShow)}
+            onPress={() => {
+              Dialog.confirm({
+                icon: 'ErrorOutline',
+                tone: 'warning',
+                title: intl.formatMessage({
+                  id: ETranslations.global_receive_address_confirmation,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.global_receive_address_confirmation_desc,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_receive_address_confirmation_button,
+                }),
+                onConfirm: () => {
+                  setAddressState(EAddressState.ForceShow);
+                },
+                confirmButtonProps: {
+                  variant: 'secondary',
+                },
+              });
+            }}
           >
             {intl.formatMessage({
               id: ETranslations.skip_verify_text,
