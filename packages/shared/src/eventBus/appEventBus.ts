@@ -48,7 +48,8 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
-  ShowQrcode = 'ShowQrcode',
+  ShowAirGapQrcode = 'ShowAirGapQrcode',
+  HideAirGapQrcode = 'HideAirGapQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
@@ -143,12 +144,15 @@ export interface IAppEventBusPayload {
     duration?: number;
     errorCode?: number;
   };
-  [EAppEventBusNames.ShowQrcode]: {
+  [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
     promiseId?: number;
     value?: string;
     valueUr?: IAirGapUrJson;
+  };
+  [EAppEventBusNames.HideAirGapQrcode]: {
+    flag?: string;
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;

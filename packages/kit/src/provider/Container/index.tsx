@@ -21,7 +21,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
-import { QrcodeDialogContainer } from './QrcodeDialogContainer';
+import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -92,7 +92,7 @@ export function Container() {
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />
-          <QrcodeDialogContainer />
+          <AirGapQrcodeDialogContainer />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
