@@ -9,6 +9,7 @@ import {
   SortableSectionList,
   Stack,
   XStack,
+  useShortcuts,
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -186,6 +187,32 @@ function DesktopCustomTabBar() {
     () => [{ data: result?.pinnedTabs }, { data: result?.unpinnedTabs }],
     [result?.pinnedTabs, result?.unpinnedTabs],
   );
+
+  const handleShortcuts = useCallback(
+    (eventName: EShortcutEvents) => {
+      switch (eventName) {
+        case EShortcutEvents.TabPin6:
+        case EShortcutEvents.TabPin7:
+        case EShortcutEvents.TabPin8:
+        case EShortcutEvents.TabPin9:
+          if (result?.pinnedTabs?.length) {
+            const id =
+              result?.pinnedTabs?.[Number(eventName.match(/\d+/)?.[0]) - 6]?.id;
+            if (id) {
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              setCurrentWebTab(id);
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [navigation, result?.pinnedTabs, setCurrentWebTab],
+  );
+
+  useShortcuts(undefined, handleShortcuts);
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
