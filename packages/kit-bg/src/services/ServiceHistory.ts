@@ -286,10 +286,17 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    const networksWithChangedPendingTxs = new Set<string>();
+    localHistoryPendingTxs.forEach((tx) => {
+      const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
+      if (!txInResult) {
+        networksWithChangedPendingTxs.add(tx.decodedTx.networkId);
+      }
+    });
+
     return {
       txs: result,
-      pendingTxsUpdated:
-        finalPendingTxs.length !== localHistoryPendingTxs.length,
+      networksWithChangedPendingTxs: Array.from(networksWithChangedPendingTxs),
     };
   }
 

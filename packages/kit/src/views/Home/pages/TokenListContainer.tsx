@@ -1163,7 +1163,7 @@ function TokenListContainer(props: ITabPageProps) {
         networkId: network.id,
       });
 
-      if (r.pendingTxsUpdated) {
+      if (r.networksWithChangedPendingTxs.length > 0) {
         handleRefreshAllNetworkData();
       }
     },
