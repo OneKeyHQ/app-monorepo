@@ -222,7 +222,9 @@ function DesktopCustomTabBar() {
           }
           break;
         case EShortcutEvents.ReOpenLastClosedTab:
-          reOpenLastClosedTab();
+          if (reOpenLastClosedTab()) {
+            navigation.switchTab(ETabRoutes.MultiTabBrowser);
+          }
           break;
         default:
           break;
