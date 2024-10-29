@@ -382,6 +382,7 @@ class ServiceSend extends ServiceBase {
           signedTx,
           decodedTx,
           feeInfo: feeInfo?.feeInfo,
+          approveInfo: unsignedTx.approveInfo,
         };
 
         // only fill swap(staking) tx info for batch approve&swap(staking) callback

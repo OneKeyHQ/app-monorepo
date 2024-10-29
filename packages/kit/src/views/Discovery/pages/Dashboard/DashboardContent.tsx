@@ -111,14 +111,14 @@ function DashboardContent({
     [navigation],
   );
 
-  const content = useMemo(
-    () => (
+  const content = useMemo(() => {
+    const isShowBanner =
+      Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
+    return (
       <>
         <DashboardBanner
           key="Banner"
-          banners={
-            Array.isArray(homePageData?.banners) ? homePageData?.banners : []
-          }
+          banners={homePageData?.banners || []}
           handleOpenWebSite={({ webSite, useSystemBrowser }) => {
             if (useSystemBrowser && webSite?.url) {
               openUrlExternal(webSite.url);
@@ -140,6 +140,7 @@ function DashboardContent({
         />
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <BookmarksAndHistoriesSection
+            showSectionHeaderBorder={isShowBanner}
             key="BookmarksAndHistoriesSection"
             bookmarksData={bookmarksData}
             historiesData={historiesData}
@@ -184,19 +185,18 @@ function DashboardContent({
           />
         </ReviewControl>
       </>
-    ),
-    [
-      homePageData?.banners,
-      homePageData?.categories,
-      isLoading,
-      bookmarksData,
-      historiesData,
-      onPressMore,
-      handleOpenWebSite,
-      gtMd,
-      navigation,
-    ],
-  );
+    );
+  }, [
+    homePageData?.banners,
+    homePageData?.categories,
+    isLoading,
+    bookmarksData,
+    historiesData,
+    onPressMore,
+    handleOpenWebSite,
+    gtMd,
+    navigation,
+  ]);
 
   if (platformEnv.isNative) {
     return (

@@ -1612,7 +1612,7 @@ const neox: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI':
-    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1729061779597.0.9121560531109869.0.png',
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1729561119021.0.635920670130657.0.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1642,7 +1642,7 @@ const azero: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI':
-    'https://uni-test.onekey-asset.com/dashboard/logo/upload_1729154636018.0.4269239559207918.0.svg',
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1729837141734.0.5402483107018017.0.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };

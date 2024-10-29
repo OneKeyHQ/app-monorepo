@@ -166,6 +166,18 @@ export default function NotificationsSettings() {
                     }}
                   />
                 </ListItem>
+                {/* {settings?.accountActivityPushEnabled ? (
+                  <ListItem
+                    title="Manage"
+                    subtitle="Choose the account for notifications."
+                    drillIn
+                    onPress={() => {
+                      navigation.push(
+                        EModalSettingRoutes.SettingManageAccountActivity,
+                      );
+                    }}
+                  />
+                ) : null} */}
                 {/* <ListItem>
           <ListItem.Text
             flex={1}

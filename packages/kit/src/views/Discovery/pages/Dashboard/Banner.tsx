@@ -35,6 +35,26 @@ export function DashboardBanner({
       })),
     [banners],
   );
+
+  const emptyComponent = useMemo(
+    () =>
+      isLoading ? (
+        <Stack p="$5">
+          <Skeleton
+            h={188}
+            w="100%"
+            $gtMd={{
+              height: 268,
+            }}
+            $gtLg={{
+              height: 364,
+            }}
+          />
+        </Stack>
+      ) : undefined,
+    [isLoading],
+  );
+
   return (
     <Banner
       itemContainerStyle={{ p: '$5' }}
@@ -58,20 +78,7 @@ export function DashboardBanner({
           py: '$10',
         },
       }}
-      emptyComponent={
-        <Stack p="$5">
-          <Skeleton
-            h={188}
-            w="100%"
-            $gtMd={{
-              height: 268,
-            }}
-            $gtLg={{
-              height: 364,
-            }}
-          />
-        </Stack>
-      }
+      emptyComponent={emptyComponent}
       onItemPress={(item) => {
         handleOpenWebSite({
           webSite: {

@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import type { IStackProps } from '@onekeyhq/components';
 import {
   ListView,
+  Stack,
   renderNestedScrollView,
   useMedia,
 } from '@onekeyhq/components';
@@ -12,7 +13,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTabListScroll } from '@onekeyhq/kit/src/hooks/useTabListScroll';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -137,6 +138,12 @@ function NFTListView(props: IProps) {
     [],
   );
 
+  const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
+  const addPaddingOnListFooter = useMemo(
+    () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
+    [extensionActiveTabDAppInfo?.showFloatingPanel],
+  );
+
   if (!initialized && isLoading) {
     return <NFTListLoadingView />;
   }
@@ -156,6 +163,9 @@ function NFTListView(props: IProps) {
       renderItem={handleRenderItem}
       ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
       ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
+      ListFooterComponent={
+        <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
+      }
     />
   );
 }

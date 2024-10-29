@@ -87,8 +87,8 @@ class ServiceNetwork extends ServiceBase {
     };
 
     // Add networks in order of priority
-    addNetworks(serverNetworks);
     addNetworks(presetNetworks);
+    addNetworks(serverNetworks);
     addNetworks(customNetworks);
 
     // Convert Map back to array

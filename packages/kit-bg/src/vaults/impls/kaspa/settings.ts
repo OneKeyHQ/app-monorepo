@@ -37,7 +37,7 @@ const settings: IVaultSettings = {
     // ECoreApiExportedSecretKeyType.publicKey,
   ],
 
-  defaultFeePresetIndex: 0,
+  defaultFeePresetIndex: 1,
 
   isUtxo: false,
   isSingleToken: true,
