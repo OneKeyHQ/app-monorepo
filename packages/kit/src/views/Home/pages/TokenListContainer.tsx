@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -959,7 +960,17 @@ function TokenListContainer(props: ITabPageProps) {
   }, [isHeaderRefreshing, run]);
 
   useEffect(() => {
-    const initTokenListState = async (accountId: string, networkId: string) => {
+    const initTokenListData = async ({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    }: {
+      accountId: string;
+      networkId: string;
+      accountAddress: string;
+      xpub: string;
+    }) => {
       updateSearchKey('');
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId,
@@ -977,11 +988,12 @@ function TokenListContainer(props: ITabPageProps) {
         });
         return;
       }
-
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId,
           networkId,
+          accountAddress,
+          xpub,
         });
 
       const {
@@ -1062,14 +1074,28 @@ function TokenListContainer(props: ITabPageProps) {
           initialized: true,
           isRefreshing: false,
         });
+
+        appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
+          isRefreshing: true,
+          type: EHomeTab.TOKENS,
+          accountId,
+          networkId,
+        });
       }
     };
 
     if (account?.id && network?.id && wallet?.id) {
-      void initTokenListState(account.id, network.id);
+      void initTokenListData({
+        accountId: account.id,
+        networkId: network.id,
+        accountAddress: account.address,
+        xpub:
+          (account as IDBUtxoAccount)?.xpubSegwit ||
+          (account as IDBUtxoAccount)?.xpub,
+      });
     }
   }, [
-    account?.id,
+    account,
     handleClearAllNetworkData,
     network?.id,
     refreshAllTokenList,
