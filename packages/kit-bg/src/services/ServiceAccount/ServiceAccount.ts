@@ -1504,7 +1504,10 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  async getAllAccounts({ ids }: { ids?: string[] } = {}) {
+  async getAllAccounts({
+    ids,
+    filterRemoved,
+  }: { ids?: string[]; filterRemoved?: boolean } = {}) {
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
     const { accounts } = await localDb.getAllAccounts({ ids });
     const invisibleWallet: {
@@ -1516,43 +1519,49 @@ class ServiceAccount extends ServiceBase {
     const removedIndexedAccount: {
       [indexedAccountId: string]: true;
     } = {};
-    const accountsFiltered = await Promise.all(
-      accounts.map(async (account) => {
-        const { indexedAccountId, id } = account;
-        const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: id,
-        });
-        if (walletId) {
-          if (removedWallet[walletId] || invisibleWallet[walletId]) {
-            return null;
-          }
-          const wallet = await this.getWalletSafe({ walletId });
-          if (!wallet) {
-            removedWallet[walletId] = true;
-            return null;
-          }
-          if (localDb.isTempWalletRemoved({ wallet })) {
-            invisibleWallet[walletId] = true;
-            return null;
-          }
-        }
-        if (indexedAccountId) {
-          if (removedIndexedAccount[indexedAccountId]) {
-            return null;
-          }
-          const indexedAccount = await this.getIndexedAccountSafe({
-            id: indexedAccountId,
-          });
-          if (!indexedAccount) {
-            removedIndexedAccount[indexedAccountId] = true;
-            return null;
-          }
-        }
-        return account;
-      }),
-    );
+    let accountsFiltered: IDBAccount[] = accounts;
+
+    if (filterRemoved) {
+      accountsFiltered = (
+        await Promise.all(
+          accounts.map(async (account) => {
+            const { indexedAccountId, id } = account;
+            const walletId = accountUtils.getWalletIdFromAccountId({
+              accountId: id,
+            });
+            if (walletId) {
+              if (removedWallet[walletId] || invisibleWallet[walletId]) {
+                return null;
+              }
+              const wallet = await this.getWalletSafe({ walletId });
+              if (!wallet) {
+                removedWallet[walletId] = true;
+                return null;
+              }
+              if (localDb.isTempWalletRemoved({ wallet })) {
+                invisibleWallet[walletId] = true;
+                return null;
+              }
+            }
+            if (indexedAccountId) {
+              if (removedIndexedAccount[indexedAccountId]) {
+                return null;
+              }
+              const indexedAccount = await this.getIndexedAccountSafe({
+                id: indexedAccountId,
+              });
+              if (!indexedAccount) {
+                removedIndexedAccount[indexedAccountId] = true;
+                return null;
+              }
+            }
+            return account;
+          }),
+        )
+      ).filter(Boolean);
+    }
     return {
-      accounts: accountsFiltered.filter(Boolean),
+      accounts: accountsFiltered,
     };
   }
 
