@@ -240,9 +240,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const tab = tabs.pop();
       if (tab) {
         this.addWebTab.call(set, tab);
+        this.buildClosedTabData.call(set, tabs);
+        return true;
       }
-      this.buildClosedTabData.call(set, tabs);
     }
+    return false;
   });
 
   saveLastClosedTab = contextAtomMethod(
