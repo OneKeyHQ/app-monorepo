@@ -67,7 +67,6 @@
     "@onekeyfe/hd-transport": "1.0.12-alpha.2",
     "@onekeyfe/hd-web-sdk": "1.0.12-alpha.2",
     "@onekeyfe/onekey-cross-webview": "2.1.11",
-
     "@polkadot/extension-inject": "0.46.6",
     "@polkadot/types": "11.3.1",
     "@polkadot/util-crypto": "12.6.2",
