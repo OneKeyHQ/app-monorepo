@@ -474,9 +474,9 @@ function HardwareUiStateContainerCmpControlled() {
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
-    global.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
+    globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
     // @ts-ignore
-    global.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
+    globalThis.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
   }
 
   const toastElement = (
