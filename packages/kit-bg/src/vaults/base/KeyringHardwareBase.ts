@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  UnsupportedAddressTypeError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -15,7 +18,11 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IPrepareHardwareAccountsParams } from '../types';
+import type {
+  IHwAllNetworkPrepareAccountsItem,
+  IHwSdkNetwork,
+  IPrepareHardwareAccountsParams,
+} from '../types';
 
 export type IWalletPassphraseState = {
   passphraseState?: string;
@@ -24,6 +31,8 @@ export type IWalletPassphraseState = {
 
 export abstract class KeyringHardwareBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hardware;
+
+  hwSdkNetwork: IHwSdkNetwork | undefined;
 
   async getHardwareSDKInstance() {
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstance();
@@ -77,6 +86,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         deviceId,
         pathPrefix,
         pathSuffix,
+        template,
         coinName,
         showOnOnekeyFn,
       }),
@@ -124,5 +134,68 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       sdkGetDataFn: sdkGetAddressFn,
       errorMessage: 'Unable to get addresses.',
     });
+  }
+
+  async getAllNetworkPrepareAccounts<T>({
+    hwSdkNetwork,
+    params,
+    usedIndexes,
+    buildPath,
+    buildResultAccount,
+  }: {
+    hwSdkNetwork: IHwSdkNetwork | undefined;
+    params: IPrepareHardwareAccountsParams;
+    usedIndexes: number[];
+    buildPath: (p: { index: number }) => string | Promise<string>;
+    buildResultAccount: (p: {
+      account: IHwAllNetworkPrepareAccountsItem;
+      index: number;
+    }) => T;
+  }): Promise<
+    | {
+        success: true;
+        payload: T[];
+      }
+    | undefined
+  > {
+    if (!hwSdkNetwork) {
+      return undefined;
+    }
+    const { hwAllNetworkPrepareAccountsResponse } = params;
+    if (hwAllNetworkPrepareAccountsResponse?.length) {
+      const resultAccounts: T[] = [];
+      for (const index of usedIndexes) {
+        const path: string = await buildPath({
+          index,
+        });
+        const account = hwAllNetworkPrepareAccountsResponse?.find(
+          (item) =>
+            item.network && item.path === path && item.network === hwSdkNetwork,
+        );
+        if (account && account.success) {
+          resultAccounts.push(buildResultAccount({ account, index }));
+        }
+      }
+      if (resultAccounts.length === usedIndexes.length) {
+        return {
+          success: true,
+          payload: resultAccounts,
+        };
+      }
+      const hasErrorItem = hwAllNetworkPrepareAccountsResponse?.find(
+        (item) => !!item.error,
+      );
+      if (!hasErrorItem?.success && hasErrorItem?.error) {
+        if (
+          // response.payload.code === HardwareErrorCode.RuntimeError &&
+          hasErrorItem?.error?.indexOf(
+            'Failure_DataError,Forbidden key path',
+          ) !== -1
+        ) {
+          throw new UnsupportedAddressTypeError();
+        }
+        throw new OneKeyInternalError(hasErrorItem.error);
+      }
+    }
   }
 }

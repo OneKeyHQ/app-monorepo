@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
@@ -23,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useBackHandler, useSheetZIndex } from '../../hooks';
+import { useBackHandler, useOverlayZIndex } from '../../hooks';
 import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -134,7 +135,7 @@ function DialogFrame({
 
   const media = useMedia();
 
-  const sheetZIndex = useSheetZIndex();
+  const zIndex = useOverlayZIndex(open);
   const renderDialogContent = (
     <Stack>
       <DialogHeader onClose={handleCancelButtonPress} />
@@ -186,7 +187,7 @@ function DialogFrame({
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
         animation="quick"
-        zIndex={sheetZIndex}
+        zIndex={zIndex}
         {...sheetProps}
       >
         <Sheet.Overlay
@@ -195,7 +196,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          zIndex={sheetProps?.zIndex || sheetZIndex}
+          zIndex={sheetProps?.zIndex || zIndex}
         />
         <Sheet.Frame
           unstyled
@@ -233,7 +234,7 @@ function DialogFrame({
             bottom={0}
             alignItems="center"
             justifyContent="center"
-            zIndex={floatingPanelProps?.zIndex}
+            zIndex={floatingPanelProps?.zIndex || zIndex}
           >
             <TMDialog.Overlay
               key="overlay"
@@ -247,7 +248,7 @@ function DialogFrame({
                 opacity: 0,
               }}
               onPress={handleBackdropPress}
-              zIndex={floatingPanelProps?.zIndex}
+              zIndex={floatingPanelProps?.zIndex || zIndex}
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
@@ -296,11 +297,24 @@ function BaseDialogContainer(
     icon,
     renderIcon,
     showExitButton,
+    open,
+    onOpenChange,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
-  const [isOpen, changeIsOpen] = useState(true);
+  const [isOpenState, changeIsOpenState] = useState(true);
+  const isControlled = !isNil(open);
+  const isOpen = isControlled ? open : isOpenState;
+  const changeIsOpen = useCallback(
+    (value: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(value);
+      }
+      changeIsOpenState(value);
+    },
+    [isControlled, onOpenChange],
+  );
   const formRef = useRef();
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
@@ -308,7 +322,7 @@ function BaseDialogContainer(
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [onClose],
+    [changeIsOpen, onClose],
   );
 
   const contextValue = useMemo(
@@ -328,7 +342,7 @@ function BaseDialogContainer(
   const handleOpen = useCallback(() => {
     changeIsOpen(true);
     onOpen?.();
-  }, [onOpen]);
+  }, [changeIsOpen, onOpen]);
 
   const handleImperativeClose = useCallback(
     (extra?: { flag?: string }) => handleClose(extra),

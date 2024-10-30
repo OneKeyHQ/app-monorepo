@@ -1,9 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Alert, Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -89,6 +91,8 @@ export function HomePageView({
     [network],
   ).result;
 
+  const netInfo = useNetInfo();
+
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
@@ -149,6 +153,15 @@ export function HomePageView({
     ),
     [tabs, screenWidth, onRefresh],
   );
+
+  const debouncedNetInfo = useDebounce(netInfo, 500);
+
+  const isOffline =
+    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
+
+  useEffect(() => {
+    void Icon.prefetch('CloudOffOutline');
+  }, []);
 
   const renderHomePageContent = useCallback(() => {
     if (
@@ -233,11 +246,21 @@ export function HomePageView({
       content = renderHomePageContent();
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
-
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
+          {isOffline ? (
+            <Alert
+              type="critical"
+              icon="CloudOffOutline"
+              title={intl.formatMessage({
+                id: ETranslations.feedback_you_are_offline,
+              })}
+              closable={false}
+              fullBleed
+            />
+          ) : null}
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
@@ -251,7 +274,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, renderHomePageContent]);
+  }, [ready, wallet, sceneName, isOffline, intl, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

@@ -148,9 +148,17 @@ function TokenDetailsHeader(
         accountId,
         isNFT: false,
         token: tokenDetails?.info ?? tokenInfo,
+        isAllNetworks,
       },
     });
-  }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
+  }, [
+    accountId,
+    isAllNetworks,
+    navigation,
+    networkId,
+    tokenDetails?.info,
+    tokenInfo,
+  ]);
 
   const isReceiveDisabled = useMemo(
     () => wallet?.type === WALLET_TYPE_WATCHING,

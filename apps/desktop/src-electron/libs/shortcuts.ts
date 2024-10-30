@@ -7,7 +7,7 @@ import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum
 export function registerShortcuts(callback: (event: EShortcutEvents) => void) {
   void app.whenReady().then(() => {
     Object.entries(shortcutsMap).forEach(([event, { keys }]) => {
-      if (keys) {
+      if (keys?.length) {
         globalShortcut.register(
           keys
             .map((key) => {

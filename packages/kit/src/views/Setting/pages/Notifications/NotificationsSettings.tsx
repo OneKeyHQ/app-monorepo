@@ -13,18 +13,18 @@ import {
   Stack,
   Switch,
 } from '@onekeyhq/components';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { showNotificationPermissionsDialog } from '@onekeyhq/kit/src/components/PermissionsDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useDevSettingsPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import type { INotificationPushSettings } from '@onekeyhq/shared/types/notification';
 
@@ -166,7 +166,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                 </ListItem>
-                {/* {settings?.accountActivityPushEnabled ? (
+                {settings?.accountActivityPushEnabled ? (
                   <ListItem
                     title="Manage"
                     subtitle="Choose the account for notifications."
@@ -177,7 +177,7 @@ export default function NotificationsSettings() {
                       );
                     }}
                   />
-                ) : null} */}
+                ) : null}
                 {/* <ListItem>
           <ListItem.Text
             flex={1}

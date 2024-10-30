@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import {
   buildInputScriptBuffer,
   buildRawTx,
@@ -21,15 +22,33 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 const SIGN_TYPE = 'Schnorr';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.nexa.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'nexa';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    const chainId = await this.getNetworkChainId();
+
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+      prefix: getNexaPrefix(chainId),
+    };
+  }
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -46,22 +65,46 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             showOnOnekeyFn,
+            template,
           }) => {
-            const paths = usedIndexes.map(
-              (index) => `${pathPrefix}/${index}'/0/0`,
-            );
-            const bundle = paths.map((path, index) => ({
-              path,
-              showOnOneKey: showOnOnekeyFn(index),
-              prefix: getNexaPrefix(chainId),
-              scheme: SIGN_TYPE,
-            }));
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.nexaGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle,
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                pub: account.payload?.pub || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const paths = usedIndexes.map(
+            //   (index) => `${pathPrefix}/${index}'/0/0`,
+            // );
+            // const bundle = paths.map((path, index) => ({
+            //   path,
+            //   showOnOneKey: showOnOnekeyFn(index),
+            //   prefix: getNexaPrefix(chainId),
+            //   scheme: SIGN_TYPE,
+            // }));
+            // const sdk = await this.getHardwareSDKInstance();
+            // const response = await sdk.nexaGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle,
+            // });
+            // return response;
           },
         });
 

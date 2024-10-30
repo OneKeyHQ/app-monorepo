@@ -1,8 +1,11 @@
-import { JsonRpcClient } from '@mysten/sui.js'; // Update with the correct path
-
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-export class SuiJsonRpcClient extends JsonRpcClient {
+import type {
+  SuiTransport,
+  SuiTransportRequestOptions,
+} from '@mysten/sui/client';
+
+export class OneKeySuiTransport implements SuiTransport {
   backgroundApi: IBackgroundApi;
 
   networkId: string;
@@ -14,12 +17,11 @@ export class SuiJsonRpcClient extends JsonRpcClient {
     backgroundApi: any;
     networkId: string;
   }) {
-    super('');
     this.backgroundApi = backgroundApi;
     this.networkId = networkId;
   }
 
-  override async request<T>(method: string, args: any): Promise<any> {
+  async request<T>(input: SuiTransportRequestOptions): Promise<T> {
     const res: T[] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
         networkId: this.networkId,
@@ -27,8 +29,8 @@ export class SuiJsonRpcClient extends JsonRpcClient {
           {
             route: 'rpc',
             params: {
-              method,
-              params: args,
+              method: input.method,
+              params: input.params,
             },
           },
         ],
@@ -38,10 +40,10 @@ export class SuiJsonRpcClient extends JsonRpcClient {
       throw new Error('No response received from the proxy');
     }
 
-    return {
-      jsonrpc: '2.0',
-      id: new Date().getTime().toString(),
-      result: response,
-    };
+    return response;
+  }
+
+  async subscribe(): Promise<() => Promise<boolean>> {
+    throw new Error('Subscription not implemented');
   }
 }
