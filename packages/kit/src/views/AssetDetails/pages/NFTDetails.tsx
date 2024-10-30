@@ -27,7 +27,6 @@ import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -36,6 +35,15 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
+
+const isCollectNFTDeviceCompatible = (device?: IDBDevice) =>
+  device && (device.deviceType === 'touch' || device.deviceType === 'pro');
+
+// Disable NFT image collection on web due to CORS errors when fetching NFT image data
+const canCollectNFT = (nft?: IAccountNFT, device?: IDBDevice) =>
+  !platformEnv.isWeb &&
+  nft?.metadata?.image &&
+  isCollectNFTDeviceCompatible(device);
 
 export function NFTDetails() {
   const intl = useIntl();
@@ -147,15 +155,7 @@ export function NFTDetails() {
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
-    // Disable NFT image collection on web due to CORS errors when fetching NFT image data
-    if (
-      !platformEnv.isWeb &&
-      nft &&
-      nft.metadata &&
-      nft.metadata.image &&
-      device &&
-      (device.deviceType === 'touch' || device.deviceType === 'pro')
-    ) {
+    if (device && canCollectNFT(nft, device)) {
       actions.push({
         label: intl.formatMessage(
           {

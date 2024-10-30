@@ -27,7 +27,8 @@ function randomString(
   return result;
 }
 
-function capitalizeWords(str: string): string {
+// capitalizeWords("hello world") => "Hello World"
+export function capitalizeWords(str: string): string {
   return str.replace(/\b\w/g, (match) => match.toUpperCase());
 }
 

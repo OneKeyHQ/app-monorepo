@@ -181,7 +181,7 @@ export async function generateUploadNFTParams({
   const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
 
   if (!base64) {
-    throw new Error('Failed to get base64 from image uri');
+    throw new Error(`Failed to get base64 from image uri: ${imageUri}`);
   }
 
   const data = await compressNFT(base64, 480, 800, width, height, false);
