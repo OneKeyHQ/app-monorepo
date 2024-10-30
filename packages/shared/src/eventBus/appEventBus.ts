@@ -31,6 +31,7 @@ export enum EAppEventBusNames {
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
+  WalletRename = 'WalletRename',
   AccountUpdate = 'AccountUpdate',
   AccountRemove = 'AccountRemove',
   AddDBAccountsToWallet = 'AddDBAccountsToWallet',
@@ -48,7 +49,8 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
-  ShowQrcode = 'ShowQrcode',
+  ShowAirGapQrcode = 'ShowAirGapQrcode',
+  HideAirGapQrcode = 'HideAirGapQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
@@ -92,6 +94,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
+    walletId: string;
+  };
+  [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: undefined;
@@ -143,12 +148,15 @@ export interface IAppEventBusPayload {
     duration?: number;
     errorCode?: number;
   };
-  [EAppEventBusNames.ShowQrcode]: {
+  [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
     promiseId?: number;
     value?: string;
     valueUr?: IAirGapUrJson;
+  };
+  [EAppEventBusNames.HideAirGapQrcode]: {
+    flag?: string; // close toast should skipReject: flag=skipReject
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;

@@ -1,4 +1,11 @@
-import { useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -12,10 +19,23 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  type IAccountActivityNotificationSettings,
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
+} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -33,109 +53,177 @@ type IDBWalletExtended = Omit<
   hiddenWallets?: IDBWalletExtended[];
 };
 
-const MOCK_DATA: IDBWalletExtended[] = [
-  {
-    id: 'hd-1',
-    name: 'App wallet',
-    img: 'bear',
-    enabled: true,
-    accounts: [
-      {
-        address: '0x1234567890123456789012345678901234567890',
-        name: 'Account #1',
-        enabled: true,
-      },
-      {
-        address: '0xabcdef0123456789abcdef0123456789abcdef01',
-        name: 'Account #2',
-        enabled: true,
-      },
-      {
-        address: '0x9876543210987654321098765432109876543210',
-        name: 'Account #3',
-        enabled: false,
-      },
-    ],
-  },
-  {
-    id: 'hw-1',
-    name: 'App wallet',
-    img: 'pro',
-    enabled: true,
-    accounts: [
-      {
-        address: '0xfedcba9876543210fedcba9876543210fedcba98',
-        name: 'Account #1',
-        enabled: true,
-      },
-      {
-        address: '0x0123456789abcdef0123456789abcdef01234567',
-        name: 'Account #2',
-        enabled: true,
-      },
-    ],
-    hiddenWallets: [
-      {
-        id: 'hw-1-1',
-        name: 'Hidden #1',
-        img: 'bear',
-        enabled: true,
-        passphraseState: 'enabled',
-        accounts: [
-          {
-            address: '0x1234567890123456789012345678901234567890',
-            name: 'Account #1',
-            enabled: true,
-          },
-          {
-            address: '0xabcdef0123456789abcdef0123456789abcdef01',
-            name: 'Account #2',
-            enabled: true,
-          },
-          {
-            address: '0x9876543210987654321098765432109876543210',
-            name: 'Account #3',
-            enabled: false,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'watched',
-    name: 'Watched',
-    img: 'othersWatching',
-    enabled: false,
-    accounts: [
-      {
-        address: '0x1234567890123456789012345678901234567890',
-        name: 'Account #1',
-        enabled: true,
-      },
-      {
-        address: '0xabcdef0123456789abcdef0123456789abcdef01',
-        name: 'Account #2',
-        enabled: true,
-      },
-    ],
-  },
-];
+type IAccountNotificationSettingsContextType = {
+  settings: IAccountActivityNotificationSettings | undefined;
+  saveSettings: (
+    buildSettings: (
+      prevSettings: IAccountActivityNotificationSettings | undefined,
+    ) => IAccountActivityNotificationSettings | undefined,
+  ) => void;
+};
 
-function AccordionItem({ wallet }: { wallet: IDBWalletExtended }) {
-  const [isWalletEnabled, setIsWalletEnabled] = useState(wallet.enabled);
+const AccountNotificationSettingsContext = createContext<
+  IAccountNotificationSettingsContextType | undefined
+>(undefined);
+
+function AccountNotificationSettingsProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [settings, setSettings] = useState<
+    IAccountActivityNotificationSettings | undefined
+  >();
+  const saveSettings = useCallback(
+    (
+      buildSettings: (
+        prevSettings: IAccountActivityNotificationSettings | undefined,
+      ) => IAccountActivityNotificationSettings | undefined,
+    ) => {
+      setSettings((v) => {
+        const newValue = buildSettings(v);
+        void backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
+          newValue,
+        );
+        return newValue;
+      });
+    },
+    [],
+  );
+  const value = useMemo(
+    () => ({
+      settings,
+      saveSettings,
+    }),
+    [settings, saveSettings],
+  );
+
+  useEffect(() => {
+    void (async () => {
+      const savedSettings =
+        await backgroundApiProxy.simpleDb.notificationSettings.getRawData();
+      if (savedSettings) {
+        setSettings(savedSettings.accountActivity);
+      }
+    })();
+  }, []);
+
+  return (
+    <AccountNotificationSettingsContext.Provider value={value}>
+      {children}
+    </AccountNotificationSettingsContext.Provider>
+  );
+}
+
+function useAccountNotificationSettings() {
+  const context = useContext(AccountNotificationSettingsContext);
+  if (context === undefined) {
+    throw new Error(
+      'useAccountNotificationSettings must be used within a NotificationSettingsProvider',
+    );
+  }
+  return context;
+}
+
+function formatSavedEnabledValue(value: boolean) {
+  return value === NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
+    ? undefined
+    : value;
+}
+
+function AccordionItem({
+  wallet,
+  onWalletEnabledChange,
+}: {
+  wallet: IDBWallet;
+  onWalletEnabledChange: (params: {
+    wallet: IDBWallet;
+    enabled: boolean;
+  }) => void;
+}) {
+  const {
+    settings: accountNotificationSettings,
+    saveSettings: saveAccountNotificationSettings,
+  } = useAccountNotificationSettings();
+
+  const isWalletEnabled =
+    accountNotificationSettings?.[wallet.id]?.enabled ??
+    NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
+  const isOthersWallet = useMemo(
+    () =>
+      accountUtils.isOthersWallet({
+        walletId: wallet.id,
+      }),
+    [wallet.id],
+  );
 
   // prevent event bubbling
-  const handleWalletSwitchPress = (event: GestureResponderEvent) => {
+  const stopPropagation = (event: GestureResponderEvent) => {
     event.stopPropagation();
   };
 
   // handle switch change
-  const handleWalletSwitchChange = () => {
-    setIsWalletEnabled((prev) => !prev);
+  const toggleWalletSwitch = (value: boolean) => {
+    saveAccountNotificationSettings((prevSettings) => {
+      const newSettings = { ...(prevSettings ?? {}) };
+      const newValue = value;
+      newSettings[wallet.id] = {
+        ...newSettings?.[wallet.id],
+        enabled: formatSavedEnabledValue(newValue),
+      };
+      onWalletEnabledChange({
+        wallet,
+        enabled: newValue,
+      });
+      return newSettings;
+    });
   };
 
+  const toggleAccountSwitch = (
+    value: boolean,
+    account: IDBAccount | IDBIndexedAccount,
+  ) => {
+    saveAccountNotificationSettings((prevSettings) => {
+      const newSettings = { ...(prevSettings ?? {}) };
+      const newValue = value;
+      newSettings[wallet.id] = {
+        ...newSettings?.[wallet.id],
+        accounts: {
+          ...newSettings?.[wallet.id]?.accounts,
+          [account.id]: {
+            enabled: formatSavedEnabledValue(newValue),
+          },
+        },
+      };
+      return newSettings;
+    });
+  };
+
+  const totalAccountsCount =
+    (wallet.dbAccounts ?? wallet.dbIndexedAccounts)?.length ?? 0;
+  const enabledAccountsCount = useMemo(() => {
+    if (!isWalletEnabled) {
+      return 0;
+    }
+    return (
+      totalAccountsCount -
+      Object.values(
+        accountNotificationSettings?.[wallet.id]?.accounts ?? {},
+      ).filter((account) => account.enabled === false).length
+    );
+  }, [
+    isWalletEnabled,
+    totalAccountsCount,
+    accountNotificationSettings,
+    wallet.id,
+  ]);
+
   return (
-    <Accordion.Item value={isWalletEnabled ? wallet.id : 'closedThisItem'}>
+    <Accordion.Item
+      // collapse when wallet is disabled
+      value={isWalletEnabled ? wallet.id : 'mockClosedItemValue'}
+      // bg="$bgApp"
+    >
       <Accordion.Trigger
         unstyled
         flexDirection="row"
@@ -143,7 +231,8 @@ function AccordionItem({ wallet }: { wallet: IDBWalletExtended }) {
         gap="$3"
         py="$2"
         px="$5"
-        bg="$transparent"
+        // bg="$transparent"
+        bg="$bgApp"
         borderWidth={0}
         disabled={!isWalletEnabled}
         {...(isWalletEnabled && {
@@ -177,7 +266,7 @@ function AccordionItem({ wallet }: { wallet: IDBWalletExtended }) {
                 />
               </YStack>
               <WalletAvatar
-                img={wallet.img}
+                img={wallet.avatarInfo?.img}
                 wallet={wallet as IDBWallet & Partial<IDBWalletExtended>}
               />
               <XStack gap="$1">
@@ -185,20 +274,14 @@ function AccordionItem({ wallet }: { wallet: IDBWalletExtended }) {
                   {wallet.name}
                 </SizableText>
                 <SizableText>
-                  (
-                  {
-                    wallet.accounts.filter(
-                      ({ enabled: accountEnabled }) => accountEnabled,
-                    ).length
-                  }
-                  /{wallet.accounts.length})
+                  ({enabledAccountsCount}/{totalAccountsCount})
                 </SizableText>
               </XStack>
             </XStack>
             <Switch
               value={isWalletEnabled}
-              onChange={handleWalletSwitchChange}
-              onPress={handleWalletSwitchPress}
+              onChange={toggleWalletSwitch}
+              onPress={stopPropagation}
             />
           </>
         )}
@@ -207,26 +290,39 @@ function AccordionItem({ wallet }: { wallet: IDBWalletExtended }) {
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           unstyled
-          bg="$transparent"
+          // bg="$transparent"
+          bg="$bgDefault"
           animation="quick"
           exitStyle={{
             opacity: 0,
           }}
         >
-          {wallet.accounts.map((account) => (
+          {(wallet.dbAccounts ?? wallet.dbIndexedAccounts)?.map((account) => (
             <XStack
-              key={account.address}
+              key={account.id}
               gap="$3"
               alignItems="center"
               pl={56}
               pr="$5"
               py="$2"
             >
-              <AccountAvatar address={account.address} />
+              <AccountAvatar
+                dbAccount={isOthersWallet ? (account as IDBAccount) : undefined}
+                indexedAccount={
+                  isOthersWallet ? undefined : (account as IDBIndexedAccount)
+                }
+              />
               <SizableText flex={1} size="$bodyLgMedium">
                 {account.name}
               </SizableText>
-              <Switch value={account.enabled} />
+              <Switch
+                value={
+                  accountNotificationSettings?.[wallet.id]?.accounts?.[
+                    account.id
+                  ]?.enabled ?? NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
+                }
+                onChange={(value) => toggleAccountSwitch(value, account)}
+              />
             </XStack>
           ))}
         </Accordion.Content>
@@ -250,43 +346,94 @@ function LoadingView({ show }: { show: boolean }) {
   );
 }
 
-function ManageAccountActivity() {
-  // fake loading
-  const [isLoading, setIsLoading] = useState(true);
-  useEffect(() => {
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 3000);
-  }, []);
+function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
+  const [expandValue, setExpandValue] = useState(wallets?.[0]?.id);
+
+  const onWalletEnabledChange = useCallback(
+    (params: { wallet: IDBWallet; enabled: boolean }) => {
+      if (params.enabled) {
+        setExpandValue(params.wallet.id);
+      }
+    },
+    [],
+  );
+
+  if (!wallets || !wallets?.length) {
+    return <EmptyNoWalletView />;
+  }
 
   return (
-    <Page>
-      <Page.Header title="Manage" />
-      <Page.Body>
-        {isLoading ? (
-          <LoadingView show={isLoading} />
-        ) : (
-          <Accordion type="single" collapsible defaultValue={MOCK_DATA[0].id}>
-            {MOCK_DATA.map((wallet, index) => (
-              <YStack
-                key={wallet.id}
-                {...(index !== 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: '$borderSubdued',
-                })}
-              >
-                <AccordionItem wallet={wallet} />
-                {/* render items for */}
-                {wallet.hiddenWallets?.map((hiddenWallet) => (
-                  <AccordionItem key={hiddenWallet.id} wallet={hiddenWallet} />
-                ))}
-              </YStack>
-            ))}
-          </Accordion>
-        )}
-      </Page.Body>
-    </Page>
+    <Accordion
+      type="single"
+      collapsible
+      value={expandValue}
+      onValueChange={setExpandValue}
+    >
+      {wallets.map((wallet, index) => (
+        <YStack
+          key={wallet.id}
+          {...(index !== 0 && {
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: '$borderSubdued',
+          })}
+        >
+          <AccordionItem
+            wallet={wallet}
+            onWalletEnabledChange={onWalletEnabledChange}
+          />
+          {/* render items for */}
+          {wallet.hiddenWallets?.map((hiddenWallet) => (
+            <AccordionItem
+              key={hiddenWallet.id}
+              wallet={hiddenWallet}
+              onWalletEnabledChange={onWalletEnabledChange}
+            />
+          ))}
+        </YStack>
+      ))}
+    </Accordion>
   );
 }
 
-export default ManageAccountActivity;
+function ManageAccountActivity() {
+  const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getWallets({
+        nestedHiddenWallets: true,
+        ignoreEmptySingletonWalletAccounts: true,
+        includingAccounts: true,
+      }),
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+  console.log('ManageAccountActivity wallets', wallets);
+
+  return (
+    <AccountNotificationSettingsProvider>
+      <Page>
+        <Page.Header title="Manage" />
+        <Page.Body>
+          {isLoading ? (
+            <LoadingView show={isLoading} />
+          ) : (
+            <WalletAccordionList wallets={wallets} />
+          )}
+        </Page.Body>
+      </Page>
+    </AccountNotificationSettingsProvider>
+  );
+}
+
+function ManageAccountActivityPage() {
+  useEffect(
+    () => () => {
+      void backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccounts();
+    },
+    [],
+  );
+  return useMemo(() => <ManageAccountActivity />, []);
+}
+
+export default ManageAccountActivityPage;
