@@ -52,12 +52,14 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
-    return global.$backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
+    return globalThis.$backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(
+      message,
+    );
   }
 
   async isSDKReady(): Promise<boolean> {
     const isWebEmbedApiReady =
-      await global.$backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
+      await globalThis.$backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
     return Promise.resolve(!!isWebEmbedApiReady);
   }
 
@@ -77,4 +79,4 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
 const webembedApiProxy = new WebembedApiProxy();
 export default webembedApiProxy;
-global.$webembedApiProxy = webembedApiProxy;
+globalThis.$webembedApiProxy = webembedApiProxy;
