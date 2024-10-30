@@ -1,3 +1,5 @@
+import platformEnv from '../platformEnv';
+
 import { shortcutsKeys } from './shortcutsKeys.enum';
 
 export enum EShortcutEvents {
@@ -33,6 +35,15 @@ export const shortcutsMap: Record<
   EShortcutEvents,
   { keys: string[]; desc: string }
 > = {
+  // Disable shortcuts in development environment to avoid conflicts with Chrome DevTools default shortcuts (Cmd/Ctrl+F and Cmd/Ctrl+P)
+  [EShortcutEvents.SearchInPage]: {
+    keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'F'],
+    desc: 'Search in Page',
+  },
+  [EShortcutEvents.AccountSelector]: {
+    keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'P'],
+    desc: 'Account Selector',
+  },
   [EShortcutEvents.GoBackHistory]: {
     keys: [shortcutsKeys.CmdOrCtrl, '['],
     desc: 'Go back history',
@@ -61,17 +72,9 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, 'S'],
     desc: 'Open / Close SideBar',
   },
-  [EShortcutEvents.SearchInPage]: {
-    keys: [shortcutsKeys.CmdOrCtrl, 'F'],
-    desc: 'Search in Page',
-  },
   [EShortcutEvents.CopyAddressOrUrl]: {
     keys: [shortcutsKeys.CmdOrCtrl, shortcutsKeys.Shift, 'C'],
     desc: 'Copy Address',
-  },
-  [EShortcutEvents.AccountSelector]: {
-    keys: [shortcutsKeys.CmdOrCtrl, 'P'],
-    desc: 'Account Selector',
   },
   [EShortcutEvents.NetworkSelector]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'O'],

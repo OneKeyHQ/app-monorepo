@@ -6,6 +6,7 @@ import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/type
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -100,8 +101,8 @@ export const useDiscoveryShortcuts = () => {
             } catch {
               // empty
             }
-          } else {
-            globalThis.desktopApi.quitApp();
+          } else if (platformEnv.isDev) {
+            globalThis.desktopApi.reload();
           }
           break;
         case EShortcutEvents.CloseTab:
