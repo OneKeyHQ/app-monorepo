@@ -57,7 +57,7 @@ function CustomAppRequestDeviceQR() {
           console.log(airGapUrUtils.urToQrcode(ur));
 
           // TODO startTwoWayQrcodeScan
-          appEventBus.emit(EAppEventBusNames.ShowQrcode, {
+          appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
             drawType: 'animated',
             valueUr: airGapUrUtils.urToJson({ ur }),
             // promiseId,
@@ -92,7 +92,7 @@ function CustomAppRequestDeviceQR() {
           console.log(airGapUrUtils.urToQrcode(ur));
 
           // TODO startTwoWayQrcodeScan
-          appEventBus.emit(EAppEventBusNames.ShowQrcode, {
+          appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
             drawType: 'animated',
             valueUr: airGapUrUtils.urToJson({ ur }),
             // promiseId,
