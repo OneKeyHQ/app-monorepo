@@ -29,7 +29,9 @@ class BuildDoneNotifyPlugin {
         }, 300);
         try {
           notifier.notify(msg);
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
     });
   }
@@ -353,7 +355,7 @@ module.exports = ({ platform, basePath, configName }) => ({
   experiments: {
     asyncWebAssembly: true,
   },
-  performance: { maxAssetSize: 600000, maxEntrypointSize: 600000 },
+  performance: { maxAssetSize: 600_000, maxEntrypointSize: 600_000 },
 });
 
 module.exports.basePlugins = basePlugins;

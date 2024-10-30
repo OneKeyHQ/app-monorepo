@@ -22,11 +22,17 @@ import { getChangeAddress } from './sdkAda/adaUtils';
 import type VaultCardano from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IBuildPrepareAccountsPrefixedPathParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
+import type {
+  AllNetworkAddressParams,
+  CardanoGetAddressMethodParams,
+} from '@onekeyfe/hd-core';
 
 const ProtocolMagic = 764_824_073;
 
@@ -43,6 +49,34 @@ const getCardanoConstant = async () => {
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ada.hd;
 
+  override buildPrepareAccountsPrefixedPath(
+    params: IBuildPrepareAccountsPrefixedPathParams,
+  ): string {
+    const fullPath = accountUtils.buildPathFromTemplate({
+      template: params.template,
+      index: params.index,
+    });
+    return accountUtils.removePathLastSegment({
+      path: fullPath,
+      removeCount: 2,
+    });
+  }
+
+  override hwSdkNetwork: IHwSdkNetwork = 'ada';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: this.buildPrepareAccountsPrefixedPath({
+        template: params.template,
+        index: params.index,
+      }),
+      showOnOneKey: false,
+    };
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -57,37 +91,68 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             showOnOnekeyFn,
+            template,
           }) => {
-            const { derivationType, addressType, networkId, protocolMagic } =
-              await getCardanoConstant();
-            const paths = usedIndexes.map(
-              (index) => `${pathPrefix}/${index}'/0/0`,
-            );
-            const stakingPaths = usedIndexes.map(
-              (index) => `${pathPrefix}/${index}'/2/0`,
-            );
-            const bundle = paths.map((path, index) => ({
-              addressParameters: {
-                addressType,
-                path,
-                stakingPath: stakingPaths[index],
-              },
-              networkId,
-              protocolMagic,
-              derivationType,
-              showOnOneKey: showOnOnekeyFn(index),
-            })) as CardanoGetAddressMethodParams[];
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+            const buildPrefixedPath = (p: { index: number }) =>
+              this.buildPrepareAccountsPrefixedPath({
+                template,
+                index: p.index,
+              });
 
-            const HardwareSDK = await this.getHardwareSDKInstance();
-            const response = await HardwareSDK.cardanoGetAddress(
-              connectId,
-              deviceId,
-              {
-                ...params.deviceParams.deviceCommonParams,
-                bundle,
-              },
-            );
-            return response;
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildPrefixedPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                xpub: account.payload?.xpub || '',
+                serializedPath: account.payload?.serializedPath || '',
+                stakeAddress: account.payload?.stakeAddress || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
+            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const { derivationType, addressType, networkId, protocolMagic } =
+            //   await getCardanoConstant();
+            // const paths = usedIndexes.map(
+            //   (index) => `${pathPrefix}/${index}'/0/0`,
+            // );
+            // const stakingPaths = usedIndexes.map(
+            //   (index) => `${pathPrefix}/${index}'/2/0`,
+            // );
+            // const bundle = paths.map((path, index) => ({
+            //   addressParameters: {
+            //     addressType,
+            //     path,
+            //     stakingPath: stakingPaths[index],
+            //   },
+            //   networkId,
+            //   protocolMagic,
+            //   derivationType,
+            //   showOnOneKey: showOnOnekeyFn(index),
+            // })) as CardanoGetAddressMethodParams[];
+
+            // const HardwareSDK = await this.getHardwareSDKInstance();
+            // const response = await HardwareSDK.cardanoGetAddress(
+            //   connectId,
+            //   deviceId,
+            //   {
+            //     ...params.deviceParams.deviceCommonParams,
+            //     bundle,
+            //   },
+            // );
+            // return response;
           },
         });
 

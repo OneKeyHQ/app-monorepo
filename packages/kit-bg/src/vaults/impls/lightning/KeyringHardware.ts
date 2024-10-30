@@ -34,13 +34,47 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import type LightningVault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.lightning.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'btc';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: await this.buildLnToBtcPath({
+        template: params.template,
+        index: params.index,
+      }),
+      showOnOneKey: false,
+    };
+  }
+
+  async buildLnToBtcPath({
+    template,
+    index,
+  }: {
+    template: string;
+    index: number;
+  }) {
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    const isTestnet = networkInfo.networkImpl === IMPL_LIGHTNING_TESTNET;
+    const { pathPrefix, pathSuffix } = accountUtils.slicePathTemplate(template);
+    return accountUtils.buildLnToBtcPath({
+      path: `${pathPrefix}/${index}'`,
+      isTestnet,
+    });
+  }
 
   private getBtcCoinName(isTestnet: boolean) {
     return isTestnet ? 'TEST' : 'BTC';
@@ -62,20 +96,42 @@ export class KeyringHardware extends KeyringHardwareBase {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,
           usedIndexes,
-          sdkGetPublicKeysFn: async ({ pathPrefix }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.btcGetPublicKey(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index) => ({
-                path: accountUtils.buildLnToBtcPath({
-                  path: `${pathPrefix}/${index}'`,
-                  isTestnet,
-                }),
-                coin: coinName,
-                showOnOneKey: false,
-              })),
+          sdkGetPublicKeysFn: async ({ template }) => {
+            const buildFullPath = (p: { index: number }) =>
+              this.buildLnToBtcPath({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              hwSdkNetwork: this.hwSdkNetwork,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account, index }) => ({
+                path: account.path,
+                xpub: account.payload?.xpub || '',
+                xpubSegwit: account.payload?.xpubSegwit || '',
+              }),
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const response = await sdk.btcGetPublicKey(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index) => ({
+            //     path: accountUtils.buildLnToBtcPath({
+            //       path: `${pathPrefix}/${index}'`,
+            //       isTestnet,
+            //     }),
+            //     coin: coinName,
+            //     showOnOneKey: false,
+            //   })),
+            // });
+            // return response;
           },
         });
 

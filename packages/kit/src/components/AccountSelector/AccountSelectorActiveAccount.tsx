@@ -69,6 +69,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         size="small"
         onPress={handleWalletAddress}
       />
+      {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
   );
 
