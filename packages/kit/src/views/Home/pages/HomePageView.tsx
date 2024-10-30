@@ -157,8 +157,7 @@ export function HomePageView({
   const debouncedNetInfo = useDebounce(netInfo, 500);
 
   const isOffline =
-    (!debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null) ||
-    debouncedNetInfo.isInternetReachable === false;
+    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
