@@ -131,6 +131,8 @@ export type IOnChainHistoryTx = {
     netFee?: number;
     netFeeCost?: number;
   };
+
+  data?: string;
 };
 
 export type IAccountHistoryTx = {

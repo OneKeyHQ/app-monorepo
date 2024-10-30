@@ -558,7 +558,6 @@ function ConnectByUSBOrBLE({
             device,
             // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
             hideCheckingDeviceLoading: true,
-            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
             features,
             isFirmwareVerified,
             defaultIsTemp: true,

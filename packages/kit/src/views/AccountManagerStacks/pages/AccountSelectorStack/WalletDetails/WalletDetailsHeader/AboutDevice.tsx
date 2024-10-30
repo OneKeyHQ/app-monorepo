@@ -88,23 +88,21 @@ export function AboutDeviceInfo({
   );
 
   const throttledGetFeaturesWithoutCache = useCallback(
-    (params: { connectId: string }) => {
+    (params: { dbDevice: IDBDevice; connectId: string }) => {
       const now = Date.now();
       const throttleTime = timerUtils.getTimeDurationMs({ seconds: 5 });
       if (now - lastFetchTime < throttleTime) {
         return null;
       }
       lastFetchTime = now;
-      return backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+      return backgroundApiProxy.serviceHardware.getAboutDeviceFeatures({
         connectId: params.connectId,
-        params: { retryCount: 1 },
       });
     },
     [],
   );
 
   useEffect(() => {
-    let isLoading = false;
     const fetchUpdatedInfo = async () => {
       if (!device?.featuresInfo || !device?.connectId) return;
 
@@ -119,14 +117,13 @@ export function AboutDeviceInfo({
       setDeviceInfo(initialInfo);
 
       try {
-        isLoading = true;
         const features = await throttledGetFeaturesWithoutCache({
+          dbDevice,
           connectId: device.connectId,
         });
 
         if (!features) {
           // Throttle get features
-          isLoading = false;
           return;
         }
 
@@ -145,17 +142,11 @@ export function AboutDeviceInfo({
       } catch (error) {
         console.error('Error fetching updated device info:', error);
       } finally {
-        isLoading = false;
+        //
       }
     };
 
     void fetchUpdatedInfo();
-
-    return () => {
-      if (isLoading && device?.connectId) {
-        void backgroundApiProxy.serviceHardware.cancel(device.connectId);
-      }
-    };
   }, [device, throttledGetFeaturesWithoutCache, convertDeviceVersionToInfo]);
 
   return (

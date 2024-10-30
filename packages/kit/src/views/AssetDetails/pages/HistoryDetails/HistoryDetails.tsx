@@ -1014,6 +1014,15 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+            {txInfo?.data ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.global_hex_data,
+                })}
+                renderContent={txInfo.data}
+                compact
+              />
+            ) : null}
             {vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
@@ -1049,6 +1058,7 @@ function HistoryDetails() {
     txInfo?.blockHeight,
     txInfo?.nonce,
     txInfo?.confirmations,
+    txInfo?.data,
     renderTxMetaInfo,
     txid,
     vaultSettings?.hideBlockExplorer,

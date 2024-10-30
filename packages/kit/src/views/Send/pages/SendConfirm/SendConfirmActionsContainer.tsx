@@ -17,6 +17,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useTokenApproveInfoAtom,
+  useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -71,6 +72,7 @@ function SendConfirmActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [tokenApproveInfo] = useTokenApproveInfoAtom();
+  const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const { updateSendTxStatus } = useSendConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
@@ -121,6 +123,9 @@ function SendConfirmActionsContainer(props: IProps) {
         unsignedTxs,
         tokenApproveInfo,
         feeInfos: sendSelectedFeeInfo?.feeInfos,
+        nonceInfo: txAdvancedSettings.nonce
+          ? { nonce: Number(txAdvancedSettings.nonce) }
+          : undefined,
         nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
           ? {
               maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -218,14 +223,15 @@ function SendConfirmActionsContainer(props: IProps) {
     onFail,
     dappApprove,
     tokenApproveInfo,
+    txAdvancedSettings.nonce,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     signOnly,
     sourceInfo,
     transferPayload,
-    onSuccess,
     intl,
     navigation,
+    onSuccess,
   ]);
 
   const cancelCalledRef = useRef(false);

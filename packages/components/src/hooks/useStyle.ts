@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { SHEET_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import type { VariableVal } from '@tamagui/core';
 import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
@@ -59,13 +60,72 @@ export function useThemeValue(
   }, [colorSymbol, fallback, isRawValue, theme]);
 }
 
-let sheetCount = 0;
-export const useSheetZIndex = () => {
+const zIndexStack: { id: number; zIndex: number }[] = [];
+let prevOverlayId = 0;
+
+const createNewZIndex = (id: number) => {
+  const index = zIndexStack.findIndex((i) => i.id === id);
+  if (index === -1) {
+    zIndexStack.push({ id, zIndex: 1 });
+  }
+};
+const removeZIndexFromStack = (id: number) => {
+  const index = zIndexStack.findIndex((i) => i.id === id);
+  if (index === -1) {
+    return;
+  }
+  if (index === zIndexStack.length - 1) {
+    zIndexStack.pop();
+    return;
+  }
+  const item = zIndexStack[index];
+  zIndexStack[index].zIndex = item.zIndex + zIndexStack[index].zIndex;
+  zIndexStack.splice(index, 1);
+};
+
+const getZIndex = (id: number) => {
+  if (!id) {
+    return SHEET_AND_DIALOG_Z_INDEX;
+  }
+  const index = zIndexStack.findIndex((i) => i.id === id);
+  let zIndex = 0;
+  for (let i = 0; i < index; i += 1) {
+    zIndex += zIndexStack[i].zIndex;
+  }
+  return SHEET_AND_DIALOG_Z_INDEX + zIndex;
+};
+
+export const useOverlayZIndex = (open = false): number => {
+  const overlayIdRef = useRef(0);
+  const setZIndexRef = useRef<Dispatch<SetStateAction<number>> | undefined>();
   useEffect(() => {
-    sheetCount += 1;
-    return () => {
-      sheetCount -= 1;
-    };
+    if (overlayIdRef.current && setZIndexRef.current) {
+      if (open) {
+        createNewZIndex(overlayIdRef.current);
+        setZIndexRef.current(getZIndex(overlayIdRef.current));
+      } else {
+        removeZIndexFromStack(overlayIdRef.current);
+      }
+    }
+  }, [open]);
+
+  const [zIndex, setZIndex] = useState(() => {
+    prevOverlayId += 1;
+    overlayIdRef.current = prevOverlayId;
+    createNewZIndex(overlayIdRef.current);
+    return getZIndex(overlayIdRef.current);
+  });
+
+  useMemo(() => {
+    setZIndexRef.current = setZIndex;
   }, []);
-  return useMemo(() => SHEET_Z_INDEX + sheetCount, []);
+
+  useEffect(
+    () => () => {
+      removeZIndexFromStack(overlayIdRef.current);
+    },
+    [open],
+  );
+
+  return zIndex;
 };

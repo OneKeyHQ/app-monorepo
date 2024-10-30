@@ -7,7 +7,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -39,6 +42,7 @@ function WalletActionSend() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+  // const { selectedAccount } = useSelectedAccount({ num: 0 });
   const intl = useIntl();
 
   const [allTokens] = useAllTokenListAtom();
@@ -151,6 +155,7 @@ function WalletActionSend() {
     <RawActions.Send
       onPress={handleOnSend}
       disabled={vaultSettings?.disabledSendAction}
+      // label={`${account?.id || ''}`}
     />
   );
 }

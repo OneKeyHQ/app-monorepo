@@ -21,7 +21,7 @@ import {
   convertDeviceError,
   convertDeviceResponse,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
@@ -35,11 +35,14 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type {
+  AllNetworkAddressParams,
   CoreApi,
   EVMSignedTx,
   EVMTransaction,
@@ -264,6 +267,18 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
   }
 
+  override hwSdkNetwork: IHwSdkNetwork = 'evm';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -277,36 +292,56 @@ export class KeyringHardware extends KeyringHardwareBase {
           sdkGetAddressFn: async ({
             connectId,
             deviceId,
-            pathPrefix,
-            pathSuffix,
+            template,
             coinName,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
 
-            defaultLogger.account.accountCreatePerf.sdkEvmGetAddress();
-            const response = await sdk.evmGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
-                /**
-                 * Search accounts not show detail at device.Only show on device when add accounts into wallet.
-                 */
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                chainId: Number(chainId),
-              })),
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            defaultLogger.account.accountCreatePerf.sdkEvmGetAddressDone({
-              deriveTypeLabel: params.deriveInfo?.label ?? '',
-              indexes: usedIndexes,
-              coinName,
-              chainId,
-            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
 
-            return response;
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // defaultLogger.account.accountCreatePerf.sdkEvmGetAddress();
+            // const response = await sdk.evmGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams, // passpharse params
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: buildFullPath({
+            //       index,
+            //     }),
+            //     /**
+            //      * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+            //      */
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     chainId: Number(chainId),
+            //   })),
+            // });
+            // defaultLogger.account.accountCreatePerf.sdkEvmGetAddressDone({
+            //   deriveTypeLabel: params.deriveInfo?.label ?? '',
+            //   indexes: usedIndexes,
+            //   coinName,
+            //   chainId,
+            // });
+
+            // return response;
           },
         });
 

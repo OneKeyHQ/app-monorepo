@@ -1,5 +1,7 @@
 import { isNil } from 'lodash';
 
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
@@ -142,9 +144,14 @@ export function getHistoryTxDetailInfo({
   const decodedTx = historyTx?.decodedTx;
   let swapInfo;
   let nonce = txDetails?.nonce;
+  let data = txDetails?.data;
 
   if (isNil(nonce) && !isNil(decodedTx?.nonce)) {
     nonce = decodedTx.nonce;
+  }
+
+  if (isNil(data) && !isNil((decodedTx?.encodedTx as IEncodedTxEvm)?.data)) {
+    data = (decodedTx?.encodedTx as IEncodedTxEvm)?.data;
   }
 
   let date = '-';
@@ -166,6 +173,7 @@ export function getHistoryTxDetailInfo({
   return {
     date,
     nonce,
+    data,
     confirmations,
     blockHeight,
     swapInfo,
