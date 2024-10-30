@@ -49,11 +49,11 @@ class JotaiContextStore {
 
 const jotaiContextStore = new JotaiContextStore();
 if (process.env.NODE_ENV !== 'production') {
-  global.$$jotaiContextStore = jotaiContextStore;
-  global.$$jotaiContextStorePrint = () => {
-    console.log(global.$$jotaiContextStore);
+  globalThis.$$jotaiContextStore = jotaiContextStore;
+  globalThis.$$jotaiContextStorePrint = () => {
+    console.log(globalThis.$$jotaiContextStore);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    global.$$allAtoms.jotaiContextStoreMapAtom.get().then(console.log);
+    globalThis.$$allAtoms.jotaiContextStoreMapAtom.get().then(console.log);
   };
 }
 export { jotaiContextStore };

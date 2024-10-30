@@ -341,6 +341,7 @@
   earn_currently_staking = 'earn.currently_staking',
   earn_daily = 'earn.daily',
   earn_early_withdraw_stake_unstaking_period = 'earn.early_withdraw_stake_unstaking_period',
+  earn_earn_during_unstaking_tooltip = 'earn.earn_during_unstaking_tooltip',
   earn_earn_points = 'earn.earn_points',
   earn_earn_points_desc = 'earn.earn_points_desc',
   earn_earn_symbol = 'earn.earn_symbol',

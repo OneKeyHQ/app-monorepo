@@ -84,7 +84,7 @@ export const logFn = ({
         }
         break;
       case 'server':
-        global?.$analytics?.trackEvent(
+        globalThis?.$analytics?.trackEvent(
           methodName,
           (obj.args as Record<string, string>[]).reduce(
             (prev, current, index) => {

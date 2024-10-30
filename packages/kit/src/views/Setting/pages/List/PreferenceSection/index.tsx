@@ -90,7 +90,7 @@ const LanguageListItem = () => {
     await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
     setTimeout(() => {
       if (platformEnv.isDesktop) {
-        window.desktopApi.changeLanguage(text);
+        globalThis.desktopApi.changeLanguage(text);
       }
       backgroundApiProxy.serviceApp.restartApp();
     }, 0);

@@ -197,7 +197,14 @@ export interface IAppEventBusPayload {
     map: Record<string, ITokenFiat>;
     merge?: boolean;
   };
-  [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.RefreshTokenList]:
+    | undefined
+    | {
+        accounts: {
+          accountId: string;
+          networkId: string;
+        }[];
+      };
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -362,7 +369,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appEventBus = appEventBus;
+  globalThis.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };
