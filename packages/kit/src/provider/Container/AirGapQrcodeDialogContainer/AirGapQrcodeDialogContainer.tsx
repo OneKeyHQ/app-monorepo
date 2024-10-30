@@ -30,7 +30,7 @@ export function AirGapQrcodeDialogContainer() {
       event: IAppEventBusPayload[EAppEventBusNames.ShowAirGapQrcode],
     ) => {
       const { drawType, valueUr, title } = event;
-      hideQrToast?.();
+      void hideQrToast?.();
       const toast = SecureQRToast.show({
         title,
         valueUr,
