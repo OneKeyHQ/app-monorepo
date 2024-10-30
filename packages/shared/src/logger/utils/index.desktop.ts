@@ -17,7 +17,7 @@ const getLogFilePath = () => Promise.resolve('');
 
 const getDeviceInfo = () =>
   [
-    `System: ${window.desktopApi.platform} ${window.desktopApi.systemVersion}`,
+    `System: ${globalThis.desktopApi.platform} ${globalThis.desktopApi.systemVersion}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,

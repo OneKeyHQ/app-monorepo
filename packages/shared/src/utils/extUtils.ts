@@ -116,7 +116,7 @@ const getWindowPosition = async () => {
     // The following properties are more than likely 0, due to being
     // opened from the background chrome process for the extension that
     // has no physical dimensions
-    const { screenX, screenY, outerWidth } = window;
+    const { screenX, screenY, outerWidth } = globalThis;
     top = Math.max(screenY, 0);
     left = Math.max(screenX + (outerWidth - UI_HTML_DEFAULT_MIN_WIDTH), 0);
   }

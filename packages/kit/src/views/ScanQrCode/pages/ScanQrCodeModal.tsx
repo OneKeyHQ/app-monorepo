@@ -33,10 +33,10 @@ import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 import type { RouteProp } from '@react-navigation/core';
 
-global.$$scanNavigation = undefined as IAppNavigation | undefined;
+globalThis.$$scanNavigation = undefined as IAppNavigation | undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
-  global.$$scanNavigation = navigation;
+  globalThis.$$scanNavigation = navigation;
   const [inputText, setInputText] = useState<string>('');
   const [visible, setVisible] = useState(false);
 
