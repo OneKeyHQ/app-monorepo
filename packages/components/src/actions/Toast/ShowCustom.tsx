@@ -1,3 +1,4 @@
+import type { ForwardedRef, PropsWithChildren } from 'react';
 import {
   createContext,
   forwardRef,
@@ -7,9 +8,9 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { Toast, ToastViewport } from '@tamagui/toast';
+import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -22,6 +23,8 @@ export type IShowToasterProps = PropsWithChildren<{
   dismissOnOverlayPress?: boolean;
   duration?: number;
   disableSwipeGesture?: boolean;
+  open?: boolean;
+  onOpenChange?: (visible: boolean) => void;
 }>;
 
 export interface IShowToasterInstance {
@@ -41,16 +44,29 @@ function BasicShowToaster(
     onClose,
     duration = Infinity,
     dismissOnOverlayPress = true,
+    open,
+    onOpenChange,
   }: IShowToasterProps,
   ref: ForwardedRef<IShowToasterInstance>,
 ) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpenState, setIsOpenState] = useState(true);
+  const isControlled = !isNil(open);
+  const isOpen = isControlled ? open : isOpenState;
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(value);
+      }
+      setIsOpenState(value);
+    },
+    [isControlled, onOpenChange],
+  );
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       setIsOpen(false);
       return onClose?.(extra);
     },
-    [onClose],
+    [onClose, setIsOpen],
   );
   const handleImperativeClose = useCallback(
     (extra?: { flag?: string }) => handleClose(extra),
@@ -90,14 +106,17 @@ function BasicShowToaster(
         py={top || '$5'}
       />
 
-      <Stack
-        width="100%"
-        height="100%"
-        flex={1}
-        pointerEvents="auto"
-        position="absolute"
-        onPress={dismissOnOverlayPress ? handleContainerClose : undefined}
-      />
+      {isOpen ? (
+        <Stack
+          width="100%"
+          height="100%"
+          flex={1}
+          pointerEvents="auto"
+          position="absolute"
+          onPress={dismissOnOverlayPress ? handleContainerClose : undefined}
+        />
+      ) : null}
+
       <Toast
         unstyled
         onSwipeEnd={handleSwipeEnd}

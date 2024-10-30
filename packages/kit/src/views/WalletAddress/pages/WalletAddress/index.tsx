@@ -378,10 +378,13 @@ const WalletAddressContent = ({
 };
 
 const WalletAddress = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  accountId,
   mainnetItems,
   testnetItems,
   frequentlyUsedNetworks,
 }: {
+  accountId: string | undefined;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
@@ -391,6 +394,7 @@ const WalletAddress = ({
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
+        // title={accountId || ''}
         title={intl.formatMessage({
           id: ETranslations.copy_address_modal_title,
         })}
@@ -478,6 +482,7 @@ export default function WalletAddressPage({
     >
       <WalletAddressContext.Provider value={context}>
         <WalletAddress
+          accountId={accountId} // route.params.accountId
           testnetItems={result.networks.testnetItems}
           mainnetItems={result.networks.mainnetItems}
           frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
