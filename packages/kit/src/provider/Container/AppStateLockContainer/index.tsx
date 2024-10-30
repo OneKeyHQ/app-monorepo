@@ -23,7 +23,7 @@ const useWebLockCheck = (isLocked: boolean) => {
   const checkIsLockContainerExist = useCallback(() => {
     if (lockContainerRef?.current && lockedRef.current) {
       if (!document.body.contains(lockContainerRef.current)) {
-        window.location.reload();
+        globalThis.location.reload();
       }
       setTimeout(checkIsLockContainerExist, 300);
     }

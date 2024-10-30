@@ -33,7 +33,9 @@ function tonRevealEntropyToMnemonic(
 
 async function tonValidateMnemonic(mnemonicArray: string[]): Promise<boolean> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.tonValidateMnemonic(mnemonicArray);
+    return globalThis.$webembedApiProxy.secret.tonValidateMnemonic(
+      mnemonicArray,
+    );
   }
   return tonValidateMnemonicFn(mnemonicArray);
 }
@@ -42,7 +44,9 @@ async function tonMnemonicToKeyPair(
   mnemonicArray: string[],
 ): Promise<ReturnType<typeof tonMnemonicToKeyPairFn>> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.secret.tonMnemonicToKeyPair(mnemonicArray);
+    return globalThis.$webembedApiProxy.secret.tonMnemonicToKeyPair(
+      mnemonicArray,
+    );
   }
   return tonMnemonicToKeyPairFn(mnemonicArray);
 }

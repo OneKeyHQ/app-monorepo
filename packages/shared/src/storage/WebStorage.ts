@@ -15,7 +15,7 @@ localforage.config({
 });
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$localforage = localforage;
+  globalThis.$$localforage = localforage;
 }
 class WebStorage implements AsyncStorageStatic {
   isMigrated = false;

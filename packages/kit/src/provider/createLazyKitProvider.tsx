@@ -20,13 +20,15 @@ export function createLazyKitProviderLegacy({
       }, 0);
     }, []);
     if (cmp) {
-      global.$$onekeyPerfTrace?.log({
+      globalThis.$$onekeyPerfTrace?.log({
         name: 'LazyKitProvider render **children**',
       });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return cmp;
     }
-    global.$$onekeyPerfTrace?.log({ name: 'LazyKitProvider render [null]' });
+    globalThis.$$onekeyPerfTrace?.log({
+      name: 'LazyKitProvider render [null]',
+    });
     return null;
   };
   LazyKitProvider.displayName = displayName;

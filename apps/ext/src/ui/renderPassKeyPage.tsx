@@ -22,7 +22,7 @@ import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
 
-const params = new URLSearchParams(window.location.href.split('?').pop());
+const params = new URLSearchParams(globalThis.location.href.split('?').pop());
 const from = params.get('from') as EPassKeyWindowFrom;
 const type = params.get('type') as EPassKeyWindowType;
 
@@ -138,7 +138,7 @@ function PassKeyContainer() {
 }
 
 function renderPassKeyPage() {
-  const root = window.document.querySelector('#root');
+  const root = globalThis.document.querySelector('#root');
   if (!root) throw new Error('No root element found!');
 
   createRoot(root).render(
