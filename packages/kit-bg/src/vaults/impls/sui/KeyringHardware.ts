@@ -143,7 +143,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.sender,
       encodedTx,
     );
-    const signData = handleSignData(initialTransaction, true);
+    const signData = handleSignData(initialTransaction);
 
     const response = await sdk.suiSignTransaction(connectId, deviceId, {
       path: dbAccount.path,

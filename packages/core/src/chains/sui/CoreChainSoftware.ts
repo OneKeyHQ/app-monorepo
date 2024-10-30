@@ -1,3 +1,4 @@
+import { messageWithIntent } from '@mysten/sui/cryptography';
 import { Ed25519Keypair, Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -23,6 +24,11 @@ import {
 } from '../../types';
 
 const curve: ICurveName = 'ed25519';
+
+export function handleSignData(txnBytes: Uint8Array) {
+  const serializeTxn = messageWithIntent('TransactionData', txnBytes);
+  return serializeTxn;
+}
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(

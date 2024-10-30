@@ -247,7 +247,7 @@ function parseMoveCall(transaction: Transaction) {
   }
   const firstMoveCallCommand = tx.commands.find((i) => i.$kind === 'MoveCall');
 
-  if (!firstMoveCallCommand) {
+  if (!firstMoveCallCommand?.MoveCall) {
     return null;
   }
 
