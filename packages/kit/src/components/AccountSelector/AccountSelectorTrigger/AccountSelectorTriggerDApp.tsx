@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   Icon,
   SizableText,
   Skeleton,
+  Tooltip,
   View,
   XStack,
   YStack,
@@ -19,9 +20,11 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorTrigger,
@@ -274,47 +277,75 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         id: ETranslations.wallet_no_address,
       });
 
+  useShortcutsOnRouteFocused(EShortcutEvents.AccountSelector, handlePress);
+
+  const trigger = useMemo(
+    () => (
+      <XStack
+        role="button"
+        p="$1.5"
+        borderRadius="$2"
+        alignItems="center"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusable
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        }}
+        onPress={handlePress}
+        maxWidth="$40"
+        minWidth={0}
+      >
+        <AccountAvatar
+          size="small"
+          account={account}
+          indexedAccount={indexedAccount}
+        />
+        {media.gtMd ? (
+          <>
+            <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {wallet?.name}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                {accountName}
+              </SizableText>
+            </View>
+            <Icon
+              name="ChevronDownSmallOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          </>
+        ) : null}
+      </XStack>
+    ),
+    [
+      account,
+      accountName,
+      handlePress,
+      indexedAccount,
+      media.gtMd,
+      wallet?.name,
+    ],
+  );
   return (
-    <XStack
-      role="button"
-      p="$1.5"
-      borderRadius="$2"
-      alignItems="center"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusVisibleStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
-      onPress={handlePress}
-      maxWidth="$40"
-      minWidth={0}
-    >
-      <AccountAvatar
-        size="small"
-        account={account}
-        indexedAccount={indexedAccount}
-      />
-      {media.gtMd ? (
-        <>
-          <View pl="$2" pr="$1" minWidth={0} maxWidth="$24">
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {wallet?.name}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" numberOfLines={1}>
-              {accountName}
-            </SizableText>
-          </View>
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-        </>
-      ) : null}
-    </XStack>
+    <Tooltip
+      shortcutKey={EShortcutEvents.AccountSelector}
+      renderTrigger={trigger}
+      renderContent={intl.formatMessage({ id: ETranslations.global_account })}
+      placement="bottom"
+    />
   );
 }
 

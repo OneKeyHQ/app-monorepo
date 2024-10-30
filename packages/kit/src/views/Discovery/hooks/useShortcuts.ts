@@ -1,1 +1,1 @@
-export const useShortcuts = () => {};
+export const useDiscoveryShortcuts = () => {};

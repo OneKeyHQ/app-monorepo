@@ -9,6 +9,7 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
@@ -44,6 +45,7 @@ const getDiscoverRouterConfig = (
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
     translationId: ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
+    shortcutKey: EShortcutEvents.TabBrowser,
     children: discoveryRouters,
     tabBarStyle,
   };
@@ -71,6 +73,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'WalletSolid' : 'WalletOutline',
           translationId: ETranslations.global_wallet,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
+          shortcutKey: EShortcutEvents.TabWallet,
           rewrite: '/',
           exact: true,
           children: homeRouters,
@@ -81,6 +84,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'CoinsSolid' : 'CoinsOutline',
           translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
+          shortcutKey: EShortcutEvents.TabEarn,
           rewrite: '/earn',
           exact: true,
           children: earnRouters,
@@ -91,6 +95,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
           translationId: ETranslations.global_trade,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
+          shortcutKey: EShortcutEvents.TabSwap,
           rewrite: '/swap',
           exact: true,
           children: swapRouters,
@@ -101,6 +106,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
           translationId: ETranslations.global_market,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
+          shortcutKey: EShortcutEvents.TabMarket,
           rewrite: '/market',
           exact: true,
           children: marketRouters,

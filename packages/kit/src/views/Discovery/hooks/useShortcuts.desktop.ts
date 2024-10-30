@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { useClipboard, useShortcuts } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -12,13 +12,14 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId, useWebTabs } from './useWebTabs';
 
-export const useShortcuts = () => {
+export const useDiscoveryShortcuts = () => {
+  const { copyText } = useClipboard();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
@@ -50,69 +51,89 @@ export const useShortcuts = () => {
     }
   }, [activeTabId, tabs, closeWebTab, navigation]);
 
-  useEffect(() => {
-    const handleShortcuts = (_: any, data: EBrowserShortcutEvents) => {
+  const handleShortcuts = useCallback(
+    (data: EShortcutEvents) => {
       // only handle shortcuts when at browser tab
-      if (isAtBrowserTab.current) {
-        if (data === EBrowserShortcutEvents.GoForwardHistory) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.goForward();
-          } catch {
-            // empty
+      switch (data) {
+        case EShortcutEvents.CopyAddressOrUrl:
+          if (isAtBrowserTab.current) {
+            try {
+              const url = (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.getURL();
+              if (url) {
+                copyText(url);
+              }
+            } catch {
+              // empty
+            }
           }
-        }
-        if (data === EBrowserShortcutEvents.GoBackHistory) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.goBack();
-          } catch {
-            // empty
+          break;
+        case EShortcutEvents.GoForwardHistory:
+          if (isAtBrowserTab.current) {
+            try {
+              (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.goForward();
+            } catch {
+              // empty
+            }
           }
-        }
-        if (data === EBrowserShortcutEvents.Refresh) {
-          try {
-            (
-              webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
-            )?.reload();
-          } catch {
-            // empty
+          break;
+        case EShortcutEvents.GoBackHistory:
+          if (isAtBrowserTab.current) {
+            try {
+              (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.goBack();
+            } catch {
+              // empty
+            }
+          }
+          break;
+        case EShortcutEvents.Refresh:
+          if (isAtBrowserTab.current) {
+            try {
+              (
+                webviewRefs[activeTabId ?? '']?.innerRef as IElectronWebView
+              )?.reload();
+            } catch {
+              // empty
+            }
+          } else {
+            globalThis.desktopApi.quitApp();
+          }
+          break;
+        case EShortcutEvents.CloseTab:
+          if (isAtBrowserTab.current) {
+            handleCloseWebTab();
+          } else {
+            globalThis.desktopApi.quitApp();
           }
           return;
-        }
-        if (data === EBrowserShortcutEvents.CloseTab) {
-          handleCloseWebTab();
-          return;
-        }
-      }
-      if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-        if (data === EBrowserShortcutEvents.NewTab) {
+        case EShortcutEvents.SearchInPage:
+          if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
+            navigation.pushModal(EModalRoutes.DiscoveryModal, {
+              screen: EDiscoveryModalRoutes.SearchModal,
+            });
+          }
+          break;
+        case EShortcutEvents.ViewHistory:
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.SearchModal,
+            screen: EDiscoveryModalRoutes.HistoryListModal,
           });
-        }
+          break;
+        case EShortcutEvents.ViewBookmark:
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.BookmarkListModal,
+          });
+          break;
+        default:
+          break;
       }
+    },
+    [activeTabId, copyText, handleCloseWebTab, navigation],
+  );
 
-      if (isAtBrowserTab.current) {
-        return;
-      }
-
-      if (data === EBrowserShortcutEvents.CloseTab) {
-        window.desktopApi.quitApp();
-      } else if (data === EBrowserShortcutEvents.Refresh) {
-        window.desktopApi.reload();
-      }
-    };
-    window.desktopApi.addIpcEventListener(
-      ipcMessageKeys.APP_SHORCUT,
-      handleShortcuts,
-    );
-    return () =>
-      window.desktopApi.removeIpcEventListener(
-        ipcMessageKeys.APP_SHORCUT,
-        handleShortcuts,
-      );
-  }, [activeTabId, closeWebTab, navigation, handleCloseWebTab]);
+  useShortcuts(undefined, handleShortcuts);
 };

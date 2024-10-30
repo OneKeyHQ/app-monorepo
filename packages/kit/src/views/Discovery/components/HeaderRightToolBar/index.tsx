@@ -33,6 +33,8 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 import SyncDappAccountToHomeProvider from '../SyncDappAccountToHomeProvider';
 
+import { ShortcutsActionButton } from './ShortcutsActionButton.desktop';
+
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 
 function SingleAccountAndNetworkSelectorTrigger({
@@ -240,7 +242,7 @@ function HeaderRightToolBar() {
       return <Spinner />;
     }
     if (!connectedAccountsInfo || !origin) {
-      return null;
+      return <ShortcutsActionButton />;
     }
     if (connectedAccountsInfo.length === 1) {
       return (
@@ -248,8 +250,10 @@ function HeaderRightToolBar() {
           $gtMd={{
             width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
+            alignItems: 'center',
           }}
         >
+          <ShortcutsActionButton />
           <SyncDappAccountToHomeProvider
             dAppAccountInfos={connectedAccountsInfo}
             origin={origin}

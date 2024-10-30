@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import { get } from 'lodash';
+import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -508,8 +509,14 @@ function ConnectByUSBOrBLE({
           return;
         }
 
-        setSearchedDevices(response.payload);
-        console.log('=====>>>>> startDeviceScan>>>>>', response.payload);
+        const sortedDevices = response.payload.sort((a, b) =>
+          natsort({ insensitive: true })(
+            a.name || a.connectId || a.deviceId || a.uuid,
+            b.name || b.connectId || b.deviceId || b.uuid,
+          ),
+        );
+        setSearchedDevices(sortedDevices);
+        console.log('=====>>>>> startDeviceScan>>>>>', sortedDevices);
       },
       (state) => {
         searchStateRef.current = state;

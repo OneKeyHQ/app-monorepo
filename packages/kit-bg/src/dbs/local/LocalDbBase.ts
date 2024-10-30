@@ -526,7 +526,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const nestedHiddenWallets = option?.nestedHiddenWallets;
     const ignoreEmptySingletonWalletAccounts =
       option?.ignoreEmptySingletonWalletAccounts;
+    const includingAccounts = option?.includingAccounts;
     const db = await this.readyDb;
+
+    const fillDbAccounts = async (newWallet: IDBWallet) => {
+      const isOthersWallet = accountUtils.isOthersWallet({
+        walletId: newWallet.id,
+      });
+      if (isOthersWallet) {
+        const { accounts } = await this.getSingletonAccountsOfWallet({
+          walletId: newWallet.id as IDBWalletIdSingleton,
+        });
+        newWallet.dbAccounts = accounts;
+      } else {
+        const { accounts } = await this.getIndexedAccounts({
+          walletId: newWallet.id,
+        });
+        newWallet.dbIndexedAccounts = accounts;
+      }
+    };
 
     // get all wallets for account selector
     let { wallets } = await this.getAllWallets();
@@ -558,16 +576,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return true;
     });
     wallets = await Promise.all(
-      wallets.map((w) =>
-        this.refillWalletInfo({
+      wallets.map(async (w) => {
+        const newWallet: IDBWallet = await this.refillWalletInfo({
           wallet: w,
           hiddenWallets: w.associatedDevice
             ? (hiddenWalletsMap[w.associatedDevice] || []).filter((hw) =>
                 hw.id.startsWith(w.id),
               )
             : undefined,
-        }),
-      ),
+        });
+        if (includingAccounts) {
+          await Promise.all([
+            fillDbAccounts(newWallet),
+            ...(newWallet?.hiddenWallets || []).map(async (hw) => {
+              await fillDbAccounts(hw);
+              return hw;
+            }),
+          ]);
+        }
+        return newWallet;
+      }),
     );
     wallets = wallets.sort(this.walletSortFn);
 

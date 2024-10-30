@@ -4,13 +4,16 @@ import { useIntl } from 'react-intl';
 
 import { Badge } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
-import { Section } from '../Section';
 
 import { CustomNetworkConfigItem } from './CustomNetworkConfigItem';
 import { RateAppItem } from './RateAppItem';
@@ -54,6 +57,24 @@ function ListVersionItem() {
   );
 }
 
+function ListShortcutsItem() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const toShortcutsPage = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ShortcutsModal, {
+      screen: EModalShortcutsRoutes.ShortcutsPreview,
+    });
+  }, [navigation]);
+  return platformEnv.isNative ? null : (
+    <ListItem
+      onPress={toShortcutsPage}
+      icon="ShortcutsCustom"
+      title={intl.formatMessage({ id: ETranslations.settings_shortcuts })}
+      drillIn
+    />
+  );
+}
+
 export const ResourceSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
@@ -66,6 +87,7 @@ export const ResourceSection = () => {
       title={intl.formatMessage({ id: ETranslations.settings_resources })}
     >
       <ListVersionItem />
+      <ListShortcutsItem />
       <UrlExternalListItem
         icon="HelpSupportOutline"
         title={intl.formatMessage({ id: ETranslations.settings_help_center })}

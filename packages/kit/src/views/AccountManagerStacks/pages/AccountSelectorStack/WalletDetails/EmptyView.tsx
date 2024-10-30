@@ -7,24 +7,6 @@ import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/s
 import { useAccountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function EmptyNoAccountsView({
-  section,
-}: {
-  section: IAccountSelectorAccountsListSectionData;
-}) {
-  return section.data.length === 0 && section.emptyText ? (
-    <ListItem
-      // No accounts
-      title={section.emptyText}
-      titleProps={{
-        size: '$bodyLg',
-        textAlign: 'left',
-        py: '$2',
-      }}
-    />
-  ) : null;
-}
-
 function LoadingSkeletonView() {
   return (
     <Stack>
@@ -47,7 +29,25 @@ function LoadingSkeletonView() {
   );
 }
 
-function EmptyNoWalletView() {
+export function EmptyNoAccountsView({
+  section,
+}: {
+  section: IAccountSelectorAccountsListSectionData;
+}) {
+  return section.data.length === 0 && section.emptyText ? (
+    <ListItem
+      // No accounts
+      title={section.emptyText}
+      titleProps={{
+        size: '$bodyLg',
+        textAlign: 'left',
+        py: '$2',
+      }}
+    />
+  ) : null;
+}
+
+export function EmptyNoWalletView() {
   const toOnBoardingPage = useToOnBoardingPage();
   const intl = useIntl();
 

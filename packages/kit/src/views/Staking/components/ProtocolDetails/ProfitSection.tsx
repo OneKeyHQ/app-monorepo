@@ -16,6 +16,7 @@ import { GridItem } from './GridItem';
 type IProfitInfoProps = {
   apr?: string;
   earningsIn24h?: string;
+  rewardToken?: string;
   rewardTokens?: string;
   updateFrequency?: string;
   unstakingPeriod?: number;
@@ -25,6 +26,7 @@ type IProfitInfoProps = {
 function ProfitInfo({
   apr,
   earningsIn24h,
+  rewardToken,
   rewardTokens,
   updateFrequency,
   unstakingPeriod,
@@ -106,6 +108,13 @@ function ProfitInfo({
               title={intl.formatMessage({
                 id: ETranslations.earn_unstaking_period,
               })}
+              tooltip={
+                rewardToken === 'APT'
+                  ? intl.formatMessage({
+                      id: ETranslations.earn_earn_during_unstaking_tooltip,
+                    })
+                  : undefined
+              }
             >
               {intl.formatMessage(
                 { id: ETranslations.earn_up_to_number_days },
@@ -130,6 +139,7 @@ export const ProfitSection = ({
   const props: IProfitInfoProps = {
     apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
     earningsIn24h: details.earnings24h,
+    rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
     // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,

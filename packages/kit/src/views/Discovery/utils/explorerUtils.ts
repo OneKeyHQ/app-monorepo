@@ -18,7 +18,7 @@ export const captureViewRefs: Record<string, IElement> = {};
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  global.$$webviewRefs = webviewRefs;
+  globalThis.$$webviewRefs = webviewRefs;
 }
 
 export function getWebviewWrapperRef(id?: string) {
