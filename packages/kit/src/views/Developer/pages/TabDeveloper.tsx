@@ -180,7 +180,7 @@ const TabDeveloper = () => {
                         );
                       }
                     }
-                    window.location.reload();
+                    globalThis.location.reload();
                   }
                 }}
               >

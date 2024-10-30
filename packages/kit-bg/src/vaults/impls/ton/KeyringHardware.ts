@@ -17,6 +17,8 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -179,6 +181,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
     ).toString('hex');
+    const signingMessageHash = Buffer.from(
+      await signingMessage.hash(),
+    ).toString('hex');
+    // For Pro, check the boc
     if (
       !result.skip_validate &&
       signingMessageHexFromHw !== signingMessageHex
@@ -189,6 +195,17 @@ export class KeyringHardware extends KeyringHardwareBase {
         signingMessageHex,
       );
       signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+    }
+    // For 1S, check the hash
+    if (
+      result.skip_validate &&
+      signingMessageHexFromHw !== signingMessageHash
+    ) {
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_failed_to_sign_transaction,
+        }),
+      );
     }
     const signedTx = serializeSignedTx({
       fromAddress: encodedTx.from,

@@ -459,24 +459,25 @@ class ServiceToken extends ServiceBase {
   }) {
     const { accountId, networkId } = params;
 
+    let accountAddress: string | undefined;
+    let xpub: string | undefined;
+
     if (params.accountAddress || params.xpub) {
-      return this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
-        networkId,
-        accountAddress: params.accountAddress,
-        xpub: params.xpub,
-      });
+      accountAddress = params.accountAddress;
+      xpub = params.xpub;
+    } else {
+      [xpub, accountAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
     }
 
-    const [xpub, accountAddress] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-    ]);
     const localTokens =
       await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
         networkId,

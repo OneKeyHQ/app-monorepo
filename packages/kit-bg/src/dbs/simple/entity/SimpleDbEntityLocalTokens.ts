@@ -183,7 +183,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+
     const rawData = await this.getRawData();
+
     return {
       tokenList: rawData?.tokenList?.[key] ?? [],
       smallBalanceTokenList: rawData?.smallBalanceTokenList?.[key] ?? [],

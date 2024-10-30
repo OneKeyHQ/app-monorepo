@@ -8,7 +8,9 @@ import type { AsyncStorageStatic } from '@react-native-async-storage/async-stora
 
 class ExtensionStorage implements AsyncStorageStatic {
   browserApi: typeof chrome =
-    platformEnv.isExtFirefox || !isManifestV3 ? global.browser : global.chrome;
+    platformEnv.isExtFirefox || !isManifestV3
+      ? globalThis.browser
+      : globalThis.chrome;
 
   _checkOffscreen() {
     if (platformEnv.isExtensionOffscreen) {
