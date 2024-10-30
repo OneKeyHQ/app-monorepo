@@ -81,6 +81,7 @@ import type {
 
 export type IDeviceGetFeaturesOptions = {
   connectId: string | undefined;
+  withHardwareProcessing?: boolean;
   params?: CommonParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -289,6 +290,7 @@ class ServiceHardware extends ServiceBase {
         const originEvent = e as UiEvent;
         const { type: uiRequestType, payload } = e;
         // console.log('=>>>> UI_EVENT: ', uiRequestType, payload);
+        defaultLogger.hardware.sdkLog.uiEvent(uiRequestType, payload);
 
         const { device, type: eventType, passphraseState } = payload || {};
         const { deviceType, connectId, deviceId, features } = device || {};
@@ -329,6 +331,11 @@ class ServiceHardware extends ServiceBase {
             EHardwareUiStateAction.PREVIOUS_ADDRESS,
           ].includes(newUiRequestType)
         ) {
+          defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
+            action: newUiRequestType,
+            connectId,
+            payload: newPayload,
+          });
           // show hardware ui dialog
           await hardwareUiStateAtom.set({
             action: newUiRequestType,
@@ -522,61 +529,92 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  cancelTimer: ReturnType<typeof setTimeout> | undefined;
+
+  lastCancelAt: Record<string, number> = {};
+
+  isLastCancelLessThanMsAgo(connectId: string | undefined, ms: number) {
+    return (
+      connectId &&
+      this.lastCancelAt[connectId] &&
+      Date.now() - this.lastCancelAt[connectId] < ms
+    );
+  }
+
+  // TODO convert to lazy cancel
   @backgroundMethod()
-  async cancelByWallet({ walletId }: { walletId: string | undefined }) {
+  async cancel({
+    connectId,
+    walletId,
+    forceDeviceResetToHome,
+  }: {
+    connectId?: string;
+    walletId?: string;
+    forceDeviceResetToHome?: boolean;
+  }) {
+    // TODO skip cancel if device is canceling, save last cancel time
+
     try {
-      if (walletId && accountUtils.isHwWallet({ walletId })) {
+      if (!connectId && walletId && accountUtils.isHwWallet({ walletId })) {
         const device =
           await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
             walletId,
           });
         if (device?.connectId) {
-          await this.cancel(device.connectId);
+          // eslint-disable-next-line no-param-reassign
+          connectId = device.connectId;
         }
       }
     } catch (error) {
       //
     }
-  }
 
-  @backgroundMethod()
-  async cancel(
-    connectId: string | undefined,
-    {
-      forceDeviceResetToHome,
-    }: {
-      forceDeviceResetToHome?: boolean;
-    } = {},
-  ) {
-    const sdk = await this.getSDKInstance();
-    // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
-
-    // cancel the hardware process
-    // (cancel not working on enter pin on device mode, use getFeatures() later)
-    try {
-      sdk.cancel(connectId);
-    } catch (e: any) {
-      const { message } = e || {};
-      console.log('sdk cancel error: ', message);
+    if (!connectId) {
+      return;
     }
 
-    console.log('sdk call cancel device: ', connectId);
+    if (this.isLastCancelLessThanMsAgo(connectId, 3000)) {
+      console.log('sdk.cancel too frequent, skip');
+      return;
+    }
 
-    // mute getFeatures error
-    try {
-      // force hardware drop process
-      if (forceDeviceResetToHome) {
-        console.log('sdk call cancel device getFeatures: ', connectId);
-        await this.getFeaturesWithoutCache({
-          connectId,
-          params: {
-            retryCount: 0,
-          },
-        }); // TODO move to sdk.cancel()
+    const fn = async () => {
+      const sdk = await this.getSDKInstance();
+      // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
+
+      // cancel the hardware process
+      // (cancel not working on enter pin on device mode, use getFeatures() later)
+      try {
+        if (connectId) {
+          this.lastCancelAt[connectId] = Date.now();
+        }
+        sdk.cancel(connectId);
+      } catch (e: any) {
+        const { message } = e || {};
+        console.log('sdk.cancel error: ', message);
       }
-    } catch (error) {
-      // ignore
-    }
+
+      console.log('sdk.cancel device: ', connectId);
+
+      // mute getFeatures error
+      try {
+        // force hardware drop process
+        if (forceDeviceResetToHome) {
+          console.log('sdk.cancel device getFeatures: ', connectId);
+          await this.getFeaturesWithoutCache({
+            connectId,
+            params: {
+              retryCount: 0,
+            },
+          }); // TODO move to sdk.cancel()
+        }
+      } catch (error) {
+        // ignore
+      }
+    };
+
+    clearTimeout(this.cancelTimer);
+    this.cancelTimer = setTimeout(fn, 100);
   }
 
   // TODO run firmwareAuthenticate() check bootloader mode by features
@@ -654,11 +692,14 @@ class ServiceHardware extends ServiceBase {
   _getFeaturesWithMutex = async (
     options: IDeviceGetFeaturesOptions,
   ): Promise<IOneKeyDeviceFeatures> => {
-    const features = await this.getFeaturesMutex.runExclusive(async () => {
-      const r = await this._getFeaturesWithTimeout(options);
-      return r;
-    });
-    return features;
+    const fn = async () => {
+      const features = await this.getFeaturesMutex.runExclusive(async () => {
+        const r = await this._getFeaturesWithTimeout(options);
+        return r;
+      });
+      return features;
+    };
+    return fn();
   };
 
   _getFeaturesWithCache = memoizee(
@@ -692,6 +733,29 @@ class ServiceHardware extends ServiceBase {
       walletId,
     });
     return this.getFeatures({ connectId: device.connectId });
+  }
+
+  @backgroundMethod()
+  async getAboutDeviceFeatures(params: { connectId: string }) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.connectId,
+    });
+    if (!dbDevice) {
+      throw new Error('device not found');
+    }
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      () =>
+        this.getFeaturesWithoutCache({
+          connectId: params.connectId,
+          params: { retryCount: 1 },
+        }),
+      {
+        deviceParams: {
+          dbDevice,
+        },
+        hideCheckingDeviceLoading: true,
+      },
+    );
   }
 
   @backgroundMethod()

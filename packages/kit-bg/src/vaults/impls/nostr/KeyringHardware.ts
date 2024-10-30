@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { validateEvent } from '@onekeyhq/core/src/chains/nostr/sdkNostr';
 import type { IEncodedTxNostr } from '@onekeyhq/core/src/chains/nostr/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -9,6 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -16,13 +18,28 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'nostr';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -36,17 +53,40 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             pathPrefix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            const response = await sdk.nostrGetPublicKey(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${index}'/0/0`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-              })),
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
+
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              hwSdkNetwork: this.hwSdkNetwork,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account, index }) => ({
+                path: account.path,
+                publickey: account.payload?.publickey || '',
+                npub: account.payload?.npub || '',
+              }),
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // const response = await sdk.nostrGetPublicKey(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${index}'/0/0`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //   })),
+            // });
+            // return response;
           },
         });
         const ret: ICoreApiGetAddressItem[] = [];

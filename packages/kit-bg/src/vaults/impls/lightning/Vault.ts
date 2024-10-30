@@ -499,13 +499,14 @@ export default class Vault extends VaultBase {
     let deviceId;
     let deviceCommonParams;
     if (accountUtils.isHwWallet({ walletId: this.walletId })) {
-      const { dbDevice, deviceCommonParams: _deviceCommonParams } =
+      // const { dbDevice, deviceCommonParams: _deviceCommonParams }
+      const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: this.walletId,
         });
-      connectId = dbDevice.connectId;
-      deviceId = dbDevice.deviceId;
-      deviceCommonParams = _deviceCommonParams;
+      connectId = deviceParams?.dbDevice?.connectId;
+      deviceId = deviceParams?.dbDevice?.deviceId;
+      deviceCommonParams = deviceParams?.deviceCommonParams;
     }
     const sign = await keyring.signApiMessage({
       msgPayload: {

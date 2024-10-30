@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -25,6 +25,7 @@ import {
   useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
   useSendTxStatusAtom,
+  useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
@@ -65,7 +66,7 @@ type IProps = {
 function TxFeeContainer(props: IProps) {
   const { accountId, networkId, useFeeInTx, feeInfoEditable = true } = props;
   const intl = useIntl();
-  const txFeeInit = useRef(false);
+  const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
@@ -77,6 +78,7 @@ function TxFeeContainer(props: IProps) {
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -84,6 +86,7 @@ function TxFeeContainer(props: IProps) {
     updateCustomFee,
     updateSendSelectedFee,
     updateIsSinglePreset,
+    updateTxAdvancedSettings,
   } = useSendConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -192,7 +195,8 @@ function TxFeeContainer(props: IProps) {
           e,
         };
       } catch (e) {
-        txFeeInit.current = true;
+        setTxFeeInit(true);
+        updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
           errMessage:
@@ -210,6 +214,7 @@ function TxFeeContainer(props: IProps) {
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
+      updateTxAdvancedSettings,
     ],
     {
       watchLoading: true,
@@ -602,7 +607,8 @@ function TxFeeContainer(props: IProps) {
       });
     }
 
-    txFeeInit.current = true;
+    setTxFeeInit(true);
+    updateTxAdvancedSettings({ dataChanged: false });
 
     // Due to the tendency to use higher fee estimates for approve&swap multi-txs to ensure success,
     // we adjust the displayed fee to be closer to the actual on-chain cost for the user
@@ -639,6 +645,7 @@ function TxFeeContainer(props: IProps) {
     sendSelectedFee.presetIndex,
     txFee?.common.nativeTokenPrice,
     unsignedTxs,
+    updateTxAdvancedSettings,
   ]);
 
   const handleApplyFeeInfo = useCallback(
@@ -686,8 +693,7 @@ function TxFeeContainer(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit.current || nativeTokenInfo.isLoading || !nativeTokenInfo)
-      return;
+    if (!txFeeInit || nativeTokenInfo.isLoading || !nativeTokenInfo) return;
 
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
@@ -702,6 +708,7 @@ function TxFeeContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,
     selectedFee,
+    txFeeInit,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
@@ -759,7 +766,7 @@ function TxFeeContainer(props: IProps) {
 
     if (sendFeeStatus.errMessage) return null;
 
-    if (!txFeeInit.current) {
+    if (!txFeeInit) {
       return (
         <Stack py="$1">
           <Skeleton height="$3" width="$12" />
@@ -784,9 +791,7 @@ function TxFeeContainer(props: IProps) {
     return (
       <FeeSelectorTrigger
         onPress={handlePress}
-        disabled={
-          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit.current
-        }
+        disabled={sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit}
       />
     );
   }, [
@@ -799,6 +804,7 @@ function TxFeeContainer(props: IProps) {
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
+    txFeeInit,
     vaultSettings?.editFeeEnabled,
   ]);
 
@@ -837,6 +843,13 @@ function TxFeeContainer(props: IProps) {
     ),
     [selectedFee?.totalFiatForDisplay, settings.currencyInfo.symbol],
   );
+
+  useEffect(() => {
+    if (txAdvancedSettings.dataChanged) {
+      setTxFeeInit(false);
+    }
+  }, [txAdvancedSettings.dataChanged, updateSendSelectedFee]);
+
   return (
     <Stack
       mb="$5"
@@ -860,14 +873,14 @@ function TxFeeContainer(props: IProps) {
         {renderFeeEditor()}
       </XStack>
       <XStack gap="$1" alignItems="center">
-        {txFeeInit.current ? (
+        {txFeeInit ? (
           renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit.current && !isNil(selectedFee?.totalFiatForDisplay)
+        {txFeeInit && !isNil(selectedFee?.totalFiatForDisplay)
           ? renderTotalFiat()
           : ''}
       </XStack>

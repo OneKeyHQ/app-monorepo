@@ -19,6 +19,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -32,14 +33,32 @@ import {
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { CommonParams, TonSignMessageParams } from '@onekeyfe/hd-core';
+import type {
+  AllNetworkAddressParams,
+  CommonParams,
+  TonSignMessageParams,
+} from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'ton';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -55,24 +74,48 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
 
-            const response = await sdk.tonGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                walletVersion: TonWalletVersion.V4R2,
-                isBounceable: false,
-                isTestnetOnly: false,
-              })),
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                publicKey: account.payload?.publicKey || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // const response = await sdk.tonGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${pathSuffix.replace(
+            //       '{index}',
+            //       `${index}`,
+            //     )}`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     walletVersion: TonWalletVersion.V4R2,
+            //     isBounceable: false,
+            //     isTestnetOnly: false,
+            //   })),
+            // });
+            // return response;
           },
         });
 

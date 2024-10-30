@@ -72,6 +72,10 @@ const AlignPrimaryAccountModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AlignPrimaryAccount'),
 );
 
+const CustomNonceModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNonce'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -135,6 +139,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingAlignPrimaryAccount,
     component: AlignPrimaryAccountModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingCustomNonce,
+    component: CustomNonceModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

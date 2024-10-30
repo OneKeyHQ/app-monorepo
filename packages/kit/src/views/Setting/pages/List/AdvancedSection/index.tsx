@@ -91,6 +91,11 @@ export const AdvancedSection = () => {
     navigation.push(EModalSettingRoutes.SettingAlignPrimaryAccount);
   }, [navigation]);
 
+  const onCustomNonce = useCallback(() => {
+    defaultLogger.setting.page.enterCustomNonce();
+    navigation.push(EModalSettingRoutes.SettingCustomNonce);
+  }, [navigation]);
+
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
@@ -121,6 +126,12 @@ export const AdvancedSection = () => {
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
         })}
+        drillIn
+      />
+      <ListItem
+        onPress={onCustomNonce}
+        icon="LabOutline"
+        title={intl.formatMessage({ id: ETranslations.global_customize_nonce })}
         drillIn
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}

@@ -10,6 +10,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { Bootstrap } from '../Bootstrap';
 
+import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -21,7 +22,6 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
-import { QrcodeDialogContainer } from './QrcodeDialogContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -92,7 +92,7 @@ export function Container() {
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />
-          <QrcodeDialogContainer />
+          <AirGapQrcodeDialogContainer />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
