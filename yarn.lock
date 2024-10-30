@@ -6525,7 +6525,6 @@ __metadata:
     "@polkadot/extension-inject": "npm:0.46.6"
     "@polkadot/types": "npm:11.3.1"
     "@polkadot/util-crypto": "npm:12.6.2"
-    "@react-native-community/netinfo": "npm:^11.4.1"
     "@sentry/babel-plugin-component-annotate": "npm:2.21.1"
     "@substrate/txwrapper-polkadot": "npm:7.5.1"
     "@tamagui/animations-moti": "npm:1.108.0"
@@ -6866,7 +6865,7 @@ __metadata:
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@react-native-async-storage/async-storage": "npm:1.22.0"
-    "@react-native-community/netinfo": "npm:^9.4.1"
+    "@react-native-community/netinfo": "npm:^11.4.1"
     "@react-native-community/slider": "npm:4.4.3"
     "@react-native-firebase/analytics": "npm:20.1.0"
     "@react-native-firebase/app": "npm:20.1.0"
@@ -8758,15 +8757,6 @@ __metadata:
   peerDependencies:
     react-native: ">=0.59"
   checksum: 10/47f0d61072ca04a545784daaa44a5b1927eb788a3521dce5462184855733485c3b58c52d2a9b790b5c784e806fb342c83bc14e348cc7e55263b63d31e1862f9d
-  languageName: node
-  linkType: hard
-
-"@react-native-community/netinfo@npm:^9.4.1":
-  version: 9.5.0
-  resolution: "@react-native-community/netinfo@npm:9.5.0"
-  peerDependencies:
-    react-native: ">=0.59"
-  checksum: 10/0fcf90a31cce3f2cf1adef506c0ea8c096ebfeb221b7be29e8b33627eeaf5f7ce9ae5662039d0cd87932888835e52e55376dcd5f0f34f9a737916d83a42c4791
   languageName: node
   linkType: hard
 
