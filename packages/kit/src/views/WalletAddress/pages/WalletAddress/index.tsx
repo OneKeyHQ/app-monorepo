@@ -179,7 +179,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
         const { walletId } = accountUtils.parseIndexedAccountId({
           indexedAccountId,
         });
-        await createAddress({
+        const createAddressResult = await createAddress({
           account: {
             walletId,
             networkId: item.id,
@@ -189,12 +189,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           selectAfterCreate: false,
           num: 0,
         });
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.swap_page_toast_address_generated,
-          }),
-        });
-        refreshLocalData();
+        if (createAddressResult) {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.swap_page_toast_address_generated,
+            }),
+          });
+          refreshLocalData();
+        }
       } finally {
         setLoading(false);
       }

@@ -21,7 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 const TRON_RESOURCE_DOC_URL =
-  'https://developers.tron.network/docs/resource-model';
+  'https://help.onekey.so/hc/articles/11039593254799';
 
 function ResourceDetails({
   name,

@@ -24,6 +24,6 @@ export const useHandleAppStateActive: IUseHandleAppStateActive = (
       }
       appState.current = nextState;
     };
-    return window.desktopApi.onAppState(handleAppStateChange);
+    return globalThis.desktopApi.onAppState(handleAppStateChange);
   }, [handlers, onHandler]);
 };

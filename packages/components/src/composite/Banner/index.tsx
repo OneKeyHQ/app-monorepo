@@ -191,7 +191,7 @@ export function Banner<T extends IBannerData>({
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
 
-  if (isNil(isLoading) || isLoading) {
+  if (isNil(isLoading) || isLoading || data.length === 0) {
     return emptyComponent;
   }
 

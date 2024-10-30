@@ -104,6 +104,14 @@ function TxFeeContainer(props: IProps) {
     [unsignedTxs],
   );
 
+  const isSecondApproveTxWithFeeInfo = useMemo(
+    () =>
+      unsignedTxs.length === 1 &&
+      unsignedTxs[0].approveInfo &&
+      unsignedTxs[0].feeInfo,
+    [unsignedTxs],
+  );
+
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -141,7 +149,10 @@ function TxFeeContainer(props: IProps) {
             encodedTx: unsignedTxs[0].encodedTx,
           });
 
-        if (isLastSwapTxWithFeeInfo && unsignedTxs[0].feeInfo) {
+        if (
+          (isLastSwapTxWithFeeInfo || isSecondApproveTxWithFeeInfo) &&
+          unsignedTxs[0].feeInfo
+        ) {
           const r = unsignedTxs[0].feeInfo;
           updateSendFeeStatus({
             status: ESendFeeStatus.Success,
@@ -199,6 +210,7 @@ function TxFeeContainer(props: IProps) {
     [
       accountId,
       isLastSwapTxWithFeeInfo,
+      isSecondApproveTxWithFeeInfo,
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
@@ -222,6 +234,7 @@ function TxFeeContainer(props: IProps) {
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
+    !isSecondApproveTxWithFeeInfo &&
     (!!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled);
 
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
@@ -510,7 +523,10 @@ function TxFeeContainer(props: IProps) {
       let specialGasLimit: string | undefined;
 
       // build second approve tx fee info base on first approve fee info
-      if (isMultiTxs && unsignedTx.approveInfo && i !== 0) {
+      if (
+        (isMultiTxs && unsignedTx.approveInfo && i !== 0) ||
+        isSecondApproveTxWithFeeInfo
+      ) {
         specialGasLimit = new BigNumber(baseGasLimit ?? 0)
           .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE)
           .toFixed();
@@ -518,7 +534,7 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
-        (isMultiTxs || (!isMultiTxs && unsignedTx.feeInfo)) &&
+        (isMultiTxs || isLastSwapTxWithFeeInfo) &&
         unsignedTx.swapInfo &&
         (selectedFeeInfo.gas || selectedFeeInfo.gasEIP1559)
       ) {
@@ -622,7 +638,9 @@ function TxFeeContainer(props: IProps) {
   }, [
     estimateFeeParams,
     feeSelectorItems,
+    isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    isSecondApproveTxWithFeeInfo,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFee?.common.nativeTokenPrice,

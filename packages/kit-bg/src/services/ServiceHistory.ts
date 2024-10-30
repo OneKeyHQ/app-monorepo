@@ -145,6 +145,7 @@ class ServiceHistory extends ServiceBase {
         }
         confirmedTxs.push({
           ...localHistoryPendingTx,
+          originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
@@ -153,6 +154,7 @@ class ServiceHistory extends ServiceBase {
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
+            originalTxId: localHistoryPendingTx.decodedTx.originalTxId,
             status:
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
@@ -284,10 +286,27 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    localHistoryPendingTxs.forEach((tx) => {
+      const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
+      if (!txInResult) {
+        accountsWithChangedPendingTxs.add(
+          `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
+        );
+      }
+    });
+
     return {
       txs: result,
-      pendingTxsUpdated:
-        finalPendingTxs.length !== localHistoryPendingTxs.length,
+      accountsWithChangedPendingTxs: Array.from(
+        accountsWithChangedPendingTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
     };
   }
 
@@ -415,25 +434,29 @@ class ServiceHistory extends ServiceBase {
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
-    confirmedTxsToSave = confirmedTxs.map((tx) => {
-      const onChainHistoryTx = onChainHistoryTxs.find(
-        (item) => item.id === tx.id,
-      );
-      if (onChainHistoryTx) {
-        return onChainHistoryTx;
-      }
-      return tx;
-    });
+    confirmedTxsToSave = confirmedTxs
+      .map((tx) => {
+        const onChainHistoryTx = onChainHistoryTxs.find(
+          (item) => item.id === tx.id,
+        );
+        if (onChainHistoryTx) {
+          return onChainHistoryTx;
+        }
+        return tx;
+      })
+      .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+
+    const finalConfirmedTxs = unionBy(
+      [...confirmedTxsToSave, ...onChainHistoryTxs],
+      (tx) => tx.id,
+    ).filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
       {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxsToSave: unionBy(
-          [...confirmedTxsToSave, ...onChainHistoryTxs],
-          (tx) => tx.id,
-        ),
+        confirmedTxsToSave: finalConfirmedTxs,
       },
     );
 

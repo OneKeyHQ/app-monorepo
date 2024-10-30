@@ -1,42 +1,21 @@
-import { SizableText, Stack, XStack } from '../../primitives';
+import type {
+  IShortcutContentProps,
+  IShortcutKeyProps,
+  IShortcutProps,
+} from './type';
 
-import type { ISizableTextProps } from '../../primitives';
-import type { XStackProps } from 'tamagui';
-
-function ShortCutKey(props: ISizableTextProps) {
-  const { children, ...rest } = props;
-
-  return (
-    <Stack
-      justifyContent="center"
-      px="$0.5"
-      borderRadius="$1"
-      minWidth="$4"
-      bg="$bgStrong"
-      borderCurve="continuous"
-    >
-      <SizableText
-        size="$headingXs"
-        color="$textPlaceholder"
-        textAlign="center"
-        {...rest}
-      >
-        {children}
-      </SizableText>
-    </Stack>
-  );
+function ShortcutKey(props: IShortcutKeyProps) {
+  return null;
 }
 
-export type IShortcut = XStackProps;
-
-export function Shortcut(props: IShortcut) {
-  const { children, ...rest } = props;
-
-  return (
-    <XStack gap="$1" {...rest}>
-      {children}
-    </XStack>
-  );
+function ShortcutContent({ shortcutKey }: IShortcutContentProps) {
+  return null;
 }
 
-Shortcut.Key = ShortCutKey;
+export function Shortcut(props: IShortcutProps) {
+  return null;
+}
+
+Shortcut.Key = ShortcutKey;
+
+export * from './type';

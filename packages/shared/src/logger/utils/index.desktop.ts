@@ -4,6 +4,7 @@ import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
 
+logger.transports.console.level = false;
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
@@ -16,7 +17,7 @@ const getLogFilePath = () => Promise.resolve('');
 
 const getDeviceInfo = () =>
   [
-    `System: ${window.desktopApi.platform} ${window.desktopApi.systemVersion}`,
+    `System: ${globalThis.desktopApi.platform} ${globalThis.desktopApi.systemVersion}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,

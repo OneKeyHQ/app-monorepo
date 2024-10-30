@@ -233,7 +233,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.connectSites) {
       // clear connect sites
-      await this.backgroundApi.simpleDb.dappConnection.clearRawData();
+      await this.backgroundApi.serviceDApp.disconnectAllWebsites();
     }
     if (values.signatureRecord) {
       // clear signature record

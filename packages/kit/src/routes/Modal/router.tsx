@@ -22,6 +22,7 @@ import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
+import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -143,6 +144,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.NotificationsModal,
     children: ModalNotificationsRouter,
+  },
+  {
+    name: EModalRoutes.ShortcutsModal,
+    children: ShortcutsModalRouter,
   },
 ];
 

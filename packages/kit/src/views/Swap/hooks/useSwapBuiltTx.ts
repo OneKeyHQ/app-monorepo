@@ -459,7 +459,6 @@ export function useSwapBuildTx() {
                             encodedTx: createBuildTxRes.encodedTx,
                             feeInfo: dataRes?.[0]?.feeInfo,
                             swapInfo: createBuildTxRes.swapInfo,
-                            approvesInfo,
                             onSuccess: handleBuildTxSuccess,
                             onCancel: cancelBuildTx,
                           });

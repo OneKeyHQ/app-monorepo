@@ -16,6 +16,7 @@ module.exports = [
   'tatom',
   'Eip1559',
   'Boardloader',
+  'fs',
   'hdk',
   'dkey',
   'impls',

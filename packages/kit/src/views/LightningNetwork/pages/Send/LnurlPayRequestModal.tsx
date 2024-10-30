@@ -95,6 +95,11 @@ function LnurlPayRequestModal() {
     async (close?: (extra?: { flag?: string }) => void) => {
       if (!lnurlDetails) return;
       if (isLoading) return;
+      const isValid = await useFormReturn.trigger();
+      if (!isValid) {
+        return;
+      }
+
       setIsLoading(true);
 
       const { serviceLightning } = backgroundApiProxy;
@@ -118,7 +123,11 @@ function LnurlPayRequestModal() {
         console.log('fetchLnurlPayRequestResult error: ', e);
         setIsLoading(false);
         dappApprove.reject();
-        return;
+        const message = (e as Error)?.message ?? e;
+        throw new OneKeyError({
+          message,
+          autoToast: true,
+        });
       }
 
       try {

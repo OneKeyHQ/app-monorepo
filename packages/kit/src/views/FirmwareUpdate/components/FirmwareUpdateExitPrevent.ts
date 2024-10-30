@@ -40,6 +40,7 @@ export function FirmwareUpdateExitPrevent({
   useAppExitPrevent({
     title,
     message,
+    shouldPreventExitOnAndroid: false,
   });
 
   // Prevent lockApp:       check servicePassword.lockApp()

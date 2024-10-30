@@ -1,3 +1,4 @@
+import { isUndefined } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -31,43 +32,56 @@ function BalanceDetailsContent({
   networkId: string;
 }) {
   const [settings, setSettings] = useSettingsPersistAtom();
+  const inscriptionEnabled = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
+        networkId,
+        accountId,
+      }),
+    [accountId, networkId],
+  );
   const {
     result: {
       overview = {} as IFetchAccountDetailsResp,
       network = {} as IServerNetwork,
-      inscriptionEnabled = false,
     } = {},
     isLoading,
   } = usePromiseResult(
     async () => {
-      if (!accountId || !networkId) return;
+      if (!accountId || !networkId || isUndefined(inscriptionEnabled.result))
+        return;
       const n = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
-      const checkInscriptionProtectionEnabled =
-        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
-          {
-            networkId,
-            accountId,
-          },
-        );
       const withCheckInscription =
-        checkInscriptionProtectionEnabled && settings.inscriptionProtection;
-      const r =
-        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+        inscriptionEnabled.result && settings.inscriptionProtection;
+      let r: IFetchAccountDetailsResp;
+      try {
+        r = await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId,
           accountId,
           withNonce: false,
           withFrozenBalance: true,
           withCheckInscription,
         });
+      } catch {
+        r = {
+          balanceParsed: '-',
+          totalBalanceParsed: '-',
+          frozenBalanceParsed: '-',
+        } as IFetchAccountDetailsResp;
+      }
       return {
         overview: r,
         network: n,
-        inscriptionEnabled: checkInscriptionProtectionEnabled,
       };
     },
-    [accountId, networkId, settings.inscriptionProtection],
+    [
+      accountId,
+      networkId,
+      settings.inscriptionProtection,
+      inscriptionEnabled.result,
+    ],
     {
       watchLoading: true,
     },
@@ -144,7 +158,7 @@ function BalanceDetailsContent({
             </SizableText>
           )}
         </XStack>
-        {inscriptionEnabled ? (
+        {inscriptionEnabled.result ? (
           <XStack
             py="$2"
             justifyContent="space-between"
@@ -185,7 +199,6 @@ function BalanceDetailsContent({
                   inscriptionProtection: value,
                 }));
               }}
-              disabled={isLoading}
             />
           </XStack>
         ) : null}

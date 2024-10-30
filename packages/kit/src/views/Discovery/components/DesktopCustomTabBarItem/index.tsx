@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
@@ -16,6 +17,7 @@ import { useWebTabDataById } from '../../hooks/useWebTabs';
 function DesktopCustomTabBarItem({
   id,
   activeTabId,
+  shortcutKey,
   onPress,
   onBookmarkPress,
   onPinnedPress,
@@ -25,6 +27,7 @@ function DesktopCustomTabBarItem({
   testID,
 }: IPropsWithTestId<{
   id: string;
+  shortcutKey?: EShortcutEvents;
   activeTabId: string | null;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
@@ -46,6 +49,7 @@ function DesktopCustomTabBarItem({
       {
         items: [
           {
+            shortcutKeys: EShortcutEvents.AddOrRemoveBookmark,
             label: intl.formatMessage({
               id: tab?.isBookmark
                 ? ETranslations.explore_remove_bookmark
@@ -60,6 +64,7 @@ function DesktopCustomTabBarItem({
             }`,
           },
           {
+            shortcutKeys: EShortcutEvents.PinOrUnpinTab,
             label: intl.formatMessage({
               id: tab?.isPinned
                 ? ETranslations.explore_unpin
@@ -86,6 +91,7 @@ function DesktopCustomTabBarItem({
       {
         items: [
           {
+            shortcutKeys: EShortcutEvents.CopyAddressOrUrl,
             label: intl.formatMessage({
               id: ETranslations.global_copy_url,
             }),
@@ -118,6 +124,7 @@ function DesktopCustomTabBarItem({
             testID: `action-list-item-disconnect`,
           },
           {
+            shortcutKeys: EShortcutEvents.CloseTab,
             label: intl.formatMessage({
               id: ETranslations.explore_close_tab,
             }),
@@ -152,6 +159,7 @@ function DesktopCustomTabBarItem({
   return (
     <DesktopTabItem
       showAvatar
+      shortcutKey={shortcutKey}
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}

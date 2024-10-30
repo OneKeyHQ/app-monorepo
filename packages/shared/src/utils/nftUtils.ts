@@ -1,11 +1,11 @@
 import { ResourceType } from '@onekeyfe/hd-transport';
-import axios from 'axios';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { Image } from 'react-native';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import bufferUtils from './bufferUtils';
+import imageUtils from './imageUtils';
 
 import type { IAccountNFT, INFTMetaData } from '../../types/nft';
 import type {
@@ -50,29 +50,6 @@ const getImageSize: (
       (error: any) => reject(error),
     );
   });
-
-/**
- *	use axios to convert image url to base64
- * @param image
- */
-export const imageToBase64 = async (image: string) => {
-  try {
-    const response = await axios.get<{
-      data: string;
-    }>(image, {
-      responseType: 'arraybuffer',
-      headers: {
-        accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;',
-      },
-    });
-    const buffer = Buffer.from(response.data.data, 'binary').toString('base64');
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    return `data:${response.headers['content-type']};base64,${buffer}`;
-  } catch {
-    // TODO fallback to download image by backend service
-    return '';
-  }
-};
 
 function getOriginX(
   originW: number,
@@ -200,8 +177,13 @@ export async function generateUploadNFTParams({
 }) {
   const { width, height } = await getImageSize(imageUri);
   console.log('image size: ', { width, height });
-  const base64 = await imageToBase64(imageUri);
-  console.log(base64);
+
+  const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
+
+  if (!base64) {
+    throw new Error(`Failed to get base64 from image uri: ${imageUri}`);
+  }
+
   const data = await compressNFT(base64, 480, 800, width, height, false);
 
   const zoomWidth = deviceType === 'touch' ? 238 : 226;

@@ -234,6 +234,15 @@ function SendConfirmActionsContainer(props: IProps) {
     onSuccess,
   ]);
 
+  const cancelCalledRef = useRef(false);
+  const onCancelOnce = useCallback(() => {
+    if (cancelCalledRef.current) {
+      return;
+    }
+    cancelCalledRef.current = true;
+    onCancel?.();
+  }, [onCancel]);
+
   const handleOnCancel = useCallback(
     (close: () => void, closePageStack: () => void) => {
       dappApprove.reject();
@@ -242,9 +251,9 @@ function SendConfirmActionsContainer(props: IProps) {
       } else {
         close();
       }
-      onCancel?.();
+      onCancelOnce();
     },
-    [dappApprove, onCancel, sourceInfo],
+    [dappApprove, onCancelOnce, sourceInfo],
   );
 
   const isSubmitDisabled = useMemo(() => {
@@ -265,7 +274,7 @@ function SendConfirmActionsContainer(props: IProps) {
 
   usePageUnMounted(() => {
     if (!isSubmitted.current) {
-      onCancel?.();
+      onCancelOnce();
     }
   });
 

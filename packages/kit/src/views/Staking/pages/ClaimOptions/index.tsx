@@ -72,6 +72,7 @@ const ClaimOptions = () => {
               createAt: Date.now(),
               accountId,
               networkId,
+              amount: item.amount,
             });
           }
           appNavigation.pop();

@@ -31,6 +31,7 @@ export enum EAppEventBusNames {
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
+  WalletRename = 'WalletRename',
   AccountUpdate = 'AccountUpdate',
   AccountRemove = 'AccountRemove',
   AddDBAccountsToWallet = 'AddDBAccountsToWallet',
@@ -92,6 +93,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
+    walletId: string;
+  };
+  [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: undefined;
@@ -197,7 +201,14 @@ export interface IAppEventBusPayload {
     map: Record<string, ITokenFiat>;
     merge?: boolean;
   };
-  [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.RefreshTokenList]:
+    | undefined
+    | {
+        accounts: {
+          accountId: string;
+          networkId: string;
+        }[];
+      };
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -362,7 +373,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appEventBus = appEventBus;
+  globalThis.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };

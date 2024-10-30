@@ -7,6 +7,7 @@ import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccount
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -24,6 +25,7 @@ import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs'
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -57,6 +59,10 @@ export class SimpleDbProxy
   browserBookmarks = this._createProxyService(
     'browserBookmarks',
   ) as SimpleDbEntityBrowserBookmarks;
+
+  browserClosedTabs = this._createProxyService(
+    'browserClosedTabs',
+  ) as SimpleDbEntityBrowserClosedTabs;
 
   browserRiskWhiteList = this._createProxyService(
     'browserRiskWhiteList',
@@ -109,6 +115,10 @@ export class SimpleDbProxy
   networkSelector = this._createProxyService(
     'networkSelector',
   ) as SimpleDbEntityNetworkSelector;
+
+  notificationSettings = this._createProxyService(
+    'notificationSettings',
+  ) as SimpleDbEntityNotificationSettings;
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 

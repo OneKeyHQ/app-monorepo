@@ -13,6 +13,7 @@ export enum EModalSettingRoutes {
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
+  SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
 }
 
@@ -31,5 +32,6 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
+  [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
 };

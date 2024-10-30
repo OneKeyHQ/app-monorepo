@@ -24,6 +24,7 @@ function DAppRequestLayout({
   children,
   displaySignMessageAlert,
   signMessageAlertProps,
+  fullScreen = true,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -33,6 +34,7 @@ function DAppRequestLayout({
   favicon?: string; // for WalletConnect
   displaySignMessageAlert?: boolean;
   signMessageAlertProps?: IAlertProps;
+  fullScreen?: boolean;
 }>) {
   const { top } = useSafeAreaInsets();
 
@@ -62,7 +64,7 @@ function DAppRequestLayout({
   return (
     <Stack
       $md={{
-        mt: top,
+        mt: fullScreen ? top : undefined,
       }}
     >
       <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />

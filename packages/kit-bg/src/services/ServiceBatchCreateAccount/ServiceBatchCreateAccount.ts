@@ -773,6 +773,13 @@ class ServiceBatchCreateAccount extends ServiceBase {
         }
       }
     }
+
+    if (saveToDb) {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId,
+        accounts: accountsForCreate,
+      });
+    }
     return { accountsForCreate };
   }
 }

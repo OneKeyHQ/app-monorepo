@@ -4,6 +4,7 @@ import { forEach, isNil, isString } from 'lodash';
 import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
 
 import { defaultLogger } from '../logger/logger';
+import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 
@@ -74,7 +75,9 @@ const newFetch = async function (
     });
   }
 
-  defaultLogger.app.network.start('fetch', options.method, url, requestId);
+  if (isEnableLogNetwork(url)) {
+    defaultLogger.app.network.start('fetch', options.method, url, requestId);
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
   return (
@@ -82,13 +85,15 @@ const newFetch = async function (
       // @ts-ignore
       .call(this, resource, options, ...others)
       .then((res) => {
-        defaultLogger.app.network.end({
-          requestType: 'fetch',
-          method: options?.method as string,
-          path: url,
-          statusCode: res.status,
-          requestId,
-        });
+        if (isEnableLogNetwork(url)) {
+          defaultLogger.app.network.end({
+            requestType: 'fetch',
+            method: options?.method as string,
+            path: url,
+            statusCode: res.status,
+            requestId,
+          });
+        }
         return res.clone();
       })
       .catch((e: unknown) => {
@@ -112,7 +117,7 @@ const newFetch = async function (
 };
 console.log('fetchInterceptor.ts', fetch);
 // @ts-ignore
-if (global.fetch && !global.fetch.isNormalizedByOneKey) {
+if (globalThis.fetch && !globalThis.fetch.isNormalizedByOneKey) {
   // **** for global instance of fetch
-  global.fetch = newFetch;
+  globalThis.fetch = newFetch;
 }

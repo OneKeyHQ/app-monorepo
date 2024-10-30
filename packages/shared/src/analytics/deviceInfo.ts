@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { IDeviceInfo, IGetDeviceInfo } from './type';

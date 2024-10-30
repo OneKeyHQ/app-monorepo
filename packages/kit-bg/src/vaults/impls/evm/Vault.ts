@@ -286,7 +286,7 @@ export default class Vault extends VaultBase {
     }
 
     return this._buildDecodedTx({
-      encodedTx,
+      unsignedTx,
       action,
       extraNativeTransferAction,
     });
@@ -384,6 +384,14 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         tokenApproveInfo,
       });
+
+      if (unsignedTx.approveInfo) {
+        unsignedTx.approveInfo = {
+          ...unsignedTx.approveInfo,
+          amount: tokenApproveInfo.allowance,
+          isMax: tokenApproveInfo.isUnlimited,
+        };
+      }
     }
 
     if (feeInfo) {
@@ -430,11 +438,12 @@ export default class Vault extends VaultBase {
   }
 
   async _buildDecodedTx(params: {
-    encodedTx: IEncodedTxEvm;
+    unsignedTx: IUnsignedTxPro;
     action: IDecodedTxAction | undefined;
     extraNativeTransferAction: IDecodedTxAction | undefined;
   }): Promise<IDecodedTx> {
-    const { encodedTx, action, extraNativeTransferAction } = params;
+    const { unsignedTx, action, extraNativeTransferAction } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
     const finalActions = mergeAssetTransferActions(
       [action, extraNativeTransferAction].filter(Boolean),
@@ -452,6 +461,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       encodedTx,
       extraInfo: null,
+      approveInfo: unsignedTx.approveInfo,
     };
     return decodedTx;
   }
