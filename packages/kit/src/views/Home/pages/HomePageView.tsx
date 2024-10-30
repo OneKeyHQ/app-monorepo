@@ -154,14 +154,14 @@ export function HomePageView({
     [tabs, screenWidth, onRefresh],
   );
 
-  const debouncedNetInfo = useDebounce(netInfo, 1000);
+  const debouncedNetInfo = useDebounce(netInfo, 500);
 
   const isOffline =
     (!debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null) ||
     debouncedNetInfo.isInternetReachable === false;
 
   useEffect(() => {
-    Icon.prefetch('CloudOffOutline');
+    void Icon.prefetch('CloudOffOutline');
   }, []);
 
   const renderHomePageContent = useCallback(() => {
