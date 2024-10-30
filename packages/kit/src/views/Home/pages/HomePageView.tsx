@@ -244,7 +244,6 @@ export function HomePageView({
       content = renderHomePageContent();
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
-    console.log(netInfo);
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
@@ -273,7 +272,14 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, netInfo, sceneName, intl, renderHomePageContent]);
+  }, [
+    ready,
+    wallet,
+    sceneName,
+    netInfo.isConnected,
+    intl,
+    renderHomePageContent,
+  ]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,
