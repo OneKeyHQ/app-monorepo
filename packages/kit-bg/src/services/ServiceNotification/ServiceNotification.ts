@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -50,9 +51,9 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
-import type { IDBAccount } from '../../dbs/local/types';
 import type { Socket } from 'socket.io-client';
+import type { IDBAccount } from '../../dbs/local/types';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -73,6 +74,9 @@ export default class ServiceNotification extends ServiceBase {
       void this.registerClientWithOverrideAllAccounts();
     });
     appEventBus.on(EAppEventBusNames.WalletRemove, () => {
+      void this.registerClientWithOverrideAllAccounts();
+    });
+    appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.registerClientWithOverrideAllAccounts();
     });
   }
@@ -485,14 +489,32 @@ export default class ServiceNotification extends ServiceBase {
             networkImpl = IMPL_EVM;
             networkId = undefined;
           }
-          const acc: INotificationPushSyncAccount = {
-            networkId,
-            networkImpl,
-            accountAddress: networkAccount.addressDetail.displayAddress,
+          const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: networkAccount.id,
-            accountName: networkAccount.name,
-          };
-          syncAccounts.push(acc);
+          });
+          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+            walletId,
+          });
+          const isEnabled =
+            await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
+              {
+                walletId,
+                accountId: account.id,
+                indexedAccountId: account.indexedAccountId,
+              },
+            );
+          if (isEnabled && wallet) {
+            const acc: INotificationPushSyncAccount = {
+              networkId,
+              networkImpl,
+              accountAddress: networkAccount.addressDetail.displayAddress,
+              accountId: networkAccount.id,
+              accountName: wallet.name
+                ? `${wallet.name} / ${networkAccount.name}`
+                : networkAccount.name,
+            };
+            syncAccounts.push(acc);
+          }
         }
       }
     }
@@ -511,6 +533,7 @@ export default class ServiceNotification extends ServiceBase {
     const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
       {
         ids: accountIds,
+        filterRemoved: true,
       },
     );
 

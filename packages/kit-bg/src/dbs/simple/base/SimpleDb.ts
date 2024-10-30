@@ -21,6 +21,7 @@ import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -61,6 +62,8 @@ export class SimpleDb {
   defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
 
   networkSelector = new SimpleDbEntityNetworkSelector();
+
+  notificationSettings = new SimpleDbEntityNotificationSettings();
 
   lightning = new SimpleDbEntityLightning();
 

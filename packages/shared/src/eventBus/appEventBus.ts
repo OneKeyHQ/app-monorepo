@@ -31,6 +31,7 @@ export enum EAppEventBusNames {
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
+  WalletRename = 'WalletRename',
   AccountUpdate = 'AccountUpdate',
   AccountRemove = 'AccountRemove',
   AddDBAccountsToWallet = 'AddDBAccountsToWallet',
@@ -92,6 +93,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
+    walletId: string;
+  };
+  [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: undefined;
