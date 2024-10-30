@@ -158,9 +158,7 @@ export default class Vault extends VaultBase {
     const tx = Transaction.from(encodedTx.rawTx);
     tx.setSender(tx.blockData.sender ?? (await this.getAccountAddress()));
 
-    console.log('transactionUtils: ', transactionUtils);
     const transactionType = transactionUtils.analyzeTransactionType(tx);
-    console.log('transactionType: ', transactionType);
 
     const network = await this.getNetwork();
     const account = await this.getAccount();
@@ -191,7 +189,6 @@ export default class Vault extends VaultBase {
             },
           ],
         });
-        console.log('action: ', action);
         actions.push(action);
       } else {
         // use dry-run result to create action
@@ -200,11 +197,9 @@ export default class Vault extends VaultBase {
         const dryRunResult = await client.dryRunTransactionBlock({
           transactionBlock: buildTx,
         });
-        console.log('dry run result: ', dryRunResult);
         const transfers = transactionUtils.parseTransferDetails({
           balanceChanges: dryRunResult.balanceChanges,
         });
-        console.log('transfers: ', transfers);
         if (transfers.length > 0) {
           const action = await this.buildTxTransferAssetAction({
             from: transfers[0].from,
@@ -260,10 +255,12 @@ export default class Vault extends VaultBase {
     }
 
     if (swapInfo) {
+      const toAddress =
+        unsignedTx.transfersInfo?.[0]?.to || actions?.[0]?.assetTransfer?.to;
       actions = [
         await this.buildInternalSwapAction({
           swapInfo,
-          swapToAddress: '',
+          swapToAddress: toAddress,
         }),
       ];
     }
