@@ -4,15 +4,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import {
-  Alert,
-  Page,
-  SizableText,
-  Stack,
-  Tab,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Alert, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -165,7 +157,8 @@ export function HomePageView({
   const debouncedNetInfo = useDebounce(netInfo, 1000);
 
   const isOffline =
-    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
+    (!debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null) ||
+    debouncedNetInfo.isInternetReachable === false;
 
   const renderHomePageContent = useCallback(() => {
     if (
