@@ -1058,7 +1058,7 @@ function HistoryDetails() {
     txInfo?.blockHeight,
     txInfo?.nonce,
     txInfo?.confirmations,
-    txInfo.data,
+    txInfo?.data,
     renderTxMetaInfo,
     txid,
     vaultSettings?.hideBlockExplorer,

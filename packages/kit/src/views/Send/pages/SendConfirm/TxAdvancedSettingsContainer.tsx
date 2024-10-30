@@ -216,7 +216,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
                 if (value === '') {
                   finalValue = '';
                 } else {
-                  const formattedValue = parseInt(value, 10);
+                  const formattedValue = Number.parseInt(value, 10);
 
                   if (isNaN(formattedValue)) {
                     form.setValue('nonce', '');
