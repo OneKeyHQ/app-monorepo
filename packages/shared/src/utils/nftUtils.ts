@@ -178,7 +178,7 @@ export async function generateUploadNFTParams({
   const { width, height } = await getImageSize(imageUri);
   console.log('image size: ', { width, height });
 
-  const base64 = await imageUtils.getBase64FromImageUri(imageUri);
+  const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
 
   if (!base64) {
     throw new Error('Failed to get base64 from image uri');

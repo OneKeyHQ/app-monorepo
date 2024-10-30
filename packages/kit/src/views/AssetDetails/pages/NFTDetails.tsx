@@ -35,6 +35,7 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function NFTDetails() {
   const intl = useIntl();
@@ -146,7 +147,9 @@ export function NFTDetails() {
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
+    // Disable NFT image collection on web due to CORS errors when fetching NFT image data
     if (
+      !platformEnv.isWeb &&
       nft &&
       nft.metadata &&
       nft.metadata.image &&
