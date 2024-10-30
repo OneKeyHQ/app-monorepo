@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -161,7 +162,10 @@ export function HomePageView({
     [tabs, screenWidth, onRefresh],
   );
 
-  const isOffline = !netInfo.isConnected && netInfo.isConnected !== null;
+  const debouncedNetInfo = useDebounce(netInfo, 1000);
+
+  const isOffline =
+    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
 
   const renderHomePageContent = useCallback(() => {
     if (
