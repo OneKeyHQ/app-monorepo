@@ -62,7 +62,6 @@ function SecureEntryTextArea({
   onChange?: ITextAreaInputProps['onChangeText'];
   secureEntry: boolean;
 }) {
-  console.log('--SecureEntryTextArea', secureEntry, value);
   return (
     <TextAreaInput
       testID="account-key-input"
