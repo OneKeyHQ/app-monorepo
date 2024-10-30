@@ -45,7 +45,6 @@ export function ScanCamera({
       <Button onPress={() => setIsFocus((prev) => !prev)}>test</Button>
       {isFocus ? (
         <Camera
-          key={Math.random().toString()}
           style={{ flex: 1 }}
           resizeMode="cover"
           scanBarcode
