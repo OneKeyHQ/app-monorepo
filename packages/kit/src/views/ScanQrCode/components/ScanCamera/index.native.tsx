@@ -41,7 +41,6 @@ export function ScanCamera({
 
   return (
     <>
-      <Button onPress={() => setIsFocus((prev) => !prev)}>test</Button>
       {isFocus ? (
         <Camera
           style={{ flex: 1 }}
