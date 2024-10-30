@@ -15,12 +15,12 @@ export const useShortcuts = (
       }
     };
     if (platformEnv.isDesktop) {
-      window.desktopApi.addIpcEventListener(
+      globalThis.desktopApi.addIpcEventListener(
         ipcMessageKeys.APP_SHORCUT,
         handleCallback,
       );
       return () => {
-        window.desktopApi.removeIpcEventListener(
+        globalThis.desktopApi.removeIpcEventListener(
           ipcMessageKeys.APP_SHORCUT,
           handleCallback,
         );

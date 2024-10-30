@@ -101,14 +101,14 @@ export const useDiscoveryShortcuts = () => {
               // empty
             }
           } else {
-            window.desktopApi.quitApp();
+            globalThis.desktopApi.quitApp();
           }
           break;
         case EShortcutEvents.CloseTab:
           if (isAtBrowserTab.current) {
             handleCloseWebTab();
           } else {
-            window.desktopApi.quitApp();
+            globalThis.desktopApi.quitApp();
           }
           return;
         case EShortcutEvents.SearchInPage:
