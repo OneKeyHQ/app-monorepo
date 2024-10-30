@@ -8,6 +8,6 @@ export class HardwareScope extends BaseScope {
   protected override scopeName = EScopeName.hardware;
 
   sdkLog = this.createScene('sdkLog', HardwareSDKScene);
-  
+
   homescreen = this.createScene('homescreen', HardwareHomeScreenScene);
 }
