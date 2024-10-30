@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
@@ -27,11 +27,12 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
           ? {
               addOns: [
                 {
-                  renderContent: (
-                    <Shortcut alignSelf="center" mr="$2.5">
-                      <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
-                      <Shortcut.Key>T</Shortcut.Key>
-                    </Shortcut>
+                  label: (
+                    <Shortcut
+                      alignSelf="center"
+                      mr="$2.5"
+                      shortcutKey={EShortcutEvents.SearchInPage}
+                    />
                   ),
                 },
               ],

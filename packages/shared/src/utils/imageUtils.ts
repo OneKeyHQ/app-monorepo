@@ -64,7 +64,7 @@ function convertToBlackAndWhiteImageBase64(
   mime: string,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
+    return globalThis.$webembedApiProxy.imageUtils.convertToBlackAndWhiteImageBase64(
       colorImageBase64,
       mime,
     );
@@ -424,7 +424,6 @@ async function getBase64FromRequiredImageSource(
 function buildHtmlImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-
     image.onload = () => resolve(image);
     image.onerror = (e) => reject(e);
     image.src = dataUrl;
@@ -505,7 +504,7 @@ async function base64ImageToBitmap({
   height: number;
 }): Promise<string> {
   if (platformEnv.isNative) {
-    return global.$webembedApiProxy.imageUtils.base64ImageToBitmap({
+    return globalThis.$webembedApiProxy.imageUtils.base64ImageToBitmap({
       base64,
       width,
       height,
@@ -526,4 +525,5 @@ export default {
   getBase64FromRequiredImageSource,
   getBase64FromImageUri,
   base64ImageToBitmap,
+  buildHtmlImage,
 };

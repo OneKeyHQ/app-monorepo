@@ -56,7 +56,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
       },
     });
     if (process.env.NODE_ENV !== 'production') {
-      global.$$realm = realm;
+      globalThis.$$realm = realm;
       setTimeout(() => {
         appEventBus.emit(EAppEventBusNames.RealmInit, undefined);
       }, 3000);

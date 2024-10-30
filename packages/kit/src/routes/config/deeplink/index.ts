@@ -41,7 +41,7 @@ async function processDeepLinkUrlAccount({
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
       console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
-      const navigation = global.$rootAppNavigation;
+      const navigation = globalThis.$rootAppNavigation;
       switch (hostname) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
@@ -214,7 +214,7 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  global.$$handleDeepLinkUrl = handleDeepLinkUrl;
+  globalThis.$$handleDeepLinkUrl = handleDeepLinkUrl;
 }
 
 export const registerDeepLinking = () => registerHandler(handleDeepLinkUrl);

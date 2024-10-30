@@ -14,11 +14,13 @@ export function HandleRebuildBrowserData() {
 
   usePromiseResult(async () => {
     // Tabs
-    const [tabsData, bookmarksData, historyData] = await Promise.all([
-      backgroundApiProxy.simpleDb.browserTabs.getRawData(),
-      backgroundApiProxy.simpleDb.browserBookmarks.getRawData(),
-      backgroundApiProxy.simpleDb.browserHistory.getRawData(),
-    ]);
+    const [tabsData, bookmarksData, historyData, closedTabData] =
+      await Promise.all([
+        backgroundApiProxy.simpleDb.browserTabs.getRawData(),
+        backgroundApiProxy.simpleDb.browserBookmarks.getRawData(),
+        backgroundApiProxy.simpleDb.browserHistory.getRawData(),
+        backgroundApiProxy.simpleDb.browserClosedTabs.getRawData(),
+      ]);
     const tabs = tabsData?.tabs ?? [];
     defaultLogger.discovery.browser.setTabsDataFunctionName(
       'setTabsInitializeLock-> true',
@@ -44,6 +46,15 @@ export function HandleRebuildBrowserData() {
     }
 
     setBrowserDataReady();
+
+    // closed Tabs
+    const closedTabs = closedTabData?.tabs || [];
+    if (closedTabs && Array.isArray(closedTabs) && histories.length > 0) {
+      buildHistoryData({
+        data: histories,
+        options: { isInitFromStorage: true },
+      });
+    }
   }, [buildWebTabs, buildBookmarkData, buildHistoryData, setBrowserDataReady]);
 
   return null;

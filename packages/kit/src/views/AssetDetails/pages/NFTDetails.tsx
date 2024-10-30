@@ -16,6 +16,7 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
@@ -23,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { generateUploadNFTParams } from '@onekeyhq/shared/src/utils/nftUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
@@ -33,6 +35,15 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
+
+const isCollectNFTDeviceCompatible = (device?: IDBDevice) =>
+  device && (device.deviceType === 'touch' || device.deviceType === 'pro');
+
+// Disable NFT image collection on web due to CORS errors when fetching NFT image data
+const canCollectNFT = (nft?: IAccountNFT, device?: IDBDevice) =>
+  !platformEnv.isWeb &&
+  nft?.metadata?.image &&
+  isCollectNFTDeviceCompatible(device);
 
 export function NFTDetails() {
   const intl = useIntl();
@@ -86,76 +97,85 @@ export function NFTDetails() {
 
   const { network, nft, device } = result ?? {};
 
-  const handleCollectNFTToDevice = useCallback(async () => {
-    if (!nft || !nft.metadata || !nft.metadata.image || !device) return;
+  const handleCollectNFTToDevice = useCallback(
+    async (close: () => void) => {
+      close();
+      if (!nft || !nft.metadata || !nft.metadata.image || !device) return;
 
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      });
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
 
-    setIsCollecting(true);
-    let uploadResParams: DeviceUploadResourceParams | undefined;
-    try {
-      const name = nft.metadata?.name;
-      uploadResParams = await generateUploadNFTParams({
-        imageUri: nft.metadata?.image ?? '',
-        metadata: {
-          header: name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
-          subheader: nft.metadata?.description ?? '',
-          network: network?.name ?? '',
-          owner: accountAddress,
-        },
-        deviceType: device.deviceType,
-      });
-    } catch (e) {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.update_download_failed }),
-      });
-      setIsCollecting(false);
-      return;
-    }
-    if (uploadResParams && !modalClosed.current) {
+      setIsCollecting(true);
+      let uploadResParams: DeviceUploadResourceParams | undefined;
       try {
-        await backgroundApiProxy.serviceHardware.uploadResource(
-          device?.connectId ?? '',
-          uploadResParams,
-        );
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_change_saved,
-          }),
+        const name = nft.metadata?.name;
+        uploadResParams = await generateUploadNFTParams({
+          imageUri: nft.metadata?.image ?? '',
+          metadata: {
+            header:
+              name && name?.length > 0 ? name : `#${nft.collectionAddress}`,
+            subheader: nft.metadata?.description ?? '',
+            network: network?.name ?? '',
+            owner: accountAddress,
+          },
+          deviceType: device.deviceType,
         });
       } catch (e) {
-        Toast.error({ title: (e as Error).message });
-      } finally {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.update_download_failed,
+          }),
+        });
         setIsCollecting(false);
+        return;
       }
-    }
-  }, [accountId, device, intl, network?.name, networkId, nft]);
+      if (uploadResParams && !modalClosed.current) {
+        try {
+          await backgroundApiProxy.serviceNFT.uploadNFTImageToDevice({
+            accountId,
+            uploadResParams,
+          });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.nft_already_collected,
+            }),
+          });
+        } catch (e) {
+          Toast.error({ title: (e as Error).message });
+        } finally {
+          setIsCollecting(false);
+        }
+      }
+    },
+    [accountId, device, intl, network?.name, networkId, nft],
+  );
 
   const headerRight = useCallback(() => {
     const actions: IActionListItemProps[] = [];
-
-    if (
-      nft &&
-      nft.metadata &&
-      nft.metadata.image &&
-      device &&
-      (device.deviceType === 'touch' || device.deviceType === 'pro')
-    ) {
-      // TODO collect to device
+    if (device && canCollectNFT(nft, device)) {
       actions.push({
-        label: `Collect to ${String(device.deviceType).toUpperCase()}`,
+        label: intl.formatMessage(
+          {
+            id: ETranslations.nft_collect_to_touch,
+          },
+          {
+            device: stringUtils.capitalizeWords(String(device.deviceType)),
+          },
+        ),
         icon: 'InboxOutline',
         onPress: handleCollectNFTToDevice,
-        disabled: isCollecting,
       });
     }
 
     if (actions.length === 0) {
       return null;
+    }
+
+    if (isCollecting) {
+      return <Spinner color="$iconSubdued" size="small" />;
     }
 
     return (
@@ -167,7 +187,7 @@ export function NFTDetails() {
         items={actions}
       />
     );
-  }, [device, handleCollectNFTToDevice, isCollecting, nft]);
+  }, [device, handleCollectNFTToDevice, intl, isCollecting, nft]);
 
   const handleSendPress = useCallback(() => {
     if (!nft) return;
@@ -210,7 +230,7 @@ export function NFTDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={nft.metadata?.name || ''} />
+      <Page.Header title={nft.metadata?.name || ''} headerRight={headerRight} />
       <Page.Body>
         <Stack
           $gtMd={{

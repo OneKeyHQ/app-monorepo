@@ -15,6 +15,7 @@ import {
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -37,8 +38,6 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-
-import { Section } from '../Section';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
@@ -115,7 +114,7 @@ export const DevSettingsSection = () => {
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
         if (platformEnv.isDesktop) {
-          window?.desktopApi.changeDevTools(false);
+          globalThis?.desktopApi.changeDevTools(false);
         }
       },
     });
@@ -125,7 +124,7 @@ export const DevSettingsSection = () => {
     showDevOnlyPasswordDialog({
       title: 'Danger Zone: Open Chrome DevTools',
       onConfirm: async () => {
-        window?.desktopApi.changeDevTools(true);
+        globalThis?.desktopApi.changeDevTools(true);
       },
     });
   }, []);
@@ -159,7 +158,7 @@ export const DevSettingsSection = () => {
             title="Print Env Path in Desktop"
             subtitle="getEnvPath()"
             onPress={async () => {
-              const envPath = window?.desktopApi.getEnvPath();
+              const envPath = globalThis?.desktopApi.getEnvPath();
               console.log(envPath);
               Dialog.show({
                 title: 'getEnvPath',
@@ -199,7 +198,7 @@ export const DevSettingsSection = () => {
         }}
         onValueChange={(enabled: boolean) => {
           if (platformEnv.isDesktop) {
-            window.desktopApi?.setAutoUpdateSettings?.({
+            globalThis.desktopApi?.setAutoUpdateSettings?.({
               useTestFeedUrl: enabled,
             });
           }
@@ -469,12 +468,12 @@ export const DevSettingsSection = () => {
           <SectionPressItem
             copyable
             title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
-              window?.desktopApi?.channel || ''
-            } ${window?.desktopApi?.isMas ? 'mas' : ''}`}
+              globalThis?.desktopApi?.channel || ''
+            } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
           />
           <SectionPressItem
             copyable
-            title={`Desktop arch: ${window?.desktopApi?.arch || ''}`}
+            title={`Desktop arch: ${globalThis?.desktopApi?.arch || ''}`}
           />
         </>
       ) : null}
@@ -484,7 +483,7 @@ export const DevSettingsSection = () => {
           drillIn
           onPress={() => {
             switchWebDappMode();
-            window.location.reload();
+            globalThis.location.reload();
           }}
           title={`Switch web mode: ${
             isWebInDappMode() ? 'dapp' : 'wallet'

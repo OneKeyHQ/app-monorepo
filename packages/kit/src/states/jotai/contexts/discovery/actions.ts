@@ -39,6 +39,7 @@ import {
   contextAtomMethod,
   disabledAddedNewTabAtom,
   displayHomePageAtom,
+  lastClosedTabAtom,
   phishingLruCacheAtom,
   webTabsAtom,
   webTabsMapAtom,
@@ -221,6 +222,39 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
   });
 
+  buildClosedTabData = contextAtomMethod((get, set, payload: IWebTab[]) => {
+    const isReady = get(browserDataReadyAtom());
+    if (!isReady) {
+      return;
+    }
+    const tabs = payload.length > 100 ? payload.slice(20) : payload;
+    void backgroundApiProxy.simpleDb.browserClosedTabs.setRawData({
+      tabs,
+    });
+    set(lastClosedTabAtom(), { tabs });
+  });
+
+  reOpenLastClosedTab = contextAtomMethod((get, set) => {
+    const { tabs } = get(lastClosedTabAtom());
+    if (tabs.length) {
+      const tab = tabs.pop();
+      if (tab) {
+        this.addWebTab.call(set, tab);
+        this.buildClosedTabData.call(set, tabs);
+        return true;
+      }
+    }
+    return false;
+  });
+
+  saveLastClosedTab = contextAtomMethod(
+    (get, set, tab: IWebTab | IWebTab[]) => {
+      const { tabs } = get(lastClosedTabAtom());
+      tabs.push(...(Array.isArray(tab) ? tab : [tab]));
+      this.buildClosedTabData.call(set, tabs);
+    },
+  );
+
   closeWebTab = contextAtomMethod(
     (
       get,
@@ -234,6 +268,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
         const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
+        const closedTab = tabs[targetIndex];
         tabs.splice(targetIndex, 1);
 
         if (isClosingActiveTab) {
@@ -255,6 +290,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             );
           }
         }
+
+        setTimeout(() => {
+          this.saveLastClosedTab.call(set, closedTab);
+        }, 50);
       }
       loggerForEmptyData([...tabs], 'closeWebTab');
       this.buildWebTabs.call(set, { data: [...tabs] });
@@ -280,6 +319,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
     loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
+
+    setTimeout(() => {
+      this.saveLastClosedTab.call(set, tabsToClose);
+    }, 50);
 
     defaultLogger.discovery.browser.clearTabs({
       clearTabsAmount: tabsToClose.length,
@@ -738,7 +781,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const cache = get(phishingLruCacheAtom());
         cache.set(origin, true);
         set(phishingLruCacheAtom(), cache);
-        window.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
+        globalThis.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
       } catch {
         // ignore
       }
@@ -846,6 +889,7 @@ export function useBrowserTabActions() {
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
+  const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
 
   return useRef({
     addWebTab,
@@ -860,6 +904,7 @@ export function useBrowserTabActions() {
     setPinnedTab,
     setDisplayHomePage,
     setBrowserDataReady,
+    reOpenLastClosedTab,
   });
 }
 

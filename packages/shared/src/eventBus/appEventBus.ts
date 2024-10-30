@@ -369,7 +369,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appEventBus = appEventBus;
+  globalThis.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };
