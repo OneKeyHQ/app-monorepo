@@ -18,8 +18,11 @@ import type {
   IFetchNFTDetailsParams,
   IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from './ServiceBase';
+
+import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
@@ -28,6 +31,27 @@ class ServiceNFT extends ServiceBase {
   }
 
   _fetchAccountNFTsControllers: AbortController[] = [];
+
+  @backgroundMethod()
+  public async uploadNFTImageToDevice(params: {
+    accountId: string;
+    uploadResParams: DeviceUploadResourceParams;
+  }) {
+    const { accountId, uploadResParams } = params;
+    const { deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.Default,
+      });
+    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () =>
+        this.backgroundApi.serviceHardware.uploadResource(
+          deviceParams?.dbDevice.connectId ?? '',
+          uploadResParams,
+        ),
+      { deviceParams, debugMethodName: 'nft.uploadNFTImageToDevice' },
+    );
+  }
 
   @backgroundMethod()
   public async abortFetchAccountNFTs() {
