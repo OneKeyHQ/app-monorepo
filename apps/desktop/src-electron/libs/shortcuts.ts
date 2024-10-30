@@ -1,18 +1,30 @@
 import { app, globalShortcut } from 'electron';
 
-import { getShortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import type { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
-const shortcutsMap = getShortcutsMap();
-export function registerShortcuts(
-  callback: (event: EBrowserShortcutEvents) => void,
-) {
+export function registerShortcuts(callback: (event: EShortcutEvents) => void) {
   void app.whenReady().then(() => {
     Object.entries(shortcutsMap).forEach(([event, { keys }]) => {
       if (keys) {
-        globalShortcut.register(keys, () => {
-          callback(event as EBrowserShortcutEvents);
-        });
+        globalShortcut.register(
+          keys
+            .map((key) => {
+              switch (key) {
+                case shortcutsKeys.CmdOrCtrl:
+                  return 'CmdOrCtrl';
+                case shortcutsKeys.Shift:
+                  return 'Shift';
+                default:
+                  return key;
+              }
+            })
+            .join('+'),
+          () => {
+            callback(event as EShortcutEvents);
+          },
+        );
       }
     });
   });

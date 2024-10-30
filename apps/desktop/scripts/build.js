@@ -21,6 +21,10 @@ build({
   // Help esbuild locate missing dependencies.
   alias: {
     '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
+    'react-native': path.join(
+      __dirname,
+      '../../desktop/src-electron/libs/react-native-mock',
+    ),
     'react-native-uuid': path.join(
       __dirname,
       '../../../node_modules/react-native-uuid/dist',
@@ -45,7 +49,7 @@ build({
     const hrend = process.hrtime(hrstart);
     console.log(
       '[Electron Build] Finished in %dms',
-      (hrend[1] / 1000000 + hrend[0] * 1000).toFixed(1),
+      (hrend[1] / 1_000_000 + hrend[0] * 1000).toFixed(1),
     );
   })
   .catch(() => process.exit(1));
