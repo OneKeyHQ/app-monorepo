@@ -126,13 +126,9 @@ function useAccountNotificationSettings() {
 }
 
 function formatSavedEnabledValue(value: boolean) {
-  if (value && NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED === true) {
-    return undefined;
-  }
-  if (!value && NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED === false) {
-    return undefined;
-  }
-  return value;
+  return value === NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
+    ? undefined
+    : value;
 }
 
 function AccordionItem({
@@ -149,8 +145,6 @@ function AccordionItem({
     settings: accountNotificationSettings,
     saveSettings: saveAccountNotificationSettings,
   } = useAccountNotificationSettings();
-
-  console.log('accountNotificationSettings', accountNotificationSettings);
 
   const isWalletEnabled =
     accountNotificationSettings?.[wallet.id]?.enabled ??

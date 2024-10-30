@@ -586,13 +586,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             : undefined,
         });
         if (includingAccounts) {
-          await fillDbAccounts(newWallet);
-          await Promise.all(
-            (newWallet?.hiddenWallets || [])?.map(async (hw) => {
+          await Promise.all([
+            fillDbAccounts(newWallet),
+            ...(newWallet?.hiddenWallets || []).map(async (hw) => {
               await fillDbAccounts(hw);
               return hw;
             }),
-          );
+          ]);
         }
         return newWallet;
       }),
