@@ -1,17 +1,14 @@
-import {
-  SUI_TYPE_ARG,
-  TransactionBlock,
-  normalizeSuiAddress,
-} from '@mysten/sui.js';
+import { Transaction } from '@mysten/sui/transactions';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
+import type { OneKeySuiClient } from './ClientSui';
 import type {
-  JsonRpcProvider,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui.js';
+} from '@mysten/sui/client';
 
 export function normalizeSuiCoinType(coinType: string): string {
   if (coinType !== SUI_TYPE_ARG) {
@@ -29,34 +26,31 @@ export function normalizeSuiCoinType(coinType: string): string {
   return coinType;
 }
 
-export const moveCallTxnName = (moveCallFunctionName?: string): string =>
-  moveCallFunctionName ? moveCallFunctionName.replace(/_/g, ' ') : '';
-
 export async function toTransaction(
-  client: JsonRpcProvider,
+  client: OneKeySuiClient,
   sender: string,
   tx: IEncodedTxSui | Uint8Array,
 ) {
-  let transactionBlockBytes;
+  let transactionBytes;
   if (tx instanceof Uint8Array) {
-    transactionBlockBytes = tx;
+    transactionBytes = tx;
   } else {
-    const transactionBlock = TransactionBlock.from(tx.rawTx);
+    const transaction = Transaction.from(tx.rawTx);
     // If the sender has not yet been set on the transaction, then set it.
     // NOTE: This allows for signing transactions with miss matched senders, which is important for sponsored transactions.
-    transactionBlock.setSenderIfNotSet(sender);
-    transactionBlockBytes = await transactionBlock.build({
-      provider: client,
+    transaction.setSenderIfNotSet(sender);
+    transactionBytes = await transaction.build({
+      client,
     });
   }
 
-  return transactionBlockBytes;
+  return transactionBytes;
 }
 
 const POLL_INTERVAL = 2000;
 type IPollFn<T> = (time?: number, index?: number) => T;
 export function waitPendingTransaction(
-  client: JsonRpcProvider,
+  client: OneKeySuiClient,
   txId: string,
   options?: SuiTransactionBlockResponseOptions,
   right = true,
