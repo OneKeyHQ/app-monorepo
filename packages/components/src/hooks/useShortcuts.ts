@@ -9,12 +9,12 @@ export const useShortcuts = (
   callback: (event: EShortcutEvents) => void,
 ) => {
   useEffect(() => {
-    const handleCallback = (_: unknown, e: EShortcutEvents) => {
-      if (eventName === undefined || e === eventName) {
-        callback(e);
-      }
-    };
     if (platformEnv.isDesktop) {
+      const handleCallback = (_: unknown, e: EShortcutEvents) => {
+        if (eventName === undefined || e === eventName) {
+          callback(e);
+        }
+      };
       globalThis.desktopApi.addIpcEventListener(
         ipcMessageKeys.APP_SHORCUT,
         handleCallback,
