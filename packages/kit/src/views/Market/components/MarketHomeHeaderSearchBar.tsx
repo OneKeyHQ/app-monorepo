@@ -2,13 +2,17 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SearchBar, View, XStack } from '@onekeyhq/components';
+import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+
+const SEARCH_IN_PAGE_KEY = EShortcutEvents.SearchInPage;
 export function MarketHomeHeaderSearchBar() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -20,6 +24,8 @@ export function MarketHomeHeaderSearchBar() {
       },
     });
   }, [navigation]);
+
+  useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
   return (
     <XStack $gtMd={{ width: 280 }}>
       <SearchBar
@@ -29,6 +35,11 @@ export function MarketHomeHeaderSearchBar() {
         containerProps={{ w: '100%' }}
         $gtMd={{ size: 'small' }}
         key="MarketHomeSearchInput"
+        addOns={[
+          {
+            label: <Shortcut shortcutKey={SEARCH_IN_PAGE_KEY} />,
+          },
+        ]}
       />
       <View
         position="absolute"

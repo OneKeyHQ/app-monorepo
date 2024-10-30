@@ -1,15 +1,21 @@
 import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
@@ -141,6 +147,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
 });
 
 export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
+  const intl = useIntl();
   const {
     activeAccount: { network },
     showChainSelector,
@@ -154,56 +161,69 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
     showChainSelector();
   }, [showChainSelector]);
 
+  useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
+  const trigger = useMemo(
+    () => (
+      <XStack
+        role="button"
+        alignItems="center"
+        p="$1.5"
+        borderRadius="$2"
+        hoverStyle={
+          triggerDisabled
+            ? undefined
+            : {
+                bg: '$bgHover',
+              }
+        }
+        pressStyle={
+          triggerDisabled
+            ? undefined
+            : {
+                bg: '$bgActive',
+              }
+        }
+        focusable={!triggerDisabled}
+        focusVisibleStyle={
+          triggerDisabled
+            ? undefined
+            : {
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }
+        }
+        onPress={handlePress}
+        disabled={triggerDisabled}
+        maxWidth="$40"
+        minWidth={0}
+      >
+        <NetworkAvatar networkId={network?.id} size="$6" />
+        {media.gtMd ? (
+          <>
+            <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
+              {network?.name}
+            </SizableText>
+            {triggerDisabled ? null : (
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                size="$5"
+              />
+            )}
+          </>
+        ) : null}
+      </XStack>
+    ),
+    [handlePress, media.gtMd, network?.id, network?.name, triggerDisabled],
+  );
+
   return (
-    <XStack
-      role="button"
-      alignItems="center"
-      p="$1.5"
-      borderRadius="$2"
-      hoverStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              bg: '$bgHover',
-            }
-      }
-      pressStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              bg: '$bgActive',
-            }
-      }
-      focusable={!triggerDisabled}
-      focusVisibleStyle={
-        triggerDisabled
-          ? undefined
-          : {
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }
-      }
-      onPress={handlePress}
-      disabled={triggerDisabled}
-      maxWidth="$40"
-      minWidth={0}
-    >
-      <NetworkAvatar networkId={network?.id} size="$6" />
-      {media.gtMd ? (
-        <>
-          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-            {network?.name}
-          </SizableText>
-          {triggerDisabled ? null : (
-            <Icon
-              name="ChevronDownSmallOutline"
-              color="$iconSubdued"
-              size="$5"
-            />
-          )}
-        </>
-      ) : null}
-    </XStack>
+    <Tooltip
+      shortcutKey={EShortcutEvents.NetworkSelector}
+      renderTrigger={trigger}
+      renderContent={intl.formatMessage({ id: ETranslations.global_network })}
+      placement="bottom"
+    />
   );
 }
