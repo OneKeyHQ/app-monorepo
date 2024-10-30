@@ -79,10 +79,12 @@ async function navigateToNotificationDetail({
   }
 
   if (shouldAckRead) {
-    void global.$backgroundApiProxy.serviceNotification.ackNotificationMessage({
-      msgId: notificationId,
-      action: ENotificationPushMessageAckAction.readed,
-    });
+    void globalThis.$backgroundApiProxy.serviceNotification.ackNotificationMessage(
+      {
+        msgId: notificationId,
+        action: ENotificationPushMessageAckAction.readed,
+      },
+    );
   }
 
   if (routes.length === 0) {
@@ -119,7 +121,7 @@ async function navigateToNotificationDetail({
         modalParams.screen,
         modalParams.params,
       );
-      global.$navigationRef.current?.dispatch(pushAction);
+      globalThis.$navigationRef.current?.dispatch(pushAction);
     }
   }
 }

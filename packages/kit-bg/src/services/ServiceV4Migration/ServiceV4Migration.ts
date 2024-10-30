@@ -158,10 +158,10 @@ class ServiceV4Migration extends ServiceBase {
     );
     if (platformEnv.isNative) {
       console.log({
-        dbVersion: (await (global.$$localDbV4 as V4LocalDbRealm).readyDb)?.realm
-          ?.schemaVersion,
-        dbName: (await (global.$$localDbV4 as V4LocalDbRealm).readyDb)?.realm
-          ?.path,
+        dbVersion: (await (globalThis.$$localDbV4 as V4LocalDbRealm).readyDb)
+          ?.realm?.schemaVersion,
+        dbName: (await (globalThis.$$localDbV4 as V4LocalDbRealm).readyDb)
+          ?.realm?.path,
       });
     }
     return result;

@@ -71,6 +71,6 @@ const bufferUtils = {
 };
 
 // @ts-ignore
-global.$$bufferUtils = bufferUtils;
+globalThis.$$bufferUtils = bufferUtils;
 
 export default bufferUtils;

@@ -14,7 +14,7 @@ export function FlipperPluginsContainer() {
       console.log('FlipperPluginsContainer realm ready');
       setRealmReady(true);
     };
-    if (global.$$realm) {
+    if (globalThis.$$realm) {
       fn();
     }
     appEventBus.on(EAppEventBusNames.RealmInit, fn);
@@ -24,12 +24,12 @@ export function FlipperPluginsContainer() {
   }, []);
   const realmPlugin = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
-      if (realmReady && global.$$realm && platformEnv.isNative) {
+      if (realmReady && globalThis.$$realm && platformEnv.isNative) {
         console.log('FlipperPluginsContainer render realm plugin');
         const RealmFlipperPlugin = (
           require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device')
         ).default;
-        return <RealmFlipperPlugin realms={[global.$$realm]} />;
+        return <RealmFlipperPlugin realms={[globalThis.$$realm]} />;
       }
     }
     return null;

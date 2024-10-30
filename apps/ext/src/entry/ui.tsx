@@ -26,7 +26,7 @@ function init() {
     setupSidePanelPortInUI();
   }
 
-  global.$$onekeyPerfTrace?.log({
+  globalThis.$$onekeyPerfTrace?.log({
     name: '[EXT]: ui.tsx init() / KitProviderExt render()',
   });
   initUi();

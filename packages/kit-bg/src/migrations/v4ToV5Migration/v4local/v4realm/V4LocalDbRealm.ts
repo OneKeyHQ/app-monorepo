@@ -52,7 +52,7 @@ export class V4LocalDbRealm extends V4LocalDbBase {
       },
     });
     if (process.env.NODE_ENV !== 'production') {
-      global.$$realm = realm;
+      globalThis.$$realm = realm;
       setTimeout(() => {
         appEventBus.emit(EAppEventBusNames.V4RealmInit, undefined);
       }, 3000);
