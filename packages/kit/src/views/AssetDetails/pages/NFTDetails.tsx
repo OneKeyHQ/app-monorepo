@@ -16,6 +16,7 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
@@ -35,7 +36,6 @@ import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents'
 
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function NFTDetails() {
   const intl = useIntl();
