@@ -110,6 +110,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public enterCustomNonce() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public addCustomRPC({ network }: { network: string }) {
     return { network };
   }

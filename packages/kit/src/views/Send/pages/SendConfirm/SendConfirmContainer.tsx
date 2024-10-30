@@ -30,6 +30,7 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
+import { TxAdvancedSettingsContainer } from './TxAdvancedSettingsContainer';
 import { TxExtraInfoContainer } from './TxExtraInfoContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
@@ -200,7 +201,10 @@ function SendConfirmContainer() {
             networkId={networkId}
             unsignedTxs={unsignedTxs}
           />
-          <TxExtraInfoContainer />
+          <TxAdvancedSettingsContainer
+            accountId={accountId}
+            networkId={networkId}
+          />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}

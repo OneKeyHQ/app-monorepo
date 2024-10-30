@@ -375,6 +375,7 @@ export default class Vault extends VaultBase {
       nonceInfo,
       nativeAmountInfo,
       tokenApproveInfo,
+      dataInfo,
     } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
 
@@ -412,6 +413,13 @@ export default class Vault extends VaultBase {
       encodedTxNew = await this._updateNativeTokenAmount({
         encodedTx: encodedTxNew,
         nativeAmountInfo,
+      });
+    }
+
+    if (dataInfo) {
+      encodedTxNew = await this._attachDataInfoToEncodedTx({
+        encodedTx: encodedTxNew,
+        dataInfo,
       });
     }
 
@@ -664,6 +672,19 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
       nonce: nonceInfo.nonce,
+    };
+
+    return Promise.resolve(tx);
+  }
+
+  async _attachDataInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    dataInfo: { data: string };
+  }): Promise<IEncodedTxEvm> {
+    const { encodedTx, dataInfo } = params;
+    const tx = {
+      ...encodedTx,
+      data: dataInfo.data,
     };
 
     return Promise.resolve(tx);
