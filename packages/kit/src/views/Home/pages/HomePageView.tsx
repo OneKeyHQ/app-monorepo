@@ -161,6 +161,8 @@ export function HomePageView({
     [tabs, screenWidth, onRefresh],
   );
 
+  const isOffline = !netInfo.isConnected && netInfo.isConnected !== null;
+
   const renderHomePageContent = useCallback(() => {
     if (
       (softwareAccountDisabled &&
@@ -248,7 +250,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          {netInfo.isConnected ? null : (
+          {isOffline ? (
             <Alert
               type="critical"
               icon="CloudOffOutline"
@@ -258,7 +260,7 @@ export function HomePageView({
               closable={false}
               fullBleed
             />
-          )}
+          ) : null}
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
@@ -272,14 +274,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [
-    ready,
-    wallet,
-    sceneName,
-    netInfo.isConnected,
-    intl,
-    renderHomePageContent,
-  ]);
+  }, [ready, wallet, sceneName, isOffline, intl, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,
