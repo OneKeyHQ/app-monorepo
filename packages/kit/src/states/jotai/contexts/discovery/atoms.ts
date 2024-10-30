@@ -27,6 +27,13 @@ export const { atom: webTabsAtom, use: useWebTabsAtom } =
     tabs: [],
     keys: [],
   });
+
+export const { atom: lastClosedTabAtom, use: useLastClosedTabAtom } =
+  contextAtom<{
+    tabs: IWebTab[];
+  }>({
+    tabs: [],
+  });
 export const { atom: webTabsMapAtom, use: useWebTabsMapAtom } = contextAtom<
   Record<string, IWebTab>
 >({});
