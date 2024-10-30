@@ -55,7 +55,6 @@
     "@firebase/analytics": "^0.10.6",
     "@firebase/app": "^0.10.7",
     "@mysten/sui": "1.13.0",
-    "@mysten/sui.js": "0.34.1",
     "@ngraveio/bc-ur": "^1.1.13",
     "@onekeyfe/cross-inpage-provider-core": "2.1.11",
     "@onekeyfe/cross-inpage-provider-errors": "2.1.11",

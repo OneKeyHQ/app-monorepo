@@ -5459,15 +5459,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mysten/bcs@npm:0.7.1":
-  version: 0.7.1
-  resolution: "@mysten/bcs@npm:0.7.1"
-  dependencies:
-    bs58: "npm:^5.0.0"
-  checksum: 10/9abd9c42f6c2a13609df9ad83477eafa267aba17b7630032ac7299ec380f1942f1329061d9a5c20861a3ee2ab913d86fb530beeed2927f756e14b8932191b7f8
-  languageName: node
-  linkType: hard
-
 "@mysten/bcs@npm:0.7.4":
   version: 0.7.4
   resolution: "@mysten/bcs@npm:0.7.4"
@@ -5483,24 +5474,6 @@ __metadata:
   dependencies:
     bs58: "npm:^6.0.0"
   checksum: 10/1c9bad1c8d40b98d0fa214c7b1e2cec497db162e32f7ef511ccff661f4558ee70686f4245e9c809880e0ebae2ac0943ff4080273eccc7a8330e03bb514c05a91
-  languageName: node
-  linkType: hard
-
-"@mysten/sui.js@npm:0.34.1":
-  version: 0.34.1
-  resolution: "@mysten/sui.js@npm:0.34.1"
-  dependencies:
-    "@mysten/bcs": "npm:0.7.1"
-    "@noble/curves": "npm:^1.0.0"
-    "@noble/hashes": "npm:^1.3.0"
-    "@scure/bip32": "npm:^1.3.0"
-    "@scure/bip39": "npm:^1.2.0"
-    "@suchipi/femver": "npm:^1.0.0"
-    jayson: "npm:^4.0.0"
-    rpc-websockets: "npm:^7.5.1"
-    superstruct: "npm:^1.0.3"
-    tweetnacl: "npm:^1.0.3"
-  checksum: 10/da071e20ab69fcd8348ff3ba7efbcd9c80db6b34dadc5e38fe4a577d78d9e9f5edd0d063e11bf42da55b3358d6ec6aad71873eee522e25034105f60230433149
   languageName: node
   linkType: hard
 
@@ -5738,15 +5711,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.0.0, @noble/curves@npm:~1.4.0":
-  version: 1.4.2
-  resolution: "@noble/curves@npm:1.4.2"
-  dependencies:
-    "@noble/hashes": "npm:1.4.0"
-  checksum: 10/f433a2e8811ae345109388eadfa18ef2b0004c1f79417553241db4f0ad0d59550be6298a4f43d989c627e9f7551ffae6e402a4edf0173981e6da95fc7cab5123
-  languageName: node
-  linkType: hard
-
 "@noble/curves@npm:^1.1.0, @noble/curves@npm:^1.2.0, @noble/curves@npm:^1.3.0, @noble/curves@npm:~1.3.0":
   version: 1.3.0
   resolution: "@noble/curves@npm:1.3.0"
@@ -5809,7 +5773,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.4.0, @noble/hashes@npm:^1.4.0, @noble/hashes@npm:~1.4.0":
+"@noble/hashes@npm:1.4.0, @noble/hashes@npm:^1.4.0":
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
   checksum: 10/e156e65794c473794c52fa9d06baf1eb20903d0d96719530f523cc4450f6c721a957c544796e6efd0197b2296e7cd70efeb312f861465e17940a3e3c7e0febc6
@@ -6544,7 +6508,6 @@ __metadata:
     "@firebase/analytics": "npm:^0.10.6"
     "@firebase/app": "npm:^0.10.7"
     "@mysten/sui": "npm:1.13.0"
-    "@mysten/sui.js": "npm:0.34.1"
     "@ngraveio/bc-ur": "npm:^1.1.13"
     "@onekeyfe/cross-inpage-provider-core": "npm:2.1.11"
     "@onekeyfe/cross-inpage-provider-errors": "npm:2.1.11"
@@ -9534,13 +9497,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@scure/base@npm:~1.1.6":
-  version: 1.1.7
-  resolution: "@scure/base@npm:1.1.7"
-  checksum: 10/fc50ffaab36cb46ff9fa4dc5052a06089ab6a6707f63d596bb34aaaec76173c9a564ac312a0b981b5e7a5349d60097b8878673c75d6cbfc4da7012b63a82099b
-  languageName: node
-  linkType: hard
-
 "@scure/base@npm:~1.1.7, @scure/base@npm:~1.1.8":
   version: 1.1.9
   resolution: "@scure/base@npm:1.1.9"
@@ -9567,17 +9523,6 @@ __metadata:
     "@noble/hashes": "npm:~1.3.2"
     "@scure/base": "npm:~1.1.2"
   checksum: 10/b90da28dfe75519496a85c97e77c9443734873910f32b8557762910a5c4e642290a462b0ed14fa42e0efed6acb9a7f6155ad5cb5d38d4ff87eb2de4760eb32a4
-  languageName: node
-  linkType: hard
-
-"@scure/bip32@npm:^1.3.0":
-  version: 1.4.0
-  resolution: "@scure/bip32@npm:1.4.0"
-  dependencies:
-    "@noble/curves": "npm:~1.4.0"
-    "@noble/hashes": "npm:~1.4.0"
-    "@scure/base": "npm:~1.1.6"
-  checksum: 10/6cd5062d902564d9e970597ec8b1adacb415b2eadfbb95aee1a1a0480a52eb0de4d294d3753aa8b48548064c9795ed108d348a31a8ce3fc88785377bb12c63b9
   languageName: node
   linkType: hard
 
@@ -9610,16 +9555,6 @@ __metadata:
     "@noble/hashes": "npm:~1.3.0"
     "@scure/base": "npm:~1.1.0"
   checksum: 10/2ea368bbed34d6b1701c20683bf465e147f231a9e37e639b8c82f585d6f978bb0f3855fca7ceff04954ae248b3e313f5d322d0210614fb7acb402739415aaf31
-  languageName: node
-  linkType: hard
-
-"@scure/bip39@npm:^1.2.0":
-  version: 1.3.0
-  resolution: "@scure/bip39@npm:1.3.0"
-  dependencies:
-    "@noble/hashes": "npm:~1.4.0"
-    "@scure/base": "npm:~1.1.6"
-  checksum: 10/7d71fd58153de22fe8cd65b525f6958a80487bc9d0fbc32c71c328aeafe41fa259f989d2f1e0fa4fdfeaf83b8fcf9310d52ed9862987e46c2f2bfb9dd8cf9fc1
   languageName: node
   linkType: hard
 
@@ -25615,7 +25550,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jayson@npm:^4.0.0, jayson@npm:^4.1.0":
+"jayson@npm:^4.1.0":
   version: 4.1.0
   resolution: "jayson@npm:4.1.0"
   dependencies:

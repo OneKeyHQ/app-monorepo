@@ -1,6 +1,4 @@
 import { Ed25519Keypair, Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
-import { IntentScope, messageWithIntent } from '@mysten/sui.js';
-import { blake2b } from '@noble/hashes/blake2b';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -25,14 +23,6 @@ import {
 } from '../../types';
 
 const curve: ICurveName = 'ed25519';
-
-export function handleSignData(txnBytes: Uint8Array, isHardware = false) {
-  const serializeTxn = messageWithIntent(IntentScope.TransactionData, txnBytes);
-  if (isHardware) {
-    return serializeTxn;
-  }
-  return blake2b(serializeTxn, { dkLen: 32 });
-}
 
 export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(

@@ -99,3 +99,8 @@ export type IDecodedPsbt = {
   hasScammerAddress: boolean;
   warning: string;
 };
+
+export interface ISuiSignMessageOutput {
+  messageBytes: string;
+  signature: string;
+}
