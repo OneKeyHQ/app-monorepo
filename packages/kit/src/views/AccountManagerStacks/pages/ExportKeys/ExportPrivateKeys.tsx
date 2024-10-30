@@ -7,6 +7,7 @@ import type {
   IKeyOfIcons,
   IPageScreenProps,
   IPropsWithTestId,
+  ITextAreaInputProps,
 } from '@onekeyhq/components';
 import {
   Form,
@@ -51,6 +52,25 @@ type IFormValues = {
   deriveType?: IAccountDeriveTypes | '';
   rawKeyContent: string;
 };
+
+function SecureEntryTextArea({
+  secureEntry,
+  value,
+  onChange,
+  ...props
+}: Omit<ITextAreaInputProps, 'onChange'> & {
+  onChange?: ITextAreaInputProps['onChangeText'];
+  secureEntry: boolean;
+}) {
+  return (
+    <TextAreaInput
+      testID="account-key-input"
+      value={secureEntry ? undefined : value}
+      onChangeText={onChange}
+      {...props}
+    />
+  );
+}
 
 function ExportPrivateKeysPage({
   indexedAccount,
@@ -135,18 +155,11 @@ function ExportPrivateKeysPage({
   const networkIdValue = form.watch('networkId');
   const deriveTypeValue = form.watch('deriveType');
 
-  const reset = useCallback(
-    (key?: keyof IFormValues) => {
-      if (key) {
-        form.setValue(key, '');
-      } else {
-        form.setValue('rawKeyContent', '');
-        form.clearErrors('rawKeyContent');
-        setSecureEntry(true);
-      }
-    },
-    [form],
-  );
+  const reset = useCallback(() => {
+    form.setValue('rawKeyContent', '');
+    form.clearErrors('rawKeyContent');
+    setSecureEntry(true);
+  }, [form]);
 
   const generateKey = useCallback(
     async ({
@@ -235,7 +248,7 @@ function ExportPrivateKeysPage({
           } else {
             reset();
           }
-          setSecureEntry(!secureEntry);
+          setSecureEntry((prev) => !prev);
         },
       },
       {
@@ -322,7 +335,8 @@ function ExportPrivateKeysPage({
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
-            <TextAreaInput
+            <SecureEntryTextArea
+              secureEntry={secureEntry}
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
