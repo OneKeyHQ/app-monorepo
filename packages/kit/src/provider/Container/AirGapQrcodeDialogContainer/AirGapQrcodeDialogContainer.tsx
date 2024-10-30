@@ -13,23 +13,34 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
-export function QrcodeDialogContainer() {
+export function AirGapQrcodeDialogContainer() {
   const {
     start: startScan,
     // close,
   } = useScanQrCode();
 
   useEffect(() => {
-    const fn = (event: IAppEventBusPayload[EAppEventBusNames.ShowQrcode]) => {
+    let hideQrToast: (extra?: { flag?: string }) => Promise<void>;
+
+    const hideAllUiQrToast = (extra: { flag?: string }) => {
+      appEventBus.emit(EAppEventBusNames.HideAirGapQrcode, extra);
+    };
+
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.ShowAirGapQrcode],
+    ) => {
       const { drawType, valueUr, title } = event;
+      void hideQrToast?.();
       const toast = SecureQRToast.show({
         title,
         valueUr,
         drawType,
         dismissOnOverlayPress: false,
         showConfirmButton: Boolean(event.promiseId),
+
         onConfirm: async () => {
-          await toast.close({ flag: 'skipReject' });
+          await hideQrToast?.({ flag: 'skipReject' });
+          hideAllUiQrToast({ flag: 'skipReject' });
 
           try {
             const result = await startScan({
@@ -54,7 +65,8 @@ export function QrcodeDialogContainer() {
           }
         },
         onCancel: async () => {
-          await toast.close();
+          await hideQrToast();
+          hideAllUiQrToast({});
         },
         onClose: async (params) => {
           if (event.promiseId && params?.flag !== 'skipReject') {
@@ -65,11 +77,21 @@ export function QrcodeDialogContainer() {
           }
         },
       });
+      hideQrToast = async (extra) => {
+        await toast.close(extra);
+      };
+    };
+    const hideFn = (
+      event: IAppEventBusPayload[EAppEventBusNames.HideAirGapQrcode],
+    ) => {
+      void hideQrToast?.(event);
     };
 
-    appEventBus.on(EAppEventBusNames.ShowQrcode, fn);
+    appEventBus.on(EAppEventBusNames.ShowAirGapQrcode, fn);
+    appEventBus.on(EAppEventBusNames.HideAirGapQrcode, hideFn);
     return () => {
-      appEventBus.off(EAppEventBusNames.ShowQrcode, fn);
+      appEventBus.off(EAppEventBusNames.ShowAirGapQrcode, fn);
+      appEventBus.off(EAppEventBusNames.HideAirGapQrcode, hideFn);
     };
   }, [startScan]);
   return null;

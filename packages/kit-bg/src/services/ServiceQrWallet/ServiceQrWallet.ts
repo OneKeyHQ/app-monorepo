@@ -60,7 +60,7 @@ class ServiceQrWallet extends ServiceBase {
         reject,
       });
       // **** 1. Device scan App Qrcode
-      appEventBus.emit(EAppEventBusNames.ShowQrcode, {
+      appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
         drawType: 'animated',
         valueUr: airGapUrUtils.urToJson({ ur: requestUr }),
         promiseId,
