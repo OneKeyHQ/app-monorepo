@@ -35,7 +35,7 @@ export const shortcutsMap: Record<
   EShortcutEvents,
   { keys: string[]; desc: string }
 > = {
-  // Ensure shortcuts don't interfere with DevTools usage in development environment
+  // Disable shortcuts in development environment to avoid conflicts with Chrome DevTools default shortcuts (Cmd/Ctrl+F and Cmd/Ctrl+P)
   [EShortcutEvents.SearchInPage]: {
     keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'F'],
     desc: 'Search in Page',
