@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -13,8 +14,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import { Section } from '../Section';
 
 const HardwareBridgeListItems = () => {
   const onPressBridgeStatus = useCallback(() => {

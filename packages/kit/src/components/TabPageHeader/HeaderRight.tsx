@@ -3,7 +3,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  Shortcut,
+  SizableText,
+  Stack,
+  Tooltip,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -19,6 +27,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -75,7 +85,17 @@ export function HeaderRight({
     const settingsButton = (
       <HeaderIconButton
         key="setting"
-        title={intl.formatMessage({ id: ETranslations.settings_settings })}
+        title={
+          <XStack gap="$2">
+            <Tooltip.Text>
+              {intl.formatMessage({ id: ETranslations.settings_settings })}
+            </Tooltip.Text>
+            <Shortcut pl="$2">
+              <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
+              <Shortcut.Key>,</Shortcut.Key>
+            </Shortcut>
+          </XStack>
+        }
         icon="SettingsOutline"
         testID="setting"
         onPress={openSettingPage}
