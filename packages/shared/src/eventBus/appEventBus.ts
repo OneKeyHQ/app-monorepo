@@ -152,7 +152,7 @@ export interface IAppEventBusPayload {
     valueUr?: IAirGapUrJson;
   };
   [EAppEventBusNames.HideAirGapQrcode]: {
-    flag?: string;
+    flag?: string; // close toast should skipReject: flag=skipReject
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;

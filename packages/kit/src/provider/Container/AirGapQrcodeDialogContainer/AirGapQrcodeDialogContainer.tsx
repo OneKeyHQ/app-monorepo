@@ -91,7 +91,7 @@ export function AirGapQrcodeDialogContainer() {
     appEventBus.on(EAppEventBusNames.HideAirGapQrcode, hideFn);
     return () => {
       appEventBus.off(EAppEventBusNames.ShowAirGapQrcode, fn);
-      appEventBus.on(EAppEventBusNames.HideAirGapQrcode, hideFn);
+      appEventBus.off(EAppEventBusNames.HideAirGapQrcode, hideFn);
     };
   }, [startScan]);
   return null;
