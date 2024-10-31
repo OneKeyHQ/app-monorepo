@@ -3,7 +3,7 @@ import windowsSecurityCredentialsUiModule, {
   UserConsentVerifierAvailability,
 } from 'electron-windows-security';
 
-async function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
+function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   try {
     windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
       (error, status) => {
@@ -19,12 +19,9 @@ async function checkWindowsHelloAvailability(callback: (result: boolean) => void
   }
 }
 
-async function requestWindowsHelloAuth(
+function requestWindowsHelloAuth(
   message: string,
-  callback: (params: {
-    success: boolean,
-    error?: string,
-  }) => void,
+  callback: (params: { success: boolean; error?: string }) => void,
 ) {
   windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
     message,
@@ -44,26 +41,28 @@ async function requestWindowsHelloAuth(
 }
 
 // Child process
-process.parentPort.on('message', (e) => {
-  const [port] = e.ports;
-  switch (e.data.type) {
-    case 'checkAvailabilityAsync':
-      checkWindowsHelloAvailability((result) => {
-        port.postMessage({
-          type: 'checkAvailabilityAsync',
-          result,
+process.parentPort.on(
+  'message',
+  (e: { data: { type: string; message: string } }) => {
+    switch (e.data.type) {
+      case 'checkAvailabilityAsync':
+        checkWindowsHelloAvailability((result) => {
+          process.parentPort.postMessage({
+            type: 'checkAvailabilityAsync',
+            result,
+          });
         });
-      });
-      break;
-    case 'requestVerificationAsync':
-      requestWindowsHelloAuth(e.data.message, (result) => {
-        port.postMessage({
-          type: 'requestVerificationAsync',
-          result,
+        break;
+      case 'requestVerificationAsync':
+        requestWindowsHelloAuth(e.data.message, (result) => {
+          process.parentPort.postMessage({
+            type: 'requestVerificationAsync',
+            result,
+          });
         });
-      });
-      break;
-    default:
-      break;
-  }
-});
+        break;
+      default:
+        break;
+    }
+  },
+);
