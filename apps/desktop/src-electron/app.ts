@@ -22,6 +22,7 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
+
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -43,7 +44,7 @@ import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 import { resourcesPath, staticPath } from './resoucePath';
-import { checkAvailabilityAsync } from './services';
+import { checkAvailabilityAsync, startServices } from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -597,7 +598,6 @@ function createMainWindow() {
         isAppReady,
       );
       try {
-       
       } catch (e: any) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
@@ -901,6 +901,7 @@ if (!singleInstance && !process.mas) {
   app.on('ready', async () => {
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
+    startServices();
     if (!mainWindow) {
       mainWindow = createMainWindow();
       initMenu();

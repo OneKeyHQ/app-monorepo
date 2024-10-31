@@ -4,9 +4,13 @@ import { MessageChannelMain, utilityProcess } from 'electron/main';
 
 const { port1, port2 } = new MessageChannelMain();
 
-// After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
-const child = utilityProcess.fork(path.join(__dirname, './service/windowsHello.js'));
-child.postMessage({ message: 'hello' }, [port1]);
+let child: UtilityProcess | null = null;
+export const startServices = () => {
+  child = utilityProcess.fork(
+    // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
+    path.join(__dirname, './service/windowsHello.js'),
+  );
+};
 
 let isSupport = true;
 export const checkAvailabilityAsync = () =>
@@ -17,7 +21,7 @@ export const checkAvailabilityAsync = () =>
             resolve(e.data.result);
             port1.removeAllListeners('message');
           });
-          child.postMessage({ type: 'checkAvailabilityAsync' }, [port1]);
+          child?.postMessage({ type: 'checkAvailabilityAsync' }, [port1]);
         }),
         new Promise((resolve) =>
           setTimeout(() => {
