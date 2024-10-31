@@ -6,14 +6,16 @@ class PerformanceTimer {
       start: number | undefined;
       end: number | undefined;
       duration: number | undefined;
+      params?: Record<string, any>;
     };
   } = {};
 
-  markStart(name: string) {
+  markStart(name: string, params?: Record<string, any>) {
     this.detail[name] = {
       duration: undefined,
       start: Date.now(),
       end: undefined,
+      params
     };
   }
 

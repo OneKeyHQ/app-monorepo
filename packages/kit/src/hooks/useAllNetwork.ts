@@ -12,6 +12,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
@@ -139,6 +140,9 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
+      const perf = perfUtils.newPerf();
+
+      perf.markStart('getAllNetworkAccounts');
       const {
         accountsInfo,
         accountsInfoBackendIndexed,
@@ -149,6 +153,7 @@ function useAllNetworkRequests<T>(params: {
         deriveType: undefined,
         nftEnabledOnly: isNFTRequests,
       });
+      perf.markEnd('getAllNetworkAccounts');
 
       if (!accountsInfo || isEmpty(accountsInfo)) {
         setIsEmptyAccount(true);
@@ -174,9 +179,13 @@ function useAllNetworkRequests<T>(params: {
 
       if (!allNetworkDataInit.current) {
         try {
+          perf.markStart('localTokens.getRawData');
           const simpleDbLocalTokensRawData =
             (await backgroundApiProxy.simpleDb.localTokens.getRawData()) ??
             undefined;
+          perf.markEnd('localTokens.getRawData');
+
+          perf.markStart('allNetworkCacheRequests');
           const cachedData = (
             await Promise.all(
               Array.from(accountsInfo).map(
@@ -194,9 +203,11 @@ function useAllNetworkRequests<T>(params: {
               ),
             )
           ).filter(Boolean);
+          perf.markEnd('allNetworkCacheRequests');
 
           if (cachedData && !isEmpty(cachedData)) {
             allNetworkDataInit.current = true;
+            perf.finish('allNetwork__useAllNetworkRequests');
             allNetworkCacheData?.({
               data: cachedData,
               accountId: account.id,

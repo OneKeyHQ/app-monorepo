@@ -11,9 +11,10 @@ import {
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -34,6 +35,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   mergeDeriveTokenList,
@@ -49,7 +51,6 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { TokenListView } from '../../../components/TokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
@@ -347,6 +348,7 @@ function TokenListContainer(props: ITabPageProps) {
       networkId: string;
       allNetworkDataInit?: boolean;
     }) => {
+      return;
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         networkId,
         accountId,
@@ -577,6 +579,13 @@ function TokenListContainer(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
+      const perf = perfUtils.newPerf();
+
+      perf.markStart('getAccountLocalTokens', {
+        networkId,
+        accountAddress,
+        rawDataExist: !!simpleDbLocalTokensRawData,
+      });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId,
@@ -585,9 +594,11 @@ function TokenListContainer(props: ITabPageProps) {
           xpub,
           simpleDbLocalTokensRawData,
         });
+      perf.markEnd('getAccountLocalTokens');
 
       const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
 
+      perf.finish('allNetwork__handleAllNetworkCacheRequests');
       if (
         isEmpty(tokenList) &&
         isEmpty(riskyTokenList) &&

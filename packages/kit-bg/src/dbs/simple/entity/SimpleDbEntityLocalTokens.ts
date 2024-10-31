@@ -170,6 +170,47 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     }));
   }
 
+  getAccountTokenListFromRawData({
+    networkId,
+    accountAddress,
+    xpub,
+    simpleDbLocalTokensRawData,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    simpleDbLocalTokensRawData: ISimpleDBLocalTokens | null | undefined;
+  }) {
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+    const perf = perfUtils.newPerf();
+
+    perf.markStart('buildAccountLocalAssetsKey');
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    perf.markEnd('buildAccountLocalAssetsKey');
+
+    perf.markStart('getAccountTokenList.getRawData', {
+      networkId,
+      accountAddress,
+      rawDataExist: !!simpleDbLocalTokensRawData,
+    });
+    const rawData = simpleDbLocalTokensRawData;
+    perf.markEnd('getAccountTokenList.getRawData');
+
+    const result = {
+      tokenList: rawData?.tokenList?.[key] ?? [],
+      smallBalanceTokenList: rawData?.smallBalanceTokenList?.[key] ?? [],
+      riskyTokenList: rawData?.riskyTokenList?.[key] ?? [],
+      tokenListMap: rawData?.tokenListMap?.[key] ?? {},
+      tokenListValue: rawData?.tokenListValue?.[key] ?? '0',
+    };
+
+    perf.finish('simpleDB__getAccountTokenList');
+
+    return result;
+  }
+
   @backgroundMethod()
   async getAccountTokenList({
     networkId,
@@ -185,22 +226,13 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
-    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
-
-    const perf = perfUtils.newPerf();
-
-    perf.markStart('getAccountTokenList rawData');
     const rawData = simpleDbLocalTokensRawData ?? (await this.getRawData());
-    perf.markEnd('getAccountTokenList rawData');
-
-    perf.finish('simpleDB__getAccountTokenList');
-    return {
-      tokenList: rawData?.tokenList?.[key] ?? [],
-      smallBalanceTokenList: rawData?.smallBalanceTokenList?.[key] ?? [],
-      riskyTokenList: rawData?.riskyTokenList?.[key] ?? [],
-      tokenListMap: rawData?.tokenListMap?.[key] ?? {},
-      tokenListValue: rawData?.tokenListValue?.[key] ?? '0',
-    };
+    return this.getAccountTokenListFromRawData({
+      networkId,
+      accountAddress,
+      xpub,
+      simpleDbLocalTokensRawData: rawData,
+    });
   }
 
   @backgroundMethod()

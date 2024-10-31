@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
@@ -26,8 +27,9 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
-import { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import ServiceBase from './ServiceBase';
+
+import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -453,6 +455,8 @@ class ServiceToken extends ServiceBase {
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
+    const perf = perfUtils.newPerf();
+
     const { accountId, networkId, simpleDbLocalTokensRawData } = params;
 
     let accountAddress: string | undefined;
@@ -462,6 +466,7 @@ class ServiceToken extends ServiceBase {
       accountAddress = params.accountAddress;
       xpub = params.xpub;
     } else {
+      perf.markStart('getAccountXpubAndAddress');
       [xpub, accountAddress] = await Promise.all([
         this.backgroundApi.serviceAccount.getAccountXpub({
           accountId,
@@ -472,15 +477,28 @@ class ServiceToken extends ServiceBase {
           networkId,
         }),
       ]);
+      perf.markEnd('getAccountXpubAndAddress');
     }
 
-    const localTokens =
-      await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
-        networkId,
-        accountAddress,
-        xpub,
-        simpleDbLocalTokensRawData,
-      });
+    perf.markStart('getAccountTokenList', {
+      accountAddress,
+      networkId,
+      rawDataExist: !!simpleDbLocalTokensRawData,
+    });
+    const localTokens = simpleDbLocalTokensRawData
+      ? this.backgroundApi.simpleDb.localTokens.getAccountTokenListFromRawData({
+          networkId,
+          accountAddress,
+          xpub,
+          simpleDbLocalTokensRawData,
+        })
+      : await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
+          networkId,
+          accountAddress,
+          xpub,
+          simpleDbLocalTokensRawData,
+        });
+    perf.markEnd('getAccountTokenList');
 
     let tokenList = localTokens.tokenList;
     let smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -493,6 +511,7 @@ class ServiceToken extends ServiceBase {
       (riskyTokenList[0]?.accountId &&
         riskyTokenList[0]?.accountId !== accountId)
     ) {
+      perf.markStart('mapAccountTokenList');
       tokenList = tokenList.map((token) => ({
         ...token,
         accountId,
@@ -510,8 +529,10 @@ class ServiceToken extends ServiceBase {
         accountId,
         networkId,
       }));
+      perf.markEnd('mapAccountTokenList');
     }
 
+    perf.finish('allNetwork__getAccountLocalTokens');
     return {
       ...localTokens,
       tokenList,
