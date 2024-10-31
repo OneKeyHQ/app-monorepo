@@ -8,7 +8,11 @@ import { EWindowHelloEventType } from './enum';
 import type { UtilityProcess } from 'electron/main';
 
 let windowsHelloChild: UtilityProcess | null = null;
-let windowsHelloCallbacks: { type: string; callback: (e: any) => void }[] = [];
+let windowsHelloCallbacks: {
+  type: string;
+  callback: (e: any) => void;
+  timestamp: number;
+}[] = [];
 export const startServices = () => {
   windowsHelloChild = utilityProcess.fork(
     // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
@@ -21,7 +25,10 @@ export const startServices = () => {
     );
     if (callbacks.length) {
       callbacks.forEach((callbackItem) => {
-        callbackItem.callback(e.result);
+        // Callbacks older than 1 minute will not be executed
+        if (Date.now() - callbackItem.timestamp < 60 * 1000) {
+          callbackItem.callback(e.result);
+        }
       });
       windowsHelloCallbacks = windowsHelloCallbacks.filter(
         (callbackItem) => !callbacks.includes(callbackItem),
@@ -38,6 +45,7 @@ export const checkAvailabilityAsync = async () => {
         windowsHelloCallbacks.push({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
           callback: resolve,
+          timestamp: Date.now(),
         });
         windowsHelloChild?.postMessage({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
@@ -62,6 +70,7 @@ export const requestVerificationAsync = (message: string) =>
     windowsHelloCallbacks.push({
       type: EWindowHelloEventType.RequestVerificationAsync,
       callback: resolve,
+      timestamp: Date.now(),
     });
     windowsHelloChild?.postMessage({
       type: EWindowHelloEventType.RequestVerificationAsync,
