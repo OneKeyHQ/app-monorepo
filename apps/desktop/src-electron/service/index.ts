@@ -31,7 +31,7 @@ export const startServices = () => {
 };
 
 let cacheWindowsHelloSupported: boolean | null = null;
-export const checkWindowsHelloAvailabilityAsync = async () => {
+export const checkAvailabilityAsync = async () => {
   if (cacheWindowsHelloSupported === null) {
     cacheWindowsHelloSupported = await Promise.race<boolean>([
       new Promise<boolean>((resolve) => {
