@@ -7,52 +7,51 @@ import { EWindowHelloEventType } from './enum';
 
 import type { UtilityProcess } from 'electron/main';
 
-let child: UtilityProcess | null = null;
-let onMessageCallbacks: { type: string; callback: (e: any) => void }[] = [];
+let windowsHelloChild: UtilityProcess | null = null;
+let windowsHelloCallbacks: { type: string; callback: (e: any) => void }[] = [];
 export const startServices = () => {
-  child = utilityProcess.fork(
+  windowsHelloChild = utilityProcess.fork(
     // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
     path.join(__dirname, './service/windowsHello.js'),
   );
-  child.on('message', (e: { type: string; result: boolean }) => {
+  windowsHelloChild.on('message', (e: { type: string; result: boolean }) => {
     Logger.info('parent process--onMessage', e);
-    const callbacks = onMessageCallbacks.filter(
+    const callbacks = windowsHelloCallbacks.filter(
       (callbackItem) => callbackItem.type === e.type,
     );
     if (callbacks.length) {
       callbacks.forEach((callbackItem) => {
         callbackItem.callback(e.result);
       });
-      onMessageCallbacks = onMessageCallbacks.filter(
+      windowsHelloCallbacks = windowsHelloCallbacks.filter(
         (callbackItem) => !callbacks.includes(callbackItem),
       );
     }
   });
 };
 
-let isSupport: boolean | null = null;
-
-export const checkAvailabilityAsync = async () => {
-  if (isSupport === null) {
-    isSupport = await Promise.race<boolean>([
+let cacheWindowsHelloSupported: boolean | null = null;
+export const checkWindowsHelloAvailabilityAsync = async () => {
+  if (cacheWindowsHelloSupported === null) {
+    cacheWindowsHelloSupported = await Promise.race<boolean>([
       new Promise<boolean>((resolve) => {
-        onMessageCallbacks.push({
+        windowsHelloCallbacks.push({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
           callback: resolve,
         });
-        child?.postMessage({
+        windowsHelloChild?.postMessage({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
         });
       }),
       new Promise((resolve) =>
         setTimeout(() => {
-          isSupport = false;
-          resolve(false);
+          cacheWindowsHelloSupported = false;
+          resolve(cacheWindowsHelloSupported);
         }, 500),
       ),
     ]);
   }
-  return isSupport;
+  return cacheWindowsHelloSupported;
 };
 
 export const requestVerificationAsync = (message: string) =>
@@ -60,11 +59,11 @@ export const requestVerificationAsync = (message: string) =>
     success: boolean;
     error?: string;
   }>((resolve) => {
-    onMessageCallbacks.push({
+    windowsHelloCallbacks.push({
       type: EWindowHelloEventType.RequestVerificationAsync,
       callback: resolve,
     });
-    child?.postMessage({
+    windowsHelloChild?.postMessage({
       type: EWindowHelloEventType.RequestVerificationAsync,
       params: message,
     });
