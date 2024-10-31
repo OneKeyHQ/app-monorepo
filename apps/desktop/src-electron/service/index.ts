@@ -1,10 +1,9 @@
 import path from 'path';
 
 import { MessageChannelMain, utilityProcess } from 'electron/main';
+import Logger from 'electron-log/main';
 
 import type { UtilityProcess } from 'electron/main';
-
-const { port1, port2 } = new MessageChannelMain();
 
 let child: UtilityProcess | null = null;
 export const startServices = () => {
@@ -22,6 +21,7 @@ export const checkAvailabilityAsync = () =>
           child?.on(
             'message',
             (e: { data: { type: string; result: boolean } }) => {
+              Logger.info('checkAvailabilityAsync', e);
               if (e.data.type === 'checkAvailabilityAsync') {
                 resolve(e.data.result);
               }
