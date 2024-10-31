@@ -3,6 +3,8 @@ import path from 'path';
 import { utilityProcess } from 'electron/main';
 import Logger from 'electron-log/main';
 
+import { EWindowHelloEventType } from './enum';
+
 import type { UtilityProcess } from 'electron/main';
 
 let child: UtilityProcess | null = null;
@@ -12,14 +14,14 @@ export const startServices = () => {
     // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
     path.join(__dirname, './service/windowsHello.js'),
   );
-  child.on('message', (e: { data: { type: string; result: boolean } }) => {
+  child.on('message', (e: { type: string; result: boolean }) => {
     Logger.info('parent process--onMessage', e);
     const callbacks = onMessageCallbacks.filter(
-      (callbackItem) => callbackItem.type === e.data.type,
+      (callbackItem) => callbackItem.type === e.type,
     );
     if (callbacks.length) {
       callbacks.forEach((callbackItem) => {
-        callbackItem.callback(e.data.result);
+        callbackItem.callback(e.result);
       });
       onMessageCallbacks = onMessageCallbacks.filter(
         (callbackItem) => !callbacks.includes(callbackItem),
@@ -35,10 +37,12 @@ export const checkAvailabilityAsync = () =>
     ? Promise.race([
         new Promise((resolve) => {
           onMessageCallbacks.push({
-            type: 'checkAvailabilityAsync',
+            type: EWindowHelloEventType.CheckAvailabilityAsync,
             callback: resolve,
           });
-          child?.postMessage({ type: 'checkAvailabilityAsync' });
+          child?.postMessage({
+            type: EWindowHelloEventType.CheckAvailabilityAsync,
+          });
         }),
         new Promise((resolve) =>
           setTimeout(() => {

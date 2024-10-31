@@ -3,6 +3,8 @@ import windowsSecurityCredentialsUiModule, {
   UserConsentVerifierAvailability,
 } from 'electron-windows-security';
 
+import { EWindowHelloEventType } from './enum';
+
 function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   try {
     windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
@@ -48,7 +50,7 @@ process.parentPort.on(
       case 'checkAvailabilityAsync':
         checkWindowsHelloAvailability((result) => {
           process.parentPort.postMessage({
-            type: 'checkAvailabilityAsync',
+            type: EWindowHelloEventType.CheckAvailabilityAsync,
             result,
           });
         });
@@ -56,7 +58,7 @@ process.parentPort.on(
       case 'requestVerificationAsync':
         requestWindowsHelloAuth(e.data.message, (result) => {
           process.parentPort.postMessage({
-            type: 'requestVerificationAsync',
+            type: EWindowHelloEventType.RequestVerificationAsync,
             result,
           });
         });
