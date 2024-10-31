@@ -541,8 +541,12 @@ function createMainWindow() {
     if (isWin) {
       logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
       try {
+        const timerId = setTimeout(() => {
+          event.returnValue = false;
+        }, 1000);
         windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
           (error, status) => {
+            clearTimeout(timerId);
             logger.info(
               '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
               status,
