@@ -10,7 +10,9 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 
 import ServiceBase from '../ServiceBase';
 
@@ -210,7 +212,9 @@ class ServiceAllNetwork extends ServiceBase {
 
         await Promise.all(
           dbAccounts.map(async (a) => {
-            const perf = perfUtils.newPerf();
+            const perf = perfUtils.perfTimer(
+              EPerformanceTimerLogNames.localDB__getAllNetworkAccounts_EachAccount,
+            );
 
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,
@@ -291,7 +295,7 @@ class ServiceAllNetwork extends ServiceBase {
 
               compatibleAccountExists = true;
             }
-            perf.finish('localDB__getAllNetworkAccounts_EachAccount', 1);
+            perf.done({ minDuration: 1 });
           }),
         );
 

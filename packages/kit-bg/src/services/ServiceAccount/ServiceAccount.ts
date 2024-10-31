@@ -2106,35 +2106,14 @@ class ServiceAccount extends ServiceBase {
     if (networkUtils.isAllNetwork({ networkId })) {
       return '';
     }
-    const startNow = Date.now();
-    let now = Date.now();
-    const processEachAccountTimeInfo: {
-      [name: string]: number;
-    } = {};
-    const resetNow = () => {
-      now = Date.now();
-    };
-    const logTime = (name: string) => {
-      processEachAccountTimeInfo[name] = Date.now() - now;
-      resetNow();
-    };
 
-    resetNow();
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
-    logTime('getVault');
 
-    resetNow();
     const xpub = await vault.getAccountXpub({ dbAccount });
-    logTime('getAccountXpub');
 
-    console.log(
-      'getAccountXpub Time',
-      Date.now() - startNow,
-      processEachAccountTimeInfo,
-    );
     return xpub;
   }
 

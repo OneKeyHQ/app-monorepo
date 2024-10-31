@@ -5,7 +5,9 @@ import { isEmpty } from 'lodash';
 import type { ITabPageProps } from '@onekeyhq/components';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,7 +38,9 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
-      const perf = perfUtils.newPerf();
+      const perf = perfUtils.perfTimer(
+        EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
+      );
 
       perf.markStart('getAccountLocalTokens', {
         networkId,
@@ -66,7 +70,7 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
       const { tokenList, smallBalanceTokenList, riskyTokenList } =
         checkIsDefined(localTokens);
 
-      perf.finish('allNetwork__handleAllNetworkCacheRequests');
+      perf.done();
       if (
         isEmpty(tokenList) &&
         isEmpty(riskyTokenList) &&

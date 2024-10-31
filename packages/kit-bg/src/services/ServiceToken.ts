@@ -7,7 +7,9 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
@@ -455,7 +457,9 @@ class ServiceToken extends ServiceBase {
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
-    const perf = perfUtils.newPerf();
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.allNetwork__getAccountLocalTokens,
+    );
 
     const { accountId, networkId, simpleDbLocalTokensRawData } = params;
 
@@ -532,7 +536,7 @@ class ServiceToken extends ServiceBase {
       perf.markEnd('mapAccountTokenList');
     }
 
-    perf.finish('allNetwork__getAccountLocalTokens');
+    perf.done();
     return {
       ...localTokens,
       tokenList,

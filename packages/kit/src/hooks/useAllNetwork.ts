@@ -7,7 +7,7 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, { EPerformanceTimerLogNames } from '@onekeyhq/shared/src/utils/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -142,7 +142,9 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
-      const perf = perfUtils.newPerf();
+      const perf = perfUtils.perfTimer(
+        EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests,
+      );
 
       perf.markStart('getAllNetworkAccounts');
       const {
@@ -213,7 +215,7 @@ function useAllNetworkRequests<T>(params: {
 
           if (cachedData && !isEmpty(cachedData)) {
             allNetworkDataInit.current = true;
-            perf.finish('allNetwork__useAllNetworkRequests');
+            perf.done();
             allNetworkCacheData?.({
               data: cachedData,
               accountId: account.id,

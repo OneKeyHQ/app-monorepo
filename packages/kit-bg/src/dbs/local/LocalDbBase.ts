@@ -60,7 +60,9 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INetworkAccount,
@@ -795,7 +797,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
-    const perf = perfUtils.newPerf();
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.localDB__getIndexedAccount,
+    );
 
     perf.markStart('readyDb');
     const db = await this.readyDb;
@@ -814,7 +818,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     perf.markEnd('refillIndexedAccount');
 
-    perf.finish('localDB__getIndexedAccount');
+    perf.done();
     return result;
   }
 
@@ -829,7 +833,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
-    const perf = perfUtils.newPerf();
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
+    );
 
     perf.markStart('checkAccountType');
     const accountId = account.id;
@@ -856,7 +862,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
       perf.markEnd('getIndexedAccount');
 
-      perf.finish('localDB__getIndexedAccountByAccount');
+      perf.done();
       return indexedAccount;
     }
     return undefined;
@@ -2584,7 +2590,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
-    const perf = perfUtils.newPerf();
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.localDB__getAccount,
+    );
 
     perf.markStart('readyDb');
     const db = await this.readyDb;
@@ -2610,7 +2618,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     perf.markEnd('refillAccountInfo');
 
-    perf.finish('localDB__getAccount');
+    perf.done();
     return result;
   }
 

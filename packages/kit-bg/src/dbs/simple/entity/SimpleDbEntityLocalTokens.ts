@@ -6,7 +6,7 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, { EPerformanceTimerLogNames } from '@onekeyhq/shared/src/utils/perfUtils';
 import type {
   IAccountToken,
   IToken,
@@ -184,7 +184,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
-    const perf = perfUtils.newPerf();
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
+    );
 
     perf.markStart('buildAccountLocalAssetsKey');
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
@@ -206,7 +208,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListValue: rawData?.tokenListValue?.[key] ?? '0',
     };
 
-    perf.finish('simpleDB__getAccountTokenList');
+    perf.done();
 
     return result;
   }

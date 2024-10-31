@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -9,14 +9,14 @@ import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
-import type { ILabelProps } from '../../primitives';
-import type { IFormFieldProps } from '../types';
 import type { ViewStyle } from 'react-native';
 import type {
   CheckedState,
   StackProps,
   CheckboxProps as TMCheckboxProps,
 } from 'tamagui';
+import type { ILabelProps } from '../../primitives';
+import type { IFormFieldProps } from '../types';
 
 export type ICheckedState = CheckedState;
 
@@ -27,7 +27,9 @@ export type ICheckboxProps = IFormFieldProps<
     labelProps?: ILabelProps;
     containerProps?: StackProps;
   }
->;
+> & {
+  isUncontrolled?: boolean;
+};
 
 function RawCheckbox({
   label,
@@ -35,9 +37,18 @@ function RawCheckbox({
   onChange,
   value,
   containerProps,
+  defaultChecked,
+  isUncontrolled,
   ...checkboxProps
 }: ICheckboxProps) {
-  const onPress = useCallback(() => onChange?.(!value), [value, onChange]);
+  const [innerValue, setInnerValue] = useState(defaultChecked);
+  const usedValue = isUncontrolled ? innerValue : value;
+  const onPress = useCallback(() => {
+    if (isUncontrolled) {
+      setInnerValue(!usedValue);
+    }
+    onChange?.(!usedValue);
+  }, [isUncontrolled, onChange, usedValue]);
   return (
     <XStack
       // alignItems="center"
@@ -52,9 +63,9 @@ function RawCheckbox({
         unstyled
         p="$0"
         my="$0.5"
-        bg={value ? '$bgPrimary' : '$iconInverse'}
+        bg={usedValue ? '$bgPrimary' : '$iconInverse'}
         borderWidth="$0.5"
-        borderColor={value ? '$transparent' : '$borderStrong'}
+        borderColor={usedValue ? '$transparent' : '$borderStrong'}
         borderRadius="$1"
         alignItems="center"
         justifyContent="center"
@@ -68,7 +79,7 @@ function RawCheckbox({
       >
         <Icon
           name={
-            value === 'indeterminate'
+            usedValue === 'indeterminate'
               ? 'CheckboxIndeterminateCustom'
               : 'CheckboxCheckedCustom'
           }

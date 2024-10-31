@@ -11,10 +11,10 @@ import {
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -35,7 +35,9 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   mergeDeriveTokenList,
@@ -578,7 +580,9 @@ function TokenListContainer(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
-      const perf = perfUtils.newPerf();
+      const perf = perfUtils.perfTimer(
+        EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
+      );
 
       perf.markStart('getAccountLocalTokens', {
         networkId,
@@ -597,7 +601,7 @@ function TokenListContainer(props: ITabPageProps) {
 
       const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
 
-      perf.finish('allNetwork__handleAllNetworkCacheRequests');
+      perf.done();
       if (
         isEmpty(tokenList) &&
         isEmpty(riskyTokenList) &&
