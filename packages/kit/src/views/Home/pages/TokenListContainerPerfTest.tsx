@@ -8,10 +8,10 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import { useAccountOverviewStateAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export function TokenListContainerPerfTest(props: ITabPageProps) {
   const {

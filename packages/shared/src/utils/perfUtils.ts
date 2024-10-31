@@ -15,7 +15,7 @@ class PerformanceTimer {
       duration: undefined,
       start: Date.now(),
       end: undefined,
-      params
+      params,
     };
   }
 
@@ -25,7 +25,7 @@ class PerformanceTimer {
     }
     this.detail[name].end = Date.now();
     this.detail[name].duration =
-      this.detail[name].end - (this?.detail[name]?.start ?? 0);
+      (this?.detail?.[name]?.end ?? 0) - (this?.detail?.[name]?.start ?? 0);
   }
 
   begin() {
