@@ -4,7 +4,8 @@ import { MessageChannelMain, utilityProcess } from 'electron/main';
 
 const { port1, port2 } = new MessageChannelMain();
 
-const child = utilityProcess.fork(path.join(__dirname, './windowsHello.js'));
+// After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
+const child = utilityProcess.fork(path.join(__dirname, './service/windowsHello.js'));
 child.postMessage({ message: 'hello' }, [port1]);
 
 let isSupport = true;
