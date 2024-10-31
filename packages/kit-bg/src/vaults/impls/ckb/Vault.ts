@@ -31,6 +31,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -300,13 +301,11 @@ export default class Vault extends VaultBase {
       );
 
     let limit = allInputAmount.minus(allOutputAmount).toString();
+    const size = getTransactionSizeByTxSkeleton(txSkeleton);
+
     if (allInputAmount.isLessThanOrEqualTo(allOutputAmount)) {
       // fix max send fee
-      const size = getTransactionSizeByTxSkeleton(txSkeleton);
-      limit = new BigNumber(feeRate, 16)
-        .multipliedBy(size)
-        .div(1024)
-        .toFixed(0);
+      limit = new BigNumber(feeRate).multipliedBy(size).div(1000).toFixed(0);
 
       console.log('fix max send fee,', {
         limit,
@@ -330,9 +329,11 @@ export default class Vault extends VaultBase {
 
     return {
       tx,
+      txSize: size,
       feeInfo: {
         limit,
         price: '1',
+        feeRate,
       },
     };
   }
@@ -590,12 +591,21 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxCkb);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxCkb,
+        transfersInfo: params.transfersInfo ?? [],
+      });
     }
     throw new OneKeyInternalError();
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxCkb) {
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxCkb;
+    transfersInfo: ITransferInfo[];
+  }) {
     const client = await this.getClient();
     const txs = await convertTxToTxSkeleton({
       client,
@@ -630,13 +640,54 @@ export default class Vault extends VaultBase {
 
     return {
       encodedTx,
+      txSize: encodedTx.txSize,
+      transfersInfo,
     };
   }
 
-  override updateUnsignedTx(
-    params: IUpdateUnsignedTxParams,
-  ): Promise<IUnsignedTxPro> {
-    return Promise.resolve(params.unsignedTx);
+  override async updateUnsignedTx(options: {
+    unsignedTx: IUnsignedTxPro;
+    feeInfo?: IFeeInfoUnit | undefined;
+  }): Promise<IUnsignedTxPro> {
+    const { unsignedTx, feeInfo } = options;
+    let encodedTxNew = unsignedTx.encodedTx as IEncodedTxCkb;
+    if (feeInfo) {
+      if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+        throw new OneKeyInternalError('transfersInfo is required');
+      }
+      encodedTxNew = await this._attachFeeInfoToEncodedTx({
+        encodedTx: unsignedTx.encodedTx as IEncodedTxCkb,
+        transfersInfo: unsignedTx.transfersInfo,
+        feeInfo,
+      });
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+
+    return Promise.resolve(unsignedTx);
+  }
+
+  async _attachFeeInfoToEncodedTx({
+    encodedTx,
+    feeInfo,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxCkb;
+    feeInfo: IFeeInfoUnit;
+    transfersInfo: ITransferInfo[];
+  }) {
+    if (feeInfo.feeCkb?.feeRate) {
+      const feeRate = feeInfo.feeCkb.feeRate;
+
+      if (typeof feeRate === 'string') {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+          specifiedFeeRate: feeRate,
+        });
+      }
+    }
+
+    return Promise.resolve(encodedTx);
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

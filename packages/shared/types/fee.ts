@@ -45,6 +45,12 @@ export type IFeeSol = {
   computeUnitPrice: string;
 };
 
+export type IFeeCkb = {
+  feeRate?: string;
+  gasLimit?: string;
+  gasPrice?: string;
+};
+
 export type IFeeFil = {
   gasFeeCap: string;
   gasPremium: string;
@@ -73,6 +79,7 @@ export type IFeeInfoUnit = {
   feeTron?: IFeeTron;
   gasFil?: IFeeFil;
   feeSol?: IFeeSol;
+  feeCkb?: IFeeCkb;
 };
 
 export type IEstimateFeeParamsSol = {
@@ -107,6 +114,7 @@ export type IEstimateGasResp = {
   feeUTXO?: IFeeUTXO[];
   feeTron?: IFeeTron[];
   gasFil?: IFeeFil[];
+  feeCkb?: IFeeCkb[];
   nativeTokenPrice?: {
     price: number;
     price24h: number;

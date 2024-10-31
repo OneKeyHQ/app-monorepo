@@ -1,13 +1,10 @@
+import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IEstimateGasParams,
-  IEstimateGasResp,
-} from '@onekeyhq/shared/types/fee';
+import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -63,6 +60,12 @@ class ServiceGas extends ServiceBase {
               computeUnitPrice: feeInfo.computeUnitPrice,
             },
           ]
+        : undefined,
+      feeCkb: feeInfo.feeCkb
+        ? feeInfo.feeCkb.map((item) => ({
+            ...item,
+            feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
+          }))
         : undefined,
     };
   }
