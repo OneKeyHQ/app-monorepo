@@ -19,10 +19,15 @@ export const checkAvailabilityAsync = () =>
   isSupport
     ? Promise.race([
         new Promise((resolve) => {
-          child?.on('message', (e: { data: { result: boolean } }) => {
-            resolve(e.data.result);
-            port1.removeAllListeners('message');
-          });
+          child?.on(
+            'message',
+            (e: { data: { type: string; result: boolean } }) => {
+              if (e.data.type === 'checkAvailabilityAsync') {
+                resolve(e.data.result);
+              }
+            },
+          );
+          child?.removeAllListeners('message');
           child?.postMessage({ type: 'checkAvailabilityAsync' });
         }),
         new Promise((resolve) =>
