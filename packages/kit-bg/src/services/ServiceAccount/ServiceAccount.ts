@@ -1445,9 +1445,11 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAccount({
+    dbAccount,
     accountId,
     networkId,
   }: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
   }): Promise<INetworkAccount> {
@@ -1459,9 +1461,12 @@ class ServiceAccount extends ServiceBase {
           walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
         })
       ) {
-        const dbAccount = await localDb.getAccount({ accountId });
+        let dbAccountUsed: IDBAccount | undefined = dbAccount;
+        if (!dbAccountUsed || dbAccountUsed?.id !== accountId) {
+          dbAccountUsed = await localDb.getAccount({ accountId });
+        }
         const realNetworkId = accountUtils.getAccountCompatibleNetwork({
-          account: dbAccount,
+          account: dbAccountUsed,
           networkId: undefined,
         });
         if (realNetworkId === getNetworkIdsMap().onekeyall) {
@@ -1470,6 +1475,7 @@ class ServiceAccount extends ServiceBase {
           );
         }
         return this.getAccount({
+          dbAccount: dbAccountUsed,
           accountId,
           networkId: checkIsDefined(realNetworkId),
         });
@@ -1492,7 +1498,7 @@ class ServiceAccount extends ServiceBase {
       accountId,
       networkId,
     });
-    const networkAccount = await vault.getAccount();
+    const networkAccount = await vault.getAccount({ dbAccount });
 
     return networkAccount;
   }
@@ -2091,9 +2097,11 @@ class ServiceAccount extends ServiceBase {
   async getAccountXpub({
     accountId,
     networkId,
+    dbAccount,
   }: {
     accountId: string;
     networkId: string;
+    dbAccount?: IDBAccount;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       return '';
@@ -2112,11 +2120,14 @@ class ServiceAccount extends ServiceBase {
     };
 
     resetNow();
-    const vault = await vaultFactory.getVault({ accountId, networkId });
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
     logTime('getVault');
 
     resetNow();
-    const xpub = await vault.getAccountXpub();
+    const xpub = await vault.getAccountXpub({ dbAccount });
     logTime('getAccountXpub');
 
     console.log(
@@ -2130,16 +2141,18 @@ class ServiceAccount extends ServiceBase {
   // Get Address for each chain when request the API
   @backgroundMethod()
   async getAccountAddressForApi({
+    dbAccount,
     accountId,
     networkId,
   }: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       return ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
     }
-    const account = await this.getAccount({ accountId, networkId });
+    const account = await this.getAccount({ accountId, networkId, dbAccount });
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
       return account.addressDetail.normalizedAddress;
     }

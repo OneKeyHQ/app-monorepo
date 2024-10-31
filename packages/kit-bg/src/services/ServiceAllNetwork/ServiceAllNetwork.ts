@@ -10,6 +10,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 
 import ServiceBase from '../ServiceBase';
 
@@ -209,25 +210,12 @@ class ServiceAllNetwork extends ServiceBase {
 
         await Promise.all(
           dbAccounts.map(async (a) => {
-            const startNow = Date.now();
-            let now = Date.now();
-            const processEachAccountTimeInfo: {
-              [name: string]: number;
-            } = {};
-            const resetNow = () => {
-              now = Date.now();
-            };
-            const logTime = (name: string) => {
-              processEachAccountTimeInfo[name] = Date.now() - now;
-              resetNow();
-            };
+            const perf = perfUtils.newPerf();
 
-            resetNow();
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,
               networkId: realNetworkId,
             });
-            logTime('isCompatible');
 
             let isMatched = isAllNetwork
               ? isCompatible
@@ -242,7 +230,6 @@ class ServiceAllNetwork extends ServiceBase {
                 .getDefaultDeriveTypeVisibleNetworks()
                 .includes(realNetworkId)
             ) {
-              resetNow();
               const { deriveType } =
                 await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
                   {
@@ -250,16 +237,13 @@ class ServiceAllNetwork extends ServiceBase {
                     template: a.template,
                   },
                 );
-              logTime('getDeriveTypeByTemplate');
 
-              resetNow();
               const globalDeriveType =
                 await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
                   {
                     networkId: realNetworkId,
                   },
                 );
-              logTime('getGlobalDeriveTypeOfNetwork');
 
               if (a.impl === IMPL_EVM) {
                 // console.log({ deriveType, globalDeriveType, realNetworkId });
@@ -272,24 +256,26 @@ class ServiceAllNetwork extends ServiceBase {
             let apiAddress = '';
             let accountXpub: string | undefined;
             if (isMatched) {
-              resetNow();
+              perf.markStart('getAccountAddressForApi');
               apiAddress =
                 await this.backgroundApi.serviceAccount.getAccountAddressForApi(
                   {
+                    dbAccount: a,
                     accountId: a.id,
                     networkId: realNetworkId,
                   },
                 );
-              logTime('getAccountAddressForApi');
+              perf.markEnd('getAccountAddressForApi');
 
               // TODO pass dbAccount for better performance
-              resetNow();
+              perf.markStart('getAccountXpub');
               accountXpub =
                 await this.backgroundApi.serviceAccount.getAccountXpub({
+                  dbAccount: a,
                   accountId: a.id,
                   networkId: realNetworkId,
                 });
-              logTime('getAccountXpub');
+              perf.markEnd('getAccountXpub');
 
               const accountInfo: IAllNetworkAccountInfo = {
                 networkId: realNetworkId,
@@ -301,17 +287,11 @@ class ServiceAllNetwork extends ServiceBase {
                 isNftEnabled,
               };
 
-              resetNow();
               appendAccountInfo(accountInfo);
-              logTime('appendAccountInfo');
 
               compatibleAccountExists = true;
             }
-            console.log(
-              'process each account',
-              Date.now() - startNow,
-              processEachAccountTimeInfo,
-            );
+            perf.finish('localDB__getAllNetworkAccounts_EachAccount', 1);
           }),
         );
 

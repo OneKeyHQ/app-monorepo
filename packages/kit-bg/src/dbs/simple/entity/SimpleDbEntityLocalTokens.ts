@@ -12,6 +12,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ILocalTokens {
@@ -184,8 +185,13 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
     }
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
-    const rawData = await this.getRawData();
+    const perf = perfUtils.newPerf();
 
+    perf.markStart('getAccountTokenList rawData');
+    const rawData = await this.getRawData();
+    perf.markEnd('getAccountTokenList rawData');
+
+    perf.finish('simpleDB__getAccountTokenList');
     return {
       tokenList: rawData?.tokenList?.[key] ?? [],
       smallBalanceTokenList: rawData?.smallBalanceTokenList?.[key] ?? [],

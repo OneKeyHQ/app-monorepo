@@ -31,7 +31,7 @@ class PerformanceTimer {
     this.detail = {};
   }
 
-  finish(logName?: string) {
+  finish(logName?: string, minDuration?: number) {
     const finishAt = Date.now();
     const result = {
       duration: finishAt - this.beginAt,
@@ -39,7 +39,7 @@ class PerformanceTimer {
       beginAt: this.beginAt,
       finishAt,
     };
-    if (logName) {
+    if (logName && result.duration >= (minDuration ?? -10)) {
       console.log(`PerformanceTimer:::${logName}`, result);
     }
     return result;
