@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBAccount, IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -54,10 +54,12 @@ function useAllNetworkRequests<T>(params: {
   allNetworkRequests: ({
     accountId,
     networkId,
+    dbAccount,
     allNetworkDataInit,
   }: {
     accountId: string;
     networkId: string;
+    dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
@@ -238,10 +240,11 @@ function useAllNetworkRequests<T>(params: {
         const allNetworks = accountsInfo;
 
         const requests = allNetworks.map((networkDataString) => {
-          const { accountId, networkId } = networkDataString;
+          const { accountId, networkId, dbAccount } = networkDataString;
           return allNetworkRequests({
             accountId,
             networkId,
+            dbAccount,
             allNetworkDataInit: allNetworkDataInit.current,
           });
         });

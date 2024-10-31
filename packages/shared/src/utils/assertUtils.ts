@@ -11,8 +11,10 @@ import {
 } from 'lodash';
 
 import platformEnv from '../platformEnv';
+import appStorage from '../storage/appStorage';
 
 import { isPromiseObject } from './promiseUtils';
+import timerUtils from './timerUtils';
 
 type IErrorType = undefined | string | Error;
 
@@ -84,16 +86,37 @@ export function isSerializable(obj: any, keyPath?: string[]) {
 const SERIALIZABLE_CHECKING_DISABLED_KEY =
   '$$onekey_disable_bg_api_serializable_checking';
 
-let _isSerializableCheckingDisabled = false;
+type ISerializableCheckingDisabledConfig = {
+  disabled: boolean | undefined;
+  updateAt: number;
+};
+
 export function toggleBgApiSerializableChecking(enabled: boolean) {
-  // appStorage.syncStorage.set(SERIALIZABLE_CHECKING_DISABLED_KEY, !enabled);
-  _isSerializableCheckingDisabled = !enabled;
+  const data: ISerializableCheckingDisabledConfig = {
+    disabled: !enabled,
+    updateAt: Date.now(),
+  };
+  appStorage.syncStorage.set(
+    SERIALIZABLE_CHECKING_DISABLED_KEY,
+    JSON.stringify(data),
+  );
 }
 export function isBgApiSerializableCheckingDisabled() {
-  // return !!appStorage.syncStorage.getBoolean(
-  //   SERIALIZABLE_CHECKING_DISABLED_KEY,
-  // );
-  return !!_isSerializableCheckingDisabled;
+  const data = JSON.parse(
+    appStorage.syncStorage.getString(SERIALIZABLE_CHECKING_DISABLED_KEY) ??
+      '{}',
+  ) as ISerializableCheckingDisabledConfig;
+  if (
+    data.updateAt &&
+    Date.now() - data.updateAt >
+      timerUtils.getTimeDurationMs({
+        day: 1,
+      })
+  ) {
+    // 1 day
+    return false;
+  }
+  return Boolean(data.disabled);
 }
 export function ensureSerializable(
   obj: any,

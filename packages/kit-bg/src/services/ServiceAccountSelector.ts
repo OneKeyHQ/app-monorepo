@@ -210,16 +210,6 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
-    if (dbAccountId) {
-      try {
-        const r = await serviceAccount.getDBAccount({
-          accountId: dbAccountId,
-        });
-        dbAccount = r;
-      } catch (e) {
-        console.error(e);
-      }
-    }
 
     if (networkId) {
       try {
@@ -264,6 +254,21 @@ class ServiceAccountSelector extends ServiceBase {
         } catch (error) {
           //
         }
+      }
+    }
+
+    const isAllNetwork = Boolean(
+      networkId && networkUtils.isAllNetwork({ networkId }),
+    );
+
+    if (dbAccountId && !isAllNetwork) {
+      try {
+        const r = await serviceAccount.getDBAccount({
+          accountId: dbAccountId,
+        });
+        dbAccount = r;
+      } catch (e) {
+        console.error(e);
       }
     }
 
@@ -317,9 +322,7 @@ class ServiceAccountSelector extends ServiceBase {
     }
     let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
-    const isAllNetwork = networkId && networkUtils.isAllNetwork({ networkId });
-    // isAllNetwork
-    if (isAllNetwork) {
+    if (isAllNetwork && networkId) {
       try {
         allNetworkDbAccounts =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({

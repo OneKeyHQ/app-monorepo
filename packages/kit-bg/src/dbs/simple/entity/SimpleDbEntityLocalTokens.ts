@@ -6,7 +6,9 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
-import perfUtils, { EPerformanceTimerLogNames } from '@onekeyhq/shared/src/utils/perfUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import type {
   IAccountToken,
   IToken,
@@ -143,8 +145,20 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    const perf = perfUtils.perfTimer(
+      EPerformanceTimerLogNames.simpleDB__updateAccountTokenList,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+      },
+    );
 
+    perf.markStart('buildAccountLocalAssetsKey');
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    perf.markEnd('buildAccountLocalAssetsKey');
+
+    perf.markStart('setRawData');
     await this.setRawData(({ rawData }) => ({
       data: rawData?.data ?? {},
       tokenList: {
@@ -168,9 +182,12 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         [key]: tokenListValue,
       },
     }));
+    perf.markEnd('setRawData');
+    perf.done();
   }
 
-  getAccountTokenListFromRawData({
+  @backgroundMethod()
+  async getAccountTokenList({
     networkId,
     accountAddress,
     xpub,
@@ -186,19 +203,24 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     }
     const perf = perfUtils.perfTimer(
       EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+      },
     );
 
     perf.markStart('buildAccountLocalAssetsKey');
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
     perf.markEnd('buildAccountLocalAssetsKey');
 
-    perf.markStart('getAccountTokenList.getRawData', {
+    perf.markStart('getRawData', {
       networkId,
       accountAddress,
       rawDataExist: !!simpleDbLocalTokensRawData,
     });
-    const rawData = simpleDbLocalTokensRawData;
-    perf.markEnd('getAccountTokenList.getRawData');
+    const rawData = simpleDbLocalTokensRawData ?? (await this.getRawData());
+    perf.markEnd('getRawData');
 
     const result = {
       tokenList: rawData?.tokenList?.[key] ?? [],
@@ -211,30 +233,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     perf.done();
 
     return result;
-  }
-
-  @backgroundMethod()
-  async getAccountTokenList({
-    networkId,
-    accountAddress,
-    xpub,
-    simpleDbLocalTokensRawData,
-  }: {
-    networkId: string;
-    accountAddress?: string;
-    xpub?: string;
-    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
-  }) {
-    if (!accountAddress && !xpub) {
-      throw new OneKeyInternalError('accountAddress or xpub is required');
-    }
-    const rawData = simpleDbLocalTokensRawData ?? (await this.getRawData());
-    return this.getAccountTokenListFromRawData({
-      networkId,
-      accountAddress,
-      xpub,
-      simpleDbLocalTokensRawData: rawData,
-    });
   }
 
   @backgroundMethod()

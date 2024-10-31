@@ -31,6 +31,7 @@ import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 
 @backgroundClass()
@@ -59,12 +60,16 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountTokens(
-    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
+    params: IFetchAccountTokensParams & {
+      mergeTokens?: boolean;
+      dbAccount?: IDBAccount;
+    },
   ): Promise<IFetchAccountTokensResp> {
     const {
       mergeTokens,
       flag,
       accountId,
+      dbAccount,
       isAllNetworks,
       isManualRefresh,
       allNetworksAccountId,
@@ -85,6 +90,7 @@ class ServiceToken extends ServiceBase {
     const accountParams = {
       accountId,
       networkId,
+      dbAccount,
     };
     const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
       await Promise.all([
@@ -206,6 +212,7 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.riskTokens.fiatValue ?? '0');
 
       await this.updateAccountLocalTokens({
+        dbAccount,
         accountId,
         networkId,
         tokenList: resp.data.data.tokens.data,
@@ -409,6 +416,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async updateAccountLocalTokens(params: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     tokenList: IAccountToken[];
@@ -418,6 +426,7 @@ class ServiceToken extends ServiceBase {
     tokenListValue: string;
   }) {
     const {
+      dbAccount,
       accountId,
       networkId,
       tokenList,
@@ -428,10 +437,12 @@ class ServiceToken extends ServiceBase {
     } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
@@ -489,19 +500,13 @@ class ServiceToken extends ServiceBase {
       networkId,
       rawDataExist: !!simpleDbLocalTokensRawData,
     });
-    const localTokens = simpleDbLocalTokensRawData
-      ? this.backgroundApi.simpleDb.localTokens.getAccountTokenListFromRawData({
-          networkId,
-          accountAddress,
-          xpub,
-          simpleDbLocalTokensRawData,
-        })
-      : await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
-          networkId,
-          accountAddress,
-          xpub,
-          simpleDbLocalTokensRawData,
-        });
+    const localTokens =
+      await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
+        networkId,
+        accountAddress,
+        xpub,
+        simpleDbLocalTokensRawData,
+      });
     perf.markEnd('getAccountTokenList');
 
     let tokenList = localTokens.tokenList;

@@ -11,7 +11,10 @@ import {
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBUtxoAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
@@ -344,13 +347,16 @@ function TokenListContainer(props: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      dbAccount,
       allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        dbAccount,
         networkId,
         accountId,
         flag: 'home-token-list',

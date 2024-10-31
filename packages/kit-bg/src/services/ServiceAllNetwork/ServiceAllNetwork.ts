@@ -25,6 +25,7 @@ export type IAllNetworkAccountInfo = {
   apiAddress: string;
   accountXpub: string | undefined;
   pub: string | undefined;
+  dbAccount: IDBAccount | undefined;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
 };
@@ -289,6 +290,7 @@ class ServiceAllNetwork extends ServiceBase {
                 accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
+                dbAccount: a,
               };
 
               appendAccountInfo(accountInfo);
@@ -314,6 +316,7 @@ class ServiceAllNetwork extends ServiceBase {
             accountXpub: undefined,
             isNftEnabled,
             isBackendIndexed,
+            dbAccount: undefined,
           });
         }
       }),

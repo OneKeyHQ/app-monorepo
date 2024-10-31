@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import {
+  COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
   COINTYPE_LIGHTNING,
@@ -370,6 +371,11 @@ function isWatchingAccount({ accountId }: { accountId: string }) {
 function isImportedAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
+}
+
+function isAllNetworkMockedAccount({ accountId }: { accountId: string }) {
+  // TODO There may be a misjudgment.
+  return accountId.includes(`${SEPERATOR}${COINTYPE_ALLNETWORKS}/`);
 }
 
 function buildHDAccountId({
