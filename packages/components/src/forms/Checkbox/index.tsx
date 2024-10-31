@@ -9,14 +9,14 @@ import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
+import type { ILabelProps } from '../../primitives';
+import type { IFormFieldProps } from '../types';
 import type { ViewStyle } from 'react-native';
 import type {
   CheckedState,
   StackProps,
   CheckboxProps as TMCheckboxProps,
 } from 'tamagui';
-import type { ILabelProps } from '../../primitives';
-import type { IFormFieldProps } from '../types';
 
 export type ICheckedState = CheckedState;
 
