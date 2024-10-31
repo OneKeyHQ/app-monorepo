@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -33,6 +34,7 @@ import {
   type IAccountActivityNotificationSettings,
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
@@ -270,9 +272,7 @@ function AccordionItem({
                 wallet={wallet as IDBWallet & Partial<IDBWalletExtended>}
               />
               <XStack gap="$1">
-                <SizableText flex={1} size="$bodyLgMedium">
-                  {wallet.name}
-                </SizableText>
+                <SizableText size="$bodyLgMedium">{wallet.name}</SizableText>
                 <SizableText>
                   ({enabledAccountsCount}/{totalAccountsCount})
                 </SizableText>
@@ -335,11 +335,13 @@ function LoadingView({ show }: { show: boolean }) {
   return (
     <Skeleton.Group show={show}>
       {Array.from({ length: 3 }).map((_, index) => (
-        <XStack key={index} alignItems="center" px="$5" py="$2" gap="$3">
-          <Icon name="ChevronBottomOutline" color="$neutral4" />
-          <Skeleton w="$10" h="$10" radius={8} />
-          <Skeleton.BodyLg />
-          <Switch ml="auto" disabled />
+        <XStack key={index} alignItems="center" px="$5" py="$2">
+          <XStack alignItems="center" gap="$3" flex={1}>
+            <Icon name="ChevronBottomOutline" color="$neutral4" />
+            <Skeleton w="$10" h="$10" radius={8} />
+            <Skeleton.BodyLg />
+          </XStack>
+          <Switch disabled />
         </XStack>
       ))}
     </Skeleton.Group>
@@ -396,6 +398,8 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
 }
 
 function ManageAccountActivity() {
+  const intl = useIntl();
+
   const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
@@ -413,7 +417,9 @@ function ManageAccountActivity() {
   return (
     <AccountNotificationSettingsProvider>
       <Page>
-        <Page.Header title="Manage" />
+        <Page.Header
+          title={intl.formatMessage({ id: ETranslations.global_manage })}
+        />
         <Page.Body>
           {isLoading ? (
             <LoadingView show={isLoading} />
