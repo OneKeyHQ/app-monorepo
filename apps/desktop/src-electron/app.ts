@@ -539,18 +539,30 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
     if (isWin) {
-      const result = await new Promise((resolve) => {
+      logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
+      try {
         windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
           (error, status) => {
+            logger.info(
+              '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
+              status,
+              error,
+            );
             if (error) {
-              resolve(false);
+              event.returnValue = false;
             } else {
-              resolve(status === UserConsentVerifierAvailability.available);
+              event.returnValue =
+                status === UserConsentVerifierAvailability.available;
             }
           },
         );
-      });
-      event.returnValue = result;
+      } catch (error) {
+        logger.info(
+          '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
+          error,
+        );
+        event.returnValue = false;
+      }
       return;
     }
     const result = systemPreferences?.canPromptTouchID?.();
@@ -597,23 +609,44 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     if (isWin) {
-      windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
-        msg,
-        (error, status) => {
-          if (error) {
-            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-              success: false,
-              error: error.message,
-            });
-          } else {
-            event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-              success: status === UserConsentVerificationResult.verified,
-            });
-          }
-        },
+      logger.info(
+        '[TOUCH_ID_PROMPT] Windows requestVerificationAsync',
+        isAppReady,
       );
+      try {
+        windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
+          msg,
+          (error, status) => {
+            logger.info(
+              '[TOUCH_ID_PROMPT] Windows requestVerificationAsync status',
+              status,
+              error,
+            );
+            if (error) {
+              event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+                success: false,
+                error: error.message,
+              });
+            } else {
+              event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+                success: status === UserConsentVerificationResult.verified,
+              });
+            }
+          },
+        );
+      } catch (e: any) {
+        logger.info(
+          '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
+          e,
+        );
+        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
+          success: false,
+          error: e.message,
+        });
+      }
       return;
     }
+
     try {
       await systemPreferences.promptTouchID(msg);
       event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
