@@ -11,9 +11,9 @@ import {
   useOnRouterChange,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -49,6 +49,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { TokenListView } from '../../../components/TokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
@@ -568,11 +569,13 @@ function TokenListContainer(props: ITabPageProps) {
       networkId,
       xpub,
       accountAddress,
+      simpleDbLocalTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       xpub?: string;
       accountAddress: string;
+      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -580,6 +583,7 @@ function TokenListContainer(props: ITabPageProps) {
           networkId,
           accountAddress,
           xpub,
+          simpleDbLocalTokensRawData,
         });
 
       const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;

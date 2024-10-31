@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -61,11 +63,13 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     accountAddress,
     xpub,
+    simpleDbLocalTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) => Promise<any>;
   allNetworkCacheData?: ({
     data,
@@ -170,18 +174,24 @@ function useAllNetworkRequests<T>(params: {
 
       if (!allNetworkDataInit.current) {
         try {
+          const simpleDbLocalTokensRawData =
+            (await backgroundApiProxy.simpleDb.localTokens.getRawData()) ??
+            undefined;
           const cachedData = (
             await Promise.all(
-              Array.from(accountsInfo).map((networkDataString) => {
-                const { accountId, networkId, accountXpub, apiAddress } =
-                  networkDataString;
-                return allNetworkCacheRequests?.({
-                  accountId,
-                  networkId,
-                  xpub: accountXpub,
-                  accountAddress: apiAddress,
-                });
-              }),
+              Array.from(accountsInfo).map(
+                (networkDataString: IAllNetworkAccountInfo) => {
+                  const { accountId, networkId, accountXpub, apiAddress } =
+                    networkDataString;
+                  return allNetworkCacheRequests?.({
+                    accountId,
+                    networkId,
+                    xpub: accountXpub,
+                    accountAddress: apiAddress,
+                    simpleDbLocalTokensRawData,
+                  });
+                },
+              ),
             )
           ).filter(Boolean);
 

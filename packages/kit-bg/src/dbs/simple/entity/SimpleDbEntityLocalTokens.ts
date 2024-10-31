@@ -6,16 +6,16 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import type {
   IAccountToken,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export interface ILocalTokens {
+export interface ISimpleDBLocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>
   tokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   smallBalanceTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
@@ -24,7 +24,7 @@ export interface ILocalTokens {
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
 }
 
-export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> {
+export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
   entityName = 'localTokens';
 
   override enableCache = false;
@@ -175,10 +175,12 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
     networkId,
     accountAddress,
     xpub,
+    simpleDbLocalTokensRawData,
   }: {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -188,7 +190,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
     const perf = perfUtils.newPerf();
 
     perf.markStart('getAccountTokenList rawData');
-    const rawData = await this.getRawData();
+    const rawData = simpleDbLocalTokensRawData ?? (await this.getRawData());
     perf.markEnd('getAccountTokenList rawData');
 
     perf.finish('simpleDB__getAccountTokenList');

@@ -6,23 +6,17 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EthereumMatic,
-  SepoliaMatic,
-} from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
-  ISearchTokenItem,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -32,6 +26,7 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
+import { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -456,8 +451,9 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
-    const { accountId, networkId } = params;
+    const { accountId, networkId, simpleDbLocalTokensRawData } = params;
 
     let accountAddress: string | undefined;
     let xpub: string | undefined;
@@ -483,6 +479,7 @@ class ServiceToken extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
+        simpleDbLocalTokensRawData,
       });
 
     let tokenList = localTokens.tokenList;
