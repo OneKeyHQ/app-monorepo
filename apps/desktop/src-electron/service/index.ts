@@ -30,25 +30,42 @@ export const startServices = () => {
   });
 };
 
-let isSupport = true;
+let isSupport: boolean | null = null;
 
-export const checkAvailabilityAsync = () =>
-  isSupport
-    ? Promise.race([
-        new Promise((resolve) => {
-          onMessageCallbacks.push({
-            type: EWindowHelloEventType.CheckAvailabilityAsync,
-            callback: resolve,
-          });
-          child?.postMessage({
-            type: EWindowHelloEventType.CheckAvailabilityAsync,
-          });
-        }),
-        new Promise((resolve) =>
-          setTimeout(() => {
-            isSupport = false;
-            resolve(false);
-          }, 500),
-        ),
-      ])
-    : Promise.resolve(false);
+export const checkAvailabilityAsync = async () => {
+  if (isSupport === null) {
+    isSupport = await Promise.race<boolean>([
+      new Promise<boolean>((resolve) => {
+        onMessageCallbacks.push({
+          type: EWindowHelloEventType.CheckAvailabilityAsync,
+          callback: resolve,
+        });
+        child?.postMessage({
+          type: EWindowHelloEventType.CheckAvailabilityAsync,
+        });
+      }),
+      new Promise((resolve) =>
+        setTimeout(() => {
+          isSupport = false;
+          resolve(false);
+        }, 500),
+      ),
+    ]);
+  }
+  return isSupport;
+};
+
+export const requestVerificationAsync = (message: string) =>
+  new Promise<{
+    success: boolean;
+    error?: string;
+  }>((resolve) => {
+    onMessageCallbacks.push({
+      type: EWindowHelloEventType.RequestVerificationAsync,
+      callback: resolve,
+    });
+    child?.postMessage({
+      type: EWindowHelloEventType.RequestVerificationAsync,
+      params: message,
+    });
+  });

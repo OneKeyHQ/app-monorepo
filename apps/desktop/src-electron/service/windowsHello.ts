@@ -21,7 +21,7 @@ function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   }
 }
 
-function requestWindowsHelloAuth(
+function requestVerificationAsync(
   message: string,
   callback: (params: { success: boolean; error?: string }) => void,
 ) {
@@ -45,7 +45,7 @@ function requestWindowsHelloAuth(
 // Child process
 process.parentPort.on(
   'message',
-  (e: { data: { type: string; message: string } }) => {
+  (e: { data: { type: string; params: unknown } }) => {
     switch (e.data.type) {
       case 'checkAvailabilityAsync':
         checkWindowsHelloAvailability((result) => {
@@ -56,7 +56,7 @@ process.parentPort.on(
         });
         break;
       case 'requestVerificationAsync':
-        requestWindowsHelloAuth(e.data.message, (result) => {
+        requestVerificationAsync(e.data.params as string, (result) => {
           process.parentPort.postMessage({
             type: EWindowHelloEventType.RequestVerificationAsync,
             result,

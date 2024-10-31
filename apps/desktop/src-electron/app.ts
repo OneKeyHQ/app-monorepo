@@ -44,7 +44,11 @@ import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 import { resourcesPath, staticPath } from './resoucePath';
-import { checkAvailabilityAsync, startServices } from './service';
+import {
+  checkAvailabilityAsync,
+  requestVerificationAsync,
+  startServices,
+} from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -598,6 +602,14 @@ function createMainWindow() {
         isAppReady,
       );
       try {
+        const { success, error } = await requestVerificationAsync(msg);
+        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success });
+        if (error) {
+          logger.info(
+            '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
+            error,
+          );
+        }
       } catch (e: any) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
