@@ -24,7 +24,6 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import windowsSecurityCredentialsUiModule, {
   UserConsentVerificationResult,
-  UserConsentVerifierAvailability,
 } from 'electron-windows-security';
 
 import {
@@ -48,6 +47,7 @@ import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 import { resourcesPath, staticPath } from './resoucePath';
+import { checkAvailabilityAsync } from './services';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -541,25 +541,8 @@ function createMainWindow() {
     if (isWin) {
       logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
       try {
-        const timerId = setTimeout(() => {
-          event.returnValue = false;
-        }, 1000);
-        windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
-          (error, status) => {
-            clearTimeout(timerId);
-            logger.info(
-              '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
-              status,
-              error,
-            );
-            if (error) {
-              event.returnValue = false;
-            } else {
-              event.returnValue =
-                status === UserConsentVerifierAvailability.available;
-            }
-          },
-        );
+        const result = await checkAvailabilityAsync();
+        event.returnValue = result;
       } catch (error) {
         logger.info(
           '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',

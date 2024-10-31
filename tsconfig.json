@@ -23,7 +23,7 @@
     "types": ["node", "chrome", "jest", "web"],
     "typeRoots": ["node_modules/@types", "./@types"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx", "apps/desktop/src-electron/services/ windowsHello.js"],
   "exclude": ["node_modules"],
   "extends": "expo/tsconfig.base"
 }
