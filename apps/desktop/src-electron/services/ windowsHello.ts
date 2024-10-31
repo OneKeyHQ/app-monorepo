@@ -3,7 +3,7 @@ import windowsSecurityCredentialsUiModule, {
   UserConsentVerifierAvailability,
 } from 'electron-windows-security';
 
-async function checkWindowsHelloAvailability(callback) {
+async function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
   try {
     windowsSecurityCredentialsUiModule.UserConsentVerifier.checkAvailabilityAsync(
       (error, status) => {
@@ -19,7 +19,13 @@ async function checkWindowsHelloAvailability(callback) {
   }
 }
 
-async function requestWindowsHelloAuth(message, callback) {
+async function requestWindowsHelloAuth(
+  message: string,
+  callback: (params: {
+    success: boolean,
+    error?: string,
+  }) => void,
+) {
   windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
     message,
     (error, status) => {
