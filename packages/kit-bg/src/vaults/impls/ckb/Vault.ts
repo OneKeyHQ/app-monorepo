@@ -7,7 +7,7 @@ import {
   minimalCellCapacityCompatible,
 } from '@ckb-lumos/helpers';
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import {
   getConfig,
@@ -146,11 +146,12 @@ export default class Vault extends VaultBase {
   override buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxCkb> {
-    const { transfersInfo } = params;
+    const { transfersInfo, specifiedFeeRate } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       if (transfersInfo.length === 1) {
         return this._buildEncodedTxFromTransfer({
           transferInfo: transfersInfo[0],
+          specifiedFeeRate,
         });
       }
       throw new OneKeyInternalError('Batch transfers not supported');
@@ -160,8 +161,10 @@ export default class Vault extends VaultBase {
 
   async _buildEncodedTxFromTransfer({
     transferInfo,
+    specifiedFeeRate,
   }: {
     transferInfo: ITransferInfo;
+    specifiedFeeRate?: string;
   }) {
     const { tokenInfo, amount, from, to } = transferInfo;
 
@@ -179,7 +182,14 @@ export default class Vault extends VaultBase {
     const indexer = await this.getIndexer();
     const accountAddress = await this.getAccountAddress();
     const network = await this.getNetwork();
-    const { median } = await client.getFeeRateStatistics();
+
+    let feeRate = '';
+    if (!isNil(specifiedFeeRate)) {
+      feeRate = specifiedFeeRate;
+    } else {
+      const { median } = await client.getFeeRateStatistics();
+      feeRate = median;
+    }
 
     let txSkeleton: TransactionSkeletonType = TransactionSkeleton({
       cellProvider: {
@@ -237,7 +247,7 @@ export default class Vault extends VaultBase {
       txSkeleton = await common.payFeeByFeeRate(
         txSkeleton,
         [from],
-        median,
+        feeRate,
         undefined,
         {
           config,
@@ -293,7 +303,10 @@ export default class Vault extends VaultBase {
     if (allInputAmount.isLessThanOrEqualTo(allOutputAmount)) {
       // fix max send fee
       const size = getTransactionSizeByTxSkeleton(txSkeleton);
-      limit = new BigNumber(median, 16).multipliedBy(size).div(1024).toFixed(0);
+      limit = new BigNumber(feeRate, 16)
+        .multipliedBy(size)
+        .div(1024)
+        .toFixed(0);
 
       console.log('fix max send fee,', {
         limit,
