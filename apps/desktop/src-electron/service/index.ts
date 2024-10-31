@@ -34,7 +34,7 @@ export const checkAvailabilityAsync = () =>
           setTimeout(() => {
             isSupport = false;
             resolve(false);
-          }, 100),
+          }, 500),
         ),
       ])
     : Promise.resolve(false);
