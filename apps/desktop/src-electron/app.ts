@@ -22,10 +22,6 @@ import {
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import windowsSecurityCredentialsUiModule, {
-  UserConsentVerificationResult,
-} from 'electron-windows-security';
-
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
@@ -601,26 +597,7 @@ function createMainWindow() {
         isAppReady,
       );
       try {
-        windowsSecurityCredentialsUiModule.UserConsentVerifier.requestVerificationAsync(
-          msg,
-          (error, status) => {
-            logger.info(
-              '[TOUCH_ID_PROMPT] Windows requestVerificationAsync status',
-              status,
-              error,
-            );
-            if (error) {
-              event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-                success: false,
-                error: error.message,
-              });
-            } else {
-              event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-                success: status === UserConsentVerificationResult.verified,
-              });
-            }
-          },
-        );
+       
       } catch (e: any) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
