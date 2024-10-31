@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -121,6 +122,43 @@ function AddCustomNetwork() {
     },
     [form],
   );
+
+  const [symbolDescription, setSymbolDescription] = useState('');
+  const observedChainId = form.watch('chainId');
+  useEffect(() => {
+    async function searchChainDataFromServer() {
+      const chainId = new BigNumber(observedChainId);
+      if (!chainId.isInteger()) {
+        return;
+      }
+      const chainInfo =
+        await backgroundApiProxy.serviceCustomRpc.searchCustomNetworkByChainList(
+          {
+            chainId: chainId.toString(),
+          },
+        );
+      if (!chainInfo) {
+        return;
+      }
+      const currentSymbol = form.getValues('symbol');
+      if (
+        chainInfo.nativeCurrency?.symbol &&
+        chainInfo.nativeCurrency.symbol !== currentSymbol
+      ) {
+        setSymbolDescription(
+          `A network with chain ID ${chainId.toString()} usually uses ${
+            chainInfo.nativeCurrency?.symbol
+          }. Please check the symbol you entered`,
+        );
+        console.log(
+          'chainInfo.nativeCurrency?.symbol: ',
+          chainInfo.nativeCurrency?.symbol,
+          currentSymbol,
+        );
+      }
+    }
+    void searchChainDataFromServer();
+  }, [observedChainId, form]);
 
   const [isLoading, setIsLoading] = useState(false);
   const onSubmit = useCallback(async () => {
@@ -361,6 +399,7 @@ function AddCustomNetwork() {
             label={intl.formatMessage({
               id: ETranslations.manage_token_custom_token_symbol,
             })}
+            description={symbolDescription}
             rules={{
               required: {
                 value: true,
