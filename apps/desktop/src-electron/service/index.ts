@@ -13,6 +13,7 @@ export const startServices = () => {
     path.join(__dirname, './service/windowsHello.js'),
   );
   child.on('message', (e: { data: { type: string; result: boolean } }) => {
+    Logger.info('parent process--onMessage', e);
     const callbacks = onMessageCallbacks.filter(
       (callbackItem) => callbackItem.type === e.data.type,
     );
