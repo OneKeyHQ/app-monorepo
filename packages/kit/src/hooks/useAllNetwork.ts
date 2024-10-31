@@ -7,12 +7,13 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import perfUtils from '@onekeyhq/shared/src/utils/perfUtils';
 import { usePromiseResult } from './usePromiseResult';
 
 // useRef not working as expected, so use a global object
@@ -126,6 +127,7 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result } = usePromiseResult(
     async () => {
+      console.log('useAllNetworkRequestsRun >>>>>>>>>>>>>>');
       const requestsUUID = generateUUID();
 
       if (disabled) return;
@@ -185,20 +187,24 @@ function useAllNetworkRequests<T>(params: {
             undefined;
           perf.markEnd('localTokens.getRawData');
 
-          perf.markStart('allNetworkCacheRequests');
+          perf.markStart('allNetworkCacheRequests', {
+            localTokensExists: Boolean(simpleDbLocalTokensRawData),
+          });
+
           const cachedData = (
             await Promise.all(
               Array.from(accountsInfo).map(
-                (networkDataString: IAllNetworkAccountInfo) => {
+                async (networkDataString: IAllNetworkAccountInfo) => {
                   const { accountId, networkId, accountXpub, apiAddress } =
                     networkDataString;
-                  return allNetworkCacheRequests?.({
+                  const cachedDataResult = await allNetworkCacheRequests?.({
                     accountId,
                     networkId,
                     xpub: accountXpub,
                     accountAddress: apiAddress,
                     simpleDbLocalTokensRawData,
                   });
+                  return cachedDataResult as unknown;
                 },
               ),
             )

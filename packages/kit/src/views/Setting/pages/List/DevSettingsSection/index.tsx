@@ -13,12 +13,12 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -32,6 +32,10 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  isBgApiSerializableCheckingDisabled,
+  toggleBgApiSerializableChecking,
+} from '@onekeyhq/shared/src/utils/assertUtils';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
@@ -246,6 +250,20 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <ListItem
+        title="Bg Api 可序列化检测"
+        subtitle="启用后会影响性能, 仅在开发环境生效, 内存状态, 不持久化"
+      >
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={!isBgApiSerializableCheckingDisabled()}
+          onChange={(v) => {
+            toggleBgApiSerializableChecking(v);
+          }}
+        />
+      </ListItem>
 
       <SectionPressItem
         title="Export Accounts Data"

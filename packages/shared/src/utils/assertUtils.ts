@@ -81,22 +81,38 @@ export function isSerializable(obj: any, keyPath?: string[]) {
   return true;
 }
 
+const SERIALIZABLE_CHECKING_DISABLED_KEY =
+  '$$onekey_disable_bg_api_serializable_checking';
+
+let _isSerializableCheckingDisabled = false;
+export function toggleBgApiSerializableChecking(enabled: boolean) {
+  // appStorage.syncStorage.set(SERIALIZABLE_CHECKING_DISABLED_KEY, !enabled);
+  _isSerializableCheckingDisabled = !enabled;
+}
+export function isBgApiSerializableCheckingDisabled() {
+  // return !!appStorage.syncStorage.getBoolean(
+  //   SERIALIZABLE_CHECKING_DISABLED_KEY,
+  // );
+  return !!_isSerializableCheckingDisabled;
+}
 export function ensureSerializable(
   obj: any,
   stringify = false,
   info?: any,
 ): any {
   if (process.env.NODE_ENV !== 'production') {
-    if (!isSerializable(obj)) {
-      console.error('Object should be serializable >>>> ', obj, info);
-      if (stringify) {
-        return JSON.parse(
-          // stringUtils.safeStringify(obj),
-          JSON.stringify(obj),
-        );
-      }
+    if (!isBgApiSerializableCheckingDisabled()) {
+      if (!isSerializable(obj)) {
+        console.error('Object should be serializable >>>> ', obj, info);
+        if (stringify) {
+          return JSON.parse(
+            // stringUtils.safeStringify(obj),
+            JSON.stringify(obj),
+          );
+        }
 
-      throw new Error('Object should be serializable');
+        throw new Error('Object should be serializable');
+      }
     }
   }
   return obj;

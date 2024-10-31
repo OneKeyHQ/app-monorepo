@@ -63,6 +63,8 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 
+import { TokenListContainerPerfTest } from './TokenListContainerPerfTest';
+
 const networkIdsMap = getNetworkIdsMap();
 
 function TokenListContainer(props: ITabPageProps) {
@@ -348,7 +350,6 @@ function TokenListContainer(props: ITabPageProps) {
       networkId: string;
       allNetworkDataInit?: boolean;
     }) => {
-      return;
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         networkId,
         accountId,
@@ -1273,7 +1274,8 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
 
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <TokenListContainer showWalletActions {...props} />
+      {/* <TokenListContainer showWalletActions {...props} /> */}
+      <TokenListContainerPerfTest showWalletActions {...props} />
     </HomeTokenListProviderMirrorWrapper>
   );
 });

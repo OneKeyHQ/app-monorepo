@@ -4,7 +4,7 @@ import mmkvStorageInstance from './instance/mmkvStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-export const appSetting = mmkvStorageInstance;
+export const syncStorage = mmkvStorageInstance;
 
 export enum EAppSettingKey {
   rrt = 'rrt',
@@ -13,13 +13,15 @@ export enum EAppSettingKey {
 }
 
 export interface IAppStorage extends AsyncStorageStatic {
+  syncStorage: typeof syncStorage;
+  // TODO remove all settings, use storage.syncStorage instead
   setSetting: (key: EAppSettingKey, value: boolean | string | number) => void;
   getSettingString: (key: EAppSettingKey) => string | undefined;
   getSettingNumber: (key: EAppSettingKey) => number | undefined;
   getSettingBoolean: (key: EAppSettingKey) => boolean | undefined;
   deleteSetting: (key: EAppSettingKey) => void;
-  clearSetting: typeof appSetting.clearAll;
-  getAllKeysOfSetting: typeof appSetting.getAllKeys;
+  clearSetting: typeof syncStorage.clearAll;
+  getAllKeysOfSetting: typeof syncStorage.getAllKeys;
 }
 
 export const buildAppStorageFactory = (
@@ -42,12 +44,14 @@ export const buildAppStorageFactory = (
   storage.setItem = setItem;
   storage.removeItem = removeItem;
 
-  storage.setSetting = appSetting.set.bind(appSetting);
-  storage.getSettingString = appSetting.getString.bind(appSetting);
-  storage.getSettingNumber = appSetting.getNumber.bind(appSetting);
-  storage.getSettingBoolean = appSetting.getBoolean.bind(appSetting);
-  storage.deleteSetting = appSetting.delete.bind(appSetting);
-  storage.clearSetting = appSetting.clearAll.bind(appSetting);
-  storage.getAllKeysOfSetting = appSetting.getAllKeys.bind(appSetting);
+  // TODO remove all settings, use storage.syncStorage instead
+  storage.syncStorage = syncStorage;
+  storage.setSetting = syncStorage.set.bind(syncStorage);
+  storage.getSettingString = syncStorage.getString.bind(syncStorage);
+  storage.getSettingNumber = syncStorage.getNumber.bind(syncStorage);
+  storage.getSettingBoolean = syncStorage.getBoolean.bind(syncStorage);
+  storage.deleteSetting = syncStorage.delete.bind(syncStorage);
+  storage.clearSetting = syncStorage.clearAll.bind(syncStorage);
+  storage.getAllKeysOfSetting = syncStorage.getAllKeys.bind(syncStorage);
   return storage;
 };
