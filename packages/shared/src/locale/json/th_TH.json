@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "อนุญาตการแจ้งเตือน",
   "notifications.notifications_account_activity_desc": "รับการแจ้งเตือนเมื่อมีการรับ ส่ง ซื้อขาย และอื่นๆ อีกมากมาย",
   "notifications.notifications_account_activity_label": "กิจกรรมบัญชี",
+  "notifications.notifications_account_manage_desc": "เลือกบัญชีสำหรับการแจ้งเตือน",
+  "notifications.notifications_account_manage_label": "จัดการ",
   "notifications.notifications_price_alert_desc": "รับการแจ้งเตือนเมื่อจำนวน crypto ที่ถูกเฝ้าดูเพิ่มขึ้นหรือลดลงมากกว่า 10% ใน 24 ชั่วโมง",
   "notifications.notifications_price_alert_label": "แจ้งเตือนราคา",
   "notifications.notifications_switch_label": "อนุญาตการแจ้งเตือน",

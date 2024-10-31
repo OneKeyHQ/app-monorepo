@@ -64,6 +64,8 @@ function AddCustomNetwork() {
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
 
+  const isEditMode = !!route.params.chainId;
+
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
   }>();
@@ -146,9 +148,15 @@ function AddCustomNetwork() {
         chainInfo.nativeCurrency.symbol !== currentSymbol
       ) {
         setSymbolDescription(
-          `A network with chain ID ${chainId.toString()} usually uses ${
-            chainInfo.nativeCurrency?.symbol
-          }. Please check the symbol you entered`,
+          intl.formatMessage(
+            {
+              id: ETranslations.form_symbol_recommend_text,
+            },
+            {
+              chainID: chainId.toString(),
+              symbol: chainInfo.nativeCurrency?.symbol,
+            },
+          ),
         );
         console.log(
           'chainInfo.nativeCurrency?.symbol: ',
@@ -234,7 +242,9 @@ function AddCustomNetwork() {
       }, 500);
       Toast.success({
         title: intl.formatMessage({
-          id: ETranslations.custom_network_add_custom_network_successfully_toast_text,
+          id: isEditMode
+            ? ETranslations.feedback_change_saved
+            : ETranslations.custom_network_add_custom_network_successfully_toast_text,
         }),
       });
       navigation.pop();
