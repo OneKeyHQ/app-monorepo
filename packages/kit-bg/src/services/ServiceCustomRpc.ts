@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -14,6 +15,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
+import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
 import type {
   ICustomRpcItem,
   IDBCustomRpc,
@@ -272,6 +274,30 @@ class ServiceCustomRpc extends ServiceBase {
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
+  }
+
+  @backgroundMethod()
+  async searchCustomNetworkByChainList(params: { chainId: string }) {
+    try {
+      const chainId = new BigNumber(params.chainId).toNumber();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        {
+          params: {
+            keywords: chainId,
+            showTestNet: true,
+          },
+        },
+      );
+      return (
+        resp.data.data.find((n) =>
+          new BigNumber(n.chainId).isEqualTo(new BigNumber(chainId)),
+        ) || null
+      );
+    } catch {
+      return null;
+    }
   }
 }
 
