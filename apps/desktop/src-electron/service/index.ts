@@ -13,19 +13,16 @@ export const startServices = () => {
     path.join(__dirname, './service/windowsHello.js'),
   );
   child.on('message', (e: { data: { type: string; result: boolean } }) => {
-    Logger.info('checkAvailabilityAsync', e);
-    if (e.data.type === 'checkAvailabilityAsync') {
-      const callbacks = onMessageCallbacks.filter(
-        (callbackItem) => callbackItem.type === 'checkAvailabilityAsync',
+    const callbacks = onMessageCallbacks.filter(
+      (callbackItem) => callbackItem.type === e.data.type,
+    );
+    if (callbacks.length) {
+      callbacks.forEach((callbackItem) => {
+        callbackItem.callback(e.data.result);
+      });
+      onMessageCallbacks = onMessageCallbacks.filter(
+        (callbackItem) => !callbacks.includes(callbackItem),
       );
-      if (callbacks.length) {
-        callbacks.forEach((callbackItem) => {
-          callbackItem.callback(e.data.result);
-        });
-        onMessageCallbacks = onMessageCallbacks.filter(
-          (callbackItem) => !callbacks.includes(callbackItem),
-        );
-      }
     }
   });
 };
