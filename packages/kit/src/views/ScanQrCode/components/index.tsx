@@ -163,7 +163,6 @@ export function ScanQrCode({
       style={{
         flex: 1,
       }}
-      isActive={isFocused}
       handleScanResult={reloadHandleBarCodeScanned}
     >
       {qrWalletScene ? (
