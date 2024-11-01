@@ -1,6 +1,6 @@
 import { isNil } from 'lodash';
 
-import { EAppSyncStorageKeys } from '../storage/appSetting';
+import { EAppSyncStorageKeys } from '../storage/syncStorage';
 import appStorage from '../storage/appStorage';
 
 import { formatDateFns } from './dateUtils';

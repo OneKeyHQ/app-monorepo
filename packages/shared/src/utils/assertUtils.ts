@@ -11,7 +11,7 @@ import {
 } from 'lodash';
 
 import platformEnv from '../platformEnv';
-import { EAppSyncStorageKeys } from '../storage/appSetting';
+import { EAppSyncStorageKeys } from '../storage/syncStorage';
 import appStorage from '../storage/appStorage';
 
 import { isPromiseObject } from './promiseUtils';
