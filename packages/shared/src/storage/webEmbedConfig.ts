@@ -1,4 +1,4 @@
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 export type IWebEmbedConfig = {

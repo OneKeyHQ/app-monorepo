@@ -5,7 +5,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import useCookie from '@onekeyhq/kit/src/hooks/useCookie';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { Layout } from '../../../utils/Layout';

@@ -16,7 +16,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
