@@ -155,6 +155,7 @@ function HardwareSingletonDialogCmp(
             await serviceHardwareUI.closeHardwareUiStateDialog({
               skipDeviceCancel: true,
               connectId: state?.connectId,
+              skipDelayClose: true,
             });
           }}
           switchOnDevice={async () => {
@@ -247,6 +248,7 @@ function HardwareSingletonDialogCmp(
   return (
     <DialogContainer
       ref={ref}
+      // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
       key={dialogKey}
       title={result.title}
       renderContent={result.content}
