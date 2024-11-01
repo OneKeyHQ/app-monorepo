@@ -47,11 +47,9 @@ export const syncStorage = {
     return mmkvStorageInstance.getBoolean(key);
   },
   delete(key: EAppSyncStorageKeys) {
-    resetUtils.checkNotInResetting();
     mmkvStorageInstance.delete(key);
   },
   clearAll() {
-    resetUtils.checkNotInResetting();
     mmkvStorageInstance.clearAll();
   },
   getAllKeys() {
@@ -75,10 +73,8 @@ export const buildAppStorageFactory = (
     resetUtils.checkNotInResetting();
     return originalSetItem.call(storage, key, value, callback);
   };
-  const removeItem: IAppStorage['removeItem'] = (key, callback) => {
-    resetUtils.checkNotInResetting();
-    return originalRemoveItem.call(storage, key, callback);
-  };
+  const removeItem: IAppStorage['removeItem'] = (key, callback) =>
+    originalRemoveItem.call(storage, key, callback);
 
   storage.setItem = setItem;
   storage.removeItem = removeItem;
