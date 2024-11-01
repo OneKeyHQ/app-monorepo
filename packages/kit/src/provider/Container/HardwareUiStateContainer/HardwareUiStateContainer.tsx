@@ -87,9 +87,6 @@ function HardwareSingletonDialogCmp(
     [action],
   );
 
-  const title = useRef('Loading');
-  const content = useRef(defaultLoadingView);
-
   useEffect(() => {
     if (!open) {
       return;
@@ -120,97 +117,115 @@ function HardwareSingletonDialogCmp(
     }
   }, [open]);
 
-  if (action === EHardwareUiStateAction.DeviceChecking) {
-    title.current = intl.formatMessage({
-      id: ETranslations.global_checking_device,
-    });
-    content.current = defaultLoadingView;
-  }
+  const result = useMemo<{ title: string; content: React.ReactNode }>(() => {
+    let title = 'Loading';
+    let content = defaultLoadingView;
 
-  if (action === EHardwareUiStateAction.ProcessLoading) {
-    title.current = intl.formatMessage({ id: ETranslations.global_processing });
-    content.current = defaultLoadingView;
-  }
+    if (action === EHardwareUiStateAction.DeviceChecking) {
+      title = intl.formatMessage({
+        id: ETranslations.global_checking_device,
+      });
+      content = defaultLoadingView;
+    }
 
-  // EnterPin on Device
-  if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-    title.current = intl.formatMessage({
-      id: ETranslations.enter_pin_enter_on_device,
-    });
-    content.current = (
-      <EnterPinOnDevice deviceType={state?.payload?.deviceType} />
-    );
-  }
+    if (action === EHardwareUiStateAction.ProcessLoading) {
+      title = intl.formatMessage({ id: ETranslations.global_processing });
+      content = defaultLoadingView;
+    }
 
-  // EnterPin on App
-  if (action === EHardwareUiStateAction.REQUEST_PIN) {
-    title.current = intl.formatMessage({
-      id: ETranslations.enter_pin_title,
-    });
-    content.current = (
-      <EnterPin
-        onConfirm={async (value) => {
-          await serviceHardwareUI.sendPinToDevice({
-            pin: value,
-          });
-          await serviceHardwareUI.closeHardwareUiStateDialog({
-            skipDeviceCancel: true,
-            connectId: state?.connectId,
-          });
-        }}
-        switchOnDevice={async () => {
-          await serviceHardwareUI.sendEnterPinOnDeviceEvent({
-            connectId,
-            payload: state?.payload,
-          });
-        }}
-      />
-    );
-  }
+    // EnterPin on Device
+    if (action === EHardwareUiStateAction.EnterPinOnDevice) {
+      title = intl.formatMessage({
+        id: ETranslations.enter_pin_enter_on_device,
+      });
+      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
+    }
 
-  // ConfirmOnDevice: use toast instead
+    // EnterPin on App
+    if (action === EHardwareUiStateAction.REQUEST_PIN) {
+      title = intl.formatMessage({
+        id: ETranslations.enter_pin_title,
+      });
+      content = (
+        <EnterPin
+          onConfirm={async (value) => {
+            await serviceHardwareUI.sendPinToDevice({
+              pin: value,
+            });
+            await serviceHardwareUI.closeHardwareUiStateDialog({
+              skipDeviceCancel: true,
+              connectId: state?.connectId,
+              skipDelayClose: true,
+            });
+          }}
+          switchOnDevice={async () => {
+            await serviceHardwareUI.sendEnterPinOnDeviceEvent({
+              connectId,
+              payload: state?.payload,
+            });
+          }}
+        />
+      );
+    }
 
-  // EnterPassphrase on App
-  if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-    title.current = intl.formatMessage({
-      id: ETranslations.global_enter_passphrase,
-    });
-    content.current = (
-      <EnterPhase
-        isSingleInput={!!state?.payload?.passphraseState}
-        onConfirm={async ({ passphrase }) => {
-          await serviceHardwareUI.sendPassphraseToDevice({
-            passphrase,
-          });
-          // The device will not emit a loading event
-          // so we need to manually display the loading to inform the user that the device is currently processing
+    // ConfirmOnDevice: use toast instead
 
-          // **** The call sequence is prone to problems, causing the loading dialog to fail to close properly, so it is temporarily disabled
-          await serviceHardwareUI.showDeviceProcessLoadingDialog({ connectId });
+    // EnterPassphrase on App
+    if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      title = intl.formatMessage({
+        id: ETranslations.global_enter_passphrase,
+      });
+      content = (
+        <EnterPhase
+          isSingleInput={!!state?.payload?.passphraseState}
+          onConfirm={async ({ passphrase }) => {
+            await serviceHardwareUI.sendPassphraseToDevice({
+              passphrase,
+            });
+            // The device will not emit a loading event
+            // so we need to manually display the loading to inform the user that the device is currently processing
 
-          // TODO skip show loading dialog if custom dialog is shown
-          // ETranslations.onboarding_finalize_generating_accounts
-        }}
-        switchOnDevice={async () => {
-          await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
-        }}
-      />
-    );
-  }
+            // **** The call sequence is prone to problems, causing the loading dialog to fail to close properly, so it is temporarily disabled
+            await serviceHardwareUI.showDeviceProcessLoadingDialog({
+              connectId,
+            });
 
-  // EnterPassphraseOnDevice
-  if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE) {
-    title.current = intl.formatMessage({
-      id: ETranslations.hardware_enter_passphrase_on_device,
-    });
-    content.current = (
-      <EnterPassphraseOnDevice deviceType={state?.payload?.deviceType} />
-    );
-  }
+            // TODO skip show loading dialog if custom dialog is shown
+            // ETranslations.onboarding_finalize_generating_accounts
+          }}
+          switchOnDevice={async () => {
+            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+          }}
+        />
+      );
+    }
+
+    // EnterPassphraseOnDevice
+    if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE) {
+      title = intl.formatMessage({
+        id: ETranslations.hardware_enter_passphrase_on_device,
+      });
+      content = (
+        <EnterPassphraseOnDevice deviceType={state?.payload?.deviceType} />
+      );
+    }
+
+    return { title, content };
+  }, [
+    action,
+    connectId,
+    defaultLoadingView,
+    intl,
+    serviceHardwareUI,
+    state?.connectId,
+    state?.payload,
+  ]);
+
+  const dialogKey = result.title + (action?.toString() || '');
 
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
-    return <OpenBleSettingsDialog ref={ref} {...props} />;
+    return <OpenBleSettingsDialog key={dialogKey} ref={ref} {...props} />;
   }
 
   // Need Open Bluetooth Notify Change Error Dialog Container
@@ -218,7 +233,9 @@ function HardwareSingletonDialogCmp(
     action ===
     EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
   ) {
-    return <OpenBleNotifyChangeErrorDialog ref={ref} {...props} />;
+    return (
+      <OpenBleNotifyChangeErrorDialog key={dialogKey} ref={ref} {...props} />
+    );
   }
 
   // Bluetooth Permission Dialog Container
@@ -226,13 +243,15 @@ function HardwareSingletonDialogCmp(
     action === EHardwareUiStateAction.LOCATION_PERMISSION ||
     action === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
   ) {
-    return <RequireBlePermissionDialog ref={ref} {...props} />;
+    return <RequireBlePermissionDialog key={dialogKey} ref={ref} {...props} />;
   }
   return (
     <DialogContainer
       ref={ref}
-      title={title.current}
-      renderContent={content.current}
+      // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
+      key={dialogKey}
+      title={result.title}
+      renderContent={result.content}
       {...props} // pass down cloneElement props
       showExitButton={showCloseButton}
     />
