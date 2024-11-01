@@ -151,7 +151,12 @@ export function getHistoryTxDetailInfo({
   }
 
   if (isNil(data) && !isNil((decodedTx?.encodedTx as IEncodedTxEvm)?.data)) {
-    data = (decodedTx?.encodedTx as IEncodedTxEvm)?.data?.slice(0, 500);
+    const dataStr = (decodedTx?.encodedTx as IEncodedTxEvm)?.data ?? '';
+    if (dataStr.length > 500) {
+      data = `${dataStr.slice(0, 500)}...`;
+    } else {
+      data = dataStr;
+    }
   }
 
   let date = '-';
