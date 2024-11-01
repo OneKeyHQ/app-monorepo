@@ -3,7 +3,15 @@ import { useCallback, useEffect, useRef } from 'react';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Dialog, rootNavigationRef, useShortcuts } from '@onekeyhq/components';
+import {
+  Dialog,
+  Image,
+  SizableText,
+  YStack,
+  rootNavigationRef,
+  useShortcuts,
+} from '@onekeyhq/components';
+import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -158,6 +166,29 @@ const useDesktopEvents = platformEnv.isDesktop
 export function Bootstrap() {
   useEffect(() => {
     void backgroundApiProxy.serviceSetting.fetchCurrencyList();
+    if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
+      desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+        Dialog.show({
+          showFooter: false,
+          renderContent: (
+            <YStack gap={4} alignItems="center" pt="$4">
+              <Image
+                source={require('../../assets/logo.png')}
+                size={72}
+                borderRadius="$full"
+              />
+              <YStack gap="$2" pt="$4" alignItems="center">
+                <SizableText size="$heading2xl">OneKey</SizableText>
+                <SizableText size="$bodySm">
+                  Version {process.env.VERSION}({platformEnv.buildNumber})
+                </SizableText>
+                <SizableText size="$bodySm">Copyright © OneKey</SizableText>
+              </YStack>
+            </YStack>
+          ),
+        });
+      });
+    }
   }, []);
   useDesktopEvents();
   return null;
