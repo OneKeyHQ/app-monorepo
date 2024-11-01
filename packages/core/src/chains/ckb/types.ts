@@ -5,5 +5,7 @@ export type IEncodedTxCkb = {
   feeInfo: {
     price: string;
     limit: string;
+    feeRate: string;
   };
+  txSize: number;
 };
