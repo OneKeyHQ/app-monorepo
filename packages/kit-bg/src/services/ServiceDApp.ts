@@ -56,10 +56,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type {
-  IAddEthereumChainParameter,
-  IWatchAssetParameter,
-} from '../providers/ProviderApiEthereum';
+import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
@@ -335,7 +332,6 @@ class ServiceDApp extends ServiceBase {
     ...params
   }: {
     request: IJsBridgeMessagePayload;
-    // params: IWatchAssetParameter;
     token?: IAccountToken;
     walletId: string;
     isOthersWallet?: boolean;

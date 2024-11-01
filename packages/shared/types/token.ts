@@ -95,7 +95,9 @@ export type IFetchTokenDetailItem = {
   info: IToken;
 } & ITokenFiat;
 
-// custom token route params
+/**
+ * dApp add custom token route params
+ */
 export type IAddCustomTokenRouteParams = {
   token?: IAccountToken;
   walletId: string;
@@ -105,4 +107,31 @@ export type IAddCustomTokenRouteParams = {
   networkId: string;
   deriveType: IAccountDeriveTypes;
   onSuccess?: () => void;
+};
+
+export type IWatchAssetParameter =
+  | IEthWatchAssetParameter
+  | ITronWatchAssetParameter
+  | IConfluxWatchAssetParameter;
+
+export type IEthWatchAssetParameter = {
+  type: 'ERC20' | 'ERC721' | 'ERC1155';
+  options: IWatchAssetOptions;
+};
+
+export type ITronWatchAssetParameter = {
+  type: 'trc20';
+  options: IWatchAssetOptions;
+};
+
+export type IConfluxWatchAssetParameter = {
+  type: 'CRC20';
+  options: IWatchAssetOptions;
+};
+
+type IWatchAssetOptions = {
+  address: string;
+  symbol?: string;
+  decimals?: number;
+  image?: string;
 };

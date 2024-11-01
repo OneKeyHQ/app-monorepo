@@ -27,7 +27,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IEthWatchAssetParameter,
+} from '@onekeyhq/shared/types/token';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -53,16 +56,6 @@ export type IAddEthereumChainParameter = {
     decimals: number;
   };
   rpcUrls?: string[];
-};
-
-export type IWatchAssetParameter = {
-  type: 'ERC20' | 'ERC721' | 'ERC1155';
-  options: {
-    address: string;
-    symbol?: string;
-    decimals?: number;
-    image?: string;
-  };
 };
 
 function convertToEthereumChainResult(
@@ -347,7 +340,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async wallet_watchAsset(
     request: IJsBridgeMessagePayload,
-    params: IWatchAssetParameter,
+    params: IEthWatchAssetParameter,
   ) {
     const {
       accountInfo: {
