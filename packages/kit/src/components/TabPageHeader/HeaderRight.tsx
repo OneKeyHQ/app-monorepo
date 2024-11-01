@@ -21,13 +21,15 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useNotificationsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -48,6 +50,7 @@ export function HeaderRight({
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const {
     activeAccount: { account },
@@ -167,7 +170,7 @@ export function HeaderRight({
       />
     );
     let notificationsButton: ReactNode | null = (
-      <Stack key="notifications">
+      <Stack key="notifications" testID="headerRightNotificationsButton">
         <HeaderIconButton
           title={intl.formatMessage({
             id: ETranslations.global_notifications,
@@ -239,7 +242,7 @@ export function HeaderRight({
     }
 
     // notifications is not supported on web currently
-    if (platformEnv.isWeb) {
+    if (platformEnv.isWeb && !devSettings.enabled) {
       notificationsButton = null;
     }
 
@@ -254,10 +257,11 @@ export function HeaderRight({
     openSettingPage,
     onScanButtonPressed,
     openNotificationsModal,
-    badge,
     firstTimeGuideOpened,
+    badge,
     media.gtMd,
     sceneName,
+    devSettings.enabled,
   ]);
   return (
     <HeaderButtonGroup
