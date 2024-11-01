@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN, isNil, isNumber } from 'lodash';
+import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -25,9 +25,9 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  calculateCkbTotalFee,
   calculateSolTotalFee,
   calculateTotalFeeNative,
-  getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -229,6 +229,8 @@ function FeeEditor(props: IProps) {
       computeUnitPrice: new BigNumber(
         customFee?.feeSol?.computeUnitPrice ?? '0',
       ).toFixed(),
+      // fee ckb
+      feeRateCkb: new BigNumber(customFee?.feeCkb?.feeRate ?? '0').toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -260,15 +262,20 @@ function FeeEditor(props: IProps) {
       feeSol: customFee?.feeSol && {
         computeUnitPrice: watchAllFields.computeUnitPrice,
       },
+      feeCkb: customFee?.feeCkb && {
+        feeRate: watchAllFields.feeRateCkb,
+      },
     }),
     [
       customFee?.common,
+      customFee?.feeCkb,
       customFee?.feeSol,
       customFee?.feeUTXO,
       customFee?.gas,
       customFee?.gasEIP1559,
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
+      watchAllFields.feeRateCkb,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,
       watchAllFields.maxBaseFee,
@@ -640,6 +647,14 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
+  const handleValidateFeeRateCkb = useCallback((value: string) => {
+    const feeRate = new BigNumber(value || 0);
+    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
+      return false;
+    }
+    return true;
+  }, []);
+
   const handleApplyFeeInfo = useCallback(async () => {
     onApplyFeeInfo({
       feeType: currentFeeType,
@@ -982,6 +997,40 @@ function FeeEditor(props: IProps) {
         </Form>
       );
     }
+
+    if (customFee?.feeCkb) {
+      return (
+        <Form form={form}>
+          <YStack>
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              })}
+              name="feeRateCkb"
+              rules={{
+                required: true,
+                validate: handleValidateFeeRateCkb,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    intRequired: true,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: 'shannons/kB',
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
   }, [
     currentFeeType,
     customFee,
@@ -990,6 +1039,7 @@ function FeeEditor(props: IProps) {
     handleFormValueOnChange,
     handleValidateComputeUnitPrice,
     handleValidateFeeRate,
+    handleValidateFeeRateCkb,
     handleValidateGasLimit,
     handleValidateGasPrice,
     handleValidateMaxBaseFee,
@@ -1116,11 +1166,6 @@ function FeeEditor(props: IProps) {
       });
 
       feeInfoItems = [
-        // {
-        //   label: 'vSize',
-        //   customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
-        //   customSymbol: 'vB',
-        // },
         {
           label: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
           customValue: feeRate.toFixed() ?? '0',
@@ -1184,6 +1229,41 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
       ];
+    } else if (fee.feeCkb) {
+      let feeRate = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        feeRate = new BigNumber(watchAllFields.feeRateCkb || 0);
+      } else {
+        feeRate = new BigNumber(fee.feeCkb.feeRate || 0);
+      }
+
+      const max = calculateCkbTotalFee({
+        feeRate,
+        txSize: unsignedTxs[0]?.txSize || 0,
+        feeInfo: fee,
+      });
+
+      const feeInNative = calculateTotalFeeNative({
+        amount: max,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
+          customValue: feeRate.toFixed() ?? '0',
+          customSymbol: 'shannons/kB',
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: feeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
     }
 
     return (
@@ -1221,6 +1301,7 @@ function FeeEditor(props: IProps) {
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
     watchAllFields.feeRate,
+    watchAllFields.feeRateCkb,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,
     watchAllFields.maxBaseFee,
