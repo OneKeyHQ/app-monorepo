@@ -271,8 +271,14 @@ function AccordionItem({
                 img={wallet.avatarInfo?.img}
                 wallet={wallet as IDBWallet & Partial<IDBWalletExtended>}
               />
-              <XStack gap="$1">
-                <SizableText size="$bodyLgMedium">{wallet.name}</SizableText>
+              <XStack gap="$1" flex={1}>
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {wallet.name} long long long text long long long text
+                </SizableText>
                 <SizableText>
                   ({enabledAccountsCount}/{totalAccountsCount})
                 </SizableText>
