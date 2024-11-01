@@ -1020,7 +1020,20 @@ function HistoryDetails() {
                   id: ETranslations.global_hex_data,
                 })}
                 renderContent={txInfo.data}
-                compact
+                description={
+                  <Button
+                    size="small"
+                    variant="tertiary"
+                    onPress={() => {
+                      void openTransactionDetailsUrl({
+                        networkId: network?.id,
+                        txid,
+                      });
+                    }}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_view_more })}
+                  </Button>
+                }
               />
             ) : null}
             {vaultSettings?.isUtxo &&
