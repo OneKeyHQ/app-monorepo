@@ -1,3 +1,5 @@
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+
 export type IToken = {
   decimals: number;
   name: string;
@@ -92,3 +94,15 @@ export type IFetchTokenDetailResp = IAccountToken[];
 export type IFetchTokenDetailItem = {
   info: IToken;
 } & ITokenFiat;
+
+// custom token route params
+export type IAddCustomTokenRouteParams = {
+  token?: IAccountToken;
+  walletId: string;
+  isOthersWallet?: boolean;
+  indexedAccountId?: string;
+  accountId: string;
+  networkId: string;
+  deriveType: IAccountDeriveTypes;
+  onSuccess?: () => void;
+};
