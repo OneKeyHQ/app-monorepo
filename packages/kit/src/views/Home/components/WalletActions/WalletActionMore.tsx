@@ -84,6 +84,16 @@ export function WalletActionMore() {
     return settings;
   }, [network?.id]).result;
 
+  const viewExplorerDisabled = usePromiseResult(async () => {
+    if (!network?.isCustomNetwork) {
+      return false;
+    }
+    if (network?.explorerURL) {
+      return false;
+    }
+    return true;
+  }, [network?.isCustomNetwork, network?.explorerURL]).result;
+
   const sections: ComponentProps<typeof RawActions.More>['sections'] = [];
 
   if (
@@ -104,6 +114,7 @@ export function WalletActionMore() {
                     networkId: network?.id,
                     address: account?.address,
                   }),
+                disabled: viewExplorerDisabled,
               },
             ]
           : ([] as any)),
