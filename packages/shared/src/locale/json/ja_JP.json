@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "通知を許可する",
   "notifications.notifications_account_activity_desc": "受信、送信、取引などの際に通知を受け取ります。",
   "notifications.notifications_account_activity_label": "アカウントアクティビティ",
+  "notifications.notifications_account_manage_desc": "通知を受け取るアカウントを選択してください。",
+  "notifications.notifications_account_manage_label": "管理",
   "notifications.notifications_price_alert_desc": "監視対象の暗号通貨が 24 時間以内に 10% 以上増加または減少した場合に通知を受け取ります。",
   "notifications.notifications_price_alert_label": "価格アラート",
   "notifications.notifications_switch_label": "通知を許可する",
