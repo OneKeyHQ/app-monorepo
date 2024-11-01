@@ -13,6 +13,7 @@ export const ipcMessageKeys = {
   APP_DEV_ONLY_API: 'electronAppMainProcessDevOnly/api',
 
   // Updater
+  SHOW_ABOUT_WINDOW: 'showAboutWindow',
   UPDATE_CHECK: 'update/check',
   UPDATE_SETTINGS: 'update/settings',
   UPDATE_CLEAR_SETTINGS: 'update/clearSettings',
