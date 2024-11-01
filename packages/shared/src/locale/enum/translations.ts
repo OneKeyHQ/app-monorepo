@@ -1333,6 +1333,8 @@
   notifications_mac_permission_title = 'notifications.mac_permission_title',
   notifications_notifications_account_activity_desc = 'notifications.notifications_account_activity_desc',
   notifications_notifications_account_activity_label = 'notifications.notifications_account_activity_label',
+  notifications_notifications_account_manage_desc = 'notifications.notifications_account_manage_desc',
+  notifications_notifications_account_manage_label = 'notifications.notifications_account_manage_label',
   notifications_notifications_price_alert_desc = 'notifications.notifications_price_alert_desc',
   notifications_notifications_price_alert_label = 'notifications.notifications_price_alert_label',
   notifications_notifications_switch_label = 'notifications.notifications_switch_label',

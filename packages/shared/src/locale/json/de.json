@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "Benachrichtigungen zulassen",
   "notifications.notifications_account_activity_desc": "Lassen Sie sich beim Empfangen, Senden, Handeln usw. benachrichtigen.",
   "notifications.notifications_account_activity_label": "Kontoaktivität",
+  "notifications.notifications_account_manage_desc": "Wählen Sie das Konto für Benachrichtigungen aus.",
+  "notifications.notifications_account_manage_label": "Verwalten",
   "notifications.notifications_price_alert_desc": "Lassen Sie sich benachrichtigen, wenn die beobachteten Kryptowährungen innerhalb von 24 Stunden um mehr als 10 % steigen oder fallen.",
   "notifications.notifications_price_alert_label": "Preisalarm",
   "notifications.notifications_switch_label": "Benachrichtigungen zulassen",

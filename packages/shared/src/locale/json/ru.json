@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "Разрешить уведомления",
   "notifications.notifications_account_activity_desc": "Получайте уведомления при получении, отправке, торговле и т. д.",
   "notifications.notifications_account_activity_label": "Активность аккаунта",
+  "notifications.notifications_account_manage_desc": "Выберите аккаунт для уведомлений.",
+  "notifications.notifications_account_manage_label": "Управлять",
   "notifications.notifications_price_alert_desc": "Получайте уведомления, когда отслеживаемые криптовалюты вырастут или упадут более чем на 10% за 24 часа.",
   "notifications.notifications_price_alert_label": "Оповещение о цене",
   "notifications.notifications_switch_label": "Разрешить уведомления",
