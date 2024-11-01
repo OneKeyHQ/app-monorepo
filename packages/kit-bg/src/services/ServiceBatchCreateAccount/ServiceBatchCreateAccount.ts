@@ -60,6 +60,7 @@ export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   };
   saveToDb?: boolean;
   saveToCache?: boolean;
+  isVerifyAddressAction?: boolean;
   hwAllNetworkPrepareAccountsResponse:
     | IHwAllNetworkPrepareAccountsResponse
     | undefined;
@@ -240,6 +241,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexes,
     showOnOneKey,
     saveToCache,
+    isVerifyAddressAction,
   }: {
     walletId: string;
     networkId: string;
@@ -247,6 +249,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     indexes: number[];
     showOnOneKey?: boolean;
     saveToCache?: boolean;
+    isVerifyAddressAction?: boolean;
   }) {
     const deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
@@ -292,6 +295,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             saveToCache,
             hwAllNetworkPrepareAccountsResponse,
             skipDeviceCancel: true,
+            isVerifyAddressAction,
           });
         },
         {
@@ -873,6 +877,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     skipDeviceCancel,
     showUIProgress,
     hwAllNetworkPrepareAccountsResponse,
+    isVerifyAddressAction,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -884,6 +889,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       excludedIndexes,
       saveToDb,
       hwAllNetworkPrepareAccountsResponse,
+      isVerifyAddressAction,
     });
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error('Batch Create Accounts ERROR:  All network not support');
@@ -987,6 +993,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               deriveType,
               indexes: indexesForRebuildChunk,
               indexedAccountId: undefined,
+              isVerifyAddressAction,
               skipDeviceCancel: true, // always skip cancel for batch create
               skipCloseHardwareUiStateDialog,
               skipDeviceCancelAtFirst: true,

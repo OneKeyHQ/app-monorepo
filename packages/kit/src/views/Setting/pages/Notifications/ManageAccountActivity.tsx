@@ -412,7 +412,6 @@ function ManageAccountActivity() {
       watchLoading: true,
     },
   );
-  console.log('ManageAccountActivity wallets', wallets);
 
   return (
     <AccountNotificationSettingsProvider>
