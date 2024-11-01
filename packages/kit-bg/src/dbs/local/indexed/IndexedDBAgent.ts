@@ -100,7 +100,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const dbTx = db.transaction(
         ALL_LOCAL_DB_STORE_NAMES,
         // 'readwrite',
-        readOnly ? ('readonly' as 'readwrite') : 'readwrite',
+        readOnly ? ('readonly' as any) : 'readwrite',
       );
 
       const contextStore = this._getOrCreateObjectStore(

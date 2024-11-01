@@ -149,7 +149,7 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
-      const perf = perfUtils.perfTimer(
+      const perf = perfUtils.createPerf(
         EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests,
       );
 

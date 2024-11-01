@@ -38,7 +38,7 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
-      const perf = perfUtils.perfTimer(
+      const perf = perfUtils.createPerf(
         EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
       );
 

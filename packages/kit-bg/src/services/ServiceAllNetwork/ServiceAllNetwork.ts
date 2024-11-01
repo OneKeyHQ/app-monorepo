@@ -213,8 +213,8 @@ class ServiceAllNetwork extends ServiceBase {
 
         await Promise.all(
           dbAccounts.map(async (a) => {
-            const perf = perfUtils.perfTimer(
-              EPerformanceTimerLogNames.localDB__getAllNetworkAccounts_EachAccount,
+            const perf = perfUtils.createPerf(
+              EPerformanceTimerLogNames.allNetwork__getAllNetworkAccounts_EachAccount,
             );
 
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({

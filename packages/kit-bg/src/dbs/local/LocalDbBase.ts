@@ -797,7 +797,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.localDB__getIndexedAccount,
     );
 
@@ -833,7 +833,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
     );
 
@@ -2590,7 +2590,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.localDB__getAccount,
       { accountId },
     );

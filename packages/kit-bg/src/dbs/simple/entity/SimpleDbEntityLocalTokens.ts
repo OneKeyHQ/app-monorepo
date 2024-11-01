@@ -145,7 +145,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.simpleDB__updateAccountTokenList,
       {
         networkId,
@@ -201,7 +201,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
       {
         networkId,

@@ -468,7 +468,7 @@ class ServiceToken extends ServiceBase {
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
-    const perf = perfUtils.perfTimer(
+    const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.allNetwork__getAccountLocalTokens,
     );
 

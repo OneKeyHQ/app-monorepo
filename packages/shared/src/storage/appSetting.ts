@@ -1,27 +1,66 @@
+import { isPlainObject } from 'lodash';
+
 import resetUtils from '../utils/resetUtils';
 
 import mmkvStorageInstance from './instance/mmkvStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-export const syncStorage = mmkvStorageInstance;
-
-export enum EAppSettingKey {
+export enum EAppSyncStorageKeys {
   rrt = 'rrt',
   perf_switch = 'perf_switch',
   onekey_webembed_config = 'onekey_webembed_config',
+  onekey_disable_bg_api_serializable_checking = 'onekey_disable_bg_api_serializable_checking',
+  onekey_perf_timer_log_config = 'onekey_perf_timer_log_config',
 }
+
+export const syncStorage = {
+  set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+    resetUtils.checkNotInResetting();
+    mmkvStorageInstance.set(key, value);
+  },
+  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
+    resetUtils.checkNotInResetting();
+    if (!isPlainObject(value)) {
+      throw new Error('value must be a plain object');
+    }
+    mmkvStorageInstance.set(key, JSON.stringify(value));
+  },
+  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    try {
+      const value = mmkvStorageInstance.getString(key);
+      if (!value) {
+        return undefined;
+      }
+      return JSON.parse(value) as T;
+    } catch (e) {
+      return undefined;
+    }
+  },
+  getString(key: EAppSyncStorageKeys) {
+    return mmkvStorageInstance.getString(key);
+  },
+  getNumber(key: EAppSyncStorageKeys) {
+    return mmkvStorageInstance.getNumber(key);
+  },
+  getBoolean(key: EAppSyncStorageKeys) {
+    return mmkvStorageInstance.getBoolean(key);
+  },
+  delete(key: EAppSyncStorageKeys) {
+    resetUtils.checkNotInResetting();
+    mmkvStorageInstance.delete(key);
+  },
+  clearAll() {
+    resetUtils.checkNotInResetting();
+    mmkvStorageInstance.clearAll();
+  },
+  getAllKeys() {
+    return mmkvStorageInstance.getAllKeys();
+  },
+};
 
 export interface IAppStorage extends AsyncStorageStatic {
   syncStorage: typeof syncStorage;
-  // TODO remove all settings, use storage.syncStorage instead
-  setSetting: (key: EAppSettingKey, value: boolean | string | number) => void;
-  getSettingString: (key: EAppSettingKey) => string | undefined;
-  getSettingNumber: (key: EAppSettingKey) => number | undefined;
-  getSettingBoolean: (key: EAppSettingKey) => boolean | undefined;
-  deleteSetting: (key: EAppSettingKey) => void;
-  clearSetting: typeof syncStorage.clearAll;
-  getAllKeysOfSetting: typeof syncStorage.getAllKeys;
 }
 
 export const buildAppStorageFactory = (
@@ -44,14 +83,6 @@ export const buildAppStorageFactory = (
   storage.setItem = setItem;
   storage.removeItem = removeItem;
 
-  // TODO remove all settings, use storage.syncStorage instead
   storage.syncStorage = syncStorage;
-  storage.setSetting = syncStorage.set.bind(syncStorage);
-  storage.getSettingString = syncStorage.getString.bind(syncStorage);
-  storage.getSettingNumber = syncStorage.getNumber.bind(syncStorage);
-  storage.getSettingBoolean = syncStorage.getBoolean.bind(syncStorage);
-  storage.deleteSetting = syncStorage.delete.bind(syncStorage);
-  storage.clearSetting = syncStorage.clearAll.bind(syncStorage);
-  storage.getAllKeysOfSetting = syncStorage.getAllKeys.bind(syncStorage);
   return storage;
 };

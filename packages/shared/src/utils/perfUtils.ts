@@ -1,5 +1,6 @@
 import { isNil } from 'lodash';
 
+import { EAppSyncStorageKeys } from '../storage/appSetting';
 import appStorage from '../storage/appStorage';
 
 import { formatDateFns } from './dateUtils';
@@ -10,21 +11,18 @@ export enum EPerformanceTimerLogNames {
   localDB__getIndexedAccountByAccount = 'localDB__getIndexedAccountByAccount',
   simpleDB__getAccountTokenList = 'simpleDB__getAccountTokenList',
   simpleDB__updateAccountTokenList = 'simpleDB__updateAccountTokenList',
-  localDB__getAllNetworkAccounts_EachAccount = 'localDB__getAllNetworkAccounts_EachAccount',
+  allNetwork__getAllNetworkAccounts_EachAccount = 'allNetwork__getAllNetworkAccounts_EachAccount',
   allNetwork__getAccountLocalTokens = 'allNetwork__getAccountLocalTokens',
   allNetwork__useAllNetworkRequests = 'allNetwork__useAllNetworkRequests',
   allNetwork__handleAllNetworkCacheRequests = 'allNetwork__handleAllNetworkCacheRequests',
 }
 
-const configStorageKey = '$$ONEKEY_PERF_TIMER_LOG_CONFIG';
 function getPerformanceTimerLogConfigMap() {
-  try {
-    return JSON.parse(
-      appStorage.syncStorage.getString(configStorageKey) || `{}`,
-    ) as Record<string, boolean>;
-  } catch (e) {
-    return {};
-  }
+  return (
+    appStorage.syncStorage.getObject<Record<string, boolean>>(
+      EAppSyncStorageKeys.onekey_perf_timer_log_config,
+    ) ?? {}
+  );
 }
 
 function updatePerformanceTimerLogConfig(
@@ -32,12 +30,13 @@ function updatePerformanceTimerLogConfig(
   value: boolean,
 ) {
   const configMap = getPerformanceTimerLogConfigMap();
-  appStorage.syncStorage.set(
-    configStorageKey,
-    JSON.stringify({
+
+  appStorage.syncStorage.setObject(
+    EAppSyncStorageKeys.onekey_perf_timer_log_config,
+    {
       ...configMap,
       [logName]: value,
-    }),
+    },
   );
 }
 
@@ -153,7 +152,7 @@ class PerformanceTimer {
   }
 }
 
-function perfTimer(
+function createPerf(
   logName: EPerformanceTimerLogNames,
   params?: Record<string, any>,
 ) {
@@ -163,7 +162,7 @@ function perfTimer(
 }
 
 export default {
-  perfTimer,
+  createPerf,
   updatePerformanceTimerLogConfig,
   getPerformanceTimerLogConfig,
 };
