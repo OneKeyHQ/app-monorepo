@@ -119,6 +119,7 @@ export type IAddHDOrHWAccountsParams = {
   indexedAccountId: string | undefined; // single add by indexedAccountId
   deriveType: IAccountDeriveTypes;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
+  isVerifyAddressAction?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -328,6 +329,7 @@ class ServiceAccount extends ServiceBase {
     deriveType,
     confirmOnDevice,
     hwAllNetworkPrepareAccountsResponse,
+    isVerifyAddressAction,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -337,6 +339,7 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
+    isVerifyAddressAction?: boolean;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -400,6 +403,8 @@ class ServiceAccount extends ServiceBase {
       };
       prepareParams = hdParams;
     }
+
+    prepareParams.isVerifyAddressAction = isVerifyAddressAction;
 
     return {
       deviceParams,
@@ -2251,6 +2256,7 @@ class ServiceAccount extends ServiceBase {
               deriveType: params.deriveType,
               indexes: prepareParams.indexes,
               showOnOneKey: true,
+              isVerifyAddressAction: prepareParams.isVerifyAddressAction,
             },
           );
         const results: string[] = [];
