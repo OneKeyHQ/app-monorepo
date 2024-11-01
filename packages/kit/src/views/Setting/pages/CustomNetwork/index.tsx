@@ -166,7 +166,7 @@ function AddCustomNetwork() {
       }
     }
     void searchChainDataFromServer();
-  }, [observedChainId, form]);
+  }, [observedChainId, form, intl]);
 
   const [isLoading, setIsLoading] = useState(false);
   const onSubmit = useCallback(async () => {
@@ -258,7 +258,7 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, dappApprove, intl, navigation, getChainId, onSuccess]);
+  }, [form, dappApprove, intl, navigation, getChainId, onSuccess, isEditMode]);
 
   const onDelete = useCallback(async () => {
     if (!routeNetworkId) {
