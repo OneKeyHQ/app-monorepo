@@ -8,7 +8,6 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -47,6 +46,24 @@ export function calculateSolTotalFee({
     .plus(baseFee)
     .shiftedBy(-feeInfo.common.feeDecimals)
     .toFixed();
+}
+
+export function calculateCkbTotalFee({
+  feeRate,
+  txSize,
+  feeInfo,
+}: {
+  feeRate: string | BigNumber;
+  txSize: number;
+  feeInfo: IFeeInfoUnit;
+}) {
+  const ratio = 1000;
+  const base = new BigNumber(txSize).multipliedBy(feeRate);
+  let fee = base.div(ratio);
+  if (fee.multipliedBy(ratio).lt(base)) {
+    fee = fee.plus(1);
+  }
+  return fee.shiftedBy(-feeInfo.common.feeDecimals).toFixed();
 }
 
 export function calculateTotalFeeRange({
@@ -157,6 +174,23 @@ export function calculateTotalFeeRange({
       max: nanToZeroString(max),
       minForDisplay: nanToZeroString(max),
       maxForDisplay: nanToZeroString(max),
+      withoutBaseFee: true,
+    };
+  }
+
+  if (feeInfo.feeCkb) {
+    let fee = '0';
+    const { feeRate } = feeInfo.feeCkb;
+    fee = calculateCkbTotalFee({
+      feeRate: feeRate ?? '0',
+      txSize: txSize ?? 0,
+      feeInfo,
+    });
+    return {
+      min: nanToZeroString(fee),
+      max: nanToZeroString(fee),
+      minForDisplay: nanToZeroString(fee),
+      maxForDisplay: nanToZeroString(fee),
       withoutBaseFee: true,
     };
   }

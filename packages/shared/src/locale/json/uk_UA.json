@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "Дозволити сповіщення",
   "notifications.notifications_account_activity_desc": "Отримуйте сповіщення про отримання, надсилання, торгівлю тощо.",
   "notifications.notifications_account_activity_label": "Активність облікового запису",
+  "notifications.notifications_account_manage_desc": "Виберіть обліковий запис для сповіщень.",
+  "notifications.notifications_account_manage_label": "Керувати",
   "notifications.notifications_price_alert_desc": "Отримуйте сповіщення, коли спостережувані криптовалюти збільшуються або падають більш ніж на 10% за 24 години.",
   "notifications.notifications_price_alert_label": "Оповіщення про ціни",
   "notifications.notifications_switch_label": "Дозволити сповіщення",

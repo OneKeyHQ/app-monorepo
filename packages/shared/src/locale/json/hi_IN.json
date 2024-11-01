@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "सूचनाएं अनुमति दें",
   "notifications.notifications_account_activity_desc": "प्राप्त करने, भेजने, व्यापार करने आदि पर सूचना प्राप्त करें।",
   "notifications.notifications_account_activity_label": "खाता संबंधी काम",
+  "notifications.notifications_account_manage_desc": "सूचनाओं के लिए खाता चुनें।",
+  "notifications.notifications_account_manage_label": "प्रबंधित करना",
   "notifications.notifications_price_alert_desc": "जब देखे गए क्रिप्टो 24 घंटे में 10% से अधिक बढ़ या गिर जाए तो अधिसूचित हो जाएं।",
   "notifications.notifications_price_alert_label": "मूल्य चेतावनी",
   "notifications.notifications_switch_label": "सूचनाएं अनुमति दें",
