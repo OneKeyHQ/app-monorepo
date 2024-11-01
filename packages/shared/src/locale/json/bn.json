@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "বিজ্ঞপ্তির অনুমতি দিন",
   "notifications.notifications_account_activity_desc": "প্রাপ্তি, পাঠানো, ট্রেডিং এবং আরও অনেক কিছু করার সময় বিজ্ঞপ্তি পান।",
   "notifications.notifications_account_activity_label": "অ্যাকাউন্ট কার্যকলাপ",
+  "notifications.notifications_account_manage_desc": "বিজ্ঞপ্তির জন্য অ্যাকাউন্ট নির্বাচন করুন।",
+  "notifications.notifications_account_manage_label": "পরিচালনা করুন",
   "notifications.notifications_price_alert_desc": "24 ঘন্টার মধ্যে দেখা ক্রিপ্টো 10% এর বেশি বাড়লে বা কমে গেলে বিজ্ঞপ্তি পান।",
   "notifications.notifications_price_alert_label": "মূল্য সতর্কতা",
   "notifications.notifications_switch_label": "বিজ্ঞপ্তির অনুমতি দিন",
