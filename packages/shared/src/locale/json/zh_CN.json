@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "允许通知",
   "notifications.notifications_account_activity_desc": "在接收、发送、交易等操作时收到通知。",
   "notifications.notifications_account_activity_label": "账户活动",
+  "notifications.notifications_account_manage_desc": "选择接收通知的账户。",
+  "notifications.notifications_account_manage_label": "管理",
   "notifications.notifications_price_alert_desc": "当所关注的加密货币在 24 小时内上涨或下跌超过 10% 时收到通知。",
   "notifications.notifications_price_alert_label": "价格警报",
   "notifications.notifications_switch_label": "允许通知",

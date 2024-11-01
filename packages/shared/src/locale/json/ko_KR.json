@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "알림 허용",
   "notifications.notifications_account_activity_desc": "수신, 전송, 거래 등의 경우 알림을 받으세요.",
   "notifications.notifications_account_activity_label": "계정 활동",
+  "notifications.notifications_account_manage_desc": "알림을 받을 계정을 선택하세요.",
+  "notifications.notifications_account_manage_label": "관리하다",
   "notifications.notifications_price_alert_desc": "관심 암호화폐가 24시간 동안 10% 이상 상승하거나 하락하면 알림을 받으세요.",
   "notifications.notifications_price_alert_label": "가격 알림",
   "notifications.notifications_switch_label": "알림 허용",
