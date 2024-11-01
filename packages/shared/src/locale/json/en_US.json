@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "Allow notifications",
   "notifications.notifications_account_activity_desc": "Get notified when receiving, sending, trading, and more.",
   "notifications.notifications_account_activity_label": "Account activity",
+  "notifications.notifications_account_manage_desc": "Choose the account for notifications.",
+  "notifications.notifications_account_manage_label": "Manage",
   "notifications.notifications_price_alert_desc": "Get notified when the watched cryptos increase or drop more than 10% in 24 hours.",
   "notifications.notifications_price_alert_label": "Price alert",
   "notifications.notifications_switch_label": "Allow notifications",

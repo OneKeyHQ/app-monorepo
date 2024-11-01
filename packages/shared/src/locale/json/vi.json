@@ -1328,6 +1328,8 @@
   "notifications.mac_permission_title": "Cho phép thông báo",
   "notifications.notifications_account_activity_desc": "Nhận thông báo khi nhận, gửi, giao dịch và nhiều hoạt động khác.",
   "notifications.notifications_account_activity_label": "Hoạt động tài khoản",
+  "notifications.notifications_account_manage_desc": "Chọn tài khoản để nhận thông báo.",
+  "notifications.notifications_account_manage_label": "Quản lý",
   "notifications.notifications_price_alert_desc": "Nhận thông báo khi giá tiền điện tử được theo dõi tăng hoặc giảm hơn 10% trong 24 giờ.",
   "notifications.notifications_price_alert_label": "Cảnh báo giá",
   "notifications.notifications_switch_label": "Cho phép thông báo",

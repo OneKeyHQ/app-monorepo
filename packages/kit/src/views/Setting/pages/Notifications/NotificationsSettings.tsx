@@ -168,8 +168,12 @@ export default function NotificationsSettings() {
                 </ListItem>
                 {settings?.accountActivityPushEnabled ? (
                   <ListItem
-                    title="Manage"
-                    subtitle="Choose the account for notifications."
+                    title={intl.formatMessage({
+                      id: ETranslations.notifications_notifications_account_manage_label,
+                    })}
+                    subtitle={intl.formatMessage({
+                      id: ETranslations.notifications_notifications_account_manage_desc,
+                    })}
                     drillIn
                     onPress={() => {
                       navigation.push(
