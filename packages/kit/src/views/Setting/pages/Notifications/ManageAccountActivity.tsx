@@ -416,10 +416,11 @@ function ManageAccountActivity() {
 
   return (
     <AccountNotificationSettingsProvider>
-      <Page>
+      <Page scrollEnabled>
         <Page.Header
           title={intl.formatMessage({ id: ETranslations.global_manage })}
         />
+
         <Page.Body>
           {isLoading ? (
             <LoadingView show={isLoading} />
