@@ -377,7 +377,6 @@ const SwapQuoteResult = ({
                 />
               ) : null}
               {quoteResult?.fee?.percentageFee ? (
-                
                 <SwapCommonInfoItem
                   title="OneKey fee"
                   isLoading={swapQuoteLoading}
@@ -389,7 +388,9 @@ const SwapQuoteResult = ({
                   onPress={() => {
                     Dialog.show({
                       icon: 'OnekeyBrand',
-                      title: 'OneKey fee',
+                      title: intl.formatMessage({
+                        id: ETranslations.provider_ios_popover_onekey_fee,
+                      }),
                       description: intl.formatMessage({
                         id: ETranslations.provider_ios_popover_onekey_fee_content,
                       }),
