@@ -9,10 +9,10 @@ import {
   Dialog,
   Divider,
   Icon,
+  Image,
   NumberSizeableText,
   SizableText,
   Stack,
-  Image,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -404,7 +404,7 @@ const SwapQuoteResult = ({
                       ),
                     });
                   }}
-                ></SwapCommonInfoItem>
+                />
               ) : null}
               {swapTokenMetadata?.swapTokenMetadata
                 ? tokenMetadataParse(
