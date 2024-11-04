@@ -7,7 +7,7 @@ import type {
   IUnspentOutput,
 } from '@onekeyhq/core/src/chains/dnx/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
   InsufficientBalance,
@@ -26,6 +26,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import {
@@ -47,10 +51,12 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientDnx } from './sdkDnx/ClientDnx';
 
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -500,5 +506,39 @@ export default class Vault extends VaultBase {
     }
 
     return hasLocalTxOutInPending;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const client = new ClientDnx({ url: params.rpcUrl });
+    const bestBlockNumber = await client.getBlockCount();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientDnx({ url: rpcUrl });
+    await client.broadcastTransaction({
+      rawTx: signedTx.rawTx,
+    });
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
   }
 }
