@@ -132,7 +132,7 @@ export type IOnChainHistoryTx = {
     netFeeCost?: number;
   };
 
-  data?: string;
+  slicedData?: string;
 };
 
 export type IAccountHistoryTx = {
