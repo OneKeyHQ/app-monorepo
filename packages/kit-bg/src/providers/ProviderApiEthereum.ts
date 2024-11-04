@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -26,6 +27,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import type {
+  IAccountToken,
+  IEthWatchAssetParameter,
+} from '@onekeyhq/shared/types/token';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -333,8 +338,43 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async wallet_watchAsset() {
-    throw web3Errors.rpc.methodNotSupported();
+  async wallet_watchAsset(
+    request: IJsBridgeMessagePayload,
+    params: IEthWatchAssetParameter,
+  ) {
+    const {
+      accountInfo: {
+        walletId,
+        accountId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+      } = {},
+    } = (await this.getAccountsInfo(request))[0];
+    const contractAddress = params.options.address;
+    if (!contractAddress) {
+      throw web3Errors.rpc.invalidParams('contractAddress is required');
+    }
+
+    try {
+      await this.backgroundApi.serviceDApp.openAddCustomTokenModal({
+        request,
+        token: {
+          address: contractAddress,
+        } as IAccountToken,
+        walletId: walletId ?? '',
+        isOthersWallet: accountUtils.isOthersWallet({
+          walletId: walletId ?? '',
+        }),
+        indexedAccountId,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        deriveType: deriveType ?? 'default',
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   @providerApiMethod()
