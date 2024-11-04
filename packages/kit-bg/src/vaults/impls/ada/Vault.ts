@@ -664,6 +664,9 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const { customRpcInfo, signedTx } = params;
     const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
     const client = new ClientAda({ url: rpcUrl });
     try {
       await client.submitTx({ data: signedTx.rawTx });
