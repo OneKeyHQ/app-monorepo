@@ -48,6 +48,7 @@ import type {
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -320,6 +321,34 @@ class ServiceDApp extends ServiceBase {
       ],
       params: {
         networkInfo: params,
+      },
+      fullScreen: true,
+    }) as Promise<IServerNetwork>;
+  }
+
+  @backgroundMethod()
+  async openAddCustomTokenModal({
+    request,
+    ...params
+  }: {
+    request: IJsBridgeMessagePayload;
+    token?: IAccountToken;
+    walletId: string;
+    isOthersWallet?: boolean;
+    indexedAccountId?: string;
+    accountId: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+    onSuccess?: () => void;
+  }) {
+    return this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.AddCustomTokenModal,
+      ],
+      params: {
+        ...params,
       },
       fullScreen: true,
     }) as Promise<IServerNetwork>;

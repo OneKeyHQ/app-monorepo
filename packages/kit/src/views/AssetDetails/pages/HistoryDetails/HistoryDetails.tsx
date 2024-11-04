@@ -289,8 +289,6 @@ function HistoryDetails() {
     [accountId, networkId],
   ).result;
 
-  console.log('txid changed', txid);
-
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (!accountAddress) return;
@@ -974,6 +972,23 @@ function HistoryDetails() {
                     }
               }
             />
+            {txInfo?.data ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.global_hex_data,
+                })}
+                renderContent={
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    style={{ wordBreak: 'break-all' }}
+                    flex={1}
+                  >
+                    {txInfo.data}
+                  </SizableText>
+                }
+              />
+            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,
@@ -1014,15 +1029,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
-            {txInfo?.data ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.global_hex_data,
-                })}
-                renderContent={txInfo.data}
-                compact
-              />
-            ) : null}
+
             {vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
