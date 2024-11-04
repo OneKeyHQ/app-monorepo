@@ -199,12 +199,11 @@ const SwapQuoteResult = ({
       {
         maxFee: 0.875,
         name: 'metamask',
+        color: '#F5841F',
         icon: {
           uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
         },
         fee: 0.875,
-        color: '#F5841F',
-        url: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
       },
       {
         maxFee: 0.875,
@@ -378,7 +377,9 @@ const SwapQuoteResult = ({
               ) : null}
               {quoteResult?.fee?.percentageFee ? (
                 <SwapCommonInfoItem
-                  title="OneKey fee"
+                  title={intl.formatMessage({
+                        id: ETranslations.provider_ios_popover_onekey_fee,
+                      })}
                   isLoading={swapQuoteLoading}
                   valueComponent={
                     <NumberSizeableText size="$bodyMdMedium" formatter="value">
