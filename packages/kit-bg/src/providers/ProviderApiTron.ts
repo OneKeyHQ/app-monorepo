@@ -10,7 +10,12 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import type {
+  IAccountToken,
+  ITronWatchAssetParameter,
+} from '@onekeyhq/shared/types/token';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -206,8 +211,43 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async wallet_watchAsset() {
-    throw web3Errors.rpc.methodNotSupported();
+  async wallet_watchAsset(
+    request: IJsBridgeMessagePayload,
+    params: ITronWatchAssetParameter,
+  ) {
+    const {
+      accountInfo: {
+        walletId,
+        accountId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+      } = {},
+    } = (await this.getAccountsInfo(request))[0];
+    const contractAddress = params.options.address;
+    if (!contractAddress) {
+      throw web3Errors.rpc.invalidParams('contractAddress is required');
+    }
+
+    try {
+      await this.backgroundApi.serviceDApp.openAddCustomTokenModal({
+        request,
+        token: {
+          address: contractAddress,
+        } as IAccountToken,
+        walletId: walletId ?? '',
+        isOthersWallet: accountUtils.isOthersWallet({
+          walletId: walletId ?? '',
+        }),
+        indexedAccountId,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        deriveType: deriveType ?? 'default',
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
