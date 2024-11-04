@@ -1413,7 +1413,7 @@
   "provider.fee": "$0.16 ",
   "provider.ios_popover.approval_require_msg": "兑换前需授权代币",
   "provider.ios_popover.approval_require_title": "授权",
-  "provider.ios_popover.onekey_fee": "OneKey fee",
+  "provider.ios_popover.onekey_fee": "OneKey 费用",
   "provider.ios_popover.onekey_fee_content": "报价包含 0.3% 的 OneKey 费用，以确保我们提供高质量的服务和无缝的体验",
   "provider.ios_popover.order_info_title": "订单信息",
   "provider.ios_popover.title": "提示",
