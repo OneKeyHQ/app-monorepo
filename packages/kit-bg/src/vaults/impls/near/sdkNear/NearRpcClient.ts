@@ -1,9 +1,4 @@
-import Axios from 'axios';
-
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import type { AxiosInstance } from 'axios';
 
 export class NearRpcClient {
   readonly rpc: JsonRPCRequest;
