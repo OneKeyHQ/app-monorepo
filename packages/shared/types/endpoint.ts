@@ -19,6 +19,7 @@ export type IEndpointDomainWhiteList = string[];
 export type IEndpointInfo = {
   endpoint: string;
   name: EServiceEndpointEnum;
+  autoHandleError?: boolean;
 };
 
 export type IApiClientResponse<T> = {

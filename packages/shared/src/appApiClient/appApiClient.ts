@@ -20,37 +20,70 @@ const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.NotificationWebSocket]: null,
 };
 
-const getClient = memoizee(
-  async ({ endpoint, name }: IEndpointInfo) => {
-    const existingClient = clients[name];
-    if (existingClient) return existingClient;
+const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
+  [EServiceEndpointEnum.Wallet]: null,
+  [EServiceEndpointEnum.Swap]: null,
+  [EServiceEndpointEnum.Utility]: null,
+  [EServiceEndpointEnum.Lightning]: null,
+  [EServiceEndpointEnum.Earn]: null,
+  [EServiceEndpointEnum.Notification]: null,
+  [EServiceEndpointEnum.NotificationWebSocket]: null,
+};
 
-    if (!endpoint || !name) {
-      throw new OneKeyError('Invalid endpoint name.');
-    }
-    if (!endpoint.startsWith('https://')) {
-      throw new OneKeyError('Invalid endpoint, https only');
-    }
+const getBasicClient = async ({
+  endpoint,
+  name,
+  autoHandleError = true,
+}: IEndpointInfo) => {
+  const existingClient = autoHandleError ? clients[name] : rawDataClients[name];
+  if (existingClient) return existingClient;
 
-    const timeout = 30 * 1000;
-    const options =
-      platformEnv.isDev && process.env.ONEKEY_PROXY
-        ? {
-            baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
-            timeout,
-            headers: {
-              'X-OneKey-Dev-Proxy': endpoint,
-            },
-          }
-        : {
-            baseURL: endpoint,
-            timeout,
-          };
-    const client = axios.create(options);
+  if (!endpoint || !name) {
+    throw new OneKeyError('Invalid endpoint name.');
+  }
+  if (!endpoint.startsWith('https://')) {
+    throw new OneKeyError('Invalid endpoint, https only');
+  }
+
+  const timeout = 30 * 1000;
+  const options =
+    platformEnv.isDev && process.env.ONEKEY_PROXY
+      ? {
+          baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
+          timeout,
+          headers: {
+            'X-OneKey-Dev-Proxy': endpoint,
+          },
+          autoHandleError,
+        }
+      : {
+          baseURL: endpoint,
+          timeout,
+          autoHandleError,
+        };
+  const client = axios.create(options);
+  if (autoHandleError) {
     clients[name] = client;
+  } else {
+    rawDataClients[name] = client;
+  }
 
-    return client;
+  return client;
+};
+
+const getClient = memoizee(
+  async (params: IEndpointInfo) => getBasicClient(params),
+  {
+    promise: true,
+    primitive: true,
+    maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+    max: 2,
   },
+);
+
+const getRawDataClient = memoizee(
+  async (params: IEndpointInfo) =>
+    getBasicClient({ ...params, autoHandleError: false }),
   {
     promise: true,
     primitive: true,
@@ -61,5 +94,6 @@ const getClient = memoizee(
 
 const appApiClient = {
   getClient,
+  getRawDataClient,
 };
 export { appApiClient };

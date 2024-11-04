@@ -2,8 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -17,6 +18,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +33,9 @@ import StakingFormWrapper from '../StakingFormWrapper';
 type IUniversalWithdrawProps = {
   balance: string;
   price: string;
+
+  accountId?: string;
+  networkId?: string;
 
   providerLogo?: string;
   providerName?: string;
@@ -60,6 +65,8 @@ type IUniversalWithdrawProps = {
 export const UniversalWithdraw = ({
   balance,
   price: inputPrice,
+  accountId,
+  networkId,
   tokenImageUri,
   tokenSymbol,
   providerLogo,
@@ -91,7 +98,6 @@ export const UniversalWithdraw = ({
   const intl = useIntl();
 
   const onPress = useCallback(async () => {
-    Keyboard.dismiss();
     Dialog.show({
       renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
       title: intl.formatMessage(
@@ -126,6 +132,19 @@ export const UniversalWithdraw = ({
     unstakingPeriod,
   ]);
 
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const checkAmount = useDebouncedCallback(async (amount: string) => {
+    const message = await backgroundApiProxy.serviceStaking.checkoutAmount({
+      accountId,
+      networkId,
+      symbol: tokenSymbol,
+      provider: providerName,
+      action: 'unstake',
+      amount,
+    });
+    setCheckoutAmountMessage(message);
+  }, 300);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -145,8 +164,9 @@ export const UniversalWithdraw = ({
       } else {
         setAmountValue(value);
       }
+      void checkAmount(value);
     },
-    [decimals],
+    [checkAmount, decimals],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -196,8 +216,14 @@ export const UniversalWithdraw = ({
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
+      isLessThanMinAmount ||
+      !checkAmountMessage,
+    [
+      amountValue,
+      checkAmountMessage,
+      isInsufficientBalance,
       isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
+    ],
   );
 
   const editable = initialAmount === undefined;
@@ -261,6 +287,13 @@ export const UniversalWithdraw = ({
           title={intl.formatMessage({
             id: ETranslations.earn_insufficient_staked_balance,
           })}
+        />
+      ) : null}
+      {checkAmountMessage ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={checkAmountMessage}
         />
       ) : null}
       <CalculationList>
