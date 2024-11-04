@@ -2,7 +2,11 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IAddCustomTokenRouteParams,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 export enum EModalAssetListRoutes {
   TokenList = 'TokenList',
@@ -37,14 +41,5 @@ export type IModalAssetListParamList = {
     deriveType: IAccountDeriveTypes;
     isAllNetworks?: boolean;
   };
-  [EModalAssetListRoutes.AddCustomTokenModal]: {
-    token?: IAccountToken;
-    walletId: string;
-    isOthersWallet?: boolean;
-    indexedAccountId?: string;
-    accountId: string;
-    networkId: string;
-    deriveType: IAccountDeriveTypes;
-    onSuccess?: () => void;
-  };
+  [EModalAssetListRoutes.AddCustomTokenModal]: IAddCustomTokenRouteParams;
 };
