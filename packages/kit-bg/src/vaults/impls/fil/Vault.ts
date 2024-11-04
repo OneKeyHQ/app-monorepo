@@ -8,18 +8,22 @@ import {
   validateAddressString,
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
+import LotusRpcEngine from '@glif/filecoin-rpc-client';
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethers';
 import { isEmpty, isNil, isObject } from 'lodash';
 
-import type { IEncodedTxFil } from '@onekeyhq/core/src/chains/fil/types';
+import type {
+  IEncodedTxFil,
+  IFilCID,
+} from '@onekeyhq/core/src/chains/fil/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -31,6 +35,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import {
@@ -59,6 +67,7 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -484,6 +493,52 @@ export default class Vault extends VaultBase {
         },
       ],
       showSymbol: 'ETH',
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new LotusRpcEngine({
+      apiAddress: params.rpcUrl,
+      namespace: 'Filecoin',
+    });
+    const start = performance.now();
+    const { Height } = await client.request<{ Height: number }>('ChainHead');
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: Height,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new LotusRpcEngine({
+      apiAddress: rpcUrl,
+      namespace: 'Filecoin',
+    });
+    let result: IFilCID;
+    try {
+      result = await client.request('MpoolPush', JSON.parse(signedTx.rawTx));
+    } catch (err) {
+      console.error('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    const txId = isObject(result) ? result['/'] : result;
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
     };
   }
 }
