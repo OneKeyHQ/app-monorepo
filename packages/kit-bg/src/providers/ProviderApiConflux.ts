@@ -12,9 +12,14 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import type {
+  IAccountToken,
+  IConfluxWatchAssetParameter,
+} from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -328,10 +333,44 @@ class ProviderApiConflux extends ProviderApiBase {
     throw web3Errors.provider.unsupportedMethod();
   }
 
-  @permissionRequired()
   @providerApiMethod()
-  async wallet_watchAsset() {
-    throw web3Errors.provider.unsupportedMethod();
+  async wallet_watchAsset(
+    request: IJsBridgeMessagePayload,
+    params: IConfluxWatchAssetParameter,
+  ) {
+    const {
+      accountInfo: {
+        walletId,
+        accountId,
+        networkId,
+        indexedAccountId,
+        deriveType,
+      } = {},
+    } = (await this.getAccountsInfo(request))[0];
+    const contractAddress = params.options.address;
+    if (!contractAddress) {
+      throw web3Errors.rpc.invalidParams('contractAddress is required');
+    }
+
+    try {
+      await this.backgroundApi.serviceDApp.openAddCustomTokenModal({
+        request,
+        token: {
+          address: contractAddress,
+        } as IAccountToken,
+        walletId: walletId ?? '',
+        isOthersWallet: accountUtils.isOthersWallet({
+          walletId: walletId ?? '',
+        }),
+        indexedAccountId,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        deriveType: deriveType ?? 'default',
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
