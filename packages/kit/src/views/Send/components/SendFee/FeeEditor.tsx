@@ -7,7 +7,6 @@ import { StyleSheet } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
-  Alert,
   Button,
   Form,
   Input,
@@ -778,66 +777,82 @@ function FeeEditor(props: IProps) {
       return (
         <Form form={form}>
           <YStack gap="$5">
-            <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.transaction_max_base_fee,
-              })}
-              name="maxBaseFee"
-              description={
-                replaceTxMode
-                  ? null
-                  : `${intl.formatMessage({
-                      id: ETranslations.form_max_base_fee_description,
-                    })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
-              }
-              rules={{
-                required: true,
-                min: 0,
-                validate: handleValidateMaxBaseFee,
-                onChange: (e: { target: { name: string; value: string } }) =>
-                  handleFormValueOnChange({
-                    name: e.target.name,
-                    value: e.target.value,
-                  }),
-              }}
-            >
-              <Input
-                flex={1}
-                addOns={[
-                  {
-                    label: feeSymbol,
-                  },
-                ]}
-              />
-            </Form.Field>
-            <Form.Field
-              label={`${intl.formatMessage({
-                id: ETranslations.form__priority_fee,
-              })}`}
-              name="priorityFee"
-              description={
-                replaceTxMode ? null : recommendPriorityFee.description
-              }
-              rules={{
-                required: true,
-                validate: handleValidatePriorityFee,
-                min: 0,
-                onChange: (e: { target: { name: string; value: string } }) =>
-                  handleFormValueOnChange({
-                    name: e.target.name,
-                    value: e.target.value,
-                  }),
-              }}
-            >
-              <Input
-                flex={1}
-                addOns={[
-                  {
-                    label: feeSymbol,
-                  },
-                ]}
-              />
-            </Form.Field>
+            <YStack>
+              <Form.Field
+                label={intl.formatMessage({
+                  id: ETranslations.transaction_max_base_fee,
+                })}
+                name="maxBaseFee"
+                description={
+                  replaceTxMode
+                    ? null
+                    : `${intl.formatMessage({
+                        id: ETranslations.form_max_base_fee_description,
+                      })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
+                }
+                rules={{
+                  required: true,
+                  min: 0,
+                  validate: handleValidateMaxBaseFee,
+                  onChange: (e: { target: { name: string; value: string } }) =>
+                    handleFormValueOnChange({
+                      name: e.target.name,
+                      value: e.target.value,
+                    }),
+                }}
+              >
+                <Input
+                  flex={1}
+                  addOns={[
+                    {
+                      label: feeSymbol,
+                    },
+                  ]}
+                />
+              </Form.Field>
+              {feeAlert ? (
+                <SizableText color="$textCaution" size="$bodyMd" mt="$1.5">
+                  {feeAlert}
+                </SizableText>
+              ) : null}
+            </YStack>
+
+            <YStack>
+              <Form.Field
+                label={`${intl.formatMessage({
+                  id: ETranslations.form__priority_fee,
+                })}`}
+                name="priorityFee"
+                description={
+                  replaceTxMode ? null : recommendPriorityFee.description
+                }
+                rules={{
+                  required: true,
+                  validate: handleValidatePriorityFee,
+                  min: 0,
+                  onChange: (e: { target: { name: string; value: string } }) =>
+                    handleFormValueOnChange({
+                      name: e.target.name,
+                      value: e.target.value,
+                    }),
+                }}
+              >
+                <Input
+                  flex={1}
+                  addOns={[
+                    {
+                      label: feeSymbol,
+                    },
+                  ]}
+                />
+              </Form.Field>
+              {priorityFeeAlert ? (
+                <SizableText color="$textCaution" size="$bodyMd" mt="$1.5">
+                  {priorityFeeAlert}
+                </SizableText>
+              ) : null}
+            </YStack>
+
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
@@ -1034,6 +1049,7 @@ function FeeEditor(props: IProps) {
   }, [
     currentFeeType,
     customFee,
+    feeAlert,
     feeSymbol,
     form,
     handleFormValueOnChange,
@@ -1045,6 +1061,7 @@ function FeeEditor(props: IProps) {
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
+    priorityFeeAlert,
     recommendGasLimit.gasLimit,
     recommendPriorityFee.description,
     replaceTxMode,
@@ -1277,12 +1294,6 @@ function FeeEditor(props: IProps) {
             })}
           />
         ))}
-        {feeAlert && currentFeeType === EFeeType.Custom ? (
-          <Alert type="warning" mt="$4" title={feeAlert} />
-        ) : null}
-        {priorityFeeAlert && currentFeeType === EFeeType.Custom ? (
-          <Alert type="warning" mt="$4" title={priorityFeeAlert} />
-        ) : null}
       </>
     );
   }, [
@@ -1290,13 +1301,11 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     estimateFeeParams?.estimateFeeParamsSol,
-    feeAlert,
     feeSelectorItems,
     feeSymbol,
     intl,
     nativeSymbol,
     nativeTokenPrice,
-    priorityFeeAlert,
     unsignedTxs,
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
@@ -1390,7 +1399,7 @@ function FeeEditor(props: IProps) {
 
   return (
     <>
-      <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
+      <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
           {renderFeeEditorForm()}
