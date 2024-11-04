@@ -1,3 +1,5 @@
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+
 export type IToken = {
   decimals: number;
   name: string;
@@ -92,3 +94,44 @@ export type IFetchTokenDetailResp = IAccountToken[];
 export type IFetchTokenDetailItem = {
   info: IToken;
 } & ITokenFiat;
+
+/**
+ * dApp add custom token route params
+ */
+export type IAddCustomTokenRouteParams = {
+  token?: IAccountToken;
+  walletId: string;
+  isOthersWallet?: boolean;
+  indexedAccountId?: string;
+  accountId: string;
+  networkId: string;
+  deriveType: IAccountDeriveTypes;
+  onSuccess?: () => void;
+};
+
+export type IWatchAssetParameter =
+  | IEthWatchAssetParameter
+  | ITronWatchAssetParameter
+  | IConfluxWatchAssetParameter;
+
+export type IEthWatchAssetParameter = {
+  type: 'ERC20' | 'ERC721' | 'ERC1155';
+  options: IWatchAssetOptions;
+};
+
+export type ITronWatchAssetParameter = {
+  type: 'trc20';
+  options: IWatchAssetOptions;
+};
+
+export type IConfluxWatchAssetParameter = {
+  type: 'CRC20';
+  options: IWatchAssetOptions;
+};
+
+type IWatchAssetOptions = {
+  address: string;
+  symbol?: string;
+  decimals?: number;
+  image?: string;
+};
