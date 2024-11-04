@@ -236,7 +236,7 @@ const SwapQuoteResult = ({
           <Stack
             backgroundColor={item.color}
             borderRadius="$full"
-            width={`${(item.fee / item.maxFee) * 100}%`}
+            width={`${item.maxFee > 0 ? (item.fee / item.maxFee) * 100 : 0}%`}
             height="$1"
           />
         </Stack>
