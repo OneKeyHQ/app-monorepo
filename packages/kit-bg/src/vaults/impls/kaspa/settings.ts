@@ -48,6 +48,8 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 300,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
