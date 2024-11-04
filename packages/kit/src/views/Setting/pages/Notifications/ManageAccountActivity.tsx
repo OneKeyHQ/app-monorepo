@@ -277,7 +277,7 @@ function AccordionItem({
                   numberOfLines={1}
                   flexShrink={1}
                 >
-                  {wallet.name} long long long text long long long text
+                  {wallet.name}
                 </SizableText>
                 <SizableText>
                   ({enabledAccountsCount}/{totalAccountsCount})
