@@ -7,33 +7,39 @@ import { EWindowHelloEventType } from './enum';
 
 import type { UtilityProcess } from 'electron/main';
 
-let windowsHelloChild: UtilityProcess | null = null;
+let windowsHelloChildProcess: UtilityProcess | null = null;
 let windowsHelloCallbacks: {
   type: string;
   callback: (e: any) => void;
   timestamp: number;
 }[] = [];
 export const startServices = () => {
-  windowsHelloChild = utilityProcess.fork(
+  windowsHelloChildProcess = utilityProcess.fork(
     // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
     path.join(__dirname, './service/windowsHello.js'),
   );
-  windowsHelloChild.on('message', (e: { type: string; result: boolean }) => {
-    Logger.info('parent process--onMessage', e);
-    const callbacks = windowsHelloCallbacks.filter(
-      (callbackItem) => callbackItem.type === e.type,
-    );
-    if (callbacks.length) {
-      callbacks.forEach((callbackItem) => {
-        // Callbacks older than 1 minute will not be executed
-        if (Date.now() - callbackItem.timestamp < 60 * 1000) {
-          callbackItem.callback(e.result);
-        }
-      });
-      windowsHelloCallbacks = windowsHelloCallbacks.filter(
-        (callbackItem) => !callbacks.includes(callbackItem),
+  windowsHelloChildProcess.on(
+    'message',
+    (e: { type: string; result: boolean }) => {
+      Logger.info('windowsHelloChildProcess-onMessage', e);
+      const callbacks = windowsHelloCallbacks.filter(
+        (callbackItem) => callbackItem.type === e.type,
       );
-    }
+      if (callbacks.length) {
+        callbacks.forEach((callbackItem) => {
+          // Callbacks older than 1 minute will not be executed
+          if (Date.now() - callbackItem.timestamp < 60 * 1000) {
+            callbackItem.callback(e.result);
+          }
+        });
+        windowsHelloCallbacks = windowsHelloCallbacks.filter(
+          (callbackItem) => !callbacks.includes(callbackItem),
+        );
+      }
+    },
+  );
+  windowsHelloChildProcess.on('exit', (code) => {
+    Logger.info('windowsHelloChildProcess--onExit', code);
   });
 };
 
@@ -47,7 +53,7 @@ export const checkAvailabilityAsync = async () => {
           callback: resolve,
           timestamp: Date.now(),
         });
-        windowsHelloChild?.postMessage({
+        windowsHelloChildProcess?.postMessage({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
         });
       }),
@@ -72,7 +78,7 @@ export const requestVerificationAsync = (message: string) =>
       callback: resolve,
       timestamp: Date.now(),
     });
-    windowsHelloChild?.postMessage({
+    windowsHelloChildProcess?.postMessage({
       type: EWindowHelloEventType.RequestVerificationAsync,
       params: message,
     });
