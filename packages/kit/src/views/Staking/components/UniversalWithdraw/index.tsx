@@ -2,8 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -17,6 +18,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,6 +33,9 @@ import StakingFormWrapper from '../StakingFormWrapper';
 type IUniversalWithdrawProps = {
   balance: string;
   price: string;
+
+  accountId?: string;
+  networkId?: string;
 
   providerLogo?: string;
   providerName?: string;
@@ -57,9 +62,14 @@ type IUniversalWithdrawProps = {
   onConfirm?: (amount: string) => Promise<void>;
 };
 
+const isNaN = (num: string) =>
+  BigNumber(num).isNaN() || (typeof num === 'string' && num.endsWith('.'));
+
 export const UniversalWithdraw = ({
   balance,
   price: inputPrice,
+  accountId,
+  networkId,
   tokenImageUri,
   tokenSymbol,
   providerLogo,
@@ -91,7 +101,6 @@ export const UniversalWithdraw = ({
   const intl = useIntl();
 
   const onPress = useCallback(async () => {
-    Keyboard.dismiss();
     Dialog.show({
       renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
       title: intl.formatMessage(
@@ -126,6 +135,22 @@ export const UniversalWithdraw = ({
     unstakingPeriod,
   ]);
 
+  const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const checkAmount = useDebouncedCallback(async (amount: string) => {
+    if (isNaN(amount)) {
+      return;
+    }
+    const message = await backgroundApiProxy.serviceStaking.checkAmount({
+      accountId,
+      networkId,
+      symbol: tokenSymbol,
+      provider: providerName,
+      action: 'unstake',
+      amount,
+    });
+    setCheckoutAmountMessage(message);
+  }, 300);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -145,8 +170,9 @@ export const UniversalWithdraw = ({
       } else {
         setAmountValue(value);
       }
+      void checkAmount(value);
     },
-    [decimals],
+    [checkAmount, decimals],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -155,20 +181,6 @@ export const UniversalWithdraw = ({
     }
     return undefined;
   }, [amountValue, price]);
-
-  const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gt(balance),
-    [amountValue, balance],
-  );
-
-  const isLessThanMinAmount = useMemo<boolean>(() => {
-    const minAmountBn = new BigNumber(minAmount);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return amountValueBn.isLessThan(minAmountBn);
-    }
-    return false;
-  }, [minAmount, amountValue]);
 
   const remainingLessThanMinAmountWarning = useMemo<boolean>(() => {
     if (Number(minAmount) > 0) {
@@ -191,13 +203,15 @@ export const UniversalWithdraw = ({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
+
   const isDisable = useMemo(
     () =>
-      BigNumber(amountValue).isNaN() ||
+      isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
+      isCheckAmountMessageError,
+    [amountValue, isCheckAmountMessageError],
   );
 
   const editable = initialAmount === undefined;
@@ -207,7 +221,7 @@ export const UniversalWithdraw = ({
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={isInsufficientBalance || isLessThanMinAmount}
+          hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
@@ -244,23 +258,11 @@ export const UniversalWithdraw = ({
           )}
         />
       ) : null}
-      {isLessThanMinAmount ? (
+      {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
-          title={intl.formatMessage(
-            { id: ETranslations.earn_minimum_amount },
-            { number: `${minAmount} ${tokenSymbol ?? ''}` },
-          )}
-        />
-      ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_staked_balance,
-          })}
+          title={checkAmountMessage}
         />
       ) : null}
       <CalculationList>
