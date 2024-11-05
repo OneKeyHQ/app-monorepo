@@ -48,6 +48,7 @@ export type ICloseHardwareUiStateDialogParams = {
   reason?: string;
   deviceResetToHome?: boolean;
   hardClose?: boolean; // hard close dialog by event bus
+  skipDelayClose?: boolean;
 };
 
 @backgroundClass()
@@ -189,14 +190,16 @@ class ServiceHardwareUI extends ServiceBase {
   async closeHardwareUiStateDialog(params: ICloseHardwareUiStateDialogParams) {
     clearTimeout(this.closeHardwareUiStateDialogTimer);
 
-    this.closeHardwareUiStateDialogTimer = setTimeout(
-      () =>
-        this.closeHardwareUiStateDialogFn({
-          ...params,
-          skipDeviceCancel: true,
-        }),
-      600,
-    );
+    if (!params.skipDelayClose) {
+      this.closeHardwareUiStateDialogTimer = setTimeout(
+        () =>
+          this.closeHardwareUiStateDialogFn({
+            ...params,
+            skipDeviceCancel: true,
+          }),
+        600,
+      );
+    }
 
     await this.closeHardwareUiStateDialogFn(params);
   }

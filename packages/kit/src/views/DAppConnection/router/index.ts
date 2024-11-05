@@ -34,8 +34,14 @@ const NostrSignEventModal = LazyLoadPage(
   () => import('../pages/NostrSignEventModal'),
 );
 
+// Custom Network
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
+);
+
+// Custom Token
+const AddCustomTokenModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AssetList/pages/AddCustomTokenModal'),
 );
 
 export const DAppConnectionRouter: IModalFlowNavigatorConfig<
@@ -61,6 +67,10 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.AddCustomNetworkModal,
     component: SettingCustomNetworkModal,
+  },
+  {
+    name: EDAppConnectionModal.AddCustomTokenModal,
+    component: AddCustomTokenModal,
   },
   {
     name: EDAppConnectionModal.CurrentConnectionModal,

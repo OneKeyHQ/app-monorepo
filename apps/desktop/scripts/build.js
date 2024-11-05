@@ -12,7 +12,7 @@ const gitRevision = childProcess
 
 const hrstart = process.hrtime();
 build({
-  entryPoints: ['app.ts', 'preload.ts'].map((f) =>
+  entryPoints: ['app.ts', 'preload.ts', 'service/windowsHello.ts'].map((f) =>
     path.join(electronSource, f),
   ),
   platform: 'node',
