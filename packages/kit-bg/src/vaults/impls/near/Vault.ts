@@ -9,7 +9,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
@@ -25,6 +25,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -44,6 +48,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientNear from './sdkNear/ClientNear';
+import { NearRpcClient } from './sdkNear/NearRpcClient';
 import settings from './settings';
 import {
   BN,
@@ -65,6 +70,7 @@ import type { INearAccessKey, INearAccountStorageBalance } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -543,5 +549,37 @@ export default class Vault extends VaultBase {
     }
 
     return true;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new NearRpcClient({ url: params.rpcUrl });
+    const start = performance.now();
+    const { blockNumber: bestBlockNumber } = await client.getBestBlock();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new NearRpcClient({ url: rpcUrl });
+    const txId = await client.broadcastTransaction(signedTx.rawTx);
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

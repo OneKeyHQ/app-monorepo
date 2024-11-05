@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BCS, TxnBuilderTypes } from 'aptos';
+import { AptosClient as AptosRpcClient, BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InvalidAccount,
   ManageTokenInsufficientBalanceError,
@@ -21,6 +25,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
@@ -55,6 +63,7 @@ import {
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -570,5 +579,40 @@ export default class VaultAptos extends VaultBase {
         transferPayload: undefined,
       });
     return !!signedTx.signedTx.txid;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new AptosRpcClient(params.rpcUrl);
+    const start = performance.now();
+    const { block_height: blockNumber } = await client.getLedgerInfo();
+    const bestBlockNumber = parseInt(blockNumber, 10);
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new AptosRpcClient(rpcUrl);
+    const { hash: txId } = await client.submitSignedBCSTransaction(
+      bufferUtils.hexToBytes(signedTx.rawTx),
+    );
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

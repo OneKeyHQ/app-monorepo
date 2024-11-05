@@ -94,6 +94,7 @@ import ClientSol from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
+  CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   masterEditionAddress,
@@ -681,6 +682,12 @@ export default class Vault extends VaultBase {
 
     let actions: IDecodedTxAction[] = [];
 
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
     if (unsignedTx.swapInfo) {
       actions = [
         await this.buildInternalSwapAction({
@@ -697,10 +704,39 @@ export default class Vault extends VaultBase {
       ];
     } else {
       actions = await this._decodeNativeTxActions({
-        nativeTx,
+        instructions,
         isNFT: transferPayload?.isNFT,
         amountToSend: transferPayload?.amountToSend,
       });
+    }
+
+    if (
+      instructions.some(
+        (instruction) =>
+          instruction.programId.toString() ===
+          ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
+      )
+    ) {
+      if (actions[0].assetTransfer) {
+        const nativeToken =
+          await this.backgroundApi.serviceToken.getNativeToken({
+            accountId: this.accountId,
+            networkId: this.networkId,
+          });
+        if (nativeToken) {
+          actions[0].assetTransfer.sends.push({
+            from: actions[0].assetTransfer.from,
+            to: actions[0].assetTransfer.to,
+            amount: CREATE_TOKEN_ACCOUNT_RENT,
+            icon: nativeToken.logoURI ?? '',
+            name: nativeToken.name,
+            symbol: nativeToken.symbol,
+            tokenIdOnNetwork: nativeToken.address,
+            isNFT: false,
+            isNative: true,
+          });
+        }
+      }
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -748,22 +784,17 @@ export default class Vault extends VaultBase {
   );
 
   async _decodeNativeTxActions({
-    nativeTx,
+    instructions,
     isNFT,
     amountToSend,
   }: {
-    nativeTx: INativeTxSol;
+    instructions: TransactionInstruction[];
     isNFT: boolean | undefined;
     amountToSend: string | undefined;
   }) {
     const actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
-    const client = await this.getClient();
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
 
     for (const instruction of instructions) {
       // TODO: only support system transfer & token transfer now

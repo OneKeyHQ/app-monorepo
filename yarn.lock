@@ -4141,7 +4141,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@glif/filecoin-message@npm:^2.0.44":
+"@glif/filecoin-message@npm:2.0.44":
   version: 2.0.44
   resolution: "@glif/filecoin-message@npm:2.0.44"
   dependencies:
@@ -4150,6 +4150,15 @@ __metadata:
     multiformats: "npm:^9.6.5"
     uint8arrays: "npm:^3.1.1"
   checksum: 10/1f49f94f9099160874873a0c80fd6b3efd55e344272d7dcb41969692dc7a29e92b81f221b1eb064775095c661679169329be5e3ef2641ec6179ca4d015f60ddc
+  languageName: node
+  linkType: hard
+
+"@glif/filecoin-rpc-client@npm:3.0.2":
+  version: 3.0.2
+  resolution: "@glif/filecoin-rpc-client@npm:3.0.2"
+  dependencies:
+    axios: "npm:^0.27.2"
+  checksum: 10/459cacbb830b84a557e33d3ff94ff3235d6c0fc815cc5d6154125e856259fba14c58e30967753fdcf4fb2424555f5f6607baaae704b5d2136fb797b84fd10de4
   languageName: node
   linkType: hard
 
@@ -6507,6 +6516,7 @@ __metadata:
     "@expo/webpack-config": "npm:~19.0.1"
     "@firebase/analytics": "npm:^0.10.6"
     "@firebase/app": "npm:^0.10.7"
+    "@glif/filecoin-rpc-client": "npm:3.0.2"
     "@mysten/sui": "npm:1.13.0"
     "@ngraveio/bc-ur": "npm:^1.1.13"
     "@onekeyfe/cross-inpage-provider-core": "npm:2.1.11"
@@ -6710,7 +6720,7 @@ __metadata:
     "@ckb-lumos/common-scripts": "npm:^0.23.0"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
     "@glif/filecoin-address": "npm:^2.0.43"
-    "@glif/filecoin-message": "npm:^2.0.44"
+    "@glif/filecoin-message": "npm:2.0.44"
     "@magiceden-oss/open_creator_protocol": "npm:^0.3.2"
     "@metaplex-foundation/mpl-token-metadata": "npm:^2.7.0"
     "@mymonero/mymonero-app-bridge": "npm:^3.0.0"

@@ -48,6 +48,8 @@ const settings: IVaultSettings = {
   minTransferAmount: '0.00000546',
   nativeMinTransferAmount: '61',
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

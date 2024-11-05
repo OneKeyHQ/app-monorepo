@@ -46,6 +46,8 @@ const settings: IVaultSettings = {
 
   defaultFeePresetIndex: 0,
 
+  customRpcEnabled: true,
+
   saveConfirmedTxsEnabled: true,
 
   accountDeriveInfo,
