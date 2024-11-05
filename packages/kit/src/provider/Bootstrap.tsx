@@ -42,8 +42,8 @@ const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
     reachabilityMethod: 'GET',
     reachabilityHeaders: headers,
     reachabilityTest: async (response) => response.status === 200,
-    reachabilityLongTimeout: 30 * 1000,
-    reachabilityShortTimeout: 10 * 1000,
+    reachabilityLongTimeout: 60 * 1000,
+    reachabilityShortTimeout: 5 * 1000,
     reachabilityRequestTimeout: 10 * 1000,
     reachabilityShouldRun: () => true,
     // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
