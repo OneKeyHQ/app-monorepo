@@ -1089,13 +1089,17 @@ function TokenListContainer(props: ITabPageProps) {
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
-        xpub:
-          (account as IDBUtxoAccount)?.xpubSegwit ||
-          (account as IDBUtxoAccount)?.xpub,
+        // @ts-expect-error
+        xpub: account.xpubSegwit || account.xpub,
       });
     }
   }, [
-    account,
+    account?.address,
+    account?.id,
+    // @ts-expect-error
+    account?.xpub,
+    // @ts-expect-error
+    account?.xpubSegwit,
     handleClearAllNetworkData,
     network?.id,
     refreshAllTokenList,
