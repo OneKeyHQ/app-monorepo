@@ -569,6 +569,45 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkAmount({
+    networkId,
+    accountId,
+    symbol,
+    provider,
+    action,
+    amount,
+  }: {
+    accountId?: string;
+    networkId?: string;
+    symbol?: string;
+    provider?: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount?: string;
+  }) {
+    if (!networkId || !accountId || !provider) {
+      throw new Error('networkId or accountId or provider not found');
+    }
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const result = await client.get<{
+      code: number;
+      message: string;
+    }>(`/earn/v1/check-amount`, {
+      params: {
+        networkId,
+        accountAddress: account.address,
+        symbol,
+        provider: provider || '',
+        action,
+        amount,
+      },
+    });
+    const { code, message } = result.data;
+    return Number(code) === 0 ? '' : message;
+  }
+
+  @backgroundMethod()
   async getStakingConfigs({
     networkId,
     symbol,
