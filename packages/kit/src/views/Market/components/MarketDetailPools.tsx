@@ -30,6 +30,7 @@ import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
+import { PairDetailDialog } from './PairDetailDialog';
 import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
 
@@ -189,18 +190,22 @@ export function MarketDetailPools({
     [handleSortTypeChange],
   );
   const onRow = useCallback(
-    (item: IMarketDetailPool) => ({
+    (item: IMarketDetailPool | IMarketDetailTicker) => ({
       onPress: () => {
         Dialog.show({
           showFooter: false,
           title: intl.formatMessage({
             id: ETranslations.market_pool_details,
           }),
-          renderContent: <PoolDetailDialog item={item} />,
+          renderContent: isCEXSelected ? (
+            <PairDetailDialog item={item as IMarketDetailTicker} />
+          ) : (
+            <PoolDetailDialog item={item as IMarketDetailPool} />
+          ),
         });
       },
     }),
-    [intl],
+    [intl, isCEXSelected],
   );
 
   const poolColumns = useMemo(
