@@ -7,7 +7,11 @@ import { pubkeyToCfxAddress } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { uncompressPublicKey } from '@onekeyhq/core/src/secret';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -25,6 +29,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
@@ -57,6 +65,7 @@ import type {
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IApproveInfo,
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -751,5 +760,45 @@ export default class Vault extends VaultBase {
         storageLimit,
       },
     });
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const chainId = await this.getNetworkChainId();
+    const client = new sdkCfx.Conflux({
+      url: params.rpcUrl,
+      networkId: Number(chainId),
+    });
+    const start = performance.now();
+    const bestBlockNumber = await client.getEpochNumber();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const chainId = await this.getNetworkChainId();
+    const client = new sdkCfx.Conflux({
+      url: rpcUrl,
+      networkId: Number(chainId),
+    });
+    const txId = await client.sendRawTransaction(signedTx.rawTx);
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

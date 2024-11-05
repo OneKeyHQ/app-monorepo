@@ -50,6 +50,8 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 6,
   editApproveAmountEnabled: true,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

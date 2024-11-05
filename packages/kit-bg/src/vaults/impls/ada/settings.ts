@@ -36,6 +36,7 @@ const settings: IVaultSettings = {
 
   minTransferAmount: '1',
   defaultFeePresetIndex: 0,
+  customRpcEnabled: true,
 
   isUtxo: true,
   isSingleToken: false,

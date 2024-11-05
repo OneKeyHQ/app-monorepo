@@ -6,6 +6,7 @@ import {
   TransactionSkeleton,
   minimalCellCapacityCompatible,
 } from '@ckb-lumos/helpers';
+import { RPC } from '@ckb-lumos/rpc';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
@@ -15,7 +16,7 @@ import {
 } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
@@ -31,6 +32,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxDirection,
@@ -54,6 +59,7 @@ import { decodeBalanceWithCell, decodeNaiveBalance } from './utils/balance';
 import { convertTokenHistoryUtxos } from './utils/history';
 import {
   DEFAULT_MIN_INPUT_CAPACITY,
+  convertRawTxToApiTransaction,
   convertTxSkeletonToTransaction,
   convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
@@ -63,6 +69,7 @@ import { transfer as xUDTTransafer } from './utils/xudt';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -735,5 +742,38 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new RPC(params.rpcUrl);
+    const start = performance.now();
+    const bestBlockNumber = await client.getTipBlockNumber();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: parseInt(bestBlockNumber, 10),
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new RPC(rpcUrl);
+    const transaction = convertRawTxToApiTransaction(signedTx.rawTx);
+    const txId = await client.sendTransaction(transaction, 'passthrough');
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

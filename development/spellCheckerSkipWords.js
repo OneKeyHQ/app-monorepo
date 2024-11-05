@@ -21,7 +21,7 @@ module.exports = [
   'dkey',
   'impls',
   'Sollet',
-  'Solflare', 
+  'Solflare',
   'encryptors',
   'txids',
   '_j_msgid',
@@ -768,4 +768,5 @@ module.exports = [
   'onopen',
   'everstake',
   'unbonding',
+  'algodv2',
 ];
