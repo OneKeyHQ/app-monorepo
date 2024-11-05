@@ -206,13 +206,15 @@ export const UniversalWithdraw = ({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
+  const isCheckAmountMessageError = !!checkAmountMessage;
+
   const isDisable = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isLessThanMinAmount ||
-      !checkAmountMessage,
-    [amountValue, checkAmountMessage, isLessThanMinAmount],
+      isCheckAmountMessageError,
+    [amountValue, isCheckAmountMessageError, isLessThanMinAmount],
   );
 
   const editable = initialAmount === undefined;
@@ -222,7 +224,7 @@ export const UniversalWithdraw = ({
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={!!checkAmountMessage || isLessThanMinAmount}
+          hasError={isCheckAmountMessageError || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
