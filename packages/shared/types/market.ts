@@ -38,7 +38,7 @@ export interface IMarketToken {
   lastUpdated: string;
 }
 
-export interface IMarketDetailAth {
+export interface IMarketDetailAthOrAtl {
   time: Date;
   value: number;
 }
@@ -74,8 +74,8 @@ export interface IMarketDetailStats {
   volume24h: number;
   low24h: number;
   high24h: number;
-  atl: IMarketDetailAth;
-  ath: IMarketDetailAth;
+  atl: IMarketDetailAthOrAtl;
+  ath: IMarketDetailAthOrAtl;
   fdv: number;
   circulatingSupply: number;
   totalSupply: number;

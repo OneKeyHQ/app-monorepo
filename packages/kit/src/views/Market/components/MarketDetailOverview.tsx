@@ -10,6 +10,7 @@ import type {
 import {
   NestedScrollView,
   NumberSizeableText,
+  Popover,
   Progress,
   SizableText,
   XStack,
@@ -17,7 +18,9 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatLocaleDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
+  IMarketDetailAthOrAtl,
   IMarketDetailPlatform,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
@@ -130,10 +133,12 @@ function OverviewMarketVOLItem({
   rank,
   children,
   currency,
+  tooltip,
 }: {
   title: string;
   rank?: number;
   currency?: boolean;
+  tooltip?: string;
   children: INumberSizeableTextProps['children'];
 }) {
   const [settings] = useSettingsPersistAtom();
@@ -169,12 +174,15 @@ function OverviewMarketVOLItem({
             {`#${rank}`}
           </SizableText>
         ) : null}
+        {tooltip ? <Popover.Tooltip title={title} tooltip={tooltip} /> : null}
       </XStack>
     </YStack>
   );
 }
 
 function OverviewMarketVOL({
+  symbol,
+  currentPrice,
   fdv,
   volume24h,
   marketCap,
@@ -183,7 +191,11 @@ function OverviewMarketVOL({
   totalSupply,
   circulatingSupply,
   detailPlatforms,
+  atl,
+  ath,
 }: {
+  currentPrice: number;
+  symbol: string;
   fdv: number;
   volume24h: number;
   marketCap: number;
@@ -191,9 +203,30 @@ function OverviewMarketVOL({
   maxSupply: number;
   totalSupply: number;
   circulatingSupply: number;
+  atl: IMarketDetailAthOrAtl;
+  ath: IMarketDetailAthOrAtl;
   detailPlatforms: IMarketDetailPlatform;
 }) {
   const intl = useIntl();
+  const athPercent = useMemo(
+    () =>
+      BigNumber(ath.value)
+        .minus(currentPrice)
+        .dividedBy(ath.value)
+        .multipliedBy(100)
+        .toFixed(4),
+    [ath.value, currentPrice],
+  );
+  const atlPercent = useMemo(
+    () =>
+      BigNumber(currentPrice)
+        .minus(atl.value)
+        .dividedBy(atl.value)
+        .multipliedBy(100)
+        .toFixed(4),
+    [atl.value, currentPrice],
+  );
+  const upperCaseSymbol = useMemo(() => symbol.toUpperCase(), [symbol]);
   return (
     <YStack pt="$10">
       <YStack gap="$3">
@@ -243,6 +276,60 @@ function OverviewMarketVOL({
             {maxSupply || '∞'}
           </OverviewMarketVOLItem>
         </XStack>
+        <XStack gap="$4">
+          <OverviewMarketVOLItem
+            title="All-time high"
+            currency
+            tooltip={intl.formatMessage(
+              { id: ETranslations.market_ath_desc },
+              {
+                token: upperCaseSymbol,
+                time: formatLocaleDate(new Date(ath.time)),
+                price: (
+                  <NumberSizeableText
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {ath.value}
+                  </NumberSizeableText>
+                ) as unknown as string,
+                percent: (
+                  <NumberSizeableText formatter="priceChange">
+                    {athPercent}
+                  </NumberSizeableText>
+                ) as unknown as string,
+              },
+            )}
+          >
+            {ath.value}
+          </OverviewMarketVOLItem>
+          <OverviewMarketVOLItem
+            title="All-time low"
+            currency
+            tooltip={intl.formatMessage(
+              { id: ETranslations.market_atl_desc },
+              {
+                token: upperCaseSymbol,
+                time: formatLocaleDate(new Date(atl.time)),
+                price: (
+                  <NumberSizeableText
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {atl.value}
+                  </NumberSizeableText>
+                ) as unknown as string,
+                percent: (
+                  <NumberSizeableText formatter="priceChange">
+                    {atlPercent}
+                  </NumberSizeableText>
+                ) as unknown as string,
+              },
+            )}
+          >
+            {atl.value}
+          </OverviewMarketVOLItem>
+        </XStack>
       </YStack>
       <MarketDetailOverviewContract detailPlatforms={detailPlatforms} />
     </YStack>
@@ -255,6 +342,8 @@ export function MarketDetailOverview({
     symbol,
     detailPlatforms,
     stats: {
+      atl,
+      ath,
       maxSupply,
       totalSupply,
       circulatingSupply,
@@ -314,9 +403,13 @@ export function MarketDetailOverview({
           lastUpdated={lastUpdated}
         />
         <OverviewMarketVOL
+          symbol={symbol}
           volume24h={volume24h}
+          currentPrice={currentPrice}
           fdv={fdv}
           marketCap={marketCap}
+          ath={ath}
+          atl={atl}
           marketCapRank={marketCapRank}
           maxSupply={maxSupply}
           totalSupply={totalSupply}
