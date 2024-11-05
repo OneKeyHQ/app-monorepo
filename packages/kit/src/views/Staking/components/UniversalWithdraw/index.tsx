@@ -179,15 +179,6 @@ export const UniversalWithdraw = ({
     return undefined;
   }, [amountValue, price]);
 
-  const isLessThanMinAmount = useMemo<boolean>(() => {
-    const minAmountBn = new BigNumber(minAmount);
-    const amountValueBn = new BigNumber(amountValue);
-    if (minAmountBn.isGreaterThan(0) && amountValueBn.isGreaterThan(0)) {
-      return amountValueBn.isLessThan(minAmountBn);
-    }
-    return false;
-  }, [minAmount, amountValue]);
-
   const remainingLessThanMinAmountWarning = useMemo<boolean>(() => {
     if (Number(minAmount) > 0) {
       const minAmountBN = new BigNumber(Number(minAmount));
@@ -216,9 +207,8 @@ export const UniversalWithdraw = ({
     () =>
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isLessThanMinAmount ||
       isCheckAmountMessageError,
-    [amountValue, isCheckAmountMessageError, isLessThanMinAmount],
+    [amountValue, isCheckAmountMessageError],
   );
 
   const editable = initialAmount === undefined;
@@ -228,7 +218,7 @@ export const UniversalWithdraw = ({
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={isCheckAmountMessageError || isLessThanMinAmount}
+          hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
@@ -262,16 +252,6 @@ export const UniversalWithdraw = ({
           title={intl.formatMessage(
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
             { number: minAmount, symbol: tokenSymbol },
-          )}
-        />
-      ) : null}
-      {isLessThanMinAmount ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage(
-            { id: ETranslations.earn_minimum_amount },
-            { number: `${minAmount} ${tokenSymbol ?? ''}` },
           )}
         />
       ) : null}
