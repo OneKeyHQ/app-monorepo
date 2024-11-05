@@ -218,12 +218,12 @@ const useAboutVersion = () => {
               />
               <YStack gap="$2" pt="$4" alignItems="center">
                 <SizableText size="$heading2xl">OneKey</SizableText>
-                <SizableText size="$bodySm">{versionString}</SizableText>
                 <SizableText size="$bodySm">
                   {`${globalThis.desktopApi.platform}-${
                     globalThis.desktopApi.arch || 'unknown'
                   }`}
                 </SizableText>
+                <SizableText size="$bodySm">{versionString}</SizableText>
                 <SizableText size="$bodySm">Copyright © OneKey</SizableText>
               </YStack>
             </YStack>
