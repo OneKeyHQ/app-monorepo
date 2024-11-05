@@ -193,9 +193,20 @@ const useDesktopEvents = platformEnv.isDesktop
   : () => undefined;
 
 const useAboutVersion = () => {
+  const intl = useIntl();
   useEffect(() => {
     if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
       desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+        const versionString = intl.formatMessage(
+          {
+            id: ETranslations.settings_version_versionnum,
+          },
+          {
+            'versionNum': `${process.env.VERSION || 1}(${
+              platformEnv.buildNumber || 1
+            })`,
+          },
+        );
         Dialog.show({
           showFooter: false,
           renderContent: (
@@ -207,9 +218,7 @@ const useAboutVersion = () => {
               />
               <YStack gap="$2" pt="$4" alignItems="center">
                 <SizableText size="$heading2xl">OneKey</SizableText>
-                <SizableText size="$bodySm">
-                  Version {process.env.VERSION}({platformEnv.buildNumber})
-                </SizableText>
+                <SizableText size="$bodySm">{versionString}</SizableText>
                 <SizableText size="$bodySm">
                   {`${globalThis.desktopApi.platform}-${
                     globalThis.desktopApi.arch || 'unknown'
