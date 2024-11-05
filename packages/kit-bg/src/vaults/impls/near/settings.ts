@@ -49,6 +49,8 @@ const settings: IVaultSettings = {
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 6,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

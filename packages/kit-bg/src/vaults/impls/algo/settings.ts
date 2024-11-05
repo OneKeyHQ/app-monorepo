@@ -51,6 +51,8 @@ const settings: IVaultSettings = {
 
   onChainHistoryDisabled: true,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

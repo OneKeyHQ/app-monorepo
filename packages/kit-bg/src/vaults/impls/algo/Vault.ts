@@ -11,7 +11,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
   OneKeyError,
@@ -28,6 +28,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -57,6 +61,7 @@ import type {
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -526,5 +531,39 @@ export default class Vault extends VaultBase {
       }
       throw e;
     }
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new sdkAlgo.Algodv2('', params.rpcUrl, 443);
+    const start = performance.now();
+    const { 'last-round': latestBlock } = await client.status().do();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: latestBlock,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('rpcUrl is required');
+    }
+    const client = new sdkAlgo.Algodv2('', rpcUrl, 443);
+    const { txId } = await client
+      .sendRawTransaction(Buffer.from(signedTx.rawTx, 'base64'))
+      .do();
+    console.log('broadcastTransaction END:', {
+      txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

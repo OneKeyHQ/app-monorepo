@@ -2,6 +2,7 @@
 import {
   AddressType,
   DUST_AMOUNT,
+  NodeProvider,
   addressFromTokenId,
   bs58,
   contractIdFromAddress,
@@ -13,7 +14,11 @@ import {
   EAlphTxType,
   type IEncodedTxAlph,
 } from '@onekeyhq/core/src/chains/alph/types';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
@@ -30,6 +35,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
@@ -54,6 +63,7 @@ import { MAX_GAS_AMOUNT, serializeUnsignedTransaction } from './sdkAlph/utils';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -447,6 +457,44 @@ export default class Vault extends VaultBase {
         fromPublicKey: account.pub,
         fromPublicKeyType: 'default',
       } as unknown as IEncodedTxAlph,
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const nodeProvider = new NodeProvider(params.rpcUrl);
+    const chainInfo = await nodeProvider.blockflow.getBlockflowChainInfo({
+      fromGroup: 0,
+      toGroup: 0,
+    });
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: chainInfo.currentHeight,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const nodeProvider = new NodeProvider(rpcUrl);
+    const { txId } = await nodeProvider.transactions.postTransactionsSubmit(
+      JSON.parse(signedTx.rawTx),
+    );
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...params.signedTx,
+      txid: txId,
     };
   }
 }

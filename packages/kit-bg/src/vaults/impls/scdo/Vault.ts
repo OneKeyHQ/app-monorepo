@@ -2,7 +2,11 @@
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxScdo } from '@onekeyhq/core/src/chains/scdo/types';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -16,6 +20,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -33,11 +41,13 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientScdo } from './sdkScdo/ClientScdo';
 import { decodeTransferPayload, encodeTransferPayload } from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -299,5 +309,40 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new NotImplemented();
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientScdo({ url: params.rpcUrl });
+    const start = performance.now();
+    const { blockHeight } = await client.getBlockHeight();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: blockHeight,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientScdo({ url: rpcUrl });
+    const tx = JSON.parse(
+      Buffer.from(signedTx.rawTx, 'base64').toString('utf8'),
+    );
+    await client.broadcastTransaction(tx);
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
   }
 }
