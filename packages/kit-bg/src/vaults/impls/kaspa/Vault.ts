@@ -13,12 +13,13 @@ import {
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -35,6 +36,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -52,6 +57,7 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -565,6 +571,39 @@ export default class Vault extends VaultBase {
       },
       hasMaxSend,
       mass: new BigNumber(limit).toNumber(),
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientKaspa(params.rpcUrl);
+    const start = performance.now();
+    const { virtualDaaScore: blockNumber } = await client.getNetworkInfo();
+    const bestBlockNumber = parseInt(blockNumber, 10);
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientKaspa(rpcUrl);
+    const txId = await client.sendRawTransaction(signedTx.rawTx);
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
     };
   }
 }

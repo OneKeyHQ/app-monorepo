@@ -19,9 +19,8 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
-  InsufficientBalance,
   InvalidAddress,
   LowerTransactionAmountError,
   OneKeyInternalError,
@@ -41,7 +40,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -58,10 +60,12 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import sdk from './sdkAda';
 import { getChangeAddress } from './sdkAda/adaUtils';
+import { ClientAda } from './sdkAda/ClientAda';
 
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -640,6 +644,45 @@ export default class Vault extends VaultBase {
     return {
       ...encodeTx,
       changeAddress,
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const client = new ClientAda({ url: params.rpcUrl });
+    const result = await client.latestBlock();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.height,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientAda({ url: rpcUrl });
+    try {
+      await client.submitTx({ data: signedTx.rawTx });
+    } catch (err) {
+      console.error('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
     };
   }
 }
