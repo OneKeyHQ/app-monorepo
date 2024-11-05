@@ -225,8 +225,6 @@ function ConnectByQrCodeComingSoon() {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
-  const intl = useIntl();
-
   return (
     <Stack>
       <Dialog.RichDescription
