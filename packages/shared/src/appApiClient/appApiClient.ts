@@ -35,9 +35,6 @@ const getBasicClient = async ({
   name,
   autoHandleError = true,
 }: IEndpointInfo) => {
-  const existingClient = autoHandleError ? clients[name] : rawDataClients[name];
-  if (existingClient) return existingClient;
-
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
@@ -62,17 +59,18 @@ const getBasicClient = async ({
           autoHandleError,
         };
   const client = axios.create(options);
-  if (autoHandleError) {
-    clients[name] = client;
-  } else {
-    rawDataClients[name] = client;
-  }
-
   return client;
 };
 
 const getClient = memoizee(
-  async (params: IEndpointInfo) => getBasicClient(params),
+  async (params: IEndpointInfo) => {
+    const existingClient = clients[params.name];
+    if (existingClient) {
+      return existingClient;
+    }
+    clients[params.name] = await getBasicClient(params);
+    return clients[params.name];
+  },
   {
     promise: true,
     primitive: true,
@@ -82,8 +80,17 @@ const getClient = memoizee(
 );
 
 const getRawDataClient = memoizee(
-  async (params: IEndpointInfo) =>
-    getBasicClient({ ...params, autoHandleError: false }),
+  async (params: IEndpointInfo) => {
+    const existingClient = rawDataClients[params.name];
+    if (existingClient) {
+      return existingClient;
+    }
+    rawDataClients[params.name] = await getBasicClient({
+      ...params,
+      autoHandleError: false,
+    });
+    return rawDataClients[params.name];
+  },
   {
     promise: true,
     primitive: true,
