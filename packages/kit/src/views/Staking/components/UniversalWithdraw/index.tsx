@@ -62,6 +62,9 @@ type IUniversalWithdrawProps = {
   onConfirm?: (amount: string) => Promise<void>;
 };
 
+const isNaN = (num: string) =>
+  BigNumber(num).isNaN() || (typeof num === 'string' && num.endsWith('.'));
+
 export const UniversalWithdraw = ({
   balance,
   price: inputPrice,
@@ -134,7 +137,7 @@ export const UniversalWithdraw = ({
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (BigNumber(amount).isNaN()) {
+    if (isNaN(amount)) {
       return;
     }
     const message = await backgroundApiProxy.serviceStaking.checkAmount({
@@ -205,7 +208,7 @@ export const UniversalWithdraw = ({
 
   const isDisable = useMemo(
     () =>
-      BigNumber(amountValue).isNaN() ||
+      isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError,
     [amountValue, isCheckAmountMessageError],
