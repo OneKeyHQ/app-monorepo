@@ -206,7 +206,8 @@ export const UniversalWithdraw = ({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
-  const isCheckAmountMessageError = !!checkAmountMessage;
+  const isCheckAmountMessageError =
+    amountValue?.length > 0 && !!checkAmountMessage;
 
   const isDisable = useMemo(
     () =>
@@ -271,7 +272,7 @@ export const UniversalWithdraw = ({
           )}
         />
       ) : null}
-      {checkAmountMessage ? (
+      {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"
