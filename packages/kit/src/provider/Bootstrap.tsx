@@ -211,7 +211,7 @@ const useAboutVersion = () => {
                   Version {process.env.VERSION}({platformEnv.buildNumber})
                 </SizableText>
                 <SizableText size="$bodySm">
-                  {`${globalThis.desktopApi.platform} ${
+                  {`${globalThis.desktopApi.platform}-${
                     globalThis.desktopApi.arch || 'unknown'
                   }`}
                 </SizableText>
