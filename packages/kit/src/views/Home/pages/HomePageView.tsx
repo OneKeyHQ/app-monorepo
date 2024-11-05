@@ -91,7 +91,8 @@ export function HomePageView({
     [network],
   ).result;
 
-  const netInfo = useNetInfo();
+  const { isInternetReachable } = useNetInfo();
+  const isOffline = !isInternetReachable;
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -153,8 +154,6 @@ export function HomePageView({
     ),
     [tabs, screenWidth, onRefresh],
   );
-
-  const isOffline = !netInfo.isConnected && netInfo.isConnected !== null;
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
