@@ -170,6 +170,39 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
   }
 
   @backgroundMethod()
+  async updateAccountTokenListByCache(tokenListCache: {
+    tokenList: Record<string, IAccountToken[]>;
+    smallBalanceTokenList: Record<string, IAccountToken[]>;
+    riskyTokenList: Record<string, IAccountToken[]>;
+    tokenListValue: Record<string, string>;
+    tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  }) {
+    await this.setRawData(({ rawData }) => ({
+      data: rawData?.data ?? {},
+      tokenList: {
+        ...rawData?.tokenList,
+        ...tokenListCache.tokenList,
+      },
+      smallBalanceTokenList: {
+        ...rawData?.smallBalanceTokenList,
+        ...tokenListCache.smallBalanceTokenList,
+      },
+      riskyTokenList: {
+        ...rawData?.riskyTokenList,
+        ...tokenListCache.riskyTokenList,
+      },
+      tokenListMap: {
+        ...rawData?.tokenListMap,
+        ...tokenListCache.tokenListMap,
+      },
+      tokenListValue: {
+        ...rawData?.tokenListValue,
+        ...tokenListCache.tokenListValue,
+      },
+    }));
+  }
+
+  @backgroundMethod()
   async getAccountTokenList({
     networkId,
     accountAddress,
