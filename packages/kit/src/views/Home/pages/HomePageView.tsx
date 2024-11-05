@@ -92,7 +92,6 @@ export function HomePageView({
   ).result;
 
   const { isInternetReachable } = useNetInfo();
-  const isOffline = !isInternetReachable;
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -246,7 +245,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          {isOffline ? (
+          {isInternetReachable ? null : (
             <Alert
               type="critical"
               icon="CloudOffOutline"
@@ -256,7 +255,7 @@ export function HomePageView({
               closable={false}
               fullBleed
             />
-          ) : null}
+          )}
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
