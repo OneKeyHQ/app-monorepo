@@ -31,7 +31,6 @@ import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxAdvancedSettingsContainer } from './TxAdvancedSettingsContainer';
-import { TxExtraInfoContainer } from './TxExtraInfoContainer';
 import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 

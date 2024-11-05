@@ -300,7 +300,10 @@ function TxAdvancedSettingsContainer(props: IProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!canEditNonce && dataContent === '') {
+  if (
+    !canEditNonce &&
+    (!vaultSettings?.canEditData || !checkIsEmptyData(originalData))
+  ) {
     return null;
   }
 
