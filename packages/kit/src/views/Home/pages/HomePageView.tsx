@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNetInfo } from '@react-native-community/netinfo';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
@@ -12,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -154,10 +154,7 @@ export function HomePageView({
     [tabs, screenWidth, onRefresh],
   );
 
-  const debouncedNetInfo = useDebounce(netInfo, 500);
-
-  const isOffline =
-    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
+  const isOffline = !netInfo.isConnected && netInfo.isConnected !== null;
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
