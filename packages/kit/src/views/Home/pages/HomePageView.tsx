@@ -269,7 +269,14 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, isOffline, intl, renderHomePageContent]);
+  }, [
+    ready,
+    wallet,
+    sceneName,
+    isInternetReachable,
+    intl,
+    renderHomePageContent,
+  ]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,
