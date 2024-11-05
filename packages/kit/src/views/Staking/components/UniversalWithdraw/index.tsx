@@ -134,7 +134,7 @@ export const UniversalWithdraw = ({
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
-    const message = await backgroundApiProxy.serviceStaking.checkoutAmount({
+    const message = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
       symbol: tokenSymbol,
@@ -176,11 +176,6 @@ export const UniversalWithdraw = ({
     return undefined;
   }, [amountValue, price]);
 
-  const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gt(balance),
-    [amountValue, balance],
-  );
-
   const isLessThanMinAmount = useMemo<boolean>(() => {
     const minAmountBn = new BigNumber(minAmount);
     const amountValueBn = new BigNumber(amountValue);
@@ -215,15 +210,9 @@ export const UniversalWithdraw = ({
     () =>
       BigNumber(amountValue).isNaN() ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isInsufficientBalance ||
       isLessThanMinAmount ||
       !checkAmountMessage,
-    [
-      amountValue,
-      checkAmountMessage,
-      isInsufficientBalance,
-      isLessThanMinAmount,
-    ],
+    [amountValue, checkAmountMessage, isLessThanMinAmount],
   );
 
   const editable = initialAmount === undefined;
@@ -233,7 +222,7 @@ export const UniversalWithdraw = ({
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={isInsufficientBalance || isLessThanMinAmount}
+          hasError={!checkAmountMessage || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
@@ -278,15 +267,6 @@ export const UniversalWithdraw = ({
             { id: ETranslations.earn_minimum_amount },
             { number: `${minAmount} ${tokenSymbol ?? ''}` },
           )}
-        />
-      ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_staked_balance,
-          })}
         />
       ) : null}
       {checkAmountMessage ? (

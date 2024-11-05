@@ -569,7 +569,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkoutAmount({
+  async checkAmount({
     networkId,
     accountId,
     symbol,
@@ -593,7 +593,7 @@ class ServiceStaking extends ServiceBase {
     const result = await client.get<{
       code: number;
       message: string;
-    }>(`/earn/v1/checkout-amount`, {
+    }>(`/earn/v1/check-amount`, {
       params: {
         networkId,
         accountAddress: account.address,

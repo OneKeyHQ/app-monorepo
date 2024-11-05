@@ -69,7 +69,7 @@ const getClient = memoizee(
       return existingClient;
     }
     clients[params.name] = await getBasicClient(params);
-    return clients[params.name];
+    return clients[params.name] as AxiosInstance;
   },
   {
     promise: true,
@@ -89,7 +89,7 @@ const getRawDataClient = memoizee(
       ...params,
       autoHandleError: false,
     });
-    return rawDataClients[params.name];
+    return rawDataClients[params.name] as AxiosInstance;
   },
   {
     promise: true,
