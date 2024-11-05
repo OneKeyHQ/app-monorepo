@@ -222,7 +222,7 @@ export const UniversalWithdraw = ({
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <AmountInput
           bg={editable ? '$bgApp' : '$bgDisabled'}
-          hasError={!checkAmountMessage || isLessThanMinAmount}
+          hasError={!!checkAmountMessage || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
