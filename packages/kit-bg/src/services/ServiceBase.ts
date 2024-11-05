@@ -28,6 +28,9 @@ export default class ServiceBase {
   getClient = async (name: EServiceEndpointEnum) =>
     appApiClient.getClient(await getEndpointInfo({ name }));
 
+  getRawDataClient = async (name: EServiceEndpointEnum) =>
+    appApiClient.getRawDataClient(await getEndpointInfo({ name }));
+
   @backgroundMethod()
   async getActiveWalletAccount() {
     // eslint-disable-next-line @typescript-eslint/await-thenable
