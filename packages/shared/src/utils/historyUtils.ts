@@ -144,14 +144,19 @@ export function getHistoryTxDetailInfo({
   const decodedTx = historyTx?.decodedTx;
   let swapInfo;
   let nonce = txDetails?.nonce;
-  let data = txDetails?.data;
+  let data = txDetails?.slicedData;
 
   if (isNil(nonce) && !isNil(decodedTx?.nonce)) {
     nonce = decodedTx.nonce;
   }
 
   if (isNil(data) && !isNil((decodedTx?.encodedTx as IEncodedTxEvm)?.data)) {
-    data = (decodedTx?.encodedTx as IEncodedTxEvm)?.data;
+    const dataStr = (decodedTx?.encodedTx as IEncodedTxEvm)?.data ?? '';
+    if (dataStr.length > 500) {
+      data = `${dataStr.slice(0, 500)}...`;
+    } else {
+      data = dataStr;
+    }
   }
 
   let date = '-';
