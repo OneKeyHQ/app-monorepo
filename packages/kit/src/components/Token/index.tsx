@@ -10,6 +10,8 @@ import type {
 } from '@onekeyhq/components';
 import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
+import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
+
 import type { ImageURISource } from 'react-native';
 
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
@@ -19,6 +21,8 @@ export type ITokenProps = {
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];
   networkImageUri?: ImageURISource['uri'];
+  showNetworkIcon?: boolean;
+  networkId?: string;
 } & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
@@ -41,6 +45,8 @@ export function Token({
   size,
   tokenImageUri,
   networkImageUri,
+  networkId,
+  showNetworkIcon,
   fallbackIcon,
   ...rest
 }: ITokenProps) {
@@ -86,35 +92,43 @@ export function Token({
     </Image>
   );
 
-  if (!networkImageUri) return tokenImage;
-
-  return (
-    <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
-      {tokenImage}
-      <Stack
-        position="absolute"
-        right="$-1"
-        bottom="$-1"
-        p="$0.5"
-        bg="$bgApp"
-        borderRadius="$full"
-      >
-        <Image
-          width={chainImageSize}
-          height={chainImageSize}
+  if (networkImageUri) {
+    return (
+      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
+        {tokenImage}
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          p="$0.5"
+          bg="$bgApp"
           borderRadius="$full"
           {...rest}
         >
-          <Image.Source
-            source={{
-              uri: networkImageUri,
-            }}
-          />
-          <Image.Fallback bg="$bgStrong" delayMs={1000}>
-            <Icon size={chainImageSize} name="QuestionmarkSolid" />
-          </Image.Fallback>
-        </Image>
+          <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
+        </Stack>
       </Stack>
-    </Stack>
-  );
+    );
+  }
+
+  if (showNetworkIcon && networkId) {
+    return (
+      <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
+        {tokenImage}
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          p="$0.5"
+          bg="$bgApp"
+          borderRadius="$full"
+          {...rest}
+        >
+          <NetworkAvatar networkId={networkId} size={chainImageSize} />
+        </Stack>
+      </Stack>
+    );
+  }
+
+  return tokenImage;
 }

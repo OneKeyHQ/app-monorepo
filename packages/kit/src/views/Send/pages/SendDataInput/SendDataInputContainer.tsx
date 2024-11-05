@@ -735,9 +735,11 @@ function SendDataInputContainer() {
               ? nft?.metadata?.image
               : tokenInfo?.logoURI,
             selectedNetworkImageUri: network?.logoURI,
+            selectedNetworkName: network?.name,
             selectedTokenSymbol: isNFT
               ? nft?.metadata?.name
               : tokenInfo?.symbol,
+            isCustomNetwork: network?.isCustomNetwork,
             onPress: isNFT ? undefined : handleOnSelectToken,
             disabled: isSelectTokenDisabled,
           }}
@@ -768,11 +770,12 @@ function SendDataInputContainer() {
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      // linkedAmount.amount,
       linkedAmount.originalAmount,
       maxBalance,
       maxBalanceFiat,
+      network?.isCustomNetwork,
       network?.logoURI,
+      network?.name,
       nft?.metadata?.image,
       nft?.metadata?.name,
       tokenDetails?.info.decimals,
@@ -1037,6 +1040,8 @@ function SendDataInputContainer() {
                       size="lg"
                       tokenImageUri={nft?.metadata?.image}
                       networkImageUri={network?.logoURI}
+                      networkId={network?.id}
+                      showNetworkIcon
                     />
                     <ListItem.Text
                       flex={1}

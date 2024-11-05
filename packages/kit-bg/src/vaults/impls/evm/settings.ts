@@ -175,6 +175,7 @@ const settings: IVaultSettings = {
   NFTEnabled: true,
   nonceRequired: true,
   canEditNonce: true,
+  canEditData: true,
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: true,

@@ -118,6 +118,8 @@ function BasicNFTListItem(props: IProps) {
               width="$3.5"
               height="$3.5"
               tokenImageUri={network?.logoURI}
+              networkId={network?.id}
+              showNetworkIcon
             />
           ) : null}
         </XStack>
