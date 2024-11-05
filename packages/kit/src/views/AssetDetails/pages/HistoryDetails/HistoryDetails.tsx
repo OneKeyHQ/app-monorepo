@@ -972,23 +972,6 @@ function HistoryDetails() {
                     }
               }
             />
-            {txInfo?.data ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.global_hex_data,
-                })}
-                renderContent={
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    style={{ wordBreak: 'break-all' }}
-                    flex={1}
-                  >
-                    {txInfo.data}
-                  </SizableText>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,

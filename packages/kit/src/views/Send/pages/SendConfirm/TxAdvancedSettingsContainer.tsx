@@ -86,6 +86,16 @@ function TxAdvancedSettingsContainer(props: IProps) {
     [networkId],
   ).result;
 
+  const isInternalSwapTx = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].swapInfo,
+    [unsignedTxs],
+  );
+
+  const isInternalStakingTx = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].stakingInfo,
+    [unsignedTxs],
+  );
+
   const dataContent = useMemo(() => {
     if (!unsignedTxs || unsignedTxs.length === 0) {
       return '';
@@ -305,8 +315,10 @@ function TxAdvancedSettingsContainer(props: IProps) {
   }, []);
 
   if (
-    !canEditNonce &&
-    (!vaultSettings?.canEditData || !checkIsEmptyData(originalData))
+    isInternalStakingTx ||
+    isInternalSwapTx ||
+    (!canEditNonce &&
+      (!vaultSettings?.canEditData || !checkIsEmptyData(originalData)))
   ) {
     return null;
   }
