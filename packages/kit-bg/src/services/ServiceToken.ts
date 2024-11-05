@@ -1,28 +1,23 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { debounce, isNil } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EthereumMatic,
-  SepoliaMatic,
-} from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
-  ISearchTokenItem,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -57,6 +52,20 @@ class ServiceToken extends ServiceBase {
     );
     this._fetchAccountTokensControllers = [];
   }
+
+  localAccountTokensCache: {
+    tokenList: Record<string, IAccountToken[]>;
+    smallBalanceTokenList: Record<string, IAccountToken[]>;
+    riskyTokenList: Record<string, IAccountToken[]>;
+    tokenListValue: Record<string, string>;
+    tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  } = {
+    tokenList: {},
+    smallBalanceTokenList: {},
+    riskyTokenList: {},
+    tokenListValue: {},
+    tokenListMap: {},
+  };
 
   @backgroundMethod()
   public async fetchAccountTokens(
@@ -206,19 +215,41 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0')
         .plus(resp.data.data.riskTokens.fiatValue ?? '0');
 
-      await this.updateAccountLocalTokens({
-        accountId,
-        networkId,
-        tokenList: resp.data.data.tokens.data,
-        smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
-        riskyTokenList: resp.data.data.riskTokens.data,
-        tokenListValue: tokenListValue.toFixed(),
-        tokenListMap: {
+      if (isAllNetworks) {
+        const key = buildAccountLocalAssetsKey({
+          networkId,
+          accountAddress,
+          xpub,
+        });
+        this.localAccountTokensCache.tokenList[key] =
+          resp.data.data.tokens.data;
+        this.localAccountTokensCache.smallBalanceTokenList[key] =
+          resp.data.data.smallBalanceTokens.data;
+        this.localAccountTokensCache.riskyTokenList[key] =
+          resp.data.data.riskTokens.data;
+        this.localAccountTokensCache.tokenListValue[key] =
+          tokenListValue.toFixed();
+        this.localAccountTokensCache.tokenListMap[key] = {
           ...resp.data.data.tokens.map,
           ...resp.data.data.smallBalanceTokens.map,
           ...resp.data.data.riskTokens.map,
-        },
-      });
+        };
+        await this._updateAccountLocalTokensDebounced();
+      } else {
+        await this.updateAccountLocalTokens({
+          accountId,
+          networkId,
+          tokenList: resp.data.data.tokens.data,
+          smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
+          riskyTokenList: resp.data.data.riskTokens.data,
+          tokenListValue: tokenListValue.toFixed(),
+          tokenListMap: {
+            ...resp.data.data.tokens.map,
+            ...resp.data.data.smallBalanceTokens.map,
+            ...resp.data.data.riskTokens.map,
+          },
+        });
+      }
     }
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
@@ -229,6 +260,26 @@ class ServiceToken extends ServiceBase {
 
     return resp.data.data;
   }
+
+  _updateAccountLocalTokensDebounced = debounce(
+    async () => {
+      await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+        this.localAccountTokensCache,
+      );
+      this.localAccountTokensCache = {
+        tokenList: {},
+        smallBalanceTokenList: {},
+        riskyTokenList: {},
+        tokenListValue: {},
+        tokenListMap: {},
+      };
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   public async fetchAllNetworkTokens({
