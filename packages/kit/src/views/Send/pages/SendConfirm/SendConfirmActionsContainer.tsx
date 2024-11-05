@@ -263,13 +263,15 @@ function SendConfirmActionsContainer(props: IProps) {
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
+    if (txAdvancedSettings.dataChanged) return true;
   }, [
-    sendFeeStatus.errMessage,
     sendTxStatus.isSubmitting,
-    nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
+    nativeTokenInfo.isLoading,
     sendSelectedFeeInfo,
+    sendFeeStatus.errMessage,
     preCheckTxStatus.errorMessage,
+    txAdvancedSettings.dataChanged,
   ]);
 
   usePageUnMounted(() => {

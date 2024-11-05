@@ -22,6 +22,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { NetworkAvatar } from '../NetworkAvatar';
 import { Token } from '../Token';
 
 import type {
@@ -52,6 +53,8 @@ function TxActionCommonAvatar({
         networkImageUri={
           activeNetwork?.isAllNetworks ? networkLogoURI : undefined
         }
+        networkId={activeNetwork?.id}
+        showNetworkIcon={activeNetwork?.isAllNetworks}
       />
     );
   }
@@ -72,6 +75,8 @@ function TxActionCommonAvatar({
           networkImageUri={
             activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
+          showNetworkIcon={activeNetwork?.isAllNetworks}
+          networkId={activeNetwork?.id}
         />
       </Stack>
       <Stack
@@ -88,6 +93,8 @@ function TxActionCommonAvatar({
           networkImageUri={
             activeNetwork?.isAllNetworks ? networkLogoURI : undefined
           }
+          showNetworkIcon={activeNetwork?.isAllNetworks}
+          networkId={activeNetwork?.id}
         />
       </Stack>
     </Stack>
@@ -417,7 +424,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         label={intl.formatMessage({ id: ETranslations.network__network })}
         renderContent={
           <XStack alignItems="center" gap="$2">
-            <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+            <NetworkAvatar networkId={networkId} size="$5" />
             <SizableText size="$bodyMd" color="$textSubdued">
               {network?.name}
             </SizableText>

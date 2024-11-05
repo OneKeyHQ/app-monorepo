@@ -128,6 +128,8 @@ const WithdrawPage = () => {
           balance={BigNumber(active ?? 0)
             .plus(overflow ?? 0)
             .toFixed()}
+          accountId={accountId}
+          networkId={networkId}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
