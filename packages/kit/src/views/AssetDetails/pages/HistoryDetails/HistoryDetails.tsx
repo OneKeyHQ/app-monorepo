@@ -131,7 +131,7 @@ export function AssetItem({
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
   isAllNetworks?: boolean;
-  networkId: string;
+  networkId?: string;
 }) {
   const intl = useIntl();
   let primary = null;

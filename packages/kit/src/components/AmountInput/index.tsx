@@ -23,6 +23,7 @@ import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
+
 import { LetterAvatar } from '../LetterAvatar';
 
 type IAmountInputFormItemProps = IFormFieldProps<
@@ -279,9 +280,11 @@ export function AmountInput({
   }, [
     intl,
     tokenSelectorTriggerProps?.disabled,
+    tokenSelectorTriggerProps?.isCustomNetwork,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,
+    tokenSelectorTriggerProps?.selectedNetworkName,
     tokenSelectorTriggerProps?.selectedTokenImageUri,
     tokenSelectorTriggerProps?.selectedTokenSymbol,
   ]);

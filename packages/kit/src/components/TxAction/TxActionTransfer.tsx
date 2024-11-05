@@ -32,6 +32,7 @@ import {
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { AddressInfo } from '../AddressInfo';
 import { ListItem } from '../ListItem';
+import { NetworkAvatar } from '../NetworkAvatar';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
@@ -39,7 +40,6 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
-import { NetworkAvatar } from '../NetworkAvatar';
 
 type ITransferBlock = {
   target: string;
