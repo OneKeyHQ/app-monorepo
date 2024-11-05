@@ -178,12 +178,15 @@ function TokenDetailsHeader(
         tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
         size="xl"
         networkImageUri={isAllNetworks ? network?.logoURI : ''}
+        showNetworkIcon={isAllNetworks}
+        networkId={networkId}
       />
     );
   }, [
     isAllNetworks,
     isLoadingTokenDetails,
     network?.logoURI,
+    networkId,
     tokenDetails?.info.logoURI,
     tokenInfo.logoURI,
   ]);

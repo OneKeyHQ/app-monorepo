@@ -23,6 +23,7 @@ import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
+import { LetterAvatar } from '../LetterAvatar';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -54,6 +55,8 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
+      selectedNetworkName?: string;
+      isCustomNetwork?: boolean;
       loading?: boolean;
       disabled?: boolean;
     } & IXStackProps;
@@ -237,6 +240,23 @@ export function AmountInput({
                   />
                 </Image.Fallback>
               </Image>
+            </Stack>
+          ) : null}
+          {tokenSelectorTriggerProps?.isCustomNetwork &&
+          tokenSelectorTriggerProps?.selectedNetworkName ? (
+            <Stack
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+              p="$0.5"
+              borderRadius="$full"
+              flexShrink={1}
+              bg="$bgApp"
+            >
+              <LetterAvatar
+                size="$3"
+                letter={tokenSelectorTriggerProps.selectedNetworkName[0]}
+              />
             </Stack>
           ) : null}
         </Stack>

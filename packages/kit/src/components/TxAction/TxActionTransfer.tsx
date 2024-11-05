@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Divider,
   Image,
-  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -18,7 +17,6 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
@@ -41,6 +39,7 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+import { NetworkAvatar } from '../NetworkAvatar';
 
 type ITransferBlock = {
   target: string;
@@ -759,7 +758,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             renderContent={
               <XStack alignItems="center" gap="$2">
                 <XStack alignItems="center">
-                  <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                  <NetworkAvatar networkId={network?.id} size="$5" />
+
                   <Stack
                     p="$0.5"
                     m="$-0.5"
@@ -767,10 +767,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     borderRadius="$full"
                     bg="$bgApp"
                   >
-                    <Image
-                      w="$5"
-                      h="$5"
-                      source={{ uri: swapReceiveNetwork?.logoURI }}
+                    <NetworkAvatar
+                      networkId={swapReceiveNetwork?.id}
+                      size="$5"
                     />
                   </Stack>
                 </XStack>
@@ -788,7 +787,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
               <XStack alignItems="center" gap="$2">
-                <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+                <NetworkAvatar networkId={network?.id} size="$5" />
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {network?.name}
                 </SizableText>
@@ -849,11 +848,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       isSendNativeToken,
       nativeTokenTransferAmountToUpdate,
       network?.id,
-      network?.logoURI,
       network?.name,
       swapInfo,
       swapReceiveNetwork?.id,
-      swapReceiveNetwork?.logoURI,
       swapReceiveNetwork?.name,
       to,
     ],
