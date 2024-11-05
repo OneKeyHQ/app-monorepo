@@ -202,7 +202,7 @@ const useAboutVersion = () => {
             id: ETranslations.settings_version_versionnum,
           },
           {
-            'versionNum': `${process.env.VERSION || 1}(${
+            'versionNum': ` ${process.env.VERSION || 1}(${
               platformEnv.buildNumber || 1
             })`,
           },
