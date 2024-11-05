@@ -167,7 +167,11 @@ function TxAdvancedSettingsContainer(props: IProps) {
         return true;
       }
 
-      if (!utils.isHexString(value)) {
+      if (
+        !value.startsWith('0x') ||
+        value.length % 2 !== 0 ||
+        !utils.isHexString(value)
+      ) {
         return intl.formatMessage({
           id: ETranslations.global_hex_data_error,
         });
