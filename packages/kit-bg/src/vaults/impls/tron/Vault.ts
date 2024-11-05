@@ -24,6 +24,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
@@ -47,6 +51,7 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -618,5 +623,57 @@ export default class Vault extends VaultBase {
       energyUsageTotal: receipt?.energyUsageTotal,
       netUsage: receipt?.netUsage,
     });
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const tronWeb = new TronWeb({ fullHost: params.rpcUrl });
+    const start = performance.now();
+    const {
+      result: { number: blockNumber },
+    } = await tronWeb.fullNode.request(
+      'jsonrpc',
+      {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getBlockByNumber',
+        params: ['latest', false],
+      },
+      'post',
+    );
+    const bestBlockNumber = parseInt(blockNumber, 10);
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const tronWeb = new TronWeb({ fullHost: rpcUrl });
+    const ret = await tronWeb.trx.sendRawTransaction(
+      JSON.parse(signedTx.rawTx),
+    );
+
+    if (typeof ret.code !== 'undefined') {
+      throw new OneKeyInternalError(
+        `${ret.code} ${Buffer.from(ret.message || '', 'hex').toString()}`,
+      );
+    }
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
   }
 }
