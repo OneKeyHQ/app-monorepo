@@ -210,6 +210,11 @@ const useAboutVersion = () => {
                 <SizableText size="$bodySm">
                   Version {process.env.VERSION}({platformEnv.buildNumber})
                 </SizableText>
+                <SizableText size="$bodySm">
+                  {`${globalThis.desktopApi.platform} ${
+                    globalThis.desktopApi.arch || 'unknown'
+                  }`}
+                </SizableText>
                 <SizableText size="$bodySm">Copyright © OneKey</SizableText>
               </YStack>
             </YStack>
