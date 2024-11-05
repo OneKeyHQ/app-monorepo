@@ -378,8 +378,8 @@ const SwapQuoteResult = ({
               {quoteResult?.fee?.percentageFee ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
-                        id: ETranslations.provider_ios_popover_onekey_fee,
-                      })}
+                    id: ETranslations.provider_ios_popover_onekey_fee,
+                  })}
                   isLoading={swapQuoteLoading}
                   valueComponent={
                     <NumberSizeableText size="$bodyMdMedium" formatter="value">
