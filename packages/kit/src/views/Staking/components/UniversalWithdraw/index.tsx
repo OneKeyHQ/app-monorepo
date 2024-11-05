@@ -134,6 +134,9 @@ export const UniversalWithdraw = ({
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
+    if (BigNumber(amountValue).isNaN()) {
+      return;
+    }
     const message = await backgroundApiProxy.serviceStaking.checkAmount({
       accountId,
       networkId,
