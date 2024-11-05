@@ -53,6 +53,8 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 120,
   activateTokenRequired: true,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

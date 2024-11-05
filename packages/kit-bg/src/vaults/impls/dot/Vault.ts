@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { ApiPromise, HttpProvider } from '@polkadot/api';
+import { hexToNumber } from '@polkadot/util';
 import {
   checkAddress,
   decodeAddress,
@@ -11,7 +13,11 @@ import { isEmpty, isNil, isObject } from 'lodash';
 import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   BalanceLowerMinimum,
   InvalidTransferValue,
@@ -29,6 +35,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -62,6 +72,7 @@ import {
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -688,5 +699,41 @@ export default class VaultDot extends VaultBase {
     }
 
     return true;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new HttpProvider(params.rpcUrl);
+    const start = performance.now();
+    const header: { number: string } = await client.send('chain_getHeader', []);
+    const responseTime = Math.floor(performance.now() - start);
+
+    return {
+      responseTime,
+      bestBlockNumber: hexToNumber(header.number),
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const provider = new HttpProvider(rpcUrl);
+    const client = await ApiPromise.create({ provider, initWasm: false });
+    const txHash = await client.rpc.author.submitExtrinsic(signedTx.rawTx);
+    const txId = txHash.toHex();
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

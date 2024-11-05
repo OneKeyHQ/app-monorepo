@@ -17,6 +17,7 @@ import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
 import { FirmwareCheckingLoading } from '../components/FirmwareCheckingLoading';
+import { FirmwareLatestVersionInstalled } from '../components/FirmwareLatestVersionInstalled';
 import { FirmwareUpdateErrors } from '../components/FirmwareUpdateErrors';
 import {
   FirmwareUpdateExitPrevent,
@@ -110,6 +111,7 @@ function PageFirmwareUpdateChangeLog() {
     ) {
       return <FirmwareChangeLogView result={result} />;
     }
+    return <FirmwareLatestVersionInstalled />;
   }, [connectId, isLoading, result, run, stepInfo.payload, stepInfo.step]);
 
   return (

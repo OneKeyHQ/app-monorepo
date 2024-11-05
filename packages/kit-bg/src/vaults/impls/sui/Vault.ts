@@ -19,6 +19,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -41,6 +45,7 @@ import { waitPendingTransaction } from './sdkSui/utils';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -461,5 +466,72 @@ export default class Vault extends VaultBase {
   ): Promise<SuiTransactionBlockResponse | undefined> {
     const client = await this.getClient();
     return waitPendingTransaction(client, txId, options);
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new OneKeySuiClient({
+      url: params.rpcUrl,
+    });
+    const start = performance.now();
+    const latestBlock = await client.getTotalTransactionBlocks();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: Number(latestBlock),
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      const { customRpcInfo, signedTx } = params;
+      const { signature, publicKey, rawTx, encodedTx } = signedTx;
+
+      const rpcUrl = customRpcInfo.rpc;
+      if (!rpcUrl) {
+        throw new OneKeyInternalError('Invalid rpc url');
+      }
+
+      if (!signature) {
+        throw new Error('signature is empty');
+      }
+      if (!publicKey) {
+        throw new Error('publicKey is empty');
+      }
+
+      const client = new OneKeySuiClient({ url: rpcUrl });
+
+      const response = await client.executeTransactionBlock({
+        transactionBlock: rawTx,
+        signature,
+        requestType: (signedTx.encodedTx as IEncodedTxSui).requestType,
+      });
+      const txid = response.digest;
+
+      console.log('broadcastTransaction Done:', {
+        txid,
+        rawTx,
+      });
+
+      return {
+        ...params.signedTx,
+        txid,
+      };
+    } catch (error: any) {
+      const { errorCode, message }: { errorCode: any; message: string } =
+        error || {};
+
+      // payAllSui problem https://github.com/MystenLabs/sui/issues/6364
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      const errorMessage = `${errorCode ?? ''} ${message}`;
+      if (message.indexOf('Insufficient gas:') !== -1) {
+        // TODO: need to i18n insufficient fee message
+        throw new OneKeyInternalError('msg__broadcast_tx_Insufficient_fee');
+      } else {
+        throw new OneKeyInternalError(errorMessage);
+      }
+    }
   }
 }

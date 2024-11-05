@@ -80,7 +80,7 @@ axios.interceptors.response.use(
 
     const data = response.data as IOneKeyAPIBaseResponse;
 
-    if (data.code !== 0) {
+    if ((config as any).autoHandleError !== false && data.code !== 0) {
       const requestIdKey = HEADER_REQUEST_ID_KEY;
       if (platformEnv.isDev) {
         console.error(requestIdKey, config.headers[requestIdKey]);
