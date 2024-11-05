@@ -53,6 +53,8 @@ const settings: IVaultSettings = {
     },
   },
 
+  customRpcEnabled: true,
+
   minTransferAmount: '0.001',
 
   withMemo: true,

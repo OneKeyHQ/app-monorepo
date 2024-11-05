@@ -23,7 +23,11 @@ import type {
   IEncodedTxCosmos,
 } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -36,6 +40,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakeTxCosmosAmino } from '@onekeyhq/shared/types/staking';
 import {
@@ -52,10 +60,12 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { ClientCosmos } from './sdkCosmos/ClientCosmos';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -552,6 +562,39 @@ export default class VaultCosmos extends VaultBase {
     });
     return {
       encodedTx: bufferUtils.bytesToHex(rawTx) as unknown as IEncodedTx,
+    };
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new ClientCosmos({ url: params.rpcUrl });
+    const start = performance.now();
+    const { height } = await client.fetchBlockHeaderV1beta1();
+    const bestBlockNumber = parseInt(height, 10);
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    const client = new ClientCosmos({ url: rpcUrl });
+    const txId = await client.broadcastTransaction({ rawTx: signedTx.rawTx });
+    console.log('broadcastTransaction Done:', {
+      txId,
+      rawTx: signedTx.rawTx,
+    });
+
+    if (!txId) throw new Error('broadcastTransaction failed');
+
+    return {
+      ...signedTx,
+      txid: txId,
     };
   }
 }
