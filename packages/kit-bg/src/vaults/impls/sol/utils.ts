@@ -36,6 +36,8 @@ export const DEFAULT_COMPUTE_UNIT_LIMIT = 200_000;
 export const BASE_FEE = 5000; // lamports
 export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 
+export const CREATE_TOKEN_ACCOUNT_RENT = '0.00203928'; // sol
+
 export function metadataAddress(mint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [
