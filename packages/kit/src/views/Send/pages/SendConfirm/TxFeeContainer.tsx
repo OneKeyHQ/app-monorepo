@@ -158,6 +158,8 @@ function TxFeeContainer(props: IProps) {
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
+          setTxFeeInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
           return {
             r: {
               ...r,
@@ -191,6 +193,8 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
+        setTxFeeInit(true);
+        updateTxAdvancedSettings({ dataChanged: false });
         return {
           r,
           e,
@@ -618,9 +622,6 @@ function TxFeeContainer(props: IProps) {
       });
     }
 
-    setTxFeeInit(true);
-    updateTxAdvancedSettings({ dataChanged: false });
-
     // Due to the tendency to use higher fee estimates for approve&swap multi-txs to ensure success,
     // we adjust the displayed fee to be closer to the actual on-chain cost for the user
     if (
@@ -656,7 +657,6 @@ function TxFeeContainer(props: IProps) {
     sendSelectedFee.presetIndex,
     txFee?.common.nativeTokenPrice,
     unsignedTxs,
-    updateTxAdvancedSettings,
   ]);
 
   const handleApplyFeeInfo = useCallback(
@@ -859,7 +859,11 @@ function TxFeeContainer(props: IProps) {
     if (txAdvancedSettings.dataChanged) {
       setTxFeeInit(false);
     }
-  }, [txAdvancedSettings.dataChanged, updateSendSelectedFee]);
+  }, [
+    txAdvancedSettings.dataChanged,
+    updateSendSelectedFee,
+    updateTxAdvancedSettings,
+  ]);
 
   return (
     <Stack
