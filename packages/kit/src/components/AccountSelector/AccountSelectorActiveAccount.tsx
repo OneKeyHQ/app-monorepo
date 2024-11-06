@@ -12,7 +12,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAllNetworkAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkAddressHandler';
+import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -40,8 +40,8 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { activeAccount } = useActiveAccount({ num });
 
   const [isFocus, setIsFocus] = useState(false);
-  const { isAllNetworkEnabled, handleAllNetworkAddress } =
-    useAllNetworkAddressHandler({
+  const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
+    useAllNetworkCopyAddressHandler({
       activeAccount,
     });
   useListenTabFocusState(
@@ -68,7 +68,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         variant="tertiary"
         icon="Copy3Outline"
         size="small"
-        onPress={handleAllNetworkAddress}
+        onPress={handleAllNetworkCopyAddress}
       />
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
@@ -106,7 +106,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { account, wallet, network, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-  const { isAllNetworkEnabled } = useAllNetworkAddressHandler({
+  const { isAllNetworkEnabled } = useAllNetworkCopyAddressHandler({
     activeAccount,
   });
   const navigation =

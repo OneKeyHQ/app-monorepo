@@ -12,7 +12,7 @@ import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import { useAllNetworkAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkAddressHandler';
+import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_HW,
@@ -36,8 +36,8 @@ export function WalletActionMore() {
     deriveInfo,
     deriveType,
   });
-  const { isAllNetworkEnabled, handleAllNetworkAddress } =
-    useAllNetworkAddressHandler({ activeAccount });
+  const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
+    useAllNetworkCopyAddressHandler({ activeAccount });
 
   const { isSupported: isSellSupported, handleFiatCrypto: sellCrypto } =
     useFiatCrypto({
@@ -60,7 +60,7 @@ export function WalletActionMore() {
 
   const handleCopyAddress = useCallback(() => {
     if (isAllNetworkEnabled) {
-      handleAllNetworkAddress();
+      handleAllNetworkCopyAddress();
     } else if (wallet?.type === WALLET_TYPE_HW) {
       handleOnReceive();
     } else {
@@ -72,7 +72,7 @@ export function WalletActionMore() {
     handleOnReceive,
     wallet?.type,
     isAllNetworkEnabled,
-    handleAllNetworkAddress,
+    handleAllNetworkCopyAddress,
   ]);
 
   const show = useReviewControl();

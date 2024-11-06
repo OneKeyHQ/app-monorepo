@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-export const useAllNetworkAddressHandler = ({
+export const useAllNetworkCopyAddressHandler = ({
   activeAccount,
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
@@ -23,7 +23,7 @@ export const useAllNetworkAddressHandler = ({
     networkUtils.isAllNetwork({ networkId: network.id }) &&
     indexedAccount !== undefined;
 
-  const handleAllNetworkAddress = useCallback(() => {
+  const handleAllNetworkCopyAddress = useCallback(() => {
     console.log(activeAccountRef.current);
     if (!indexedAccount) {
       return;
@@ -40,6 +40,6 @@ export const useAllNetworkAddressHandler = ({
 
   return {
     isAllNetworkEnabled,
-    handleAllNetworkAddress,
+    handleAllNetworkCopyAddress,
   };
 };
