@@ -61,6 +61,8 @@ export default class Vault extends VaultBtc {
     } catch (e) {
       return Promise.resolve({
         isValid: false,
+        normalizedAddress: '',
+        displayAddress: '',
       });
     }
   }
