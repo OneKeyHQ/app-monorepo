@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-export const useWalletAddress = ({
+export const useAllNetworkCopyAddressHandler = ({
   activeAccount,
 }: {
   activeAccount: IAccountSelectorActiveAccountInfo;
@@ -18,12 +18,12 @@ export const useWalletAddress = ({
   activeAccountRef.current = activeAccount;
 
   const appNavigation = useAppNavigation();
-  const isEnable =
+  const isAllNetworkEnabled =
     network &&
     networkUtils.isAllNetwork({ networkId: network.id }) &&
     indexedAccount !== undefined;
 
-  const handleWalletAddress = useCallback(() => {
+  const handleAllNetworkCopyAddress = useCallback(() => {
     console.log(activeAccountRef.current);
     if (!indexedAccount) {
       return;
@@ -39,7 +39,7 @@ export const useWalletAddress = ({
   }, [appNavigation, account, indexedAccount, wallet]);
 
   return {
-    isEnable,
-    handleWalletAddress,
+    isAllNetworkEnabled,
+    handleAllNetworkCopyAddress,
   };
 };
