@@ -278,7 +278,9 @@ function OverviewMarketVOL({
         </XStack>
         <XStack gap="$4">
           <OverviewMarketVOLItem
-            title="All-time high"
+            title={intl.formatMessage({
+              id: ETranslations.market_all_time_high,
+            })}
             currency
             tooltip={intl.formatMessage(
               { id: ETranslations.market_ath_desc },
@@ -304,7 +306,9 @@ function OverviewMarketVOL({
             {ath.value}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
-            title="All-time low"
+            title={intl.formatMessage({
+              id: ETranslations.market_all_time_low,
+            })}
             currency
             tooltip={intl.formatMessage(
               { id: ETranslations.market_atl_desc },
