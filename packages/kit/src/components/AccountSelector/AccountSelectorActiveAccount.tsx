@@ -12,7 +12,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useWalletAddress } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useWalletAddress';
+import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -38,18 +38,19 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+
   const [isFocus, setIsFocus] = useState(false);
-  const { handleWalletAddress, isEnable } = useWalletAddress({ activeAccount });
-  // const { isFirstVisit, tourVisited } = useSpotlight(
-  //   ESpotlightTour.createAllNetworks,
-  // );
+  const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
+    useAllNetworkCopyAddressHandler({
+      activeAccount,
+    });
   useListenTabFocusState(
     ETabRoutes.Home,
     async (focus: boolean, hideByModal: boolean) => {
       setIsFocus(!hideByModal);
     },
   );
-  if (!isEnable) {
+  if (!isAllNetworkEnabled) {
     return null;
   }
 
@@ -67,7 +68,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         variant="tertiary"
         icon="Copy3Outline"
         size="small"
-        onPress={handleWalletAddress}
+        onPress={handleAllNetworkCopyAddress}
       />
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
@@ -105,7 +106,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { account, wallet, network, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-  const { isEnable: walletAddressEnable } = useWalletAddress({ activeAccount });
+  const { isAllNetworkEnabled } = useAllNetworkCopyAddressHandler({
+    activeAccount,
+  });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
@@ -157,8 +160,12 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     handleAddressOnPress,
   );
 
-  if (walletAddressEnable) {
+  if (isAllNetworkEnabled) {
     return <AllNetworkAccountSelector num={num} />;
+  }
+
+  if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
+    return null;
   }
 
   // show address if account has an address

@@ -17,6 +17,7 @@ import {
   SizableText,
   Skeleton,
   Switch,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDBAccount,
@@ -62,6 +64,7 @@ type IAccountNotificationSettingsContextType = {
       prevSettings: IAccountActivityNotificationSettings | undefined,
     ) => IAccountActivityNotificationSettings | undefined,
   ) => void;
+  commitSettings: () => Promise<void>;
 };
 
 const AccountNotificationSettingsContext = createContext<
@@ -76,28 +79,33 @@ function AccountNotificationSettingsProvider({
   const [settings, setSettings] = useState<
     IAccountActivityNotificationSettings | undefined
   >();
+
   const saveSettings = useCallback(
     (
       buildSettings: (
         prevSettings: IAccountActivityNotificationSettings | undefined,
       ) => IAccountActivityNotificationSettings | undefined,
     ) => {
-      setSettings((v) => {
-        const newValue = buildSettings(v);
-        void backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
-          newValue,
-        );
-        return newValue;
-      });
+      setSettings((v) => buildSettings(v));
     },
     [],
   );
+
+  const commitSettings = useCallback(async () => {
+    if (settings) {
+      await backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
+        settings,
+      );
+    }
+  }, [settings]);
+
   const value = useMemo(
     () => ({
       settings,
       saveSettings,
+      commitSettings,
     }),
-    [settings, saveSettings],
+    [settings, saveSettings, commitSettings],
   );
 
   useEffect(() => {
@@ -405,7 +413,9 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
 
 function ManageAccountActivity() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
+  const [isSaving, setIsSaving] = useState(false);
   const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
@@ -419,33 +429,59 @@ function ManageAccountActivity() {
     },
   );
 
-  return (
-    <AccountNotificationSettingsProvider>
-      <Page scrollEnabled>
-        <Page.Header
-          title={intl.formatMessage({ id: ETranslations.global_manage })}
-        />
+  const { commitSettings } = useAccountNotificationSettings();
 
-        <Page.Body>
-          {isLoading ? (
-            <LoadingView show={isLoading} />
-          ) : (
-            <WalletAccordionList wallets={wallets} />
-          )}
-        </Page.Body>
-      </Page>
-    </AccountNotificationSettingsProvider>
+  const onSave = useCallback(async () => {
+    try {
+      setIsSaving(true);
+      await commitSettings();
+      await backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccountsImmediate();
+      void navigation.popStack();
+    } catch (error) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [commitSettings, intl, navigation]);
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_manage })}
+      />
+      <Page.Body>
+        {isLoading ? (
+          <LoadingView show={isLoading} />
+        ) : (
+          <WalletAccordionList wallets={wallets} />
+        )}
+      </Page.Body>
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.action_save,
+        })}
+        confirmButtonProps={{
+          disabled: false,
+          loading: isSaving,
+        }}
+        onConfirm={onSave}
+      />
+    </Page>
   );
 }
 
 function ManageAccountActivityPage() {
-  useEffect(
-    () => () => {
-      void backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccounts();
-    },
+  return useMemo(
+    () => (
+      <AccountNotificationSettingsProvider>
+        <ManageAccountActivity />
+      </AccountNotificationSettingsProvider>
+    ),
     [],
   );
-  return useMemo(() => <ManageAccountActivity />, []);
 }
 
 export default ManageAccountActivityPage;

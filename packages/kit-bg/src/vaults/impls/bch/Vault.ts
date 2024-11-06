@@ -36,26 +36,35 @@ export default class Vault extends VaultBtc {
         network,
       });
     }
-    const addressValidationResult = validateBtcAddress({
-      address: decodeAddress(address),
-      network,
-    });
 
-    const bchAddress = encodeAddress(
-      addressValidationResult.normalizedAddress ??
-        addressValidationResult.displayAddress,
-    );
+    try {
+      const addressValidationResult = validateBtcAddress({
+        address: decodeAddress(address),
+        network,
+      });
 
-    if (!bchAddress) {
-      throw new Error('Invalid BCH address');
+      const bchAddress = encodeAddress(
+        addressValidationResult.normalizedAddress ??
+          addressValidationResult.displayAddress,
+      );
+
+      if (!bchAddress) {
+        throw new Error('Invalid BCH address');
+      }
+
+      const result = {
+        ...addressValidationResult,
+        normalizedAddress: bchAddress,
+        displayAddress: bchAddress,
+      };
+      return result;
+    } catch (e) {
+      return Promise.resolve({
+        isValid: false,
+        normalizedAddress: '',
+        displayAddress: '',
+      });
     }
-
-    const result = {
-      ...addressValidationResult,
-      normalizedAddress: bchAddress,
-      displayAddress: bchAddress,
-    };
-    return result;
   }
 
   override getBlockbookCoinName() {
