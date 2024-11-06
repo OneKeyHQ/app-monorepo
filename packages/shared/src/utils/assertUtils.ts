@@ -11,8 +11,11 @@ import {
 } from 'lodash';
 
 import platformEnv from '../platformEnv';
+import { EAppSyncStorageKeys } from '../storage/syncStorage';
+import appStorage from '../storage/appStorage';
 
 import { isPromiseObject } from './promiseUtils';
+import timerUtils from './timerUtils';
 
 type IErrorType = undefined | string | Error;
 
@@ -81,22 +84,59 @@ export function isSerializable(obj: any, keyPath?: string[]) {
   return true;
 }
 
+type ISerializableCheckingDisabledConfig = {
+  disabled: boolean | undefined;
+  updateAt: number;
+};
+
+export function toggleBgApiSerializableChecking(enabled: boolean) {
+  const data: ISerializableCheckingDisabledConfig = {
+    disabled: !enabled,
+    updateAt: Date.now(),
+  };
+  appStorage.syncStorage.setObject(
+    EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
+    data,
+  );
+}
+export function isBgApiSerializableCheckingDisabled() {
+  const data =
+    appStorage.syncStorage.getObject<ISerializableCheckingDisabledConfig>(
+      EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
+    );
+  if (!data) {
+    return false;
+  }
+  if (
+    data.updateAt &&
+    Date.now() - data.updateAt >
+      timerUtils.getTimeDurationMs({
+        day: 1,
+      })
+  ) {
+    // 1 day
+    return false;
+  }
+  return Boolean(data.disabled);
+}
 export function ensureSerializable(
   obj: any,
   stringify = false,
   info?: any,
 ): any {
   if (process.env.NODE_ENV !== 'production') {
-    if (!isSerializable(obj)) {
-      console.error('Object should be serializable >>>> ', obj, info);
-      if (stringify) {
-        return JSON.parse(
-          // stringUtils.safeStringify(obj),
-          JSON.stringify(obj),
-        );
-      }
+    if (!isBgApiSerializableCheckingDisabled()) {
+      if (!isSerializable(obj)) {
+        console.error('Object should be serializable >>>> ', obj, info);
+        if (stringify) {
+          return JSON.parse(
+            // stringUtils.safeStringify(obj),
+            JSON.stringify(obj),
+          );
+        }
 
-      throw new Error('Object should be serializable');
+        throw new Error('Object should be serializable');
+      }
     }
   }
   return obj;

@@ -90,12 +90,18 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   _buildTransactionAndStores({
     db,
     alwaysCreate = true,
+    readOnly = false,
   }: {
     db: IDBPDatabase<IIndexedDBSchemaMap>;
     alwaysCreate: boolean;
+    readOnly?: boolean;
   }) {
     if (!this.txPair || alwaysCreate) {
-      const dbTx = db.transaction(ALL_LOCAL_DB_STORE_NAMES, 'readwrite');
+      const dbTx = db.transaction(
+        ALL_LOCAL_DB_STORE_NAMES,
+        // 'readwrite',
+        readOnly ? ('readonly' as any) : 'readwrite',
+      );
 
       const contextStore = this._getOrCreateObjectStore(
         dbTx,
@@ -213,6 +219,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     const { tx, dbTx } = this._buildTransactionAndStores({
       db: this.indexed,
       alwaysCreate: true,
+      readOnly: options?.readOnly,
     });
 
     try {
@@ -231,36 +238,50 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   override async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
-    return this.withTransaction(async (tx) =>
-      this.txGetRecordsCount({
-        ...params,
-        tx,
-      }),
+    return this.withTransaction(
+      async (tx) =>
+        this.txGetRecordsCount({
+          ...params,
+          tx,
+        }),
+      {
+        readOnly: true,
+      },
     );
   }
 
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
-    return this.withTransaction(async (tx) => {
-      const { records } = await this.txGetAllRecords({
-        ...params,
-        tx,
-      });
-      return { records };
-    });
+    return this.withTransaction(
+      async (tx) => {
+        const { records } = await this.txGetAllRecords({
+          ...params,
+          tx,
+        });
+        return { records };
+      },
+      {
+        readOnly: true,
+      },
+    );
   }
 
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    return this.withTransaction(async (tx) => {
-      const [record] = await this.txGetRecordById({
-        ...params,
-        tx,
-      });
-      return record;
-    });
+    return this.withTransaction(
+      async (tx) => {
+        const [record] = await this.txGetRecordById({
+          ...params,
+          tx,
+        });
+        return record;
+      },
+      {
+        readOnly: true,
+      },
+    );
   }
 
   override async txGetRecordsCount<T extends ELocalDBStoreNames>(

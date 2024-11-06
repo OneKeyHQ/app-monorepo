@@ -60,6 +60,9 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INetworkAccount,
@@ -794,12 +797,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.localDB__getIndexedAccount,
+    );
+
+    perf.markStart('readyDb');
     const db = await this.readyDb;
+    perf.markEnd('readyDb');
+
+    perf.markStart('getRecordById');
     const indexedAccount = await db.getRecordById({
       name: ELocalDBStoreNames.IndexedAccount,
       id,
     });
-    return this.refillIndexedAccount({ indexedAccount });
+    perf.markEnd('getRecordById');
+
+    perf.markStart('refillIndexedAccount');
+    const result: IDBIndexedAccount = this.refillIndexedAccount({
+      indexedAccount,
+    });
+    perf.markEnd('refillIndexedAccount');
+
+    perf.done();
+    return result;
   }
 
   refillIndexedAccount({
@@ -813,6 +833,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
+    );
+
+    perf.markStart('checkAccountType');
     const accountId = account.id;
     if (
       accountUtils.isHdAccount({ accountId }) ||
@@ -821,16 +846,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         accountId,
       })
     ) {
+      perf.markEnd('checkAccountType');
+
       const { indexedAccountId } = account;
       if (!indexedAccountId) {
         throw new Error(
           `indexedAccountId is missing from account: ${accountId}`,
         );
       }
+
+      perf.markStart('getIndexedAccount');
       // indexedAccount must be create before account, keep throw error here, do not try catch
       const indexedAccount = await this.getIndexedAccount({
         id: indexedAccountId,
       });
+      perf.markEnd('getIndexedAccount');
+
+      perf.done();
       return indexedAccount;
     }
     return undefined;
@@ -2522,7 +2554,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
         )
         .map((account, walletAccountsIndex) =>
-          this.refillAccountInfo({ account, walletAccountsIndex }),
+          this.refillAccountInfo({
+            account,
+            walletAccountsIndex,
+            indexedAccount: undefined,
+          }),
         )
         .sort((a, b) =>
           natsort({ insensitive: true })(
@@ -2542,28 +2578,49 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { records: accounts } = await db.getAllRecords({
       name: ELocalDBStoreNames.Account,
     });
+    const indexedAccount = await this.getIndexedAccount({
+      id: indexedAccountId,
+    });
     return accounts
       .filter(
         (account) =>
           account.indexedAccountId === indexedAccountId && indexedAccountId,
       )
-      .map((account) => this.refillAccountInfo({ account }));
+      .map((account) => this.refillAccountInfo({ account, indexedAccount }));
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.localDB__getAccount,
+      { accountId },
+    );
+
+    perf.markStart('readyDb');
     const db = await this.readyDb;
+    perf.markEnd('readyDb');
+
+    perf.markStart('getRecordById');
     const account = await db.getRecordById({
       name: ELocalDBStoreNames.Account,
       id: accountId,
     });
+    perf.markEnd('getRecordById');
+
+    perf.markStart('getIndexedAccountByAccount');
     const indexedAccount = await this.getIndexedAccountByAccount({
       account,
     });
-    // fix account name by indexedAccount name
-    if (indexedAccount) {
-      account.name = indexedAccount.name;
-    }
-    return this.refillAccountInfo({ account });
+    perf.markEnd('getIndexedAccountByAccount');
+
+    perf.markStart('refillAccountInfo');
+    const result: IDBAccount = this.refillAccountInfo({
+      account,
+      indexedAccount,
+    });
+    perf.markEnd('refillAccountInfo');
+
+    perf.done();
+    return result;
   }
 
   async getAccountSafe({
@@ -2580,10 +2637,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   refillAccountInfo({
     account,
+    indexedAccount,
     walletAccountsIndex,
   }: {
     account: IDBAccount;
-    walletAccountsIndex?: number;
+    // TODO update name here
+    indexedAccount: IDBIndexedAccount | undefined;
+    walletAccountsIndex?: number; // wallet.accounts array index
   }) {
     account.accountOrder = account?.accountOrderSaved;
     if (!isNil(walletAccountsIndex)) {
@@ -2595,6 +2655,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       externalAccount.connectionInfo = JSON.parse(
         externalAccount.connectionInfoRaw,
       );
+    }
+    // fix account name by indexedAccount name
+    if (indexedAccount) {
+      account.name = indexedAccount.name;
     }
     return account;
   }
