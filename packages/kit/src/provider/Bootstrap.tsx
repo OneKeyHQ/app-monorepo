@@ -12,9 +12,14 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { configure as configureNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -28,6 +33,30 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
+
+const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
+  const endpoints = getEndpointsMapByDevSettings(devSettings);
+  const headers = await getRequestHeaders();
+  configureNetInfo({
+    reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
+    reachabilityMethod: 'GET',
+    reachabilityHeaders: headers,
+    reachabilityTest: async (response) => response.status === 200,
+    reachabilityLongTimeout: 60 * 1000,
+    reachabilityShortTimeout: 5 * 1000,
+    reachabilityRequestTimeout: 10 * 1000,
+    reachabilityShouldRun: () => true,
+    // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
+    shouldFetchWiFiSSID: true,
+    useNativeReachability: false,
+  });
+};
+const useNetInfo = () => {
+  const [devSettings] = useDevSettingsPersistAtom();
+  useEffect(() => {
+    void checkNetInfo(devSettings);
+  }, [devSettings]);
+};
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -163,11 +192,21 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
-export function Bootstrap() {
+const useAboutVersion = () => {
+  const intl = useIntl();
   useEffect(() => {
-    void backgroundApiProxy.serviceSetting.fetchCurrencyList();
     if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
       desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+        const versionString = intl.formatMessage(
+          {
+            id: ETranslations.settings_version_versionnum,
+          },
+          {
+            'versionNum': ` ${process.env.VERSION || 1}(${
+              platformEnv.buildNumber || 1
+            })`,
+          },
+        );
         Dialog.show({
           showFooter: false,
           renderContent: (
@@ -180,8 +219,11 @@ export function Bootstrap() {
               <YStack gap="$2" pt="$4" alignItems="center">
                 <SizableText size="$heading2xl">OneKey</SizableText>
                 <SizableText size="$bodySm">
-                  Version {process.env.VERSION}({platformEnv.buildNumber})
+                  {`${globalThis.desktopApi.platform}-${
+                    globalThis.desktopApi.arch || 'unknown'
+                  }`}
                 </SizableText>
+                <SizableText size="$bodySm">{versionString}</SizableText>
                 <SizableText size="$bodySm">Copyright © OneKey</SizableText>
               </YStack>
             </YStack>
@@ -189,7 +231,20 @@ export function Bootstrap() {
         });
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+};
+
+export const useFetchCurrencyList = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceSetting.fetchCurrencyList();
+  }, []);
+};
+
+export function Bootstrap() {
+  useFetchCurrencyList();
+  useAboutVersion();
+  useNetInfo();
   useDesktopEvents();
   return null;
 }

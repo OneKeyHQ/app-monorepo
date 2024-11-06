@@ -24,6 +24,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { LetterAvatar } from '../LetterAvatar';
+
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
@@ -54,6 +56,8 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
+      selectedNetworkName?: string;
+      isCustomNetwork?: boolean;
       loading?: boolean;
       disabled?: boolean;
     } & IXStackProps;
@@ -239,6 +243,23 @@ export function AmountInput({
               </Image>
             </Stack>
           ) : null}
+          {tokenSelectorTriggerProps?.isCustomNetwork &&
+          tokenSelectorTriggerProps?.selectedNetworkName ? (
+            <Stack
+              position="absolute"
+              right="$-1"
+              bottom="$-1"
+              p="$0.5"
+              borderRadius="$full"
+              flexShrink={1}
+              bg="$bgApp"
+            >
+              <LetterAvatar
+                size="$3"
+                letter={tokenSelectorTriggerProps.selectedNetworkName[0]}
+              />
+            </Stack>
+          ) : null}
         </Stack>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol ||
@@ -259,9 +280,11 @@ export function AmountInput({
   }, [
     intl,
     tokenSelectorTriggerProps?.disabled,
+    tokenSelectorTriggerProps?.isCustomNetwork,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,
+    tokenSelectorTriggerProps?.selectedNetworkName,
     tokenSelectorTriggerProps?.selectedTokenImageUri,
     tokenSelectorTriggerProps?.selectedTokenSymbol,
   ]);

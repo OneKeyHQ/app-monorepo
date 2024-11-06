@@ -16,6 +16,9 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ILoggingEnabledConfig {
@@ -199,6 +202,19 @@ const LoggingConfigCheckbox = () => {
         />
       </XStack>
       {renderCheckBoxes(enabledConfig)}
+
+      <SizableText>PerformanceTimer Log</SizableText>
+      {Object.values(EPerformanceTimerLogNames).map((logName) => (
+        <Checkbox
+          key={logName}
+          isUncontrolled
+          defaultChecked={perfUtils.getPerformanceTimerLogConfig(logName)}
+          label={logName}
+          onChange={(v) =>
+            perfUtils.updatePerformanceTimerLogConfig(logName as any, !!v)
+          }
+        />
+      ))}
     </Stack>
   );
 };

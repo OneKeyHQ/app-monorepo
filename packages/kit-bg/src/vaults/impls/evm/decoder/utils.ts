@@ -8,7 +8,7 @@ export const InfiniteAmountHex =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 
 export function checkIsEmptyData(data?: string) {
-  return !data || data === '0x' || data === '0x0' || data === '0';
+  return !data || data === '0x';
 }
 
 export function checkIsEvmNativeTransfer({

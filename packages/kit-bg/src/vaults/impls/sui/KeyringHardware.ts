@@ -194,6 +194,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
       }),
     );
-    return result.map((ret) => JSON.stringify(ret));
+    return result;
   }
 }
