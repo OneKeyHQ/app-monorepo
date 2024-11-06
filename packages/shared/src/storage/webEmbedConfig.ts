@@ -1,4 +1,4 @@
-import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 export type IWebEmbedConfig = {
@@ -12,12 +12,13 @@ function getWebEmbedConfig(): IWebEmbedConfig | undefined {
   // **** build webembed html file:
   // yarn app:web-embed:build
 
-  const text =
-    appStorage.getSettingString(EAppSettingKey.onekey_webembed_config) || '';
-  if (!text) {
+  const config = appStorage.syncStorage.getObject<IWebEmbedConfig>(
+    EAppSyncStorageKeys.onekey_webembed_config,
+  );
+  if (!config) {
     return undefined;
   }
-  return JSON.parse(text) as IWebEmbedConfig;
+  return config;
   // return {
   //   debug: true,
   //   url: undefined,
@@ -26,9 +27,9 @@ function getWebEmbedConfig(): IWebEmbedConfig | undefined {
 }
 
 function setWebEmbedConfig(config: IWebEmbedConfig) {
-  appStorage.setSetting(
-    EAppSettingKey.onekey_webembed_config,
-    JSON.stringify(config),
+  appStorage.syncStorage.setObject(
+    EAppSyncStorageKeys.onekey_webembed_config,
+    config,
   );
 }
 

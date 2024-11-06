@@ -32,6 +32,10 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  isBgApiSerializableCheckingDisabled,
+  toggleBgApiSerializableChecking,
+} from '@onekeyhq/shared/src/utils/assertUtils';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   isWebInDappMode,
@@ -246,6 +250,20 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+
+      <ListItem
+        title="Bg Api 可序列化检测"
+        subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
+      >
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={!isBgApiSerializableCheckingDisabled()}
+          onChange={(v) => {
+            toggleBgApiSerializableChecking(v);
+          }}
+        />
+      </ListItem>
 
       <SectionPressItem
         title="Export Accounts Data"

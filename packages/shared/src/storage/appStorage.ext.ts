@@ -2,7 +2,7 @@
 //    redux-persist failed to create sync storage. falling back to noop storage.
 // import storage from 'redux-persist/lib/storage';
 
-import { buildAppStorageFactory } from './appSetting';
+import { buildAppStorageFactory } from './syncStorage';
 import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
 import webStorageInstance from './instance/webStorageInstance';

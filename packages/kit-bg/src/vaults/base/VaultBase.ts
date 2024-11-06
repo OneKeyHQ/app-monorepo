@@ -957,11 +957,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // TODO resetCache after dbAccount and network DB updated
   // TODO add memo
-  async getAccount(): Promise<INetworkAccount> {
-    const account: IDBAccount =
-      await this.backgroundApi.serviceAccount.getDBAccount({
+  async getAccount({
+    dbAccount,
+  }: {
+    dbAccount?: IDBAccount;
+  } = {}): Promise<INetworkAccount> {
+    let account: IDBAccount | undefined = dbAccount;
+    if (!account || account?.id !== this.accountId) {
+      account = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: this.accountId,
       });
+    }
 
     if (
       !accountUtils.isAccountCompatibleWithNetwork({
@@ -1003,8 +1009,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         key: this.networkId,
         fallbackIndex: -1,
       });
+
       if (!externalAccountAddress) {
         const impl = await this.getNetworkImpl();
+
         externalAccountAddress = buildExternalAccountAddress({
           key: impl,
           fallbackIndex: 0,
@@ -1034,6 +1042,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     ) {
       throw new Error('VaultBase.getAccount ERROR: address is invalid');
     }
+
     return {
       ...account,
       addressDetail,
@@ -1049,8 +1058,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return (await this.getAccount()).path;
   }
 
-  async getAccountXpub(): Promise<string | undefined> {
-    const networkAccount = await this.getAccount();
+  async getAccountXpub({
+    dbAccount,
+  }: {
+    dbAccount?: IDBAccount;
+  } = {}): Promise<string | undefined> {
+    const networkAccount = await this.getAccount({ dbAccount });
     return this.getXpubFromAccount(networkAccount);
   }
 
