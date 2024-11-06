@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
@@ -10,6 +11,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -39,8 +41,6 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 
 import TxFeeContainer from './TxFeeContainer';
-import { isNil } from 'lodash';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 
 type IProps = {
   accountId: string;
