@@ -1,12 +1,14 @@
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
+import { buildServiceEndpoint } from './appConfig';
+
 // Only OneKey endpoints are allowed here.
-const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
+export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   test: {
     wallet: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Wallet,
@@ -71,4 +73,11 @@ const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   },
 };
 
-export { endpointsMap };
+export const getEndpointsMapByDevSettings = (
+  devSettings: IDevSettingsPersistAtom,
+) => {
+  if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+    return endpointsMap.test;
+  }
+  return endpointsMap.prod;
+};

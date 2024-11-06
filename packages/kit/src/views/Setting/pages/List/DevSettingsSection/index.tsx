@@ -45,6 +45,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { CrashDevSettings } from './CrasshDevSettings';
+import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
@@ -473,6 +474,14 @@ export const DevSettingsSection = () => {
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
+        }}
+      />
+      <SectionPressItem
+        title="Check Network info"
+        onPress={() => {
+          Dialog.confirm({
+            renderContent: <NetInfo />,
+          });
         }}
       />
       {platformEnv.isNativeAndroid ? (
