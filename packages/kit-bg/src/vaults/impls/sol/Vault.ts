@@ -58,6 +58,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -127,7 +128,6 @@ import type {
   TransferInstructionArgs,
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
