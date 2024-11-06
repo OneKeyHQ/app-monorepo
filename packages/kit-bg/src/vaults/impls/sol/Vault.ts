@@ -58,6 +58,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -723,6 +724,7 @@ export default class Vault extends VaultBase {
             accountId: this.accountId,
             networkId: this.networkId,
           });
+        const network = await this.getNetwork();
         if (nativeToken) {
           actions[0].assetTransfer.sends.push({
             from: actions[0].assetTransfer.from,
@@ -735,6 +737,22 @@ export default class Vault extends VaultBase {
             isNFT: false,
             isNative: true,
           });
+          actions[0].assetTransfer.nativeAmount = new BigNumber(
+            actions[0].assetTransfer.nativeAmount ?? '0',
+          )
+            .plus(CREATE_TOKEN_ACCOUNT_RENT)
+            .toFixed();
+
+          actions[0].assetTransfer.nativeAmountValue = new BigNumber(
+            actions[0].assetTransfer.nativeAmountValue ?? '0',
+          )
+            .plus(
+              chainValueUtils.convertAmountToChainValue({
+                value: CREATE_TOKEN_ACCOUNT_RENT,
+                network,
+              }),
+            )
+            .toFixed();
         }
       }
     }
