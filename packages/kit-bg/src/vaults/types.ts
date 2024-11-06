@@ -239,6 +239,7 @@ export type IVaultSettings = {
   isNativeTokenContractAddressEmpty?: boolean;
 
   canEditNonce?: boolean;
+  canEditData?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -86,6 +86,16 @@ function TxAdvancedSettingsContainer(props: IProps) {
     [networkId],
   ).result;
 
+  const isInternalSwapTx = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].swapInfo,
+    [unsignedTxs],
+  );
+
+  const isInternalStakingTx = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].stakingInfo,
+    [unsignedTxs],
+  );
+
   const dataContent = useMemo(() => {
     if (!unsignedTxs || unsignedTxs.length === 0) {
       return '';
@@ -167,7 +177,11 @@ function TxAdvancedSettingsContainer(props: IProps) {
         return true;
       }
 
-      if (!utils.isHexString(value)) {
+      if (
+        !value.startsWith('0x') ||
+        value.length % 2 !== 0 ||
+        !utils.isHexString(value)
+      ) {
         return intl.formatMessage({
           id: ETranslations.global_hex_data_error,
         });
@@ -300,7 +314,12 @@ function TxAdvancedSettingsContainer(props: IProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!canEditNonce && dataContent === '') {
+  if (
+    isInternalStakingTx ||
+    isInternalSwapTx ||
+    (!canEditNonce &&
+      (!vaultSettings?.canEditData || !checkIsEmptyData(originalData)))
+  ) {
     return null;
   }
 

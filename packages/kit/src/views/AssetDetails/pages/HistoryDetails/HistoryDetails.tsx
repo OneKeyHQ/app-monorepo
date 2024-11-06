@@ -113,6 +113,7 @@ export function AssetItem({
   isApprove,
   isApproveUnlimited,
   isAllNetworks,
+  networkId,
 }: {
   asset: {
     name: string;
@@ -130,6 +131,7 @@ export function AssetItem({
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
   isAllNetworks?: boolean;
+  networkId?: string;
 }) {
   const intl = useIntl();
   let primary = null;
@@ -226,6 +228,8 @@ export function AssetItem({
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
         networkImageUri={isAllNetworks ? networkIcon : undefined}
+        showNetworkIcon={isAllNetworks}
+        networkId={networkId}
       />
       <ListItem.Text
         flexGrow={1}
@@ -470,6 +474,7 @@ function HistoryDetails() {
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
             isAllNetworks={isAllNetworks}
+            networkId={networkId}
           />
         );
       }
@@ -494,11 +499,12 @@ function HistoryDetails() {
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
             isAllNetworks={isAllNetworks}
+            networkId={networkId}
           />
         );
       });
     },
-    [isAllNetworks, network?.logoURI, settings.currencyInfo.symbol],
+    [isAllNetworks, network?.logoURI, networkId, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
@@ -972,23 +978,6 @@ function HistoryDetails() {
                     }
               }
             />
-            {txInfo?.data ? (
-              <InfoItem
-                label={intl.formatMessage({
-                  id: ETranslations.global_hex_data,
-                })}
-                renderContent={
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    style={{ wordBreak: 'break-all' }}
-                    flex={1}
-                  >
-                    {txInfo.data}
-                  </SizableText>
-                }
-              />
-            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,
@@ -1065,7 +1054,6 @@ function HistoryDetails() {
     txInfo?.blockHeight,
     txInfo?.nonce,
     txInfo?.confirmations,
-    txInfo?.data,
     renderTxMetaInfo,
     txid,
     vaultSettings?.hideBlockExplorer,
