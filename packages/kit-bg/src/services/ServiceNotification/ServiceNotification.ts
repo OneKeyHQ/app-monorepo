@@ -584,23 +584,30 @@ export default class ServiceNotification extends ServiceBase {
     });
   }
 
+  private async _registerClientWithOverrideAllAccountsCore() {
+    await InteractionManager.runAfterInteractions(async () => {
+      await this.registerClientWithSyncAccounts({
+        syncMethod: ENotificationPushSyncMethod.override,
+      });
+      await notificationsAtom.set((v) => ({
+        ...v,
+        lastRegisterTime: Date.now(),
+      }));
+    });
+  }
+
   @backgroundMethod()
   registerClientWithOverrideAllAccounts() {
     return this._registerClientWithOverrideAllAccountsDebounced();
   }
 
+  @backgroundMethod()
+  registerClientWithOverrideAllAccountsImmediate() {
+    return this._registerClientWithOverrideAllAccountsCore();
+  }
+
   _registerClientWithOverrideAllAccountsDebounced = debounce(
-    async () => {
-      await InteractionManager.runAfterInteractions(async () => {
-        await this.registerClientWithSyncAccounts({
-          syncMethod: ENotificationPushSyncMethod.override,
-        });
-        await notificationsAtom.set((v) => ({
-          ...v,
-          lastRegisterTime: Date.now(),
-        }));
-      });
-    },
+    () => this._registerClientWithOverrideAllAccountsCore(),
     5000,
     {
       leading: false,
