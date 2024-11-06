@@ -15,6 +15,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
+import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
@@ -34,7 +35,6 @@ import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -818,5 +818,5 @@ export default {
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
   buildCustomEvmNetworkId,
-  isAllNetworkMockAddress
+  isAllNetworkMockAddress,
 };

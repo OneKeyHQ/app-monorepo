@@ -98,7 +98,10 @@ const InterAddressText = ({
   isLoading?: boolean;
   addressText: string;
 }) => {
-  if (isLoading || accountUtils.isAllNetworkMockAddress({ address: addressText })) {
+  if (
+    isLoading ||
+    accountUtils.isAllNetworkMockAddress({ address: addressText })
+  ) {
     return (
       <XStack alignItems="center" h="$5">
         <Skeleton w={196} h={14} />
@@ -363,7 +366,9 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
   const [showNoAddress, setShowNoAddress] = useState(false);
 
   let addressText = '';
-  if (accountUtils.isAllNetworkMockAddress({ address: account?.address || '' })) {
+  if (
+    accountUtils.isAllNetworkMockAddress({ address: account?.address || '' })
+  ) {
     addressText = '';
   } else if (!account?.address && account?.addressDetail.isValid) {
     addressText = account?.name || '';
