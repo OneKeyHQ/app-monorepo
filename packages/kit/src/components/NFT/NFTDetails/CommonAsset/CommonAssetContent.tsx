@@ -148,7 +148,13 @@ function CommonAssetContent(props: IProps) {
                   </SizableText>
                   <SizableText size="$bodyMdMedium">
                     {displayType === ETraitsDisplayType.Date
-                      ? formatDate(new Date(value), {})
+                      ? formatDate(
+                          new Date(
+                            Number(value) *
+                              (value.toString().length === 10 ? 1000 : 1),
+                          ),
+                          {},
+                        )
                       : value}
                   </SizableText>
                 </Stack>

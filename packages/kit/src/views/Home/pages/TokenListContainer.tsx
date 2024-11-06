@@ -676,6 +676,12 @@ function TokenListContainer(props: ITabPageProps) {
         mergeDerive: true,
       });
 
+      refreshSmallBalanceTokenListMap({
+        tokens: tokenListMap,
+        merge: true,
+        mergeDerive: true,
+      });
+
       refreshRiskyTokenListMap({
         tokens: tokenListMap,
         merge: true,
@@ -744,6 +750,7 @@ function TokenListContainer(props: ITabPageProps) {
       refreshAllTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
+      refreshSmallBalanceTokenListMap,
       refreshTokenList,
       refreshTokenListMap,
       updateAccountOverviewState,
