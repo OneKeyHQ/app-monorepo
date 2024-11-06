@@ -34,6 +34,7 @@ import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -755,6 +756,10 @@ function buildAccountValueKey({
   return `${accountId}_${networkId}`;
 }
 
+function isAllNetworkMockAddress({ address }: { address?: string }) {
+  return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+}
+
 export default {
   buildAccountValueKey,
   buildUtxoAddressRelPath,
@@ -813,4 +818,5 @@ export default {
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
   buildCustomEvmNetworkId,
+  isAllNetworkMockAddress
 };

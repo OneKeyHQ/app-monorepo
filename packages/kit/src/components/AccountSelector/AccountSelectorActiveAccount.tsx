@@ -164,6 +164,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     return <AllNetworkAccountSelector num={num} />;
   }
 
+  if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
+    return null;
+  }
+
   // show address if account has an address
   if (account?.address) {
     return (
