@@ -1,5 +1,6 @@
 import { filter, forEach } from 'lodash';
 
+import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
@@ -10,14 +11,9 @@ import type {
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
-import { endpointsMap } from './endpointsMap';
-
 export async function getEndpoints() {
   const settings = await devSettingsPersistAtom.get();
-  if (settings.enabled && settings.settings?.enableTestEndpoint) {
-    return endpointsMap.test;
-  }
-  return endpointsMap.prod;
+  return getEndpointsMapByDevSettings(settings);
 }
 
 export async function getEndpointInfo({
