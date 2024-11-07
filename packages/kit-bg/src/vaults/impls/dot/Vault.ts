@@ -85,6 +85,7 @@ import type {
 } from '../../types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
@@ -438,6 +439,9 @@ export default class VaultDot extends VaultBase {
     if (params.feeInfo) {
       encodedTx.feeInfo = params.feeInfo;
     }
+    const extraTip = new BigNumber(params.feeInfo?.feeDot?.extraTipInDot ?? '0')
+      .shiftedBy(params.feeInfo?.common.feeDecimals ?? 0)
+      .toFixed();
 
     // send max amount
     if (nativeAmountInfo) {
@@ -463,6 +467,7 @@ export default class VaultDot extends VaultBase {
         const network = await this.getNetwork();
         const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
           .shiftedBy(network.decimals)
+          .minus(extraTip)
           .toFixed(0);
         const dest = decodeUnsignedTx.method.args.dest as { id: string };
 
@@ -516,6 +521,10 @@ export default class VaultDot extends VaultBase {
         blockNumber: blockInfo.blockNumber as unknown as `0x${string}`,
         era: era.toHex(),
       };
+    }
+
+    if (params.feeInfo?.feeDot) {
+      encodedTx.tip = numberUtils.numberToHex(extraTip) as `0x${string}`;
     }
 
     return {
