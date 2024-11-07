@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -15,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -24,7 +26,7 @@ import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
-const StakePage = () => {
+function BasicStakePage() {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.Stake
@@ -206,6 +208,18 @@ const StakePage = () => {
       </Page.Body>
     </Page>
   );
-};
+}
 
-export default StakePage;
+export default function StakePage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <BasicStakePage />
+    </AccountSelectorProviderMirror>
+  );
+}
