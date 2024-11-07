@@ -2,12 +2,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Divider,
   Icon,
-  Image,
   NumberSizeableText,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
@@ -361,32 +362,42 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
   const { overview, target, source, applyFor, networkId } = props;
   const intl = useIntl();
   const { network } = useAccountData({ networkId });
+
   return (
     <InfoItemGroup>
       <InfoItem
         label={overview.title}
         renderContent={
-          <XStack alignItems="center" gap="$3" minWidth={0}>
-            <Token
-              fallbackIcon={overview.avatar?.fallbackIcon}
-              isNFT={overview.avatar?.isNFT}
-              tokenImageUri={overview.avatar?.src}
-            />
-            {typeof overview.content === 'string' ? (
-              <SizableText
-                minWidth={0}
-                maxWidth="$96"
-                size="$bodyLgMedium"
-                flex={1}
-              >
-                {overview.content}
-              </SizableText>
-            ) : (
-              overview.content
-            )}
-          </XStack>
+          <YStack gap="$4">
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_estimated_results,
+              })}
+            </SizableText>
+            <XStack alignItems="center" gap="$3" minWidth={0}>
+              <Token
+                fallbackIcon={overview.avatar?.fallbackIcon}
+                isNFT={overview.avatar?.isNFT}
+                tokenImageUri={overview.avatar?.src}
+              />
+              {typeof overview.content === 'string' ? (
+                <SizableText
+                  minWidth={0}
+                  maxWidth="$96"
+                  size="$headingSm"
+                  flex={1}
+                >
+                  {overview.content}
+                </SizableText>
+              ) : (
+                overview.content
+              )}
+            </XStack>
+          </YStack>
         }
       />
+
+      <Divider mx="$2.5" my="$3" />
 
       {source && source.content ? (
         <InfoItem
