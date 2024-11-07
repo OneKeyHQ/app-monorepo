@@ -1,13 +1,17 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -20,6 +24,7 @@ import {
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -27,7 +32,11 @@ import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import {
+  EReplaceTxType,
+  type IReplaceTxInfo,
+  type ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 
@@ -80,6 +89,14 @@ function SendConfirmActionsContainer(props: IProps) {
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const vaultSettings = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId,
+      }),
+    [networkId],
+  ).result;
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
     usePreCheckFeeInfo({
@@ -160,6 +177,35 @@ function SendConfirmActionsContainer(props: IProps) {
     }
 
     try {
+      let replaceTxInfo: IReplaceTxInfo | undefined;
+      if (
+        vaultSettings?.replaceTxEnabled &&
+        newUnsignedTxs.length === 1 &&
+        !isNil(newUnsignedTxs[0].nonce)
+      ) {
+        const encodedTx = unsignedTxs[0].encodedTx as IEncodedTxEvm;
+        const localPendingTxs =
+          await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
+            accountId,
+            networkId,
+          });
+        const localPendingTxWithSameNonce = localPendingTxs.find((tx) =>
+          new BigNumber(tx.decodedTx.nonce).isEqualTo(
+            newUnsignedTxs[0].nonce as number,
+          ),
+        );
+        if (localPendingTxWithSameNonce) {
+          replaceTxInfo = {
+            replaceType:
+              new BigNumber(encodedTx.value).isZero() &&
+              checkIsEmptyData(encodedTx.data)
+                ? EReplaceTxType.Cancel
+                : EReplaceTxType.SpeedUp,
+            replaceHistoryId: localPendingTxWithSameNonce.id,
+          };
+        }
+      }
+
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
@@ -168,6 +214,7 @@ function SendConfirmActionsContainer(props: IProps) {
           feeInfos: sendSelectedFeeInfo?.feeInfos,
           signOnly,
           sourceInfo,
+          replaceTxInfo,
           transferPayload,
           successfullySentTxs: successfullySentTxs.current,
         });
@@ -226,6 +273,7 @@ function SendConfirmActionsContainer(props: IProps) {
     txAdvancedSettings.nonce,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
+    vaultSettings?.replaceTxEnabled,
     signOnly,
     sourceInfo,
     transferPayload,

@@ -181,9 +181,7 @@ export function NFTDetails() {
     return (
       <ActionList
         title="Actions"
-        renderTrigger={
-          <HeaderIconButton title="Actions" icon="DotHorOutline" />
-        }
+        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
         items={actions}
       />
     );
