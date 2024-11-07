@@ -148,7 +148,7 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       useEffect(() => {
-        globalThis.desktopApi.on('update/checkForUpdates', () => {
+        globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
           void onCheckUpdateRef.current();
         });
 
