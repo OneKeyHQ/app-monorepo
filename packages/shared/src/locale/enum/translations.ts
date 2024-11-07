@@ -811,6 +811,7 @@
   global_current = 'global.current',
   global_customize_nonce = 'global.customize_nonce',
   global_customize_nonce_desc = 'global.customize_nonce_desc',
+  global_dapp_interaction = 'global.dapp_interaction',
   global_dark = 'global.dark',
   global_date = 'global.date',
   global_date_today = 'global.date_today',
