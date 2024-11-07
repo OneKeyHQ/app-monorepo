@@ -38,9 +38,11 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
+  accountId: string;
   price: string;
   balance: string;
 
@@ -80,6 +82,7 @@ type IUniversalStakeProps = {
 };
 
 export const UniversalStake = ({
+  accountId,
   price,
   balance,
   apr,
@@ -506,6 +509,7 @@ export const UniversalStake = ({
           />
         ) : null}
       </CalculationList>
+      <TradeOrBuy token={details.token.info} accountId={accountId} />
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,

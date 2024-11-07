@@ -177,6 +177,7 @@ const StakePage = () => {
       />
       <Page.Body>
         <UniversalStake
+          accountId={accountId}
           decimals={details.token.info.decimals}
           details={details}
           apr={Number(provider.apr) > 0 ? provider.apr : undefined}
