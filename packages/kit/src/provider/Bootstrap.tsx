@@ -155,9 +155,12 @@ const useDesktopEvents = platformEnv.isDesktop
         const debounceOpenSettings = debounce((isVisible: boolean) => {
           openSettingsRef.current(isVisible);
         }, 250);
-        globalThis.desktopApi.on('app/openSettings', debounceOpenSettings);
+        globalThis.desktopApi.on(
+          ipcMessageKeys.APP_OPEN_SETTINGS,
+          debounceOpenSettings,
+        );
 
-        globalThis.desktopApi.on('app/lockNow', () => {
+        globalThis.desktopApi.on(ipcMessageKeys.APP_LOCK_NOW, () => {
           void useOnLockRef.current();
         });
       }, []);
