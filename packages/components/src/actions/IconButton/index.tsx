@@ -23,6 +23,7 @@ export interface IIconButtonProps
   title?: ITooltipProps['renderContent'];
   // Allow triggering via the Enter or Space key.
   hotKey?: boolean;
+  titlePlacement?: ITooltipProps['placement'];
 }
 
 const sizes = {
@@ -54,6 +55,7 @@ export const IconButton = (props: IIconButtonProps) => {
     size,
     variant = 'secondary',
     hotKey = false,
+    titlePlacement = 'top',
     ...rest
   } = props;
 
@@ -112,7 +114,7 @@ export const IconButton = (props: IIconButtonProps) => {
       <Tooltip
         renderTrigger={renderIconButton()}
         renderContent={title}
-        placement="top"
+        placement={titlePlacement}
         {...(variant === 'tertiary' && { offset: 12 })}
       />
     );
