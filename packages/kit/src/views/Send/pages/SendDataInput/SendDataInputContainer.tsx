@@ -63,8 +63,9 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
-import type { RouteProp } from '@react-navigation/core';
 import { showContractWarningDialog } from './ContractWarningDialog';
+
+import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
   const intl = useIntl();
