@@ -1233,6 +1233,8 @@
   market_add_number_tokens = 'market.add_number_tokens',
   market_add_to_watchlist = 'market.add_to_watchlist',
   market_added_to_watchlist = 'market.added_to_watchlist',
+  market_all_time_high = 'market.all_time_high',
+  market_all_time_low = 'market.all_time_low',
   market_ath_desc = 'market.ath_desc',
   market_atl_desc = 'market.atl_desc',
   market_cex = 'market.cex',
