@@ -806,6 +806,7 @@
   "global.current": "當前",
   "global.customize_nonce": "自訂隨機數",
   "global.customize_nonce_desc": "開啟此選項可變更 nonce（隨機數，又為交易編號）並在交易確認 > 進階設定中控制您的交易訂單。這是一項高級功能，請謹慎使用。",
+  "global.dapp_interaction": "Dapp 交互",
   "global.dark": "深色",
   "global.date": "日期",
   "global.date_today": "今天",

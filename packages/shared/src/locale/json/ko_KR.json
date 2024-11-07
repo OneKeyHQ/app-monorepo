@@ -806,6 +806,7 @@
   "global.current": "현재",
   "global.customize_nonce": "nonce를 사용자 정의하세요",
   "global.customize_nonce_desc": "이것을 켜서 nonce(거래 번호)를 변경하고 확인 > 고급 설정에서 거래 순서를 제어합니다. 이것은 고급 기능이므로 신중하게 사용하세요.",
+  "global.dapp_interaction": "Dapp 상호 작용",
   "global.dark": "다크",
   "global.date": "날짜",
   "global.date_today": "오늘",
