@@ -38,7 +38,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -101,6 +100,8 @@ function SendDataInputContainer() {
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
+
+  const isContractAddress = useRef(false);
 
   const [currentAccount, setCurrentAccount] = useState({
     accountId,
@@ -303,7 +304,9 @@ function SendDataInputContainer() {
       };
     }
     if (toResolved) {
-      const toRaw = form.getValues('to').raw;
+      const formTo = form.getValues('to');
+      const toRaw = formTo.raw;
+      isContractAddress.current = !!formTo.isContract;
       const validation =
         await backgroundApiProxy.serviceValidator.validateAmountInputShown({
           networkId,

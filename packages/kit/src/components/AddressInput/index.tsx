@@ -189,6 +189,7 @@ export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
   pending?: boolean;
+  isContract?: boolean;
   validateError?: {
     type?: Exclude<IAddressValidateStatus, 'valid'>;
     message?: string;
@@ -441,6 +442,7 @@ export function AddressInput(props: IAddressInputProps) {
         raw: queryResult.input,
         resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
         pending: false,
+        isContract: queryResult.isContract,
       });
     } else {
       onChange?.({
@@ -450,6 +452,7 @@ export function AddressInput(props: IAddressInputProps) {
           type: queryResult.validStatus,
           message: getValidateMessage(queryResult.validStatus),
         },
+        isContract: queryResult.isContract,
       });
     }
   }, [
