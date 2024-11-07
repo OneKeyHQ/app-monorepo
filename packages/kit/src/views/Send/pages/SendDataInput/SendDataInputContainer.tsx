@@ -64,6 +64,7 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import { showContractWarningDialog } from './ContractWarningDialog';
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -100,8 +101,6 @@ function SendDataInputContainer() {
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
-
-  const isContractAddress = useRef(false);
 
   const [currentAccount, setCurrentAccount] = useState({
     accountId,
@@ -306,7 +305,6 @@ function SendDataInputContainer() {
     if (toResolved) {
       const formTo = form.getValues('to');
       const toRaw = formTo.raw;
-      isContractAddress.current = !!formTo.isContract;
       const validation =
         await backgroundApiProxy.serviceValidator.validateAmountInputShown({
           networkId,
@@ -420,7 +418,13 @@ function SendDataInputContainer() {
         try {
           if (!account) return;
           const toAddress = form.getValues('to').resolved;
+          const isContract = form.getValues('to').isContract;
           if (!toAddress) return;
+
+          if (isContract && !(await showContractWarningDialog())) {
+            return;
+          }
+
           let realAmount = amount;
 
           setIsSubmitting(true);
