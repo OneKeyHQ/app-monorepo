@@ -93,7 +93,7 @@ const useDesktopEvents = platformEnv.isDesktop
         } else {
           Dialog.confirm({
             title: intl.formatMessage({
-              id: ETranslations.update_app_update,
+              id: ETranslations.update_app_update_latest_version,
             }),
             description: intl.formatMessage({
               id: ETranslations.update_app_up_to_date,
@@ -101,6 +101,9 @@ const useDesktopEvents = platformEnv.isDesktop
             onClose: () => {
               isCheckingUpdate.current = false;
             },
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_ok,
+            }),
           });
         }
       }, [checkForUpdates, intl, toUpdatePreviewPage]);
