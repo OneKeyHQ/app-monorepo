@@ -30,6 +30,8 @@ export type IPromiseResultOptions<T> = {
   pollingInterval?: number;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
+  // automatically revalidate when Page gets focused
+  revalidateOnFocus?: boolean;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -291,6 +293,11 @@ export function usePromiseResult<T>(
   }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
+  const runWithPollingNonce = useCallback(() => {
+    isDepsChangedOnBlur.current = false;
+    void runRef.current({ pollingNonce: pollingNonceRef.current });
+  }, [runRef]);
+
   useEffect(() => {
     if (optionsRef.current.checkIsFocused) {
       if (isFocusedRefValue) {
@@ -298,12 +305,16 @@ export function usePromiseResult<T>(
       } else {
         resetDefer();
       }
+
+      if (isFocusedRefValue && optionsRef.current.revalidateOnFocus) {
+        runWithPollingNonce();
+        return;
+      }
       if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        isDepsChangedOnBlur.current = false;
-        void runRef.current({ pollingNonce: pollingNonceRef.current });
+        runWithPollingNonce();
       }
     }
-  }, [isFocusedRefValue, resetDefer, resolveDefer]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
   return { result, isLoading, run, setResult };
 }

@@ -46,7 +46,9 @@ function BasicStakePage() {
         provider: provider.name,
       }),
     [accountId, networkId, indexedAccountId, token, provider],
-    {},
+    {
+      revalidateOnFocus: true,
+    },
   );
 
   const balanceParsed = result?.token.balanceParsed || token.balanceParsed;
