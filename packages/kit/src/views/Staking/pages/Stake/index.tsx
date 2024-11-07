@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -31,9 +32,26 @@ function BasicStakePage() {
     IModalStakingParamList,
     EModalStakingRoutes.Stake
   >();
-  const { accountId, networkId, details, onSuccess } = route.params;
+  const { accountId, networkId, details, onSuccess, indexedAccountId } =
+    route.params;
   const { token, provider, rewardToken } = details;
-  const { balanceParsed, price } = token;
+
+  const { result } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getProtocolDetails({
+        accountId,
+        networkId,
+        indexedAccountId,
+        symbol: token.info.symbol,
+        provider: provider.name,
+      }),
+    [accountId, networkId, indexedAccountId, token, provider],
+    {},
+  );
+
+  const balanceParsed = result?.token.balanceParsed || token.balanceParsed;
+  const price = result?.token.price || token.price;
+
   const tokenInfo = token.info;
 
   const actionTag = buildLocalTxStatusSyncId(details);
