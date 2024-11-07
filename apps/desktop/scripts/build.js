@@ -42,6 +42,9 @@ build({
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'dist'),
   define: {
+    'process.env.NODE_ENV': JSON.stringify(
+      process.env.NODE_ENV || 'development',
+    ),
     'process.env.COMMITHASH': JSON.stringify(gitRevision),
   },
 })
