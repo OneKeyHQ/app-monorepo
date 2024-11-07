@@ -95,6 +95,8 @@ const useDesktopEvents = platformEnv.isDesktop
             title: intl.formatMessage({
               id: ETranslations.update_app_update_latest_version,
             }),
+            tone: 'success',
+            icon: 'Ai3StarSolid',
             description: intl.formatMessage({
               id: ETranslations.update_app_up_to_date,
             }),
