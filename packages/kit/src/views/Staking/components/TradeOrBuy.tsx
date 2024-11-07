@@ -13,8 +13,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFiatCrypto } from '../../FiatCrypto/hooks';
+import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
-export function TradeOrBuy({
+function BasicTradeOrBuy({
   token,
   accountId,
 }: {
@@ -59,5 +60,19 @@ export function TradeOrBuy({
         ) : null}
       </XStack>
     </XStack>
+  );
+}
+
+export function TradeOrBuy({
+  token,
+  accountId,
+}: {
+  token: IToken;
+  accountId: string;
+}) {
+  return (
+    <HomeTokenListProviderMirror>
+      <BasicTradeOrBuy token={token} accountId={accountId} />
+    </HomeTokenListProviderMirror>
   );
 }
