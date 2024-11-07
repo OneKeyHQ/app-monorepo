@@ -59,6 +59,7 @@ function HeaderCollapseButton({
             })}
           </Tooltip.Text>
         }
+        titlePlacement="bottom"
       />
     </MotiView>
   );

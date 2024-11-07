@@ -99,6 +99,7 @@ export function HeaderRight({
             </Shortcut>
           </XStack>
         }
+        titlePlacement="bottom"
         icon="SettingsOutline"
         testID="setting"
         onPress={openSettingPage}
