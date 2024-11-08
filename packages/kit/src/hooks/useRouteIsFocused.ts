@@ -6,13 +6,15 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 const getRootRoutersLength = () =>
-  rootNavigationRef.current?.getState()?.routes?.length || 0;
+  rootNavigationRef.current?.getRootState()?.routes?.length || 0;
 
 export const useRouteIsFocused = ({
   disableLockScreenCheck = false,
+  testID,
 }:
   | {
       disableLockScreenCheck?: boolean;
+      testID?: string;
     }
   | undefined = {}) => {
   const [isLocked] = useAppIsLockedAtom();
