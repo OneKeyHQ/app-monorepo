@@ -304,7 +304,7 @@ export function usePromiseResult<T>(
   const isFocusedRefValue = isFocusedRef.current;
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
-    void runRef.current(config);
+    void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 
   const { isInternetReachable } = useNetInfo();
