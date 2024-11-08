@@ -101,7 +101,7 @@ export const useDiscoveryShortcuts = () => {
             } catch {
               // empty
             }
-          } else if (platformEnv.isDev) {
+          } else {
             globalThis.desktopApi.reload();
           }
           break;

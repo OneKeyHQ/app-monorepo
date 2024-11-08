@@ -180,7 +180,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         )) ||
       (params?.importToToken &&
         swapNetworksRef.current.find(
-          (net) => net.networkId === params?.importFromToken?.networkId,
+          (net) => net.networkId === params?.importToToken?.networkId,
         ))
     ) {
       if (params?.importFromToken) {

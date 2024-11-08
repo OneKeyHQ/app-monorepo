@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+
 import { ETranslations } from '../../locale';
 import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
@@ -16,7 +18,7 @@ import type {
 } from './type';
 
 const updateCheckingTasks: (() => void)[] = [];
-globalThis.desktopApi?.on?.('update/checking', () => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_CHECKING, () => {
   defaultLogger.update.app.log('checking');
   while (updateCheckingTasks.length) {
     updateCheckingTasks.pop()?.();
@@ -24,24 +26,24 @@ globalThis.desktopApi?.on?.('update/checking', () => {
 });
 
 const updateAvailableTasks: (() => void)[] = [];
-globalThis.desktopApi?.on?.('update/available', ({ version }) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_AVAILABLE, ({ version }) => {
   defaultLogger.update.app.log('available', version);
   while (updateAvailableTasks.length) {
     updateAvailableTasks.pop()?.();
   }
 });
 
-globalThis.desktopApi?.on?.('update/not-available', (params) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_NOT_AVAILABLE, (params) => {
   console.log('update/not-available', params);
   defaultLogger.update.app.log('not-available');
 });
 
-globalThis.desktopApi?.on?.('update/download', ({ version }) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_DOWNLOAD, ({ version }) => {
   defaultLogger.update.app.log('download', version);
 });
 
 const updateVerifyTasks: (() => void)[] = [];
-globalThis.desktopApi.on('update/verified', () => {
+globalThis.desktopApi.on(ipcMessageKeys.UPDATE_VERIFIED, () => {
   defaultLogger.update.app.log('update/verified');
   while (updateVerifyTasks.length) {
     updateVerifyTasks.pop()?.();
@@ -56,7 +58,7 @@ let updateDownloadingTasks: ((params: {
   bytesPerSecond: number;
 }) => void)[] = [];
 globalThis.desktopApi?.on?.(
-  'update/downloading',
+  ipcMessageKeys.UPDATE_DOWNLOADING,
   (params: {
     percent: number;
     delta: number;
@@ -72,7 +74,7 @@ globalThis.desktopApi?.on?.(
 
 const updateDownloadedTasks: ((event: IUpdateDownloadedEvent) => void)[] = [];
 globalThis.desktopApi.on(
-  'update/downloaded',
+  ipcMessageKeys.UPDATE_DOWNLOADED,
   (event: IUpdateDownloadedEvent) => {
     defaultLogger.update.app.log('download');
     while (updateDownloadedTasks.length) {
@@ -84,7 +86,7 @@ globalThis.desktopApi.on(
 
 const updateErrorTasks: ((error: { message: string }) => void)[] = [];
 globalThis.desktopApi?.on?.(
-  'update/error',
+  ipcMessageKeys.UPDATE_ERROR,
   ({
     err,
     isNetworkError,

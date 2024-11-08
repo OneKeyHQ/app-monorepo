@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -27,7 +27,13 @@ import {
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
@@ -143,6 +149,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
+  const intl = useIntl();
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
@@ -207,6 +214,15 @@ export function DesktopLeftSideBar({
     ],
   );
 
+  const appNavigation = useNavigation<any>();
+  const openSettingPage = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    appNavigation.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.SettingModal,
+      params: EModalSettingRoutes.SettingListModal,
+    });
+  }, [appNavigation]);
+
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
@@ -254,6 +270,16 @@ export function DesktopLeftSideBar({
             <YStack flex={1} p="$3">
               {tabs}
               <Stack mt="auto">
+                <DesktopTabItem
+                  onPress={openSettingPage}
+                  selected={false}
+                  icon="SettingsOutline"
+                  label={intl.formatMessage({
+                    id: ETranslations.settings_settings,
+                  })}
+                  shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+                  testID="setting"
+                />
                 <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
                 <DownloadButton />
               </Stack>
