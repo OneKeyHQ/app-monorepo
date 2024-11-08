@@ -2,8 +2,13 @@ import { SizableText, YStack } from '@onekeyhq/components';
 import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 
 export function NetInfo() {
-  const { type, isConnected, isWifiEnabled, isInternetReachable } =
-    useNetInfo();
+  const {
+    type,
+    isConnected,
+    isWifiEnabled,
+    isInternetReachable,
+    isRawInternetReachable,
+  } = useNetInfo();
   return (
     <YStack>
       <SizableText>{`type: ${type}`}</SizableText>
@@ -11,6 +16,9 @@ export function NetInfo() {
       <SizableText>{`isWifiEnabled: ${String(isWifiEnabled)}`}</SizableText>
       <SizableText>{`isInternetReachable: ${String(
         isInternetReachable,
+      )}`}</SizableText>
+      <SizableText>{`isRawInternetReachable: ${String(
+        isRawInternetReachable,
       )}`}</SizableText>
     </YStack>
   );
