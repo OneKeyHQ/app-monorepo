@@ -85,7 +85,7 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const settingsButton = (
+    const settingsButton = media.gtMd ? null : (
       <HeaderIconButton
         key="setting"
         title={
@@ -99,6 +99,7 @@ export function HeaderRight({
             </Shortcut>
           </XStack>
         }
+        titlePlacement="bottom"
         icon="SettingsOutline"
         testID="setting"
         onPress={openSettingPage}

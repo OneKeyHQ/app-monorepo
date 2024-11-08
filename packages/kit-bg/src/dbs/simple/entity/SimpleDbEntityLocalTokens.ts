@@ -6,6 +6,9 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils, {
   buildAccountLocalAssetsKey,
 } from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import type {
   IAccountToken,
   IToken,
@@ -14,7 +17,7 @@ import type {
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export interface ILocalTokens {
+export interface ISimpleDBLocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>
   tokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
   smallBalanceTokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
@@ -23,7 +26,7 @@ export interface ILocalTokens {
   tokenListValue: Record<string, string>; // <networkId_accountAddress/xpub, string>
 }
 
-export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> {
+export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
   entityName = 'localTokens';
 
   override enableCache = false;
@@ -142,8 +145,20 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.simpleDB__updateAccountTokenList,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+      },
+    );
 
+    perf.markStart('buildAccountLocalAssetsKey');
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    perf.markEnd('buildAccountLocalAssetsKey');
+
+    perf.markStart('setRawData');
     await this.setRawData(({ rawData }) => ({
       data: rawData?.data ?? {},
       tokenList: {
@@ -167,6 +182,8 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
         [key]: tokenListValue,
       },
     }));
+    perf.markEnd('setRawData');
+    perf.done();
   }
 
   @backgroundMethod()
@@ -207,25 +224,48 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
     networkId,
     accountAddress,
     xpub,
+    simpleDbLocalTokensRawData,
   }: {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
+    simpleDbLocalTokensRawData: ISimpleDBLocalTokens | null | undefined;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+      },
+    );
+
+    perf.markStart('buildAccountLocalAssetsKey');
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    perf.markEnd('buildAccountLocalAssetsKey');
 
-    const rawData = await this.getRawData();
+    perf.markStart('getRawData', {
+      networkId,
+      accountAddress,
+      rawDataExist: !!simpleDbLocalTokensRawData,
+    });
+    const rawData = simpleDbLocalTokensRawData ?? (await this.getRawData());
+    perf.markEnd('getRawData');
 
-    return {
+    const result = {
       tokenList: rawData?.tokenList?.[key] ?? [],
       smallBalanceTokenList: rawData?.smallBalanceTokenList?.[key] ?? [],
       riskyTokenList: rawData?.riskyTokenList?.[key] ?? [],
       tokenListMap: rawData?.tokenListMap?.[key] ?? {},
       tokenListValue: rawData?.tokenListValue?.[key] ?? '0',
     };
+
+    perf.done();
+
+    return result;
   }
 
   @backgroundMethod()

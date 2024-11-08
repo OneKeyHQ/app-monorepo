@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
 import axios, { AxiosError } from 'axios';
-import { forEach } from 'lodash';
+import { debounce, forEach } from 'lodash';
 
 import { OneKeyError, OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { refresh } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
@@ -21,6 +23,10 @@ import {
 } from './Interceptor';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+
+const refreshNetInfo = debounce(() => {
+  void refresh();
+}, 1000);
 
 axios.interceptors.request.use(async (config) => {
   if (config.timeout === undefined) {
@@ -146,6 +152,7 @@ axios.interceptors.response.use(
       error.code === AxiosError.ERR_NETWORK &&
       error.name === 'AxiosError'
     ) {
+      refreshNetInfo();
       const title = appLocale.intl.formatMessage({
         id: ETranslations.global_network_error,
       });

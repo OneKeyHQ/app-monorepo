@@ -351,7 +351,7 @@ const DesktopWebView = forwardRef(
           // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
-          webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=0"
+          webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=1"
           // mobile user-agent
           // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
           {...props}

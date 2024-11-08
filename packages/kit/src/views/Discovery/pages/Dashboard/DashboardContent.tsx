@@ -15,6 +15,7 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -61,6 +62,7 @@ function DashboardContent({
     );
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { isInternetReachable } = useNetInfo();
 
   const {
     result: homePageData,
@@ -79,6 +81,13 @@ function DashboardContent({
       checkIsFocused: false,
     },
   );
+
+  // Auto fetch data when network is restored and data is empty
+  useEffect(() => {
+    if (!homePageData && !isLoading && isInternetReachable) {
+      void run();
+    }
+  }, [homePageData, isInternetReachable, isLoading, run]);
 
   const refresh = useCallback(() => {
     setIsRefreshing(true);

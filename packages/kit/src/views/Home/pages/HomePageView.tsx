@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useNetInfo } from '@react-native-community/netinfo';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
@@ -12,6 +11,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -91,7 +91,7 @@ export function HomePageView({
     [network],
   ).result;
 
-  const netInfo = useNetInfo();
+  const { isInternetReachable } = useNetInfo();
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -153,11 +153,6 @@ export function HomePageView({
     ),
     [tabs, screenWidth, onRefresh],
   );
-
-  const debouncedNetInfo = useDebounce(netInfo, 500);
-
-  const isOffline =
-    !debouncedNetInfo.isConnected && debouncedNetInfo.isConnected !== null;
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
@@ -250,7 +245,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          {isOffline ? (
+          {isInternetReachable ? null : (
             <Alert
               type="critical"
               icon="CloudOffOutline"
@@ -260,7 +255,7 @@ export function HomePageView({
               closable={false}
               fullBleed
             />
-          ) : null}
+          )}
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
@@ -274,7 +269,14 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, isOffline, intl, renderHomePageContent]);
+  }, [
+    ready,
+    wallet,
+    sceneName,
+    isInternetReachable,
+    intl,
+    renderHomePageContent,
+  ]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

@@ -11,7 +11,7 @@ import {
   Video,
   XStack,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -114,11 +114,7 @@ function BasicNFTListItem(props: IProps) {
             {nft.collectionName || '-'}
           </SizableText>
           {isAllNetworks ? (
-            <Token
-              width="$3.5"
-              height="$3.5"
-              tokenImageUri={network?.logoURI}
-            />
+            <NetworkAvatar networkId={network?.id} size="$3.5" />
           ) : null}
         </XStack>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>

@@ -15,7 +15,9 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
+import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
 import {
+  COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
   COINTYPE_LIGHTNING,
@@ -370,6 +372,11 @@ function isWatchingAccount({ accountId }: { accountId: string }) {
 function isImportedAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
+}
+
+function isAllNetworkMockedAccount({ accountId }: { accountId: string }) {
+  // TODO There may be a misjudgment.
+  return accountId.includes(`${SEPERATOR}${COINTYPE_ALLNETWORKS}/`);
 }
 
 function buildHDAccountId({
@@ -749,6 +756,10 @@ function buildAccountValueKey({
   return `${accountId}_${networkId}`;
 }
 
+function isAllNetworkMockAddress({ address }: { address?: string }) {
+  return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+}
+
 export default {
   buildAccountValueKey,
   buildUtxoAddressRelPath,
@@ -807,4 +818,5 @@ export default {
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
   buildCustomEvmNetworkId,
+  isAllNetworkMockAddress,
 };

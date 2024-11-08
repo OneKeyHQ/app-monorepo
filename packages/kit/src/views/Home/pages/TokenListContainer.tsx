@@ -13,7 +13,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBUtxoAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -34,6 +38,9 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   mergeDeriveTokenList,
@@ -340,13 +347,16 @@ function TokenListContainer(props: ITabPageProps) {
     async ({
       accountId,
       networkId,
+      dbAccount,
       allNetworkDataInit,
     }: {
       accountId: string;
       networkId: string;
+      dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        dbAccount,
         networkId,
         accountId,
         flag: 'home-token-list',
@@ -568,22 +578,36 @@ function TokenListContainer(props: ITabPageProps) {
       networkId,
       xpub,
       accountAddress,
+      simpleDbLocalTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       xpub?: string;
       accountAddress: string;
+      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
+      const perf = perfUtils.createPerf(
+        EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
+      );
+
+      perf.markStart('getAccountLocalTokens', {
+        networkId,
+        accountAddress,
+        rawDataExist: !!simpleDbLocalTokensRawData,
+      });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
           accountId,
           networkId,
           accountAddress,
           xpub,
+          simpleDbLocalTokensRawData,
         });
+      perf.markEnd('getAccountLocalTokens');
 
       const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
 
+      perf.done();
       if (
         isEmpty(tokenList) &&
         isEmpty(riskyTokenList) &&
@@ -647,6 +671,12 @@ function TokenListContainer(props: ITabPageProps) {
       });
 
       refreshTokenListMap({
+        tokens: tokenListMap,
+        merge: true,
+        mergeDerive: true,
+      });
+
+      refreshSmallBalanceTokenListMap({
         tokens: tokenListMap,
         merge: true,
         mergeDerive: true,
@@ -720,6 +750,7 @@ function TokenListContainer(props: ITabPageProps) {
       refreshAllTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
+      refreshSmallBalanceTokenListMap,
       refreshTokenList,
       refreshTokenListMap,
       updateAccountOverviewState,
@@ -1089,13 +1120,17 @@ function TokenListContainer(props: ITabPageProps) {
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
-        xpub:
-          (account as IDBUtxoAccount)?.xpubSegwit ||
-          (account as IDBUtxoAccount)?.xpub,
+        // @ts-expect-error
+        xpub: account.xpubSegwit || account.xpub,
       });
     }
   }, [
-    account,
+    account?.address,
+    account?.id,
+    // @ts-expect-error
+    account?.xpub,
+    // @ts-expect-error
+    account?.xpubSegwit,
     handleClearAllNetworkData,
     network?.id,
     refreshAllTokenList,
@@ -1259,6 +1294,7 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <TokenListContainer showWalletActions {...props} />
+      {/* <TokenListContainerPerfTest showWalletActions {...props} /> */}
     </HomeTokenListProviderMirrorWrapper>
   );
 });

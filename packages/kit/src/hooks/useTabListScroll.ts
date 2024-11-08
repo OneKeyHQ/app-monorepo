@@ -33,6 +33,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
     // When using scaling settings in Windows, the element height and scroll distance may be floating-point numbers, which can lead to errors in calculations.
     //  Therefore, use a method where the absolute value is less than 1 to eliminate the error.
     const isNearBottom = () =>
+      scrollView &&
       Math.abs(
         scrollView.scrollTop +
           scrollView.clientHeight -
@@ -43,7 +44,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
       const listView = getListView();
       if (listView && !isNearBottom()) {
         const scrollTop = listView.scrollTop;
-        if (prevListScrollTop <= scrollTop) {
+        if (scrollView && prevListScrollTop <= scrollTop) {
           listView.scrollTop = 0;
           scrollView.scrollTop += scrollTop;
         }
@@ -101,7 +102,7 @@ export function useTabListScroll<T>({ inTabList }: { inTabList: boolean }) {
             return;
           }
         }
-        if (listView?.scrollTop === 0) {
+        if (listView?.scrollTop === 0 && scrollView) {
           if (direction < 0) {
             scrollView.scrollTop += Math.max(direction, -40);
           } else if (!isMac) {
