@@ -207,11 +207,16 @@ const initMenu = () => {
           label: i18nText(ETranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
         },
-        {
-          role: 'zoomIn',
-          label: i18nText(ETranslations.menu_zoom_in),
-          accelerator: 'CmdOrCtrl+Plus',
-        },
+        isMac
+          ? {
+              role: 'zoomIn',
+              label: i18nText(ETranslations.menu_zoom_in),
+            }
+          : {
+              role: 'zoomIn',
+              label: i18nText(ETranslations.menu_zoom_in),
+              accelerator: 'CmdOrCtrl+Shift++',
+            },
         {
           role: 'zoomOut',
           label: i18nText(ETranslations.menu_zoom_out),
