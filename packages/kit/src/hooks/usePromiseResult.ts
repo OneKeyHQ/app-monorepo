@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, isEmpty } from 'lodash';
 import { AppState } from 'react-native';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -125,6 +125,11 @@ export function usePromiseResult<T>(
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
+  const isEmptyResultRef = useRef<boolean>(true);
+
+  if (platformEnv.isNative) {
+    isEmptyResultRef.current = isEmpty(result);
+  }
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
   const _isFocused = useIsFocused({ testID: options.testID });
@@ -323,6 +328,15 @@ export function usePromiseResult<T>(
         resolveDefer();
       } else {
         resetDefer();
+      }
+
+      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
+      if (
+        platformEnv.isNative &&
+        isEmptyResultRef.current &&
+        optionsRef.current.revalidateOnReconnect
+      ) {
+        runWithPollingNonce();
       }
 
       if (isFocusedRefValue && optionsRef.current.revalidateOnFocus) {
