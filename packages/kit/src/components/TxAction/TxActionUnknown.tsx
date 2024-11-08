@@ -93,6 +93,9 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
     <TxActionCommonDetailView
       networkId={decodedTx.networkId}
       overview={{
+        title: intl.formatMessage({
+          id: ETranslations.global_estimated_results,
+        }),
         content: intl.formatMessage({
           id:
             sourceInfo && sourceInfo.origin

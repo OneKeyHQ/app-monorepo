@@ -86,6 +86,9 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
     <TxActionCommonDetailView
       networkId={decodedTx.networkId}
       overview={{
+        title: intl.formatMessage({
+          id: ETranslations.global_estimated_results,
+        }),
         content: functionName,
         avatar: {
           src: functionIcon,
