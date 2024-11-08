@@ -4,7 +4,7 @@ import { debounce } from 'lodash';
 import { AppState } from 'react-native';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { addEventListener as addNetInfoEventListener } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -301,24 +301,13 @@ export function usePromiseResult<T>(
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 
-  const prevIsInternetReachableRef = useRef<boolean | null>(null);
+  const { isInternetReachable } = useNetInfo();
+  const prevIsInternetReachable = usePrevious(isInternetReachable);
   useEffect(() => {
-    if (!optionsRef.current.revalidateOnReconnect) {
-      return;
+    if (!prevIsInternetReachable && isInternetReachable) {
+      runWithPollingNonce();
     }
-    const unsubscribe = addNetInfoEventListener(({ isInternetReachable }) => {
-      if (
-        prevIsInternetReachableRef.current === false &&
-        isInternetReachable === true
-      ) {
-        runWithPollingNonce();
-      }
-      prevIsInternetReachableRef.current = isInternetReachable;
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [runWithPollingNonce]);
+  }, [isInternetReachable, prevIsInternetReachable, runWithPollingNonce]);
 
   useEffect(() => {
     if (optionsRef.current.checkIsFocused) {
