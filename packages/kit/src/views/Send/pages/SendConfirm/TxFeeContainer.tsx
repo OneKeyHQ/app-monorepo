@@ -167,7 +167,6 @@ function TxFeeContainer(props: IProps) {
               gasEIP1559: r.gasEIP1559 ? [r.gasEIP1559] : undefined,
               feeUTXO: r.feeUTXO ? [r.feeUTXO] : undefined,
               feeTron: r.feeTron ? [r.feeTron] : undefined,
-              gasFil: r.gasFil ? [r.gasFil] : undefined,
               feeSol: r.feeSol ? [r.feeSol] : undefined,
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
             },
@@ -250,7 +249,6 @@ function TxFeeContainer(props: IProps) {
         txFee.gas?.length ||
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
-        txFee.gasFil?.length ||
         txFee.feeSol?.length ||
         txFee.feeCkb?.length ||
         0;
@@ -262,7 +260,6 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: txFee.gasEIP1559?.[i],
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
-          gasFil: txFee.gasFil?.[i],
           feeSol: txFee.feeSol?.[i],
           feeCkb: txFee.feeCkb?.[i],
         };

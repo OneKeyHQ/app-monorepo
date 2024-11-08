@@ -145,18 +145,6 @@ export function calculateTotalFeeRange({
     };
   }
 
-  if (feeInfo.gasFil) {
-    const gasInfo = feeInfo.gasFil;
-    const limit = gasInfo.gasLimit;
-    const max = new BigNumber(limit).times(gasInfo.gasFeeCap).toFixed();
-
-    return {
-      min: nanToZeroString(max),
-      max: nanToZeroString(max),
-      minForDisplay: nanToZeroString(max),
-      maxForDisplay: nanToZeroString(max),
-    };
-  }
   if (feeInfo.feeSol && estimateFeeParams?.estimateFeeParamsSol) {
     const { computeUnitPrice } = feeInfo.feeSol;
     const { computeUnitLimit, baseFee, computeUnitPriceDecimals } =
