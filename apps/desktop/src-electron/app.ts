@@ -210,12 +210,12 @@ const initMenu = () => {
         {
           role: 'zoomIn',
           label: i18nText(ETranslations.menu_zoom_in),
-          accelerator: 'CmdOrCtrl+-',
+          accelerator: 'CmdOrCtrl+Plus',
         },
         {
           role: 'zoomOut',
           label: i18nText(ETranslations.menu_zoom_out),
-          accelerator: 'CmdOrCtrl++',
+          accelerator: 'CmdOrCtrl+-',
         },
         { type: 'separator' },
         {
