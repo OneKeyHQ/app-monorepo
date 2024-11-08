@@ -36,7 +36,7 @@ function BasicStakePage() {
     route.params;
   const { token, provider, rewardToken } = details;
 
-  const { result } = usePromiseResult(
+  const { result: tokenResult } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getProtocolDetails({
         accountId,
@@ -51,8 +51,8 @@ function BasicStakePage() {
     },
   );
 
-  const balanceParsed = result?.token.balanceParsed || token.balanceParsed;
-  const price = result?.token.price || token.price;
+  const balanceParsed = tokenResult?.token.balanceParsed || token.balanceParsed;
+  const price = tokenResult?.token.price || token.price;
 
   const tokenInfo = token.info;
 
@@ -200,6 +200,7 @@ function BasicStakePage() {
       <Page.Body>
         <UniversalStake
           accountId={accountId}
+          networkId={networkId}
           decimals={details.token.info.decimals}
           details={details}
           apr={Number(provider.apr) > 0 ? provider.apr : undefined}

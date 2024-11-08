@@ -43,6 +43,7 @@ import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
   accountId: string;
+  networkId: string;
   price: string;
   balance: string;
 
@@ -83,6 +84,7 @@ type IUniversalStakeProps = {
 
 export const UniversalStake = ({
   accountId,
+  networkId,
   price,
   balance,
   apr,
@@ -509,7 +511,11 @@ export const UniversalStake = ({
           />
         ) : null}
       </CalculationList>
-      <TradeOrBuy token={details.token.info} accountId={accountId} />
+      <TradeOrBuy
+        token={details.token.info}
+        accountId={accountId}
+        networkId={networkId}
+      />
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,

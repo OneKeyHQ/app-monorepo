@@ -19,12 +19,13 @@ import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenList
 function BasicTradeOrBuy({
   token,
   accountId,
+  networkId,
 }: {
   token: IToken;
   accountId: string;
+  networkId: string;
 }) {
   const intl = useIntl();
-  const networkId = token.networkId;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(() => {
@@ -34,7 +35,7 @@ function BasicTradeOrBuy({
         importToToken: {
           ...token,
           contractAddress: token.address,
-          networkId: networkId as string,
+          networkId,
         },
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
       },
@@ -72,13 +73,19 @@ function BasicTradeOrBuy({
 export function TradeOrBuy({
   token,
   accountId,
+  networkId,
 }: {
   token: IToken;
   accountId: string;
+  networkId: string;
 }) {
   return (
     <HomeTokenListProviderMirror>
-      <BasicTradeOrBuy token={token} accountId={accountId} />
+      <BasicTradeOrBuy
+        token={token}
+        accountId={accountId}
+        networkId={networkId}
+      />
     </HomeTokenListProviderMirror>
   );
 }
