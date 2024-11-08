@@ -225,12 +225,19 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
+    const accountAddress = await this.getAccountAddress();
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const { swapInfo } = unsignedTx;
 
-    let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: accountAddress,
+        to: '',
+      },
+    };
     let toAddress = '';
 
     if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
