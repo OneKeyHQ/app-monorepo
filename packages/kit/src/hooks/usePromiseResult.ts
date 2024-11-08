@@ -4,6 +4,7 @@ import { debounce } from 'lodash';
 import { AppState } from 'react-native';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { addEventListener as addNetInfoEventListener } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -30,6 +31,11 @@ export type IPromiseResultOptions<T> = {
   pollingInterval?: number;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
+  // automatically revalidate when Page gets focused
+  revalidateOnFocus?: boolean;
+  // automatically revalidate when the browser regains a network connection
+  revalidateOnReconnect?: boolean;
+  testID?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -121,7 +127,7 @@ export function usePromiseResult<T>(
   );
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused();
+  const _isFocused = useIsFocused({ testID: options.testID });
   const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;
@@ -291,6 +297,30 @@ export function usePromiseResult<T>(
   }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
+  const runWithPollingNonce = useCallback(() => {
+    isDepsChangedOnBlur.current = false;
+    void runRef.current({ pollingNonce: pollingNonceRef.current });
+  }, [runRef]);
+
+  const prevIsInternetReachableRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!optionsRef.current.revalidateOnReconnect) {
+      return;
+    }
+    const unsubscribe = addNetInfoEventListener(({ isInternetReachable }) => {
+      if (
+        prevIsInternetReachableRef.current === false &&
+        isInternetReachable === true
+      ) {
+        runWithPollingNonce();
+      }
+      prevIsInternetReachableRef.current = isInternetReachable;
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [runWithPollingNonce]);
+
   useEffect(() => {
     if (optionsRef.current.checkIsFocused) {
       if (isFocusedRefValue) {
@@ -298,12 +328,16 @@ export function usePromiseResult<T>(
       } else {
         resetDefer();
       }
+
+      if (isFocusedRefValue && optionsRef.current.revalidateOnFocus) {
+        runWithPollingNonce();
+        return;
+      }
       if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        isDepsChangedOnBlur.current = false;
-        void runRef.current({ pollingNonce: pollingNonceRef.current });
+        runWithPollingNonce();
       }
     }
-  }, [isFocusedRefValue, resetDefer, resolveDefer]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
   return { result, isLoading, run, setResult };
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ActionList,
   IconButton,
@@ -15,8 +17,9 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import type {
   Animated,
@@ -55,6 +58,7 @@ export function DesktopTabItem(
     ...rest
   } = props;
 
+  const intl = useIntl();
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>();
   const [isHovered, setIsHovered] = useState(false);
@@ -160,6 +164,13 @@ export function DesktopTabItem(
             icon="CrossedSmallOutline"
             variant="tertiary"
             focusVisibleStyle={undefined}
+            title={
+              <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+                {intl.formatMessage({
+                  id: ETranslations.global_close,
+                })}
+              </Tooltip.Text>
+            }
             p="$0.5"
             m={-3}
             testID="browser-bar-options"
@@ -188,6 +199,7 @@ export function DesktopTabItem(
       actionList,
       avatarSrc,
       icon,
+      intl,
       isContextMenuOpened,
       isHovered,
       label,

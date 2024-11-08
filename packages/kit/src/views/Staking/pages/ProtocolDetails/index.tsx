@@ -113,6 +113,7 @@ const ProtocolDetailsPage = () => {
       details: result,
       accountId: earnAccount?.accountId,
       networkId,
+      indexedAccountId,
       symbol,
       provider,
       setStakeLoading,
@@ -124,11 +125,11 @@ const ProtocolDetailsPage = () => {
       },
     });
   }, [
-    result,
-    earnAccount,
-    networkId,
     handleStake,
-    setStakeLoading,
+    result,
+    earnAccount?.accountId,
+    networkId,
+    indexedAccountId,
     symbol,
     provider,
     run,
