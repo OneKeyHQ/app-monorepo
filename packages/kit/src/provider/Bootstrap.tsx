@@ -93,14 +93,19 @@ const useDesktopEvents = platformEnv.isDesktop
         } else {
           Dialog.confirm({
             title: intl.formatMessage({
-              id: ETranslations.update_app_update,
+              id: ETranslations.update_app_update_latest_version,
             }),
+            tone: 'success',
+            icon: 'Ai3StarSolid',
             description: intl.formatMessage({
               id: ETranslations.update_app_up_to_date,
             }),
             onClose: () => {
               isCheckingUpdate.current = false;
             },
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_ok,
+            }),
           });
         }
       }, [checkForUpdates, intl, toUpdatePreviewPage]);
@@ -148,16 +153,19 @@ const useDesktopEvents = platformEnv.isDesktop
       openSettingsRef.current = openSettings;
 
       useEffect(() => {
-        globalThis.desktopApi.on('update/checkForUpdates', () => {
+        globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
           void onCheckUpdateRef.current();
         });
 
         const debounceOpenSettings = debounce((isVisible: boolean) => {
           openSettingsRef.current(isVisible);
         }, 250);
-        globalThis.desktopApi.on('app/openSettings', debounceOpenSettings);
+        globalThis.desktopApi.on(
+          ipcMessageKeys.APP_OPEN_SETTINGS,
+          debounceOpenSettings,
+        );
 
-        globalThis.desktopApi.on('app/lockNow', () => {
+        globalThis.desktopApi.on(ipcMessageKeys.APP_LOCK_NOW, () => {
           void useOnLockRef.current();
         });
       }, []);
