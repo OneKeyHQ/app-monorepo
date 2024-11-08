@@ -30,10 +30,14 @@ function BasicTradeOrBuy({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId: networkId,
+        importToToken: {
+          ...token,
+          contractAddress: token.address,
+          networkId: networkId as string,
+        },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, token]);
 
   const { isSupported, handleFiatCrypto } = useFiatCrypto({
     networkId: networkId ?? '',
