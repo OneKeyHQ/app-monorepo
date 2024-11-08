@@ -194,7 +194,7 @@ function OverviewMarketVOL({
   atl,
   ath,
 }: {
-  currentPrice: number;
+  currentPrice: string;
   symbol: string;
   fdv: number;
   volume24h: number;
