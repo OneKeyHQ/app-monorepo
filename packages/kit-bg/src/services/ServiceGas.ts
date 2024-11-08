@@ -7,9 +7,9 @@ import {
 import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
+import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 import ServiceBase from './ServiceBase';
-import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 @backgroundClass()
 class ServiceGas extends ServiceBase {
