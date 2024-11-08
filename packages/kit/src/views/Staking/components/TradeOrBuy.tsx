@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -35,6 +36,7 @@ function BasicTradeOrBuy({
           contractAddress: token.address,
           networkId: networkId as string,
         },
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
       },
     });
   }, [navigation, networkId, token]);
