@@ -7,8 +7,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 
 function BasicNetworkAlert() {
-  const { isInternetReachable } = useNetInfo();
+  const { isInternetReachable, isRawInternetReachable } = useNetInfo();
   const intl = useIntl();
+  console.log('isInternetReachable-----', isInternetReachable, isRawInternetReachable);
   return isInternetReachable ? null : (
     <Alert
       type="critical"
