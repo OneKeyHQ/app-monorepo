@@ -1078,4 +1078,4 @@ function HistoryDetails() {
   );
 }
 
-export { HistoryDetails };
+export default HistoryDetails;

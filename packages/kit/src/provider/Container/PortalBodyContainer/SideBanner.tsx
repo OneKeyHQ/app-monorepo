@@ -40,6 +40,7 @@ function BasicSidebarBanner() {
 
   return isFirstVisit ? (
     <Stack
+      mt="$2"
       borderRadius="$2"
       borderCurve="continuous"
       bg="$bgStrong"

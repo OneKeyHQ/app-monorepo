@@ -992,7 +992,14 @@ export default class Vault extends VaultBase {
       }
     }
     if (actions.length === 0) {
-      actions.push({ type: EDecodedTxActionType.UNKNOWN });
+      const accountAddress = await this.getAccountAddress();
+      actions.push({
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: accountAddress,
+          to: '',
+        },
+      });
     }
 
     return actions;

@@ -39,9 +39,10 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
     });
 
     await this.setRawData(({ rawData }) => ({
-      list: merge({}, rawData?.list, {
+      list: {
+        ...rawData?.list,
         [key]: nfts,
-      }),
+      },
     }));
   }
 
