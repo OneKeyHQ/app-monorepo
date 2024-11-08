@@ -1,5 +1,9 @@
-import { SizableText, YStack } from '@onekeyhq/components';
-import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  fetch,
+  refresh,
+  useNetInfo,
+} from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 
 export function NetInfo() {
   const {
@@ -20,6 +24,26 @@ export function NetInfo() {
       <SizableText>{`isRawInternetReachable: ${String(
         isRawInternetReachable,
       )}`}</SizableText>
+      <XStack gap="$4">
+        <Button
+          onPress={() => {
+            void fetch().then((state) => {
+              alert(JSON.stringify(state));
+            });
+          }}
+        >
+          Fetch
+        </Button>
+        <Button
+          onPress={() => {
+            void refresh().then((state) => {
+              alert(JSON.stringify(state));
+            });
+          }}
+        >
+          Refresh
+        </Button>
+      </XStack>
     </YStack>
   );
 }
