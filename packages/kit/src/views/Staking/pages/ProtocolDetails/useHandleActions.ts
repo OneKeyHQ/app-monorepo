@@ -63,12 +63,14 @@ export const useHandleStake = () => {
       networkId,
       setStakeLoading,
       onSuccess,
+      indexedAccountId,
     }: {
       details?: IStakeProtocolDetails;
       accountId?: string;
       networkId: string;
       symbol: string;
       provider: string;
+      indexedAccountId?: string;
       setStakeLoading?: (value: boolean) => void;
       onSuccess?: () => void;
     }) => {
@@ -97,6 +99,7 @@ export const useHandleStake = () => {
       appNavigation.push(EModalStakingRoutes.Stake, {
         accountId,
         networkId,
+        indexedAccountId,
         details,
         onSuccess,
       });
