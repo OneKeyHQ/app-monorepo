@@ -19,6 +19,7 @@ export const useRouteIsFocused = ({
   | undefined = {}) => {
   const [isLocked] = useAppIsLockedAtom();
   const isFocused = useIsFocused();
+
   const rootRoutersLength = useMemo(getRootRoutersLength, []);
   return (
     (disableLockScreenCheck ? true : !isLocked) &&
