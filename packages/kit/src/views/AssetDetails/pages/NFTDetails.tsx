@@ -45,7 +45,7 @@ const canCollectNFT = (nft?: IAccountNFT, device?: IDBDevice) =>
   nft?.metadata?.image &&
   isCollectNFTDeviceCompatible(device);
 
-export function NFTDetails() {
+export default function NFTDetails() {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
