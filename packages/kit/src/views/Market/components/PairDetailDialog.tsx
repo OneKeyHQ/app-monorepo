@@ -73,17 +73,6 @@ export function PairDetailDialog({
         </PoolDetailsItem>
         <PoolDetailsItem
           title={intl.formatMessage({
-            id: ETranslations.market_twenty_four_hour_volume,
-          })}
-          isNumeric
-          bordered={false}
-        >
-          {String(volume)}
-        </PoolDetailsItem>
-      </XStack>
-      <XStack gap="$4">
-        <PoolDetailsItem
-          title={intl.formatMessage({
             id: ETranslations.market_last_updated,
           })}
           isNumeric
@@ -93,6 +82,8 @@ export function PairDetailDialog({
             id: ETranslations.market_last_updated,
           })}
         </PoolDetailsItem>
+      </XStack>
+      <XStack gap="$4">
         <PoolDetailsItem
           title={intl.formatMessage({
             id: ETranslations.market_trust_score,
@@ -102,27 +93,6 @@ export function PairDetailDialog({
           {trustScore === 'green' ? '🟢' : ''}
         </PoolDetailsItem>
       </XStack>
-      {/* <YStack gap="$6" pt="$6" pb="$10">
-        <MarketTokenAddress
-          networkId={onekeyNetworkId}
-          tokenName={baseTokenName.trim()}
-          address={baseToken.data.id.split('_').pop() as string}
-          uri={baseTokenImageUrl}
-        />
-        <MarketTokenAddress
-          networkId={onekeyNetworkId}
-          tokenName={quoteTokenName.trim()}
-          address={quoteToken.data.id.split('_').pop() as string}
-          uri={quoteTokenImageUrl}
-        />
-        <MarketTokenAddress
-          networkId={onekeyNetworkId}
-          tokenName={intl.formatMessage({
-            id: ETranslations.global_pair_contract,
-          })}
-          address={pairAddress.split('_').pop() as string}
-        />
-      </YStack> */}
     </YStack>
   );
 }
