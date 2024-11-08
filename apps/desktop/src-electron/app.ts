@@ -154,7 +154,7 @@ const initMenu = () => {
           },
         },
         { type: 'separator' },
-        {
+        isMac && {
           role: 'hide',
           accelerator: 'Alt+CmdOrCtrl+H',
           label: i18nText(ETranslations.menu_hide_onekey_wallet),
@@ -166,6 +166,7 @@ const initMenu = () => {
         { type: 'separator' },
         {
           role: 'quit',
+          accelerator: 'CmdOrCtrl+Q',
           label: i18nText(ETranslations.menu_quit_onekey_wallet),
         },
       ].filter(Boolean),
