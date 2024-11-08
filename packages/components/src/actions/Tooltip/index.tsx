@@ -26,17 +26,18 @@ export function TooltipText({
   onDisabledChange,
   shortcutKey,
 }: ISizableTextProps & {
-  shortcutKey?: EShortcutEvents;
+  shortcutKey?: EShortcutEvents | string[];
   onDisplayChange?: (isShow: boolean) => void;
   onDisabledChange?: (isShow: boolean) => void;
 }) {
-  const shortcutsKeys = useMemo(
-    () =>
-      platformEnv.isDesktop && shortcutKey
-        ? shortcutsMap[shortcutKey].keys
-        : [],
-    [shortcutKey],
-  );
+  const shortcutsKeys = useMemo(() => {
+    if (platformEnv.isDesktop && shortcutKey) {
+      return Array.isArray(shortcutKey)
+        ? shortcutKey
+        : shortcutsMap[shortcutKey].keys;
+    }
+    return [];
+  }, [shortcutKey]);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   // Since the browser does not trigger mouse events when the page scrolls,
   //  it is necessary to manually close the tooltip when page elements scroll

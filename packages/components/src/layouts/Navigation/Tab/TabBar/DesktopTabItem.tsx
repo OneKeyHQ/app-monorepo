@@ -34,7 +34,7 @@ export interface IDesktopTabItemProps {
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
-  shortcutKey?: EShortcutEvents;
+  shortcutKey?: EShortcutEvents | string[];
   onClose?: () => void;
 }
 
