@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
+import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -106,9 +107,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { account, wallet, network, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
-  const { isAllNetworkEnabled } = useAllNetworkCopyAddressHandler({
-    activeAccount,
-  });
+  const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
+    useAllNetworkCopyAddressHandler({
+      activeAccount,
+    });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
@@ -157,7 +159,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
-    handleAddressOnPress,
+    account?.address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS
+      ? handleAllNetworkCopyAddress
+      : handleAddressOnPress,
   );
 
   if (isAllNetworkEnabled) {
