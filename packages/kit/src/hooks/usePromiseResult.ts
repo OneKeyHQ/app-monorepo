@@ -315,7 +315,7 @@ export function usePromiseResult<T>(
       !prevIsInternetReachable &&
       isInternetReachable
     ) {
-      runWithPollingNonce({ alwaysSetState: true });
+      runWithPollingNonce();
     }
   }, [isInternetReachable, prevIsInternetReachable, runWithPollingNonce]);
 
