@@ -383,6 +383,7 @@
   earn_native_staking = 'earn.native_staking',
   earn_no_orders = 'earn.no_orders',
   earn_no_orders_desc = 'earn.no_orders_desc',
+  earn_not_enough_token = 'earn.not_enough_token',
   earn_number_day = 'earn.number_day',
   earn_number_days = 'earn.number_days',
   earn_number_days_number_block = 'earn.number_days_number_block',
