@@ -67,7 +67,6 @@ export function PairDetailDialog({
           })}
           isNumeric
           formatter="priceChange"
-          bordered={false}
         >
           {BigNumber(spread).toFixed(2)}
         </PoolDetailsItem>
@@ -76,7 +75,6 @@ export function PairDetailDialog({
             id: ETranslations.market_last_updated,
           })}
           isNumeric
-          bordered={false}
         >
           {intl.formatMessage({
             id: ETranslations.market_last_updated,
