@@ -202,9 +202,21 @@ const initMenu = () => {
               { type: 'separator' },
             ]
           : []),
-        { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
-        { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in) },
-        { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out) },
+        {
+          role: 'resetZoom',
+          label: i18nText(ETranslations.menu_actual_size),
+          accelerator: 'CmdOrCtrl+0',
+        },
+        {
+          role: 'zoomIn',
+          label: i18nText(ETranslations.menu_zoom_in),
+          accelerator: 'CmdOrCtrl+-',
+        },
+        {
+          role: 'zoomOut',
+          label: i18nText(ETranslations.menu_zoom_out),
+          accelerator: 'CmdOrCtrl++',
+        },
         { type: 'separator' },
         {
           role: 'togglefullscreen',
