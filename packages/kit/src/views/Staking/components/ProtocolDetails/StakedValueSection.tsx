@@ -41,7 +41,7 @@ function StakedValueInfo({
     },
   ] = useSettingsPersistAtom();
   return (
-    <YStack gap="$6">
+    <YStack gap="$8">
       <YStack>
         <SizableText size="$headingLg" pt="$2">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
