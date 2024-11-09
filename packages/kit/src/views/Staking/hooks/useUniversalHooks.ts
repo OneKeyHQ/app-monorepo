@@ -57,7 +57,7 @@ export function useUniversalStake({
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
         networkId,
         accountId,
-        tx: stakeTx,
+        tx: stakeTx.tx,
       });
 
       let useFeeInTx;
@@ -69,10 +69,31 @@ export function useUniversalStake({
         useFeeInTx = true;
         feeInfoEditable = false;
       }
+
+      const stakeInfoWithOrderId: IStakingInfo = {
+        ...(stakingInfo as IStakingInfo),
+        orderId: stakeTx.orderId,
+      };
+
       await navigationToSendConfirm({
         encodedTx,
-        stakingInfo,
-        onSuccess,
+        stakingInfo: stakeInfoWithOrderId,
+        onSuccess: async (data) => {
+          if (
+            Array.isArray(data) &&
+            data.length === 1 &&
+            data[0].signedTx?.txid &&
+            stakeInfoWithOrderId.orderId
+          ) {
+            await backgroundApiProxy.serviceStaking.addEarnOrder({
+              orderId: stakeInfoWithOrderId.orderId,
+              networkId,
+              txId: data[0].signedTx.txid,
+              status: data[0].decodedTx.status,
+            });
+          }
+          onSuccess?.(data);
+        },
         onFail,
         useFeeInTx,
         feeInfoEditable,
@@ -170,7 +191,7 @@ export function useUniversalWithdraw({
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
         networkId,
         accountId,
-        tx: stakeTx,
+        tx: stakeTx.tx,
       });
       let useFeeInTx;
       let feeInfoEditable;
@@ -252,7 +273,7 @@ export function useUniversalClaim({
         const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
           networkId,
           accountId,
-          tx: stakeTx,
+          tx: stakeTx.tx,
         });
         let useFeeInTx;
         let feeInfoEditable;

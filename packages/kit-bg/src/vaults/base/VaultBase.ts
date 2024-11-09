@@ -76,10 +76,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
-import type {
-  IStakeTxResponse,
-  IStakingInfo,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -1120,7 +1117,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // Staking
-  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
     return Promise.resolve(params as IEncodedTx);
   }
 

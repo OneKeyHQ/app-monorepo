@@ -15,10 +15,10 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
+  IChangedPendingTxInfo,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
-  IFetchHistoryTxDetailsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
@@ -287,14 +287,30 @@ class ServiceHistory extends ServiceBase {
     }
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
     localHistoryPendingTxs.forEach((tx) => {
       const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
       if (!txInResult) {
         accountsWithChangedPendingTxs.add(
           `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
         );
+        const confirmedTx = result.find((item) => item.id === tx.id);
+        if (confirmedTx) {
+          changedPendingTxInfos.push({
+            accountId: confirmedTx.decodedTx.accountId,
+            networkId: confirmedTx.decodedTx.networkId,
+            txId: confirmedTx.decodedTx.txid,
+            status: confirmedTx.decodedTx.status,
+          });
+        }
       }
     });
+
+    if (changedPendingTxInfos.length > 0) {
+      void this.backgroundApi.serviceStaking.updateEarnOrder({
+        txs: changedPendingTxInfos,
+      });
+    }
 
     return {
       txs: result,
@@ -995,6 +1011,8 @@ class ServiceHistory extends ServiceBase {
               ? ESwapTxHistoryStatus.CANCELING
               : ESwapTxHistoryStatus.PENDING,
         });
+
+        // TODO: Earn 交易加速的场景，监听 txid 的变化
       }
     }
 

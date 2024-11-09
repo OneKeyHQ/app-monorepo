@@ -14,7 +14,10 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IChangedPendingTxInfo,
+} from '@onekeyhq/shared/types/history';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
@@ -36,15 +39,22 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  IAddEarnOrderParams,
+  IEarnOrderItem,
+} from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -160,7 +170,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/stake`, {
+    }>(`/earn/v2/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -815,7 +825,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTxResponse;
+    tx: IStakeTx;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildStakeEncodedTx(tx as any);
@@ -899,6 +909,64 @@ class ServiceStaking extends ServiceBase {
       }
       return item;
     });
+  }
+
+  @backgroundMethod()
+  async addEarnOrder(order: IAddEarnOrderParams) {
+    console.log('serviceStaking addEarnOrder: ======>>>>>>>: ', order);
+    return simpleDb.earnOrders.addOrder(order);
+  }
+
+  @backgroundMethod()
+  async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
+    console.log('updateEarnOrder: ======>>>>>>>: ', txs);
+    for (const tx of txs) {
+      try {
+        const order =
+          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+        if (order && tx.status !== EDecodedTxStatus.Pending) {
+          console.log('updateEarnOrder 1: ======>>>>>>>: ', order);
+          order.status = tx.status;
+          await this.updateEarnOrderStatusToServer({ order });
+          console.log('updateEarnOrder 2: ======>>>>>>>: fetch server');
+          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
+            currentTxId: tx.txId,
+            status: tx.status,
+          });
+          console.log('updateEarnOrder 3: ======>>>>>>>: update db: ', {
+            currentTxId: tx.txId,
+            status: tx.status,
+          });
+        }
+      } catch (e) {
+        // ignore error, continue loop
+        console.error('updateEarnOrder error: ', e, `tx: ${tx.txId}`);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
+    const maxRetries = 3;
+    let lastError;
+
+    for (let i = 0; i < maxRetries; i += 1) {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Earn);
+        await client.post('/earn/v1/orders', {
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+        });
+        return; // Return early on success
+      } catch (error) {
+        lastError = error;
+        if (i === maxRetries - 1) break; // Exit loop on final retry
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s, 3s
+      }
+    }
+
+    throw lastError; // Throw last error after all retries fail
   }
 }
 

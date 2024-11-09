@@ -1,15 +1,14 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-
-export type IEarnOrderStatus = 'Success' | 'Failed' | 'Pending';
 
 export interface IEarnOrderItem {
   orderId: string;
   networkId: string;
   txId: string;
   previousTxIds: string[];
-  status: IEarnOrderStatus;
+  status: EDecodedTxStatus;
   updatedAt: number;
   createdAt: number;
 }
@@ -19,15 +18,18 @@ export interface IEarnOrderDBStructure {
   txIdToOrderIdMap: Record<string, string>;
 }
 
+export type IAddEarnOrderParams = Omit<
+  IEarnOrderItem,
+  'updatedAt' | 'createdAt' | 'previousTxIds'
+>;
+
 export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStructure> {
   entityName = 'earnOrders';
 
   override enableCache = false;
 
   @backgroundMethod()
-  async addOrder(
-    order: Omit<IEarnOrderItem, 'updatedAt' | 'createdAt' | 'previousTxIds'>,
-  ) {
+  async addOrder(order: IAddEarnOrderParams) {
     await this.setRawData(({ rawData }) => {
       const data: IEarnOrderDBStructure = {
         data: { ...(rawData?.data || {}) },
@@ -49,7 +51,7 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   async updateOrderStatusByTxId(params: {
     currentTxId: string;
     newTxId?: string;
-    status: IEarnOrderStatus;
+    status: EDecodedTxStatus;
   }): Promise<{
     success: boolean;
     order?: IEarnOrderItem;
