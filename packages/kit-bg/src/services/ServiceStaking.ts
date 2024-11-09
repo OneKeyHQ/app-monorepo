@@ -968,6 +968,17 @@ class ServiceStaking extends ServiceBase {
 
     throw lastError; // Throw last error after all retries fail
   }
+
+  @backgroundMethod()
+  async updateOrderStatusByTxId(params: {
+    currentTxId: string;
+    newTxId?: string;
+    status: EDecodedTxStatus;
+  }) {
+    await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+      params,
+    );
+  }
 }
 
 export default ServiceStaking;

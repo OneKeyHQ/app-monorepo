@@ -1013,7 +1013,15 @@ class ServiceHistory extends ServiceBase {
               : ESwapTxHistoryStatus.PENDING,
         });
 
-        // TODO: Earn 交易加速的场景，监听 txid 的变化
+        // Listen for staking transaction speed-up changes
+        void this.backgroundApi.serviceStaking.updateOrderStatusByTxId({
+          currentTxId: prevTx.decodedTx.txid,
+          newTxId: newHistoryTx.decodedTx.txid,
+          status:
+            replaceTxInfo.replaceType === EReplaceTxType.Cancel
+              ? EDecodedTxStatus.Removed
+              : EDecodedTxStatus.Pending,
+        });
       }
     }
 
