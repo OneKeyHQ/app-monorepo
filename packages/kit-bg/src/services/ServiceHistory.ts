@@ -307,6 +307,7 @@ class ServiceHistory extends ServiceBase {
     });
 
     if (changedPendingTxInfos.length > 0) {
+      // Check if staking transaction status has changed, if so request backend to update order status
       void this.backgroundApi.serviceStaking.updateEarnOrder({
         txs: changedPendingTxInfos,
       });

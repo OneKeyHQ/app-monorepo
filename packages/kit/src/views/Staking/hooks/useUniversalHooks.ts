@@ -12,8 +12,47 @@ import type {
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
+
+const createStakeInfoWithOrderId = ({
+  stakingInfo,
+  orderId,
+}: {
+  stakingInfo: IStakingInfo | undefined;
+  orderId: string;
+}): IStakingInfo => ({
+  ...(stakingInfo as IStakingInfo),
+  orderId,
+});
+
+const handleStakeSuccess = async ({
+  data,
+  stakeInfo,
+  networkId,
+  onSuccess,
+}: {
+  data: ISendTxOnSuccessData[];
+  stakeInfo: IStakingInfo;
+  networkId: string;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+}) => {
+  if (
+    Array.isArray(data) &&
+    data.length === 1 &&
+    data[0].signedTx?.txid &&
+    stakeInfo.orderId
+  ) {
+    await backgroundApiProxy.serviceStaking.addEarnOrder({
+      orderId: stakeInfo.orderId,
+      networkId,
+      txId: data[0].signedTx.txid,
+      status: data[0].decodedTx.status,
+    });
+  }
+  onSuccess?.(data);
+};
 
 export function useUniversalStake({
   networkId,
@@ -70,29 +109,21 @@ export function useUniversalStake({
         feeInfoEditable = false;
       }
 
-      const stakeInfoWithOrderId: IStakingInfo = {
-        ...(stakingInfo as IStakingInfo),
+      const stakeInfoWithOrderId = createStakeInfoWithOrderId({
+        stakingInfo,
         orderId: stakeTx.orderId,
-      };
+      });
 
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo: stakeInfoWithOrderId,
         onSuccess: async (data) => {
-          if (
-            Array.isArray(data) &&
-            data.length === 1 &&
-            data[0].signedTx?.txid &&
-            stakeInfoWithOrderId.orderId
-          ) {
-            await backgroundApiProxy.serviceStaking.addEarnOrder({
-              orderId: stakeInfoWithOrderId.orderId,
-              networkId,
-              txId: data[0].signedTx.txid,
-              status: data[0].decodedTx.status,
-            });
-          }
-          onSuccess?.(data);
+          await handleStakeSuccess({
+            data,
+            stakeInfo: stakeInfoWithOrderId,
+            networkId,
+            onSuccess,
+          });
         },
         onFail,
         useFeeInTx,
@@ -202,6 +233,12 @@ export function useUniversalWithdraw({
         useFeeInTx = true;
         feeInfoEditable = false;
       }
+
+      const stakeInfoWithOrderId = createStakeInfoWithOrderId({
+        stakingInfo,
+        orderId: stakeTx.orderId,
+      });
+
       await navigationToSendConfirm({
         encodedTx,
         stakingInfo,
@@ -210,7 +247,12 @@ export function useUniversalWithdraw({
         feeInfoEditable,
         onSuccess: async (data) => {
           if (!stakingConfig?.withdrawSignOnly) {
-            onSuccess?.(data);
+            await handleStakeSuccess({
+              data,
+              stakeInfo: stakeInfoWithOrderId,
+              networkId,
+              onSuccess,
+            });
           } else {
             const psbtHex = data[0].signedTx.finalizedPsbtHex;
             if (psbtHex && identity) {
@@ -284,10 +326,23 @@ export function useUniversalClaim({
           useFeeInTx = true;
           feeInfoEditable = false;
         }
+
+        const stakeInfoWithOrderId = createStakeInfoWithOrderId({
+          stakingInfo,
+          orderId: stakeTx.orderId,
+        });
+
         await navigationToSendConfirm({
           encodedTx,
           stakingInfo,
-          onSuccess,
+          onSuccess: async (data) => {
+            await handleStakeSuccess({
+              data,
+              stakeInfo: stakeInfoWithOrderId,
+              networkId,
+              onSuccess,
+            });
+          },
           onFail,
           useFeeInTx,
           feeInfoEditable,
