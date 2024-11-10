@@ -153,6 +153,7 @@ function DialogContent({
             await serviceCustomRpc.measureRpcStatus({
               rpcUrl,
               networkId,
+              validateChainId: true,
             });
             await serviceCustomRpc.addCustomRpc({
               rpc: rpcUrl,

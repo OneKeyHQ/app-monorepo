@@ -91,6 +91,7 @@ class ServiceCustomRpc extends ServiceBase {
     });
     const result = await vault.getCustomRpcEndpointStatus({
       rpcUrl: params.rpcUrl,
+      validateChainId: params.validateChainId,
     });
     return result;
   }

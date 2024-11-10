@@ -20,6 +20,9 @@ const SettingAppAutoLockModal = LazyLoadPage(
 const SettingCurrencyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Currency'),
 );
+const SettingClearAppCacheModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/ClearAppCache'),
+);
 const SettingListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
 );
@@ -111,6 +114,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingClearAppCache,
+    component: SettingClearAppCacheModal,
   },
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,

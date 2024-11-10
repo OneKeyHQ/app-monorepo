@@ -35,6 +35,7 @@ export type IPromiseResultOptions<T> = {
   revalidateOnFocus?: boolean;
   // automatically revalidate when the browser regains a network connection
   revalidateOnReconnect?: boolean;
+  testID?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -126,7 +127,7 @@ export function usePromiseResult<T>(
   );
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused();
+  const _isFocused = useIsFocused({ testID: options.testID });
   const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;

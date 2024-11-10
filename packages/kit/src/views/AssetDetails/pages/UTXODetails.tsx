@@ -206,4 +206,4 @@ function UTXODetails() {
   );
 }
 
-export { UTXODetails };
+export default UTXODetails;
