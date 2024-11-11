@@ -36,9 +36,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IDiscoveryHomePageData } from '@onekeyhq/shared/types/discovery';
 import type {
   IEarnAccount,
   IEarnAccountToken,
@@ -55,6 +58,7 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
+import { EarntNavigation } from './earnUtils';
 
 interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
@@ -714,20 +718,44 @@ function BasicEarnHome() {
 
   const navigation = useAppNavigation();
 
-  const onBannerPress = useCallback(async () => {
-    if (account) {
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetails,
-        params: {
-          accountId: account?.id ?? '',
-          networkId: 'btc--0',
-          indexedAccountId: indexedAccount?.id,
-          symbol: 'BTC',
-          provider: 'babylon',
-        },
-      });
-    }
-  }, [account, indexedAccount?.id, navigation]);
+  const onBannerPress = useCallback(
+    async ({
+      href,
+    }: {
+      imgUrl: string;
+      title: string;
+      bannerId: string;
+      src: string;
+      href: string;
+      hrefType: string;
+      rank: number;
+      useSystemBrowser: boolean;
+      theme?: 'light' | 'dark';
+    }) => {
+      if (account) {
+        if (href.includes('/earn/staking')) {
+          const [path, query] = href.split('?');
+          const paths = path.split('/');
+          const provider = paths.pop();
+          const symbol = paths.pop();
+          const params = new URLSearchParams(query);
+
+          if (provider && symbol) {
+            void EarntNavigation.pushDetailPageFromDeeplink(navigation, {
+              accountId: account?.id ?? '',
+              indexedAccountId: indexedAccount?.id,
+              provider,
+              symbol,
+              networkId: params.get('networkId'),
+            });
+          }
+          return;
+        }
+        openUrlInApp(href);
+      }
+    },
+    [account, indexedAccount?.id, navigation],
+  );
 
   const banners = useMemo(() => {
     if (earnBanners) {
