@@ -218,7 +218,7 @@ export function DesktopTabItem(
       ref={stackRef}
       style={tabBarStyle as ViewStyle}
     >
-      {shortcutKey ? (
+      {platformEnv.isDesktop && shortcutKey ? (
         <Tooltip
           shortcutKey={shortcutKey}
           renderTrigger={trigger}
