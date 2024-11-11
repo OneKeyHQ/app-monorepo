@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   isEthSignType,
   isPrimaryTypeOrderSign,
@@ -64,6 +65,11 @@ function useRiskDetection({
       riskLevel === EHostSecurityLevel.Security ||
       riskLevel === EHostSecurityLevel.Unknown
     );
+    defaultLogger.discovery.dapp.dappRiskDetect({
+      riskLevel,
+      showContinueOperateCheckBox: show,
+      currentContinueOperate: continueOperate,
+    });
     if (!show && !continueOperate) {
       setContinueOperate(true);
     }

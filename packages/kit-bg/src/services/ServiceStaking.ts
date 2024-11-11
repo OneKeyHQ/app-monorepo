@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -913,34 +914,34 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
-    console.log('serviceStaking addEarnOrder: ======>>>>>>>: ', order);
+    defaultLogger.staking.order.addOrder(order);
     return simpleDb.earnOrders.addOrder(order);
   }
 
   @backgroundMethod()
   async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
-    console.log('updateEarnOrder: ======>>>>>>>: ', txs);
     for (const tx of txs) {
       try {
         const order =
           await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
         if (order && tx.status !== EDecodedTxStatus.Pending) {
-          console.log('updateEarnOrder 1: ======>>>>>>>: ', order);
           order.status = tx.status;
           await this.updateEarnOrderStatusToServer({ order });
-          console.log('updateEarnOrder 2: ======>>>>>>>: fetch server');
           await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
             currentTxId: tx.txId,
             status: tx.status,
           });
-          console.log('updateEarnOrder 3: ======>>>>>>>: update db: ', {
-            currentTxId: tx.txId,
+          defaultLogger.staking.order.updateOrderStatus({
+            txId: tx.txId,
             status: tx.status,
           });
         }
       } catch (e) {
         // ignore error, continue loop
-        console.error('updateEarnOrder error: ', e, `tx: ${tx.txId}`);
+        defaultLogger.staking.order.updateOrderStatusError({
+          txId: tx.txId,
+          status: tx.status,
+        });
       }
     }
   }
@@ -975,6 +976,7 @@ class ServiceStaking extends ServiceBase {
     newTxId?: string;
     status: EDecodedTxStatus;
   }) {
+    defaultLogger.staking.order.updateOrderStatusByTxId(params);
     await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
       params,
     );
