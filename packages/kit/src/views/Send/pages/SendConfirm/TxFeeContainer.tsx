@@ -346,7 +346,7 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeDot && !isEmpty(txFee.feeDot)) {
           customFeeInfo.feeDot = {
             ...txFee.feeDot[sendSelectedFee.presetIndex],
-            ...(customFee?.feeDot ?? {}),
+            ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
           };
         }
 
