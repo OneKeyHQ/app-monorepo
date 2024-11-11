@@ -54,7 +54,7 @@ function BasicTradeOrBuy({
       jc="space-between"
       py="$5"
     >
-      <SizableText>
+      <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
           { token: token.symbol.toUpperCase() },
