@@ -146,14 +146,15 @@ class ProviderApiPolkadot extends ProviderApiBase {
     params: boolean,
   ): Promise<InjectedAccount[]> {
     let account = await this.account(request);
-
-    if (account) {
-      return [this.accountsToInjectedAccount(account)];
+    let injectedAccount = this.accountsToInjectedAccount(account);
+    if (injectedAccount) {
+      return [injectedAccount];
     }
 
     account = await this.account(request);
-    if (account) {
-      return [this.accountsToInjectedAccount(account)];
+    injectedAccount = this.accountsToInjectedAccount(account);
+    if (injectedAccount) {
+      return [injectedAccount];
     }
     return [];
   }
