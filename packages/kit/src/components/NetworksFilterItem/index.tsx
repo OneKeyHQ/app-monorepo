@@ -68,7 +68,7 @@ export function NetworksFilterItem({
       {networkName ? (
         <SizableText
           numberOfLines={1}
-          color={isSelected ? '$textOnColor' : '$textSubdued'}
+          color={isSelected ? '$text' : '$textSubdued'}
           size="$bodyLgMedium"
           $gtMd={{
             size: '$bodyMdMedium',
