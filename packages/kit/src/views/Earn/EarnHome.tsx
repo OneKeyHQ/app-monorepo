@@ -793,6 +793,12 @@ function BasicEarnHome() {
                   data={bannerData}
                   onItemPress={onBannerPress}
                   isLoading={false}
+                  leftIconButtonStyle={{
+                    left: '$1',
+                  }}
+                  rightIconButtonStyle={{
+                    right: '$1',
+                  }}
                   indicatorContainerStyle={{
                     right: '$2.5',
                     bottom: '$3',
