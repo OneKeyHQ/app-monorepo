@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
 import { MarketHomeHeader } from './components/MarketHomeHeader';
@@ -88,12 +89,14 @@ function MarketHome() {
       useNativeDriver: false,
     }).start();
   }, [pageWidth]);
-  const [categories, setCategories] = useState<IMarketCategory[]>([]);
-  useEffect(() => {
-    void backgroundApiProxy.serviceMarket.fetchCategories().then((response) => {
-      setCategories(response);
-    });
-  }, []);
+
+  const { result: categories } = usePromiseResult(
+    () => backgroundApiProxy.serviceMarket.fetchCategories(),
+    [],
+    {
+      revalidateOnReconnect: true,
+    },
+  );
 
   const { gtMd } = useMedia();
 

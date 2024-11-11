@@ -378,6 +378,7 @@
   "earn.native_staking": "ステーキング",
   "earn.no_orders": "注文なし",
   "earn.no_orders_desc": "まだ資産をステークしていません。",
+  "earn.not_enough_token": "{token}が足りませんか?",
   "earn.number_day": "{number}日目",
   "earn.number_days": "{number} 日",
   "earn.number_days_number_block": "{number_days}日間（{number}ブロック）",
