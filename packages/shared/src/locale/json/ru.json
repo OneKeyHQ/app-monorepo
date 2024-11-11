@@ -378,6 +378,7 @@
   "earn.native_staking": "Нативный стейкинг",
   "earn.no_orders": "Нет заказов",
   "earn.no_orders_desc": "Вы еще не ставили никаких активов.",
+  "earn.not_enough_token": "Недостаточно {token}?",
   "earn.number_day": "{number} день",
   "earn.number_days": "{number} день(дней)",
   "earn.number_days_number_block": "{number_days} дней ({number} блок)",

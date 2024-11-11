@@ -26,7 +26,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const refreshNetInfo = debounce(() => {
   void refresh();
-}, 1000);
+}, 2500);
 
 axios.interceptors.request.use(async (config) => {
   if (config.timeout === undefined) {

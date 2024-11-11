@@ -21,7 +21,6 @@ export function ProtocolDetails({
   return (
     <>
       <YStack gap="$8">{children}</YStack>
-      <Divider />
       <ProfitSection details={details} />
       <Divider />
       <ProviderSection details={details} />
