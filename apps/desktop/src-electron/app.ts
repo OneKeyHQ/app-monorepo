@@ -154,7 +154,7 @@ const initMenu = () => {
           },
         },
         { type: 'separator' },
-        {
+        isMac && {
           role: 'hide',
           accelerator: 'Alt+CmdOrCtrl+H',
           label: i18nText(ETranslations.menu_hide_onekey_wallet),
@@ -166,6 +166,7 @@ const initMenu = () => {
         { type: 'separator' },
         {
           role: 'quit',
+          accelerator: 'CmdOrCtrl+Q',
           label: i18nText(ETranslations.menu_quit_onekey_wallet),
         },
       ].filter(Boolean),
@@ -201,9 +202,26 @@ const initMenu = () => {
               { type: 'separator' },
             ]
           : []),
-        { role: 'resetZoom', label: i18nText(ETranslations.menu_actual_size) },
-        { role: 'zoomIn', label: i18nText(ETranslations.menu_zoom_in) },
-        { role: 'zoomOut', label: i18nText(ETranslations.menu_zoom_out) },
+        {
+          role: 'resetZoom',
+          label: i18nText(ETranslations.menu_actual_size),
+          accelerator: 'CmdOrCtrl+0',
+        },
+        isMac
+          ? {
+              role: 'zoomIn',
+              label: i18nText(ETranslations.menu_zoom_in),
+            }
+          : {
+              role: 'zoomIn',
+              label: i18nText(ETranslations.menu_zoom_in),
+              accelerator: 'CmdOrCtrl+Shift+]',
+            },
+        {
+          role: 'zoomOut',
+          label: i18nText(ETranslations.menu_zoom_out),
+          accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
+        },
         { type: 'separator' },
         {
           role: 'togglefullscreen',
