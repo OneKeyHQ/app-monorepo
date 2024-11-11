@@ -230,6 +230,13 @@ export default class Vault extends VaultBase {
       }
     }
 
+    actions.sort((a, b) => {
+      if (a.type === EDecodedTxActionType.ASSET_TRANSFER) {
+        return -1;
+      }
+      return 1;
+    });
+
     const tx = {
       txid: '',
       owner: accountAddress,
@@ -250,11 +257,18 @@ export default class Vault extends VaultBase {
   }
 
   async _decodeAlgoTx(encodedTx: IEncodedTxAlgo) {
-    let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
     const nativeTx = sdkAlgo.decodeObj(
       Buffer.from(encodedTx, 'base64'),
     ) as ISdkAlgoEncodedTransaction;
     const sender = sdkAlgo.encodeAddress(nativeTx.snd);
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: sender,
+        to: '',
+      },
+    };
 
     if (nativeTx.type === sdkAlgo.TransactionType.pay) {
       const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({

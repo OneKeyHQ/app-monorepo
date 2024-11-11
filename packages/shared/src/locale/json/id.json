@@ -378,6 +378,7 @@
   "earn.native_staking": "Staking asli",
   "earn.no_orders": "Tidak ada pesanan",
   "earn.no_orders_desc": "Anda belum mempertaruhkan aset apa pun.",
+  "earn.not_enough_token": "Tidak cukup {token}?",
   "earn.number_day": "{number} hari",
   "earn.number_days": "{number} hari",
   "earn.number_days_number_block": "{number_days} hari ({number} blok)",
