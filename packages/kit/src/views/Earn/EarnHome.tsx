@@ -729,6 +729,23 @@ function BasicEarnHome() {
           imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
         },
       },
+      {
+        'title': intl.formatMessage({
+          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
+        }),
+        'bannerId': '46f6ffc0e-8c7a-4d86-ad83-fe5629975916',
+        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
+        titleTextProps: {
+          color: '$textInverseLight',
+          size: '$headingMd',
+          numberOfLines: 2,
+          maxWidth: 140,
+        } as ISizableTextProps,
+        $gtLg: {
+          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
+          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
+        },
+      },
     ],
     [intl],
   );
@@ -776,6 +793,10 @@ function BasicEarnHome() {
                   data={bannerData}
                   onItemPress={onBannerPress}
                   isLoading={false}
+                  indicatorContainerStyle={{
+                    right: '$2.5',
+                    bottom: '$3',
+                  }}
                   itemTitleContainerStyle={{
                     top: 0,
                     bottom: 0,
