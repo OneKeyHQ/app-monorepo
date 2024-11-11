@@ -739,14 +739,14 @@ function BasicEarnHome() {
           const provider = paths.pop();
           const symbol = paths.pop();
           const params = new URLSearchParams(query);
-
-          if (provider && symbol) {
+          const networkId = params.get('networkId');
+          if (provider && symbol && networkId) {
             void EarntNavigation.pushDetailPageFromDeeplink(navigation, {
               accountId: account?.id ?? '',
               indexedAccountId: indexedAccount?.id,
               provider,
               symbol,
-              networkId: params.get('networkId'),
+              networkId,
             });
           }
           return;
