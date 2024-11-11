@@ -6,7 +6,7 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 const getRootRoutersLength = () =>
-  rootNavigationRef.current?.getRootState()?.routes?.length || 0;
+  rootNavigationRef.current?.getRootState()?.routes?.length || 1;
 
 export const useRouteIsFocused = ({
   disableLockScreenCheck = false,

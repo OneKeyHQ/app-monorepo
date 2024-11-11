@@ -55,7 +55,12 @@ function BasicTradeOrBuy({
       jc="space-between"
       py="$5"
     >
-      <SizableText>{`Not enough ${token.symbol.toUpperCase()}?`}</SizableText>
+      <SizableText>
+        {intl.formatMessage(
+          { id: ETranslations.earn_not_enough_token },
+          { token: token.symbol.toUpperCase() },
+        )}
+      </SizableText>
       <XStack gap="$2">
         <Button size="small" onPress={handleOnSwap}>
           {intl.formatMessage({ id: ETranslations.global_trade })}

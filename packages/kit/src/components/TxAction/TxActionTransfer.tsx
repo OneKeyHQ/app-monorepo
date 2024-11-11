@@ -622,7 +622,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       const transfersContent = (
         <YStack py="$2.5">
-          <XStack px="$5" pb="$2">
+          <XStack px="$5" pb="$1">
             {isInternalStaking && isEmpty(transfersBlock) ? null : (
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({

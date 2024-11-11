@@ -655,6 +655,7 @@ function BasicEarnHome() {
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
+      revalidateOnReconnect: true,
     },
   );
 
