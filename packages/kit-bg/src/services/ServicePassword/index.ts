@@ -58,11 +58,11 @@ import type { IPasswordRes } from './types';
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
 
-  private cachedPasswordActivityTimeStep = 0;
-
   private cachedPasswordTTL: number = timerUtils.getTimeDurationMs({
     hour: 2,
   });
+
+  private cachedPasswordTimeOutObject: NodeJS.Timeout | null = null;
 
   private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
     minute: 5,
@@ -166,22 +166,23 @@ export default class ServicePassword extends ServiceBase {
   async setCachedPassword(password: string): Promise<string> {
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
-    this.cachedPasswordActivityTimeStep = Date.now();
+    if (this.cachedPasswordTimeOutObject) {
+      clearTimeout(this.cachedPasswordTimeOutObject);
+    }
+    this.cachedPasswordTimeOutObject = setTimeout(() => {
+      void this.clearCachedPassword();
+    }, this.cachedPasswordTTL);
     return password;
   }
 
   @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
-    const now = Date.now();
-    if (
-      !this.cachedPassword ||
-      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL ||
-      now < this.cachedPasswordActivityTimeStep
-    ) {
-      await this.clearCachedPassword();
-      return undefined;
+    if (this.cachedPasswordTimeOutObject) {
+      clearTimeout(this.cachedPasswordTimeOutObject);
     }
-    this.cachedPasswordActivityTimeStep = now;
+    this.cachedPasswordTimeOutObject = setTimeout(() => {
+      void this.clearCachedPassword();
+    }, this.cachedPasswordTTL);
     return this.cachedPassword;
   }
 

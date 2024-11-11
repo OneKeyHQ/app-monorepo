@@ -324,6 +324,9 @@ export function useSwapBuildTx() {
                 .shiftedBy(-fromToken.decimals)
                 .toFixed(),
             };
+          } else if (res?.OKXTxObject) {
+            // todo
+            console.log('swap__okxTxObject', res.OKXTxObject);
           } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
