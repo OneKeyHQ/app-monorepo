@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "스왑 전 토큰 승인이 필요합니다.",
   "provider.ios_popover.approval_require_title": "승인 필요",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "숨겨진 수수료가 없습니다. OneKey는 0.3%의 수수료를 부과하며, 이는 이미 귀하의 견적에 포함되어 있으며 거래 포장에 대한 추가 요금은 없습니다. 이는 고품질의 원활한 경험을 제공하는 데 도움이 됩니다.",
+  "provider.ios_popover.onekey_fee_content": "OneKey는 0.3%의 수수료를 부과하며, 이는 이미 귀하의 견적에 포함되어 있으며, 거래 포장에 대한 추가 비용은 없습니다. 이는 고품질의 원활한 경험을 제공하는 데 도움이 됩니다.",
   "provider.ios_popover.order_info_title": "주문 정보",
   "provider.ios_popover.title": "정보",
   "provider.label_anti_mev": "안티-MEV",

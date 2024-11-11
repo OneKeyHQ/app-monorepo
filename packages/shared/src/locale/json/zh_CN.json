@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "兑换前需授权代币",
   "provider.ios_popover.approval_require_title": "授权",
   "provider.ios_popover.onekey_fee": "OneKey 费用",
-  "provider.ios_popover.onekey_fee_content": "没有隐藏费用。OneKey 收取0.3%的费用，已包含在您的报价中，Wrapped token 时不收取費用。这将支持我们提供高质量、无缝的体验。",
+  "provider.ios_popover.onekey_fee_content": "OneKey 收取 0.3% 的费用，已包含在您的报价中，Wrapped token 时不收取费用。这将支持我们提供高质量、无缝的体验。",
   "provider.ios_popover.order_info_title": "订单信息",
   "provider.ios_popover.title": "提示",
   "provider.label_anti_mev": "防MEV",

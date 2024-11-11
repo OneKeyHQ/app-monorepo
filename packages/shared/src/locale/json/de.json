@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "Token muss vor dem Tausch genehmigt werden",
   "provider.ios_popover.approval_require_title": "Zustimmung erforderlich",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "Keine versteckten Gebühren. OneKey erhebt eine Gebühr von 0,3 %, die bereits in Ihrem Angebot enthalten ist, ohne Gebühren für das Wrapping von Transaktionen. Dies unterstützt uns dabei, ein hochwertiges, nahtloses Erlebnis zu bieten.",
+  "provider.ios_popover.onekey_fee_content": "OneKey erhebt eine Gebühr von 0,3 %, die bereits in Ihrem Angebot enthalten ist, ohne Gebühren für das Wrapping von Transaktionen. Dies unterstützt uns dabei, ein hochwertiges, nahtloses Erlebnis zu bieten.",
   "provider.ios_popover.order_info_title": "Bestellinformationen",
   "provider.ios_popover.title": "Information",
   "provider.label_anti_mev": "Anti-MEV",

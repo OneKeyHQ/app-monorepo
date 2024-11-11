@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "स्वैप से पहले टोकन को अनुमोदित करना आवश्यक है",
   "provider.ios_popover.approval_require_title": "अनुमोदन आवश्यक",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "कोई छुपे हुए शुल्क नहीं। OneKey 0.3% शुल्क लेता है, जो पहले से ही आपके कोटेशन में शामिल है, और लेन-देन को लपेटने के लिए कोई शुल्क नहीं है। यह हमें उच्च-गुणवत्ता, सहज अनुभव प्रदान करने में सहायता करता है।",
+  "provider.ios_popover.onekey_fee_content": "OneKey 0.3% शुल्क लेता है, जो पहले से ही आपके कोटेशन में शामिल है, और लेन-देन को लपेटने के लिए कोई शुल्क नहीं है। यह हमें उच्च-गुणवत्ता, सहज अनुभव प्रदान करने में सहायता करता है।",
   "provider.ios_popover.order_info_title": "आदेश की जानकारी",
   "provider.ios_popover.title": "सूचना",
   "provider.label_anti_mev": "एंटी-एमईवी",
