@@ -6,7 +6,11 @@ import { isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -50,6 +54,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -533,5 +538,19 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError(errorMessage);
       }
     }
+  }
+
+  override async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTxSui> {
+    const accountAddress = await this.getAccountAddress();
+    if (params.okxTx.from !== accountAddress) {
+      throw new OneKeyInternalError('Invalid from address');
+    }
+    const encodedTx = {
+      rawTx: Transaction.from(params.okxTx.data).serialize(),
+      sender: params.okxTx.from,
+    };
+    return Promise.resolve(encodedTx);
   }
 }

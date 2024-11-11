@@ -14,7 +14,6 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -326,66 +325,14 @@ export function useSwapBuildTx() {
                 .toFixed(),
             };
           } else if (res?.OKXTxObject) {
-            // todo
             console.log('swap__okxTxObject', res.OKXTxObject);
-            if (res?.result.fromTokenInfo.networkId === 'sol--101') {
-              encodedTx = res.OKXTxObject.data;
-            } else if (
-              res?.result.fromTokenInfo.networkId === 'tron--0x2b6653dc'
-            ) {
-              const signatureData: { functionSelector: string } = JSON.parse(
-                res.OKXTxObject.signatureData?.[0] ?? '{}',
-              );
-              let signatureDataHex = '';
-              if (signatureData) {
-                signatureDataHex = signatureData.functionSelector ?? '';
-              }
-              console.log('swap__signatureDataHex', signatureDataHex);
-              const [{ result, transaction }] =
-                await backgroundApiProxy.serviceAccountProfile.sendProxyRequest<{
-                  result: { result: boolean };
-                  transaction: IUnsignedTransaction;
-                }>({
-                  networkId: res?.result.fromTokenInfo.networkId,
-                  body: [
-                    {
-                      route: 'tronweb',
-                      params: {
-                        method: 'transactionBuilder.triggerSmartContract',
-                        params: [
-                          res.OKXTxObject.to,
-                          signatureDataHex,
-                          {},
-                          [
-                            { type: 'address', value: res.OKXTxObject.to },
-                            {
-                              type: 'uint256',
-                              value: new BigNumber(res.OKXTxObject.value)
-                                .shiftedBy(res?.result.fromTokenInfo.decimals)
-                                .toFixed(0),
-                            },
-                          ],
-                          res.OKXTxObject.from,
-                        ],
-                      },
-                    },
-                  ],
-                });
-              if (!result) {
-                throw new OneKeyInternalError(
-                  'Unable to build token transfer transaction',
-                );
-              }
-              encodedTx = transaction;
-              // todo
-              console.log('swap__tronTxObject--encodedTx', transaction);
-            } else if (res?.result.fromTokenInfo.networkId === 'sui--mainnet') {
-              // todo
-              console.log('swap__suiTxObject', res.OKXTxObject);
-            } else if (res?.result.fromTokenInfo.networkId === 'ton--mainnet') {
-              // todo
-              console.log('swap__tonTxObject', res.OKXTxObject);
-            }
+            encodedTx =
+              await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
+                accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
+                networkId: res.result.fromTokenInfo.networkId,
+                okxTx: res.OKXTxObject,
+                fromTokenInfo: res.result.fromTokenInfo,
+              });
           } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
