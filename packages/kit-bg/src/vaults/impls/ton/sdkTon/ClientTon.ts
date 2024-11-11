@@ -1,29 +1,20 @@
-import Axios from 'axios';
-
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import type { AxiosInstance } from 'axios';
+import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 export class ClientTon {
-  public readonly axios: AxiosInstance;
+  readonly rpc: JsonRPCRequest;
 
   constructor({ url }: { url: string }) {
-    this.axios = Axios.create({
-      baseURL: `${url}/api/v2`,
-      timeout: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    });
+    this.rpc = new JsonRPCRequest(`${url}`);
   }
 
   async getMasterChainInfo(): Promise<{ blockHeight: number }> {
-    const masterChainResponse = await this.axios.get<{
-      result: {
-        last: {
-          seqno: number;
-        };
+    const masterChainResponse = await this.rpc.call<{
+      last: {
+        seqno: number;
       };
-    }>('/getMasterchainInfo');
-    const sequenceNumber = masterChainResponse.data?.result?.last?.seqno;
+    }>('getMasterchainInfo', []);
+    const sequenceNumber = masterChainResponse.last?.seqno;
     if (typeof sequenceNumber !== 'number') {
       throw new OneKeyError('Invalid masterchain response');
     }
@@ -33,14 +24,11 @@ export class ClientTon {
   }
 
   async sendBocReturnHash({ boc }: { boc: string }): Promise<string> {
-    const result = await this.axios.post<{ result: { hash: string } }>(
-      '/sendBocReturnHash',
-      {
-        boc,
-      },
-    );
+    const result = await this.rpc.call<{ hash: string }>('sendBocReturnHash', {
+      boc,
+    });
 
-    const { hash } = result.data?.result ?? {};
+    const { hash } = result ?? {};
     if (!hash) {
       throw new OneKeyError('Invalid hash');
     }
