@@ -76,6 +76,16 @@ export function calculateTotalFeeRange({
   estimateFeeParams?: IEstimateFeeParams;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
+  if (feeInfo.feeAlgo) {
+    const { baseFee } = feeInfo.feeAlgo;
+    return {
+      min: nanToZeroString(baseFee),
+      max: nanToZeroString(baseFee),
+      minForDisplay: nanToZeroString(baseFee),
+      maxForDisplay: nanToZeroString(baseFee),
+      withoutBaseFee: true,
+    };
+  }
   if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;

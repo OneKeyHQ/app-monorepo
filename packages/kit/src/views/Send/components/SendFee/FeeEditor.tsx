@@ -43,6 +43,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 
 type IFeeInfoItem = {
   label: string;
@@ -208,6 +209,10 @@ function FeeEditor(props: IProps) {
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
   ).minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0');
 
+  const algoMinFee = new BigNumber(
+    customFee?.feeAlgo?.minFee ?? ALGO_TX_MIN_FEE,
+  ).toFixed();
+
   const form = useForm({
     defaultValues: {
       gasLimit: new BigNumber(
@@ -230,6 +235,12 @@ function FeeEditor(props: IProps) {
       ).toFixed(),
       // fee ckb
       feeRateCkb: new BigNumber(customFee?.feeCkb?.feeRate ?? '0').toFixed(),
+
+      // fee algo
+      flatFee: BigNumber.max(
+        customFee.feeAlgo?.baseFee ?? '0',
+        algoMinFee,
+      ).toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -264,9 +275,16 @@ function FeeEditor(props: IProps) {
       feeCkb: customFee?.feeCkb && {
         feeRate: watchAllFields.feeRateCkb,
       },
+
+      feeAlgo: customFee?.feeAlgo && {
+        baseFee: watchAllFields.flatFee,
+        minFee: algoMinFee,
+      },
     }),
     [
+      algoMinFee,
       customFee?.common,
+      customFee?.feeAlgo,
       customFee?.feeCkb,
       customFee?.feeSol,
       customFee?.feeUTXO,
@@ -275,6 +293,7 @@ function FeeEditor(props: IProps) {
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
       watchAllFields.feeRateCkb,
+      watchAllFields.flatFee,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,
       watchAllFields.maxBaseFee,
@@ -654,6 +673,27 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
+  const handleValidateFlatFee = useCallback(
+    (value: string) => {
+      const flatFee = new BigNumber(value || 0);
+      if (flatFee.isNaN() || flatFee.isLessThanOrEqualTo(0)) {
+        return false;
+      }
+
+      if (flatFee.isLessThan(algoMinFee)) {
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: ALGO_TX_MIN_FEE,
+          },
+        );
+      }
+
+      return true;
+    },
+    [algoMinFee, intl],
+  );
+
   const handleApplyFeeInfo = useCallback(async () => {
     onApplyFeeInfo({
       feeType: currentFeeType,
@@ -772,6 +812,39 @@ function FeeEditor(props: IProps) {
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
+
+    if (customFee?.feeAlgo) {
+      return (
+        <Form form={form}>
+          <YStack>
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.fee_fee,
+              })}
+              name="flatFee"
+              rules={{
+                required: true,
+                validate: handleValidateFlatFee,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
 
     if (customFee?.gasEIP1559) {
       return (
@@ -1056,6 +1129,7 @@ function FeeEditor(props: IProps) {
     handleValidateComputeUnitPrice,
     handleValidateFeeRate,
     handleValidateFeeRateCkb,
+    handleValidateFlatFee,
     handleValidateGasLimit,
     handleValidateGasPrice,
     handleValidateMaxBaseFee,
@@ -1076,7 +1150,31 @@ function FeeEditor(props: IProps) {
         ? customFee
         : feeSelectorItems[currentFeeIndex]?.feeInfo) ?? {};
 
-    if (fee.gasEIP1559) {
+    if (fee.feeAlgo) {
+      let feeAlgo = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        feeAlgo = new BigNumber(watchAllFields.flatFee || 0);
+      } else {
+        feeAlgo = new BigNumber(fee.feeAlgo.baseFee || 0);
+      }
+
+      const feeInNative = calculateTotalFeeNative({
+        amount: feeAlgo,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: feeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.gasEIP1559) {
       let limit = new BigNumber(0);
       let priorityFee = new BigNumber(0);
       let maxFee = new BigNumber(0);
@@ -1311,6 +1409,7 @@ function FeeEditor(props: IProps) {
     watchAllFields.computeUnitPrice,
     watchAllFields.feeRate,
     watchAllFields.feeRateCkb,
+    watchAllFields.flatFee,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,
     watchAllFields.maxBaseFee,

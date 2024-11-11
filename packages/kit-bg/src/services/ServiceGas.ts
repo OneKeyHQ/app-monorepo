@@ -9,6 +9,7 @@ import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { isArray } from 'lodash';
 
 @backgroundClass()
 class ServiceGas extends ServiceBase {
@@ -67,6 +68,7 @@ class ServiceGas extends ServiceBase {
             feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
           }))
         : undefined,
+      feeAlgo: isArray(feeInfo.feeAlgo) ? feeInfo.feeAlgo : [feeInfo.feeAlgo],
     };
   }
 
