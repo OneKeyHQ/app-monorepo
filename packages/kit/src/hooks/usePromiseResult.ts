@@ -312,7 +312,7 @@ export function usePromiseResult<T>(
   useEffect(() => {
     if (
       optionsRef.current.revalidateOnReconnect &&
-      !prevIsInternetReachable &&
+      prevIsInternetReachable === false &&
       isInternetReachable
     ) {
       runWithPollingNonce();
