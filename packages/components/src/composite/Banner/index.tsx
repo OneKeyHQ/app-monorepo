@@ -97,10 +97,14 @@ export function Banner<T extends IBannerData>({
   itemContainerStyle,
   itemTitleContainerStyle,
   indicatorContainerStyle,
+  leftIconButtonStyle,
+  rightIconButtonStyle,
   ...props
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  leftIconButtonStyle?: IStackStyle;
+  rightIconButtonStyle?: IStackStyle;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
@@ -146,6 +150,7 @@ export function Banner<T extends IBannerData>({
                       : '$iconSubduedDark',
                 }}
                 onPress={gotToPrevIndex}
+                {...leftIconButtonStyle}
               />
             ) : null}
 
@@ -165,6 +170,7 @@ export function Banner<T extends IBannerData>({
                 }}
                 onPress={goToNextIndex}
                 disabled={currentIndex === data.length - 1}
+                {...rightIconButtonStyle}
               />
             ) : null}
           </>
