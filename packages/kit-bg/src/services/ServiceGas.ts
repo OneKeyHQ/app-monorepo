@@ -7,6 +7,7 @@ import {
 import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
+import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -40,7 +41,8 @@ class ServiceGas extends ServiceBase {
     this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
-    return {
+
+    const feeResult = {
       common: {
         baseFee: feeInfo.baseFee,
         feeDecimals: feeInfo.feeDecimals,
@@ -53,7 +55,6 @@ class ServiceGas extends ServiceBase {
       gasEIP1559: feeInfo.gasEIP1559,
       feeUTXO: feeInfo.feeUTXO,
       feeTron: feeInfo.feeTron,
-      gasFil: feeInfo.gasFil,
       feeSol: feeInfo.computeUnitPrice
         ? [
             {
@@ -68,6 +69,19 @@ class ServiceGas extends ServiceBase {
           }))
         : undefined,
     };
+
+    // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
+    if (feeInfo.gasFil && !feeInfo.gasEIP1559) {
+      feeResult.gasEIP1559 = feeInfo.gasFil.map((item) => ({
+        baseFeePerGas: FIL_MIN_BASE_FEE,
+        maxFeePerGas: item.gasFeeCap,
+        maxPriorityFeePerGas: item.gasPremium,
+        gasLimit: item.gasLimit,
+        gasLimitForDisplay: item.gasLimit,
+      }));
+    }
+
+    return feeResult;
   }
 
   @backgroundMethod()

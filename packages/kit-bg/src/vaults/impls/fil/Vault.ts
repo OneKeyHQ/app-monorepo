@@ -309,15 +309,17 @@ export default class Vault extends VaultBase {
 
     const encodedTxWithFee = { ...encodedTx };
 
-    if (feeInfo.gasFil) {
+    if (feeInfo.gasEIP1559) {
       encodedTxWithFee.GasLimit = new BigNumber(
-        feeInfo.gasFil.gasLimit ?? 0,
+        feeInfo.gasEIP1559.gasLimit ?? 0,
       ).toNumber();
-      encodedTxWithFee.GasFeeCap = new BigNumber(feeInfo.gasFil.gasFeeCap ?? 0)
+      encodedTxWithFee.GasFeeCap = new BigNumber(
+        feeInfo.gasEIP1559.maxFeePerGas ?? 0,
+      )
         .shiftedBy(feeDecimals)
         .toFixed();
       encodedTxWithFee.GasPremium = new BigNumber(
-        feeInfo.gasFil.gasPremium ?? 0,
+        feeInfo.gasEIP1559.maxPriorityFeePerGas ?? 0,
       )
         .shiftedBy(feeDecimals)
         .toFixed();
