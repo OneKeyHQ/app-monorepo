@@ -368,32 +368,25 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <InfoItem
         label={overview.title}
         renderContent={
-          <YStack gap="$4">
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.global_estimated_results,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$3" minWidth={0}>
-              <Token
-                fallbackIcon={overview.avatar?.fallbackIcon}
-                isNFT={overview.avatar?.isNFT}
-                tokenImageUri={overview.avatar?.src}
-              />
-              {typeof overview.content === 'string' ? (
-                <SizableText
-                  minWidth={0}
-                  maxWidth="$96"
-                  size="$headingSm"
-                  flex={1}
-                >
-                  {overview.content}
-                </SizableText>
-              ) : (
-                overview.content
-              )}
-            </XStack>
-          </YStack>
+          <XStack alignItems="center" gap="$3" minWidth={0}>
+            <Token
+              fallbackIcon={overview.avatar?.fallbackIcon}
+              isNFT={overview.avatar?.isNFT}
+              tokenImageUri={overview.avatar?.src}
+            />
+            {typeof overview.content === 'string' ? (
+              <SizableText
+                minWidth={0}
+                maxWidth="$96"
+                size="$headingSm"
+                flex={1}
+              >
+                {overview.content}
+              </SizableText>
+            ) : (
+              overview.content
+            )}
+          </XStack>
         }
       />
 

@@ -38,7 +38,7 @@ export interface IMarketToken {
   lastUpdated: string;
 }
 
-export interface IMarketDetailAth {
+export interface IMarketDetailAthOrAtl {
   time: Date;
   value: number;
 }
@@ -74,8 +74,8 @@ export interface IMarketDetailStats {
   volume24h: number;
   low24h: number;
   high24h: number;
-  atl: IMarketDetailAth;
-  ath: IMarketDetailAth;
+  atl: IMarketDetailAthOrAtl;
+  ath: IMarketDetailAthOrAtl;
   fdv: number;
   circulatingSupply: number;
   totalSupply: number;
@@ -98,6 +98,26 @@ export interface IMarketDetailLinks {
   telegramUrl: string;
 }
 
+export interface IMarketDetailTicker {
+  base: string;
+  target: string;
+  market: {
+    name: string;
+    identifier: string;
+    has_trading_incentive: boolean;
+  };
+  depth_data: {
+    '+2%': string;
+    '-2%': string;
+  } | null;
+  last: number;
+  logo: string;
+  volume: number;
+  trust_score: string;
+  bid_ask_spread_percentage: number;
+  trade_url: string;
+}
+
 export interface IMarketTokenDetail {
   name: string;
   image: string;
@@ -107,6 +127,7 @@ export interface IMarketTokenDetail {
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
   detailPlatforms: IMarketDetailPlatform;
+  tickers?: IMarketDetailTicker[];
 }
 
 export type IMarketTokenChart = [number, number][];

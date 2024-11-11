@@ -18,12 +18,13 @@ import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { MarketTokenAddress } from './MarketTokenAddress';
 
-function PoolDetailsItem({
+export function PoolDetailsItem({
   title,
   children,
   currency,
   isNumeric = false,
   formatter = 'marketCap',
+  bordered = true,
 }: {
   title: string;
   rank?: number;
@@ -31,6 +32,7 @@ function PoolDetailsItem({
   children: ReactElement | string;
   isNumeric?: boolean;
   formatter?: INumberSizeableTextProps['formatter'];
+  bordered?: boolean;
 }) {
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
@@ -59,7 +61,7 @@ function PoolDetailsItem({
       flexGrow={1}
       gap="$0.5"
       borderColor="$borderSubdued"
-      borderBottomWidth="$px"
+      borderBottomWidth={bordered ? '$px' : 0}
     >
       <SizableText color="$textSubdued" size="$bodySm">
         {title}

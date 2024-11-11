@@ -82,7 +82,6 @@ export type IFeeInfoUnit = {
   gasEIP1559?: IGasEIP1559;
   feeUTXO?: IFeeUTXO;
   feeTron?: IFeeTron;
-  gasFil?: IFeeFil;
   feeSol?: IFeeSol;
   feeCkb?: IFeeCkb;
   feeAlgo?: IFeeAlgo;

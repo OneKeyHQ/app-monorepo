@@ -378,6 +378,7 @@
   "earn.native_staking": "การเข้าร่วมสเตคแบบพื้นเมือง",
   "earn.no_orders": "ไม่มีคำสั่งซื้อ",
   "earn.no_orders_desc": "คุณยังไม่ได้เสี่ยงทุนใดๆ",
+  "earn.not_enough_token": "{token} ไม่เพียงพอใช่ไหม?",
   "earn.number_day": "{number} วัน",
   "earn.number_days": "{number} วัน",
   "earn.number_days_number_block": "{number_days} วัน ({number} บล็อก)",

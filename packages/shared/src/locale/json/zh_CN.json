@@ -378,6 +378,7 @@
   "earn.native_staking": "原生质押",
   "earn.no_orders": "无订单",
   "earn.no_orders_desc": "您还没有质押任何资产。",
+  "earn.not_enough_token": "不足 {token}？",
   "earn.number_day": "{number} 天",
   "earn.number_days": "{number} 天",
   "earn.number_days_number_block": "{number_days} 天 ({number} 个区块)",
