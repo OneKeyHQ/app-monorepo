@@ -378,6 +378,7 @@
   "earn.native_staking": "Staking natif",
   "earn.no_orders": "Aucune commande",
   "earn.no_orders_desc": "Vous n'avez encore misé aucun actif.",
+  "earn.not_enough_token": "Pas assez de {token}?",
   "earn.number_day": "{number} jour",
   "earn.number_days": "{number} jour(s)",
   "earn.number_days_number_block": "{number_days} jours ({number} bloc)",

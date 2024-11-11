@@ -378,6 +378,7 @@
   "earn.native_staking": "네이티브 스테이킹",
   "earn.no_orders": "주문 없음",
   "earn.no_orders_desc": "아직 자산을 스테이킹하지 않았습니다.",
+  "earn.not_enough_token": "{token} 이 부족합니까?",
   "earn.number_day": "{number} 일",
   "earn.number_days": "{number} 일",
   "earn.number_days_number_block": "{number_days} 일 ({number} 블록)",

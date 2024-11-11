@@ -3,21 +3,20 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Alert, Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -90,8 +89,6 @@ export function HomePageView({
         : Promise.resolve(undefined),
     [network],
   ).result;
-
-  const { isInternetReachable } = useNetInfo();
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -245,17 +242,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
-          {isInternetReachable ? null : (
-            <Alert
-              type="critical"
-              icon="CloudOffOutline"
-              title={intl.formatMessage({
-                id: ETranslations.feedback_you_are_offline,
-              })}
-              closable={false}
-              fullBleed
-            />
-          )}
+          <NetworkAlert />
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (
@@ -269,14 +256,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [
-    ready,
-    wallet,
-    sceneName,
-    isInternetReachable,
-    intl,
-    renderHomePageContent,
-  ]);
+  }, [ready, wallet, sceneName, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

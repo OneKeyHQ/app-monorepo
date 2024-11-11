@@ -41,9 +41,9 @@ function StakedValueInfo({
     },
   ] = useSettingsPersistAtom();
   return (
-    <YStack gap="$6">
-      <YStack gap="$2">
-        <SizableText size="$headingLg">
+    <YStack gap="$8">
+      <YStack>
+        <SizableText size="$headingLg" pt="$2">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
         </SizableText>
         <XStack gap="$2">
@@ -67,42 +67,14 @@ function StakedValueInfo({
             </XStack>
           ) : null}
         </XStack>
-      </YStack>
-      <YStack gap="$1.5">
-        <YStack my="$1.5">
-          <Progress
-            colors={['$bgSuccessStrong', '$bgInverse']}
-            size="medium"
-            gap={2}
-            value={totalNumber === 0 ? 0 : (stakedNumber / totalNumber) * 100}
-          />
-        </YStack>
-        <XStack justifyContent="space-between">
-          <YStack gap="$0.5">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.earn_staked })}
-            </SizableText>
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol }}
-            >
-              {stakedNumber || 0}
-            </NumberSizeableText>
-          </YStack>
-          <YStack gap="$0.5">
-            <SizableText size="$bodyMd" color="$textSuccess" textAlign="right">
-              {intl.formatMessage({ id: ETranslations.global_available })}
-            </SizableText>
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol }}
-            >
-              {availableNumber || 0}
-            </NumberSizeableText>
-          </YStack>
-        </XStack>
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          color="$textSubdued"
+          formatterOptions={{ tokenSymbol }}
+        >
+          {stakedNumber || 0}
+        </NumberSizeableText>
       </YStack>
     </YStack>
   );

@@ -4,6 +4,8 @@ import blake from 'blakejs';
 const CID_PREFIX = Buffer.from([0x01, 0x71, 0xa0, 0xe4, 0x02, 0x20]);
 const CID_LEN = 32;
 
+export const FIL_MIN_BASE_FEE = '1000000'; // attoFIL
+
 export function getCID(message: Buffer): Buffer {
   const blakeCtx = blake.blake2bInit(CID_LEN);
   blake.blake2bUpdate(blakeCtx, message);

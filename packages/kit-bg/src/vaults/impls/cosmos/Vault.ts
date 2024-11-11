@@ -345,7 +345,7 @@ export default class VaultCosmos extends VaultBase {
             type: EDecodedTxActionType.UNKNOWN,
             direction: EDecodedTxDirection.OTHER,
             unknownAction: {
-              from: '',
+              from: account.address,
               to: '',
             },
           };

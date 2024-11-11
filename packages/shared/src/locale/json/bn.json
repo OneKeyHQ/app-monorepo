@@ -378,6 +378,7 @@
   "earn.native_staking": "নেটিভ স্টেকিং",
   "earn.no_orders": "কোন অর্ডার নেই",
   "earn.no_orders_desc": "আপনি এখনো কোনো সম্পদ বাঁধি নি।",
+  "earn.not_enough_token": "যথেষ্ট নয় {token}?",
   "earn.number_day": "{number} দিন",
   "earn.number_days": "{number} দিন",
   "earn.number_days_number_block": "{number_days} দিন ({number} ব্লক)",
