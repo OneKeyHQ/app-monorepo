@@ -96,10 +96,12 @@ export function Banner<T extends IBannerData>({
   emptyComponent,
   itemContainerStyle,
   itemTitleContainerStyle,
+  indicatorContainerStyle,
   ...props
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
@@ -168,7 +170,13 @@ export function Banner<T extends IBannerData>({
           </>
         ) : null}
         {data.length > 1 ? (
-          <XStack gap="$1" position="absolute" right="$10" bottom="$10">
+          <XStack
+            gap="$1"
+            position="absolute"
+            right="$10"
+            bottom="$10"
+            {...indicatorContainerStyle}
+          >
             {data.map((_, index) => (
               <Stack
                 key={index}
@@ -186,7 +194,7 @@ export function Banner<T extends IBannerData>({
         ) : null}
       </>
     ),
-    [media.gtMd, data],
+    [media.gtMd, data, indicatorContainerStyle],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
