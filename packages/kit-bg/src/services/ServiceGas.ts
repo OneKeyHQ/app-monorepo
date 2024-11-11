@@ -1,3 +1,5 @@
+import { isArray } from 'lodash';
+
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
@@ -10,7 +12,6 @@ import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 import ServiceBase from './ServiceBase';
-import { isArray } from 'lodash';
 
 @backgroundClass()
 class ServiceGas extends ServiceBase {

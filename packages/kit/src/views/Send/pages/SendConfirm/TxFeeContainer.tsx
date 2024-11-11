@@ -34,6 +34,7 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -346,7 +347,10 @@ function TxFeeContainer(props: IProps) {
         if (txFee.feeAlgo && !isEmpty(txFee.feeAlgo)) {
           customFeeInfo.feeAlgo = {
             ...txFee.feeAlgo[sendSelectedFee.presetIndex],
-            ...(customFee?.feeAlgo ?? {}),
+            ...(customFee?.feeAlgo ?? {
+              minFee: ALGO_TX_MIN_FEE,
+              baseFee: ALGO_TX_MIN_FEE,
+            }),
           };
         }
 

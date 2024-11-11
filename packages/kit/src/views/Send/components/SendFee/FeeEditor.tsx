@@ -29,6 +29,7 @@ import {
   calculateTotalFeeNative,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -43,7 +44,6 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
-import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 
 type IFeeInfoItem = {
   label: string;
