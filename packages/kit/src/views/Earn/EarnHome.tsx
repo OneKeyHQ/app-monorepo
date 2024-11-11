@@ -38,6 +38,7 @@ import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-nati
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IDiscoveryHomePageData } from '@onekeyhq/shared/types/discovery';
 import type {
   IEarnAccount,
   IEarnAccountToken,
@@ -659,6 +660,24 @@ function BasicEarnHome() {
     },
   );
 
+  const { result: earnBanners } = usePromiseResult(
+    async () => {
+      const bannerResult =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      return (
+        bannerResult?.earnBanners?.map((i) => ({
+          ...i,
+          imgUrl: i.src,
+          title: i.title || '',
+        })) || []
+      );
+    },
+    [],
+    {
+      revalidateOnReconnect: true,
+    },
+  );
+
   const INTRODUCTION_ITEMS: {
     icon: IKeyOfIcons;
     title: string;
@@ -710,45 +729,47 @@ function BasicEarnHome() {
     }
   }, [account, indexedAccount?.id, navigation]);
 
-  const bannerData = useMemo(
-    () => [
-      {
-        'title': intl.formatMessage({
-          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
-        }),
-        'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
-        titleTextProps: {
-          color: '$textInverseLight',
-          size: '$headingMd',
-          numberOfLines: 2,
-          maxWidth: 140,
-        } as ISizableTextProps,
-        $gtLg: {
-          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
-        },
-      },
-      {
-        'title': intl.formatMessage({
-          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
-        }),
-        'bannerId': '46f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
-        titleTextProps: {
-          color: '$textInverseLight',
-          size: '$headingMd',
-          numberOfLines: 2,
-          maxWidth: 140,
-        } as ISizableTextProps,
-        $gtLg: {
-          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
-        },
-      },
-    ],
-    [intl],
-  );
+  const banners = useMemo(() => {
+    if (earnBanners) {
+      return earnBanners.length ? (
+        <Banner
+          height="$36"
+          $md={{
+            height: '$28',
+          }}
+          data={earnBanners}
+          onItemPress={onBannerPress}
+          isLoading={false}
+          leftIconButtonStyle={{
+            left: '$1',
+          }}
+          rightIconButtonStyle={{
+            right: '$1',
+          }}
+          indicatorContainerStyle={{
+            right: '$2.5',
+            bottom: '$3',
+          }}
+          itemTitleContainerStyle={{
+            top: 0,
+            bottom: 0,
+            right: 0,
+            left: 20,
+            justifyContent: 'center',
+          }}
+        />
+      ) : null;
+    }
+    return (
+      <Skeleton
+        height="$36"
+        $md={{
+          height: '$28',
+        }}
+        width="100%"
+      />
+    );
+  }, [earnBanners, onBannerPress]);
 
   return (
     <Page fullPage>
@@ -785,32 +806,7 @@ function BasicEarnHome() {
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >
-                <Banner
-                  height="$36"
-                  $md={{
-                    height: '$28',
-                  }}
-                  data={bannerData}
-                  onItemPress={onBannerPress}
-                  isLoading={false}
-                  leftIconButtonStyle={{
-                    left: '$1',
-                  }}
-                  rightIconButtonStyle={{
-                    right: '$1',
-                  }}
-                  indicatorContainerStyle={{
-                    right: '$2.5',
-                    bottom: '$3',
-                  }}
-                  itemTitleContainerStyle={{
-                    top: 0,
-                    bottom: 0,
-                    right: 0,
-                    left: 20,
-                    justifyContent: 'center',
-                  }}
-                />
+                {banners}
               </YStack>
             </YStack>
             {/* Recommended, available assets and introduction */}

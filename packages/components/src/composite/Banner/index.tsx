@@ -200,7 +200,13 @@ export function Banner<T extends IBannerData>({
         ) : null}
       </>
     ),
-    [media.gtMd, data, indicatorContainerStyle],
+    [
+      media.gtMd,
+      data,
+      leftIconButtonStyle,
+      rightIconButtonStyle,
+      indicatorContainerStyle,
+    ],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
