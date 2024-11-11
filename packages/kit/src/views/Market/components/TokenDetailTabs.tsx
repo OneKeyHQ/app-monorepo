@@ -134,12 +134,16 @@ function BasicTokenDetailTabs({
     () =>
       pools
         ? [
-            pools.length && token
+            (pools.length || token?.tickers?.length) && token
               ? {
                   title: intl.formatMessage({ id: ETranslations.global_pools }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
-                    <MarketDetailPools {...props} pools={pools} />
+                    <MarketDetailPools
+                      {...props}
+                      pools={pools}
+                      tickers={token.tickers}
+                    />
                   ),
                 }
               : undefined,
