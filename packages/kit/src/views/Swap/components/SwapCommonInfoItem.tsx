@@ -39,11 +39,7 @@ const SwapCommonInfoItem = ({
             icon="InfoCircleOutline"
           />
         }
-        renderContent={
-          <Stack>
-            {questionMarkContent}
-          </Stack>
-        }
+        renderContent={<Stack>{questionMarkContent}</Stack>}
       />
     ),
     [questionMarkContent, title],
