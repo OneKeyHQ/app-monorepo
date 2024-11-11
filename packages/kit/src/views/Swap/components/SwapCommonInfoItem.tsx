@@ -16,7 +16,7 @@ interface ISwapCommonInfoItemProps {
   value?: string;
   valueComponent?: ReactNode;
   onPress?: () => void;
-  questionMarkContent?: string;
+  questionMarkContent?: ReactNode;
   isLoading?: boolean;
 }
 
@@ -36,18 +36,13 @@ const SwapCommonInfoItem = ({
           <IconButton
             variant="tertiary"
             size="small"
-            icon="QuestionmarkOutline"
+            icon="InfoCircleOutline"
           />
         }
         renderContent={
-          <SizableText
-            p="$5"
-            $gtMd={{
-              size: '$bodyMd',
-            }}
-          >
+          <Stack>
             {questionMarkContent}
-          </SizableText>
+          </Stack>
         }
       />
     ),
