@@ -80,6 +80,10 @@ type IUniversalStakeProps = {
 
   onConfirm?: (amount: string) => Promise<void>;
   onFeeRateChange?: (rate: string) => void;
+
+  stakingTime?: number;
+  nextLaunchLeft?: string;
+  rewardToken?: string;
 };
 
 export const UniversalStake = ({
@@ -109,6 +113,9 @@ export const UniversalStake = ({
   maxAmount,
   onConfirm,
   onFeeRateChange,
+  stakingTime,
+  nextLaunchLeft,
+  rewardToken,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -502,6 +509,52 @@ export const UniversalStake = ({
               });
             }}
           />
+        ) : null}
+        {stakingTime ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_in_number },
+                  { number: Math.ceil(Number(stakingTime) / 3600 / 24) },
+                )}
+              </SizableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {providerName?.toLowerCase() ===
+          EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
+          <BtcFeeRateInput
+            estimateFeeUTXO={estimateFeeUTXO}
+            onFeeRateChange={onFeeRateChange}
+          />
+        ) : null}
+        {nextLaunchLeft && rewardToken ? (
+          <CalculationListItem>
+            <CalculationListItem.Label
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_until_next_launch_tooltip,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.earn_until_next_launch,
+              })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_number_symbol_left },
+                  {
+                    number: Number(nextLaunchLeft).toFixed(2),
+                    symbol: rewardToken,
+                  },
+                )}
+              </SizableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
         {providerName?.toLowerCase() ===
           EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
