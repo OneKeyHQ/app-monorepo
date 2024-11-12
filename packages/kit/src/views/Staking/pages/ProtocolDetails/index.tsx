@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Button } from '@onekeyhq/components';
-import { Divider, Page, useMedia } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -264,14 +264,12 @@ const ProtocolDetailsPage = () => {
                   stakeButtonProps={stakeButtonProps}
                   withdrawButtonProps={withdrawButtonProps}
                 />
-                <Divider />
                 <PortfolioSection
                   details={result}
                   onClaim={onClaim}
                   onWithdraw={onWithdraw}
                   onPortfolioDetails={onPortfolioDetails}
                 />
-                <Divider />
                 {trackingResp.length > 0 ? (
                   <BabylonTrackingAlert
                     accountId={earnAccount.accountId}
