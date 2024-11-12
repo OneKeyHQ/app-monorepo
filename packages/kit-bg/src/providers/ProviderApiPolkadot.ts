@@ -66,7 +66,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
       const params = await this.account({ origin, scope: 'polkadot' });
       const result = {
         method: 'wallet_events_accountChanged',
-        params,
+        params: this.accountsToInjectedAccount(params),
       };
       return result;
     };
@@ -104,6 +104,27 @@ class ProviderApiPolkadot extends ProviderApiBase {
     return !!res;
   }
 
+  private accountsToInjectedAccount(
+    account:
+      | {
+          address: string;
+          name: string;
+          networkId?: string;
+          id?: string;
+        }
+      | undefined,
+  ): InjectedAccount | undefined {
+    if (!account) {
+      return undefined;
+    }
+    return {
+      address: account.address,
+      genesisHash: null,
+      name: account.name,
+      type: 'ed25519',
+    };
+  }
+
   @providerApiMethod()
   public web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
     return this._queue.runExclusive(async () => {
@@ -125,21 +146,15 @@ class ProviderApiPolkadot extends ProviderApiBase {
     params: boolean,
   ): Promise<InjectedAccount[]> {
     let account = await this.account(request);
-
-    if (account) {
-      return [
-        {
-          address: account.address,
-          genesisHash: null,
-          name: account.name,
-          type: 'ed25519',
-        },
-      ];
+    let injectedAccount = this.accountsToInjectedAccount(account);
+    if (injectedAccount) {
+      return [injectedAccount];
     }
 
     account = await this.account(request);
-    if (account) {
-      return [account];
+    injectedAccount = this.accountsToInjectedAccount(account);
+    if (injectedAccount) {
+      return [injectedAccount];
     }
     return [];
   }
