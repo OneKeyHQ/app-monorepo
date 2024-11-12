@@ -12,6 +12,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
@@ -32,7 +33,12 @@ function BasicTradeOrBuy({
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const handleOnSwap = useCallback(() => {
+  const handleOnSwap = useCallback(async () => {
+    const { isSupportSwap, isSupportCrossChain } =
+      await backgroundApiProxy.serviceSwap.checkSupportSwap({
+        networkId,
+        contractAddress: token.address,
+      });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -41,7 +47,9 @@ function BasicTradeOrBuy({
           contractAddress: token.address,
           networkId,
         },
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: false
+          ? ESwapTabSwitchType.SWAP
+          : ESwapTabSwitchType.BRIDGE,
       },
     });
   }, [navigation, networkId, token]);
@@ -65,6 +73,7 @@ function BasicTradeOrBuy({
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
         <ActionBuy
+          showButtonStyle
           size="small"
           networkId={networkId}
           accountId={accountId}

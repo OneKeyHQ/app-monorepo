@@ -24,6 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export type IActionItemsProps = {
   icon?: IKeyOfIcons;
   label?: string;
+  showButtonStyle?: boolean;
   verticalContainerProps?: IStackProps;
 } & Partial<IButtonProps & IIconButtonProps>;
 
@@ -31,11 +32,12 @@ function ActionItem({
   icon = 'PlaceholderOutline',
   label,
   verticalContainerProps,
+  showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
   const media = useMedia();
 
-  if (media.gtSm) {
+  if (showButtonStyle || media.gtSm) {
     return (
       <Button
         {...(!label && {

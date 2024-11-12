@@ -42,6 +42,7 @@ import type {
   IFetchTokenListParams,
   IFetchTokensParams,
   ISwapApproveTransaction,
+  ISwapCheckSupportResponse,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
@@ -751,6 +752,27 @@ export default class ServiceSwap extends ServiceBase {
       IFetchResponse<IFetchSwapTxHistoryStatusResponse>
     >('/swap/v1/state-tx', params);
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
+  }
+
+  @backgroundMethod()
+  async checkSupportSwap({
+    networkId,
+    contractAddress,
+  }: {
+    networkId: string;
+    contractAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const resp = await client.get<{
+      data: ISwapCheckSupportResponse[];
+    }>(`/swap/v1/check-support`, {
+      params: {
+        networkId,
+        contractAddress,
+        protocol: 'Swap',
+      },
+    });
+    return resp.data.data[0];
   }
 
   @backgroundMethod()
