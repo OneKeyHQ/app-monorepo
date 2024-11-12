@@ -317,8 +317,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   if (
     isInternalStakingTx ||
     isInternalSwapTx ||
-    (!canEditNonce &&
-      (!vaultSettings?.canEditData || !checkIsEmptyData(originalData)))
+    (!canEditNonce && !vaultSettings?.canEditData)
   ) {
     return null;
   }

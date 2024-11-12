@@ -96,10 +96,16 @@ export function Banner<T extends IBannerData>({
   emptyComponent,
   itemContainerStyle,
   itemTitleContainerStyle,
+  indicatorContainerStyle,
+  leftIconButtonStyle,
+  rightIconButtonStyle,
   ...props
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
+  leftIconButtonStyle?: IStackStyle;
+  rightIconButtonStyle?: IStackStyle;
+  indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
@@ -144,6 +150,7 @@ export function Banner<T extends IBannerData>({
                       : '$iconSubduedDark',
                 }}
                 onPress={gotToPrevIndex}
+                {...leftIconButtonStyle}
               />
             ) : null}
 
@@ -163,12 +170,19 @@ export function Banner<T extends IBannerData>({
                 }}
                 onPress={goToNextIndex}
                 disabled={currentIndex === data.length - 1}
+                {...rightIconButtonStyle}
               />
             ) : null}
           </>
         ) : null}
         {data.length > 1 ? (
-          <XStack gap="$1" position="absolute" right="$10" bottom="$10">
+          <XStack
+            gap="$1"
+            position="absolute"
+            right="$10"
+            bottom="$10"
+            {...indicatorContainerStyle}
+          >
             {data.map((_, index) => (
               <Stack
                 key={index}
@@ -186,7 +200,13 @@ export function Banner<T extends IBannerData>({
         ) : null}
       </>
     ),
-    [media.gtMd, data],
+    [
+      media.gtMd,
+      data,
+      leftIconButtonStyle,
+      rightIconButtonStyle,
+      indicatorContainerStyle,
+    ],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);

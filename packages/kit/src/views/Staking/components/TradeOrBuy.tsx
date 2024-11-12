@@ -13,7 +13,8 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useFiatCrypto } from '../../FiatCrypto/hooks';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 function BasicTradeOrBuy({
@@ -25,6 +26,9 @@ function BasicTradeOrBuy({
   accountId: string;
   networkId: string;
 }) {
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -42,11 +46,6 @@ function BasicTradeOrBuy({
     });
   }, [navigation, networkId, token]);
 
-  const { isSupported, handleFiatCrypto } = useFiatCrypto({
-    networkId: networkId ?? '',
-    accountId,
-    fiatCryptoType: 'buy',
-  });
   return (
     <XStack
       borderTopColor="$borderSubdued"
@@ -55,7 +54,7 @@ function BasicTradeOrBuy({
       jc="space-between"
       py="$5"
     >
-      <SizableText>
+      <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
           { token: token.symbol.toUpperCase() },
@@ -65,11 +64,13 @@ function BasicTradeOrBuy({
         <Button size="small" onPress={handleOnSwap}>
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
-        {isSupported ? (
-          <Button size="small" onPress={handleFiatCrypto}>
-            {intl.formatMessage({ id: ETranslations.global_buy })}
-          </Button>
-        ) : null}
+        <ActionBuy
+          size="small"
+          networkId={networkId}
+          accountId={accountId}
+          walletType={wallet?.type}
+          tokenAddress={token.address}
+        />
       </XStack>
     </XStack>
   );

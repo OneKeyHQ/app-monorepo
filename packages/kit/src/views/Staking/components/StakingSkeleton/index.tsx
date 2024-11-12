@@ -40,16 +40,18 @@ export const OverviewSkeleton = () => (
         <Skeleton.HeadingLg />
         <Skeleton.Heading4Xl />
       </YStack>
-      <YStack gap="$1.5">
-        <YStack py="$1.5">
-          <Skeleton width="100%" height={4} />
-        </YStack>
-        <XStack justifyContent="space-between">
-          <YStack gap="$0.5">
+      <YStack gap="$6">
+        <Skeleton.HeadingLg />
+        <XStack gap="$6">
+          <YStack gap="$0.5" flex={1}>
             <Skeleton.BodyMd />
             <Skeleton.BodyLg />
           </YStack>
-          <YStack alignItems="flex-end" gap="$0.5">
+          <YStack gap="$0.5" flex={1}>
+            <Skeleton.BodyMd />
+            <Skeleton.BodyLg />
+          </YStack>
+          <YStack gap="$0.5" flex={1}>
             <Skeleton.BodyMd />
             <Skeleton.BodyLg />
           </YStack>

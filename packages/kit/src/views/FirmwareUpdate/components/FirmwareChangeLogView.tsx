@@ -11,12 +11,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
@@ -165,8 +165,10 @@ export function FirmwareChangeLogContentView({
 
 export function FirmwareChangeLogView({
   result,
+  onConfirmClick,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
+  onConfirmClick?: () => void;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -184,6 +186,7 @@ export function FirmwareChangeLogView({
             payload: undefined,
           });
           showCheckList({ result });
+          onConfirmClick?.();
         }}
       />
       <Stack>

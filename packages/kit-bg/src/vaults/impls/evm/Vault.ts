@@ -265,7 +265,32 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+      const preCheckIsNativeTransfer = checkIsEvmNativeTransfer({
+        tx: nativeTx,
+      });
+
+      let isNativeTransfer = preCheckIsNativeTransfer;
+
+      try {
+        if (preCheckIsNativeTransfer) {
+          isNativeTransfer = true;
+        } else {
+          const parsedTx =
+            await this.backgroundApi.serviceSend.parseTransaction({
+              networkId: this.networkId,
+              accountId: this.accountId,
+              accountAddress,
+              encodedTx,
+            });
+
+          const toAddress = parsedTx.parsedTx.to;
+          isNativeTransfer = toAddress && toAddress.isContract === false;
+        }
+      } catch (error) {
+        // pass
+      }
+
+      if (isNativeTransfer) {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -1056,6 +1081,25 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+      },
+    });
+  }
+
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+    const { to, data, value } = encodedTx;
+
+    return Promise.resolve({
+      encodedTx: {
+        to,
+        data,
+        value,
       },
     });
   }

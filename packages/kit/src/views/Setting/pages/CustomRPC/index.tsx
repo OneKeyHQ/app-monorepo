@@ -131,10 +131,18 @@ function DialogContent({
               }),
             },
             validate: (value) => {
+              const errorMessage = intl.formatMessage({
+                id: ETranslations.form_custom_rpc_error_invalid,
+              });
+              if (typeof value !== 'string') {
+                return errorMessage;
+              }
+              const trimmedValue = value.trim();
+              if (!trimmedValue) {
+                return errorMessage;
+              }
               if (!uriUtils.parseUrl(value) || !rpcValidRef.current) {
-                return intl.formatMessage({
-                  id: ETranslations.form_custom_rpc_error_invalid,
-                });
+                return errorMessage;
               }
             },
           }}
@@ -146,7 +154,7 @@ function DialogContent({
         onConfirm={async ({ preventClose, close }) => {
           const { serviceCustomRpc } = backgroundApiProxy;
           setIsLoading(true);
-          const rpcUrl: string = form.getValues('rpc');
+          const rpcUrl: string = form.getValues('rpc').trim();
           const networkId = network.id;
           try {
             rpcValidRef.current = true;
