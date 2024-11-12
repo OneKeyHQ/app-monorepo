@@ -3,6 +3,7 @@ import {
   EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EModalStakingRoutes,
   ERootRoutes,
   ETabDeveloperRoutes,
   ETabDiscoveryRoutes,
@@ -99,6 +100,15 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //     showParams: true,
     //   },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ProtocolDetails}`]:
       {
         showUrl: true,
         showParams: true,
