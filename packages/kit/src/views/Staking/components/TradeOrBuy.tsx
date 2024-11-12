@@ -47,7 +47,7 @@ function BasicTradeOrBuy({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(async () => {
-    const { isSupportSwap, isSupportCrossChain } =
+    const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
         contractAddress: token.address,
