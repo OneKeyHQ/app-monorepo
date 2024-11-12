@@ -169,6 +169,7 @@ function TxFeeContainer(props: IProps) {
               feeTron: r.feeTron ? [r.feeTron] : undefined,
               feeSol: r.feeSol ? [r.feeSol] : undefined,
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
+              feeDot: r.feeDot ? [r.feeDot] : undefined,
             },
             e,
           };
@@ -251,6 +252,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeTron?.length ||
         txFee.feeSol?.length ||
         txFee.feeCkb?.length ||
+        txFee.feeDot?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -262,6 +264,7 @@ function TxFeeContainer(props: IProps) {
           feeTron: txFee.feeTron?.[i],
           feeSol: txFee.feeSol?.[i],
           feeCkb: txFee.feeCkb?.[i],
+          feeDot: txFee.feeDot?.[i],
         };
 
         items.push({
@@ -337,6 +340,13 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.feeCkb = {
             ...txFee.feeCkb[sendSelectedFee.presetIndex],
             ...(customFee?.feeCkb ?? {}),
+          };
+        }
+
+        if (txFee.feeDot && !isEmpty(txFee.feeDot)) {
+          customFeeInfo.feeDot = {
+            ...txFee.feeDot[sendSelectedFee.presetIndex],
+            ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
           };
         }
 
@@ -491,6 +501,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeUTXO,
     customFee?.feeSol,
     customFee?.feeCkb,
+    customFee?.feeDot,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,

@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -438,6 +439,9 @@ export default class VaultDot extends VaultBase {
     if (params.feeInfo) {
       encodedTx.feeInfo = params.feeInfo;
     }
+    const extraTip = new BigNumber(params.feeInfo?.feeDot?.extraTipInDot ?? '0')
+      .shiftedBy(params.feeInfo?.common.feeDecimals ?? 0)
+      .toFixed();
 
     // send max amount
     if (nativeAmountInfo) {
@@ -463,6 +467,7 @@ export default class VaultDot extends VaultBase {
         const network = await this.getNetwork();
         const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
           .shiftedBy(network.decimals)
+          .minus(extraTip)
           .toFixed(0);
         const dest = decodeUnsignedTx.method.args.dest as { id: string };
 
@@ -516,6 +521,10 @@ export default class VaultDot extends VaultBase {
         blockNumber: blockInfo.blockNumber as unknown as `0x${string}`,
         era: era.toHex(),
       };
+    }
+
+    if (params.feeInfo?.feeDot) {
+      encodedTx.tip = numberUtils.numberToHex(extraTip) as `0x${string}`;
     }
 
     return {

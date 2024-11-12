@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
@@ -68,6 +70,18 @@ class ServiceGas extends ServiceBase {
             feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
           }))
         : undefined,
+      feeDot: feeInfo.feeData
+        ?.map((item) => {
+          if (!item.extraTip) {
+            return undefined;
+          }
+          return {
+            extraTipInDot: new BigNumber(item.extraTip)
+              .shiftedBy(-feeInfo.feeDecimals)
+              .toFixed(),
+          };
+        })
+        .filter((item) => !!item),
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
