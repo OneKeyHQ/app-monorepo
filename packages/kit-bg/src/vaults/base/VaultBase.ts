@@ -443,6 +443,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
   }
 
+  async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{
+    encodedTx: Partial<IEncodedTx> | undefined;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
+  }
+
   async buildFetchHistoryListParams(params: {
     accountId: string;
     networkId: string;

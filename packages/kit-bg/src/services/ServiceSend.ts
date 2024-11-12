@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil } from 'lodash';
 
 import type {
+  IEncodedTx,
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -20,7 +21,10 @@ import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
-import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type {
+  ESendPreCheckTimingEnum,
+  IParseTransactionResp,
+} from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
@@ -675,6 +679,52 @@ class ServiceSend extends ServiceBase {
         feeInfo: params.feeInfos?.[i]?.feeInfo,
       });
     }
+  }
+
+  @backgroundMethod()
+  async parseTransaction(params: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTx;
+    accountAddress?: string;
+  }) {
+    const { networkId, accountId, encodedTx } = params;
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    let accountAddress = params.accountAddress;
+    if (!accountAddress) {
+      accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+    }
+
+    const { encodedTx: encodedTxToParse } =
+      await vault.buildParseTransactionParams({
+        encodedTx,
+      });
+
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IParseTransactionResp }>(
+      '/wallet/v1/account/parse-transaction',
+      {
+        networkId,
+        accountAddress,
+        encodedTx: encodedTxToParse,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp.data.data;
   }
 }
 
