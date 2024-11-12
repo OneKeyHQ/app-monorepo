@@ -10,6 +10,7 @@ import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
+import type { IIconButtonProps } from '../../actions';
 import type {
   IImageSourceProps,
   ISizableTextProps,
@@ -103,8 +104,8 @@ export function Banner<T extends IBannerData>({
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  leftIconButtonStyle?: IStackStyle;
-  rightIconButtonStyle?: IStackStyle;
+  leftIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
+  rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
