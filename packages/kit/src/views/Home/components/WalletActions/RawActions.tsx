@@ -25,6 +25,7 @@ export type IActionItemsProps = {
   icon?: IKeyOfIcons;
   label?: string;
   showButtonStyle?: boolean;
+  hiddenIfDisabled?: boolean;
   verticalContainerProps?: IStackProps;
 } & Partial<IButtonProps & IIconButtonProps>;
 
