@@ -20,7 +20,10 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatDate,
+  formatDistanceToNow,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -519,7 +522,12 @@ export const UniversalStake = ({
               <SizableText size="$bodyLgMedium">
                 {intl.formatMessage(
                   { id: ETranslations.earn_in_number },
-                  { number: Math.ceil(Number(stakingTime) / 3600 / 24) },
+                  {
+                    number: formatDistanceToNow(
+                      Date.now() + Number(stakingTime * 1000),
+                      false,
+                    ),
+                  },
                 )}
               </SizableText>
             </CalculationListItem.Value>

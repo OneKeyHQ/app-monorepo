@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { GridItem } from './GridItem';
@@ -115,7 +116,12 @@ function ProfitInfo({
             >
               {intl.formatMessage(
                 { id: ETranslations.earn_in_number },
-                { number: Math.ceil(Number(stakingTime) / 3600 / 24) },
+                {
+                  number: formatDistanceToNow(
+                    Date.now() + Number(stakingTime * 1000),
+                    false,
+                  ),
+                },
               )}
             </GridItem>
           ) : null}
