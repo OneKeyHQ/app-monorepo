@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -85,7 +86,6 @@ import type {
 } from '../../types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;

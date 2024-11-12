@@ -231,7 +231,9 @@ function FeeEditor(props: IProps) {
       // fee ckb
       feeRateCkb: new BigNumber(customFee?.feeCkb?.feeRate ?? '0').toFixed(),
       // fee dot
-      dotExtraTip: new BigNumber(customFee?.feeDot?.extraTipInDot ?? '0').toFixed(),
+      dotExtraTip: new BigNumber(
+        customFee?.feeDot?.extraTipInDot ?? '0',
+      ).toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -776,26 +778,31 @@ function FeeEditor(props: IProps) {
     [form],
   );
 
-  const handleValidateDotExtraTip = useCallback((value: string) => {
-    const extraTip = new BigNumber(value || 0);
-    if (extraTip.isNaN() || extraTip.isLessThanOrEqualTo(0)) {
-      return false;
-    }
+  const handleValidateDotExtraTip = useCallback(
+    (value: string) => {
+      const extraTip = new BigNumber(value || 0);
+      if (extraTip.isNaN() || extraTip.isLessThanOrEqualTo(0)) {
+        return false;
+      }
 
-    const minExtraTip = new BigNumber(1).shiftedBy(-customFee.common.feeDecimals);
-    if (extraTip.isNaN() || extraTip.isLessThan(minExtraTip)) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.send_error_minimum_amount,
-        },
-        {
-          amount: minExtraTip.toFixed(),
-          token: customFee.common.feeSymbol,
-        },
+      const minExtraTip = new BigNumber(1).shiftedBy(
+        -customFee.common.feeDecimals,
       );
-    }
-    return true;
-  }, [customFee.common.feeDecimals]);
+      if (extraTip.isNaN() || extraTip.isLessThan(minExtraTip)) {
+        return intl.formatMessage(
+          {
+            id: ETranslations.send_error_minimum_amount,
+          },
+          {
+            amount: minExtraTip.toFixed(),
+            token: customFee.common.feeSymbol,
+          },
+        );
+      }
+      return true;
+    },
+    [customFee.common.feeDecimals, customFee.common.feeSymbol, intl],
+  );
 
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
@@ -1118,6 +1125,7 @@ function FeeEditor(props: IProps) {
     form,
     handleFormValueOnChange,
     handleValidateComputeUnitPrice,
+    handleValidateDotExtraTip,
     handleValidateFeeRate,
     handleValidateFeeRateCkb,
     handleValidateGasLimit,
@@ -1148,7 +1156,10 @@ function FeeEditor(props: IProps) {
         extraTip = new BigNumber(fee.feeDot.extraTipInDot || '0');
       }
 
-      const max = new BigNumber(fee.gas?.gasLimit || '0').multipliedBy(fee.gas?.gasPrice || '0').plus(extraTip).toFixed();
+      const max = new BigNumber(fee.gas?.gasLimit || '0')
+        .multipliedBy(fee.gas?.gasPrice || '0')
+        .plus(extraTip)
+        .toFixed();
 
       const maxFeeInNative = calculateTotalFeeNative({
         amount: max,
@@ -1166,7 +1177,6 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
       ];
-
     } else if (fee.gasEIP1559) {
       let limit = new BigNumber(0);
       let priorityFee = new BigNumber(0);
