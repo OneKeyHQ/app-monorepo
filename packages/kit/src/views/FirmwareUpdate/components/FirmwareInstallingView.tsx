@@ -97,7 +97,11 @@ export function FirmwareInstallingView({
         result={result}
         isDone={isDone}
         tipMessage={lastFirmwareTipMessage}
-        retryInfo={retryInfo}
+        retryInfo={
+          stepInfo.step === EFirmwareUpdateSteps.updateStart
+            ? undefined
+            : retryInfo
+        }
         progressBarKey={lastUpdateTimeRef.current}
       />
     </>
