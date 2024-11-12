@@ -695,13 +695,19 @@ export default class Vault extends VaultBase {
     const { okxTx, fromTokenInfo } = params;
     const { from, to, value, data, signatureData: _signatureData } = okxTx;
     const signatureData: { functionSelector: string } = JSON.parse(
-      _signatureData?.[0] ?? '{}',
+      (_signatureData as string[])[0] ?? '{}',
     );
+
     let signatureDataHex = '';
     if (signatureData) {
       signatureDataHex = signatureData.functionSelector ?? '';
     }
-    console.log('swap__signatureDataHex', signatureDataHex);
+
+    const functionParams = defaultAbiCoder.decode(
+      ['uint256', 'uint256', 'uint256', 'bytes32[]'],
+      `0x${(data as string).slice(10)}`,
+    ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
+
     const [{ result, transaction }] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         result: { result: boolean };
@@ -716,14 +722,20 @@ export default class Vault extends VaultBase {
               params: [
                 to,
                 signatureDataHex,
-                {},
+                {
+                  feeLimit: 300_000_000,
+                  callValue: parseInt(value, 10),
+                },
                 [
-                  { type: 'address', value: to },
+                  { type: 'uint256', value: functionParams[0]._hex },
                   {
                     type: 'uint256',
-                    value: new BigNumber(value)
-                      .shiftedBy(fromTokenInfo.decimals)
-                      .toFixed(0),
+                    value: functionParams[1]._hex,
+                  },
+                  { type: 'uint256', value: functionParams[2]._hex },
+                  {
+                    type: 'bytes32[]',
+                    value: functionParams[3],
                   },
                 ],
                 from,
