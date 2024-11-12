@@ -76,6 +76,26 @@ export function calculateTotalFeeRange({
   estimateFeeParams?: IEstimateFeeParams;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
+
+  // Add additional fees on top of gasLimit and gasPrice calculations
+  if (feeInfo.feeDot) {
+    const { extraTipInDot } = feeInfo.feeDot;
+    const { gasLimit, gasPrice } = feeInfo.gas || {};
+    const baseFee = new BigNumber(gasLimit ?? '0').multipliedBy(
+      new BigNumber(gasPrice ?? '0'),
+    );
+
+    const max = baseFee.plus(extraTipInDot ?? '').toFixed();
+    const min = max;
+
+    return {
+      min: nanToZeroString(min),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(min),
+      maxForDisplay: nanToZeroString(max),
+    };
+  }
+
   if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;

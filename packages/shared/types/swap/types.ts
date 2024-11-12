@@ -402,12 +402,26 @@ export interface IThorSwapCallData {
   fromAsset: string;
   amountIn: string;
 }
+export interface IOKXTransactionObject {
+  data: string;
+  from: string;
+  gas?: string;
+  gasLimit?: string;
+  gasPrice: string;
+  minReceiveAmount: string;
+  to: string;
+  value: string;
+  maxPriorityFeePerGas: string;
+  randomKeyAccount?: string[];
+  signatureData?: string[];
+}
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
+  OKXTxObject?: IOKXTransactionObject;
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
