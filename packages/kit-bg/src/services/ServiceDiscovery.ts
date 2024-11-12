@@ -79,7 +79,7 @@ class ServiceDiscovery extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
     },
   );
 
