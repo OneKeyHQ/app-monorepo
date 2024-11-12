@@ -9,7 +9,11 @@ import type {
   IEncodedTxTron,
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -56,6 +60,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -682,5 +687,68 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: signedTx.txid,
     };
+  }
+
+  override async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTxTron> {
+    const { okxTx, fromTokenInfo } = params;
+    const { from, to, value, data, signatureData: _signatureData } = okxTx;
+    const signatureData: { functionSelector: string } = JSON.parse(
+      (_signatureData as string[])[0] ?? '{}',
+    );
+
+    let signatureDataHex = '';
+    if (signatureData) {
+      signatureDataHex = signatureData.functionSelector ?? '';
+    }
+
+    const functionParams = defaultAbiCoder.decode(
+      ['uint256', 'uint256', 'uint256', 'bytes32[]'],
+      `0x${(data as string).slice(10)}`,
+    ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
+
+    const [{ result, transaction }] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: IUnsignedTransaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                to,
+                signatureDataHex,
+                {
+                  feeLimit: 300_000_000,
+                  callValue: parseInt(value, 10),
+                },
+                [
+                  { type: 'uint256', value: functionParams[0]._hex },
+                  {
+                    type: 'uint256',
+                    value: functionParams[1]._hex,
+                  },
+                  { type: 'uint256', value: functionParams[2]._hex },
+                  {
+                    type: 'bytes32[]',
+                    value: functionParams[3],
+                  },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build token transfer transaction',
+      );
+    }
+    return transaction;
   }
 }

@@ -324,6 +324,14 @@ export function useSwapBuildTx() {
                 .shiftedBy(-fromToken.decimals)
                 .toFixed(),
             };
+          } else if (res?.OKXTxObject) {
+            encodedTx =
+              await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
+                accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
+                networkId: res.result.fromTokenInfo.networkId,
+                okxTx: res.OKXTxObject,
+                fromTokenInfo: res.result.fromTokenInfo,
+              });
           } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
