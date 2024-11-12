@@ -1567,6 +1567,15 @@ class ServiceAccount extends ServiceBase {
         await Promise.all(
           accounts.map(async (account) => {
             const { indexedAccountId, id } = account;
+
+            if (
+              accountUtils.isUrlAccountFn({
+                accountId: id,
+              })
+            ) {
+              return null;
+            }
+
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: id,
             });
