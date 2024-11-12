@@ -15,12 +15,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { otherWalletFeeData } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
   fromToken?: ISwapToken;
   isBest?: boolean;
   toToken?: ISwapToken;
+  onekeyFee?: number;
   providerIcon: string;
   providerName: string;
   showLock?: boolean;
@@ -38,6 +40,7 @@ interface IProtocolFeeInfo {
 const SwapProviderInfoItem = ({
   fromToken,
   isBest,
+  onekeyFee,
   toToken,
   providerIcon,
   providerName,
@@ -48,45 +51,17 @@ const SwapProviderInfoItem = ({
   const intl = useIntl();
   const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
     () => [
-      {
-        maxFee: 0.875,
-        name: 'metamask',
-        color: '#F5841F',
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
-        },
-        fee: 0.875,
-      },
-      {
-        maxFee: 0.875,
-        name: 'phantom',
-        fee: 0.85,
-        color: '#AB9FF2',
-
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/Phantom.png',
-        },
-      },
-      {
-        maxFee: 0.875,
-        name: 'zerion',
-        fee: 0.8,
-        color: '#2461ED',
-
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
-        },
-      },
+      ...otherWalletFeeData,
       {
         maxFee: 0.875,
         name: 'oneKey',
-        fee: 0.3,
+        fee: onekeyFee ?? 0.3,
         // color: '#202020',
         color: '$bgInverse',
         icon: require('@onekeyhq/kit/assets/logo.png'),
       },
     ],
-    [],
+    [onekeyFee],
   );
   const renderProtocolFeeListItem = useCallback(
     (item: IProtocolFeeInfo) => (

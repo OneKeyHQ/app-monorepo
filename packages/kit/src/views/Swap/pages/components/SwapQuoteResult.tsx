@@ -276,6 +276,7 @@ const SwapQuoteResult = ({
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
                   fromToken={fromToken}
+                  onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
