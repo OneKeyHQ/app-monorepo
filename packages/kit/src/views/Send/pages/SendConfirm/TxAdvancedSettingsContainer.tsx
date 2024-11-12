@@ -19,12 +19,12 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useDecodedTxsAtom,
   useSendConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
-import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -37,7 +37,6 @@ import {
 type IProps = {
   accountId: string;
   networkId: string;
-  transferPayload?: ITransferPayload;
 };
 
 const showNonceFaq = () => {
@@ -73,11 +72,11 @@ const showHexDataFaq = () => {
 };
 
 function TxAdvancedSettingsContainer(props: IProps) {
-  const { accountId, networkId, transferPayload } = props;
+  const { accountId, networkId } = props;
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const [decodedTxs] = useDecodedTxsAtom();
   const [settings] = useSettingsPersistAtom();
-  const [hexDataUtf8String, setHexDataUtf8String] = useState<string>('');
   const { updateTxAdvancedSettings, updateUnsignedTxs } =
     useSendConfirmActions().current;
 
@@ -129,11 +128,6 @@ function TxAdvancedSettingsContainer(props: IProps) {
 
   const currentNonce = new BigNumber(unsignedTxs[0].nonce ?? 0).toFixed();
 
-  const shouldConvertHexDataToUtf8String = useMemo(
-    () => unsignedTxs.length === 1 && transferPayload?.isToContract === false,
-    [transferPayload?.isToContract, unsignedTxs.length],
-  );
-
   const form = useForm({
     defaultValues: {
       nonce: currentNonce,
@@ -143,8 +137,18 @@ function TxAdvancedSettingsContainer(props: IProps) {
     reValidateMode: 'onBlur',
   });
 
+  const shouldConvertHexDataToUtf8String = useMemo(
+    () => decodedTxs.length === 1 && decodedTxs[0].isToContract === false,
+    [decodedTxs],
+  );
+
+  const [hexDataUtf8String, setHexDataUtf8String] = useState<string>(
+    hexUtils.hexStringToUtf8String(dataContent),
+  );
+
   const handleValidateNonce = useCallback(
     async (value: string) => {
+      setHexDataUtf8String('');
       if (value === '') {
         return true;
       }
@@ -182,6 +186,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   );
   const handleValidateData = useCallback(
     (value: string) => {
+      setHexDataUtf8String('');
       if (checkIsEmptyData(value)) {
         return true;
       }
@@ -204,7 +209,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const handleDataOnChange = useDebouncedCallback(
     async (e: { target: { name: string; value: string } }) => {
       const value = e.target?.value;
-      if (shouldConvertHexDataToUtf8String) {
+      if (shouldConvertHexDataToUtf8String && utils.isHexString(value)) {
         try {
           const utf8String = hexUtils.hexStringToUtf8String(value);
           console.log('utf8String', utf8String);
@@ -213,6 +218,8 @@ function TxAdvancedSettingsContainer(props: IProps) {
           console.log('error', error);
           setHexDataUtf8String('');
         }
+      } else {
+        setHexDataUtf8String('');
       }
 
       if (!form.getFieldState('data').invalid) {
@@ -312,7 +319,10 @@ function TxAdvancedSettingsContainer(props: IProps) {
             </Button>
           }
           description={
-            shouldConvertHexDataToUtf8String ? hexDataUtf8String : ''
+            shouldConvertHexDataToUtf8String &&
+            !form.getFieldState('data').invalid
+              ? hexDataUtf8String
+              : ''
           }
         >
           <TextAreaInput editable={canEditData} flex={1} />

@@ -516,6 +516,7 @@ export interface IBuildUnsignedTxParams {
   specifiedFeeRate?: string;
   prevNonce?: number;
   feeInfo?: IFeeInfoUnit;
+  transferPayload?: ITransferPayload;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

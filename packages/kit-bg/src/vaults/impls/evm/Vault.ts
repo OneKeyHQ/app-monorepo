@@ -221,7 +221,6 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx, transferPayload } = params;
-    const { isToContract } = transferPayload ?? {};
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const { swapInfo, stakingInfo } = unsignedTx;
@@ -240,15 +239,18 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
+    let isToContract = false;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
+      isToContract = true;
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapData: encodedTx.data,
         swapToAddress: encodedTx.to,
       });
     } else if (stakingInfo) {
+      isToContract = true;
       action = await this.buildInternalStakingAction({
         stakingInfo,
         accountAddress,
@@ -264,6 +266,19 @@ export default class Vault extends VaultBase {
               encodedTx,
             });
         }
+      }
+
+      try {
+        const parseResult =
+          await this.backgroundApi.serviceSend.parseTransaction({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            encodedTx,
+            accountAddress,
+          });
+        isToContract = parseResult.parsedTx.to.isContract;
+      } catch (e) {
+        // ignore
       }
 
       if (
