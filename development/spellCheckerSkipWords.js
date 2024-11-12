@@ -771,4 +771,5 @@ module.exports = [
   'algodv2',
   'okx',
   'OKX',
+  'Okx',
 ];
