@@ -58,6 +58,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -454,6 +455,30 @@ export default class Vault extends VaultBase {
     return {
       ...params.signedTx,
       txid: txId,
+    };
+  }
+
+  override async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    const { okxTx, fromTokenInfo } = params;
+    const { from, to, value, data } = okxTx;
+    const amount = new BigNumber(value)
+      .shiftedBy(-fromTokenInfo.decimals)
+      .toString();
+    const message = {
+      address: to,
+      amount: TonWeb.utils.toNano(amount).toString(),
+      payload: data,
+    };
+    const fromAddress = await this.getAccountAddress();
+    if (from !== fromAddress) {
+      throw new OneKeyInternalError('Invalid from address');
+    }
+    return {
+      from,
+      to,
+      messages: [message],
     };
   }
 }

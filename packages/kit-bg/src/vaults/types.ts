@@ -36,7 +36,11 @@ import type {
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IOKXTransactionObject,
+  ISwapTokenBase,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
@@ -619,4 +623,9 @@ export type IQrWalletGetVerifyAddressChainParamsQuery = {
 export type IQrWalletGetVerifyAddressChainParamsResult = {
   scriptType?: string; // BTC only
   chainId?: string; // EVM only
+};
+
+export type IBuildOkxSwapEncodedTxParams = {
+  okxTx: IOKXTransactionObject;
+  fromTokenInfo: ISwapTokenBase;
 };

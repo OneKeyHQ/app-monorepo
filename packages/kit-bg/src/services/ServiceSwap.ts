@@ -41,11 +41,13 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IOKXTransactionObject,
   ISwapApproveTransaction,
   ISwapCheckSupportResponse,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
+  ISwapTokenBase,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -57,6 +59,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { inAppNotificationAtom } from '../states/jotai/atoms';
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -1246,5 +1249,22 @@ export default class ServiceSwap extends ServiceBase {
       toTokenBaseInfo,
       isExit,
     );
+  }
+
+  @backgroundMethod()
+  async buildOkxSwapEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    okxTx: IOKXTransactionObject;
+    fromTokenInfo: ISwapTokenBase;
+  }) {
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
+    return vault.buildOkxSwapEncodedTx({
+      okxTx: params.okxTx,
+      fromTokenInfo: params.fromTokenInfo,
+    });
   }
 }

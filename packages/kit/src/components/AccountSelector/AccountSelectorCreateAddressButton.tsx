@@ -86,10 +86,15 @@ export function AccountSelectorCreateAddressButton({
   const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
     useAccountManualCreatingAtom();
 
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+
   const isLoading = useMemo(
     () =>
       (accountManualCreatingAtom.isLoading &&
         accountManualCreatingAtom.key === manualCreatingKey) ||
+      (addressCreationState &&
+        addressCreationState?.indexedAccountId === indexedAccountId &&
+        addressCreationState?.walletId === walletId) ||
       (accountIsAutoCreating &&
         accountIsAutoCreating.walletId === walletId &&
         accountIsAutoCreating.indexedAccountId === indexedAccountId &&
@@ -102,9 +107,10 @@ export function AccountSelectorCreateAddressButton({
       accountManualCreatingAtom.isLoading,
       accountManualCreatingAtom.key,
       manualCreatingKey,
-      accountIsAutoCreating,
-      walletId,
+      addressCreationState,
       indexedAccountId,
+      walletId,
+      accountIsAutoCreating,
       networkId,
       deriveType,
       indexedAccountAddressCreationState?.indexedAccountId,
