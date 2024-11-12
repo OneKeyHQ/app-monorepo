@@ -15,10 +15,10 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
+  IChangedPendingTxInfo,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
-  IFetchHistoryTxDetailsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
@@ -287,14 +287,31 @@ class ServiceHistory extends ServiceBase {
     }
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
     localHistoryPendingTxs.forEach((tx) => {
       const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
       if (!txInResult) {
         accountsWithChangedPendingTxs.add(
           `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
         );
+        const confirmedTx = result.find((item) => item.id === tx.id);
+        if (confirmedTx) {
+          changedPendingTxInfos.push({
+            accountId: confirmedTx.decodedTx.accountId,
+            networkId: confirmedTx.decodedTx.networkId,
+            txId: confirmedTx.decodedTx.txid,
+            status: confirmedTx.decodedTx.status,
+          });
+        }
       }
     });
+
+    if (changedPendingTxInfos.length > 0) {
+      // Check if staking transaction status has changed, if so request backend to update order status
+      void this.backgroundApi.serviceStaking.updateEarnOrder({
+        txs: changedPendingTxInfos,
+      });
+    }
 
     return {
       txs: result,
@@ -994,6 +1011,16 @@ class ServiceHistory extends ServiceBase {
             replaceTxInfo.replaceType === EReplaceTxType.Cancel
               ? ESwapTxHistoryStatus.CANCELING
               : ESwapTxHistoryStatus.PENDING,
+        });
+
+        // Listen for staking transaction speed-up changes
+        void this.backgroundApi.serviceStaking.updateOrderStatusByTxId({
+          currentTxId: prevTx.decodedTx.txid,
+          newTxId: newHistoryTx.decodedTx.txid,
+          status:
+            replaceTxInfo.replaceType === EReplaceTxType.Cancel
+              ? EDecodedTxStatus.Removed
+              : EDecodedTxStatus.Pending,
         });
       }
     }
