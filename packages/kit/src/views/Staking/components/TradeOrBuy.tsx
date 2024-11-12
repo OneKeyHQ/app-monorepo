@@ -47,18 +47,16 @@ function BasicTradeOrBuy({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(async () => {
-    // const { isSupportSwap, isSupportCrossChain } =
-    //   await backgroundApiProxy.serviceSwap.checkSupportSwap({
-    //     networkId,
-    //     contractAddress: token.address,
-    //   });
+    const { isSupportSwap, isSupportCrossChain } =
+      await backgroundApiProxy.serviceSwap.checkSupportSwap({
+        networkId,
+        contractAddress: token.address,
+      });
 
     let importFromToken: ISwapTokenBase | undefined;
-    // let swapTabSwitchType = isSupportSwap
-    let swapTabSwitchType = false
+    let swapTabSwitchType = isSupportSwap
       ? ESwapTabSwitchType.SWAP
       : ESwapTabSwitchType.BRIDGE;
-    console.log('---networkId', networkId, token);
     switch (networkId) {
       case 'btc--0':
       case 'tbtc--1':
