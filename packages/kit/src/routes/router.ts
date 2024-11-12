@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { ModalNavigator } from './Modal/Navigator';
-import { modalRouter } from './Modal/router';
+import { fullModalRouter, modalRouter } from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
@@ -50,7 +50,7 @@ export const useRootRouter = () => {
       },
       {
         name: ERootRoutes.iOSFullScreen,
-        children: modalRouter,
+        children: fullModalRouter,
       },
     ],
     [tabRouter],
