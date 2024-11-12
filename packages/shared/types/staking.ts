@@ -23,6 +23,7 @@ export type IStakingInfo = {
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
   receive?: { amount: string; token: IToken };
+  orderId?: string;
 };
 
 export type IStakeProviderInfo = {
@@ -146,11 +147,16 @@ export enum EStakeTxType {
   BtcBabylon = 'btc-babylon',
 }
 
-export type IStakeTxResponse =
+export type IStakeTx =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
   | IStakeTxCosmosAmino;
+
+export type IStakeTxResponse = {
+  tx: IStakeTx;
+  orderId: string;
+};
 
 // Babylon
 export type IStakeTxBtcBabylon = {
