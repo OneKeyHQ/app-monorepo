@@ -330,8 +330,8 @@ function FeeEditor(props: IProps) {
     );
     const gasLimitForDisplay = new BigNumber(
       feeInfo.gasEIP1559?.gasLimitForDisplay ??
-      feeInfo.gas?.gasLimitForDisplay ??
-      '0',
+        feeInfo.gas?.gasLimitForDisplay ??
+        '0',
     );
 
     return {
@@ -833,11 +833,14 @@ function FeeEditor(props: IProps) {
                   }),
               }}
             >
-              <Input flex={1} addOns={[
-                {
-                  label: customFee.common.feeSymbol,
-                },
-              ]} />
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: customFee.common.feeSymbol,
+                  },
+                ]}
+              />
             </Form.Field>
           </YStack>
         </Form>
@@ -858,8 +861,8 @@ function FeeEditor(props: IProps) {
                   replaceTxMode
                     ? null
                     : `${intl.formatMessage({
-                      id: ETranslations.form_max_base_fee_description,
-                    })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
+                        id: ETranslations.form_max_base_fee_description,
+                      })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
                 }
                 rules={{
                   required: true,
@@ -1207,12 +1210,12 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         vaultSettings?.withL1BaseFee &&
-          new BigNumber(fee.common.baseFee ?? 0).gt(0)
+        new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-            label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
-            customValue: fee.common.baseFee,
-            customSymbol: feeSymbol,
-          }
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
+              customValue: fee.common.baseFee,
+              customSymbol: feeSymbol,
+            }
           : null,
         {
           label: intl.formatMessage({ id: ETranslations.fee_expected_fee }),
@@ -1249,12 +1252,12 @@ function FeeEditor(props: IProps) {
 
       feeInfoItems = [
         vaultSettings?.withL1BaseFee &&
-          new BigNumber(fee.common.baseFee ?? 0).gt(0)
+        new BigNumber(fee.common.baseFee ?? 0).gt(0)
           ? {
-            label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
-            customValue: fee.common.baseFee,
-            customSymbol: feeSymbol,
-          }
+              label: intl.formatMessage({ id: ETranslations.fee_l1_base_fee }),
+              customValue: fee.common.baseFee,
+              customSymbol: feeSymbol,
+            }
           : null,
         {
           label: intl.formatMessage({ id: ETranslations.global_gas_price }),
