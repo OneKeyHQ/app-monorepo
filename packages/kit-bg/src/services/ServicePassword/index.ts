@@ -646,7 +646,8 @@ export default class ServicePassword extends ServiceBase {
     }
     const { time: lastActivity } = await settingsLastActivityAtom.get();
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
-    if (idleDuration >= appLockDuration) {
+    const unavailableTime = Date.now() < lastActivity;
+    if (idleDuration >= appLockDuration || unavailableTime) {
       await this.lockApp({ manual: false });
     }
   }
