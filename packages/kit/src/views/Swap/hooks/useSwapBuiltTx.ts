@@ -325,7 +325,6 @@ export function useSwapBuildTx() {
                 .toFixed(),
             };
           } else if (res?.OKXTxObject) {
-            console.log('swap__okxTxObject', res.OKXTxObject);
             encodedTx =
               await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
                 accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
