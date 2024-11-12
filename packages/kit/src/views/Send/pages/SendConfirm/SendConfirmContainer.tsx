@@ -203,6 +203,7 @@ function SendConfirmContainer() {
           <TxAdvancedSettingsContainer
             accountId={accountId}
             networkId={networkId}
+            transferPayload={transferPayload}
           />
         </Page.Body>
         <SendConfirmActionsContainer

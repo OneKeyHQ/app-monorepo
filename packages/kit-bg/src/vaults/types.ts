@@ -450,6 +450,7 @@ export type ITransferPayload = {
   isMaxSend: boolean;
   isNFT: boolean;
   originalRecipient: string;
+  isToContract?: boolean;
 };
 
 export enum EWrappedType {

@@ -39,6 +39,11 @@ function isHexString(value: string, length?: number): boolean {
   return utils.isHexString(addHexPrefix(value), length);
 }
 
+function hexStringToUtf8String(hexString: string): string {
+  const hex = stripHexPrefix(hexString);
+  return Buffer.from(hex, 'hex').toString('utf8');
+}
+
 export default {
   stripHexZeros,
   hexlify,
@@ -46,4 +51,5 @@ export default {
   stripHexPrefix,
   hasHexPrefix,
   isHexString,
+  hexStringToUtf8String,
 };

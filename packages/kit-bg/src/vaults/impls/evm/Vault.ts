@@ -221,6 +221,7 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx, transferPayload } = params;
+    const { isToContract } = transferPayload ?? {};
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const { swapInfo, stakingInfo } = unsignedTx;
@@ -265,32 +266,10 @@ export default class Vault extends VaultBase {
         }
       }
 
-      const preCheckIsNativeTransfer = checkIsEvmNativeTransfer({
-        tx: nativeTx,
-      });
-
-      let isNativeTransfer = preCheckIsNativeTransfer;
-
-      try {
-        if (preCheckIsNativeTransfer) {
-          isNativeTransfer = true;
-        } else {
-          const parsedTx =
-            await this.backgroundApi.serviceSend.parseTransaction({
-              networkId: this.networkId,
-              accountId: this.accountId,
-              accountAddress,
-              encodedTx,
-            });
-
-          const toAddress = parsedTx.parsedTx.to;
-          isNativeTransfer = toAddress && toAddress.isContract === false;
-        }
-      } catch (error) {
-        // pass
-      }
-
-      if (isNativeTransfer) {
+      if (
+        isToContract === false ||
+        checkIsEvmNativeTransfer({ tx: nativeTx })
+      ) {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -314,6 +293,7 @@ export default class Vault extends VaultBase {
       unsignedTx,
       action,
       extraNativeTransferAction,
+      isToContract,
     });
   }
 
@@ -466,8 +446,10 @@ export default class Vault extends VaultBase {
     unsignedTx: IUnsignedTxPro;
     action: IDecodedTxAction | undefined;
     extraNativeTransferAction: IDecodedTxAction | undefined;
+    isToContract?: boolean;
   }): Promise<IDecodedTx> {
-    const { unsignedTx, action, extraNativeTransferAction } = params;
+    const { unsignedTx, action, extraNativeTransferAction, isToContract } =
+      params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
     const finalActions = mergeAssetTransferActions(
@@ -479,6 +461,7 @@ export default class Vault extends VaultBase {
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
+      isToContract,
       nonce: Number(encodedTx.nonce) ?? 0,
       actions: finalActions,
       status: EDecodedTxStatus.Pending,
