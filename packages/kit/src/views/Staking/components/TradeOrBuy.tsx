@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
@@ -47,6 +48,7 @@ function BasicTradeOrBuy({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(async () => {
+    const networkIdsMap = getNetworkIdsMap();
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
@@ -58,19 +60,19 @@ function BasicTradeOrBuy({
       ? ESwapTabSwitchType.SWAP
       : ESwapTabSwitchType.BRIDGE;
     switch (networkId) {
-      case 'btc--0':
-      case 'tbtc--1':
-        importFromToken = await getImportFromToken('evm--1');
+      case networkIdsMap.btc:
+      case networkIdsMap.sbtc:
+        importFromToken = await getImportFromToken(networkIdsMap.eth);
         swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
         break;
-      case 'evm--1':
-      case 'evm--17000':
-      case 'evm--11155111': {
+      case networkIdsMap.eth:
+      case networkIdsMap.holesky:
+      case networkIdsMap.sepolia: {
         if (token.symbol === 'MATIC') {
-          importFromToken = await getImportFromToken('evm--1');
+          importFromToken = await getImportFromToken(networkIdsMap.eth);
         } else {
           importFromToken = {
-            'networkId': 'evm--1',
+            'networkId': networkIdsMap.eth,
             'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
             'name': 'USD Coin',
             'symbol': 'USDC',
@@ -80,9 +82,9 @@ function BasicTradeOrBuy({
         swapTabSwitchType = ESwapTabSwitchType.SWAP;
         break;
       }
-      case 'sol--101': {
+      case networkIdsMap.sol: {
         importFromToken = {
-          'networkId': 'sol--101',
+          'networkId': networkIdsMap.sol,
           'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
           'name': 'USDC',
           'symbol': 'USDC',
@@ -91,8 +93,8 @@ function BasicTradeOrBuy({
         swapTabSwitchType = ESwapTabSwitchType.SWAP;
         break;
       }
-      case 'aptos--1':
-        importFromToken = await getImportFromToken('evm--1');
+      case networkIdsMap.apt:
+        importFromToken = await getImportFromToken(networkIdsMap.eth);
         swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
         break;
       default:
@@ -112,7 +114,7 @@ function BasicTradeOrBuy({
     });
   }, [navigation, networkId, token]);
 
-  const isShowTradeButton = networkId !== 'cosmos--cosmoshub-4';
+  const isShowTradeButton = networkId !== networkIdsMap.cosmoshub;
 
   return (
     <XStack
