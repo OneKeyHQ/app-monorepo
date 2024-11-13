@@ -10,8 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -19,18 +18,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-
-const getImportFromToken = async (networkId: string) => {
-  const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-    networkId,
-  });
-  return {
-    networkId,
-    contractAddress: '',
-    symbol: network.symbol,
-    decimals: network.decimals,
-  };
-};
 
 function BasicTradeOrBuy({
   token,
@@ -55,51 +42,11 @@ function BasicTradeOrBuy({
         contractAddress: token.address,
       });
 
-    let importFromToken: ISwapTokenBase | undefined;
-    let swapTabSwitchType = isSupportSwap
-      ? ESwapTabSwitchType.SWAP
-      : ESwapTabSwitchType.BRIDGE;
-    switch (networkId) {
-      case networkIdsMap.btc:
-      case networkIdsMap.sbtc:
-        importFromToken = await getImportFromToken(networkIdsMap.eth);
-        swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
-        break;
-      case networkIdsMap.eth:
-      case networkIdsMap.holesky:
-      case networkIdsMap.sepolia: {
-        if (token.symbol === 'MATIC') {
-          importFromToken = await getImportFromToken(networkIdsMap.eth);
-        } else {
-          importFromToken = {
-            'networkId': networkIdsMap.eth,
-            'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-            'name': 'USD Coin',
-            'symbol': 'USDC',
-            'decimals': 6,
-          };
-        }
-        swapTabSwitchType = ESwapTabSwitchType.SWAP;
-        break;
-      }
-      case networkIdsMap.sol: {
-        importFromToken = {
-          'networkId': networkIdsMap.sol,
-          'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-          'name': 'USDC',
-          'symbol': 'USDC',
-          'decimals': 6,
-        };
-        swapTabSwitchType = ESwapTabSwitchType.SWAP;
-        break;
-      }
-      case networkIdsMap.apt:
-        importFromToken = await getImportFromToken(networkIdsMap.eth);
-        swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
-        break;
-      default:
-        break;
-    }
+    const { importFromToken, swapTabSwitchType } = getImportFromToken({
+      networkId,
+      isSupportSwap,
+      tokenSymbol: token.symbol,
+    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -112,18 +59,7 @@ function BasicTradeOrBuy({
         swapTabSwitchType,
       },
     });
-  }, [
-    navigation,
-    networkId,
-    networkIdsMap.apt,
-    networkIdsMap.btc,
-    networkIdsMap.eth,
-    networkIdsMap.holesky,
-    networkIdsMap.sbtc,
-    networkIdsMap.sepolia,
-    networkIdsMap.sol,
-    token,
-  ]);
+  }, [navigation, networkId, token]);
 
   const isShowTradeButton = networkId !== networkIdsMap.cosmoshub;
 
