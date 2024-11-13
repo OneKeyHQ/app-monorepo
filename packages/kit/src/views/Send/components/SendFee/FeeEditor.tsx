@@ -241,6 +241,11 @@ function FeeEditor(props: IProps) {
         customFee.feeAlgo?.baseFee ?? '0',
         algoMinFee,
       ).toFixed(),
+
+      // fee dot
+      dotExtraTip: new BigNumber(
+        customFee?.feeDot?.extraTipInDot ?? '0',
+      ).toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -280,6 +285,10 @@ function FeeEditor(props: IProps) {
         baseFee: watchAllFields.flatFee,
         minFee: algoMinFee,
       },
+
+      feeDot: customFee?.feeDot && {
+        extraTipInDot: watchAllFields.dotExtraTip,
+      },
     }),
     [
       algoMinFee,
@@ -290,6 +299,7 @@ function FeeEditor(props: IProps) {
       customFee?.feeUTXO,
       customFee?.gas,
       customFee?.gasEIP1559,
+      customFee?.feeDot,
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
       watchAllFields.feeRateCkb,
@@ -298,6 +308,7 @@ function FeeEditor(props: IProps) {
       watchAllFields.gasPrice,
       watchAllFields.maxBaseFee,
       watchAllFields.priorityFee,
+      watchAllFields.dotExtraTip,
     ],
   );
 
@@ -809,6 +820,32 @@ function FeeEditor(props: IProps) {
     [form],
   );
 
+  const handleValidateDotExtraTip = useCallback(
+    (value: string) => {
+      const extraTip = new BigNumber(value || 0);
+      if (extraTip.isNaN() || extraTip.isLessThanOrEqualTo(0)) {
+        return false;
+      }
+
+      const minExtraTip = new BigNumber(1).shiftedBy(
+        -customFee.common.feeDecimals,
+      );
+      if (extraTip.isNaN() || extraTip.isLessThan(minExtraTip)) {
+        return intl.formatMessage(
+          {
+            id: ETranslations.send_error_minimum_amount,
+          },
+          {
+            amount: minExtraTip.toFixed(),
+            token: customFee.common.feeSymbol,
+          },
+        );
+      }
+      return true;
+    },
+    [customFee.common.feeDecimals, customFee.common.feeSymbol, intl],
+  );
+
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
@@ -825,6 +862,45 @@ function FeeEditor(props: IProps) {
               rules={{
                 required: true,
                 validate: handleValidateFlatFee,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
+
+    if (customFee?.feeDot) {
+      return (
+        <Form form={form}>
+          <YStack gap="$5">
+            <Form.Field
+              label={intl.formatMessage(
+                {
+                  id: ETranslations.form__priority_fee,
+                },
+                {
+                  'network': feeSymbol,
+                },
+              )}
+              name="dotExtraTip"
+              rules={{
+                required: true,
+                min: 0,
+                validate: handleValidateDotExtraTip,
                 onChange: (e: { target: { name: string; value: string } }) =>
                   handleFormValueOnChange({
                     name: e.target.name,
@@ -1127,6 +1203,7 @@ function FeeEditor(props: IProps) {
     form,
     handleFormValueOnChange,
     handleValidateComputeUnitPrice,
+    handleValidateDotExtraTip,
     handleValidateFeeRate,
     handleValidateFeeRateCkb,
     handleValidateFlatFee,
@@ -1170,6 +1247,35 @@ function FeeEditor(props: IProps) {
           nativeValue: feeInNative,
           nativeSymbol,
           fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.feeDot) {
+      let extraTip = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        extraTip = new BigNumber(watchAllFields.dotExtraTip || '0');
+      } else {
+        extraTip = new BigNumber(fee.feeDot.extraTipInDot || '0');
+      }
+
+      const max = new BigNumber(fee.gas?.gasLimit || '0')
+        .multipliedBy(fee.gas?.gasPrice || '0')
+        .plus(extraTip)
+        .toFixed();
+
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: max,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: maxFeeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(maxFeeInNative)
             .times(nativeTokenPrice || 0)
             .toFixed(),
         },
@@ -1407,6 +1513,7 @@ function FeeEditor(props: IProps) {
     unsignedTxs,
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
+    watchAllFields.dotExtraTip,
     watchAllFields.feeRate,
     watchAllFields.feeRateCkb,
     watchAllFields.flatFee,

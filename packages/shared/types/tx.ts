@@ -94,6 +94,7 @@ export type IDecodedTx = {
   owner: string; // tx belongs to both receiver and sender
   signer: string; // creator, sender, fromAddress
   to?: string;
+  isToContract?: boolean;
 
   nonce: number;
   actions: IDecodedTxAction[]; // inputActions

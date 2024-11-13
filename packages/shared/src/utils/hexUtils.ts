@@ -39,6 +39,21 @@ function isHexString(value: string, length?: number): boolean {
   return utils.isHexString(addHexPrefix(value), length);
 }
 
+function hexStringToUtf8String(hexString: string): string {
+  const hex = hexString.replace('0x', '');
+
+  try {
+    const bytes = new Uint8Array(
+      hex.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || [],
+    );
+
+    const decoder = new TextDecoder('utf-8');
+    return decoder.decode(bytes);
+  } catch (error) {
+    return '';
+  }
+}
+
 export default {
   stripHexZeros,
   hexlify,
@@ -46,4 +61,5 @@ export default {
   stripHexPrefix,
   hasHexPrefix,
   isHexString,
+  hexStringToUtf8String,
 };

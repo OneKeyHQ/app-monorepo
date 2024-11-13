@@ -112,9 +112,17 @@ export function FirmwareUpdateCheckList({
                       startAtTime: Date.now(),
                     },
                   });
+
                   navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
                     result,
                   });
+
+                  // navigation.dispatch(
+                  //   StackActions.replace(EModalFirmwareUpdateRoutes.Install, {
+                  //     result,
+                  //   }),
+                  // );
+
                   setWorkflowIsRunning(true);
                   await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
                     {

@@ -307,12 +307,13 @@ export function usePromiseResult<T>(
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 
-  const { isInternetReachable } = useNetInfo();
+  const { isRawInternetReachable: isInternetReachable } = useNetInfo();
   const prevIsInternetReachable = usePrevious(isInternetReachable);
+
   useEffect(() => {
     if (
       optionsRef.current.revalidateOnReconnect &&
-      !prevIsInternetReachable &&
+      prevIsInternetReachable === false &&
       isInternetReachable
     ) {
       runWithPollingNonce();

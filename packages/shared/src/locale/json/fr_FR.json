@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "Il faut approuver le jeton avant l'échange",
   "provider.ios_popover.approval_require_title": "Approbation requise",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "Pas de frais cachés. OneKey prélève des frais de 0,3 %, déjà inclus dans votre devis, sans frais pour les transactions de wrapping. Cela nous aide à offrir une expérience de haute qualité et sans accroc.",
+  "provider.ios_popover.onekey_fee_content": "OneKey facture des frais de 0,3 %, déjà inclus dans votre devis, sans frais pour les transactions de wrapping. Cela nous aide à offrir une expérience de haute qualité et sans faille.",
   "provider.ios_popover.order_info_title": "Informations de Commande",
   "provider.ios_popover.title": "Information",
   "provider.label_anti_mev": "Anti-MEV",

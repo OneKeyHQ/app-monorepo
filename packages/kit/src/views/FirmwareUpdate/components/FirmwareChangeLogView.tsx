@@ -165,8 +165,10 @@ export function FirmwareChangeLogContentView({
 
 export function FirmwareChangeLogView({
   result,
+  onConfirmClick,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
+  onConfirmClick?: () => void;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
@@ -184,6 +186,7 @@ export function FirmwareChangeLogView({
             payload: undefined,
           });
           showCheckList({ result });
+          onConfirmClick?.();
         }}
       />
       <Stack>

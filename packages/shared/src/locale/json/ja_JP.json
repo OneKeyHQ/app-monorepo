@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "スワップ前にトークンを承認する必要がある",
   "provider.ios_popover.approval_require_title": "承認が必要です",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "隠れた手数料はありません。OneKeyは0.3%の手数料を請求しますが、これはすでにお見積もりに含まれており、トランザクションのラッピングには料金がかかりません。これにより、高品質でシームレスな体験を提供することができます。",
+  "provider.ios_popover.onekey_fee_content": "OneKeyは0.3%の手数料を請求しますが、これはすでにお見積もりに含まれており、トランザクションのラッピングには料金がかかりません。これにより、高品質でシームレスな体験を提供することができます。",
   "provider.ios_popover.order_info_title": "注文情報",
   "provider.ios_popover.title": "情報",
   "provider.label_anti_mev": "抗MEV",

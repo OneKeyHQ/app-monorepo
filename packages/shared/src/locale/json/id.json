@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "Perlu menyetujui token sebelum pertukaran",
   "provider.ios_popover.approval_require_title": "Persetujuan Diperlukan",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "Tidak ada biaya tersembunyi. OneKey mengenakan biaya 0,3%, yang sudah termasuk dalam penawaran Anda, tanpa biaya untuk transaksi wrapping. Ini mendukung kami dalam memberikan pengalaman yang berkualitas tinggi dan mulus.",
+  "provider.ios_popover.onekey_fee_content": "OneKey mengenakan biaya 0,3%, yang sudah termasuk dalam penawaran Anda, tanpa biaya untuk transaksi wrapping. Ini mendukung kami dalam memberikan pengalaman yang berkualitas tinggi dan mulus.",
   "provider.ios_popover.order_info_title": "Info Pesanan",
   "provider.ios_popover.title": "Informasi",
   "provider.label_anti_mev": "Anti-MEV",

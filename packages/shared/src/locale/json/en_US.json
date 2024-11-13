@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "Need to approve token before swap",
   "provider.ios_popover.approval_require_title": "Approval Required",
   "provider.ios_popover.onekey_fee": "OneKey fee",
-  "provider.ios_popover.onekey_fee_content": "No hidden fees. OneKey charge a 0.3% fee, already included in your quote, with no charges for wrapping transactions. This supports us in providing a high-quality, seamless experience.",
+  "provider.ios_popover.onekey_fee_content": "OneKey charge a 0.3% fee, already included in your quote, with no charges for wrapping transactions. This supports us in providing a high-quality, seamless experience.",
   "provider.ios_popover.order_info_title": "Order Info",
   "provider.ios_popover.title": "Information",
   "provider.label_anti_mev": "Anti-MEV",

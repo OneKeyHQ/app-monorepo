@@ -45,6 +45,10 @@ export type IFeeSol = {
   computeUnitPrice: string;
 };
 
+export type IFeeDot = {
+  extraTipInDot: string; // number
+};
+
 export type IFeeCkb = {
   feeRate?: string;
   gasLimit?: string;
@@ -85,6 +89,7 @@ export type IFeeInfoUnit = {
   feeSol?: IFeeSol;
   feeCkb?: IFeeCkb;
   feeAlgo?: IFeeAlgo;
+  feeDot?: IFeeDot;
 };
 
 export type IEstimateFeeParamsSol = {
@@ -125,6 +130,9 @@ export type IEstimateGasResp = {
     price: number;
     price24h: number;
   };
+  feeData?: {
+    extraTip: string; // dot extraTip
+  }[];
 };
 
 export type IServerEstimateFeeResponse = {

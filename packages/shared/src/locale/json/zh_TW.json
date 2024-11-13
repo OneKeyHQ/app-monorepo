@@ -1419,7 +1419,7 @@
   "provider.ios_popover.approval_require_msg": "兌換前需要授權代幣",
   "provider.ios_popover.approval_require_title": "授權",
   "provider.ios_popover.onekey_fee": "OneKey 費用",
-  "provider.ios_popover.onekey_fee_content": "沒有隱藏費用。OneKey 收取 0.3% 的費用，已包含在您的報價中，Wrapped token 時不收取費用。這支持我們提供高品質、無縫的體驗。",
+  "provider.ios_popover.onekey_fee_content": "OneKey 收取 0.3% 的費用，已包含在您的報價中，Wrapped token 時不收取費用。這支持我們提供高品質、無縫的體驗。",
   "provider.ios_popover.order_info_title": "訂單資訊",
   "provider.ios_popover.title": "提示",
   "provider.label_anti_mev": "防MEV",

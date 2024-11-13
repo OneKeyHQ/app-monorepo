@@ -171,6 +171,7 @@ function TxFeeContainer(props: IProps) {
               feeSol: r.feeSol ? [r.feeSol] : undefined,
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
               feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
+              feeDot: r.feeDot ? [r.feeDot] : undefined,
             },
             e,
           };
@@ -254,6 +255,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeSol?.length ||
         txFee.feeCkb?.length ||
         txFee.feeAlgo?.length ||
+        txFee.feeDot?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -266,6 +268,7 @@ function TxFeeContainer(props: IProps) {
           feeSol: txFee.feeSol?.[i],
           feeCkb: txFee.feeCkb?.[i],
           feeAlgo: txFee.feeAlgo?.[i],
+          feeDot: txFee.feeDot?.[i],
         };
 
         items.push({
@@ -351,6 +354,13 @@ function TxFeeContainer(props: IProps) {
               minFee: ALGO_TX_MIN_FEE,
               baseFee: ALGO_TX_MIN_FEE,
             }),
+          };
+        }
+
+        if (txFee.feeDot && !isEmpty(txFee.feeDot)) {
+          customFeeInfo.feeDot = {
+            ...txFee.feeDot[sendSelectedFee.presetIndex],
+            ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
           };
         }
 
@@ -506,6 +516,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeSol,
     customFee?.feeCkb,
     customFee?.feeAlgo,
+    customFee?.feeDot,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
