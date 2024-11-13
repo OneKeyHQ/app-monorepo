@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IPopoverProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -29,6 +30,7 @@ type IPortfolioItemProps = {
   onPress?: () => Promise<void> | void;
   buttonText?: string;
   tooltip?: string;
+  renderTooltipContent?: IPopoverProps['renderContent'];
   disabled?: boolean;
   useLoading?: boolean;
 };
@@ -41,6 +43,7 @@ const PortfolioItem = ({
   onPress,
   buttonText,
   tooltip,
+  renderTooltipContent,
   disabled,
   useLoading,
 }: IPortfolioItemProps) => {
@@ -71,7 +74,7 @@ const PortfolioItem = ({
         <XStack gap="$1" ai="center">
           <SizableText size="$bodyLg">{statusText}</SizableText>
         </XStack>
-        {tooltip ? (
+        {tooltip || renderTooltipContent ? (
           <Popover
             placement="bottom"
             title={statusText}
@@ -84,9 +87,13 @@ const PortfolioItem = ({
               />
             }
             renderContent={
-              <Stack p="$5">
-                <SizableText>{tooltip}</SizableText>
-              </Stack>
+              tooltip ? (
+                <Stack p="$5">
+                  <SizableText>{tooltip}</SizableText>
+                </Stack>
+              ) : (
+                renderTooltipContent || null
+              )
             }
           />
         ) : null}
@@ -198,11 +205,11 @@ function PortfolioInfo({
                 })}
               />
             ) : null}
-            {pendingInactive && Number(pendingInactive) ? (
+            {2 && Number(2) ? (
               <PortfolioItem
                 tokenImageUri={token.logoURI}
                 tokenSymbol={token.symbol}
-                amount={pendingInactive}
+                amount="2"
                 statusText={intl.formatMessage({
                   id: ETranslations.earn_withdrawal_requested,
                 })}
