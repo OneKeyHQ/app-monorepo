@@ -112,7 +112,18 @@ function BasicTradeOrBuy({
         swapTabSwitchType,
       },
     });
-  }, [navigation, networkId, token]);
+  }, [
+    navigation,
+    networkId,
+    networkIdsMap.apt,
+    networkIdsMap.btc,
+    networkIdsMap.eth,
+    networkIdsMap.holesky,
+    networkIdsMap.sbtc,
+    networkIdsMap.sepolia,
+    networkIdsMap.sol,
+    token,
+  ]);
 
   const isShowTradeButton = networkId !== networkIdsMap.cosmoshub;
 
