@@ -61,7 +61,7 @@ function BasicTradeOrBuy({
     });
   }, [navigation, networkId, token]);
 
-  const isHiddenComponent = networkId !== networkIdsMap.cosmoshub;
+  const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
   if (isHiddenComponent) {
     return null;
