@@ -14,6 +14,8 @@ import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
@@ -94,6 +96,9 @@ function BasicShowToaster(
     [handleContainerClose],
   );
   const { top } = useSafeAreaInsets();
+  // when Stack's pointerEvents is set to 'auto',
+  //  if there is no click event assigned, clicks will pass through on Android.
+  const handleNoop = useCallback(() => {}, []);
   return (
     <>
       <ToastViewport
@@ -113,7 +118,7 @@ function BasicShowToaster(
           flex={1}
           pointerEvents="auto"
           position="absolute"
-          onPress={dismissOnOverlayPress ? handleContainerClose : undefined}
+          onPress={dismissOnOverlayPress ? handleContainerClose : handleNoop}
         />
       ) : null}
 
