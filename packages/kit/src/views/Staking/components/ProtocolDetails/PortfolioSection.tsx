@@ -430,7 +430,10 @@ export const PortfolioSection = ({
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];
-  if (Array.isArray(unbondingDelegationList)) {
+  if (
+    Array.isArray(unbondingDelegationList) &&
+    unbondingDelegationList.length > 0
+  ) {
     unbondingDelegationListResult = unbondingDelegationList
       .filter((i) => Number(i.timestampLeft) > 0)
       .map(({ amount, timestampLeft }) => {
