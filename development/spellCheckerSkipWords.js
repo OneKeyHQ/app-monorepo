@@ -772,4 +772,5 @@ module.exports = [
   'okx',
   'OKX',
   'Okx',
+  'cacheable',
 ];
