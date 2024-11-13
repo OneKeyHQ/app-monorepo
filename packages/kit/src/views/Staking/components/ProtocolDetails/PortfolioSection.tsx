@@ -205,23 +205,39 @@ function PortfolioInfo({
                 })}
               />
             ) : null}
-            {2 && Number(2) ? (
+            {pendingInactive && Number(pendingInactive) ? (
               <PortfolioItem
                 tokenImageUri={token.logoURI}
                 tokenSymbol={token.symbol}
-                amount="2"
+                amount={pendingInactive}
                 statusText={intl.formatMessage({
                   id: ETranslations.earn_withdrawal_requested,
                 })}
-                tooltip={
-                  pendingInactivePeriod
-                    ? intl.formatMessage(
-                        {
-                          id: ETranslations.earn_withdrawal_up_to_number_days,
-                        },
-                        { number: pendingInactivePeriod },
-                      )
-                    : undefined
+                renderTooltipContent={
+                  <YStack p="$5" gap="$4">
+                    <XStack jc="space-between">
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="price"
+                        formatterOptions={{ tokenSymbol: token.symbol }}
+                      >
+                        {pendingInactive}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyLgMedium">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.earn_number_days_left,
+                          },
+                          { number: pendingInactivePeriod },
+                        )}
+                      </SizableText>
+                    </XStack>
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.earn_staked_assets_available_after_period,
+                      })}
+                    </SizableText>
+                  </YStack>
                 }
               />
             ) : null}
