@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   SizableText,
-  Tooltip,
   View,
   XStack,
   useMedia,

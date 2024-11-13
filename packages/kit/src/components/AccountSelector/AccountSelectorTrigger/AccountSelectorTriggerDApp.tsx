@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,7 +7,6 @@ import {
   Icon,
   SizableText,
   Skeleton,
-  Tooltip,
   View,
   XStack,
   YStack,
