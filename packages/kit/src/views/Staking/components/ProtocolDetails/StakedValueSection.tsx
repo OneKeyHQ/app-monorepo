@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -99,10 +100,14 @@ export const StakedValueSection = ({
     tokenSymbol: details.token.info.symbol,
   };
   return (
-    <StakedValueInfo
-      {...props}
-      stakeButtonProps={stakeButtonProps}
-      withdrawButtonProps={withdrawButtonProps}
-    />
+    <>
+      <StakedValueInfo
+        {...props}
+        stakeButtonProps={stakeButtonProps}
+        withdrawButtonProps={withdrawButtonProps}
+      />
+
+      <Divider />
+    </>
   );
 };

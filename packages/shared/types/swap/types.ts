@@ -487,6 +487,14 @@ export interface IFetchSwapTxHistoryStatusResponse {
   dealReceiveAmount?: string;
   blockNumber?: number;
 }
+
+export interface ISwapCheckSupportResponse {
+  contractAddress: string;
+  isSupportCrossChain: boolean;
+  isSupportSwap: boolean;
+  networkId: string;
+}
+
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;

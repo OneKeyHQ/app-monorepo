@@ -101,7 +101,8 @@ class ProviderApiAptos extends ProviderApiBase {
   private wrapperConnectAccount(account: IAccountInfo) {
     const status = account ? 200 : 4001;
     return {
-      ...account,
+      publicKey: hexUtils.addHexPrefix(account?.publicKey ?? ''),
+      address: hexUtils.addHexPrefix(account?.address ?? ''),
       'method': 'connected',
       'status': status,
     };
@@ -160,8 +161,8 @@ class ProviderApiAptos extends ProviderApiBase {
       const { account } = accounts[0];
 
       return {
-        publicKey: account.pub ?? '',
-        address: account.address,
+        publicKey: hexUtils.addHexPrefix(account.pub ?? ''),
+        address: hexUtils.addHexPrefix(account.address ?? ''),
       };
     } catch {
       return undefined;

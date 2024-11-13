@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { GridItem } from './GridItem';
@@ -21,6 +22,8 @@ type IProfitInfoProps = {
   updateFrequency?: string;
   unstakingPeriod?: number;
   earnPoints?: boolean;
+  stakingTime?: number;
+  nextLaunchLeft?: string;
 };
 
 function ProfitInfo({
@@ -30,6 +33,8 @@ function ProfitInfo({
   rewardTokens,
   updateFrequency,
   unstakingPeriod,
+  stakingTime,
+  nextLaunchLeft,
   earnPoints,
 }: IProfitInfoProps) {
   const intl = useIntl();
@@ -103,6 +108,23 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
+          {stakingTime ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_earnings_start,
+              })}
+            >
+              {intl.formatMessage(
+                { id: ETranslations.earn_in_number },
+                {
+                  number: formatDistanceToNow(
+                    Date.now() + Number(stakingTime * 1000),
+                    false,
+                  ),
+                },
+              )}
+            </GridItem>
+          ) : null}
           {unstakingPeriod ? (
             <GridItem
               title={intl.formatMessage({
@@ -144,6 +166,8 @@ export const ProfitSection = ({
     // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
+    stakingTime: details.provider.stakingTime,
+    nextLaunchLeft: details.provider.nextLaunchLeft,
   };
   return <ProfitInfo {...props} />;
 };

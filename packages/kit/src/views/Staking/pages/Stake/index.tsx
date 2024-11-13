@@ -215,7 +215,10 @@ function BasicStakePage() {
           providerLogo={provider.logoURI}
           providerName={provider.name}
           providerLabel={providerLabel}
+          stakingTime={provider.stakingTime}
+          nextLaunchLeft={provider.nextLaunchLeft}
           isReachBabylonCap={isReachBabylonCap}
+          rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
