@@ -7,7 +7,6 @@ import {
   NATIVE_HIT_SLOP,
   Select,
   SizableText,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

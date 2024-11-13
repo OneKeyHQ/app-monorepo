@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,11 +7,9 @@ import {
   Icon,
   SizableText,
   Skeleton,
-  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
