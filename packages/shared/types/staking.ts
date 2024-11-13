@@ -368,6 +368,13 @@ export type IEarnFAQList = IEarnFAQListItem[];
 
 export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
 
+export type IEarnUnbondingDelegationListItem = {
+  amount: string;
+  timestampLeft: number;
+};
+
+export type IEarnUnbondingDelegationList = IEarnUnbondingDelegationListItem[];
+
 export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
   feeFiatValue: string;
