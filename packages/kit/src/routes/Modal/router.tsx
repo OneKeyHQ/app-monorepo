@@ -169,4 +169,16 @@ export const fullModalRouter = [
     name: EModalRoutes.AppUpdateModal,
     children: AppUpdateRouter,
   },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
+  },
 ];
