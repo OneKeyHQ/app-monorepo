@@ -14,8 +14,6 @@ import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
