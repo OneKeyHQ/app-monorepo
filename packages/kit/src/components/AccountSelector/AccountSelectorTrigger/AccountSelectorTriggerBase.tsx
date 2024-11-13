@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   SizableText,
-  Tooltip,
   View,
   XStack,
   useMedia,
@@ -135,18 +134,9 @@ export function AccountSelectorTriggerBase({
     showAccountSelector,
   );
 
-  const children = spotlightProps ? (
+  return spotlightProps ? (
     <SpotlightView {...spotlightProps}>{content}</SpotlightView>
   ) : (
     content
-  );
-
-  return (
-    <Tooltip
-      shortcutKey={EShortcutEvents.AccountSelector}
-      renderTrigger={children}
-      renderContent={intl.formatMessage({ id: ETranslations.global_account })}
-      placement="bottom"
-    />
   );
 }
