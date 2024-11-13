@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -23,6 +24,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -34,18 +40,12 @@ import {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import { useNotificationsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 import type { GestureResponderEvent } from 'react-native';
-import { cloneDeep } from 'lodash';
 
 type IDBWalletExtended = Omit<
   IDBWallet,

@@ -52,14 +52,14 @@ import ServiceBase from '../ServiceBase';
 
 import NotificationProvider from './NotificationProvider/NotificationProvider';
 
-import type { Socket } from 'socket.io-client';
+import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBWallet,
 } from '../../dbs/local/types';
 import type { IAccountActivityNotificationSettings } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
-import type NotificationProviderBase from './NotificationProvider/NotificationProviderBase';
+import type { Socket } from 'socket.io-client';
 
 export default class ServiceNotification extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
