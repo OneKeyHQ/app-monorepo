@@ -13,6 +13,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -107,7 +108,6 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 // evm vault
 export default class Vault extends VaultBase {

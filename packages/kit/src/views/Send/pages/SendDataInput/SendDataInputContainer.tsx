@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { utils } from 'ethers';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -42,6 +43,7 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAssetSelectorRoutes,
@@ -69,8 +71,6 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
-import { utils } from 'ethers';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 const showTxMessageFaq = () => {
   Dialog.show({
