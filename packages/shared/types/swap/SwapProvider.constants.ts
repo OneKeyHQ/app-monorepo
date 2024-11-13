@@ -59,6 +59,38 @@ export const swapRateDifferenceMin = 0.05;
 
 export const maxRecentTokenPairs = 10;
 
+export const otherWalletFeeData = [
+  {
+    maxFee: 0.875,
+    name: 'metamask',
+    color: '#F5841F',
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
+    },
+    fee: 0.875,
+  },
+  {
+    maxFee: 0.875,
+    name: 'phantom',
+    fee: 0.85,
+    color: '#AB9FF2',
+
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/Phantom.png',
+    },
+  },
+  {
+    maxFee: 0.875,
+    name: 'zerion',
+    fee: 0.8,
+    color: '#2461ED',
+
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
+    },
+  },
+];
+
 export enum ESwapProviderSort {
   RECOMMENDED = 'recommended',
   GAS_FEE = 'gasFee',
