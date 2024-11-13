@@ -34,6 +34,7 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -169,6 +170,7 @@ function TxFeeContainer(props: IProps) {
               feeTron: r.feeTron ? [r.feeTron] : undefined,
               feeSol: r.feeSol ? [r.feeSol] : undefined,
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
+              feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
               feeDot: r.feeDot ? [r.feeDot] : undefined,
             },
             e,
@@ -252,6 +254,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeTron?.length ||
         txFee.feeSol?.length ||
         txFee.feeCkb?.length ||
+        txFee.feeAlgo?.length ||
         txFee.feeDot?.length ||
         0;
 
@@ -264,6 +267,7 @@ function TxFeeContainer(props: IProps) {
           feeTron: txFee.feeTron?.[i],
           feeSol: txFee.feeSol?.[i],
           feeCkb: txFee.feeCkb?.[i],
+          feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
         };
 
@@ -340,6 +344,16 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.feeCkb = {
             ...txFee.feeCkb[sendSelectedFee.presetIndex],
             ...(customFee?.feeCkb ?? {}),
+          };
+        }
+
+        if (txFee.feeAlgo && !isEmpty(txFee.feeAlgo)) {
+          customFeeInfo.feeAlgo = {
+            ...txFee.feeAlgo[sendSelectedFee.presetIndex],
+            ...(customFee?.feeAlgo ?? {
+              minFee: ALGO_TX_MIN_FEE,
+              baseFee: ALGO_TX_MIN_FEE,
+            }),
           };
         }
 
@@ -501,6 +515,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeUTXO,
     customFee?.feeSol,
     customFee?.feeCkb,
+    customFee?.feeAlgo,
     customFee?.feeDot,
     unsignedTxs,
     updateSendSelectedFee,
