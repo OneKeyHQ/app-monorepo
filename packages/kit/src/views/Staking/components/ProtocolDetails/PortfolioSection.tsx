@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IPopoverProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -18,7 +19,10 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnUnbondingDelegationList,
+  IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 type IPortfolioItemProps = {
@@ -29,6 +33,7 @@ type IPortfolioItemProps = {
   onPress?: () => Promise<void> | void;
   buttonText?: string;
   tooltip?: string;
+  renderTooltipContent?: IPopoverProps['renderContent'];
   disabled?: boolean;
   useLoading?: boolean;
 };
@@ -41,6 +46,7 @@ const PortfolioItem = ({
   onPress,
   buttonText,
   tooltip,
+  renderTooltipContent,
   disabled,
   useLoading,
 }: IPortfolioItemProps) => {
@@ -71,7 +77,7 @@ const PortfolioItem = ({
         <XStack gap="$1" ai="center">
           <SizableText size="$bodyLg">{statusText}</SizableText>
         </XStack>
-        {tooltip ? (
+        {tooltip || renderTooltipContent ? (
           <Popover
             placement="bottom"
             title={statusText}
@@ -84,9 +90,13 @@ const PortfolioItem = ({
               />
             }
             renderContent={
-              <Stack p="$5">
-                <SizableText>{tooltip}</SizableText>
-              </Stack>
+              tooltip ? (
+                <Stack p="$5">
+                  <SizableText>{tooltip}</SizableText>
+                </Stack>
+              ) : (
+                renderTooltipContent || null
+              )
             }
           />
         ) : null}
@@ -106,6 +116,11 @@ const PortfolioItem = ({
   );
 };
 
+interface IUnbondingDelegationListItem {
+  amount: string;
+  timestampLeft: number | string;
+}
+
 type IPortfolioInfoProps = {
   token: IToken;
   active?: string;
@@ -122,10 +137,43 @@ type IPortfolioInfoProps = {
   minClaimableNum?: string;
   babylonOverflow?: string;
 
+  unbondingDelegationList?: IUnbondingDelegationListItem[];
+
   onClaim?: (params?: { isReward?: boolean }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 };
+
+function PendingInactiveItem({
+  pendingInactive,
+  pendingInactivePeriod,
+  tokenSymbol,
+}: {
+  pendingInactive: string | number;
+  tokenSymbol: string;
+  pendingInactivePeriod: string | number;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack jc="space-between">
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{ tokenSymbol }}
+      >
+        {pendingInactive}
+      </NumberSizeableText>
+      <SizableText size="$bodyLgMedium">
+        {intl.formatMessage(
+          {
+            id: ETranslations.earn_number_days_left,
+          },
+          { number: pendingInactivePeriod },
+        )}
+      </SizableText>
+    </XStack>
+  );
+}
 
 function PortfolioInfo({
   token,
@@ -147,6 +195,8 @@ function PortfolioInfo({
   onClaim,
   onWithdraw,
   onPortfolioDetails,
+
+  unbondingDelegationList,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
   if (
@@ -198,7 +248,7 @@ function PortfolioInfo({
                 })}
               />
             ) : null}
-            {pendingInactive && Number(pendingInactive) ? (
+            {unbondingDelegationList?.length && pendingInactive ? (
               <PortfolioItem
                 tokenImageUri={token.logoURI}
                 tokenSymbol={token.symbol}
@@ -206,15 +256,24 @@ function PortfolioInfo({
                 statusText={intl.formatMessage({
                   id: ETranslations.earn_withdrawal_requested,
                 })}
-                tooltip={
-                  pendingInactivePeriod
-                    ? intl.formatMessage(
-                        {
-                          id: ETranslations.earn_withdrawal_up_to_number_days,
-                        },
-                        { number: pendingInactivePeriod },
-                      )
-                    : undefined
+                renderTooltipContent={
+                  <YStack p="$5" gap="$4">
+                    {unbondingDelegationList.map(
+                      ({ amount, timestampLeft }, index) => (
+                        <PendingInactiveItem
+                          key={index}
+                          tokenSymbol={token.symbol}
+                          pendingInactive={amount}
+                          pendingInactivePeriod={timestampLeft}
+                        />
+                      ),
+                    )}
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.earn_staked_assets_available_after_period,
+                      })}
+                    </SizableText>
+                  </YStack>
                 }
               />
             ) : null}
@@ -298,11 +357,13 @@ export const PortfolioSection = ({
   onClaim,
   onWithdraw,
   onPortfolioDetails,
+  unbondingDelegationList,
 }: {
   details?: IStakeProtocolDetails;
   onClaim?: (params?: { isReward?: boolean }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
+  unbondingDelegationList: IEarnUnbondingDelegationList;
 }) => {
   const intl = useIntl();
 
@@ -368,9 +429,36 @@ export const PortfolioSection = ({
     tooltipForClaimable,
   };
 
+  let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];
+  if (
+    Array.isArray(unbondingDelegationList) &&
+    unbondingDelegationList.length > 0
+  ) {
+    unbondingDelegationListResult = unbondingDelegationList
+      .filter((i) => Number(i.timestampLeft) > 0)
+      .map(({ amount, timestampLeft }) => {
+        const timestampLeftNumber = Number(timestampLeft);
+        return {
+          amount,
+          timestampLeft: Math.ceil(timestampLeftNumber / 3600 / 24),
+        };
+      });
+  } else if (
+    portfolio.pendingInactive &&
+    Number(portfolio.pendingInactive) &&
+    portfolio.pendingInactivePeriod &&
+    Number(portfolio.pendingInactivePeriod)
+  ) {
+    unbondingDelegationListResult.push({
+      amount: portfolio.pendingInactive,
+      timestampLeft: portfolio.pendingInactivePeriod,
+    });
+  }
+
   return (
     <PortfolioInfo
       {...portfolio}
+      unbondingDelegationList={unbondingDelegationListResult}
       onClaim={onClaim}
       onPortfolioDetails={onPortfolioDetails}
       onWithdraw={onWithdraw}

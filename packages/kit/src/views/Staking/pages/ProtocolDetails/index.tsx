@@ -69,6 +69,20 @@ const ProtocolDetailsPage = () => {
     { watchLoading: true },
   );
 
+  const { result: unbondingDelegationList } = usePromiseResult(
+    () =>
+      earnAccount?.accountAddress
+        ? backgroundApiProxy.serviceStaking.getUnbondingDelegationList({
+            accountAddress: earnAccount?.accountAddress,
+            symbol,
+            networkId,
+            provider,
+          })
+        : Promise.resolve([]),
+    [earnAccount?.accountAddress, symbol, networkId, provider],
+    { watchLoading: true, initResult: [] },
+  );
+
   const onCreateAddress = useCallback(async () => {
     await refreshAccount();
     void run();
@@ -269,6 +283,7 @@ const ProtocolDetailsPage = () => {
                   onClaim={onClaim}
                   onWithdraw={onWithdraw}
                   onPortfolioDetails={onPortfolioDetails}
+                  unbondingDelegationList={unbondingDelegationList}
                 />
                 {trackingResp.length > 0 ? (
                   <BabylonTrackingAlert
