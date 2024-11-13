@@ -333,6 +333,8 @@ export function useSwapBuildTx() {
                 await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                   networkId: 'ton--mainnet',
                   contractAddress: '',
+                  accountAddress: swapFromAddressInfo.address,
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
                 });
               if (tonNativeTokenInfo?.length) {
                 const txValueBN = new BigNumber(
@@ -362,6 +364,13 @@ export function useSwapBuildTx() {
                   });
                   return null;
                 }
+              } else {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_failed,
+                  }),
+                });
+                return null;
               }
             }
             encodedTx =
