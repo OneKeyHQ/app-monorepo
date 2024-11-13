@@ -54,6 +54,12 @@ function hexStringToUtf8String(hexString: string): string {
   }
 }
 
+function utf8StringToHexString(utf8String: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(utf8String);
+  return utils.hexlify(bytes);
+}
+
 export default {
   stripHexZeros,
   hexlify,
@@ -62,4 +68,5 @@ export default {
   hasHexPrefix,
   isHexString,
   hexStringToUtf8String,
+  utf8StringToHexString,
 };
