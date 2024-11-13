@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,6 +14,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { ApproveBaseStake } from '../../components/ApproveBaseStake';
@@ -20,7 +22,7 @@ import { useProviderLabel } from '../../hooks/useProviderLabel';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
-const ApproveBaseStakePage = () => {
+const BasicApproveBaseStakePage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.ApproveBaseStake
@@ -115,4 +117,16 @@ const ApproveBaseStakePage = () => {
   );
 };
 
-export default ApproveBaseStakePage;
+export default function ApproveBaseStakePage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <BasicApproveBaseStakePage />
+    </AccountSelectorProviderMirror>
+  );
+}

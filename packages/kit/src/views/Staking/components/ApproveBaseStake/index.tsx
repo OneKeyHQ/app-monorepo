@@ -34,6 +34,7 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -422,6 +423,11 @@ export const ApproveBaseStake = ({
           />
         ) : null}
       </CalculationList>
+      <TradeOrBuy
+        token={details.token.info}
+        accountId={approveTarget.accountId}
+        networkId={approveTarget.networkId}
+      />
       <Page.Footer
         onConfirmText={onConfirmText}
         confirmButtonProps={{

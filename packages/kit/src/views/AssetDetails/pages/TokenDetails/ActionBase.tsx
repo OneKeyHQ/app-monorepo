@@ -20,6 +20,7 @@ export const ActionBase = ({
   accountId,
   walletType,
   disabled,
+  hiddenIfDisabled,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,9 @@ export const ActionBase = ({
       setLoading(false);
     }
   }, [networkId, tokenAddress, type, accountId]);
+  if (hiddenIfDisabled && isDisabled) {
+    return null;
+  }
   return (
     <ActionItem
       loading={loading}

@@ -432,13 +432,14 @@ function BasicPopover({
 function Tooltip({
   tooltip,
   title,
+  placement = 'bottom',
   iconSize = '$4',
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
   return (
     <BasicPopover
-      placement="bottom"
+      placement={placement}
       title={title}
       renderTrigger={
         <IconButton
