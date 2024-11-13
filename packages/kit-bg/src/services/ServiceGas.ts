@@ -1,5 +1,5 @@
-import { isArray } from 'lodash';
 import BigNumber from 'bignumber.js';
+import { isArray } from 'lodash';
 
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
