@@ -1,6 +1,6 @@
-import type { IEndpointInfo } from './endpoint';
 import type { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import type { Socket } from 'socket.io-client';
+import type { IEndpointInfo } from './endpoint';
 
 export enum ENotificationPermission {
   default = 'default', // unknown, ask
@@ -124,6 +124,12 @@ export type INotificationPushRegisterParams = {
 export type INotificationPushSettings = {
   pushEnabled?: boolean;
   accountActivityPushEnabled?: boolean;
+  maxAccount?: number;
+  supportNetworks?: {
+    networkId: string;
+    impl: string;
+    chainId: string;
+  }[];
   // announcementEnabled?: boolean;
   // coinPriceAlertEnabled?: boolean;
   // coinVolatilityAlertEnabled?: boolean;

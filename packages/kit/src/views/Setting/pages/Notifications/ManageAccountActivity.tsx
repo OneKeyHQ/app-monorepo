@@ -23,11 +23,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -39,12 +34,18 @@ import {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import { useNotificationsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 import type { GestureResponderEvent } from 'react-native';
+import { cloneDeep } from 'lodash';
 
 type IDBWalletExtended = Omit<
   IDBWallet,
@@ -199,7 +200,7 @@ function AccountNotificationSettingsProvider({
       const savedSettings =
         await backgroundApiProxy.simpleDb.notificationSettings.getRawData();
       if (savedSettings) {
-        setSettings(savedSettings.accountActivity);
+        setSettings(savedSettings.accountActivityV2);
       }
     })();
   }, []);
@@ -264,8 +265,26 @@ function AccordionItem({
   // handle switch change
   const toggleWalletSwitch = (value: boolean) => {
     saveAccountNotificationSettings((prevSettings) => {
-      const newSettings = { ...(prevSettings ?? {}) };
+      const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
       const newValue = value;
+
+      if (newValue && newSettings?.[wallet.id]?.accounts) {
+        let enabledAccountsCount = 0;
+        Object.values(newSettings?.[wallet.id]?.accounts || {}).forEach(
+          (item) => {
+            if (item.enabled) {
+              enabledAccountsCount += 1;
+              if (
+                totalEnabledAccountsCount + enabledAccountsCount >
+                maxAccountCount
+              ) {
+                item.enabled = false;
+              }
+            }
+          },
+        );
+      }
+
       newSettings[wallet.id] = {
         ...newSettings?.[wallet.id],
         enabled: formatSavedEnabledValue(newValue),
@@ -283,7 +302,7 @@ function AccordionItem({
     account: IDBAccount | IDBIndexedAccount,
   ) => {
     saveAccountNotificationSettings((prevSettings) => {
-      const newSettings = { ...(prevSettings ?? {}) };
+      const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
       const newValue = value;
 
       if (newValue) {
@@ -316,18 +335,16 @@ function AccordionItem({
     if (!isWalletEnabled) {
       return 0;
     }
-    return (
-      totalAccountsCount -
-      Object.values(
-        accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-      ).filter((account) => account.enabled === false).length
-    );
-  }, [
-    isWalletEnabled,
-    totalAccountsCount,
-    accountNotificationSettings,
-    wallet.id,
-  ]);
+    return Object.values(
+      accountNotificationSettings?.[wallet.id]?.accounts ?? {},
+    ).filter((account) => account.enabled === true).length;
+    // return (
+    //   totalAccountsCount -
+    //   Object.values(
+    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
+    //   ).filter((account) => account.enabled === false).length
+    // );
+  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
 
   return (
     <Accordion.Item
@@ -540,11 +557,7 @@ function ManageAccountActivity() {
 
   const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceAccount.getWallets({
-        nestedHiddenWallets: true,
-        ignoreEmptySingletonWalletAccounts: true,
-        includingAccounts: true,
-      }),
+      backgroundApiProxy.serviceNotification.getNotificationWalletsAndAccounts(),
     [],
     {
       watchLoading: true,
