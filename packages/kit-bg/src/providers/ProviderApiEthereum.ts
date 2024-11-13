@@ -19,6 +19,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EVM_SAFE_RPC_METHODS } from '@onekeyhq/shared/src/rpcCache/constants';
+import { RpcCache } from '@onekeyhq/shared/src/rpcCache/RpcCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -96,12 +98,26 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
+  private rpcSemaphore = new Semaphore(1);
+
+  private _rpcCache?: RpcCache;
+
   // return a mocked chainId in non-evm, as empty string may cause dapp error
   private _getNetworkMockInfo() {
     return {
       chainId: '0x736d17dc',
       networkVersion: '1936529372',
     };
+  }
+
+  private get rpcCache() {
+    if (!this._rpcCache) {
+      this._rpcCache = new RpcCache({
+        maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+        impl: IMPL_EVM,
+      });
+    }
+    return this._rpcCache;
   }
 
   public override notifyDappAccountsChanged(
@@ -139,21 +155,50 @@ class ProviderApiEthereum extends ProviderApiBase {
     this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
-    const { data } = request;
-    const { accountInfo: { networkId } = {} } = (
-      await this.getAccountsInfo(request)
-    )[0];
-    const rpcRequest = data as IJsonRpcRequest;
+    return this.rpcSemaphore.runExclusive(async () => {
+      const { data } = request;
+      const { accountInfo: { networkId, address } = {} } = (
+        await this.getAccountsInfo(request)
+      )[0];
+      const rpcRequest = data as IJsonRpcRequest;
 
-    const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
-      networkId: networkId ?? '',
-      request: rpcRequest,
-      origin: request.origin ?? '',
+      const { method, params } = rpcRequest;
+
+      if (!EVM_SAFE_RPC_METHODS.includes(method)) {
+        throw web3Errors.rpc.methodNotSupported();
+      }
+
+      if (!address || !networkId) {
+        throw web3Errors.rpc.invalidParams('unauthorized');
+      }
+
+      const cache = this.rpcCache.get({
+        address,
+        networkId,
+        data: { method, params },
+      });
+
+      if (cache) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return cache;
+      }
+
+      const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
+        networkId: networkId ?? '',
+        request: rpcRequest,
+        origin: request.origin ?? '',
+      });
+
+      this.rpcCache.set({
+        address,
+        networkId,
+        data: { method, params },
+        value: result,
+      });
+
+      return result;
     });
-
-    return result;
   }
 
   @providerApiMethod()
