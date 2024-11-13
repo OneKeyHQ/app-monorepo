@@ -25,12 +25,6 @@ export enum ESwapTabSwitchType {
   LIMIT = 'limit',
 }
 
-export enum ESwapReceiveAddressType {
-  USER_ACCOUNT = 'user_account',
-  INPUT = 'input',
-  ADDRESS_BOOK = 'address_book',
-}
-
 export enum ESwapDirectionType {
   FROM = 'from',
   TO = 'to',
