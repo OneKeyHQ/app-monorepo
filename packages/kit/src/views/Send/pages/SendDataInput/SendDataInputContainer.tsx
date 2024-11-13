@@ -7,6 +7,8 @@ import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  Dialog,
   Form,
   Input,
   Page,
@@ -68,6 +70,23 @@ import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
 import { utils } from 'ethers';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
+const showTxMessageFaq = () => {
+  Dialog.show({
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_hex_data,
+    }),
+    icon: 'ConsoleOutline',
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.global_hex_data_faq_desc,
+    }),
+    showCancelButton: false,
+    onConfirmText: appLocale.intl.formatMessage({
+      id: ETranslations.global_ok,
+    }),
+  });
+};
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -1027,6 +1046,18 @@ function SendDataInputContainer() {
           onChange: handleTxMessageOnChange,
         }}
         description={txMessageDescription}
+        labelAddon={
+          <Button
+            size="small"
+            variant="tertiary"
+            icon="WalletOutline"
+            onPress={() => showTxMessageFaq()}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_hex_data_faq,
+            })}
+          </Button>
+        }
       >
         <TextAreaInput
           numberOfLines={2}

@@ -45,7 +45,7 @@ const showNonceFaq = () => {
     }),
     showCancelButton: false,
     onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.global_done,
+      id: ETranslations.global_ok,
     }),
   });
 };
@@ -61,7 +61,7 @@ const showHexDataFaq = () => {
     }),
     showCancelButton: false,
     onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.global_done,
+      id: ETranslations.global_ok,
     }),
   });
 };
