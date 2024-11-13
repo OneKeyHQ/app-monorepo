@@ -454,6 +454,7 @@ export type ITransferPayload = {
   isMaxSend: boolean;
   isNFT: boolean;
   originalRecipient: string;
+  isToContract?: boolean;
 };
 
 export enum EWrappedType {
@@ -519,6 +520,7 @@ export interface IBuildUnsignedTxParams {
   specifiedFeeRate?: string;
   prevNonce?: number;
   feeInfo?: IFeeInfoUnit;
+  transferPayload?: ITransferPayload;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
