@@ -41,7 +41,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNative, isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTxSol,
@@ -115,6 +115,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -1394,5 +1395,9 @@ export default class Vault extends VaultBase {
     }
 
     return true;
+  }
+
+  override async buildOkxSwapEncodedTx(params: IBuildOkxSwapEncodedTxParams) {
+    return Promise.resolve(params.okxTx.data);
   }
 }

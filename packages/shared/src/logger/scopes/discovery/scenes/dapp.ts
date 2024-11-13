@@ -1,3 +1,5 @@
+import type { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -62,6 +64,15 @@ export class DappScene extends BaseScene {
       | 'SettingModal'
       | 'ExtPanel'
       | 'ExtFloatingTrigger';
+  }) {
+    return params;
+  }
+
+  @LogToLocal()
+  public dappRiskDetect(params: {
+    riskLevel: EHostSecurityLevel;
+    showContinueOperateCheckBox: boolean;
+    currentContinueOperate: boolean;
   }) {
     return params;
   }

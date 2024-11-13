@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -14,7 +15,10 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IChangedPendingTxInfo,
+} from '@onekeyhq/shared/types/history';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
@@ -36,15 +40,22 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  IAddEarnOrderParams,
+  IEarnOrderItem,
+} from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -160,7 +171,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/stake`, {
+    }>(`/earn/v2/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -189,7 +200,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/unstake`, {
+    }>(`/earn/v2/unstake`, {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
@@ -248,7 +259,7 @@ class ServiceStaking extends ServiceBase {
 
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/claim`, {
+    }>(`/earn/v2/claim`, {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
@@ -815,7 +826,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTxResponse;
+    tx: IStakeTx;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildStakeEncodedTx(tx as any);
@@ -899,6 +910,76 @@ class ServiceStaking extends ServiceBase {
       }
       return item;
     });
+  }
+
+  @backgroundMethod()
+  async addEarnOrder(order: IAddEarnOrderParams) {
+    defaultLogger.staking.order.addOrder(order);
+    return simpleDb.earnOrders.addOrder(order);
+  }
+
+  @backgroundMethod()
+  async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
+    for (const tx of txs) {
+      try {
+        const order =
+          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+        if (order && tx.status !== EDecodedTxStatus.Pending) {
+          order.status = tx.status;
+          await this.updateEarnOrderStatusToServer({ order });
+          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
+            currentTxId: tx.txId,
+            status: tx.status,
+          });
+          defaultLogger.staking.order.updateOrderStatus({
+            txId: tx.txId,
+            status: tx.status,
+          });
+        }
+      } catch (e) {
+        // ignore error, continue loop
+        defaultLogger.staking.order.updateOrderStatusError({
+          txId: tx.txId,
+          status: tx.status,
+        });
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
+    const maxRetries = 3;
+    let lastError;
+
+    for (let i = 0; i < maxRetries; i += 1) {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Earn);
+        await client.post('/earn/v1/orders', {
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+        });
+        return; // Return early on success
+      } catch (error) {
+        lastError = error;
+        if (i === maxRetries - 1) break; // Exit loop on final retry
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s, 3s
+      }
+    }
+
+    throw lastError; // Throw last error after all retries fail
+  }
+
+  @backgroundMethod()
+  async updateOrderStatusByTxId(params: {
+    currentTxId: string;
+    newTxId?: string;
+    status: EDecodedTxStatus;
+  }) {
+    defaultLogger.staking.order.updateOrderStatusByTxId(params);
+    await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+      params,
+    );
   }
 }
 

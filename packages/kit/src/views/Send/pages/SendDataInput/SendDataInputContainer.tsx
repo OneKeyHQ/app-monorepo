@@ -419,10 +419,10 @@ function SendDataInputContainer() {
         try {
           if (!account) return;
           const toAddress = form.getValues('to').resolved;
-          const isContract = form.getValues('to').isContract;
+          const isToContract = form.getValues('to').isContract;
           if (!toAddress) return;
 
-          if (isContract && !(await showContractWarningDialog())) {
+          if (isToContract && !(await showContractWarningDialog())) {
             return;
           }
 
@@ -496,6 +496,7 @@ function SendDataInputContainer() {
               isMaxSend,
               isNFT,
               originalRecipient: toAddress,
+              isToContract,
             },
           });
           setIsSubmitting(false);

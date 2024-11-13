@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -10,6 +10,7 @@ import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -36,6 +37,10 @@ function PageFirmwareUpdateChangeLog() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+
+  const confirmUpdateResult = useRef<
+    ICheckAllFirmwareReleaseResult | undefined
+  >();
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -84,6 +89,10 @@ function PageFirmwareUpdateChangeLog() {
   );
 
   const content = useMemo(() => {
+    // keep change log modal content when install modal back
+    if (confirmUpdateResult.current) {
+      return <FirmwareChangeLogView result={confirmUpdateResult.current} />;
+    }
     if (isLoading) {
       return (
         <>
@@ -109,7 +118,14 @@ function PageFirmwareUpdateChangeLog() {
       stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
       stepInfo.step === EFirmwareUpdateSteps.showCheckList
     ) {
-      return <FirmwareChangeLogView result={result} />;
+      return (
+        <FirmwareChangeLogView
+          result={result}
+          onConfirmClick={() => {
+            confirmUpdateResult.current = result;
+          }}
+        />
+      );
     }
     return <FirmwareLatestVersionInstalled />;
   }, [connectId, isLoading, result, run, stepInfo.payload, stepInfo.step]);

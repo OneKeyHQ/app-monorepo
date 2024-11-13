@@ -8,12 +8,14 @@ import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   contextAtomMethod,
   customFeeAtom,
+  decodedTxsAtom,
   isSinglePresetAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
@@ -40,6 +42,10 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(unsignedTxsAtom(), unsignedTxs);
     },
   );
+
+  updateDecodedTxs = contextAtomMethod((get, set, decodedTxs: IDecodedTx[]) => {
+    set(decodedTxsAtom(), decodedTxs);
+  });
 
   updateSendSelectedFee = contextAtomMethod(
     (
@@ -175,7 +181,7 @@ export function useSendConfirmActions() {
   const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
   const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
-
+  const updateDecodedTxs = actions.updateDecodedTxs.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -190,5 +196,6 @@ export function useSendConfirmActions() {
     updatePreCheckTxStatus,
     updateTokenApproveInfo,
     updateTxAdvancedSettings,
+    updateDecodedTxs,
   });
 }

@@ -76,10 +76,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
-import type {
-  IStakeTxResponse,
-  IStakingInfo,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -115,6 +112,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -437,6 +435,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }): Promise<{
     encodedTx: IEncodedTx | undefined;
     estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
+  }
+
+  async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{
+    encodedTx: Partial<IEncodedTx> | undefined;
   }> {
     return Promise.resolve({
       encodedTx,
@@ -1120,7 +1130,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // Staking
-  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
     return Promise.resolve(params as IEncodedTx);
   }
 
@@ -1289,6 +1299,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByRpc(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
+    throw new NotImplemented();
+  }
+
+  async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 }
