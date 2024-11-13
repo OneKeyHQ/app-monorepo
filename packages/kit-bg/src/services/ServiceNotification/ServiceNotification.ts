@@ -42,7 +42,7 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import {
-  notificationsAtom,
+  notificationsPersistAtom,
   notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
   settingsPersistAtom,
@@ -195,7 +195,7 @@ export default class ServiceNotification extends ServiceBase {
 
     this.addShowedNotificationId(msgId);
 
-    await notificationsAtom.set((v) => ({
+    await notificationsPersistAtom.set((v) => ({
       ...v,
       lastReceivedTime: Date.now(),
     }));
@@ -403,7 +403,7 @@ export default class ServiceNotification extends ServiceBase {
   setBadgeDebounced = debounce(
     async (params: INotificationSetBadgeParams) => {
       defaultLogger.notification.common.setBadge(params);
-      await notificationsAtom.set((v) => ({
+      await notificationsPersistAtom.set((v) => ({
         ...v,
         badge: params.count ?? undefined,
       }));
@@ -432,7 +432,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async increaseLocalBadgeCount() {
-    const { badge } = await notificationsAtom.get();
+    const { badge } = await notificationsPersistAtom.get();
     const newBadgeCount = (badge || 0) + 1;
     await this.setBadge({ count: newBadgeCount });
   }
@@ -589,7 +589,7 @@ export default class ServiceNotification extends ServiceBase {
       await this.registerClientWithSyncAccounts({
         syncMethod: ENotificationPushSyncMethod.override,
       });
-      await notificationsAtom.set((v) => ({
+      await notificationsPersistAtom.set((v) => ({
         ...v,
         lastRegisterTime: Date.now(),
       }));
@@ -648,7 +648,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async registerClientDaily() {
-    const { lastRegisterTime } = await notificationsAtom.get();
+    const { lastRegisterTime } = await notificationsPersistAtom.get();
     if (
       lastRegisterTime &&
       Date.now() - lastRegisterTime <
@@ -693,7 +693,7 @@ export default class ServiceNotification extends ServiceBase {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result.data;
     } catch (error) {
-      await notificationsAtom.set((v) => ({
+      await notificationsPersistAtom.set((v) => ({
         ...v,
         lastRegisterTime: undefined,
       }));
@@ -747,6 +747,7 @@ export default class ServiceNotification extends ServiceBase {
     }
   }
 
+  // TODO use fetchNotificationSettings get maxAccountCount and supportNetworks
   getSupportedNetworks = memoizee(
     async () => {
       // /notification/v1/config/supported-networks

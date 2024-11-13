@@ -2,23 +2,27 @@
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
-export type INotificationsAtomData = {
+export type INotificationsPersistAtomData = {
   firstTimeGuideOpened: boolean | undefined;
   badge: number | undefined;
   lastReceivedTime: number | undefined;
   lastRegisterTime: number | undefined;
+  maxAccountCount: number | undefined;
 };
-export const { target: notificationsAtom, use: useNotificationsAtom } =
-  globalAtom<INotificationsAtomData>({
-    name: EAtomNames.notificationsAtom,
-    persist: true,
-    initialValue: {
-      firstTimeGuideOpened: undefined,
-      badge: undefined,
-      lastReceivedTime: undefined,
-      lastRegisterTime: undefined,
-    },
-  });
+export const {
+  target: notificationsPersistAtom,
+  use: useNotificationsPersistAtom,
+} = globalAtom<INotificationsPersistAtomData>({
+  name: EAtomNames.notificationsPersistAtom,
+  persist: true,
+  initialValue: {
+    firstTimeGuideOpened: undefined,
+    badge: undefined,
+    lastReceivedTime: undefined,
+    lastRegisterTime: undefined,
+    maxAccountCount: undefined,
+  },
+});
 
 export const {
   target: notificationsReadedAtom,

@@ -15,6 +15,7 @@ export type ISimpleDbNotificationSettings = {
 };
 
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false = true;
+export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
 export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimpleDbNotificationSettings> {
   entityName = 'notificationSettings';

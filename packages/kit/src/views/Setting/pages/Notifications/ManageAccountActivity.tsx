@@ -12,12 +12,14 @@ import { StyleSheet } from 'react-native';
 
 import {
   Accordion,
+  Alert,
+  Dialog,
   Icon,
   Page,
   SizableText,
   Skeleton,
+  Stack,
   Switch,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -25,7 +27,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   IDBAccount,
@@ -35,7 +36,9 @@ import type {
 import {
   type IAccountActivityNotificationSettings,
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import { useNotificationsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -65,20 +68,62 @@ type IAccountNotificationSettingsContextType = {
     ) => IAccountActivityNotificationSettings | undefined,
   ) => void;
   commitSettings: () => Promise<void>;
+  totalEnabledAccountsCount: number;
+  maxAccountCount: number;
 };
 
 const AccountNotificationSettingsContext = createContext<
   IAccountNotificationSettingsContextType | undefined
 >(undefined);
 
+function isWalletEnabledFn({
+  settings,
+  wallet,
+}: {
+  settings: IAccountActivityNotificationSettings | undefined;
+  wallet: IDBWallet;
+}) {
+  return (
+    settings?.[wallet.id]?.enabled ??
+    NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
+  );
+}
+
+function isAccountEnabledFn({
+  settings,
+  account,
+  wallet,
+}: {
+  settings: IAccountActivityNotificationSettings | undefined;
+  account: IDBAccount | IDBIndexedAccount;
+  wallet: IDBWallet;
+}) {
+  return (
+    isWalletEnabledFn({
+      settings,
+      wallet,
+    }) &&
+    (settings?.[wallet.id]?.accounts?.[account.id]?.enabled ??
+      NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED)
+  );
+}
+
 function AccountNotificationSettingsProvider({
   children,
+  wallets,
 }: {
   children: React.ReactNode;
+  wallets: IDBWallet[];
 }) {
   const [settings, setSettings] = useState<
     IAccountActivityNotificationSettings | undefined
   >();
+
+  const [
+    {
+      maxAccountCount = NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+    },
+  ] = useNotificationsPersistAtom();
 
   const saveSettings = useCallback(
     (
@@ -86,7 +131,13 @@ function AccountNotificationSettingsProvider({
         prevSettings: IAccountActivityNotificationSettings | undefined,
       ) => IAccountActivityNotificationSettings | undefined,
     ) => {
-      setSettings((v) => buildSettings(v));
+      setSettings((v) => {
+        const s = buildSettings(v);
+        void backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
+          s,
+        );
+        return s;
+      });
     },
     [],
   );
@@ -99,13 +150,48 @@ function AccountNotificationSettingsProvider({
     }
   }, [settings]);
 
+  const calculateEnabledAccountsCount = useCallback(
+    (wallet: IDBWallet) =>
+      (wallet?.dbAccounts ?? wallet?.dbIndexedAccounts ?? [])?.reduce(
+        (acc, account) => {
+          if (isAccountEnabledFn({ settings, account, wallet })) {
+            return acc + 1;
+          }
+          return acc;
+        },
+        0,
+      ),
+    [settings],
+  );
+
+  const totalEnabledAccountsCount = useMemo(() => {
+    let count = 0;
+    wallets.forEach((wallet) => {
+      count += calculateEnabledAccountsCount(wallet);
+      if (wallet.hiddenWallets?.length) {
+        wallet.hiddenWallets.forEach((hiddenWallet) => {
+          count += calculateEnabledAccountsCount(hiddenWallet);
+        });
+      }
+    });
+    return count;
+  }, [wallets, calculateEnabledAccountsCount]);
+
   const value = useMemo(
     () => ({
       settings,
       saveSettings,
       commitSettings,
+      totalEnabledAccountsCount,
+      maxAccountCount,
     }),
-    [settings, saveSettings, commitSettings],
+    [
+      settings,
+      saveSettings,
+      commitSettings,
+      totalEnabledAccountsCount,
+      maxAccountCount,
+    ],
   );
 
   useEffect(() => {
@@ -125,7 +211,7 @@ function AccountNotificationSettingsProvider({
   );
 }
 
-function useAccountNotificationSettings() {
+function useContextAccountNotificationSettings() {
   const context = useContext(AccountNotificationSettingsContext);
   if (context === undefined) {
     throw new Error(
@@ -154,11 +240,14 @@ function AccordionItem({
   const {
     settings: accountNotificationSettings,
     saveSettings: saveAccountNotificationSettings,
-  } = useAccountNotificationSettings();
+    totalEnabledAccountsCount,
+    maxAccountCount,
+  } = useContextAccountNotificationSettings();
 
-  const isWalletEnabled =
-    accountNotificationSettings?.[wallet.id]?.enabled ??
-    NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
+  const isWalletEnabled = isWalletEnabledFn({
+    settings: accountNotificationSettings,
+    wallet,
+  });
   const isOthersWallet = useMemo(
     () =>
       accountUtils.isOthersWallet({
@@ -196,6 +285,18 @@ function AccordionItem({
     saveAccountNotificationSettings((prevSettings) => {
       const newSettings = { ...(prevSettings ?? {}) };
       const newValue = value;
+
+      if (newValue) {
+        if (totalEnabledAccountsCount >= maxAccountCount) {
+          Dialog.confirm({
+            title: 'Account limit reached',
+            description: `You've reached the maximum of ${maxAccountCount} accounts.`,
+            onConfirmText: 'Got it',
+          });
+          return newSettings;
+        }
+      }
+
       newSettings[wallet.id] = {
         ...newSettings?.[wallet.id],
         accounts: {
@@ -330,11 +431,11 @@ function AccordionItem({
                 {account.name}
               </SizableText>
               <Switch
-                value={
-                  accountNotificationSettings?.[wallet.id]?.accounts?.[
-                    account.id
-                  ]?.enabled ?? NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
-                }
+                value={isAccountEnabledFn({
+                  settings: accountNotificationSettings,
+                  account,
+                  wallet,
+                })}
                 onChange={(value) => toggleAccountSwitch(value, account)}
               />
             </XStack>
@@ -411,11 +512,32 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
   );
 }
 
+function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
+  const { totalEnabledAccountsCount, maxAccountCount } =
+    useContextAccountNotificationSettings();
+  const shouldShowAlert = useMemo(
+    () => totalEnabledAccountsCount / maxAccountCount >= 0.9,
+    [totalEnabledAccountsCount, maxAccountCount],
+  );
+  return (
+    <>
+      {shouldShowAlert ? (
+        <Stack px="$5">
+          <Alert
+            type="warning"
+            title={`${totalEnabledAccountsCount}/${maxAccountCount} accounts enabled`}
+            closable={false}
+          />
+        </Stack>
+      ) : null}
+      <WalletAccordionList wallets={wallets} />
+    </>
+  );
+}
+
 function ManageAccountActivity() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
 
-  const [isSaving, setIsSaving] = useState(false);
   const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getWallets({
@@ -429,59 +551,32 @@ function ManageAccountActivity() {
     },
   );
 
-  const { commitSettings } = useAccountNotificationSettings();
-
-  const onSave = useCallback(async () => {
-    try {
-      setIsSaving(true);
-      await commitSettings();
-      await backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccountsImmediate();
-      void navigation.popStack();
-    } catch (error) {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
-      });
-      console.error(error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [commitSettings, intl, navigation]);
-
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_manage })}
       />
       <Page.Body>
-        {isLoading ? (
-          <LoadingView show={isLoading} />
-        ) : (
-          <WalletAccordionList wallets={wallets} />
-        )}
+        <AccountNotificationSettingsProvider wallets={wallets}>
+          {isLoading ? (
+            <LoadingView show={isLoading} />
+          ) : (
+            <ManageAccountActivityContent wallets={wallets} />
+          )}
+        </AccountNotificationSettingsProvider>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.action_save,
-        })}
-        confirmButtonProps={{
-          disabled: false,
-          loading: isSaving,
-        }}
-        onConfirm={onSave}
-      />
     </Page>
   );
 }
 
 function ManageAccountActivityPage() {
-  return useMemo(
-    () => (
-      <AccountNotificationSettingsProvider>
-        <ManageAccountActivity />
-      </AccountNotificationSettingsProvider>
-    ),
+  useEffect(
+    () => () => {
+      void backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccounts();
+    },
     [],
   );
+  return useMemo(() => <ManageAccountActivity />, []);
 }
 
 export default ManageAccountActivityPage;
