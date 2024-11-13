@@ -23,7 +23,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import {
   useDevSettingsPersistAtom,
-  useNotificationsAtom,
+  useNotificationsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -49,7 +49,7 @@ export function HeaderRight({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
 
   const {
