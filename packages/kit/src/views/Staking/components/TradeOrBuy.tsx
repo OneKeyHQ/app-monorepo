@@ -1,17 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
@@ -29,10 +31,22 @@ function BasicTradeOrBuy({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const networkIdsMap = getNetworkIdsMap();
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const handleOnSwap = useCallback(() => {
+  const handleOnSwap = useCallback(async () => {
+    const { isSupportSwap } =
+      await backgroundApiProxy.serviceSwap.checkSupportSwap({
+        networkId,
+        contractAddress: token.address,
+      });
+
+    const { importFromToken, swapTabSwitchType } = getImportFromToken({
+      networkId,
+      isSupportSwap,
+      tokenSymbol: token.symbol,
+    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -41,10 +55,13 @@ function BasicTradeOrBuy({
           contractAddress: token.address,
           networkId,
         },
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        importFromToken,
+        swapTabSwitchType,
       },
     });
   }, [navigation, networkId, token]);
+
+  const isShowTradeButton = networkId !== networkIdsMap.cosmoshub;
 
   return (
     <XStack
@@ -61,10 +78,14 @@ function BasicTradeOrBuy({
         )}
       </SizableText>
       <XStack gap="$2">
-        <Button size="small" onPress={handleOnSwap}>
-          {intl.formatMessage({ id: ETranslations.global_trade })}
-        </Button>
+        {isShowTradeButton ? (
+          <Button size="small" onPress={handleOnSwap}>
+            {intl.formatMessage({ id: ETranslations.global_trade })}
+          </Button>
+        ) : null}
         <ActionBuy
+          hiddenIfDisabled
+          showButtonStyle
           size="small"
           networkId={networkId}
           accountId={accountId}
