@@ -328,11 +328,7 @@ export function useSwapBuildTx() {
                 .toFixed(),
             };
           } else if (res?.OKXTxObject) {
-            if (
-              res.result.fromTokenInfo.networkId ===
-                res.result.toTokenInfo.networkId &&
-              res.result.fromTokenInfo.networkId === 'ton--mainnet'
-            ) {
+            if (res.result.fromTokenInfo.networkId === 'ton--mainnet') {
               const tonNativeTokenInfo =
                 await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                   networkId: 'ton--mainnet',
