@@ -13,7 +13,10 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { indexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  indexedAccountAddressCreationStateAtom,
+  useIndexedAccountAddressCreationStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -43,6 +46,10 @@ export function AccountSelectorAddAccountButton({
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+  const loading = Boolean(
+    addressCreationState?.indexedAccountId && addressCreationState?.walletId,
+  );
 
   const { serviceAccount } = backgroundApiProxy;
 
@@ -67,6 +74,9 @@ export function AccountSelectorAddAccountButton({
 
   const handleAddAccount = useDebouncedCallback(
     async () => {
+      if (loading) {
+        return;
+      }
       if (isOthersUniversal) {
         if (section.walletId === WALLET_TYPE_WATCHING) {
           handleImportWatchingAccount();
