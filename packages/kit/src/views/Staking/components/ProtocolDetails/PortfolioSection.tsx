@@ -134,6 +134,37 @@ type IPortfolioInfoProps = {
   onPortfolioDetails?: () => void;
 };
 
+function PendingInactiveItem({
+  pendingInactive,
+  pendingInactivePeriod,
+  tokenSymbol,
+}: {
+  pendingInactive: string | number;
+  tokenSymbol: string;
+  pendingInactivePeriod: string | number;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack jc="space-between">
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{ tokenSymbol }}
+      >
+        {pendingInactive}
+      </NumberSizeableText>
+      <SizableText size="$bodyLgMedium">
+        {intl.formatMessage(
+          {
+            id: ETranslations.earn_number_days_left,
+          },
+          { number: pendingInactivePeriod },
+        )}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function PortfolioInfo({
   token,
   active,
@@ -156,6 +187,13 @@ function PortfolioInfo({
   onPortfolioDetails,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
+  const pendingInactiveItems = [
+    {
+      pendingInactive,
+      pendingInactivePeriod,
+      tokenSymbol: token.symbol,
+    },
+  ];
   if (
     Number(pendingInactive) > 0 ||
     Number(claimable) > 0 ||
@@ -215,23 +253,9 @@ function PortfolioInfo({
                 })}
                 renderTooltipContent={
                   <YStack p="$5" gap="$4">
-                    <XStack jc="space-between">
-                      <NumberSizeableText
-                        size="$bodyLgMedium"
-                        formatter="price"
-                        formatterOptions={{ tokenSymbol: token.symbol }}
-                      >
-                        {pendingInactive}
-                      </NumberSizeableText>
-                      <SizableText size="$bodyLgMedium">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.earn_number_days_left,
-                          },
-                          { number: pendingInactivePeriod },
-                        )}
-                      </SizableText>
-                    </XStack>
+                    {pendingInactiveItems.map((i, index) => (
+                      <PendingInactiveItem key={index} {...i} />
+                    ))}
                     <SizableText size="$bodySm" color="$textSubdued">
                       {intl.formatMessage({
                         id: ETranslations.earn_staked_assets_available_after_period,
