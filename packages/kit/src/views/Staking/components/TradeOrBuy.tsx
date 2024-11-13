@@ -112,10 +112,7 @@ function BasicTradeOrBuy({
     });
   }, [navigation, networkId, token]);
 
-  const isShowTradeButton = useMemo(
-    () => networkId !== 'cosmos--cosmoshub-4',
-    [networkId],
-  );
+  const isShowTradeButton = networkId !== 'cosmos--cosmoshub-4';
 
   return (
     <XStack
