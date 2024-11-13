@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -32,6 +33,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -52,7 +54,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
-import { encodeTransaction } from './utils';
+import { ALGO_TX_MIN_FEE, encodeTransaction } from './utils';
 
 import type {
   ISdkAlgoAccountInformation,
@@ -135,12 +137,13 @@ export default class Vault extends VaultBase {
   override buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxAlgo | IEncodedTxGroupAlgo> {
-    const { transfersInfo } = params;
+    const { transfersInfo, specifiedFeeRate } = params;
 
     if (transfersInfo && !isEmpty(transfersInfo)) {
       if (transfersInfo.length === 1) {
         return this._buildEncodedTxFromTransfer({
           transferInfo: transfersInfo[0],
+          specifiedFeeRate,
         });
       }
       throw new OneKeyInternalError('Batch transfers not supported');
@@ -149,13 +152,23 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
-  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
-    const { transferInfo } = params;
-    const tx = await this._buildAlgoTxFromTransferInfo(transferInfo);
+  async _buildEncodedTxFromTransfer(params: {
+    transferInfo: ITransferInfo;
+    specifiedFeeRate?: string;
+  }) {
+    const { transferInfo, specifiedFeeRate } = params;
+    const tx = await this._buildAlgoTxFromTransferInfo({
+      transferInfo,
+      specifiedFeeRate,
+    });
     return encodeTransaction(tx);
   }
 
-  async _buildAlgoTxFromTransferInfo(transferInfo: ITransferInfo) {
+  async _buildAlgoTxFromTransferInfo(params: {
+    transferInfo: ITransferInfo;
+    specifiedFeeRate?: string;
+  }) {
+    const { transferInfo, specifiedFeeRate } = params;
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
@@ -168,6 +181,21 @@ export default class Vault extends VaultBase {
     }
 
     const suggestedParams = await this._getSuggestedParams();
+
+    if (!isNil(specifiedFeeRate)) {
+      const network = await this.getNetwork();
+      suggestedParams.fee = Number(
+        chainValueUtils.convertAmountToChainValue({
+          value: new BigNumber(
+            BigNumber.max(specifiedFeeRate, ALGO_TX_MIN_FEE).toFixed(),
+          ),
+          network,
+        }),
+      );
+
+      suggestedParams.flatFee = true;
+    }
+
     const txNote = note ? new Uint8Array(Buffer.from(note)) : undefined;
     if (tokenInfo.isNative) {
       return sdkAlgo.makePaymentTxnWithSuggestedParamsFromObject({
@@ -364,9 +392,16 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxAlgo) {
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxAlgo;
+    transfersInfo: ITransferInfo[];
+  }) {
     return {
       encodedTx,
+      transfersInfo,
     };
   }
 
@@ -375,7 +410,10 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxAlgo);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxAlgo,
+        transfersInfo: params.transfersInfo ?? [],
+      });
     }
     throw new OneKeyInternalError();
   }
@@ -412,7 +450,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as
       | IEncodedTxAlgo
       | IEncodedTxGroupAlgo;
@@ -424,10 +462,43 @@ export default class Vault extends VaultBase {
           nativeAmountInfo,
         });
       }
+      if (feeInfo) {
+        if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+          throw new OneKeyInternalError('transfersInfo is required');
+        }
+        encodedTxNew = await this._attachFeeInfoToEncodedTx({
+          encodedTx: unsignedTx.encodedTx as IEncodedTxAlgo,
+          transfersInfo: unsignedTx.transfersInfo,
+          feeInfo,
+        });
+      }
     }
 
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
+  }
+
+  async _attachFeeInfoToEncodedTx({
+    encodedTx,
+    feeInfo,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxAlgo;
+    feeInfo: IFeeInfoUnit;
+    transfersInfo: ITransferInfo[];
+  }) {
+    if (feeInfo.feeAlgo?.baseFee) {
+      const flatFee = feeInfo.feeAlgo.baseFee;
+
+      if (typeof flatFee === 'string') {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+          specifiedFeeRate: flatFee,
+        });
+      }
+    }
+
+    return Promise.resolve(encodedTx);
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

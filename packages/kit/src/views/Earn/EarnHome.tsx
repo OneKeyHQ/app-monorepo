@@ -36,6 +36,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -54,6 +58,7 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
+import { EarntNavigation } from './earnUtils';
 
 interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
@@ -659,6 +664,24 @@ function BasicEarnHome() {
     },
   );
 
+  const { result: earnBanners } = usePromiseResult(
+    async () => {
+      const bannerResult =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      return (
+        bannerResult?.earnBanners?.map((i) => ({
+          ...i,
+          imgUrl: i.src,
+          title: i.title || '',
+        })) || []
+      );
+    },
+    [],
+    {
+      revalidateOnReconnect: true,
+    },
+  );
+
   const INTRODUCTION_ITEMS: {
     icon: IKeyOfIcons;
     title: string;
@@ -695,43 +718,86 @@ function BasicEarnHome() {
 
   const navigation = useAppNavigation();
 
-  const onBannerPress = useCallback(async () => {
-    if (account) {
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ProtocolDetails,
-        params: {
-          accountId: account?.id ?? '',
-          networkId: 'btc--0',
-          indexedAccountId: indexedAccount?.id,
-          symbol: 'BTC',
-          provider: 'babylon',
-        },
-      });
-    }
-  }, [account, indexedAccount?.id, navigation]);
-
-  const bannerData = useMemo(
-    () => [
-      {
-        'title': intl.formatMessage({
-          id: ETranslations.earn_banner_stake_in_babylon_ecosystem,
-        }),
-        'bannerId': '6f6ffc0e-8c7a-4d86-ad83-fe5629975916',
-        'imgSource': require('@onekeyhq/kit/assets/bg-mobile.png'),
-        titleTextProps: {
-          color: '$textInverseLight',
-          size: '$headingMd',
-          numberOfLines: 2,
-          maxWidth: 140,
-        } as ISizableTextProps,
-        $gtLg: {
-          'imgSource': require('@onekeyhq/kit/assets/bg-desktop.png'),
-          imgResizeMode: 'contain' as IImageSourceProps['resizeMode'],
-        },
-      },
-    ],
-    [intl],
+  const onBannerPress = useCallback(
+    async ({
+      href,
+    }: {
+      imgUrl: string;
+      title: string;
+      bannerId: string;
+      src: string;
+      href: string;
+      hrefType: string;
+      rank: number;
+      useSystemBrowser: boolean;
+      theme?: 'light' | 'dark';
+    }) => {
+      if (account) {
+        if (href.includes('/earn/staking')) {
+          const [path, query] = href.split('?');
+          const paths = path.split('/');
+          const provider = paths.pop();
+          const symbol = paths.pop();
+          const params = new URLSearchParams(query);
+          const networkId = params.get('networkId');
+          if (provider && symbol && networkId) {
+            void EarntNavigation.pushDetailPageFromDeeplink(navigation, {
+              accountId: account?.id ?? '',
+              indexedAccountId: indexedAccount?.id,
+              provider,
+              symbol,
+              networkId,
+            });
+          }
+          return;
+        }
+        openUrlInApp(href);
+      }
+    },
+    [account, indexedAccount?.id, navigation],
   );
+
+  const banners = useMemo(() => {
+    if (earnBanners) {
+      return earnBanners.length ? (
+        <Banner
+          height="$36"
+          $md={{
+            height: '$28',
+          }}
+          data={earnBanners}
+          onItemPress={onBannerPress}
+          isLoading={false}
+          leftIconButtonStyle={{
+            left: '$1',
+          }}
+          rightIconButtonStyle={{
+            right: '$1',
+          }}
+          indicatorContainerStyle={{
+            right: '$2.5',
+            bottom: '$3',
+          }}
+          itemTitleContainerStyle={{
+            top: 0,
+            bottom: 0,
+            right: 0,
+            left: 20,
+            justifyContent: 'center',
+          }}
+        />
+      ) : null;
+    }
+    return (
+      <Skeleton
+        height="$36"
+        $md={{
+          height: '$28',
+        }}
+        width="100%"
+      />
+    );
+  }, [earnBanners, onBannerPress]);
 
   return (
     <Page fullPage>
@@ -768,22 +834,7 @@ function BasicEarnHome() {
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >
-                <Banner
-                  height="$36"
-                  $md={{
-                    height: '$28',
-                  }}
-                  data={bannerData}
-                  onItemPress={onBannerPress}
-                  isLoading={false}
-                  itemTitleContainerStyle={{
-                    top: 0,
-                    bottom: 0,
-                    right: 0,
-                    left: 20,
-                    justifyContent: 'center',
-                  }}
-                />
+                {banners}
               </YStack>
             </YStack>
             {/* Recommended, available assets and introduction */}
