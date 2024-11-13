@@ -161,7 +161,6 @@ function PortfolioInfo({
     );
     return (
       <>
-        {' '}
         <YStack gap="$6">
           <XStack justifyContent="space-between">
             <SizableText size="$headingLg">
