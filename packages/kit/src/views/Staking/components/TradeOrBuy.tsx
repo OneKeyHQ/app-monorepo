@@ -61,7 +61,11 @@ function BasicTradeOrBuy({
     });
   }, [navigation, networkId, token]);
 
-  const isShowTradeButton = networkId !== networkIdsMap.cosmoshub;
+  const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
+
+  if (isHiddenComponent) {
+    return null;
+  }
 
   return (
     <XStack
@@ -78,11 +82,9 @@ function BasicTradeOrBuy({
         )}
       </SizableText>
       <XStack gap="$2">
-        {isShowTradeButton ? (
-          <Button size="small" onPress={handleOnSwap}>
-            {intl.formatMessage({ id: ETranslations.global_trade })}
-          </Button>
-        ) : null}
+        <Button size="small" onPress={handleOnSwap}>
+          {intl.formatMessage({ id: ETranslations.global_trade })}
+        </Button>
         <ActionBuy
           hiddenIfDisabled
           showButtonStyle

@@ -2,19 +2,23 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-export type IAccountActivityNotificationSettings = Record<
-  string,
-  {
+export type IAccountActivityNotificationSettings = {
+  [walletId: string]: {
     enabled: boolean | undefined;
-    accounts: Record<string, { enabled: boolean | undefined }>;
-  }
->;
-
-export type ISimpleDbNotificationSettings = {
-  accountActivity?: IAccountActivityNotificationSettings;
+    accounts: {
+      [accountId: string]: { enabled: boolean | undefined };
+    };
+  };
 };
 
-export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false = true;
+export type ISimpleDbNotificationSettings = {
+  // accountActivity?: IAccountActivityNotificationSettings;
+  accountActivityV2?: IAccountActivityNotificationSettings;
+};
+
+export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
+  false;
+export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
 
 export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimpleDbNotificationSettings> {
   entityName = 'notificationSettings';
@@ -27,7 +31,8 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
   ) {
     await this.setRawData(({ rawData }) => ({
       ...rawData,
-      accountActivity: settings,
+      accountActivity: null,
+      accountActivityV2: settings,
     }));
   }
 
@@ -46,10 +51,10 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
       return false;
     }
     const walletEnabled: boolean =
-      settings?.accountActivity?.[walletId]?.enabled ??
+      settings?.accountActivityV2?.[walletId]?.enabled ??
       NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
     const accountEnabled: boolean =
-      settings?.accountActivity?.[walletId]?.accounts?.[
+      settings?.accountActivityV2?.[walletId]?.accounts?.[
         accountIdOrIndexedAccountId
       ]?.enabled ?? NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
     return Boolean(walletEnabled && accountEnabled);

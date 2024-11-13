@@ -519,6 +519,18 @@ export const swapDefaultSetTokens: Record<
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
     },
+    toToken: {
+      'networkId': 'sui--mainnet',
+      'contractAddress':
+        '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+      'name': 'USDC',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+    },
   },
   'ton--mainnet': {
     fromToken: {
@@ -530,6 +542,17 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
+    },
+    toToken: {
+      'networkId': 'ton--mainnet',
+      'contractAddress': 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
+      'name': 'Tether USD',
+      'symbol': 'USD₮',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs.png',
+      'isNative': false,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
     },
   },

@@ -1,7 +1,7 @@
-import { ISwapTokenBase } from "../swap/types";
-
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import { ESwapTabSwitchType } from '../swap/types';
+
+import type { ISwapTokenBase } from '../swap/types';
 
 const earnTradeDefaultSetETH = {
   'networkId': 'evm--1',

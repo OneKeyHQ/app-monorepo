@@ -533,13 +533,6 @@ export const UniversalStake = ({
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
-        {providerName?.toLowerCase() ===
-          EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
-          <BtcFeeRateInput
-            estimateFeeUTXO={estimateFeeUTXO}
-            onFeeRateChange={onFeeRateChange}
-          />
-        ) : null}
         {nextLaunchLeft && rewardToken ? (
           <CalculationListItem>
             <CalculationListItem.Label
