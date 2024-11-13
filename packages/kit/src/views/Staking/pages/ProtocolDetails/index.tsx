@@ -80,7 +80,7 @@ const ProtocolDetailsPage = () => {
           })
         : Promise.resolve([]),
     [earnAccount?.accountAddress, symbol, networkId, provider],
-    { watchLoading: true },
+    { watchLoading: true, initResult: [] },
   );
 
   const onCreateAddress = useCallback(async () => {
