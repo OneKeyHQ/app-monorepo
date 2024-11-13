@@ -1,11 +1,13 @@
 import { isPlainObject } from 'lodash';
 
+import platformEnv from '../platformEnv';
 import resetUtils from '../utils/resetUtils';
 
 import mmkvStorageInstance from './instance/mmkvStorageInstance';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
+// sync storage does not support extension background, don't use it in production, but only for development
 export enum EAppSyncStorageKeys {
   rrt = 'rrt',
   perf_switch = 'perf_switch',
@@ -14,8 +16,9 @@ export enum EAppSyncStorageKeys {
   onekey_perf_timer_log_config = 'onekey_perf_timer_log_config',
 }
 
-export const syncStorage = {
+const syncStorageWeb = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+
     resetUtils.checkNotInResetting();
     mmkvStorageInstance.set(key, value);
   },
@@ -57,8 +60,51 @@ export const syncStorage = {
   },
 };
 
+const syncStorageExtBg: typeof syncStorageWeb = {
+  set(key: EAppSyncStorageKeys, value: boolean | string | number): void {
+    // do nothing
+  },
+  setObject<T extends Record<string, any>>(
+    key: EAppSyncStorageKeys,
+    value: T,
+  ): void {
+    // do nothing
+  },
+  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    // do nothing
+    return undefined;
+  },
+  getString(key: EAppSyncStorageKeys): string | undefined {
+    // do nothing
+    return undefined;
+  },
+  getNumber(key: EAppSyncStorageKeys): number | undefined {
+    // do nothing
+    return undefined;
+  },
+  getBoolean(key: EAppSyncStorageKeys): boolean | undefined {
+    // do nothing
+    return undefined;
+  },
+  delete(key: EAppSyncStorageKeys): void {
+    // do nothing
+  },
+  clearAll(): void {
+    // do nothing
+  },
+  getAllKeys(): string[] {
+    // do nothing
+    return [];
+  },
+};
+
+// eslint-disable-next-line import/no-named-as-default-member
+export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
+  ? syncStorageExtBg
+  : syncStorageWeb;
+
 export interface IAppStorage extends AsyncStorageStatic {
-  syncStorage: typeof syncStorage;
+  syncStorage: typeof syncStorageWeb;
 }
 
 export const buildAppStorageFactory = (

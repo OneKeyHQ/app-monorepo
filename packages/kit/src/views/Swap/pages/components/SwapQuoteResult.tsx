@@ -1,20 +1,17 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance, IImageSourceProps } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
   Dialog,
   Divider,
   Icon,
-  Image,
   NumberSizeableText,
   SizableText,
-  Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -47,14 +44,6 @@ import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
-
-interface IProtocolFeeInfo {
-  name: string;
-  fee: number;
-  color: string;
-  icon: IImageSourceProps['source'];
-  maxFee: number;
-}
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
@@ -194,59 +183,7 @@ const SwapQuoteResult = ({
     slippageOnSave,
     setSwapSlippageDialogOpening,
   ]);
-  const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
-    () => [
-      {
-        maxFee: 0.875,
-        name: 'metamask',
-        color: '#F5841F',
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
-        },
-        fee: 0.875,
-      },
-      {
-        maxFee: 0.875,
-        name: 'zerion',
-        fee: 0.8,
-        color: '#2461ED',
 
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
-        },
-      },
-      {
-        maxFee: 0.875,
-        name: 'oneKey',
-        fee: 0.3,
-        // color: '#202020',
-        color: '$bgInverse',
-        icon: require('@onekeyhq/kit/assets/logo.png'),
-      },
-    ],
-    [],
-  );
-  const renderProtocolFeeListItem = useCallback(
-    (item: IProtocolFeeInfo) => (
-      <XStack gap="$3" alignItems="center">
-        <Stack w={20} h={20}>
-          <Image source={item.icon} w={16} h={16} />
-        </Stack>
-        <Stack flex={1}>
-          <Stack
-            backgroundColor={item.color}
-            borderRadius="$full"
-            width={`${item.maxFee > 0 ? (item.fee / item.maxFee) * 100 : 0}%`}
-            height="$1"
-          />
-        </Stack>
-        <SizableText size="$bodySm" color="$text" textAlign="right">
-          {item.fee}%
-        </SizableText>
-      </XStack>
-    ),
-    [],
-  );
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
@@ -339,6 +276,7 @@ const SwapQuoteResult = ({
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
                   fromToken={fromToken}
+                  onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={
@@ -373,38 +311,6 @@ const SwapQuoteResult = ({
                       {quoteResult.fee?.estimatedFeeFiatValue}
                     </NumberSizeableText>
                   }
-                />
-              ) : null}
-              {quoteResult?.fee?.percentageFee ? (
-                <SwapCommonInfoItem
-                  title={intl.formatMessage({
-                    id: ETranslations.provider_ios_popover_onekey_fee,
-                  })}
-                  isLoading={swapQuoteLoading}
-                  valueComponent={
-                    <NumberSizeableText size="$bodyMdMedium" formatter="value">
-                      {`${quoteResult?.fee?.percentageFee}%`}
-                    </NumberSizeableText>
-                  }
-                  onPress={() => {
-                    Dialog.show({
-                      icon: 'OnekeyBrand',
-                      title: intl.formatMessage({
-                        id: ETranslations.provider_ios_popover_onekey_fee,
-                      }),
-                      description: intl.formatMessage({
-                        id: ETranslations.provider_ios_popover_onekey_fee_content,
-                      }),
-                      showCancelButton: false,
-                      renderContent: (
-                        <YStack>
-                          {protocolFeeInfoList.map((item) =>
-                            renderProtocolFeeListItem(item),
-                          )}
-                        </YStack>
-                      ),
-                    });
-                  }}
                 />
               ) : null}
               {swapTokenMetadata?.swapTokenMetadata

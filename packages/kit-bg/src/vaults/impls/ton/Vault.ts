@@ -461,11 +461,10 @@ export default class Vault extends VaultBase {
   override async buildOkxSwapEncodedTx(
     params: IBuildOkxSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
-    const { okxTx, fromTokenInfo } = params;
+    const { okxTx } = params;
     const { from, to, value, data } = okxTx;
-    const amount = new BigNumber(value)
-      .shiftedBy(-fromTokenInfo.decimals)
-      .toString();
+    const network = await this.getNetwork();
+    const amount = new BigNumber(value).shiftedBy(-network.decimals).toString();
     const message = {
       address: to,
       amount: TonWeb.utils.toNano(amount).toString(),
