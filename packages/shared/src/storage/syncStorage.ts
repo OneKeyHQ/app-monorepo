@@ -18,7 +18,6 @@ export enum EAppSyncStorageKeys {
 
 const syncStorageWeb = {
   set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-
     resetUtils.checkNotInResetting();
     mmkvStorageInstance.set(key, value);
   },

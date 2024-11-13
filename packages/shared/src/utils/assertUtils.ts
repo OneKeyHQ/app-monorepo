@@ -10,13 +10,13 @@ import {
   isUndefined,
 } from 'lodash';
 
+import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorage';
 
 import { isPromiseObject } from './promiseUtils';
 import timerUtils from './timerUtils';
-import errorUtils from '../errors/utils/errorUtils';
 
 type IErrorType = undefined | string | Error;
 
