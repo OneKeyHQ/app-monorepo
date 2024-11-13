@@ -1,7 +1,7 @@
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import { ESwapTabSwitchType } from '../swap/types';
 
-export const earnTradeDefaultSetETH = {
+const earnTradeDefaultSetETH = {
   'networkId': 'evm--1',
   'contractAddress': '',
   'name': 'Ethereum',
@@ -13,7 +13,7 @@ export const earnTradeDefaultSetETH = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
 };
 
-export const earnTradeDefaultSetUSDC = {
+const earnTradeDefaultSetUSDC = {
   'networkId': 'evm--1',
   'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   'name': 'USD Coin',
@@ -26,7 +26,7 @@ export const earnTradeDefaultSetUSDC = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
 };
 
-export const earnTradeDefaultSetSOL = {
+const earnTradeDefaultSetSOL = {
   'networkId': 'sol--101',
   'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   'name': 'USDC',
