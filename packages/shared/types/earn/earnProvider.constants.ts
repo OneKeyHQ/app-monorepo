@@ -1,3 +1,5 @@
+import { ISwapTokenBase } from "../swap/types";
+
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import { ESwapTabSwitchType } from '../swap/types';
 
