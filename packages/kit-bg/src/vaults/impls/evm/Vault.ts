@@ -13,6 +13,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -496,7 +497,7 @@ export default class Vault extends VaultBase {
     const transfersInfo = params.transfersInfo as ITransferInfo[];
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
-      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+      const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
         throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
@@ -543,7 +544,8 @@ export default class Vault extends VaultBase {
                 value: amount,
               }),
             ),
-            data: '0x',
+            // only attach custom hex data to native token transfer
+            data: hexData && hexUtils.isHexString(hexData) ? hexData : '0x',
           };
         }
 

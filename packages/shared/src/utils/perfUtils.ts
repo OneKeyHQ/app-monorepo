@@ -1,10 +1,10 @@
 import { isNil } from 'lodash';
 
+import errorUtils from '../errors/utils/errorUtils';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorage';
 
 import { formatDateFns } from './dateUtils';
-import errorUtils from '../errors/utils/errorUtils';
 
 export enum EPerformanceTimerLogNames {
   localDB__getAccount = 'localDB__getAccount',
