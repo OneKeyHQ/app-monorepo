@@ -4,6 +4,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -21,6 +22,10 @@ export {
 
 export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
+>([]);
+
+export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<
+  IDecodedTx[]
 >([]);
 
 export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
