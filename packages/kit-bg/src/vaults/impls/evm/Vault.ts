@@ -107,6 +107,7 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -496,7 +497,7 @@ export default class Vault extends VaultBase {
     const transfersInfo = params.transfersInfo as ITransferInfo[];
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
-      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+      const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
         throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
@@ -543,7 +544,8 @@ export default class Vault extends VaultBase {
                 value: amount,
               }),
             ),
-            data: '0x',
+            // only attach custom hex data to native token transfer
+            data: hexData && hexUtils.isHexString(hexData) ? hexData : '0x',
           };
         }
 

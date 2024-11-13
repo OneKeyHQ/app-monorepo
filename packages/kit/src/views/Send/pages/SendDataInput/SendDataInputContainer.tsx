@@ -12,6 +12,7 @@ import {
   Page,
   SizableText,
   TextArea,
+  TextAreaInput,
   XStack,
   useForm,
   useMedia,
@@ -66,6 +67,7 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
+import { utils } from 'ethers';
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -108,6 +110,9 @@ function SendDataInputContainer() {
     networkId,
   });
 
+  const [isHexTxMessage, setIsHexTxMessage] = useState(false);
+  const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
+
   const { account, network } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
@@ -139,6 +144,7 @@ function SendDataInputContainer() {
       numericOnlyMemo,
       displayNoteForm,
       noteMaxLength,
+      displayTxMessageForm,
     ] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
@@ -206,6 +212,7 @@ function SendDataInputContainer() {
         vs.numericOnlyMemo,
         vs.withNote,
         vs.noteMaxLength,
+        vs.withTxMessage,
       ];
     },
     [
@@ -248,6 +255,7 @@ function SendDataInputContainer() {
       memo: '',
       paymentId: '',
       note: '',
+      txMessage: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -451,6 +459,10 @@ function SendDataInputContainer() {
           const memoValue = form.getValues('memo');
           const paymentIdValue = form.getValues('paymentId');
           const noteValue = form.getValues('note');
+          const txMessageValue = form.getValues('txMessage');
+          const hexData = isHexTxMessage
+            ? txMessageValue
+            : txMessageLinkedString;
           const transfersInfo: ITransferInfo[] = [
             {
               from: account.address,
@@ -468,6 +480,7 @@ function SendDataInputContainer() {
               memo: memoValue,
               paymentId: paymentIdValue,
               note: noteValue,
+              hexData: isToContract ? undefined : hexData,
             },
           ];
 
@@ -523,6 +536,7 @@ function SendDataInputContainer() {
       amount,
       form,
       intl,
+      isHexTxMessage,
       isMaxSend,
       isNFT,
       isUseFiat,
@@ -538,6 +552,7 @@ function SendDataInputContainer() {
       sendConfirm,
       tokenDetails,
       tokenInfo?.address,
+      txMessageLinkedString,
     ],
   );
   const handleValidateTokenAmount = useCallback(
@@ -950,6 +965,88 @@ function SendDataInputContainer() {
     );
   }, [displayNoteForm, intl, media.gtMd, noteMaxLength]);
 
+  const handleTxMessageOnChange = useCallback(
+    (e: { target: { name: string; value: string } }) => {
+      const value = e.target?.value;
+      if (!value) {
+        setTxMessageLinkedString('');
+        return;
+      }
+
+      if (utils.isHexString(value)) {
+        setIsHexTxMessage(true);
+        setTxMessageLinkedString(hexUtils.hexStringToUtf8String(value));
+      } else {
+        setIsHexTxMessage(false);
+        setTxMessageLinkedString(hexUtils.utf8StringToHexString(value));
+      }
+    },
+    [],
+  );
+
+  const txMessageDescription = useMemo(() => {
+    if (form.getValues('txMessage') === '') return '';
+    const description = isHexTxMessage
+      ? intl.formatMessage(
+          {
+            id: ETranslations.global_hex_data_input_desc_utf,
+          },
+          {
+            utf: txMessageLinkedString,
+          },
+        )
+      : intl.formatMessage(
+          {
+            id: ETranslations.global_hex_data_input_desc_hex,
+          },
+          {
+            data: txMessageLinkedString,
+          },
+        );
+    return description;
+  }, [form, intl, isHexTxMessage, txMessageLinkedString]);
+
+  const renderTxMessageForm = useCallback(() => {
+    const toAddress = form.getValues('to');
+    if (
+      !displayTxMessageForm ||
+      !tokenInfo?.isNative ||
+      toAddress.raw === '' ||
+      toAddress.isContract === true
+    ) {
+      return null;
+    }
+    return (
+      <Form.Field
+        label={intl.formatMessage({
+          id: ETranslations.global_hex_data,
+        })}
+        optional
+        name="txMessage"
+        rules={{
+          onChange: handleTxMessageOnChange,
+        }}
+        description={txMessageDescription}
+      >
+        <TextAreaInput
+          numberOfLines={2}
+          size={media.gtMd ? 'medium' : 'large'}
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_hex_data,
+          })}
+        />
+      </Form.Field>
+    );
+  }, [
+    displayTxMessageForm,
+    form,
+    handleTxMessageOnChange,
+    intl,
+    media.gtMd,
+    tokenInfo?.isNative,
+    txMessageDescription,
+  ]);
+
   const renderDataInput = useCallback(() => {
     if (isNFT) {
       return renderNFTDataInputForm();
@@ -961,6 +1058,7 @@ function SendDataInputContainer() {
           {renderMemoForm()}
           {renderPaymentIdForm()}
           {renderNoteForm()}
+          {renderTxMessageForm()}
         </>
       );
     }
@@ -973,6 +1071,7 @@ function SendDataInputContainer() {
     renderMemoForm,
     renderPaymentIdForm,
     renderNoteForm,
+    renderTxMessageForm,
   ]);
 
   useEffect(() => {
