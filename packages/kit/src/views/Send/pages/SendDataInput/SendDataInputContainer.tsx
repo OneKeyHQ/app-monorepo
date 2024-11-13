@@ -989,7 +989,7 @@ function SendDataInputContainer() {
     const description = isHexTxMessage
       ? intl.formatMessage(
           {
-            id: ETranslations.global_hex_data_input_desc_utf,
+            id: ETranslations.global_hex_data_input_desc_hex,
           },
           {
             utf: txMessageLinkedString,
@@ -997,7 +997,7 @@ function SendDataInputContainer() {
         )
       : intl.formatMessage(
           {
-            id: ETranslations.global_hex_data_input_desc_hex,
+            id: ETranslations.global_hex_data_input_desc_utf,
           },
           {
             data: txMessageLinkedString,
