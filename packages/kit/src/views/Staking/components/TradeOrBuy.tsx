@@ -44,11 +44,11 @@ function BasicTradeOrBuy({
   const {
     activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
+  const networkIdsMap = getNetworkIdsMap();
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(async () => {
-    const networkIdsMap = getNetworkIdsMap();
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
