@@ -68,9 +68,18 @@ const SwapSlippageTriggerContainer = ({
       })}
       isLoading={isLoading}
       onPress={onPress}
-      questionMarkContent={intl.formatMessage({
-        id: ETranslations.slippage_tolerance_popover,
-      })}
+      questionMarkContent={
+        <SizableText
+          p="$5"
+          $gtMd={{
+            size: '$bodyMd',
+          }}
+        >
+          {intl.formatMessage({
+            id: ETranslations.slippage_tolerance_popover,
+          })}
+        </SizableText>
+      }
       valueComponent={valueComponent}
     />
   );
