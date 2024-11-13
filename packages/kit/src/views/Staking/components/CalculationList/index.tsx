@@ -3,7 +3,14 @@ import type {
   IXStackProps,
   IYStackProps,
 } from '@onekeyhq/components';
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 function CalculationList({ children }: IYStackProps) {
   return <YStack gap="$4">{children}</YStack>;
@@ -23,11 +30,28 @@ function CalculationListItem({ children, ...rest }: IXStackProps) {
   );
 }
 
-function CalculationListItemLabel({ children, ...rest }: ISizableTextProps) {
-  return (
+function CalculationListItemLabel({
+  children,
+  tooltip,
+  ...rest
+}: ISizableTextProps & { tooltip?: string }) {
+  const content = (
     <SizableText color="$textSubdued" {...rest}>
       {children}
     </SizableText>
+  );
+  return tooltip ? (
+    <XStack gap="$1" ai="center">
+      {content}
+      <Popover.Tooltip
+        iconSize="$5"
+        title={children}
+        tooltip={tooltip}
+        placement="top"
+      />
+    </XStack>
+  ) : (
+    content
   );
 }
 

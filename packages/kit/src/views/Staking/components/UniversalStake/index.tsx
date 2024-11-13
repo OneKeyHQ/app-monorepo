@@ -20,7 +20,10 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatDate,
+  formatDistanceToNow,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -80,6 +83,10 @@ type IUniversalStakeProps = {
 
   onConfirm?: (amount: string) => Promise<void>;
   onFeeRateChange?: (rate: string) => void;
+
+  stakingTime?: number;
+  nextLaunchLeft?: string;
+  rewardToken?: string;
 };
 
 export const UniversalStake = ({
@@ -109,6 +116,9 @@ export const UniversalStake = ({
   maxAmount,
   onConfirm,
   onFeeRateChange,
+  stakingTime,
+  nextLaunchLeft,
+  rewardToken,
 }: PropsWithChildren<IUniversalStakeProps>) => {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -502,6 +512,57 @@ export const UniversalStake = ({
               });
             }}
           />
+        ) : null}
+        {stakingTime ? (
+          <CalculationListItem>
+            <CalculationListItem.Label>
+              {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_in_number },
+                  {
+                    number: formatDistanceToNow(
+                      Date.now() + Number(stakingTime * 1000),
+                      false,
+                    ),
+                  },
+                )}
+              </SizableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
+        ) : null}
+        {providerName?.toLowerCase() ===
+          EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
+          <BtcFeeRateInput
+            estimateFeeUTXO={estimateFeeUTXO}
+            onFeeRateChange={onFeeRateChange}
+          />
+        ) : null}
+        {nextLaunchLeft && rewardToken ? (
+          <CalculationListItem>
+            <CalculationListItem.Label
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_until_next_launch_tooltip,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.earn_until_next_launch,
+              })}
+            </CalculationListItem.Label>
+            <CalculationListItem.Value>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_number_symbol_left },
+                  {
+                    number: Number(nextLaunchLeft).toFixed(2),
+                    symbol: rewardToken,
+                  },
+                )}
+              </SizableText>
+            </CalculationListItem.Value>
+          </CalculationListItem>
         ) : null}
         {providerName?.toLowerCase() ===
           EEarnProviderEnum.Babylon.toLowerCase() && estimateFeeUTXO ? (
