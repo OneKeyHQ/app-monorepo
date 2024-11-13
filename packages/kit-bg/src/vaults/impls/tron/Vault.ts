@@ -705,7 +705,7 @@ export default class Vault extends VaultBase {
 
     const functionParams = defaultAbiCoder.decode(
       ['uint256', 'uint256', 'uint256', 'bytes32[]'],
-      `0x${(data as string).slice(10)}`,
+      `0x${data.slice(10)}`,
     ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
 
     const [{ result, transaction }] =

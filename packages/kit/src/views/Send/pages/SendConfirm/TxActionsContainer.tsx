@@ -38,6 +38,7 @@ function TxActionsContainer(props: IProps) {
   const {
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
+    updateDecodedTxs,
   } = useSendConfirmActions().current;
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
@@ -58,6 +59,8 @@ function TxActionsContainer(props: IProps) {
         }),
       ),
     );
+
+    updateDecodedTxs(decodedTxs);
 
     if (decodedTxs.length > 1) {
       const approveTxs = decodedTxs.filter(
@@ -103,7 +106,7 @@ function TxActionsContainer(props: IProps) {
       decodedTxs,
       swapInfo: unsignedTxs[0]?.swapInfo,
     };
-  }, [accountId, networkId, transferPayload, unsignedTxs]);
+  }, [accountId, networkId, transferPayload, unsignedTxs, updateDecodedTxs]);
 
   useEffect(() => {
     const { decodedTxs } = r.result ?? {
