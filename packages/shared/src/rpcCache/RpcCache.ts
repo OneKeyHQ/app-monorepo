@@ -22,18 +22,11 @@ export class RpcCache {
 
   private _randomKeys: Record<string, number>;
 
-  private timer: ReturnType<typeof setInterval>;
-
   constructor({ maxAge, impl }: { maxAge: number; impl: string }) {
     this.cache = new Map();
     this.maxAge = maxAge;
     this.impl = impl;
     this._randomKeys = {};
-
-    this.timer = setInterval(() => {
-      this._randomKeys = {};
-      this.cache.clear();
-    }, this.maxAge);
   }
 
   private generateRandomKey(): number {
@@ -57,6 +50,12 @@ export class RpcCache {
   get(params: ICacheKey): any | undefined {
     const cacheKey = this.generateKey(params);
     const item = this.cache.get(cacheKey);
+
+    if (item && Date.now() - item.timestamp > this.maxAge) {
+      this.clear();
+      return undefined;
+    }
+
     return item?.value;
   }
 
@@ -72,11 +71,7 @@ export class RpcCache {
   }
 
   clear(): void {
-    this.cache.clear();
-  }
-
-  destroy(): void {
-    clearInterval(this.timer);
+    this._randomKeys = {};
     this.cache.clear();
   }
 
