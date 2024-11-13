@@ -139,7 +139,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     this.notifyNetworkChangedToDappSite(info.targetOrigin);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
     const { data } = request;
     const { accountInfo: { networkId } = {} } = (
