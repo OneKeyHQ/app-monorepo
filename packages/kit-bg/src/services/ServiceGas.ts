@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isArray } from 'lodash';
 
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
@@ -70,6 +71,7 @@ class ServiceGas extends ServiceBase {
             feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
           }))
         : undefined,
+      feeAlgo: isArray(feeInfo.feeAlgo) ? feeInfo.feeAlgo : [feeInfo.feeAlgo],
       feeDot: feeInfo.feeData
         ?.map((item) => {
           if (!item.extraTip) {
