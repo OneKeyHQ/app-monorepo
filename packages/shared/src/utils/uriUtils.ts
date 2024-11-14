@@ -146,7 +146,7 @@ export function isValidDeepLink(url: string) {
 }
 
 export const isValidWebUrl = (url: string) =>
-  /^[^/\s]+\.(?:ai|app|art|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
+  /^[^/\s]+\.(?:ai|app|art|ag|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
     url,
   );
 
