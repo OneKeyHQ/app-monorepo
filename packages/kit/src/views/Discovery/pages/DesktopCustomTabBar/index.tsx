@@ -335,6 +335,8 @@ function DesktopCustomTabBar() {
     <Stack testID="sideabr-browser-section" flex={1}>
       <HandleRebuildBrowserData />
       <SortableSectionList
+        mx="$-3"
+        px="$3"
         ref={scrollViewRef}
         sections={sections}
         renderItem={({
