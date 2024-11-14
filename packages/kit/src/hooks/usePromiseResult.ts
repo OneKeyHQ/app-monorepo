@@ -311,17 +311,16 @@ export function usePromiseResult<T>(
   }, [runRef]);
 
   const { isRawInternetReachable: isInternetReachable } = useNetInfo();
-  const prevIsInternetReachable = usePrevious(isInternetReachable);
+  const prevIsInternetReachableRef = useRef(isInternetReachable);
 
   useEffect(() => {
-    if (
-      optionsRef.current.revalidateOnReconnect &&
-      prevIsInternetReachable === false &&
-      isInternetReachable
-    ) {
-      runWithPollingNonce();
+    if (optionsRef.current.revalidateOnReconnect) {
+      if (prevIsInternetReachableRef.current === false && isInternetReachable) {
+        runWithPollingNonce();
+      }
+      prevIsInternetReachableRef.current = isInternetReachable;
     }
-  }, [isInternetReachable, prevIsInternetReachable, runWithPollingNonce]);
+  }, [isInternetReachable, runWithPollingNonce]);
 
   useEffect(() => {
     if (optionsRef.current.checkIsFocused) {
