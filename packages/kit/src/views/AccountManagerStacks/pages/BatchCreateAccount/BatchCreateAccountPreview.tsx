@@ -48,6 +48,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -110,6 +111,7 @@ function BatchCreateAccountPreviewPage({
   defaultCount: string;
   defaultIsAdvancedMode?: boolean;
 }) {
+  const [previewError, setPreviewError] = useState('');
   const [, setEditMode] = useAccountSelectorEditModeAtom();
   const { result: networkIdsCompatibleAccount } = usePromiseResult(
     async () => {
@@ -234,6 +236,8 @@ function BatchCreateAccountPreviewPage({
   const balanceMapRef = useRef(balanceMap);
   balanceMapRef.current = balanceMap;
 
+  const runCancelAtFirst = useRef(false);
+
   const {
     result: accounts = [],
     isLoading,
@@ -241,6 +245,7 @@ function BatchCreateAccountPreviewPage({
   } = usePromiseResult(
     async () => {
       try {
+        setPreviewError('');
         defaultLogger.account.accountCreatePerf.createAddressRunStart();
         if (!deriveType) {
           return [];
@@ -261,6 +266,20 @@ function BatchCreateAccountPreviewPage({
             },
           );
 
+        if (
+          accountUtils.isHwWallet({ walletId }) &&
+          !runCancelAtFirst.current
+        ) {
+          runCancelAtFirst.current = true;
+          // not working for ERROR:
+          //    Bridge device disconnected during action
+          //    Request failed with status code 400
+
+          // await backgroundApiProxy.serviceHardware.cancel({
+          //   walletId,
+          // });
+        }
+
         const { accountsForCreate } =
           await backgroundApiProxy.serviceBatchCreateAccount.previewBatchBuildAccounts(
             {
@@ -278,6 +297,7 @@ function BatchCreateAccountPreviewPage({
           // If an error occurs and exits, the user cannot switch to other networks for addition, such as an error under DNX, and cannot switch to ETH
           // navigation.pop();
         }
+        setPreviewError((error as IOneKeyError)?.message || 'Error');
         throw error;
       } finally {
         defaultLogger.account.accountCreatePerf.createAddressRunFinished();
@@ -708,7 +728,11 @@ function BatchCreateAccountPreviewPage({
               justifyContent="center"
               alignItems="center"
             >
-              <Spinner size="large" />
+              {previewError ? (
+                <SizableText color="$textCaution">{previewError}</SizableText>
+              ) : (
+                <Spinner size="large" />
+              )}
             </Stack>
           }
           extraData={extraData}
@@ -734,6 +758,7 @@ function BatchCreateAccountPreviewPage({
             if (!deriveType) {
               return;
             }
+            setPreviewError('');
 
             let advancedParams:
               | IBatchBuildAccountsAdvancedFlowParams
@@ -775,23 +800,28 @@ function BatchCreateAccountPreviewPage({
             });
             await timerUtils.wait(600);
 
-            const result =
-              await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
-                isAdvancedMode
-                  ? {
-                      mode: 'advanced',
-                      saveToCache: true,
-                      params: checkIsDefined(advancedParams),
-                    }
-                  : {
-                      mode: 'normal',
-                      saveToCache: true,
-                      params: checkIsDefined(normalParams),
-                    },
-              );
+            try {
+              const result =
+                await backgroundApiProxy.serviceBatchCreateAccount.startBatchCreateAccountsFlow(
+                  isAdvancedMode
+                    ? {
+                        mode: 'advanced',
+                        saveToCache: true,
+                        params: checkIsDefined(advancedParams),
+                      }
+                    : {
+                        mode: 'normal',
+                        saveToCache: true,
+                        params: checkIsDefined(normalParams),
+                      },
+                );
 
-            if (result?.accountsForCreate) {
-              setEditMode(false);
+              if (result?.accountsForCreate) {
+                setEditMode(false);
+              }
+            } catch (error) {
+              console.log(error);
+              throw error;
             }
           }}
         >

@@ -5,7 +5,10 @@ import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
@@ -150,7 +153,6 @@ class ProviderApiWalletConnect {
       });
       return;
     }
-    let modalResult: IWalletConnectSessionProposalResult | undefined;
 
     try {
       if (!origin) {
@@ -185,14 +187,13 @@ class ProviderApiWalletConnect {
         },
         screens: [
           EModalRoutes.DAppConnectionModal,
-          'WalletConnectSessionProposalModal',
-          // EDAppConnectionModal.WalletConnectSessionProposalModal, // cause desktop crash
+          EDAppConnectionModal.WalletConnectSessionProposalModal,
         ],
         params: {
           proposal,
         },
+        fullScreen: true,
       })) as IWalletConnectSessionProposalResult;
-      modalResult = result;
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,
@@ -377,7 +378,13 @@ class ProviderApiWalletConnect {
   }
 
   getDAppOrigin(option: IWalletConnectRequestOptions) {
-    return option.sessionRequest?.verifyContext.verified.origin ?? '';
+    const originUrl =
+      option.sessionRequest?.verifyContext.verified.origin ?? '';
+    try {
+      return new URL(originUrl).origin;
+    } catch (error) {
+      return originUrl;
+    }
   }
 }
 

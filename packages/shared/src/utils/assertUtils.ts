@@ -10,6 +10,7 @@ import {
   isUndefined,
 } from 'lodash';
 
+import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorage';
@@ -100,24 +101,29 @@ export function toggleBgApiSerializableChecking(enabled: boolean) {
   );
 }
 export function isBgApiSerializableCheckingDisabled() {
-  const data =
-    appStorage.syncStorage.getObject<ISerializableCheckingDisabledConfig>(
-      EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
-    );
-  if (!data) {
+  try {
+    const data =
+      appStorage.syncStorage.getObject<ISerializableCheckingDisabledConfig>(
+        EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
+      );
+    if (!data) {
+      return false;
+    }
+    if (
+      data.updateAt &&
+      Date.now() - data.updateAt >
+        timerUtils.getTimeDurationMs({
+          day: 1,
+        })
+    ) {
+      // 1 day
+      return false;
+    }
+    return Boolean(data.disabled);
+  } catch (error) {
+    errorUtils.autoPrintErrorIgnore(error);
     return false;
   }
-  if (
-    data.updateAt &&
-    Date.now() - data.updateAt >
-      timerUtils.getTimeDurationMs({
-        day: 1,
-      })
-  ) {
-    // 1 day
-    return false;
-  }
-  return Boolean(data.disabled);
 }
 export function ensureSerializable(
   obj: any,

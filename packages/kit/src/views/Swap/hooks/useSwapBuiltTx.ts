@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { EPageType, Toast, usePageType } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
@@ -14,6 +15,7 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -44,6 +46,7 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 export function useSwapBuildTx() {
+  const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
@@ -324,6 +327,59 @@ export function useSwapBuildTx() {
                 .shiftedBy(-fromToken.decimals)
                 .toFixed(),
             };
+          } else if (res?.OKXTxObject) {
+            if (res.result.fromTokenInfo.networkId === 'ton--mainnet') {
+              const tonNativeTokenInfo =
+                await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                  networkId: 'ton--mainnet',
+                  contractAddress: '',
+                  accountAddress: swapFromAddressInfo.address,
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                });
+              if (tonNativeTokenInfo?.length) {
+                const txValueBN = new BigNumber(
+                  res.OKXTxObject.value,
+                ).shiftedBy(-tonNativeTokenInfo[0].decimals);
+                if (
+                  txValueBN.gt(
+                    new BigNumber(tonNativeTokenInfo[0].balanceParsed ?? 0),
+                  )
+                ) {
+                  Toast.error({
+                    title: intl.formatMessage(
+                      {
+                        id: ETranslations.swap_page_toast_insufficient_balance_title,
+                      },
+                      { token: tonNativeTokenInfo[0].symbol },
+                    ),
+                    message: intl.formatMessage(
+                      {
+                        id: ETranslations.swap_page_toast_insufficient_balance_content,
+                      },
+                      {
+                        token: tonNativeTokenInfo[0].symbol,
+                        number: txValueBN.toFixed(),
+                      },
+                    ),
+                  });
+                  return null;
+                }
+              } else {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_failed,
+                  }),
+                });
+                return null;
+              }
+            }
+            encodedTx =
+              await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
+                accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
+                networkId: res.result.fromTokenInfo.networkId,
+                okxTx: res.OKXTxObject,
+                fromTokenInfo: res.result.fromTokenInfo,
+              });
           } else if (res?.tx) {
             transferInfo = undefined;
             if (typeof res.tx !== 'string' && res.tx.data) {
@@ -376,6 +432,7 @@ export function useSwapBuildTx() {
       return null;
     }
   }, [
+    intl,
     fromToken,
     selectQuote?.fromAmount,
     selectQuote?.gasLimit,

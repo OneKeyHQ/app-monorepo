@@ -17,7 +17,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
-  useNotificationsAtom,
+  useNotificationsPersistAtom,
   useNotificationsReadedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -81,7 +81,7 @@ function NotificationItem({
 
   const { title, content } = item.body;
   const { createdAt, readed, msgId } = item;
-  const [{ badge }] = useNotificationsAtom();
+  const [{ badge }] = useNotificationsPersistAtom();
   const [readedMap] = useNotificationsReadedAtom();
   return (
     <ListItem
@@ -143,7 +143,7 @@ function NotificationList() {
   const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
-    useNotificationsAtom();
+    useNotificationsPersistAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
 

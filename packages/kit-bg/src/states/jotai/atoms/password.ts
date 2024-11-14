@@ -65,7 +65,7 @@ export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
   appLockDuration: 240,
-  enableSystemIdleLock: false,
+  enableSystemIdleLock: true,
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({

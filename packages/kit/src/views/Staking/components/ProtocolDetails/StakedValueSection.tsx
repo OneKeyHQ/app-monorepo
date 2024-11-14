@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -46,7 +47,7 @@ function StakedValueInfo({
         <SizableText size="$headingLg" pt="$2">
           {intl.formatMessage({ id: ETranslations.earn_staked_value })}
         </SizableText>
-        <XStack gap="$2">
+        <XStack gap="$2" pt="$2" pb="$1">
           <NumberSizeableText
             flex={1}
             size="$heading4xl"
@@ -99,10 +100,14 @@ export const StakedValueSection = ({
     tokenSymbol: details.token.info.symbol,
   };
   return (
-    <StakedValueInfo
-      {...props}
-      stakeButtonProps={stakeButtonProps}
-      withdrawButtonProps={withdrawButtonProps}
-    />
+    <>
+      <StakedValueInfo
+        {...props}
+        stakeButtonProps={stakeButtonProps}
+        withdrawButtonProps={withdrawButtonProps}
+      />
+
+      <Divider />
+    </>
   );
 };

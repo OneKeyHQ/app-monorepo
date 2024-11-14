@@ -13,6 +13,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -239,15 +240,18 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
+    let isToContract = false;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
+      isToContract = true;
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapData: encodedTx.data,
         swapToAddress: encodedTx.to,
       });
     } else if (stakingInfo) {
+      isToContract = true;
       action = await this.buildInternalStakingAction({
         stakingInfo,
         accountAddress,
@@ -265,7 +269,23 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+      try {
+        const parseResult =
+          await this.backgroundApi.serviceSend.parseTransaction({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            encodedTx,
+            accountAddress,
+          });
+        isToContract = parseResult.parsedTx.to.isContract;
+      } catch (e) {
+        // ignore
+      }
+
+      if (
+        isToContract === false ||
+        checkIsEvmNativeTransfer({ tx: nativeTx })
+      ) {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -289,6 +309,7 @@ export default class Vault extends VaultBase {
       unsignedTx,
       action,
       extraNativeTransferAction,
+      isToContract,
     });
   }
 
@@ -441,8 +462,10 @@ export default class Vault extends VaultBase {
     unsignedTx: IUnsignedTxPro;
     action: IDecodedTxAction | undefined;
     extraNativeTransferAction: IDecodedTxAction | undefined;
+    isToContract?: boolean;
   }): Promise<IDecodedTx> {
-    const { unsignedTx, action, extraNativeTransferAction } = params;
+    const { unsignedTx, action, extraNativeTransferAction, isToContract } =
+      params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
     const finalActions = mergeAssetTransferActions(
@@ -454,6 +477,7 @@ export default class Vault extends VaultBase {
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
+      isToContract,
       nonce: Number(encodedTx.nonce) ?? 0,
       actions: finalActions,
       status: EDecodedTxStatus.Pending,
@@ -473,7 +497,7 @@ export default class Vault extends VaultBase {
     const transfersInfo = params.transfersInfo as ITransferInfo[];
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
-      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+      const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
         throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
@@ -520,7 +544,8 @@ export default class Vault extends VaultBase {
                 value: amount,
               }),
             ),
-            data: '0x',
+            // only attach custom hex data to native token transfer
+            data: hexData && hexUtils.isHexString(hexData) ? hexData : '0x',
           };
         }
 
@@ -1056,6 +1081,25 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+      },
+    });
+  }
+
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+    const { to, data, value } = encodedTx;
+
+    return Promise.resolve({
+      encodedTx: {
+        to,
+        data,
+        value,
       },
     });
   }

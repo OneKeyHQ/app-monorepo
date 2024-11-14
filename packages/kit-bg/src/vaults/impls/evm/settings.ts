@@ -204,6 +204,8 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   stakingConfig,
+
+  withTxMessage: true,
 };
 
 export default Object.freeze(settings);

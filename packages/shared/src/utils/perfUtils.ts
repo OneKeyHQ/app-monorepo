@@ -1,5 +1,6 @@
 import { isNil } from 'lodash';
 
+import errorUtils from '../errors/utils/errorUtils';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorage';
 
@@ -18,11 +19,16 @@ export enum EPerformanceTimerLogNames {
 }
 
 function getPerformanceTimerLogConfigMap() {
-  return (
-    appStorage.syncStorage.getObject<Record<string, boolean>>(
-      EAppSyncStorageKeys.onekey_perf_timer_log_config,
-    ) ?? {}
-  );
+  try {
+    return (
+      appStorage.syncStorage.getObject<Record<string, boolean>>(
+        EAppSyncStorageKeys.onekey_perf_timer_log_config,
+      ) ?? {}
+    );
+  } catch (error) {
+    errorUtils.autoPrintErrorIgnore(error);
+    return {};
+  }
 }
 
 function updatePerformanceTimerLogConfig(

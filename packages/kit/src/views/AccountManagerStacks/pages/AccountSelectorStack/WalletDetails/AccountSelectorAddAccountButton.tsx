@@ -22,6 +22,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function AccountSelectorAddAccountButton({
   num,
@@ -82,6 +83,15 @@ export function AccountSelectorAddAccountButton({
         return;
       }
 
+      let isNavigationPopped = false;
+      const popNavigation = () => {
+        if (isNavigationPopped) {
+          return;
+        }
+        isNavigationPopped = true;
+        navigation.popStack();
+      };
+
       try {
         const focusedWallet = focusedWalletInfo?.wallet;
         const c = await serviceAccount.addHDNextIndexedAccount({
@@ -105,7 +115,8 @@ export function AccountSelectorAddAccountButton({
               walletId: focusedWallet?.id,
               indexedAccountId: indexedAccount?.id,
             });
-
+            await timerUtils.wait(1500);
+            popNavigation();
             await actions.current.addDefaultNetworkAccounts({
               wallet: focusedWallet,
               indexedAccount,
@@ -123,7 +134,7 @@ export function AccountSelectorAddAccountButton({
             },
           );
         }
-        navigation.popStack();
+        popNavigation();
       }
     },
     300,

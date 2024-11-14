@@ -59,6 +59,38 @@ export const swapRateDifferenceMin = 0.05;
 
 export const maxRecentTokenPairs = 10;
 
+export const otherWalletFeeData = [
+  {
+    maxFee: 0.875,
+    name: 'metamask',
+    color: '#F5841F',
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
+    },
+    fee: 0.875,
+  },
+  {
+    maxFee: 0.875,
+    name: 'phantom',
+    fee: 0.85,
+    color: '#AB9FF2',
+
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/Phantom.png',
+    },
+  },
+  {
+    maxFee: 0.875,
+    name: 'zerion',
+    fee: 0.8,
+    color: '#2461ED',
+
+    icon: {
+      uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
+    },
+  },
+];
+
 export enum ESwapProviderSort {
   RECOMMENDED = 'recommended',
   GAS_FEE = 'gasFee',
@@ -487,6 +519,18 @@ export const swapDefaultSetTokens: Record<
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
     },
+    toToken: {
+      'networkId': 'sui--mainnet',
+      'contractAddress':
+        '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+      'name': 'USDC',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/sui--mainnet/tokens/0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+    },
   },
   'ton--mainnet': {
     fromToken: {
@@ -498,6 +542,17 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/native.png',
       'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
+    },
+    toToken: {
+      'networkId': 'ton--mainnet',
+      'contractAddress': 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
+      'name': 'Tether USD',
+      'symbol': 'USD₮',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/ton--mainnet/tokens/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs.png',
+      'isNative': false,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/ton.png',
     },
   },
