@@ -13,13 +13,9 @@ import {
 } from '@onekeyhq/components/src/hocs';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
-import type {
-  IKeyOfIcons,
-  IXStackProps,
-} from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Icon,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -91,7 +87,7 @@ function TabItemView({
   return contentMemo;
 }
 
-function DownloadButton(props: IXStackProps) {
+function DownloadButton() {
   const intl = useIntl();
   const onPress = useCallback(() => {
     openUrlExternal(DOWNLOAD_URL);
@@ -100,32 +96,14 @@ function DownloadButton(props: IXStackProps) {
     return null;
   }
   return (
-    <XStack
-      mt="$2"
-      px="$3"
-      py="$2"
-      backgroundColor="$bgStrong"
-      borderRadius="$2"
-      borderCurve="continuous"
-      userSelect="none"
+    <DesktopTabItem
       onPress={onPress}
-      hoverStyle={{
-        bg: '$gray6',
-      }}
-      pressStyle={{
-        bg: '$gray7',
-      }}
-      {...props}
-    >
-      <SizableText size="$bodyMdMedium" flex={1}>
-        {intl.formatMessage({ id: ETranslations.global_download })}
-      </SizableText>
-      <XStack gap="$1" alignItems="center">
-        <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
-        <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
-        <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />
-      </XStack>
-    </XStack>
+      icon="DownloadOutline"
+      selected={false}
+      label={intl.formatMessage({
+        id: ETranslations.global_download,
+      })}
+    />
   );
 }
 
@@ -267,23 +245,27 @@ export function DesktopLeftSideBar({
         >
           <YStack flex={1}>
             <OneKeyLogo />
-            <YStack flex={1} p="$3">
+            <YStack flex={1} pt="$3" px="$3">
               {tabs}
-              <Stack mt="auto">
-                <DesktopTabItem
-                  onPress={openSettingPage}
-                  selected={false}
-                  icon="SettingsOutline"
-                  label={intl.formatMessage({
-                    id: ETranslations.settings_settings,
-                  })}
-                  shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
-                  testID="setting"
-                />
-                <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
-                <DownloadButton />
-              </Stack>
             </YStack>
+            <Stack
+              p="$3"
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="$borderSubdued"
+            >
+              <DesktopTabItem
+                onPress={openSettingPage}
+                selected={false}
+                icon="SettingsOutline"
+                label={intl.formatMessage({
+                  id: ETranslations.settings_settings,
+                })}
+                shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+                testID="setting"
+              />
+              <DownloadButton />
+              <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+            </Stack>
           </YStack>
         </MotiView>
       </YStack>
