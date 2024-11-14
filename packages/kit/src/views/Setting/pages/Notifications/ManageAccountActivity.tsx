@@ -19,7 +19,6 @@ import {
   Page,
   SizableText,
   Skeleton,
-  Stack,
   Switch,
   XStack,
   YStack,
@@ -239,6 +238,7 @@ function AccordionItem({
     enabled: boolean;
   }) => void;
 }) {
+  const intl = useIntl();
   const {
     settings: accountNotificationSettings,
     saveSettings: saveAccountNotificationSettings,
@@ -309,9 +309,20 @@ function AccordionItem({
       if (newValue) {
         if (totalEnabledAccountsCount >= maxAccountCount) {
           Dialog.confirm({
-            title: 'Account limit reached',
-            description: `You've reached the maximum of ${maxAccountCount} accounts.`,
-            onConfirmText: 'Got it',
+            title: intl.formatMessage({
+              id: ETranslations.notifications_account_reached_limit_dialog_title,
+            }),
+            description: intl.formatMessage(
+              {
+                id: ETranslations.notifications_account_reached_limit_dialog_desc,
+              },
+              {
+                maxAccountCount,
+              },
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_got_it,
+            }),
           });
           return newSettings;
         }
@@ -531,6 +542,7 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
 }
 
 function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
+  const intl = useIntl();
   const { totalEnabledAccountsCount, maxAccountCount } =
     useContextAccountNotificationSettings();
   const shouldShowAlert = useMemo(
@@ -540,13 +552,22 @@ function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
   return (
     <>
       {shouldShowAlert ? (
-        <Stack px="$5">
-          <Alert
-            type="warning"
-            title={`${totalEnabledAccountsCount}/${maxAccountCount} accounts enabled`}
-            closable={false}
-          />
-        </Stack>
+        <Alert
+          mx="$5"
+          mb="$2"
+          type="warning"
+          // title={`${totalEnabledAccountsCount}/${maxAccountCount} accounts enabled`}
+          title={intl.formatMessage(
+            {
+              id: ETranslations.notifications_account_activity_manage_count_alert_title,
+            },
+            {
+              totalEnabledAccountsCount,
+              maxAccountCount,
+            },
+          )}
+          closable={false}
+        />
       ) : null}
       <WalletAccordionList wallets={wallets} />
     </>

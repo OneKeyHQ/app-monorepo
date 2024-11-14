@@ -28,6 +28,7 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
@@ -40,6 +41,16 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
+
+type ISwapHistoryDetailAssetItem = {
+  name: string;
+  symbol: string;
+  icon: string;
+  isNFT: boolean;
+  isNative: boolean;
+  price: string;
+  amount?: string;
+};
 
 const SwapHistoryDetailModal = () => {
   const navigation =
@@ -76,7 +87,34 @@ const SwapHistoryDetailModal = () => {
       isNative: !!txHistory.baseInfo.toToken.isNative,
       price: txHistory.baseInfo.toToken?.price ?? '0',
     };
-
+    let fromTokenAmount = txHistory.baseInfo.fromAmount;
+    let otherAsset: ISwapHistoryDetailAssetItem[] = [];
+    if (txHistory.swapInfo.otherFeeInfos?.length) {
+      txHistory.swapInfo.otherFeeInfos.forEach((item) => {
+        const otherFeeTokenSameFromToken = equalTokenNoCaseSensitive({
+          token1: item.token,
+          token2: txHistory.baseInfo.fromToken,
+        });
+        if (otherFeeTokenSameFromToken) {
+          fromTokenAmount = new BigNumber(fromTokenAmount)
+            .plus(item.amount ?? 0)
+            .toFixed();
+        } else {
+          otherAsset = [
+            ...otherAsset,
+            {
+              name: item.token?.name ?? '',
+              symbol: item.token?.symbol ?? '',
+              icon: item.token?.logoURI ?? '',
+              isNFT: false,
+              isNative: !!item.token?.isNative,
+              price: item.token?.price ?? '0',
+              amount: item.amount,
+            },
+          ];
+        }
+      });
+    }
     return (
       <>
         <AssetItem
@@ -95,12 +133,26 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={txHistory.baseInfo.fromAmount}
+          amount={fromTokenAmount}
           networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={
             txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
           }
         />
+        {otherAsset.map((item, index) => (
+          <AssetItem
+            key={index}
+            index={index + 2}
+            direction={EDecodedTxDirection.OUT}
+            asset={item}
+            isAllNetworks
+            amount={item.amount ?? '0'}
+            networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
+            currencySymbol={
+              txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+            }
+          />
+        ))}
       </>
     );
   }, [settingsPersistAtom.currencyInfo.symbol, txHistory]);

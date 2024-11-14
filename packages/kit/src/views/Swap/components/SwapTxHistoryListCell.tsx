@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,6 +12,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
@@ -109,6 +111,21 @@ const SwapTxHistoryListCell = ({
     ),
     [item.baseInfo.fromToken.symbol, item.baseInfo.toToken.symbol],
   );
+  const fromTokenAmountFinal = useMemo(() => {
+    const extraAmount = item.swapInfo.otherFeeInfos?.find((extraItem) =>
+      equalTokenNoCaseSensitive({
+        token1: extraItem.token,
+        token2: item.baseInfo.fromToken,
+      }),
+    )?.amount;
+    return new BigNumber(item.baseInfo.fromAmount)
+      .plus(extraAmount ?? 0)
+      .toFixed();
+  }, [
+    item.baseInfo.fromAmount,
+    item.baseInfo.fromToken,
+    item.swapInfo.otherFeeInfos,
+  ]);
   return (
     <ListItem
       onPress={onClickCell}
@@ -146,7 +163,7 @@ const SwapTxHistoryListCell = ({
               size="$bodyMd"
               color="$textSubdued"
             >
-              {item.baseInfo.fromAmount}
+              {fromTokenAmountFinal}
             </NumberSizeableText>{' '}
             <SizableText size="$bodyMd" color="$textSubdued">
               {item.baseInfo.fromToken.symbol.toUpperCase()}
