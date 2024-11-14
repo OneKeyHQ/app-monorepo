@@ -425,6 +425,13 @@ export default class VaultDot extends VaultBase {
     }
     throw new OneKeyInternalError();
   }
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    // dApp not edit fee
+    return Promise.resolve('');
+  }
 
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
@@ -523,7 +530,7 @@ export default class VaultDot extends VaultBase {
       };
     }
 
-    if (params.feeInfo?.feeDot) {
+    if (params.feeInfo?.feeDot && !encodedTx.isFromDapp) {
       encodedTx.tip = numberUtils.numberToHex(extraTip) as `0x${string}`;
     }
 

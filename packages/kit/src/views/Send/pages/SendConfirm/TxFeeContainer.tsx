@@ -55,6 +55,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 
 import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 
 type IProps = {
   accountId: string;
@@ -270,6 +271,18 @@ function TxFeeContainer(props: IProps) {
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
         };
+
+        const useDappFeeAndNotEditFee = vaultSettings?.editFeeEnabled && !feeInfoEditable && useFeeInTx;
+        if (useDappFeeAndNotEditFee && network) {
+          const { tip } = unsignedTxs[0].encodedTx as IEncodedTxDot;
+          if (feeInfo.feeDot && tip && feeInfo.common?.feeDecimals !== undefined) {
+            // Only the fee display is affected on sendConfirm page
+            feeInfo.feeDot = {
+              ...feeInfo.feeDot,
+              extraTipInDot: new BigNumber(tip).shiftedBy(-feeInfo.common?.feeDecimals).toFixed(),
+            };
+          }
+        }
 
         items.push({
           label: intl.formatMessage({
