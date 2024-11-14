@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -7,14 +7,94 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import { useSpotlight } from '../../../components/Spotlight';
+
+export function useSyncDappAccountToHomeAccount() {
+  const actions = useAccountSelectorActions();
+
+  const {
+    activeAccount: { account: homeAccount },
+  } = useActiveAccount({ num: 0 });
+
+  const syncDappAccountToWallet = useCallback(
+    async ({
+      dAppAccountInfos,
+      forceSelectNetwork,
+    }: {
+      dAppAccountInfos: IConnectionAccountInfo[] | null;
+      forceSelectNetwork: boolean;
+    }) => {
+      try {
+        if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
+          return;
+        }
+
+        const { serviceAccount } = backgroundApiProxy;
+        const dAppAccount = dAppAccountInfos[0];
+        const { indexedAccountId, accountId, networkId } = dAppAccount;
+        const account = await serviceAccount.getAccount({
+          accountId,
+          networkId: networkId ?? '',
+        });
+        const isOtherWallet = accountUtils.isOthersAccount({
+          accountId,
+        });
+
+        if (isOtherWallet) {
+          const isCompatibleNetwork =
+            accountUtils.isAccountCompatibleWithNetwork({
+              // @ts-expect-error
+              account: homeAccount,
+              networkId: networkId ?? '',
+            });
+          let autoChangeToAccountMatchedNetwork = forceSelectNetwork;
+          if (!forceSelectNetwork && !isCompatibleNetwork) {
+            autoChangeToAccountMatchedNetwork = false;
+          }
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount: undefined,
+            othersWalletAccount: account,
+            autoChangeToAccountMatchedNetworkId:
+              autoChangeToAccountMatchedNetwork ? networkId : undefined,
+          });
+        } else {
+          const indexedAccount = await serviceAccount.getIndexedAccount({
+            id: indexedAccountId ?? '',
+          });
+          await actions.current.confirmAccountSelect({
+            num: 0,
+            indexedAccount,
+            othersWalletAccount: undefined,
+            autoChangeToAccountMatchedNetworkId: undefined,
+            forceSelectToNetworkId: forceSelectNetwork ? networkId : undefined,
+          });
+        }
+      } finally {
+        setTimeout(() => {
+          void backgroundApiProxy.serviceDApp.setIsAlignPrimaryAccountProcessing(
+            {
+              processing: false,
+            },
+          );
+        }, 20);
+      }
+    },
+    [actions, homeAccount],
+  );
+
+  return { syncDappAccountToWallet };
+}
 
 function SyncDappAccountToHomeCmp({
   dAppAccountInfos,
@@ -24,6 +104,7 @@ function SyncDappAccountToHomeCmp({
 }) {
   const actions = useAccountSelectorActions();
   const [settings] = useSettingsPersistAtom();
+  const { syncDappAccountToWallet } = useSyncDappAccountToHomeAccount();
   const { isFirstVisit, tourVisited } = useSpotlight(
     ESpotlightTour.switchDappAccount,
   );
@@ -42,38 +123,10 @@ function SyncDappAccountToHomeCmp({
       ) {
         return;
       }
-      if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
-        return;
-      }
-      const { serviceAccount } = backgroundApiProxy;
-      const dAppAccount = dAppAccountInfos[0];
-      const { indexedAccountId, accountId, networkId } = dAppAccount;
-      const account = await serviceAccount.getAccount({
-        accountId,
-        networkId: networkId ?? '',
+      await syncDappAccountToWallet({
+        dAppAccountInfos,
+        forceSelectNetwork: true,
       });
-      const isOtherWallet = accountUtils.isOthersAccount({
-        accountId,
-      });
-      if (isOtherWallet) {
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount: undefined,
-          othersWalletAccount: account,
-          autoChangeToAccountMatchedNetworkId: networkId,
-        });
-      } else {
-        const indexedAccount = await serviceAccount.getIndexedAccount({
-          id: indexedAccountId ?? '',
-        });
-        await actions.current.confirmAccountSelect({
-          num: 0,
-          indexedAccount,
-          othersWalletAccount: undefined,
-          autoChangeToAccountMatchedNetworkId: undefined,
-          forceSelectToNetworkId: networkId,
-        });
-      }
       if (isFirstVisitRef.current) {
         void tourVisited(1);
       }
@@ -84,133 +137,32 @@ function SyncDappAccountToHomeCmp({
     actions,
     settings.alignPrimaryAccountMode,
     tourVisited,
+    syncDappAccountToWallet,
   ]);
 
   return null;
 }
 
 function SyncHomeAccountPageToDappAccount({
-  origin,
   dAppAccountInfos,
 }: {
-  origin: string;
   dAppAccountInfos: IConnectionAccountInfo[] | null;
 }) {
-  const [settings] = useSettingsPersistAtom();
-  const {
-    activeAccount: {
-      wallet,
-      account,
-      indexedAccount,
-      isOthersWallet,
-      deriveType,
-    },
-  } = useActiveAccount({ num: 0 });
+  const { syncDappAccountToWallet } = useSyncDappAccountToHomeAccount();
   useEffect(() => {
-    if (
-      settings.alignPrimaryAccountMode !==
-      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
-    ) {
-      return;
-    }
-
-    if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
-      return;
-    }
-
-    console.log(
-      '🚀 ~ SyncHomeAccountPageToDappAccount, current account: ',
-      account,
-    );
-
-    const sync = async () => {
-      let isSameAccount = false;
-
-      if (isOthersWallet) {
-        isSameAccount = account?.id === dAppAccountInfos[0].accountId;
-      } else {
-        isSameAccount =
-          indexedAccount?.id === dAppAccountInfos[0].indexedAccountId;
-      }
-      if (!isSameAccount) {
-        // await backgroundApiProxy.serviceDApp.disconnectWebsite({
-        //   origin,
-        //   storageType: 'injectedProvider',
-        // });
-
-        if (isOthersWallet) {
-          const isCompatibleNetwork =
-            accountUtils.isAccountCompatibleWithNetwork({
-              // @ts-expect-error
-              account,
-              networkId: dAppAccountInfos[0].networkId ?? '',
-            });
-          if (!isCompatibleNetwork) {
-            console.log(
-              '====>>>=====>>>>>>>SyncDappAccountToHomeCmp No Compatible Network: ',
-              account,
-              dAppAccountInfos[0].networkId,
-            );
-            return;
-          }
-        }
-
-        let networkAccount: INetworkAccount | undefined;
-        try {
-          networkAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: isOthersWallet ? account?.id ?? '' : undefined,
-              indexedAccountId: isOthersWallet
-                ? undefined
-                : indexedAccount?.id ?? '',
-              networkId: dAppAccountInfos[0].networkId ?? '',
-              deriveType: dAppAccountInfos[0].deriveType ?? deriveType,
-            });
-        } catch (e) {
-          console.log(
-            '====>>>=====>>>>>>>SyncDappAccountToHomeCmp No Account: ',
-            e,
-          );
-        }
-        await backgroundApiProxy.serviceDApp.updateConnectionSession({
-          origin,
-          accountSelectorNum: dAppAccountInfos[0].num ?? 0,
-          updatedAccountInfo: {
-            walletId: wallet?.id ?? '',
-            networkImpl: dAppAccountInfos[0].networkImpl,
-            networkId: dAppAccountInfos[0].networkId,
-            accountId: networkAccount?.id ?? '',
-            address: networkAccount?.addressDetail.address ?? '',
-            indexedAccountId: indexedAccount?.id ?? '',
-            othersWalletAccountId: networkAccount?.id,
-            deriveType: dAppAccountInfos[0].deriveType ?? deriveType,
-            focusedWallet: wallet?.id ?? '',
-          },
-          storageType: 'injectedProvider',
-        });
-
-        // if (origin) {
-        //   appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
-        //     state: 'switching',
-        //   });
-        //   await timerUtils.wait(300);
-        //   appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
-        //     state: 'completed',
-        //   });
-        // }
-      }
+    const fn = (params: {
+      dAppAccountInfos: IConnectionAccountInfo[] | null;
+    }) => {
+      void syncDappAccountToWallet({
+        dAppAccountInfos: params.dAppAccountInfos,
+        forceSelectNetwork: false,
+      });
     };
-    void sync();
-  }, [
-    settings.alignPrimaryAccountMode,
-    dAppAccountInfos,
-    account,
-    indexedAccount,
-    isOthersWallet,
-    deriveType,
-    wallet?.id,
-    origin,
-  ]);
+    appEventBus.on(EAppEventBusNames.SyncDappAccountToHomeAccount, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SyncDappAccountToHomeAccount, fn);
+    };
+  }, [dAppAccountInfos, syncDappAccountToWallet]);
 
   return null;
 }
@@ -233,10 +185,7 @@ function SyncDappAccountToHomeProvider({
         origin={origin}
         dAppAccountInfos={dAppAccountInfos}
       />
-      <SyncHomeAccountPageToDappAccount
-        origin={origin}
-        dAppAccountInfos={dAppAccountInfos}
-      />
+      <SyncHomeAccountPageToDappAccount dAppAccountInfos={dAppAccountInfos} />
     </AccountSelectorProviderMirror>
   );
 }

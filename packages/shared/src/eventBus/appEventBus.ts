@@ -11,6 +11,7 @@ import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type { IConnectionAccountInfo } from '../../types/dappConnection';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
   IFetchQuotesParams,
@@ -41,6 +42,7 @@ export enum EAppEventBusNames {
   OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
+  SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
@@ -242,6 +244,9 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    dAppAccountInfos: IConnectionAccountInfo[] | null;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -41,6 +41,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import {
   type IConnectedAccountInfo,
@@ -95,6 +96,8 @@ class ServiceDApp extends ServiceBase {
   private semaphore = new Semaphore(1);
 
   private existingWindowId: number | null | undefined = null;
+
+  private isAlignPrimaryAccountProcessing = false;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -429,6 +432,7 @@ class ServiceDApp extends ServiceBase {
         address: i.address,
       })),
     });
+    void this.syncDappAccountIfPrimaryMode({ origin });
   }
 
   @backgroundMethod()
@@ -571,7 +575,9 @@ class ServiceDApp extends ServiceBase {
               ? 'walletConnect'
               : 'injectedProvider',
           });
-          allAccountsInfo.push(accountInfo);
+          if (accountInfo) {
+            allAccountsInfo.push(accountInfo);
+          }
         } else {
           allAccountsInfo.push(...accountsInfo);
         }
@@ -1219,6 +1225,10 @@ class ServiceDApp extends ServiceBase {
       return connectedAccountInfo;
     }
 
+    if (this.isAlignPrimaryAccountProcessing) {
+      return connectedAccountInfo;
+    }
+
     const { simpleDb, serviceAccount } = this.backgroundApi;
     // 1. get home account
     const homeAccountSelectorInfo =
@@ -1244,17 +1254,28 @@ class ServiceDApp extends ServiceBase {
     }
 
     // 3. build primary account
-    const networkAccountWithHomeAccountSelectorInfo =
-      await serviceAccount.getNetworkAccount({
-        indexedAccountId: isOtherWallet
-          ? undefined
-          : homeAccountSelectorInfo?.indexedAccountId,
-        networkId: connectedAccountInfo.networkId ?? '',
-        deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
-        accountId: isOtherWallet
-          ? homeAccountSelectorInfo?.othersWalletAccountId
-          : undefined,
+    let networkAccountWithHomeAccountSelectorInfo: INetworkAccount;
+    try {
+      networkAccountWithHomeAccountSelectorInfo =
+        await serviceAccount.getNetworkAccount({
+          indexedAccountId: isOtherWallet
+            ? undefined
+            : homeAccountSelectorInfo?.indexedAccountId,
+          networkId: connectedAccountInfo.networkId ?? '',
+          deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+          accountId: isOtherWallet
+            ? homeAccountSelectorInfo?.othersWalletAccountId
+            : undefined,
+        });
+    } catch (e) {
+      // disconnect website if build account error
+      void this.disconnectWebsite({
+        origin,
+        storageType,
       });
+      console.log(`Build Account Error: `, e);
+      return null;
+    }
 
     // 4. merge account info
     const newConnectedAccountInfo: IConnectionAccountInfo = {
@@ -1288,6 +1309,34 @@ class ServiceDApp extends ServiceBase {
     });
 
     return newConnectedAccountInfo;
+  }
+
+  @backgroundMethod()
+  async setIsAlignPrimaryAccountProcessing({
+    processing,
+  }: {
+    processing: boolean;
+  }) {
+    console.log('setIsAlignPrimaryAccountProcessing: ', processing);
+    this.isAlignPrimaryAccountProcessing = processing;
+  }
+
+  @backgroundMethod()
+  async syncDappAccountIfPrimaryMode({ origin }: { origin: string }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return;
+    }
+    void this.setIsAlignPrimaryAccountProcessing({
+      processing: true,
+    });
+    const connectedAccount = await this.findInjectedAccountByOrigin(origin);
+    appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+      dAppAccountInfos: connectedAccount,
+    });
   }
 }
 
