@@ -44,6 +44,13 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
+import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
+import type { HDNodeType } from '@onekeyfe/hd-transport';
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -53,13 +60,6 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
-import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
-import type { HDNodeType } from '@onekeyfe/hd-transport';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -359,36 +359,52 @@ export type IBuildPrepareAccountsPrefixedPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-export type IHwAllNetworkPrepareAccountsItem = {
-  success: boolean;
-  error?: string;
-  errorCode?: string; // TODO return error code from hw sdk
-
+type IHwAllNetworkPrepareAccountsItemCommon = {
   path: string;
   network: IHwSdkNetwork;
   chainName?: string;
   prefix?: string;
-
-  payload?: {
-    address?: string;
-
-    pub?: string;
-    publicKey?: string; // cosmos, sui, aptos 缺
-    publickey?: string; // nostr
-
-    npub?: string; // nostr
-
-    xpub?: string;
-    xpubSegwit?: string;
-
-    node?: HDNodeType; // btc
-
-    serializedPath?: string; // ada
-    stakeAddress?: string; // ada
-
-    derivedPath?: string; // alph
-  };
 };
+type IHwAllNetworkPrepareAccountsItemSuccess =
+  IHwAllNetworkPrepareAccountsItemCommon & {
+    success: true;
+
+    payload?: {
+      address?: string;
+
+      pub?: string;
+      publicKey?: string; // cosmos, sui, aptos 缺
+      publickey?: string; // nostr
+
+      npub?: string; // nostr
+
+      xpub?: string;
+      xpubSegwit?: string;
+
+      node?: HDNodeType; // btc
+
+      serializedPath?: string; // ada
+      stakeAddress?: string; // ada
+
+      derivedPath?: string; // alph
+    };
+  };
+type IHwAllNetworkPrepareAccountsItemError =
+  IHwAllNetworkPrepareAccountsItemCommon & {
+    success: false;
+
+    payload?: {
+      error: string;
+      code: number;
+      errorCode: string | number; // TODO use code instead
+      connectId: string;
+      deviceId: string;
+    };
+  };
+export type IHwAllNetworkPrepareAccountsItem =
+  | IHwAllNetworkPrepareAccountsItemSuccess
+  | IHwAllNetworkPrepareAccountsItemError;
+
 export type IHwAllNetworkPrepareAccountsResponse =
   IHwAllNetworkPrepareAccountsItem[];
 
