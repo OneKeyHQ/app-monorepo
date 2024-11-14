@@ -1,22 +1,26 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
+  AnimatePresence,
   IconButton,
   Input,
   SizableText,
   Stack,
-  AnimatePresence,
   XStack,
 } from '@onekeyhq/components';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
-import { useDebouncedCallback } from 'use-debounce';
 
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
@@ -28,23 +32,31 @@ interface IElectronWebView {
     eventName: string,
     callback: (result: any) => void,
   ) => void;
+  removeEventListener: (
+    eventName: string,
+    callback: (result: any) => void,
+  ) => void;
 }
 
 function BasicFind({ id }: { id: string }) {
-  const [matches, setMatches] = useState(0)
-  const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0)
-  const [visible, setIsVisible] = useState(true);
+  const [matches, setMatches] = useState(0);
+  const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0);
+  const [visible, setIsVisible] = useState(false);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     webView.findInPage(prevSearchText.current, {
       findNext: false,
       forward: false,
-    });  }, []);
+    });
+  }, [id]);
   const handleFindNext = useCallback(() => {
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
-
+      webView.findInPage(prevSearchText.current, {
+        findNext: true,
+        forward: false,
+      });
     } else {
       webView.findInPage(prevSearchText.current, {
         findNext: false,
@@ -53,66 +65,78 @@ function BasicFind({ id }: { id: string }) {
     }
   }, [id, activeMatchOrdinal, matches]);
 
-  const handleClose = useCallback(() => {
-    setIsVisible(false);
-  }, []);
-
-  const bindEvent = useCallback(() => {
-    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-    webView.addEventListener('found-in-page', ({ result }: { result: {
-        requestId: number,
-        matches: number,
+  const foundInPage = useCallback(
+    ({
+      result,
+    }: {
+      result: {
+        requestId: number;
+        matches: number;
         selectionArea: {
-            x: number,
-            y: number,
-            width: number,
-            height: number
-        },
-        activeMatchOrdinal: number,
-        finalUpdate: boolean
-    }}) => {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        };
+        activeMatchOrdinal: number;
+        finalUpdate: boolean;
+      };
+    }) => {
       console.log(result);
       // webView.stopFindInPage('activateSelection');
-      setMatches(result.matches)
-      setActiveMatchOrdinal(result.activeMatchOrdinal)
-    });
-    console.log('event init!!')
-  }, [id]);
+      setMatches(result.matches);
+      setActiveMatchOrdinal(result.activeMatchOrdinal);
+    },
+    [],
+  );
 
-  const repeatBindEvent = useCallback(() => {
+  const handleClose = useCallback(() => {
+    setIsVisible(false);
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (webView) {
-      bindEvent();
-    } else {
-      setTimeout(() => {
-        repeatBindEvent();
-      }, 3000);
+      webView.removeEventListener('found-in-page', foundInPage);
     }
-  }, [bindEvent, id]);
+  }, [foundInPage, id]);
 
   useEffect(() => {
-    repeatBindEvent();
-  }, [bindEvent, id, repeatBindEvent]);
-
-  const handleTextChange = useDebouncedCallback(
-    (text: string) => {
-      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-      if (!webView) {
+    const callback = ({ tabId }: { tabId: string }) => {
+      if (id !== tabId) {
         return;
       }
-      if (text.length === 0) {
-        webView.stopFindInPage('clearSelection');
-      } else {
-        webView.findInPage(text, { findNext: true, forward: false });
+      setIsVisible(true);
+      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+      if (webView) {
+        webView.addEventListener('found-in-page', foundInPage);
       }
-      prevSearchText.current = text;
-    },
-    100,
-  );
+    };
+    appEventBus.on(EAppEventBusNames.ShowFindInWebPage, callback);
+    return () => {
+      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+      if (webView) {
+        webView.removeEventListener('found-in-page', foundInPage);
+      }
+      appEventBus.off(EAppEventBusNames.ShowFindInWebPage, callback);
+    };
+  }, [foundInPage, id]);
+
+  const handleTextChange = useDebouncedCallback((text: string) => {
+    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+    if (!webView) {
+      return;
+    }
+    if (text.length === 0) {
+      webView.stopFindInPage('clearSelection');
+    } else {
+      webView.findInPage(text, { findNext: true, forward: false });
+    }
+    prevSearchText.current = text;
+  }, 100);
+
+  const disabled = matches === 0;
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible ? (
         <XStack
           position="absolute"
           left="50%"
@@ -149,16 +173,20 @@ function BasicFind({ id }: { id: string }) {
                 px: 0,
               }}
             />
-            <SizableText>{activeMatchOrdinal}/{matches}</SizableText>
+            <SizableText>
+              {activeMatchOrdinal}/{matches}
+            </SizableText>
             <Stack width="$px" height="100%" bg="$borderStrong" />
             <XStack gap="$2">
               <IconButton
+                disabled={disabled}
                 variant="tertiary"
                 icon="ChevronTopSmallOutline"
                 size="small"
                 onPress={handleFindPrev}
               />
               <IconButton
+                disabled={disabled}
                 variant="tertiary"
                 icon="ChevronDownSmallOutline"
                 size="small"
@@ -173,7 +201,7 @@ function BasicFind({ id }: { id: string }) {
             </XStack>
           </XStack>
         </XStack>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }
