@@ -30,7 +30,7 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
                   label: (
                     <Shortcut
                       alignSelf="center"
-                      shortcutKey={EShortcutEvents.SearchInPage
+                      shortcutKey={EShortcutEvents.SearchInPage}
                     />
                   ),
                 },
