@@ -140,7 +140,7 @@ function BasicFind({ id }: { id: string }) {
         <XStack
           position="absolute"
           left="50%"
-          top={0}
+          top="$2.5"
           zIndex={100_000}
           animation="quick"
           enterStyle={{
@@ -164,6 +164,7 @@ function BasicFind({ id }: { id: string }) {
             gap="$4"
           >
             <Input
+              autoFocus
               onChangeText={handleTextChange}
               containerProps={{
                 borderWidth: 0,
