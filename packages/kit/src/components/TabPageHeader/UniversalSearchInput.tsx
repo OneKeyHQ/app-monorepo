@@ -24,6 +24,7 @@ export function UniversalSearchInput() {
       },
     });
   }, [navigation]);
+
   useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
 
   return (
