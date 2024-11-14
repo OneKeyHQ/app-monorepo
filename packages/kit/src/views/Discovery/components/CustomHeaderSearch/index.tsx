@@ -31,7 +31,7 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
                     <Shortcut
                       alignSelf="center"
                       mr="$2.5"
-                      shortcutKey={EShortcutEvents.SearchInPage}
+                      shortcutKey={EShortcutEvents.NewTab}
                     />
                   ),
                 },
