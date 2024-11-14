@@ -7,6 +7,7 @@ import {
   Input,
   SizableText,
   Stack,
+  AnimatePresence,
   XStack,
 } from '@onekeyhq/components';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -32,6 +33,7 @@ interface IElectronWebView {
 function BasicFind({ id }: { id: string }) {
   const [matches, setMatches] = useState(0)
   const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0)
+  const [visible, setIsVisible] = useState(true);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
@@ -52,6 +54,7 @@ function BasicFind({ id }: { id: string }) {
   }, [id, activeMatchOrdinal, matches]);
 
   const handleClose = useCallback(() => {
+    setIsVisible(false);
   }, []);
 
   const bindEvent = useCallback(() => {
@@ -108,52 +111,70 @@ function BasicFind({ id }: { id: string }) {
   );
 
   return (
-    <XStack position="absolute" left="50%" top={0} zIndex={100_000}>
-      <XStack
-        bg="$bgApp"
-        left="-50%"
-        py="$2.5"
-        px="$4"
-        ai="center"
-        borderRadius="$3"
-        borderWidth="$px"
-        borderColor="$border"
-        gap="$4"
-      >
-        <Input
-          onChangeText={handleTextChange}
-          containerProps={{
-            borderWidth: 0,
-            px: 0,
+    <AnimatePresence>
+      {visible && (
+        <XStack
+          position="absolute"
+          left="50%"
+          top={0}
+          zIndex={100_000}
+          animation="quick"
+          enterStyle={{
+            opacity: 0,
+            y: -20,
           }}
-          InputComponentStyle={{
-            px: 0,
+          exitStyle={{
+            opacity: 0,
+            y: -20,
           }}
-        />
-        <SizableText>{activeMatchOrdinal}/{matches}</SizableText>
-        <Stack width="$px" height="100%" bg="$borderStrong" />
-        <XStack gap="$2">
-          <IconButton
-            variant="tertiary"
-            icon="ChevronTopSmallOutline"
-            size="small"
-            onPress={handleFindPrev}
-          />
-          <IconButton
-            variant="tertiary"
-            icon="ChevronDownSmallOutline"
-            size="small"
-            onPress={handleFindNext}
-          />
-          <IconButton
-            variant="tertiary"
-            icon="CrossedSmallSolid"
-            size="small"
-            onPress={handleClose}
-          />
+        >
+          <XStack
+            bg="$bgApp"
+            left="-50%"
+            py="$2.5"
+            px="$4"
+            ai="center"
+            borderRadius="$3"
+            borderWidth="$px"
+            borderColor="$border"
+            gap="$4"
+          >
+            <Input
+              onChangeText={handleTextChange}
+              containerProps={{
+                borderWidth: 0,
+                px: 0,
+              }}
+              InputComponentStyle={{
+                px: 0,
+              }}
+            />
+            <SizableText>{activeMatchOrdinal}/{matches}</SizableText>
+            <Stack width="$px" height="100%" bg="$borderStrong" />
+            <XStack gap="$2">
+              <IconButton
+                variant="tertiary"
+                icon="ChevronTopSmallOutline"
+                size="small"
+                onPress={handleFindPrev}
+              />
+              <IconButton
+                variant="tertiary"
+                icon="ChevronDownSmallOutline"
+                size="small"
+                onPress={handleFindNext}
+              />
+              <IconButton
+                variant="tertiary"
+                icon="CrossedSmallSolid"
+                size="small"
+                onPress={handleClose}
+              />
+            </XStack>
+          </XStack>
         </XStack>
-      </XStack>
-    </XStack>
+      )}
+    </AnimatePresence>
   );
 }
 
