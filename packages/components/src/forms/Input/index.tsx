@@ -63,7 +63,6 @@ export type IInputProps = {
   InputComponentStyle?: IStackStyle;
   addOnsContainerProps?: IStackProps;
   addOnsItemProps?: IStackProps;
-  displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
   leftIconName?: IKeyOfIcons;
@@ -160,7 +159,6 @@ function BaseInput(
     selectTextOnFocus,
     onFocus,
     value,
-    displayAsMaskWhenEmptyValue,
     onPaste,
     onChangeText,
     keyboardType,
@@ -349,11 +347,7 @@ function BaseInput(
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={
-            displayAsMaskWhenEmptyValue && !value
-              ? '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'
-              : value
-          }
+          value={value}
           onFocus={handleFocus}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}

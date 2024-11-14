@@ -21,5 +21,6 @@ export type IActionBaseProps = PropsWithChildren<{
   label: string;
   icon: IKeyOfIcons;
   walletType: string | undefined;
+  hiddenIfDisabled?: boolean;
 }> &
   Partial<IActionItemsProps>;

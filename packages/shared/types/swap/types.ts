@@ -25,12 +25,6 @@ export enum ESwapTabSwitchType {
   LIMIT = 'limit',
 }
 
-export enum ESwapReceiveAddressType {
-  USER_ACCOUNT = 'user_account',
-  INPUT = 'input',
-  ADDRESS_BOOK = 'address_book',
-}
-
 export enum ESwapDirectionType {
   FROM = 'from',
   TO = 'to',
@@ -487,6 +481,14 @@ export interface IFetchSwapTxHistoryStatusResponse {
   dealReceiveAmount?: string;
   blockNumber?: number;
 }
+
+export interface ISwapCheckSupportResponse {
+  contractAddress: string;
+  isSupportCrossChain: boolean;
+  isSupportSwap: boolean;
+  networkId: string;
+}
+
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
