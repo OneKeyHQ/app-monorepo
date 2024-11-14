@@ -208,7 +208,6 @@ function TxAdvancedSettingsContainer(props: IProps) {
               <Button
                 size="small"
                 variant="tertiary"
-                icon="WalletOutline"
                 onPress={() => showNonceFaq()}
               >
                 {intl.formatMessage({
@@ -229,7 +228,6 @@ function TxAdvancedSettingsContainer(props: IProps) {
             <Button
               size="small"
               variant="tertiary"
-              icon="WalletOutline"
               onPress={() => showHexDataFaq()}
             >
               {intl.formatMessage({
