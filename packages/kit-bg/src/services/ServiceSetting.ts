@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { clearPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';

@@ -30,26 +30,30 @@ import {
   EModalSendRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
-import type {
-  IConnectedAccountInfo,
-  IConnectionAccountInfo,
-  IConnectionItem,
-  IConnectionItemWithStorageType,
-  IConnectionStorageType,
-  IGetDAppAccountInfoParams,
+import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import {
+  type IConnectedAccountInfo,
+  type IConnectionAccountInfo,
+  type IConnectionItem,
+  type IConnectionItemWithStorageType,
+  type IConnectionStorageType,
+  type IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -559,7 +563,18 @@ class ServiceDApp extends ServiceBase {
           networkImpl,
         );
       if (accountsInfo) {
-        allAccountsInfo.push(...accountsInfo);
+        if (accountsInfo.length === 1) {
+          const accountInfo = await this.alignPrimaryAccountToHomeAccount({
+            origin,
+            connectedAccountInfo: accountsInfo[0],
+            storageType: isWalletConnectRequest
+              ? 'walletConnect'
+              : 'injectedProvider',
+          });
+          allAccountsInfo.push(accountInfo);
+        } else {
+          allAccountsInfo.push(...accountsInfo);
+        }
       }
     }
     if (!allAccountsInfo.length) {
@@ -786,7 +801,6 @@ class ServiceDApp extends ServiceBase {
         networkImpls,
         storageType,
       );
-    console.log('====> accountSelectorNum: ', accountSelectorNum);
     const map =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorMap({
         sceneUrl: params.origin,
@@ -1185,6 +1199,95 @@ class ServiceDApp extends ServiceBase {
       | ProviderApiPrivate
       | undefined;
     return privateProvider?.getLastFocusUrl();
+  }
+
+  @backgroundMethod()
+  async alignPrimaryAccountToHomeAccount({
+    origin,
+    connectedAccountInfo,
+    storageType,
+  }: {
+    origin: string;
+    connectedAccountInfo: IConnectionAccountInfo;
+    storageType: IConnectionStorageType;
+  }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return connectedAccountInfo;
+    }
+
+    const { simpleDb, serviceAccount } = this.backgroundApi;
+    // 1. get home account
+    const homeAccountSelectorInfo =
+      await simpleDb.accountSelector.getSelectedAccount({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    const isOtherWallet = accountUtils.isOthersWallet({
+      walletId: homeAccountSelectorInfo?.walletId ?? '',
+    });
+    // 2. compare
+    const isSameAccount = isOtherWallet
+      ? connectedAccountInfo.othersWalletAccountId &&
+        connectedAccountInfo.othersWalletAccountId ===
+          homeAccountSelectorInfo?.othersWalletAccountId
+      : connectedAccountInfo.walletId === homeAccountSelectorInfo?.walletId &&
+        connectedAccountInfo.indexedAccountId ===
+          homeAccountSelectorInfo?.indexedAccountId &&
+        connectedAccountInfo.deriveType === homeAccountSelectorInfo?.deriveType;
+
+    if (isSameAccount) {
+      return connectedAccountInfo;
+    }
+
+    // 3. build primary account
+    const networkAccountWithHomeAccountSelectorInfo =
+      await serviceAccount.getNetworkAccount({
+        indexedAccountId: isOtherWallet
+          ? undefined
+          : homeAccountSelectorInfo?.indexedAccountId,
+        networkId: connectedAccountInfo.networkId ?? '',
+        deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+        accountId: isOtherWallet
+          ? homeAccountSelectorInfo?.othersWalletAccountId
+          : undefined,
+      });
+
+    // 4. merge account info
+    const newConnectedAccountInfo: IConnectionAccountInfo = {
+      num: connectedAccountInfo.num,
+      accountId: networkAccountWithHomeAccountSelectorInfo?.id,
+      address: networkAccountWithHomeAccountSelectorInfo?.address,
+      networkId: connectedAccountInfo.networkId,
+      networkImpl: connectedAccountInfo.networkImpl,
+      deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+      walletId: homeAccountSelectorInfo?.walletId ?? '',
+      indexedAccountId: homeAccountSelectorInfo?.indexedAccountId ?? '',
+      othersWalletAccountId:
+        homeAccountSelectorInfo?.othersWalletAccountId ?? '',
+      focusedWallet: homeAccountSelectorInfo?.focusedWallet ?? '',
+    };
+
+    // 5. if different, update dapp connection account
+    await this.updateConnectionSession({
+      accountSelectorNum: connectedAccountInfo.num ?? 0,
+      origin,
+      updatedAccountInfo: newConnectedAccountInfo,
+      storageType,
+    });
+
+    appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
+      state: 'switching',
+    });
+    await timerUtils.wait(20);
+    appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
+      state: 'completed',
+    });
+
+    return newConnectedAccountInfo;
   }
 }
 
