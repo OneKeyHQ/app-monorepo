@@ -8,6 +8,7 @@ export type INotificationsPersistAtomData = {
   lastReceivedTime: number | undefined;
   lastRegisterTime: number | undefined;
   maxAccountCount: number | undefined;
+  lastSettingsUpdateTime: number | undefined;
 };
 export const {
   target: notificationsPersistAtom,
@@ -20,6 +21,7 @@ export const {
     badge: undefined,
     lastReceivedTime: undefined,
     lastRegisterTime: undefined,
+    lastSettingsUpdateTime: undefined,
     maxAccountCount: undefined,
   },
 });

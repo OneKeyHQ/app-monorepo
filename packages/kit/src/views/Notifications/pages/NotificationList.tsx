@@ -4,6 +4,7 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Dialog,
   Empty,
   HeaderButtonGroup,
@@ -16,6 +17,7 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import {
   useNotificationsPersistAtom,
   useNotificationsReadedAtom,
@@ -33,6 +35,8 @@ import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IListItemProps } from '../../../components/ListItem';
+
+let maxAccountLimitWarningDismissed = false;
 
 function HeaderRight() {
   const intl = useIntl();
@@ -137,6 +141,70 @@ function groupNotificationsByDate(
   ];
 }
 
+function MaxAccountLimitWarning() {
+  const navigation = useAppNavigation();
+
+  const [
+    {
+      lastSettingsUpdateTime,
+      maxAccountCount = NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+    },
+  ] = useNotificationsPersistAtom();
+
+  const { result } = usePromiseResult(async () => {
+    noop(lastSettingsUpdateTime);
+    const serverSettings =
+      await backgroundApiProxy.serviceNotification.fetchServerNotificationSettings();
+    const enabledAccountCount =
+      await backgroundApiProxy.simpleDb.notificationSettings.getEnabledAccountCount();
+    return {
+      serverSettings,
+      enabledAccountCount,
+    };
+  }, [lastSettingsUpdateTime]);
+
+  const shouldShowMaxAccountLimitWarning = useMemo(
+    () =>
+      !maxAccountLimitWarningDismissed &&
+      result?.serverSettings?.pushEnabled &&
+      result?.serverSettings?.accountActivityPushEnabled &&
+      result?.enabledAccountCount &&
+      result?.enabledAccountCount >= maxAccountCount,
+    [
+      result?.enabledAccountCount,
+      maxAccountCount,
+      result?.serverSettings?.accountActivityPushEnabled,
+      result?.serverSettings?.pushEnabled,
+    ],
+  );
+
+  if (!shouldShowMaxAccountLimitWarning) {
+    return null;
+  }
+
+  return (
+    <Stack px="$4">
+      <Alert
+        type="warning"
+        title={`${maxAccountCount} Accounts limit reached`}
+        description="New accounts may not get notifications."
+        closable
+        onClose={() => {
+          maxAccountLimitWarningDismissed = true;
+        }}
+        action={{
+          primary: 'Manage',
+          onPrimaryPress: () => {
+            navigation.pushModal(EModalRoutes.SettingModal, {
+              screen: EModalSettingRoutes.SettingManageAccountActivity,
+            });
+          },
+        }}
+      />
+    </Stack>
+  );
+}
+
 function NotificationList() {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -181,6 +249,7 @@ function NotificationList() {
     () => groupNotificationsByDate(result),
     [result],
   );
+
   return (
     <Page scrollEnabled safeAreaEnabled={false}>
       <Page.Header
@@ -188,6 +257,8 @@ function NotificationList() {
         headerRight={renderHeaderRight}
       />
       <Page.Body pb={bottom || '$5'}>
+        <MaxAccountLimitWarning />
+
         {isLoading && !result?.length ? (
           <Stack gap="$1.5" px="$5">
             {Array.from({ length: 3 }).map((_, index) => (
