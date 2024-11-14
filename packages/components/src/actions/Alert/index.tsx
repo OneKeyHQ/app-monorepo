@@ -128,7 +128,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
   const onClose = useCallback(() => {
     setShow(false);
     onCloseProp?.();
-  }, []);
+  }, [onCloseProp]);
 
   if (!show) return null;
 
