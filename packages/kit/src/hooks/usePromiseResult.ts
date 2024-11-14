@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce, isEmpty } from 'lodash';
 import { AppState } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
@@ -302,6 +303,8 @@ export function usePromiseResult<T>(
   }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
+  const prevFocusedRef = useRef(isFocusedRefValue);
+  const isLoadingRef = useRef(isLoading);
   const runWithPollingNonce = useCallback(() => {
     isDepsChangedOnBlur.current = false;
     void runRef.current({ pollingNonce: pollingNonceRef.current });
@@ -331,19 +334,23 @@ export function usePromiseResult<T>(
       // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
       if (
         platformEnv.isNative &&
+        !isLoadingRef.current &&
         isEmptyResultRef.current &&
         optionsRef.current.revalidateOnReconnect
       ) {
         runWithPollingNonce();
       }
 
-      if (isFocusedRefValue && optionsRef.current.revalidateOnFocus) {
+      if (
+        prevFocusedRef.current === false &&
+        isFocusedRefValue &&
+        optionsRef.current.revalidateOnFocus
+      ) {
         runWithPollingNonce();
-        return;
-      }
-      if (isFocusedRefValue && isDepsChangedOnBlur.current) {
+      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
         runWithPollingNonce();
       }
+      prevFocusedRef.current = isFocusedRefValue;
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
