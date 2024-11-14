@@ -53,6 +53,9 @@ type IFormValues = {
   rawKeyContent: string;
 };
 
+const SECURE_ENTRY_PLACEHOLDER =
+  '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+
 function SecureEntryTextArea({
   secureEntry,
   value,
@@ -65,7 +68,7 @@ function SecureEntryTextArea({
   return (
     <TextAreaInput
       testID="account-key-input"
-      value={secureEntry ? undefined : value}
+      value={secureEntry ? SECURE_ENTRY_PLACEHOLDER : value}
       onChangeText={onChange}
       {...props}
     />
@@ -243,14 +246,15 @@ function ExportPrivateKeysPage({
         iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: async () => {
           const rawKeyValue = form.getValues('rawKeyContent') || '';
-          if (!rawKeyValue) {
+          if (!rawKeyValue || rawKeyValue === SECURE_ENTRY_PLACEHOLDER) {
             await refreshKey({ noDebouncedCall: true });
           }
           const nextSecureEntry = !secureEntry;
           if (nextSecureEntry) {
             reset();
+          } else {
+            setSecureEntry(nextSecureEntry);
           }
-          setSecureEntry(nextSecureEntry);
         },
       },
       {
@@ -342,9 +346,7 @@ function ExportPrivateKeysPage({
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
-              placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
               addOns={actions}
-              displayAsMaskWhenEmptyValue
             />
           </Form.Field>
         </Form>
