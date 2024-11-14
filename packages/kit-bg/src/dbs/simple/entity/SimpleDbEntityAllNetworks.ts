@@ -1,25 +1,54 @@
+import { uniq } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IAllNetworksDBStruct {
-  enabledNetworks: string[];
+  disabledNetworks: string[]; // network ids
+  enabledNetworks: string[]; // network ids
 }
 
-export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<IAllNetworksDBStruct> {
-  entityName = 'customRpc';
+export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDBStruct> {
+  entityName = 'allNetworks';
 
   override enableCache = false;
 
   @backgroundMethod()
-  async getEnabledNetworks(): Promise<string[]> {
+  async getAllNetworksState(): Promise<IAllNetworksDBStruct> {
     const data = await this.getRawData();
-    return data?.enabledNetworks ?? [];
+    return {
+      disabledNetworks: data?.disabledNetworks ?? [],
+      enabledNetworks: data?.enabledNetworks ?? [],
+    };
   }
 
   @backgroundMethod()
-  async setEnabledNetworks(enabledNetworks: string[]): Promise<void> {
-    await this.setRawData({ enabledNetworks });
+  async updateAllNetworksState({
+    disabledNetworks,
+    enabledNetworks,
+  }: {
+    disabledNetworks: string[];
+    enabledNetworks: string[];
+  }): Promise<void> {
+    await this.setRawData(({ rawData }) => {
+      const originalDisabledNetworks = rawData?.disabledNetworks ?? [];
+      const originalEnabledNetworks = rawData?.enabledNetworks ?? [];
+
+      const finalEnabledNetworks = uniq([
+        ...originalEnabledNetworks,
+        ...enabledNetworks,
+      ]).filter((networkId) => !disabledNetworks.includes(networkId));
+
+      // remove duplicated networks
+      const finalDisabledNetworks = uniq([
+        ...originalDisabledNetworks,
+        ...disabledNetworks,
+      ]).filter((networkId) => !enabledNetworks.includes(networkId));
+
+      return {
+        disabledNetworks: finalDisabledNetworks,
+        enabledNetworks: finalEnabledNetworks,
+      };
+    });
   }
 }

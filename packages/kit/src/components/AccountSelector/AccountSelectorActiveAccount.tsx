@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  IconButton,
+  Button,
   NATIVE_HIT_SLOP,
   SizableText,
   Tooltip,
@@ -13,7 +13,12 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
+import { getDefaultEnabledEVMNetworksInAllNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -26,7 +31,9 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -35,6 +42,10 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+
+const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
+const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -51,6 +62,36 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       setIsFocus(!hideByModal);
     },
   );
+
+  const { result, run } = usePromiseResult(async () => {
+    const [s, a] = await Promise.all([
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+    ]);
+
+    const enabledNetworks = a.networks.filter((n) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: n.id,
+        disabledNetworks: s.disabledNetworks,
+        enabledNetworks: s.enabledNetworks,
+      }),
+    );
+
+    return {
+      enabledNetworks,
+      allNetworks: a.networks,
+    };
+  }, []);
+
+  const { enabledNetworks, allNetworks } = result ?? {};
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
+    };
+  }, [run]);
+
   if (!isAllNetworkEnabled) {
     return null;
   }
@@ -64,13 +105,17 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       })}
       tourName={ESpotlightTour.createAllNetworks}
     >
-      <IconButton
-        title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+      <Button
         variant="tertiary"
         icon="Copy3Outline"
         size="small"
+        color="$text"
         onPress={handleAllNetworkCopyAddress}
-      />
+      >
+        {allNetworks && enabledNetworks
+          ? `${enabledNetworks.length} / ${allNetworks.length}`
+          : ''}
+      </Button>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
   );

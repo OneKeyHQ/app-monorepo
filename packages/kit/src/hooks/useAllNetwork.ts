@@ -20,6 +20,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
@@ -154,19 +155,40 @@ function useAllNetworkRequests<T>(params: {
       );
 
       perf.markStart('getAllNetworkAccounts');
-      const {
-        accountsInfo,
-        accountsInfoBackendIndexed,
-        accountsInfoBackendNotIndexed,
-      } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: account.id,
-        networkId: network.id,
-        deriveType: undefined,
-        nftEnabledOnly: isNFTRequests,
-      });
+      const { accountsInfo } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+          accountId: account.id,
+          networkId: network.id,
+          deriveType: undefined,
+          nftEnabledOnly: isNFTRequests,
+        });
       perf.markEnd('getAllNetworkAccounts');
 
-      if (!accountsInfo || isEmpty(accountsInfo)) {
+      const { enabledNetworks, disabledNetworks } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+
+      const enabledAccountsInfo = [];
+      const enabledAccountsInfoBackendIndexed = [];
+      const enabledAccountsInfoBackendNotIndexed = [];
+
+      for (const accountInfo of accountsInfo) {
+        if (
+          isEnabledNetworksInAllNetworks({
+            networkId: accountInfo.networkId,
+            disabledNetworks,
+            enabledNetworks,
+          })
+        ) {
+          enabledAccountsInfo.push(accountInfo);
+          if (accountInfo.isBackendIndexed) {
+            enabledAccountsInfoBackendIndexed.push(accountInfo);
+          } else {
+            enabledAccountsInfoBackendNotIndexed.push(accountInfo);
+          }
+        }
+      }
+
+      if (!enabledAccountsInfo || isEmpty(enabledAccountsInfo)) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
@@ -175,7 +197,7 @@ function useAllNetworkRequests<T>(params: {
       let resp: Array<T> | null = null;
 
       // if (concurrentNetworks.length === 0 && sequentialNetworks.length === 0) {
-      if (accountsInfo.length === 0) {
+      if (enabledAccountsInfo.length === 0) {
         setIsEmptyAccount(true);
         isFetching.current = false;
         return;
@@ -202,7 +224,7 @@ function useAllNetworkRequests<T>(params: {
 
           const cachedData = (
             await Promise.all(
-              Array.from(accountsInfo).map(
+              Array.from(enabledAccountsInfo).map(
                 async (networkDataString: IAllNetworkAccountInfo) => {
                   const { accountId, networkId, accountXpub, apiAddress } =
                     networkDataString;
@@ -242,7 +264,7 @@ function useAllNetworkRequests<T>(params: {
       );
 
       if (allNetworkDataInit.current) {
-        const allNetworks = accountsInfo;
+        const allNetworks = enabledAccountsInfo;
 
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId, dbAccount } = networkDataString;
@@ -264,20 +286,22 @@ function useAllNetworkRequests<T>(params: {
       } else {
         try {
           await Promise.all(
-            Array.from(accountsInfoBackendIndexed).map((networkDataString) => {
-              const { accountId, networkId, apiAddress } = networkDataString;
-              console.log(
-                'accountsBackedIndexedRequests: =====>>>>>: ',
-                accountId,
-                networkId,
-                apiAddress,
-              );
-              return allNetworkRequests({
-                accountId,
-                networkId,
-                allNetworkDataInit: allNetworkDataInit.current,
-              });
-            }),
+            Array.from(enabledAccountsInfoBackendIndexed).map(
+              (networkDataString) => {
+                const { accountId, networkId, apiAddress } = networkDataString;
+                console.log(
+                  'accountsBackedIndexedRequests: =====>>>>>: ',
+                  accountId,
+                  networkId,
+                  apiAddress,
+                );
+                return allNetworkRequests({
+                  accountId,
+                  networkId,
+                  allNetworkDataInit: allNetworkDataInit.current,
+                });
+              },
+            ),
           );
         } catch (e) {
           console.error(e);
@@ -286,7 +310,7 @@ function useAllNetworkRequests<T>(params: {
 
         try {
           await Promise.all(
-            Array.from(accountsInfoBackendNotIndexed).map(
+            Array.from(enabledAccountsInfoBackendNotIndexed).map(
               (networkDataString) => {
                 const { accountId, networkId, apiAddress } = networkDataString;
                 console.log(

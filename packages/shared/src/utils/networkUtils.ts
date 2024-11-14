@@ -5,6 +5,7 @@ import {
   EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
+import { getDefaultEnabledEVMNetworksInAllNetworks } from '../config/presetNetworks';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -18,6 +19,9 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+
+const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
+const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -106,6 +110,25 @@ export function getBtcDappUniSetChainName(network: IServerNetwork) {
       BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET],
     );
   }
+}
+
+export function isEnabledNetworksInAllNetworks({
+  networkId,
+  disabledNetworks,
+  enabledNetworks,
+}: {
+  networkId: string;
+  disabledNetworks: string[];
+  enabledNetworks: string[];
+}) {
+  if (getNetworkImpl({ networkId }) === IMPL_EVM) {
+    if (defaultEnabledEVMNetworkIds.includes(networkId)) {
+      return !disabledNetworks.includes(networkId);
+    }
+
+    return enabledNetworks.includes(networkId);
+  }
+  return !disabledNetworks.includes(networkId);
 }
 
 function isAllNetwork({

@@ -2642,6 +2642,32 @@ export const presetNetworksMap = {
   scdo,
 };
 
+// top 20 tvl evm networks
+export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
+  (): IServerNetwork[] => [
+    eth,
+    bsc,
+    base,
+    arbitrum,
+    avalanche,
+    polygon,
+    core,
+    optimism,
+    blast,
+    mantle,
+    cronos,
+    linea,
+    btr,
+    pulse,
+    scr,
+    mode,
+    xdai,
+    bob,
+    zircuit,
+    kava,
+  ],
+);
+
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   dangerAllNetworkRepresent,
   // btc & btc fork
