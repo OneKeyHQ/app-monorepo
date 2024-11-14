@@ -10,6 +10,7 @@ export enum EShortcutEvents {
   NewTab2 = 'NewTab2',
   CloseTab = 'CloseTab',
   SideBar = 'SideBar',
+  SearchInPage = 'SearchInPage',
   CopyAddressOrUrl = 'CopyAddressOrUrl',
   AccountSelector = 'AccountSelector',
   NetworkSelector = 'NetworkSelector',
@@ -35,6 +36,10 @@ export const shortcutsMap: Record<
   { keys: string[]; desc: string }
 > = {
   // Disable shortcuts in development environment to avoid conflicts with Chrome DevTools default shortcuts (Cmd/Ctrl+F and Cmd/Ctrl+P)
+  [EShortcutEvents.SearchInPage]: {
+    keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'F'],
+    desc: 'Search in Page',
+  },
   [EShortcutEvents.AccountSelector]: {
     keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'P'],
     desc: 'Account Selector',
