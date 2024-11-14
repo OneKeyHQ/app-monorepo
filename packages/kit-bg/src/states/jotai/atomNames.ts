@@ -33,7 +33,7 @@ export enum EAtomNames {
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
-  notificationsAtom = 'notificationsAtom',
+  notificationsPersistAtom = 'notificationsPersistAtom',
   notificationsReadedAtom = 'notificationsReadedAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }

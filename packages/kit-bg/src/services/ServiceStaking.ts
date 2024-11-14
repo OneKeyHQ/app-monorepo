@@ -32,6 +32,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
+  IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
   IStakeClaimBaseParams,
@@ -780,6 +781,24 @@ class ServiceStaking extends ServiceBase {
       // ignore error
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async getUnbondingDelegationList(params: {
+    accountAddress: string;
+    provider: string;
+    networkId: string;
+    symbol: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        delegations: IEarnUnbondingDelegationList;
+      };
+    }>(`/earn/v1/unbonding-delegation/list`, {
+      params,
+    });
+    return resp.data.data.delegations;
   }
 
   @backgroundMethod()

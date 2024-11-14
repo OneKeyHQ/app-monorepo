@@ -20,7 +20,6 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -243,6 +242,28 @@ export const {
   ) {
     sortedList = [...receivedSorted];
   }
+  sortedList = sortedList.slice().sort((a, b) => {
+    if (a.limit && b.limit) {
+      const aMin = new BigNumber(a.limit?.min || 0);
+      const aMax = new BigNumber(a.limit?.max || 0);
+      const bMin = new BigNumber(b.limit?.min || 0);
+      const bMax = new BigNumber(b.limit?.max || 0);
+      if (aMin.lt(bMin)) {
+        return -1;
+      }
+      if (aMin.gt(bMin)) {
+        return 1;
+      }
+
+      if (aMax.lt(bMax)) {
+        return -1;
+      }
+      if (aMax.gt(bMax)) {
+        return 1;
+      }
+    }
+    return 0;
+  });
   return sortedList.map((p) => {
     if (
       p.info.provider === receivedSorted?.[0]?.info?.provider &&
@@ -275,11 +296,7 @@ export const {
       item.info.providerName === manualSelectQuoteProviders?.info.providerName,
   );
   if (manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount) {
-    return list.find(
-      (item) =>
-        item.info.provider === manualSelectQuoteProviders.info.provider &&
-        item.info.providerName === manualSelectQuoteProviders.info.providerName,
-    );
+    return manualSelectQuoteResult;
   }
   if (list?.length > 0) {
     return list[0];
@@ -406,19 +423,3 @@ export const {
   atom: swapBuildTxFetchingAtom,
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
-
-// swap receiver address
-export const {
-  atom: swapReceiverAddressTypeAtom,
-  use: useSwapReceiverAddressTypeAtom,
-} = contextAtom<ESwapReceiveAddressType>(ESwapReceiveAddressType.USER_ACCOUNT);
-
-export const {
-  atom: swapReceiverAddressInputValueAtom,
-  use: useSwapReceiverAddressInputValueAtom,
-} = contextAtom<string>('');
-
-export const {
-  atom: swapReceiverAddressBookValueAtom,
-  use: useSwapReceiverAddressBookValueAtom,
-} = contextAtom<string>('');

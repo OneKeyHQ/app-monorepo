@@ -256,7 +256,13 @@ function ImportAddress() {
   const deriveTypeValue = form.watch('deriveType');
 
   const isEnable = useMemo(() => {
-    if (Object.values(form.formState.errors).length) {
+    // filter out error parameters from different segments.
+    const errors = Object.values(form.formState.errors).filter(
+      (i) =>
+        method === EImportMethod.PublicKey &&
+        (i?.ref as { name: string })?.name !== 'addressValue',
+    );
+    if (errors.length) {
       return false;
     }
     if (method === EImportMethod.Address) {

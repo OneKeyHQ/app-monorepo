@@ -20,6 +20,7 @@ import type { ISectionListProps } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 
@@ -72,6 +73,13 @@ const ChainSelectorSectionListContent = ({
 
   return (
     <SectionList
+      contentContainerStyle={
+        platformEnv.isNative
+          ? undefined
+          : {
+              minHeight: '100vh',
+            }
+      }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
       sections={sections}
