@@ -9,8 +9,9 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+
+import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
 
@@ -117,10 +118,7 @@ function ProfitInfo({
               {intl.formatMessage(
                 { id: ETranslations.earn_in_number },
                 {
-                  number: formatDistanceToNowStrict(
-                    Date.now() + Number(stakingTime * 1000),
-                    { addSuffix: false },
-                  ),
+                  number: formatStakingDistanceToNowStrict(stakingTime),
                 },
               )}
             </GridItem>
