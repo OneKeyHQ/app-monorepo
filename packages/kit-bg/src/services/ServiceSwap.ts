@@ -1,4 +1,5 @@
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
@@ -953,6 +954,21 @@ export default class ServiceSwap extends ServiceBase {
         };
       });
       if (item.status !== ESwapTxHistoryStatus.PENDING) {
+        let fromAmountFinal = item.baseInfo.fromAmount;
+        if (item.swapInfo.otherFeeInfos?.length) {
+          item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: extraFeeInfo.token,
+                token2: item.baseInfo.fromToken,
+              })
+            ) {
+              fromAmountFinal = new BigNumber(fromAmountFinal)
+                .plus(extraFeeInfo.amount ?? 0)
+                .toFixed();
+            }
+          });
+        }
         void this.backgroundApi.serviceApp.showToast({
           method:
             item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',

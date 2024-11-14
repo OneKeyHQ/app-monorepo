@@ -18,9 +18,16 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  numberFormat,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuoteResult,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
@@ -185,6 +192,71 @@ export function useSwapBuildTx() {
     });
   }, [handleTxFail, setInAppNotificationAtom]);
 
+  const checkOtherFee = useCallback(
+    async (quoteResult: IFetchQuoteResult) => {
+      const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
+      let checkRes = true;
+      if (otherFeeInfo?.length) {
+        await Promise.all(
+          otherFeeInfo.map(async (item) => {
+            const tokenBalanceInfo =
+              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                networkId: item.token?.networkId,
+                contractAddress: item.token?.contractAddress,
+                accountAddress: swapFromAddressInfo.address,
+                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              });
+            if (tokenBalanceInfo?.length) {
+              const tokenBalanceBN = new BigNumber(
+                tokenBalanceInfo[0].balanceParsed ?? 0,
+              );
+              const fromTokenIsFeeToken = equalTokenNoCaseSensitive({
+                token1: item.token,
+                token2: fromToken,
+              });
+              const tokenAmountBN = fromTokenIsFeeToken
+                ? new BigNumber(selectQuote?.fromAmount ?? 0).plus(
+                    new BigNumber(item.amount ?? 0),
+                  )
+                : new BigNumber(item.amount ?? 0);
+
+              if (tokenBalanceBN.lt(tokenAmountBN)) {
+                Toast.error({
+                  title: intl.formatMessage(
+                    {
+                      id: ETranslations.swap_page_toast_insufficient_balance_title,
+                    },
+                    { token: item.token.symbol },
+                  ),
+                  message: intl.formatMessage(
+                    {
+                      id: ETranslations.swap_page_toast_insufficient_balance_content,
+                    },
+                    {
+                      token: item.token.symbol,
+                      number: numberFormat(tokenAmountBN.toFixed(), {
+                        formatter: 'balance',
+                      }) as string,
+                    },
+                  ),
+                });
+                checkRes = false;
+              }
+            }
+          }),
+        );
+      }
+      return checkRes;
+    },
+    [
+      fromToken,
+      intl,
+      selectQuote?.fromAmount,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.address,
+    ],
+  );
+
   const wrappedTx = useCallback(async () => {
     if (
       fromToken &&
@@ -258,6 +330,10 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId
     ) {
       try {
+        const checkRes = await checkOtherFee(selectQuote);
+        if (!checkRes) {
+          return null;
+        }
         const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
           fromToken,
           toToken,
@@ -358,7 +434,9 @@ export function useSwapBuildTx() {
                       },
                       {
                         token: tonNativeTokenInfo[0].symbol,
-                        number: txValueBN.toFixed(),
+                        number: numberFormat(txValueBN.toFixed(), {
+                          formatter: 'balance',
+                        }) as string,
                       },
                     ),
                   });
@@ -432,20 +510,16 @@ export function useSwapBuildTx() {
       return null;
     }
   }, [
-    intl,
     fromToken,
-    selectQuote?.fromAmount,
-    selectQuote?.gasLimit,
-    selectQuote?.info.provider,
-    selectQuote?.quoteResultCtx,
-    selectQuote?.routesData,
-    selectQuote?.toAmount,
+    toToken,
+    selectQuote,
     slippageItem,
-    swapFromAddressInfo.accountInfo?.account?.id,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
     swapToAddressInfo.address,
-    toToken,
+    checkOtherFee,
+    intl,
   ]);
 
   const approveTx = useCallback(
