@@ -125,7 +125,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   }, [activeAccount, selectedAccount]);
 
   const handleAddressOnPress = useCallback(() => {
-    if (!account || !account?.address || !network || !deriveInfo || !wallet) {
+    if (!account?.address || !network || !deriveInfo || !wallet) {
       return;
     }
     if (
