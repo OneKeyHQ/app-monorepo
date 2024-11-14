@@ -143,6 +143,7 @@ function groupNotificationsByDate(
 
 function MaxAccountLimitWarning() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const [
     {
@@ -183,25 +184,34 @@ function MaxAccountLimitWarning() {
   }
 
   return (
-    <Stack px="$4">
-      <Alert
-        type="warning"
-        title={`${maxAccountCount} Accounts limit reached`}
-        description="New accounts may not get notifications."
-        closable
-        onClose={() => {
-          maxAccountLimitWarningDismissed = true;
-        }}
-        action={{
-          primary: 'Manage',
-          onPrimaryPress: () => {
-            navigation.pushModal(EModalRoutes.SettingModal, {
-              screen: EModalSettingRoutes.SettingManageAccountActivity,
-            });
-          },
-        }}
-      />
-    </Stack>
+    <Alert
+      mx="$5"
+      mb="$2"
+      type="warning"
+      title={intl.formatMessage(
+        {
+          id: ETranslations.notifications_account_reached_limit_alert_title,
+        },
+        {
+          count: maxAccountCount,
+        },
+      )}
+      description={intl.formatMessage({
+        id: ETranslations.notifications_account_reached_limit_alert_desc,
+      })}
+      closable
+      onClose={() => {
+        maxAccountLimitWarningDismissed = true;
+      }}
+      action={{
+        primary: intl.formatMessage({ id: ETranslations.global_manage }),
+        onPrimaryPress: () => {
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingManageAccountActivity,
+          });
+        },
+      }}
+    />
   );
 }
 
