@@ -22,7 +22,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatDate,
-  formatDistanceToNow,
+  formatDistanceToNowStrict,
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
@@ -523,9 +523,9 @@ export const UniversalStake = ({
                 {intl.formatMessage(
                   { id: ETranslations.earn_in_number },
                   {
-                    number: formatDistanceToNow(
+                    number: formatDistanceToNowStrict(
                       Date.now() + Number(stakingTime * 1000),
-                      false,
+                      { addSuffix: false },
                     ),
                   },
                 )}
