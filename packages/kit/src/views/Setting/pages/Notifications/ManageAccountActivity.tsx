@@ -134,7 +134,7 @@ function AccountNotificationSettingsProvider({
     ) => {
       setSettings((v) => {
         const s = buildSettings(v);
-        void backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
+        void backgroundApiProxy.serviceNotification.saveAccountActivityNotificationSettings(
           s,
         );
         return s;
@@ -145,7 +145,7 @@ function AccountNotificationSettingsProvider({
 
   const commitSettings = useCallback(async () => {
     if (settings) {
-      await backgroundApiProxy.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
+      await backgroundApiProxy.serviceNotification.saveAccountActivityNotificationSettings(
         settings,
       );
     }
@@ -200,7 +200,7 @@ function AccountNotificationSettingsProvider({
       const savedSettings =
         await backgroundApiProxy.simpleDb.notificationSettings.getRawData();
       if (savedSettings) {
-        setSettings(savedSettings.accountActivityV2);
+        setSettings(savedSettings.accountActivity);
       }
     })();
   }, []);
@@ -223,9 +223,10 @@ function useContextAccountNotificationSettings() {
 }
 
 function formatSavedEnabledValue(value: boolean) {
-  return value === NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
-    ? undefined
-    : value;
+  return value;
+  // return value === NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED
+  //   ? undefined
+  // : value;
 }
 
 function AccordionItem({
