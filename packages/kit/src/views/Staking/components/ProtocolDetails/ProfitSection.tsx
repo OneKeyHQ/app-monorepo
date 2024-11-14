@@ -134,7 +134,7 @@ function ProfitInfo({
                 id:
                   rewardToken === 'APT'
                     ? ETranslations.earn_earn_during_unstaking_tooltip
-                    : ETranslations.earn_staked_assets_available_after_period,
+                    : ETranslations.earn_unstaking_period_tooltip,
               })}
             >
               {intl.formatMessage(
