@@ -138,7 +138,7 @@ function ProfitInfo({
               })}
             >
               {intl.formatMessage(
-                { id: ETranslations.earn_claim_available_in_number_days },
+                { id: ETranslations.earn_up_to_number_days },
                 { number: unstakingPeriod },
               )}
             </GridItem>
