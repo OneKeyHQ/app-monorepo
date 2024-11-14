@@ -7,7 +7,7 @@ export function formatStakingDistanceToNowStrict(
   stakingTime?: number | string,
 ) {
   const number = Number(stakingTime);
-  if (Number.isNaN(number)) {
+  if (Number.isNaN(number) || number <= 0) {
     return undefined;
   }
   const stakingTimeNumber =
