@@ -568,6 +568,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
               await this.backgroundApi.serviceHardware.getSDKInstance();
             hwAllNetworkPrepareAccountsResponse = (await convertDeviceResponse(
               async () => {
+                // throw new NewFirmwareForceUpdate({ payload: {} });
+
                 const sdkAllNetworkGetAddressResponse =
                   await sdk.allNetworkGetAddress(
                     deviceParams.dbDevice?.connectId || '',

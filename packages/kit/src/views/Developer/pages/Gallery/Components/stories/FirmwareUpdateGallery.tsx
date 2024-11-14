@@ -5,8 +5,14 @@ import {
   Select,
   SizableText,
   Stack,
+  Toast,
   useForm,
 } from '@onekeyhq/components';
+import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
+import {
+  useFirmwareUpdateRetryAtom,
+  useFirmwareUpdatesDetectStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -26,17 +32,16 @@ import {
   EFirmwareAuthenticationDialogContentType,
   EnumBasicDialogContentContainer,
 } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
-import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
-import {
-  useFirmwareUpdateRetryAtom,
-  useFirmwareUpdatesDetectStatusAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import * as AllErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { Layout } from './utils/Layout';
 
 function ForceOpenHomeDeviceUpdateFirmwareModal() {
@@ -119,6 +124,21 @@ export function FirmwareUpdateGalleryDemo() {
           <BootloaderModeUpdateButton />
           <ClearUpdateInfoDetectCacheButton />
           <ResetDetectTimeCheck />
+          <Button
+            onPress={() => {
+              appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+                connectId: undefined,
+              });
+              appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+                connectId: undefined,
+              });
+              Toast.message({
+                title: 'ForceUpdateDialog',
+              });
+            }}
+          >
+            ForceUpdateDialog
+          </Button>
         </>
       </Stack>
     </AccountSelectorProviderMirror>

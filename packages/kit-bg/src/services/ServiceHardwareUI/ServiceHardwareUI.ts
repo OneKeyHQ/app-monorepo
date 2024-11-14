@@ -384,9 +384,14 @@ class ServiceHardwareUI extends ServiceBase {
           code: HardwareErrorCode.NewFirmwareForceUpdate,
         })
       ) {
-        appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
-          connectId,
-        });
+        if (this.isOuterProcessing()) {
+          setTimeout(() => {
+            // backdrop conflict, wait hardware ui dialog close
+            appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+              connectId,
+            });
+          }, 300);
+        }
       }
       // skip reset to home if user cancel
       if (
