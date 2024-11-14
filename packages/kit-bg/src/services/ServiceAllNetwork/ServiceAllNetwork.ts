@@ -341,6 +341,16 @@ class ServiceAllNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateAllNetworksState(params: {
+    disabledNetworks: string[];
+    enabledNetworks: string[];
+  }) {
+    await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
+      params,
+    );
+  }
+
+  @backgroundMethod()
   async buildAllNetworkAccountsForApiParam(
     params: IAllNetworkAccountsParams & { withoutAccountId?: boolean },
   ) {

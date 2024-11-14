@@ -44,7 +44,6 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
         ...originalDisabledNetworks,
         ...disabledNetworks,
       ]).filter((networkId) => !enabledNetworks.includes(networkId));
-
       return {
         disabledNetworks: finalDisabledNetworks,
         enabledNetworks: finalEnabledNetworks,

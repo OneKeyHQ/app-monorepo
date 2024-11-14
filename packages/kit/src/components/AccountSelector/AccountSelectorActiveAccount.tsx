@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
-import { getDefaultEnabledEVMNetworksInAllNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   EAppEventBusNames,
@@ -30,6 +29,7 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -42,10 +42,6 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
-
-const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
-const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -64,31 +60,56 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   );
 
   const { result, run } = usePromiseResult(async () => {
+    if (!activeAccount.network?.isAllNetworks) return null;
     const [s, a] = await Promise.all([
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
       backgroundApiProxy.serviceNetwork.getAllNetworks(),
     ]);
 
-    const enabledNetworks = a.networks.filter((n) =>
-      isEnabledNetworksInAllNetworks({
-        networkId: n.id,
-        disabledNetworks: s.disabledNetworks,
-        enabledNetworks: s.enabledNetworks,
-      }),
-    );
+    const networksAccount =
+      await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+        {
+          networkIds: a.networks.map((n) => n.id),
+          indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
+        },
+      );
+
+    const visibleNetworks = a.networks.filter((n) => {
+      if (
+        networksAccount.find(
+          (na) => na.network.id === n.id && na.account?.address,
+        )
+      ) {
+        if (
+          isEnabledNetworksInAllNetworks({
+            networkId: n.id,
+            disabledNetworks: s.disabledNetworks,
+            enabledNetworks: s.enabledNetworks,
+          })
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
 
     return {
-      enabledNetworks,
+      visibleNetworks,
       allNetworks: a.networks,
     };
-  }, []);
+  }, [
+    activeAccount.account?.indexedAccountId,
+    activeAccount.network?.isAllNetworks,
+  ]);
 
-  const { enabledNetworks, allNetworks } = result ?? {};
+  const { visibleNetworks, allNetworks } = result ?? {};
 
   useEffect(() => {
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, () => run());
     appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
     return () => {
       appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () => run());
     };
   }, [run]);
 
@@ -112,8 +133,8 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         color="$text"
         onPress={handleAllNetworkCopyAddress}
       >
-        {allNetworks && enabledNetworks
-          ? `${enabledNetworks.length} / ${allNetworks.length}`
+        {allNetworks && visibleNetworks
+          ? `${visibleNetworks.length} / ${allNetworks.length}`
           : ''}
       </Button>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}

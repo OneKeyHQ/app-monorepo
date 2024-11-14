@@ -16,12 +16,14 @@ import type {
 import {
   Empty,
   Icon,
+  IconButton,
   Page,
   SearchBar,
   SectionList,
   Spinner,
   Stack,
   Toast,
+  XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -43,13 +45,20 @@ import {
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   EAccountSelectorSceneName,
   type IServerNetwork,
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import { difference } from 'lodash';
+import {
+  appEventBus,
+  EAppEventBusNames,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
@@ -57,6 +66,10 @@ type IWalletAddressContext = {
   accountId?: string;
   indexedAccountId: string;
   refreshLocalData: () => void;
+  initAllNetworksState: {
+    enabledNetworks: string[];
+    disabledNetworks: string[];
+  };
 };
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
@@ -65,6 +78,10 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   accountId: '',
   indexedAccountId: '',
   refreshLocalData: () => {},
+  initAllNetworksState: {
+    enabledNetworks: [],
+    disabledNetworks: [],
+  },
 });
 
 type ISectionItem = {
@@ -127,33 +144,66 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
         />
       }
     >
-      <Icon name="ChevronRightOutline" color="$iconSubdued" />
+      <Icon name="Copy3Outline" color="$iconSubdued" />
     </ListItem>
   );
 };
 
 const WalletAddressListItemIcon = ({
   account,
+  network,
+  isEnabledNetwork,
+  setIsEnabledNetwork,
 }: {
   account?: INetworkAccount;
+  network: IServerNetwork;
+  isEnabledNetwork: boolean;
+  setIsEnabledNetwork: (isEnabled: boolean) => void;
 }) => {
-  let name: IKeyOfIcons | undefined;
   if (!account) {
-    name = 'PlusLargeOutline';
-  } else if (account && account.address) {
-    name = 'Copy3Outline';
+    return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
   }
-  return name ? (
-    <Icon
-      name={account ? 'Copy3Outline' : 'PlusLargeOutline'}
-      color="$iconSubdued"
-    />
-  ) : null;
+
+  return (
+    <XStack gap="$6" alignItems="center">
+      <IconButton
+        variant="tertiary"
+        icon={isEnabledNetwork ? 'EyeOutline' : 'EyeOffOutline'}
+        iconProps={{
+          color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
+        }}
+        onPress={async () => {
+          setIsEnabledNetwork(!isEnabledNetwork);
+          const disabledNetworks = [];
+          const enabledNetworks = [];
+          if (isEnabledNetwork) {
+            disabledNetworks.push(network.id);
+          } else {
+            enabledNetworks.push(network.id);
+          }
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks,
+            disabledNetworks,
+          });
+        }}
+      />
+      <Icon name="Copy3Outline" color="$iconSubdued" />
+    </XStack>
+  );
 };
 
 const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
+  const { initAllNetworksState } = useContext(WalletAddressContext);
+
+  const [isEnabledNetwork, setIsEnabledNetwork] = useState(
+    isEnabledNetworksInAllNetworks({
+      networkId: item.id,
+      disabledNetworks: initAllNetworksState.disabledNetworks,
+      enabledNetworks: initAllNetworksState.enabledNetworks,
+    }),
+  );
   const copyAccountAddress = useCopyAccountAddress();
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
@@ -233,6 +283,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     <ListItem
       title={item.name}
       subtitle={subtitle}
+      subtitleProps={{
+        color:
+          !isEnabledNetwork && account?.address
+            ? '$textDisabled'
+            : '$textSubdued',
+      }}
       renderAvatar={
         <NetworkAvatarBase
           logoURI={item.logoURI}
@@ -249,7 +305,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           <Spinner />
         </Stack>
       ) : (
-        <WalletAddressListItemIcon account={account} />
+        <WalletAddressListItemIcon
+          account={account}
+          network={item}
+          isEnabledNetwork={isEnabledNetwork}
+          setIsEnabledNetwork={setIsEnabledNetwork}
+        />
       )}
     </ListItem>
   );
@@ -390,9 +451,28 @@ const WalletAddress = ({
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
+  const { initAllNetworksState } = useContext(WalletAddressContext);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page
+      safeAreaEnabled={false}
+      onClose={async () => {
+        const latestAllNetworksState =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        if (
+          difference(
+            latestAllNetworksState.disabledNetworks,
+            initAllNetworksState.disabledNetworks,
+          ).length > 0 ||
+          difference(
+            latestAllNetworksState.enabledNetworks,
+            initAllNetworksState.enabledNetworks,
+          ).length > 0
+        ) {
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+        }
+      }}
+    >
       <Page.Header
         // title={accountId || ''}
         title={intl.formatMessage({
@@ -419,6 +499,8 @@ export default function WalletAddressPage({
   const { accountId, walletId, indexedAccountId } = route.params;
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
+      const allNetworksState =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           { accountId, walletId },
@@ -436,11 +518,15 @@ export default function WalletAddressPage({
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           { networkIds, indexedAccountId },
         );
-      return { networksAccount, networks };
+      return { networksAccount, networks, allNetworksState };
     },
     [accountId, indexedAccountId, walletId],
     {
       initResult: {
+        allNetworksState: {
+          enabledNetworks: [],
+          disabledNetworks: [],
+        },
         networksAccount: [],
         networks: {
           mainnetItems: [],
@@ -466,11 +552,18 @@ export default function WalletAddressPage({
     return {
       networkAccountMap,
       networkDeriveTypeMap,
+      initAllNetworksState: result.allNetworksState,
       accountId,
       indexedAccountId,
       refreshLocalData,
     } as IWalletAddressContext;
-  }, [result.networksAccount, indexedAccountId, accountId, refreshLocalData]);
+  }, [
+    result.allNetworksState,
+    result.networksAccount,
+    accountId,
+    indexedAccountId,
+    refreshLocalData,
+  ]);
 
   return (
     <AccountSelectorProviderMirror
