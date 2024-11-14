@@ -33,14 +33,14 @@ export function UniversalSearchInput() {
         containerProps={{ w: '100%' }}
         size="small"
         key="searchInput"
-        placeholder={intl.formatMessage({
-          id: ETranslations.global_search_address,
-        })}
         addOns={[
           {
             label: <Shortcut shortcutKey={SEARCH_IN_PAGE_KEY} />,
           },
         ]}
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_search_address,
+        })}
       />
       <View
         position="absolute"
