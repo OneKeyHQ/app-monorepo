@@ -140,20 +140,6 @@ function BasicFind({ id }: { id: string }) {
 
   const disabled = matches === 0;
 
-  const handleKeyPress = useCallback(
-    (e: {
-      keyCode: number;
-      preventDefault: () => void;
-      stopPropagation: () => void;
-    }) => {
-      // Enter
-      if (e.keyCode === 13) {
-        handleFindNext();
-      }
-    },
-    [handleFindNext],
-  );
-
   return (
     <AnimatePresence>
       {visible ? (
@@ -167,7 +153,6 @@ function BasicFind({ id }: { id: string }) {
             opacity: 0,
             y: -20,
           }}
-          onKeyPress={handleKeyPress}
           exitStyle={{
             opacity: 0,
             y: -20,
