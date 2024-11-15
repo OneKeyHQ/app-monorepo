@@ -80,6 +80,10 @@ type IWalletAddressContext = {
       deriveType: IAccountDeriveTypes;
     }[];
   };
+  isAllNetworksEnabled: Record<string, boolean>;
+  setIsAllNetworksEnabled: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
 };
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
@@ -94,6 +98,8 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   },
   accountsCreated: false,
   setAccountsCreated: () => {},
+  isAllNetworksEnabled: {},
+  setIsAllNetworksEnabled: () => {},
 });
 
 type ISectionItem = {
@@ -105,8 +111,12 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const appNavigation =
     useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
   const intl = useIntl();
-  const { indexedAccountId, initAllNetworksState } =
-    useContext(WalletAddressContext);
+  const {
+    indexedAccountId,
+    initAllNetworksState,
+    isAllNetworksEnabled,
+    setIsAllNetworksEnabled,
+  } = useContext(WalletAddressContext);
   const { result, run: onRefreshData } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -117,21 +127,21 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
       ),
     [item.id, indexedAccountId],
   );
-  const isEnabledNetworkFromDB = result?.networkAccounts.some((a) => {
-    const isEnabled = isEnabledNetworksInAllNetworks({
+
+  const deriveAccounts = result?.networkAccounts ?? [];
+
+  const isEnabledNetwork = deriveAccounts.some((a) => {
+    const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
       networkId: item.id,
       deriveType: a.deriveType,
       disabledNetworks: initAllNetworksState.disabledNetworks,
       enabledNetworks: initAllNetworksState.enabledNetworks,
     });
+    const isEnabled =
+      isAllNetworksEnabled[`${item.id}_${a.deriveType}`] ??
+      isEnabledNetworkFromDB;
     return isEnabled;
   });
-
-  const [isEnabledNetwork, setIsEnabledNetwork] = useState(false);
-
-  useEffect(() => {
-    setIsEnabledNetwork(!!isEnabledNetworkFromDB);
-  }, [isEnabledNetworkFromDB]);
 
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
@@ -180,7 +190,12 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
             color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
           }}
           onPress={async () => {
-            setIsEnabledNetwork(!isEnabledNetwork);
+            deriveAccounts.forEach((a) => {
+              setIsAllNetworksEnabled((prev) => ({
+                ...prev,
+                [`${item.id}_${a.deriveType}`]: !isEnabledNetwork,
+              }));
+            });
             const disabledNetworks: {
               networkId: string;
               deriveType: IAccountDeriveTypes;
@@ -190,14 +205,14 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
               deriveType: IAccountDeriveTypes;
             }[] = [];
             if (isEnabledNetwork) {
-              result?.networkAccounts.forEach((a) => {
+              deriveAccounts.forEach((a) => {
                 disabledNetworks.push({
                   networkId: item.id,
                   deriveType: a.deriveType,
                 });
               });
             } else {
-              result?.networkAccounts.forEach((a) => {
+              deriveAccounts.forEach((a) => {
                 enabledNetworks.push({
                   networkId: item.id,
                   deriveType: a.deriveType,
@@ -219,16 +234,29 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
 const WalletAddressListItemIcon = ({
   account,
   network,
-  isEnabledNetwork,
-  setIsEnabledNetwork,
   deriveType,
 }: {
   account?: INetworkAccount;
   network: IServerNetwork;
-  isEnabledNetwork: boolean;
-  setIsEnabledNetwork: (isEnabled: boolean) => void;
   deriveType: IAccountDeriveTypes;
 }) => {
+  const {
+    isAllNetworksEnabled,
+    setIsAllNetworksEnabled,
+    initAllNetworksState,
+  } = useContext(WalletAddressContext);
+
+  const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
+    networkId: network.id,
+    deriveType,
+    disabledNetworks: initAllNetworksState.disabledNetworks,
+    enabledNetworks: initAllNetworksState.enabledNetworks,
+  });
+
+  const isEnabledNetwork =
+    isAllNetworksEnabled[`${network.id}_${deriveType}`] ??
+    isEnabledNetworkFromDB;
+
   if (!account) {
     return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
   }
@@ -242,7 +270,10 @@ const WalletAddressListItemIcon = ({
           color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
         }}
         onPress={async () => {
-          setIsEnabledNetwork(!isEnabledNetwork);
+          setIsAllNetworksEnabled((prev) => ({
+            ...prev,
+            [`${network.id}_${deriveType}`]: !isEnabledNetwork,
+          }));
           const disabledNetworks = [];
           const enabledNetworks = [];
           if (isEnabledNetwork) {
@@ -275,26 +306,27 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     networkDeriveTypeMap,
     indexedAccountId,
     refreshLocalData,
-    initAllNetworksState,
+    isAllNetworksEnabled,
+    setIsAllNetworksEnabled,
     setAccountsCreated,
+    initAllNetworksState,
   } = useContext(WalletAddressContext);
 
   const deriveType = networkDeriveTypeMap[item.id] || 'default';
 
-  const [isEnabledNetwork, setIsEnabledNetwork] = useState(false);
   const { vaultSettings } = useAccountData({
     networkId: item.id,
   });
 
-  useEffect(() => {
-    const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
-      networkId: item.id,
-      deriveType,
-      disabledNetworks: initAllNetworksState.disabledNetworks,
-      enabledNetworks: initAllNetworksState.enabledNetworks,
-    });
-    setIsEnabledNetwork(!!isEnabledNetworkFromDB);
-  }, [item.id, deriveType, initAllNetworksState]);
+  const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
+    networkId: item.id,
+    deriveType,
+    disabledNetworks: initAllNetworksState.disabledNetworks,
+    enabledNetworks: initAllNetworksState.enabledNetworks,
+  });
+
+  const isEnabledNetwork =
+    isAllNetworksEnabled[`${item.id}_${deriveType}`] ?? isEnabledNetworkFromDB;
 
   const copyAccountAddress = useCopyAccountAddress();
   const appNavigation =
@@ -327,6 +359,10 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
         });
         if (createAddressResult) {
           setAccountsCreated(true);
+          setIsAllNetworksEnabled((prev) => ({
+            ...prev,
+            [`${item.id}_${deriveType}`]: true,
+          }));
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: [{ networkId: item.id, deriveType }],
           });
@@ -361,6 +397,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     createAddress,
     deriveType,
     setAccountsCreated,
+    setIsAllNetworksEnabled,
     intl,
     refreshLocalData,
     appNavigation,
@@ -399,8 +436,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
         <WalletAddressListItemIcon
           account={account}
           network={item}
-          isEnabledNetwork={!!isEnabledNetwork}
-          setIsEnabledNetwork={setIsEnabledNetwork}
           deriveType={deriveType}
         />
       )}
@@ -594,10 +629,11 @@ export default function WalletAddressPage({
 >) {
   const { accountId, walletId, indexedAccountId } = route.params;
   const [accountsCreated, setAccountsCreated] = useState(false);
+  const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
+    Record<string, boolean>
+  >({});
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
-      const allNetworksState =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           { accountId, walletId },
@@ -615,15 +651,11 @@ export default function WalletAddressPage({
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           { networkIds, indexedAccountId },
         );
-      return { networksAccount, networks, allNetworksState };
+      return { networksAccount, networks };
     },
     [accountId, indexedAccountId, walletId],
     {
       initResult: {
-        allNetworksState: {
-          enabledNetworks: [],
-          disabledNetworks: [],
-        },
         networksAccount: [],
         networks: {
           mainnetItems: [],
@@ -631,6 +663,17 @@ export default function WalletAddressPage({
           unavailableItems: [],
           frequentlyUsedItems: [],
         },
+      },
+    },
+  );
+
+  const { result: allNetworksState } = usePromiseResult(
+    () => backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+    [],
+    {
+      initResult: {
+        enabledNetworks: [],
+        disabledNetworks: [],
       },
     },
   );
@@ -649,20 +692,23 @@ export default function WalletAddressPage({
     return {
       networkAccountMap,
       networkDeriveTypeMap,
-      initAllNetworksState: result.allNetworksState,
+      initAllNetworksState: allNetworksState,
       accountId,
       indexedAccountId,
       refreshLocalData,
       accountsCreated,
       setAccountsCreated,
+      isAllNetworksEnabled,
+      setIsAllNetworksEnabled,
     } as IWalletAddressContext;
   }, [
-    result.allNetworksState,
-    result.networksAccount,
+    allNetworksState,
     accountId,
     indexedAccountId,
     refreshLocalData,
     accountsCreated,
+    isAllNetworksEnabled,
+    result.networksAccount,
   ]);
 
   return (
