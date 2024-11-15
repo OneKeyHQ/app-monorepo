@@ -272,10 +272,18 @@ export function useSwapBuildTx() {
         sender: {
           amount: selectQuote?.fromAmount,
           token: fromToken,
+          accountInfo: {
+            accountId: swapFromAddressInfo.accountInfo?.account?.id,
+            networkId: fromToken.networkId,
+          },
         },
         receiver: {
           amount: selectQuote.toAmount,
           token: toToken,
+          accountInfo: {
+            accountId: swapToAddressInfo.accountInfo?.account?.id,
+            networkId: toToken.networkId,
+          },
         },
         accountAddress: swapFromAddressInfo.address,
         receivingAddress: swapToAddressInfo.address,
@@ -298,7 +306,9 @@ export function useSwapBuildTx() {
     selectQuote,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
     swapToAddressInfo.address,
+    swapToAddressInfo.accountInfo?.account?.id,
     setSwapBuildTxFetching,
     navigationToSendConfirm,
     handleBuildTxSuccess,
@@ -481,10 +491,18 @@ export function useSwapBuildTx() {
             sender: {
               amount: selectQuote.fromAmount,
               token: fromToken,
+              accountInfo: {
+                accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                networkId: fromToken.networkId,
+              },
             },
             receiver: {
               amount: selectQuote.toAmount,
               token: toToken,
+              accountInfo: {
+                accountId: swapToAddressInfo.accountInfo?.account?.id,
+                networkId: toToken.networkId,
+              },
             },
             accountAddress: swapFromAddressInfo.address,
             receivingAddress: swapToAddressInfo.address,
@@ -506,6 +524,7 @@ export function useSwapBuildTx() {
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
     swapToAddressInfo.address,
+    swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
     intl,
   ]);
