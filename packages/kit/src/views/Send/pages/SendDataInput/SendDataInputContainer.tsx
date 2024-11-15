@@ -1028,6 +1028,7 @@ function SendDataInputContainer() {
   const renderTxMessageForm = useCallback(() => {
     const toAddress = form.getValues('to');
     if (
+      !settings.isCustomTxMessageEnabled ||
       !displayTxMessageForm ||
       !tokenInfo?.isNative ||
       toAddress.raw === '' ||
@@ -1073,6 +1074,7 @@ function SendDataInputContainer() {
     handleTxMessageOnChange,
     intl,
     media.gtMd,
+    settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
     txMessageDescription,
   ]);

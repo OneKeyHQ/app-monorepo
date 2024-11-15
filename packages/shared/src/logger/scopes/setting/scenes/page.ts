@@ -110,7 +110,7 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public enterCustomNonce() {
+  public enterCustomizeTransaction() {
     return {};
   }
 
