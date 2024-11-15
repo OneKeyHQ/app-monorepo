@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Popover,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
   YStack,
+  useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -36,6 +38,23 @@ import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider'
 import { ShortcutsActionButton } from './ShortcutsActionButton.desktop';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
+
+function HeaderRightToolBarSkeleton() {
+  const media = useMedia();
+  return (
+    <XStack gap="$3" alignItems="center">
+      {/* Network Selector */}
+      <Skeleton width={media.gtMd ? 127 : '$9'} height="$9" borderRadius="$2" />
+
+      {/* Account Selector */}
+      <Skeleton
+        width={media.gtMd ? 142 : '$9'}
+        height={media.gtMd ? '$12' : '$9'}
+        borderRadius="$2"
+      />
+    </XStack>
+  );
+}
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
@@ -329,7 +348,7 @@ function HeaderRightToolBarWrapper() {
   }, []);
 
   if (isSwitchingNetwork) {
-    return null;
+    return <HeaderRightToolBarSkeleton />;
   }
 
   return <HeaderRightToolBar />;

@@ -1327,15 +1327,21 @@ class ServiceDApp extends ServiceBase {
       storageType,
     });
 
+    void this.emitSwitchNetworkEvents();
+
+    return newConnectedAccountInfo;
+  }
+
+  private emitSwitchNetworkEvents() {
     appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
       state: 'switching',
     });
-    await timerUtils.wait(20);
-    appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
-      state: 'completed',
-    });
 
-    return newConnectedAccountInfo;
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.OnSwitchDAppNetwork, {
+        state: 'completed',
+      });
+    }, 20);
   }
 
   @backgroundMethod()
