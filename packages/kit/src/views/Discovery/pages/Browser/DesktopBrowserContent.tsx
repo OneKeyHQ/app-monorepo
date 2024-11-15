@@ -89,7 +89,6 @@ function BasicFind({ id }: { id: string }) {
       };
     }) => {
       console.log(result);
-      // webView.stopFindInPage('activateSelection');
       setMatches(result.matches);
       setActiveMatchOrdinal(result.activeMatchOrdinal);
     },
@@ -132,6 +131,8 @@ function BasicFind({ id }: { id: string }) {
     }
     if (text.length === 0) {
       webView.stopFindInPage('clearSelection');
+      setMatches(0);
+      setActiveMatchOrdinal(0);
     } else {
       webView.findInPage(text, { findNext: true, forward: false });
     }
@@ -180,7 +181,11 @@ function BasicFind({ id }: { id: string }) {
                 px: 0,
               }}
             />
-            <SizableText>
+            <SizableText
+              w="$16"
+              textAlign="center"
+              color={matches === 0 ? '$textSubdued' : undefined}
+            >
               {activeMatchOrdinal}/{matches}
             </SizableText>
             <Stack width="$px" height="100%" bg="$borderStrong" />
