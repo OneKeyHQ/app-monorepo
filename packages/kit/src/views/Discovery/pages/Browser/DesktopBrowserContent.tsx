@@ -44,13 +44,19 @@ function BasicFind({ id }: { id: string }) {
   const [visible, setIsVisible] = useState(false);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
+    if (matches < 1) {
+      return;
+    }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     webView.findInPage(prevSearchText.current, {
       findNext: false,
       forward: false,
     });
-  }, [id]);
+  }, [id, matches]);
   const handleFindNext = useCallback(() => {
+    if (matches < 1) {
+      return;
+    }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
       webView.findInPage(prevSearchText.current, {
@@ -134,6 +140,20 @@ function BasicFind({ id }: { id: string }) {
 
   const disabled = matches === 0;
 
+  const handleKeyPress = useCallback(
+    (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => {
+      // Enter
+      if (e.keyCode === 13) {
+        handleFindNext();
+      }
+    },
+    [handleFindNext],
+  );
+
   return (
     <AnimatePresence>
       {visible ? (
@@ -147,6 +167,7 @@ function BasicFind({ id }: { id: string }) {
             opacity: 0,
             y: -20,
           }}
+          onKeyPress={handleKeyPress}
           exitStyle={{
             opacity: 0,
             y: -20,
