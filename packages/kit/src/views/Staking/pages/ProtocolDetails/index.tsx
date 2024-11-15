@@ -66,7 +66,7 @@ const ProtocolDetailsPage = () => {
         provider,
       }),
     [accountId, networkId, indexedAccountId, symbol, provider],
-    { watchLoading: true },
+    { watchLoading: true, revalidateOnFocus: true },
   );
 
   const { result: unbondingDelegationList } = usePromiseResult(
@@ -80,7 +80,7 @@ const ProtocolDetailsPage = () => {
           })
         : Promise.resolve([]),
     [earnAccount?.accountAddress, symbol, networkId, provider],
-    { watchLoading: true, initResult: [] },
+    { watchLoading: true, initResult: [], revalidateOnFocus: true },
   );
 
   const onCreateAddress = useCallback(async () => {

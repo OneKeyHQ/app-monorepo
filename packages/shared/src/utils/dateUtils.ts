@@ -2,6 +2,7 @@ import {
   format as fnsFormat,
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
+  formatDistanceToNowStrict as fnsFormatDistanceToNowStrict,
   formatDuration as fnsFormatDuration,
   intervalToDuration,
   isToday,
@@ -139,7 +140,34 @@ export function formatDistanceStrict(
   return distance ?? '';
 }
 
-export function formatDistanceToNow(date: Date | number, addSuffix = true) {
+export function formatDistanceToNowStrict(
+  date: Date | number,
+  params?: {
+    addSuffix?: boolean;
+    unit?: 'second' | 'minute' | 'hour' | 'day' | 'month' | 'year';
+    roundingMethod?: 'floor' | 'ceil' | 'round';
+    locale?: Locale;
+  },
+) {
+  const { addSuffix = true, roundingMethod = 'ceil' } = params || {};
+  const locale = appLocale.getLocale();
+  const distance = fnsFormatDistanceToNowStrict(date, {
+    addSuffix,
+    roundingMethod,
+    locale: parseToDateFnsLocale(locale),
+  });
+  return distance ?? '';
+}
+
+export function formatDistanceToNow(
+  date: Date | number,
+  params?: {
+    includeSeconds?: boolean;
+    addSuffix?: boolean;
+    locale?: Locale;
+  },
+) {
+  const { addSuffix = true } = params || {};
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceToNow(date, {
     addSuffix,

@@ -20,10 +20,7 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  formatDate,
-  formatDistanceToNow,
-} from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -42,6 +39,7 @@ import {
 } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import { formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -523,10 +521,7 @@ export const UniversalStake = ({
                 {intl.formatMessage(
                   { id: ETranslations.earn_in_number },
                   {
-                    number: formatDistanceToNow(
-                      Date.now() + Number(stakingTime * 1000),
-                      false,
-                    ),
+                    number: formatStakingDistanceToNowStrict(stakingTime),
                   },
                 )}
               </SizableText>
