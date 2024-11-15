@@ -22,7 +22,6 @@ import {
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
@@ -210,16 +209,7 @@ export function useSwapBuildTx() {
               const tokenBalanceBN = new BigNumber(
                 tokenBalanceInfo[0].balanceParsed ?? 0,
               );
-              const fromTokenIsFeeToken = equalTokenNoCaseSensitive({
-                token1: item.token,
-                token2: fromToken,
-              });
-              const tokenAmountBN = fromTokenIsFeeToken
-                ? new BigNumber(selectQuote?.fromAmount ?? 0).plus(
-                    new BigNumber(item.amount ?? 0),
-                  )
-                : new BigNumber(item.amount ?? 0);
-
+              const tokenAmountBN = new BigNumber(item.amount ?? 0);
               if (tokenBalanceBN.lt(tokenAmountBN)) {
                 Toast.error({
                   title: intl.formatMessage(
@@ -249,9 +239,7 @@ export function useSwapBuildTx() {
       return checkRes;
     },
     [
-      fromToken,
       intl,
-      selectQuote?.fromAmount,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
     ],
