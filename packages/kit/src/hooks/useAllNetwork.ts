@@ -175,6 +175,7 @@ function useAllNetworkRequests<T>(params: {
         if (
           isEnabledNetworksInAllNetworks({
             networkId: accountInfo.networkId,
+            deriveType: accountInfo.deriveType,
             disabledNetworks,
             enabledNetworks,
           })

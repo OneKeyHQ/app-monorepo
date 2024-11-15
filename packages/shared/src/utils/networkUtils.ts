@@ -19,6 +19,7 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
 const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
@@ -114,21 +115,35 @@ export function getBtcDappUniSetChainName(network: IServerNetwork) {
 
 export function isEnabledNetworksInAllNetworks({
   networkId,
+  deriveType,
   disabledNetworks,
   enabledNetworks,
 }: {
   networkId: string;
-  disabledNetworks: string[];
-  enabledNetworks: string[];
+  deriveType: IAccountDeriveTypes | undefined;
+  disabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  enabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
 }) {
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks.includes(networkId);
+      return !disabledNetworks.find(
+        (n) => n.networkId === networkId && n.deriveType === deriveType,
+      );
     }
 
-    return enabledNetworks.includes(networkId);
+    return enabledNetworks.find(
+      (n) => n.networkId === networkId && n.deriveType === deriveType,
+    );
   }
-  return !disabledNetworks.includes(networkId);
+  return !disabledNetworks.find(
+    (n) => n.networkId === networkId && n.deriveType === deriveType,
+  );
 }
 
 function isAllNetwork({

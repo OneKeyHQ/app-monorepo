@@ -75,14 +75,14 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       );
 
     const visibleNetworks = a.networks.filter((n) => {
-      if (
-        networksAccount.find(
-          (na) => na.network.id === n.id && na.account?.address,
-        )
-      ) {
+      const account = networksAccount.find(
+        (na) => na.network.id === n.id && na.account?.address,
+      );
+      if (account) {
         if (
           isEnabledNetworksInAllNetworks({
             networkId: n.id,
+            deriveType: account.accountDeriveType,
             disabledNetworks: s.disabledNetworks,
             enabledNetworks: s.enabledNetworks,
           })

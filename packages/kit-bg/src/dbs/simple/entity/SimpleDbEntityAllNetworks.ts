@@ -1,11 +1,20 @@
-import { uniq } from 'lodash';
+import { uniq, uniqBy } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+import type { IAccountDeriveTypes } from '../../../vaults/types';
+
 export interface IAllNetworksDBStruct {
-  disabledNetworks: string[]; // network ids
-  enabledNetworks: string[]; // network ids
+  disabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  enabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
 }
 
 export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDBStruct> {
@@ -24,26 +33,42 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
 
   @backgroundMethod()
   async updateAllNetworksState({
-    disabledNetworks,
-    enabledNetworks,
+    disabledNetworks = [],
+    enabledNetworks = [],
   }: {
-    disabledNetworks: string[];
-    enabledNetworks: string[];
+    disabledNetworks?: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    enabledNetworks?: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
   }): Promise<void> {
     await this.setRawData(({ rawData }) => {
       const originalDisabledNetworks = rawData?.disabledNetworks ?? [];
       const originalEnabledNetworks = rawData?.enabledNetworks ?? [];
 
-      const finalEnabledNetworks = uniq([
-        ...originalEnabledNetworks,
-        ...enabledNetworks,
-      ]).filter((networkId) => !disabledNetworks.includes(networkId));
+      const finalEnabledNetworks = uniqBy(
+        [...originalEnabledNetworks, ...enabledNetworks],
+        (n) => `${n.networkId}_${n.deriveType}`,
+      ).filter(
+        (n) =>
+          !disabledNetworks.find(
+            (o) => o.networkId === n.networkId && o.deriveType === n.deriveType,
+          ),
+      );
 
       // remove duplicated networks
-      const finalDisabledNetworks = uniq([
-        ...originalDisabledNetworks,
-        ...disabledNetworks,
-      ]).filter((networkId) => !enabledNetworks.includes(networkId));
+      const finalDisabledNetworks = uniqBy(
+        [...originalDisabledNetworks, ...disabledNetworks],
+        (n) => `${n.networkId}_${n.deriveType}`,
+      ).filter(
+        (n) =>
+          !enabledNetworks.find(
+            (o) => o.networkId === n.networkId && o.deriveType === n.deriveType,
+          ),
+      );
       return {
         disabledNetworks: finalDisabledNetworks,
         enabledNetworks: finalEnabledNetworks,
