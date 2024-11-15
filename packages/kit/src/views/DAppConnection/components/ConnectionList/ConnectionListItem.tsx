@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import {
   Icon,
   Image,
@@ -7,13 +9,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IConnectionAccountInfo,
-  IConnectionAccountInfoWithNum,
-  IConnectionItemWithStorageType,
-  IConnectionStorageType,
+import {
+  EAlignPrimaryAccountMode,
+  type IConnectionAccountInfo,
+  type IConnectionAccountInfoWithNum,
+  type IConnectionItemWithStorageType,
+  type IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { DAppAccountListItem } from '../DAppAccountList';
@@ -37,11 +41,29 @@ function ConnectionListItem({
     prevAccountInfo: IConnectionAccountInfoWithNum;
   }) => void;
 }) {
+  const [settings] = useSettingsPersistAtom();
   // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
-  const getReadonly = (connectionInfo: IConnectionAccountInfo) => {
-    if (item.storageType !== 'walletConnect') return false;
-    return connectionInfo.networkImpl === IMPL_ALGO;
-  };
+  const getReadonly = useCallback(
+    (connectionInfo: IConnectionAccountInfo) => {
+      // If the primary account is always used, the dApp connection will not switch on connection list
+      if (
+        settings.alignPrimaryAccountMode ===
+        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+      ) {
+        if (item.storageType === 'walletConnect') {
+          return connectionInfo.networkImpl === IMPL_ALGO;
+        }
+        if (Object.keys(item.connectionMap).length > 1) {
+          return false;
+        }
+        return true;
+      }
+
+      if (item.storageType !== 'walletConnect') return false;
+      return connectionInfo.networkImpl === IMPL_ALGO;
+    },
+    [settings.alignPrimaryAccountMode, item.storageType, item.connectionMap],
+  );
   return (
     <YStack gap="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
