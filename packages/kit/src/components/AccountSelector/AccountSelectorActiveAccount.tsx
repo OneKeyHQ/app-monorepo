@@ -1,10 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  IconButton,
+  Button,
   NATIVE_HIT_SLOP,
   SizableText,
   Tooltip,
@@ -14,6 +14,10 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -25,8 +29,11 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -51,6 +58,61 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       setIsFocus(!hideByModal);
     },
   );
+
+  const { result, run } = usePromiseResult(async () => {
+    if (!activeAccount.network?.isAllNetworks) return null;
+    const [s, a] = await Promise.all([
+      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+    ]);
+
+    const networksAccount =
+      await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+        {
+          networkIds: a.networks.map((n) => n.id),
+          indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
+        },
+      );
+
+    const visibleNetworks = a.networks.filter((n) => {
+      const account = networksAccount.find(
+        (na) => na.network.id === n.id && na.account?.address,
+      );
+      if (account) {
+        if (
+          isEnabledNetworksInAllNetworks({
+            networkId: n.id,
+            deriveType: account.accountDeriveType,
+            disabledNetworks: s.disabledNetworks,
+            enabledNetworks: s.enabledNetworks,
+          })
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    return {
+      visibleNetworks,
+      allNetworks: a.networks,
+    };
+  }, [
+    activeAccount.account?.indexedAccountId,
+    activeAccount.network?.isAllNetworks,
+  ]);
+
+  const { visibleNetworks, allNetworks } = result ?? {};
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, () => run());
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () => run());
+    };
+  }, [run]);
+
   if (!isAllNetworkEnabled) {
     return null;
   }
@@ -64,13 +126,17 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       })}
       tourName={ESpotlightTour.createAllNetworks}
     >
-      <IconButton
-        title={intl.formatMessage({ id: ETranslations.global_copy_address })}
+      <Button
         variant="tertiary"
         icon="Copy3Outline"
         size="small"
+        color="$text"
         onPress={handleAllNetworkCopyAddress}
-      />
+      >
+        {allNetworks && visibleNetworks
+          ? `${visibleNetworks.length} / ${allNetworks.length}`
+          : ''}
+      </Button>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
   );

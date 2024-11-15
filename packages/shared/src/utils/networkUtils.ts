@@ -1,3 +1,5 @@
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+
 import {
   BtcDappNetworkTypes,
   BtcDappUniSetChainTypes,
@@ -5,6 +7,7 @@ import {
   EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
+import { getDefaultEnabledEVMNetworksInAllNetworks } from '../config/presetNetworks';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -18,6 +21,9 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+
+const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
+const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -106,6 +112,39 @@ export function getBtcDappUniSetChainName(network: IServerNetwork) {
       BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET],
     );
   }
+}
+
+export function isEnabledNetworksInAllNetworks({
+  networkId,
+  deriveType,
+  disabledNetworks,
+  enabledNetworks,
+}: {
+  networkId: string;
+  deriveType: IAccountDeriveTypes | undefined;
+  disabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  enabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+}) {
+  if (getNetworkImpl({ networkId }) === IMPL_EVM) {
+    if (defaultEnabledEVMNetworkIds.includes(networkId)) {
+      return !disabledNetworks.find(
+        (n) => n.networkId === networkId && n.deriveType === deriveType,
+      );
+    }
+
+    return enabledNetworks.find(
+      (n) => n.networkId === networkId && n.deriveType === deriveType,
+    );
+  }
+  return !disabledNetworks.find(
+    (n) => n.networkId === networkId && n.deriveType === deriveType,
+  );
 }
 
 function isAllNetwork({

@@ -1050,7 +1050,6 @@ function SendDataInputContainer() {
           <Button
             size="small"
             variant="tertiary"
-            icon="WalletOutline"
             onPress={() => showTxMessageFaq()}
           >
             {intl.formatMessage({
