@@ -37,6 +37,16 @@ export function useSwapTxHistoryActions() {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo.symbol,
+          accountInfo: {
+            sender: {
+              accountId: swapTxInfo.sender.accountInfo?.accountId,
+              networkId: swapTxInfo.sender.accountInfo.networkId,
+            },
+            receiver: {
+              accountId: swapTxInfo.receiver.accountInfo?.accountId,
+              networkId: swapTxInfo.receiver.accountInfo.networkId,
+            },
+          },
           baseInfo: {
             toAmount: swapTxInfo.receiver.amount,
             fromAmount: swapTxInfo.sender.amount,
