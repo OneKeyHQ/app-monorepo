@@ -567,15 +567,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const sdk =
               await this.backgroundApi.serviceHardware.getSDKInstance();
             hwAllNetworkPrepareAccountsResponse = (await convertDeviceResponse(
-              () =>
-                sdk.allNetworkGetAddress(
-                  deviceParams.dbDevice?.connectId || '',
-                  deviceParams.dbDevice?.deviceId || '',
-                  {
-                    ...deviceParams.deviceCommonParams,
-                    bundle: bundleParams,
-                  },
-                ),
+              async () => {
+                // throw new NewFirmwareForceUpdate({ payload: {} });
+
+                const sdkAllNetworkGetAddressResponse =
+                  await sdk.allNetworkGetAddress(
+                    deviceParams.dbDevice?.connectId || '',
+                    deviceParams.dbDevice?.deviceId || '',
+                    {
+                      ...deviceParams.deviceCommonParams,
+                      bundle: bundleParams,
+                    },
+                  );
+                return sdkAllNetworkGetAddressResponse;
+              },
             )) as any; // TODO sdk type error
             console.log(
               'sdk.allNetworkGetAddress response',

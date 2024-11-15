@@ -359,36 +359,45 @@ export type IBuildPrepareAccountsPrefixedPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-export type IHwAllNetworkPrepareAccountsItem = {
-  success: boolean;
-  error?: string;
-  errorCode?: string; // TODO return error code from hw sdk
+type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+  error: string;
+  code: number;
+  errorCode: string | number; // TODO use code instead
+  connectId: string;
+  deviceId: string;
+};
 
+type IHwAllNetworkPrepareAccountsItemCommon = {
   path: string;
   network: IHwSdkNetwork;
   chainName?: string;
   prefix?: string;
-
-  payload?: {
-    address?: string;
-
-    pub?: string;
-    publicKey?: string; // cosmos, sui, aptos 缺
-    publickey?: string; // nostr
-
-    npub?: string; // nostr
-
-    xpub?: string;
-    xpubSegwit?: string;
-
-    node?: HDNodeType; // btc
-
-    serializedPath?: string; // ada
-    stakeAddress?: string; // ada
-
-    derivedPath?: string; // alph
-  };
 };
+export type IHwAllNetworkPrepareAccountsItem =
+  IHwAllNetworkPrepareAccountsItemCommon & {
+    success: true;
+
+    payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
+      address?: string;
+
+      pub?: string;
+      publicKey?: string; // cosmos, sui, aptos 缺
+      publickey?: string; // nostr
+
+      npub?: string; // nostr
+
+      xpub?: string;
+      xpubSegwit?: string;
+
+      node?: HDNodeType; // btc
+
+      serializedPath?: string; // ada
+      stakeAddress?: string; // ada
+
+      derivedPath?: string; // alph
+    };
+  };
+
 export type IHwAllNetworkPrepareAccountsResponse =
   IHwAllNetworkPrepareAccountsItem[];
 
