@@ -184,8 +184,17 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     >
       <XStack gap="$6" alignItems="center">
         <IconButton
+          title={
+            isEnabledNetwork
+              ? intl.formatMessage({
+                  id: ETranslations.network_visible_in_all_network_tooltip_title,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.network_invisible_in_all_network_tooltip_title,
+                })
+          }
           variant="tertiary"
-          icon={isEnabledNetwork ? 'EyeOutline' : 'EyeOffOutline'}
+          icon={isEnabledNetwork ? 'EyeOutline' : 'EyeClosedOutline'}
           iconProps={{
             color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
           }}
@@ -223,6 +232,25 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
               enabledNetworks,
               disabledNetworks,
             });
+            Toast.success({
+              title: isEnabledNetwork
+                ? intl.formatMessage(
+                    {
+                      id: ETranslations.feedback_network_hidden_from_all_networks_toast_title,
+                    },
+                    {
+                      network: item.name,
+                    },
+                  )
+                : intl.formatMessage(
+                    {
+                      id: ETranslations.feedback_network_shown_in_all_networks_toast_title,
+                    },
+                    {
+                      network: item.name,
+                    },
+                  ),
+            });
           }}
         />
         <Icon name="Copy3Outline" color="$iconSubdued" />
@@ -245,6 +273,7 @@ const WalletAddressListItemIcon = ({
     setIsAllNetworksEnabled,
     initAllNetworksState,
   } = useContext(WalletAddressContext);
+  const intl = useIntl();
 
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: network.id,
@@ -264,8 +293,17 @@ const WalletAddressListItemIcon = ({
   return (
     <XStack gap="$6" alignItems="center">
       <IconButton
+        title={
+          isEnabledNetwork
+            ? intl.formatMessage({
+                id: ETranslations.network_visible_in_all_network_tooltip_title,
+              })
+            : intl.formatMessage({
+                id: ETranslations.network_invisible_in_all_network_tooltip_title,
+              })
+        }
         variant="tertiary"
-        icon={isEnabledNetwork ? 'EyeOutline' : 'EyeOffOutline'}
+        icon={isEnabledNetwork ? 'EyeOutline' : 'EyeClosedOutline'}
         iconProps={{
           color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
         }}
@@ -290,6 +328,25 @@ const WalletAddressListItemIcon = ({
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks,
             disabledNetworks,
+          });
+          Toast.success({
+            title: isEnabledNetwork
+              ? intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_network_hidden_from_all_networks_toast_title,
+                  },
+                  {
+                    network: network.name,
+                  },
+                )
+              : intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_network_shown_in_all_networks_toast_title,
+                  },
+                  {
+                    network: network.name,
+                  },
+                ),
           });
         }}
       />
