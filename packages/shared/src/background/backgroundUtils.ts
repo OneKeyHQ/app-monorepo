@@ -338,6 +338,20 @@ export function getNetworkImplsFromDappScope(
   return scopeNetworks[scope];
 }
 
+export function getScopeFromImpl({
+  impl,
+}: {
+  impl: string;
+}): IInjectedProviderNamesStrings[] {
+  const scopes: IInjectedProviderNamesStrings[] = [];
+  Object.entries(scopeNetworks).forEach(([scope, impls]) => {
+    if (impls?.includes(impl)) {
+      scopes.push(scope as IInjectedProviderNamesStrings);
+    }
+  });
+  return scopes;
+}
+
 export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME =
   'globaStatesSyncBroadcast';
 export type IGlobalStatesSyncBroadcastParams = {

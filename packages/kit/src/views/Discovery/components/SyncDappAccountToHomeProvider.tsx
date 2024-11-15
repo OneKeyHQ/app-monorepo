@@ -6,6 +6,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -143,26 +144,24 @@ function SyncDappAccountToHomeCmp({
   return null;
 }
 
-function SyncHomeAccountPageToDappAccount({
-  dAppAccountInfos,
-}: {
-  dAppAccountInfos: IConnectionAccountInfo[] | null;
-}) {
-  const { syncDappAccountToWallet } = useSyncDappAccountToHomeAccount();
+function SyncHomeAccountPageToDappAccount() {
+  const actions = useAccountSelectorActions();
   useEffect(() => {
-    const fn = (params: {
-      dAppAccountInfos: IConnectionAccountInfo[] | null;
+    const fn = async (params: {
+      selectedAccount: IAccountSelectorSelectedAccount;
     }) => {
-      void syncDappAccountToWallet({
-        dAppAccountInfos: params.dAppAccountInfos,
-        forceSelectNetwork: false,
+      await actions.current.syncDappAccountToHomeAccount({
+        newSelectedAccount: params.selectedAccount,
+      });
+      void backgroundApiProxy.serviceDApp.setIsAlignPrimaryAccountProcessing({
+        processing: false,
       });
     };
     appEventBus.on(EAppEventBusNames.SyncDappAccountToHomeAccount, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.SyncDappAccountToHomeAccount, fn);
     };
-  }, [dAppAccountInfos, syncDappAccountToWallet]);
+  }, [actions]);
 
   return null;
 }
@@ -185,9 +184,21 @@ function SyncDappAccountToHomeProvider({
         origin={origin}
         dAppAccountInfos={dAppAccountInfos}
       />
-      <SyncHomeAccountPageToDappAccount dAppAccountInfos={dAppAccountInfos} />
     </AccountSelectorProviderMirror>
   );
 }
 
-export default SyncDappAccountToHomeProvider;
+function SyncHomeAccountToDappAccountProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <SyncHomeAccountPageToDappAccount />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export { SyncHomeAccountToDappAccountProvider, SyncDappAccountToHomeProvider };

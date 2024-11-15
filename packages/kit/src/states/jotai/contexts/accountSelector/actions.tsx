@@ -1383,6 +1383,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  syncDappAccountToHomeAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        newSelectedAccount,
+      }: {
+        newSelectedAccount: IAccountSelectorSelectedAccount;
+      },
+    ) => {
+      await this.updateSelectedAccount.call(set, {
+        num: 0,
+        builder: (v) => newSelectedAccount || v,
+      });
+    },
+  );
+
   getAutoSelectNetworkIdForAccount = contextAtomMethod(
     (
       get,
@@ -1831,6 +1848,8 @@ export function useAccountSelectorActions() {
     actions.syncLocalDeriveTypeFromGlobal.use();
   const reloadSwapToAccountFromHome = actions.reloadSwapToAccountFromHome.use();
   const addDefaultNetworkAccounts = actions.addDefaultNetworkAccounts.use();
+  const syncDappAccountToHomeAccount =
+    actions.syncDappAccountToHomeAccount.use();
 
   return useRef({
     reloadActiveAccountInfo,
@@ -1862,5 +1881,6 @@ export function useAccountSelectorActions() {
     syncLocalDeriveTypeFromGlobal,
     reloadSwapToAccountFromHome,
     addDefaultNetworkAccounts,
+    syncDappAccountToHomeAccount,
   });
 }

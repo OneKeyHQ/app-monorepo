@@ -11,7 +11,6 @@ import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
-import type { IConnectionAccountInfo } from '../../types/dappConnection';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
   IFetchQuotesParams,
@@ -245,7 +244,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
-    dAppAccountInfos: IConnectionAccountInfo[] | null;
+    selectedAccount: IAccountSelectorSelectedAccount;
   };
 }
 

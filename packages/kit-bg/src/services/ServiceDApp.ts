@@ -60,6 +60,8 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type { IDBAccount } from '../dbs/local/types';
+import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
@@ -1208,6 +1210,30 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isSameConnectedAccount(params: {
+    homeAccountSelectorInfo: IAccountSelectorSelectedAccount | undefined;
+    connectedAccountInfo: IConnectionAccountInfo;
+  }) {
+    const { homeAccountSelectorInfo, connectedAccountInfo } = params;
+    if (!homeAccountSelectorInfo) {
+      return false;
+    }
+    const isOtherWallet = accountUtils.isOthersWallet({
+      walletId: homeAccountSelectorInfo.walletId ?? '',
+    });
+    const isSameAccount = isOtherWallet
+      ? connectedAccountInfo.othersWalletAccountId &&
+        connectedAccountInfo.othersWalletAccountId ===
+          homeAccountSelectorInfo?.othersWalletAccountId
+      : connectedAccountInfo.walletId === homeAccountSelectorInfo?.walletId &&
+        connectedAccountInfo.indexedAccountId ===
+          homeAccountSelectorInfo?.indexedAccountId &&
+        connectedAccountInfo.deriveType === homeAccountSelectorInfo?.deriveType;
+
+    return isSameAccount;
+  }
+
+  @backgroundMethod()
   async alignPrimaryAccountToHomeAccount({
     origin,
     connectedAccountInfo,
@@ -1226,6 +1252,10 @@ class ServiceDApp extends ServiceBase {
     }
 
     if (this.isAlignPrimaryAccountProcessing) {
+      console.log(
+        'skip sync, isAlignPrimaryAccountProcessing: ',
+        this.isAlignPrimaryAccountProcessing,
+      );
       return connectedAccountInfo;
     }
 
@@ -1239,15 +1269,12 @@ class ServiceDApp extends ServiceBase {
     const isOtherWallet = accountUtils.isOthersWallet({
       walletId: homeAccountSelectorInfo?.walletId ?? '',
     });
+
     // 2. compare
-    const isSameAccount = isOtherWallet
-      ? connectedAccountInfo.othersWalletAccountId &&
-        connectedAccountInfo.othersWalletAccountId ===
-          homeAccountSelectorInfo?.othersWalletAccountId
-      : connectedAccountInfo.walletId === homeAccountSelectorInfo?.walletId &&
-        connectedAccountInfo.indexedAccountId ===
-          homeAccountSelectorInfo?.indexedAccountId &&
-        connectedAccountInfo.deriveType === homeAccountSelectorInfo?.deriveType;
+    const isSameAccount = await this.isSameConnectedAccount({
+      homeAccountSelectorInfo,
+      connectedAccountInfo,
+    });
 
     if (isSameAccount) {
       return connectedAccountInfo;
@@ -1334,9 +1361,106 @@ class ServiceDApp extends ServiceBase {
       processing: true,
     });
     const connectedAccount = await this.findInjectedAccountByOrigin(origin);
-    appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
-      dAppAccountInfos: connectedAccount,
+
+    const { simpleDb } = this.backgroundApi;
+    const newSelectedAccount = await this.buildHomeSelectedAccountByDappAccount(
+      {
+        dAppAccountInfos: connectedAccount,
+      },
+    );
+    if (newSelectedAccount) {
+      await simpleDb.accountSelector.saveSelectedAccount({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: newSelectedAccount,
+      });
+      appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+        selectedAccount: newSelectedAccount,
+      });
+      // force reset processing to false after 200ms
+      setTimeout(() => {
+        void this.setIsAlignPrimaryAccountProcessing({
+          processing: false,
+        });
+      }, 200);
+    }
+  }
+
+  @backgroundMethod()
+  async buildHomeSelectedAccountByDappAccount({
+    dAppAccountInfos,
+  }: {
+    dAppAccountInfos: IConnectionAccountInfo[] | null;
+  }) {
+    if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
+      return null;
+    }
+    const { serviceAccount, simpleDb } = this.backgroundApi;
+    const dAppAccount = dAppAccountInfos[0];
+    const {
+      indexedAccountId,
+      accountId,
+      networkId,
+      walletId,
+      focusedWallet,
+      deriveType,
+    } = dAppAccount;
+    let newSelectedAccount: IAccountSelectorSelectedAccount;
+    const homeAccountSelectorInfo =
+      await simpleDb.accountSelector.getSelectedAccount({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    const isOtherWallet = accountUtils.isOthersAccount({
+      accountId,
     });
+
+    if (isOtherWallet) {
+      const homeAccountIsOtherWallet = accountUtils.isOthersWallet({
+        walletId: homeAccountSelectorInfo?.walletId ?? '',
+      });
+      let homeAccount: IDBAccount | undefined;
+      if (homeAccountIsOtherWallet) {
+        homeAccount = await serviceAccount.getDBAccountSafe({
+          accountId: homeAccountSelectorInfo?.othersWalletAccountId ?? '',
+        });
+      }
+      const isCompatibleNetwork = homeAccount
+        ? accountUtils.isAccountCompatibleWithNetwork({
+            account: homeAccount,
+            networkId: networkId ?? '',
+          })
+        : false;
+      let autoChangeToAccountMatchedNetwork = false;
+      if (!isCompatibleNetwork) {
+        autoChangeToAccountMatchedNetwork = true;
+      }
+      newSelectedAccount = {
+        indexedAccountId: undefined,
+        othersWalletAccountId: accountId,
+        networkId: autoChangeToAccountMatchedNetwork
+          ? networkId
+          : homeAccountSelectorInfo?.networkId ?? '',
+        walletId,
+        focusedWallet,
+        deriveType,
+      };
+    } else {
+      newSelectedAccount = {
+        indexedAccountId,
+        othersWalletAccountId: undefined,
+        networkId: homeAccountSelectorInfo?.networkId ?? networkId ?? '',
+        walletId,
+        focusedWallet,
+        deriveType,
+      };
+    }
+    return newSelectedAccount;
+  }
+
+  @backgroundMethod()
+  async getAlignPrimaryAccountProcessing() {
+    return this.isAlignPrimaryAccountProcessing;
   }
 }
 

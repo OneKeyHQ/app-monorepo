@@ -31,7 +31,7 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
-import SyncDappAccountToHomeProvider from '../SyncDappAccountToHomeProvider';
+import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider';
 
 import { ShortcutsActionButton } from './ShortcutsActionButton.desktop';
 
