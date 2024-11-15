@@ -133,7 +133,7 @@ function CommonAssetContent(props: IProps) {
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
             {attributes?.map(({ traitType, value, displayType }) =>
-              isObject(value) ? null : (
+              isObject(value) || (traitType === '' && value === '') ? null : (
                 <Stack
                   key={traitType}
                   py="$2"
