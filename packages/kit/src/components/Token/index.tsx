@@ -103,7 +103,6 @@ export function Token({
           p="$0.5"
           bg="$bgApp"
           borderRadius="$full"
-          {...rest}
         >
           <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
         </Stack>
@@ -122,7 +121,6 @@ export function Token({
           p="$0.5"
           bg="$bgApp"
           borderRadius="$full"
-          {...rest}
         >
           <NetworkAvatar networkId={networkId} size={chainImageSize} />
         </Stack>
