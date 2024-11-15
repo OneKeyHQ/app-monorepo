@@ -37,6 +37,7 @@ import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
+  IFetchBuildTxResult,
   IOKXTransactionObject,
   ISwapTokenBase,
   ISwapTxInfo,
@@ -460,6 +461,7 @@ export type IApproveInfo = {
   amount: string;
   isMax?: boolean;
   tokenInfo?: IToken;
+  swapApproveRes?: IFetchBuildTxResult;
 };
 
 export type ITransferPayload = {

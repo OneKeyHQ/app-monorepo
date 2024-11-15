@@ -4,16 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type {
-  IImageSourceProps,
-  IKeyOfIcons,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Icon,
   IconButton,
-  Image,
   Page,
   Popover,
   SectionList,
