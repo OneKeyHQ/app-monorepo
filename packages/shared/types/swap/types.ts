@@ -438,6 +438,10 @@ export interface IFetchBuildTxResponse {
 export interface ISwapInfoSide {
   amount: string;
   token: ISwapToken;
+  accountInfo: {
+    accountId?: string;
+    networkId: string;
+  };
 }
 export interface ISwapTxInfo {
   sender: ISwapInfoSide;
@@ -507,6 +511,16 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
   currency?: string;
+  accountInfo: {
+    sender: {
+      accountId?: string;
+      networkId: string;
+    };
+    receiver: {
+      accountId?: string;
+      networkId: string;
+    };
+  };
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
