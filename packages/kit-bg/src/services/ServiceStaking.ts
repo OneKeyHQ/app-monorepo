@@ -10,6 +10,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EEarnProviderEnum,
   ISupportedSymbol,
@@ -800,6 +801,25 @@ class ServiceStaking extends ServiceBase {
     });
     return resp.data.data.delegations;
   }
+
+  @backgroundMethod()
+  fetchEarnHomePageData() {
+    return this._fetchEarnHomePageData();
+  }
+
+  _fetchEarnHomePageData = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const res = await client.get<{ data: IDiscoveryBanner[] }>(
+        '/utility/v1/earn-banner/list',
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    },
+  );
 
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {

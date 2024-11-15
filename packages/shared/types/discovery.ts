@@ -1,6 +1,5 @@
 export interface IDiscoveryHomePageData {
   banners: IDiscoveryBanner[];
-  earnBanners?: IDiscoveryBanner[];
   categories: ICategory[];
 }
 

@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
-  IImageSourceProps,
   IKeyOfIcons,
   ISizableTextProps,
   IYStackProps,
@@ -36,10 +35,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -667,9 +663,9 @@ function BasicEarnHome() {
   const { result: earnBanners } = usePromiseResult(
     async () => {
       const bannerResult =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+        await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
       return (
-        bannerResult?.earnBanners?.map((i) => ({
+        bannerResult?.map((i) => ({
           ...i,
           imgUrl: i.src,
           title: i.title || '',
