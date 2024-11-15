@@ -33,6 +33,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -67,6 +68,8 @@ type IWalletAddressContext = {
   accountId?: string;
   indexedAccountId: string;
   refreshLocalData: () => void;
+  accountsCreated: boolean;
+  setAccountsCreated: (accountsCreated: boolean) => void;
   initAllNetworksState: {
     enabledNetworks: {
       networkId: string;
@@ -89,6 +92,8 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
     enabledNetworks: [],
     disabledNetworks: [],
   },
+  accountsCreated: false,
+  setAccountsCreated: () => {},
 });
 
 type ISectionItem = {
@@ -271,11 +276,15 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     indexedAccountId,
     refreshLocalData,
     initAllNetworksState,
+    setAccountsCreated,
   } = useContext(WalletAddressContext);
 
   const deriveType = networkDeriveTypeMap[item.id] || 'default';
 
   const [isEnabledNetwork, setIsEnabledNetwork] = useState(false);
+  const { vaultSettings } = useAccountData({
+    networkId: item.id,
+  });
 
   useEffect(() => {
     const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
@@ -317,6 +326,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           num: 0,
         });
         if (createAddressResult) {
+          setAccountsCreated(true);
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: [{ networkId: item.id, deriveType }],
           });
@@ -348,15 +358,16 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     account,
     item.id,
     indexedAccountId,
+    createAddress,
     deriveType,
+    setAccountsCreated,
     intl,
     refreshLocalData,
     appNavigation,
     copyAccountAddress,
-    createAddress,
   ]);
 
-  if (item.id === getNetworkIdsMap().btc) {
+  if (vaultSettings?.mergeDeriveAssetsEnabled) {
     return <WalletAddressDeriveTypeItem item={item} />;
   }
   return (
@@ -532,7 +543,8 @@ const WalletAddress = ({
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
   const intl = useIntl();
-  const { initAllNetworksState } = useContext(WalletAddressContext);
+  const { initAllNetworksState, accountsCreated } =
+    useContext(WalletAddressContext);
 
   return (
     <Page
@@ -541,6 +553,7 @@ const WalletAddress = ({
         const latestAllNetworksState =
           await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
         if (
+          accountsCreated ||
           differenceBy(
             latestAllNetworksState.disabledNetworks,
             initAllNetworksState.disabledNetworks,
@@ -580,6 +593,7 @@ export default function WalletAddressPage({
   EModalWalletAddressRoutes.WalletAddress
 >) {
   const { accountId, walletId, indexedAccountId } = route.params;
+  const [accountsCreated, setAccountsCreated] = useState(false);
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const allNetworksState =
@@ -639,6 +653,8 @@ export default function WalletAddressPage({
       accountId,
       indexedAccountId,
       refreshLocalData,
+      accountsCreated,
+      setAccountsCreated,
     } as IWalletAddressContext;
   }, [
     result.allNetworksState,
@@ -646,6 +662,7 @@ export default function WalletAddressPage({
     accountId,
     indexedAccountId,
     refreshLocalData,
+    accountsCreated,
   ]);
 
   return (
