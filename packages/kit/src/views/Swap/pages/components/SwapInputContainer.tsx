@@ -109,7 +109,10 @@ const SwapInputContainer = ({
         hasError={fromInputHasError}
         balanceProps={{
           value: balance,
-          onPress: onBalanceMaxPress,
+          onPress:
+            direction === ESwapDirectionType.FROM && !token?.isNative
+              ? onBalanceMaxPress
+              : undefined,
         }}
         valueProps={{
           value: amountPrice,

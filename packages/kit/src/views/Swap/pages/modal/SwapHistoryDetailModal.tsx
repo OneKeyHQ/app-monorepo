@@ -19,6 +19,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -294,12 +295,26 @@ const SwapHistoryDetailModal = () => {
               })}
               renderContent={txHistory.txInfo.sender}
               showCopy
+              description={
+                <AddressInfo
+                  address={txHistory.txInfo.sender}
+                  networkId={txHistory.accountInfo?.sender.networkId}
+                  accountId={txHistory.accountInfo?.sender.accountId}
+                />
+              }
             />
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_received_address,
               })}
               renderContent={txHistory.txInfo.receiver}
+              description={
+                <AddressInfo
+                  address={txHistory.txInfo.receiver}
+                  networkId={txHistory.accountInfo?.receiver.networkId}
+                  accountId={txHistory.accountInfo?.receiver.accountId}
+                />
+              }
               showCopy
             />
             <InfoItem
