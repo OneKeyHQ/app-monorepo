@@ -482,6 +482,9 @@ export function MarketDetailPools({
   return (
     <Table
       stickyHeader={false}
+      contentContainerStyle={{
+        pb: '$10',
+      }}
       TableHeaderComponent={
         <NetworkIdSelect
           options={oneKeyNetworkIds}
