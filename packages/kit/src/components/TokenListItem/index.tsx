@@ -1,4 +1,9 @@
-import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -44,13 +49,16 @@ export function TokenListItem({
       })}
       {...rest}
     >
-      <Token
+      <YStack
         {...(disabled && {
           opacity: 0.5,
         })}
-        tokenImageUri={tokenImageSrc}
-        networkImageUri={networkImageSrc}
-      />
+      >
+        <Token
+          tokenImageUri={tokenImageSrc}
+          networkImageUri={networkImageSrc}
+        />
+      </YStack>
       <ListItem.Text
         {...(disabled && {
           opacity: 0.5,
