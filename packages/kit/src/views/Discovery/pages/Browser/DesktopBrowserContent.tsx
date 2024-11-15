@@ -182,7 +182,7 @@ function BasicFind({ id }: { id: string }) {
               }}
             />
             <SizableText
-              w="$16"
+              minWidth="$16"
               textAlign="center"
               color={matches === 0 ? '$textSubdued' : undefined}
             >
