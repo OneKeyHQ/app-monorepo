@@ -25,6 +25,8 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { formatStakingDistanceToNowStrict } from '../utils';
+
 type IPortfolioItemProps = {
   tokenImageUri?: string;
   tokenSymbol: string;
@@ -382,12 +384,16 @@ export const PortfolioSection = ({
     pendingActiveTooltip = intl.formatMessage({
       id: ETranslations.earn_pending_activation_tooltip_eth,
     });
-  } else if (details.pendingActivatePeriod) {
+  } else if (details.pendingActive && Number(details.pendingActive)) {
     pendingActiveTooltip = intl.formatMessage(
       {
         id: ETranslations.earn_pending_activation_tooltip,
       },
-      { number: details.pendingActivatePeriod },
+      {
+        number:
+          formatStakingDistanceToNowStrict(details?.provider?.stakingTime) ||
+          details.pendingActivatePeriod,
+      },
     );
   }
   if (

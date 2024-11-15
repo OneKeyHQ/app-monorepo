@@ -9,8 +9,9 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+
+import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
 
@@ -117,10 +118,7 @@ function ProfitInfo({
               {intl.formatMessage(
                 { id: ETranslations.earn_in_number },
                 {
-                  number: formatDistanceToNow(
-                    Date.now() + Number(stakingTime * 1000),
-                    false,
-                  ),
+                  number: formatStakingDistanceToNowStrict(stakingTime),
                 },
               )}
             </GridItem>
@@ -134,11 +132,11 @@ function ProfitInfo({
                 id:
                   rewardToken === 'APT'
                     ? ETranslations.earn_earn_during_unstaking_tooltip
-                    : ETranslations.earn_staked_assets_available_after_period,
+                    : ETranslations.earn_unstaking_period_tooltip,
               })}
             >
               {intl.formatMessage(
-                { id: ETranslations.earn_claim_available_in_number_days },
+                { id: ETranslations.earn_up_to_number_days },
                 { number: unstakingPeriod },
               )}
             </GridItem>
