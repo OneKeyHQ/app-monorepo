@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -36,11 +35,6 @@ const LastActivityTracker = () => {
               ? 'test'
               : 'prod',
         }),
-      });
-      setAttributes({
-        instanceId,
-        platform: platformEnv.symbol || '',
-        appChannel: platformEnv.appChannel || '',
       });
     }, 0);
     defaultLogger.app.page.appStart();
