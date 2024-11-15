@@ -49,7 +49,7 @@ type IUniversalWithdrawProps = {
   tokenSymbol?: string;
 
   minAmount?: string;
-  showDetailWithdrawalRequested?: number;
+  showDetailWithdrawalRequested: boolean;
   unstakingPeriod?: number;
 
   showPayWith?: boolean;
