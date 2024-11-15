@@ -71,7 +71,10 @@ class ServiceGas extends ServiceBase {
             feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
           }))
         : undefined,
-      feeAlgo: (isArray(feeInfo.feeAlgo) ? feeInfo.feeAlgo : [feeInfo.feeAlgo]).filter((item) => !!item),
+      feeAlgo: (isArray(feeInfo.feeAlgo)
+        ? feeInfo.feeAlgo
+        : [feeInfo.feeAlgo]
+      ).filter((item) => !!item),
       feeDot: feeInfo.feeData
         ?.map((item) => {
           if (!item.extraTip || feeInfo.feeDecimals === undefined) {
