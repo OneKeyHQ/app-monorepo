@@ -109,7 +109,10 @@ const SwapInputContainer = ({
         hasError={fromInputHasError}
         balanceProps={{
           value: balance,
-          onPress: onBalanceMaxPress,
+          onPress:
+            direction === ESwapDirectionType.FROM && !token?.isNative
+              ? onBalanceMaxPress
+              : undefined,
         }}
         valueProps={{
           value: amountPrice,
@@ -143,7 +146,9 @@ const SwapInputContainer = ({
             onSelectToken(direction);
           },
         }}
-        enableMaxAmount={direction === ESwapDirectionType.FROM}
+        enableMaxAmount={
+          !!(direction === ESwapDirectionType.FROM && !token?.isNative)
+        }
       />
     </YStack>
   );

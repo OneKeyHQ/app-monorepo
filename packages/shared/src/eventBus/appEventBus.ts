@@ -81,6 +81,7 @@ export enum EAppEventBusNames {
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
   AddedCustomNetwork = 'AddedCustomNetwork',
+  ShowFindInWebPage = 'ShowFindInWebPage',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -245,6 +246,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     selectedAccount: IAccountSelectorSelectedAccount;
+  };
+  [EAppEventBusNames.ShowFindInWebPage]: {
+    tabId: string;
   };
 }
 

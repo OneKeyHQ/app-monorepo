@@ -1,6 +1,7 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -95,4 +96,6 @@ export class SimpleDb {
   localNFTs = new SimpleDbEntityLocalNFTs();
 
   babylonSync = new SimpleDbEntityBabylonSync();
+
+  allNetworks = new SimpleDbEntityAllNetworks();
 }

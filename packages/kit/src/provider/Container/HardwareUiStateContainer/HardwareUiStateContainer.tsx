@@ -118,7 +118,8 @@ function HardwareSingletonDialogCmp(
   }, [open]);
 
   const result = useMemo<{ title: string; content: React.ReactNode }>(() => {
-    let title = 'Loading';
+    let title = intl.formatMessage({ id: ETranslations.global_processing });
+
     let content = defaultLoadingView;
 
     if (action === EHardwareUiStateAction.DeviceChecking) {

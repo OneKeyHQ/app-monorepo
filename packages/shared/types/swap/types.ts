@@ -282,10 +282,24 @@ export interface IFetchQuoteLimit {
   max?: string;
   min?: string;
 }
+export interface IQuoteResultFeeOtherFeeInfo {
+  token: {
+    networkId: string;
+    contractAddress: string;
+    symbol: string;
+    price: string;
+    decimals: number;
+    logoURI?: string;
+    name?: string;
+    isNative?: boolean;
+  };
+  amount: string;
+}
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
+  otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
 }
 
 export enum ESwapApproveAllowanceType {
@@ -424,6 +438,10 @@ export interface IFetchBuildTxResponse {
 export interface ISwapInfoSide {
   amount: string;
   token: ISwapToken;
+  accountInfo: {
+    accountId?: string;
+    networkId: string;
+  };
 }
 export interface ISwapTxInfo {
   sender: ISwapInfoSide;
@@ -493,6 +511,16 @@ export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
   currency?: string;
+  accountInfo: {
+    sender: {
+      accountId?: string;
+      networkId: string;
+    };
+    receiver: {
+      accountId?: string;
+      networkId: string;
+    };
+  };
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -516,6 +544,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
   };

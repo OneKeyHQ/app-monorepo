@@ -1028,6 +1028,7 @@ function SendDataInputContainer() {
   const renderTxMessageForm = useCallback(() => {
     const toAddress = form.getValues('to');
     if (
+      !settings.isCustomTxMessageEnabled ||
       !displayTxMessageForm ||
       !tokenInfo?.isNative ||
       toAddress.raw === '' ||
@@ -1050,7 +1051,6 @@ function SendDataInputContainer() {
           <Button
             size="small"
             variant="tertiary"
-            icon="WalletOutline"
             onPress={() => showTxMessageFaq()}
           >
             {intl.formatMessage({
@@ -1063,7 +1063,7 @@ function SendDataInputContainer() {
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
           placeholder={intl.formatMessage({
-            id: ETranslations.global_hex_data,
+            id: ETranslations.global_hex_data_input_default,
           })}
         />
       </Form.Field>
@@ -1074,6 +1074,7 @@ function SendDataInputContainer() {
     handleTxMessageOnChange,
     intl,
     media.gtMd,
+    settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
     txMessageDescription,
   ]);

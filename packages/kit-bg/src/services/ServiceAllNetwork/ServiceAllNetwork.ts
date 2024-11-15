@@ -28,6 +28,7 @@ export type IAllNetworkAccountInfo = {
   dbAccount: IDBAccount | undefined;
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
+  deriveType: IAccountDeriveTypes | undefined;
 };
 export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
@@ -226,6 +227,12 @@ class ServiceAllNetwork extends ServiceBase {
               ? isCompatible
               : networkId === realNetworkId;
 
+            const { deriveType } =
+              await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+                networkId: realNetworkId,
+                template: a.template,
+              });
+
             if (
               !includingNotEqualGlobalDeriveTypeAccount &&
               isAllNetwork &&
@@ -235,14 +242,6 @@ class ServiceAllNetwork extends ServiceBase {
                 .getDefaultDeriveTypeVisibleNetworks()
                 .includes(realNetworkId)
             ) {
-              const { deriveType } =
-                await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate(
-                  {
-                    networkId: realNetworkId,
-                    template: a.template,
-                  },
-                );
-
               const globalDeriveType =
                 await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
                   {
@@ -291,6 +290,7 @@ class ServiceAllNetwork extends ServiceBase {
                 isBackendIndexed,
                 isNftEnabled,
                 dbAccount: a,
+                deriveType,
               };
 
               appendAccountInfo(accountInfo);
@@ -317,6 +317,7 @@ class ServiceAllNetwork extends ServiceBase {
             isNftEnabled,
             isBackendIndexed,
             dbAccount: undefined,
+            deriveType: undefined,
           });
         }
       }),
@@ -331,6 +332,29 @@ class ServiceAllNetwork extends ServiceBase {
       accountsInfoBackendIndexed,
       accountsInfoBackendNotIndexed,
     };
+  }
+
+  @backgroundMethod()
+  async getAllNetworksState() {
+    const allNetworksState =
+      await this.backgroundApi.simpleDb.allNetworks.getAllNetworksState();
+    return allNetworksState;
+  }
+
+  @backgroundMethod()
+  async updateAllNetworksState(params: {
+    disabledNetworks?: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    enabledNetworks?: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+  }) {
+    await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
+      params,
+    );
   }
 
   @backgroundMethod()

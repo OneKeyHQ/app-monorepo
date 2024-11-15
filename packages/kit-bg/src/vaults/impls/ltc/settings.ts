@@ -70,7 +70,7 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 60,
 
   dappInteractionEnabled: false,
-  mergeDeriveAssetsEnabled: false,
+  mergeDeriveAssetsEnabled: true,
   qrAccountEnabled: false,
 };
 

@@ -37,6 +37,16 @@ export function useSwapTxHistoryActions() {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo.symbol,
+          accountInfo: {
+            sender: {
+              accountId: swapTxInfo.sender.accountInfo?.accountId,
+              networkId: swapTxInfo.sender.accountInfo.networkId,
+            },
+            receiver: {
+              accountId: swapTxInfo.receiver.accountInfo?.accountId,
+              networkId: swapTxInfo.receiver.accountInfo.networkId,
+            },
+          },
           baseInfo: {
             toAmount: swapTxInfo.receiver.amount,
             fromAmount: swapTxInfo.sender.amount,
@@ -70,6 +80,8 @@ export function useSwapTxHistoryActions() {
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
             protocolFee:
               swapTxInfo.swapBuildResData.result.fee?.protocolFees ?? 0,
+            otherFeeInfos:
+              swapTxInfo.swapBuildResData.result.fee?.otherFeeInfos ?? [],
             orderId: swapTxInfo.swapBuildResData.orderId,
             supportUrl: swapTxInfo.swapBuildResData.result.supportUrl,
           },
