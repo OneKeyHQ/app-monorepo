@@ -95,7 +95,7 @@ export function calculateTotalFeeRange({
       new BigNumber(gasPrice ?? '0'),
     );
 
-    const max = baseFee.plus(extraTipInDot ?? '').toFixed();
+    const max = baseFee.plus(extraTipInDot ?? '0').toFixed();
     const min = max;
 
     return {
