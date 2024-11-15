@@ -865,6 +865,58 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
     const providerInfo = swapInfo.swapBuildResData.result.info;
+    const otherFeeInfos = swapInfo.swapBuildResData.result.fee?.otherFeeInfos;
+    const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
+
+    let transfers: IDecodedTxTransferInfo[] = [
+      {
+        from: swapInfo.accountAddress,
+        to: '',
+        tokenIdOnNetwork: swapSendToken.contractAddress,
+        icon: swapSendToken.logoURI ?? '',
+        name: swapSendToken.name ?? '',
+        symbol: swapSendToken.symbol,
+        amount: swapInfo.sender.amount,
+        isNFT: false,
+        isNative: swapSendToken.isNative,
+      },
+      {
+        from: '',
+        to: swapInfo.receivingAddress,
+        tokenIdOnNetwork: swapReceiveToken.contractAddress,
+        icon: swapReceiveToken.logoURI ?? '',
+        name: swapReceiveToken.name ?? '',
+        symbol: swapReceiveToken.symbol,
+        amount: swapInfo.receiver.amount,
+        isNFT: false,
+        isNative: swapReceiveToken.isNative,
+      },
+    ];
+
+    if (otherFeeInfos) {
+      otherFeeInfos.forEach((feeInfo) => {
+        if (feeInfo.token.contractAddress === transfers[0].tokenIdOnNetwork) {
+          transfers[0].amount = new BigNumber(transfers[0].amount)
+            .plus(feeInfo.amount)
+            .toFixed();
+        } else {
+          otherFeeInfoTransfers.push({
+            from: swapInfo.accountAddress,
+            to: '',
+            tokenIdOnNetwork: feeInfo.token.contractAddress,
+            icon: feeInfo.token.logoURI ?? '',
+            name: feeInfo.token.name ?? '',
+            symbol: feeInfo.token.symbol,
+            amount: feeInfo.amount,
+            isNFT: false,
+            isNative: feeInfo.token.isNative,
+          });
+        }
+      });
+    }
+
+    transfers = [...otherFeeInfoTransfers, ...transfers];
+
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
       to: swapToAddress ?? '',
@@ -876,30 +928,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
       swapReceivedNetworkId: swapInfo.receiver.token.networkId,
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: '',
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-        {
-          from: '',
-          to: swapInfo.receivingAddress,
-          tokenIdOnNetwork: swapReceiveToken.contractAddress,
-          icon: swapReceiveToken.logoURI ?? '',
-          name: swapReceiveToken.name ?? '',
-          symbol: swapReceiveToken.symbol,
-          amount: swapInfo.receiver.amount,
-          isNFT: false,
-          isNative: swapReceiveToken.isNative,
-        },
-      ],
+      transfers,
     });
     return action;
   }
