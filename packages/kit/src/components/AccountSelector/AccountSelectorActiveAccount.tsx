@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
+  Icon,
   NATIVE_HIT_SLOP,
   SizableText,
   Tooltip,
@@ -126,17 +127,38 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       })}
       tourName={ESpotlightTour.createAllNetworks}
     >
-      <Button
-        variant="tertiary"
-        icon="Copy3Outline"
-        size="small"
-        color="$text"
+      <XStack
+        gap="$2"
+        p="$1"
+        m="$-1"
+        borderRadius="$2"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineOffset: 0,
+        }}
+        hitSlop={{
+          right: 8,
+          bottom: 8,
+          top: 8,
+        }}
+        userSelect="none"
         onPress={handleAllNetworkCopyAddress}
       >
-        {allNetworks && visibleNetworks
-          ? `${visibleNetworks.length} / ${allNetworks.length}`
-          : ''}
-      </Button>
+        <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+        <SizableText size="$bodyMd">
+          {allNetworks && visibleNetworks
+            ? `${visibleNetworks.length} / ${allNetworks.length}`
+            : ''}
+        </SizableText>
+      </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
   );
