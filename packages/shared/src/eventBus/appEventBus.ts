@@ -80,6 +80,7 @@ export enum EAppEventBusNames {
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
   AddedCustomNetwork = 'AddedCustomNetwork',
+  ShowFindInWebPage = 'ShowFindInWebPage',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -242,6 +243,9 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  [EAppEventBusNames.ShowFindInWebPage]: {
+    tabId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
