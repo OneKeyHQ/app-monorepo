@@ -184,7 +184,7 @@ function BasicFind({ id }: { id: string }) {
             <SizableText
               minWidth="$16"
               textAlign="center"
-              color={matches === 0 ? '$textSubdued' : undefined}
+              color={disabled ? '$textSubdued' : undefined}
             >
               {activeMatchOrdinal}/{matches}
             </SizableText>
