@@ -48,8 +48,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       network: this.hwSdkNetwork,
       path,
       showOnOneKey: false,
-      // @ts-expect-error
-      includePublicKey: true, // TODO fix type
+      includePublicKey: true,
     };
   }
 
