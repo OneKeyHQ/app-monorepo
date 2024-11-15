@@ -893,6 +893,7 @@
   global_hardware_name_input_max = 'global.hardware_name_input_max',
   global_hex_data = 'global.hex_data',
   global_hex_data_default = 'global.hex_data_default',
+  global_hex_data_default_faq = 'global.hex_data_default_faq',
   global_hex_data_error = 'global.hex_data_error',
   global_hex_data_faq = 'global.hex_data_faq',
   global_hex_data_faq_desc = 'global.hex_data_faq_desc',

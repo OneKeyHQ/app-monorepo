@@ -1062,7 +1062,7 @@ function SendDataInputContainer() {
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
           placeholder={intl.formatMessage({
-            id: ETranslations.global_hex_data,
+            id: ETranslations.global_hex_data_input_default,
           })}
         />
       </Form.Field>
