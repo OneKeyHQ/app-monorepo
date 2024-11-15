@@ -10,7 +10,6 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
-import { analyticLogEvent } from '@onekeyhq/shared/src/analytics/firebase';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,11 +36,6 @@ const LastActivityTracker = () => {
               ? 'test'
               : 'prod',
         }),
-      });
-      analyticLogEvent('initialized', {
-        instanceId,
-        platform: platformEnv.symbol,
-        distribution: platformEnv.appChannel,
       });
       setAttributes({
         instanceId,
