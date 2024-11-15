@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { useDebouncedCallback } from 'use-debounce';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   AnimatePresence,
@@ -124,7 +124,7 @@ function BasicFind({ id }: { id: string }) {
     };
   }, [foundInPage, id]);
 
-  const handleTextChange = useDebouncedCallback((text: string) => {
+  const handleTextChange = useThrottledCallback((text: string) => {
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (!webView) {
       return;
