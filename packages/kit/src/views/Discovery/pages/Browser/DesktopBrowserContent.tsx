@@ -137,7 +137,7 @@ function BasicFind({ id }: { id: string }) {
       webView.findInPage(text, { findNext: true, forward: false });
     }
     prevSearchText.current = text;
-  }, 100);
+  }, 250);
 
   const disabled = matches === 0;
 
