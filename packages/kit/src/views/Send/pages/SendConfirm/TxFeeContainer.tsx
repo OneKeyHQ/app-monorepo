@@ -277,11 +277,7 @@ function TxFeeContainer(props: IProps) {
         if (useDappFeeAndNotEditFee && network) {
           const { tip } = unsignedTxs[0].encodedTx as IEncodedTxDot;
           const feeDecimals = feeInfo.common?.feeDecimals;
-          if (
-            feeInfo.feeDot &&
-            tip &&
-            typeof feeDecimals === 'number'
-          ) {
+          if (feeInfo.feeDot && tip && typeof feeDecimals === 'number') {
             // Only the fee display is affected on sendConfirm page
             feeInfo.feeDot = {
               ...feeInfo.feeDot,

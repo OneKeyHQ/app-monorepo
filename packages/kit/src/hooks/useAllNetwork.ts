@@ -10,6 +10,7 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/perfUtils';
@@ -20,7 +21,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from './usePromiseResult';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
