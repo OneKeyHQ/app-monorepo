@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { useDebouncedCallback } from 'use-debounce';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   AnimatePresence,
@@ -44,13 +44,19 @@ function BasicFind({ id }: { id: string }) {
   const [visible, setIsVisible] = useState(false);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
+    if (matches < 1) {
+      return;
+    }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     webView.findInPage(prevSearchText.current, {
       findNext: false,
       forward: false,
     });
-  }, [id]);
+  }, [id, matches]);
   const handleFindNext = useCallback(() => {
+    if (matches < 1) {
+      return;
+    }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
       webView.findInPage(prevSearchText.current, {
@@ -83,7 +89,6 @@ function BasicFind({ id }: { id: string }) {
       };
     }) => {
       console.log(result);
-      // webView.stopFindInPage('activateSelection');
       setMatches(result.matches);
       setActiveMatchOrdinal(result.activeMatchOrdinal);
     },
@@ -119,18 +124,20 @@ function BasicFind({ id }: { id: string }) {
     };
   }, [foundInPage, id]);
 
-  const handleTextChange = useDebouncedCallback((text: string) => {
+  const handleTextChange = useThrottledCallback((text: string) => {
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (!webView) {
       return;
     }
     if (text.length === 0) {
       webView.stopFindInPage('clearSelection');
+      setMatches(0);
+      setActiveMatchOrdinal(0);
     } else {
       webView.findInPage(text, { findNext: true, forward: false });
     }
     prevSearchText.current = text;
-  }, 100);
+  }, 250);
 
   const disabled = matches === 0;
 
@@ -174,7 +181,11 @@ function BasicFind({ id }: { id: string }) {
                 px: 0,
               }}
             />
-            <SizableText>
+            <SizableText
+              minWidth="$16"
+              textAlign="center"
+              color={disabled ? '$textSubdued' : undefined}
+            >
               {activeMatchOrdinal}/{matches}
             </SizableText>
             <Stack width="$px" height="100%" bg="$borderStrong" />
