@@ -348,7 +348,7 @@ export const UniversalWithdraw = ({
                   <Stack p="$5">
                     <SizableText>
                       {intl.formatMessage({
-                        id: ETranslations.earn_staked_assets_available_after_period,
+                        id: ETranslations.earn_unstaking_period_tooltip,
                       })}
                     </SizableText>
                   </Stack>

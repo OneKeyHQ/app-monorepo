@@ -13,6 +13,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -270,6 +271,26 @@ function TxFeeContainer(props: IProps) {
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
         };
+
+        const useDappFeeAndNotEditFee =
+          vaultSettings?.editFeeEnabled && !feeInfoEditable && useFeeInTx;
+        if (useDappFeeAndNotEditFee && network) {
+          const { tip } = unsignedTxs[0].encodedTx as IEncodedTxDot;
+          const feeDecimals = feeInfo.common?.feeDecimals;
+          if (
+            feeInfo.feeDot &&
+            tip &&
+            typeof feeDecimals === 'number'
+          ) {
+            // Only the fee display is affected on sendConfirm page
+            feeInfo.feeDot = {
+              ...feeInfo.feeDot,
+              extraTipInDot: new BigNumber(tip)
+                .shiftedBy(-feeDecimals)
+                .toFixed(),
+            };
+          }
+        }
 
         items.push({
           label: intl.formatMessage({

@@ -33,6 +33,8 @@ const settings: IVaultSettings = {
   ],
 
   dappInteractionEnabled: true,
+  // dApp not edit fee
+  preCheckDappTxFeeInfoRequired: true,
 
   isUtxo: false,
   isSingleToken: false,

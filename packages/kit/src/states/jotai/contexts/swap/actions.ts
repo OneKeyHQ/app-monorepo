@@ -1120,6 +1120,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      // check other fee
+      const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
+      if (otherFeeInfo?.length) {
+        otherFeeInfo.forEach((item) => {
+          const tokenAmountBN = new BigNumber(item.amount ?? 0);
+          if (tokenAmountBN.gt(0)) {
+            alertsRes = [
+              ...alertsRes,
+              {
+                icon: 'HandCoinsOutline',
+                title: appLocale.intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_alert_require_native_token_title,
+                  },
+                  {
+                    n: numberFormat(tokenAmountBN.toFixed(), {
+                      formatter: 'balance',
+                    }) as string,
+                    token: item.token?.symbol ?? '',
+                  },
+                ),
+                alertLevel: ESwapAlertLevel.WARNING,
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.swap_page_alert_require_native_token_content,
+                }),
+              },
+            ];
+          }
+        });
+      }
+
       if (tokenMetadata?.swapTokenMetadata) {
         const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
         const buyTokenBuyTaxBN = new BigNumber(

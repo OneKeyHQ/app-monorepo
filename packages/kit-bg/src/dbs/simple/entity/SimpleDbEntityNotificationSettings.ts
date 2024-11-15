@@ -12,8 +12,7 @@ export type IAccountActivityNotificationSettings = {
 };
 
 export type ISimpleDbNotificationSettings = {
-  // accountActivity?: IAccountActivityNotificationSettings;
-  accountActivityV2?: IAccountActivityNotificationSettings;
+  accountActivity?: IAccountActivityNotificationSettings;
 };
 
 export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
@@ -31,8 +30,7 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
   ) {
     await this.setRawData(({ rawData }) => ({
       ...rawData,
-      accountActivity: null,
-      accountActivityV2: settings,
+      accountActivity: settings,
     }));
   }
 
@@ -50,13 +48,28 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
     if (!walletId || !accountIdOrIndexedAccountId) {
       return false;
     }
-    const walletEnabled: boolean =
-      settings?.accountActivityV2?.[walletId]?.enabled ??
-      NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
-    const accountEnabled: boolean =
-      settings?.accountActivityV2?.[walletId]?.accounts?.[
+    const walletEnabled: boolean | undefined =
+      settings?.accountActivity?.[walletId]?.enabled;
+    const accountEnabled: boolean | undefined =
+      settings?.accountActivity?.[walletId]?.accounts?.[
         accountIdOrIndexedAccountId
-      ]?.enabled ?? NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED;
+      ]?.enabled;
     return Boolean(walletEnabled && accountEnabled);
+  }
+
+  @backgroundMethod()
+  async getEnabledAccountCount() {
+    const settings = await this.getRawData();
+    let count = 0;
+    Object.values(settings?.accountActivity || {}).forEach((wallet) => {
+      if (wallet.enabled) {
+        Object.values(wallet.accounts || {}).forEach((account) => {
+          if (account.enabled) {
+            count += 1;
+          }
+        });
+      }
+    });
+    return count;
   }
 }
