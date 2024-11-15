@@ -152,10 +152,6 @@ export function useSwapBuildTx() {
             tx: txId,
           });
         }
-        console.log(
-          'swap__handleApproveTxSuccess',
-          data[0].approveInfo?.swapApproveRes,
-        );
         if (data[0].approveInfo?.swapApproveRes) {
           setSwapManualSelectQuoteProviders(
             data[0].approveInfo?.swapApproveRes,
