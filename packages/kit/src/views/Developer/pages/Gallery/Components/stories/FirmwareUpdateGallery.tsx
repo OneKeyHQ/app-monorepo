@@ -5,6 +5,7 @@ import {
   Select,
   SizableText,
   Stack,
+  Toast,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,9 +34,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import * as AllErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
 
@@ -119,6 +124,21 @@ export function FirmwareUpdateGalleryDemo() {
           <BootloaderModeUpdateButton />
           <ClearUpdateInfoDetectCacheButton />
           <ResetDetectTimeCheck />
+          <Button
+            onPress={() => {
+              appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+                connectId: undefined,
+              });
+              appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateForce, {
+                connectId: undefined,
+              });
+              Toast.message({
+                title: 'ForceUpdateDialog',
+              });
+            }}
+          >
+            ForceUpdateDialog
+          </Button>
         </>
       </Stack>
     </AccountSelectorProviderMirror>

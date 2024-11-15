@@ -5,7 +5,10 @@ import {
   OneKeyInternalError,
   UnsupportedAddressTypeError,
 } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -182,19 +185,22 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           payload: resultAccounts,
         };
       }
+
+      // if result length not match to indexes, throw first error item
       const hasErrorItem = hwAllNetworkPrepareAccountsResponse?.find(
-        (item) => !!item.error,
+        (item) => !item.success && !!item.payload?.error,
       );
-      if (!hasErrorItem?.success && hasErrorItem?.error) {
+      if (!hasErrorItem?.success && hasErrorItem?.payload?.error) {
         if (
           // response.payload.code === HardwareErrorCode.RuntimeError &&
-          hasErrorItem?.error?.indexOf(
+          hasErrorItem?.payload?.error?.indexOf(
             'Failure_DataError,Forbidden key path',
           ) !== -1
         ) {
           throw new UnsupportedAddressTypeError();
         }
-        throw new OneKeyInternalError(hasErrorItem.error);
+        throw convertDeviceError(hasErrorItem.payload);
+        // throw new OneKeyInternalError(hasErrorItem.payload.error);
       }
     }
   }
