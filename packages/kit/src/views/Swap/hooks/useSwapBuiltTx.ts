@@ -39,6 +39,7 @@ import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
@@ -67,6 +68,8 @@ export function useSwapBuildTx() {
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const [, setSwapManualSelectQuoteProviders] =
+    useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
   const { navigationToSendConfirm } = useSendConfirm({
@@ -149,6 +152,11 @@ export function useSwapBuildTx() {
             tx: txId,
           });
         }
+        if (data[0].approveInfo?.swapApproveRes) {
+          setSwapManualSelectQuoteProviders(
+            data[0].approveInfo?.swapApproveRes,
+          );
+        }
         setInAppNotificationAtom((prev) => {
           if (prev.swapApprovingTransaction) {
             return {
@@ -163,7 +171,11 @@ export function useSwapBuildTx() {
         });
       }
     },
-    [inAppNotificationAtom.swapApprovingTransaction, setInAppNotificationAtom],
+    [
+      inAppNotificationAtom.swapApprovingTransaction,
+      setInAppNotificationAtom,
+      setSwapManualSelectQuoteProviders,
+    ],
   );
 
   const handleTxFail = useCallback(() => {
@@ -555,6 +567,7 @@ export function useSwapBuildTx() {
                 address: fromToken.contractAddress,
                 name: fromToken.name ?? fromToken.symbol,
               },
+              swapApproveRes: selectQuote,
             };
             approvesInfo = [approveInfo];
             if (resetApproveValue && amount === swapApproveResetValue) {
@@ -569,6 +582,7 @@ export function useSwapBuildTx() {
                   address: fromToken.contractAddress,
                   name: fromToken.name ?? fromToken.symbol,
                 },
+                swapApproveRes: selectQuote,
               };
               approvesInfo = [...approvesInfo, approveResetInfo];
             }
@@ -675,6 +689,7 @@ export function useSwapBuildTx() {
                 address: fromToken.contractAddress,
                 name: fromToken.name ?? fromToken.symbol,
               },
+              swapApproveRes: selectQuote,
             };
             setInAppNotificationAtom((pre) => ({
               ...pre,
@@ -702,11 +717,7 @@ export function useSwapBuildTx() {
       }
     },
     [
-      selectQuote?.allowanceResult,
-      selectQuote?.info.provider,
-      selectQuote?.info.providerName,
-      selectQuote?.fee?.percentageFee,
-      selectQuote?.routesData,
+      selectQuote,
       fromToken,
       toToken,
       swapFromAddressInfo.networkId,
@@ -715,14 +726,14 @@ export function useSwapBuildTx() {
       settingsPersistAtom.swapBatchApproveAndSwap,
       setSwapBuildTxFetching,
       createBuildTx,
-      navigationToSendConfirm,
-      handleBuildTxSuccess,
-      cancelBuildTx,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,
       pageType,
       setSettings,
+      navigationToSendConfirm,
+      cancelBuildTx,
+      handleBuildTxSuccess,
       setSwapShouldRefreshQuote,
       setInAppNotificationAtom,
       handleApproveTxSuccess,
