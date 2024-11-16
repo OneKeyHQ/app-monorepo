@@ -150,8 +150,9 @@ function SyncHomeAccountPageToDappAccount() {
     const fn = async (params: {
       selectedAccount: IAccountSelectorSelectedAccount;
     }) => {
-      await actions.current.syncDappAccountToHomeAccount({
-        newSelectedAccount: params.selectedAccount,
+      await actions.current.updateSelectedAccount({
+        num: 0,
+        builder: () => params.selectedAccount,
       });
       void backgroundApiProxy.serviceDApp.setIsAlignPrimaryAccountProcessing({
         processing: false,
