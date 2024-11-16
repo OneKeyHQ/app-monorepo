@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -123,6 +123,8 @@ function NotificationItem({
     </ListItem>
   );
 }
+
+const NotificationItemMemo = memo(NotificationItem);
 
 function groupNotificationsByDate(
   notifications: INotificationPushMessageListItem[],
@@ -290,26 +292,29 @@ function NotificationList() {
           }: {
             item: INotificationPushMessageListItem;
             index: number;
-          }) => (
-            <NotificationItem
-              key={index}
-              item={item}
-              {...(index !== 0 && {
-                mt: '$2.5',
-              })}
-              onPress={() => {
-                void notificationsUtils.navigateToNotificationDetail({
-                  navigation,
-                  message: item.body,
-                  notificationId:
-                    item?.msgId ||
-                    item?.body?.extras?.params?.msgId ||
-                    item?.body?.extras?.msgId ||
-                    '',
-                });
-              }}
-            />
-          )}
+          }) => {
+            const itemView = (
+              <NotificationItemMemo
+                key={item.msgId || index}
+                item={item}
+                {...(index !== 0 && {
+                  mt: '$2.5',
+                })}
+                onPress={() => {
+                  void notificationsUtils.navigateToNotificationDetail({
+                    navigation,
+                    message: item.body,
+                    notificationId:
+                      item?.msgId ||
+                      item?.body?.extras?.params?.msgId ||
+                      item?.body?.extras?.msgId ||
+                      '',
+                  });
+                }}
+              />
+            );
+            return itemView;
+          }}
           estimatedItemSize="$20"
           ListEmptyComponent={
             <Empty
