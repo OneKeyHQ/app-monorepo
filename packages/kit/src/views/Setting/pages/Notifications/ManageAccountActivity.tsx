@@ -615,8 +615,34 @@ function LoadingView({ show }: { show: boolean }) {
   );
 }
 
-function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
-  const [expandValue, setExpandValue] = useState(wallets?.[0]?.id);
+function getDefaultExpandWalletId({
+  wallets,
+  settings,
+}: {
+  wallets: IDBWallet[];
+  settings: IAccountActivityNotificationSettings;
+}) {
+  for (const wallet of wallets) {
+    if (settings[wallet.id]?.enabled) {
+      return wallet.id;
+    }
+    for (const hiddenWallet of wallet.hiddenWallets || []) {
+      if (settings[hiddenWallet.id]?.enabled) {
+        return hiddenWallet.id;
+      }
+    }
+  }
+  return wallets?.[0]?.id;
+}
+
+function WalletAccordionList({
+  defaultExpandWalletId,
+  wallets,
+}: {
+  defaultExpandWalletId: string | undefined;
+  wallets: IDBWallet[];
+}) {
+  const [expandValue, setExpandValue] = useState(defaultExpandWalletId);
 
   const onWalletEnabledChange = useCallback(
     (params: { wallet: IDBWallet; enabled: boolean }) => {
@@ -668,12 +694,24 @@ const WalletAccordionListMemo = memo(WalletAccordionList);
 
 function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
   const intl = useIntl();
-  const { totalEnabledAccountsCount, maxAccountCount } =
-    useContextAccountNotificationSettings();
+  const {
+    totalEnabledAccountsCount,
+    maxAccountCount,
+    settings: accountNotificationSettings,
+  } = useContextAccountNotificationSettings();
   const shouldShowAlert = useMemo(
     () => totalEnabledAccountsCount / maxAccountCount >= 0.9,
     [totalEnabledAccountsCount, maxAccountCount],
   );
+
+  const defaultExpandWalletIdRef = useRef<string | undefined>();
+  if (!defaultExpandWalletIdRef.current && accountNotificationSettings) {
+    defaultExpandWalletIdRef.current = getDefaultExpandWalletId({
+      wallets,
+      settings: accountNotificationSettings,
+    });
+  }
+
   return (
     <>
       {shouldShowAlert ? (
@@ -694,7 +732,12 @@ function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
           closable={false}
         />
       ) : null}
-      <WalletAccordionListMemo wallets={wallets} />
+      {accountNotificationSettings ? (
+        <WalletAccordionListMemo
+          wallets={wallets}
+          defaultExpandWalletId={defaultExpandWalletIdRef.current}
+        />
+      ) : null}
     </>
   );
 }
