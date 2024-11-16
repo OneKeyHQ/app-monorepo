@@ -579,14 +579,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
                       bundle: bundleParams,
                     },
                   );
+
+                console.log('sdk.allNetworkGetAddress response', {
+                  bundle: bundleParams,
+                  response: sdkAllNetworkGetAddressResponse,
+                });
+
                 return sdkAllNetworkGetAddressResponse;
               },
             )) as any; // TODO sdk type error
-            console.log(
-              'sdk.allNetworkGetAddress response',
-              hwAllNetworkPrepareAccountsResponse,
-              bundleParams,
-            );
           }
         },
         {
