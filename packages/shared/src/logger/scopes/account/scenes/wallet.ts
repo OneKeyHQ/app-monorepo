@@ -125,4 +125,21 @@ export class WalletScene extends BaseScene {
       chainId: network.chainId,
     }));
   }
+
+  @LogToLocal()
+  public getServerNetworksError(error: any) {
+    let errorMessage = 'Unknown error';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+
+    return {
+      error: errorMessage,
+    };
+  }
 }
