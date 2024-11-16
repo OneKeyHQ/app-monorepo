@@ -46,21 +46,25 @@ function ConnectionListItem({
   const getReadonly = useCallback(
     (connectionInfo: IConnectionAccountInfo) => {
       // If the primary account is always used, the dApp connection will not switch on connection list
-      if (
+      const isAlwaysUsePrimaryMode =
         settings.alignPrimaryAccountMode ===
-        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
-      ) {
-        if (item.storageType === 'walletConnect') {
-          return connectionInfo.networkImpl === IMPL_ALGO;
-        }
-        if (Object.keys(item.connectionMap).length > 1) {
-          return false;
-        }
+        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount;
+      const isWalletConnect = item.storageType === 'walletConnect';
+      const isAlgoNetwork = connectionInfo.networkImpl === IMPL_ALGO;
+      const SINGLE_CONNECTION = 1;
+
+      // Algo network WalletConnect connection is always read-only
+      if (isWalletConnect && isAlgoNetwork) {
         return true;
       }
 
-      if (item.storageType !== 'walletConnect') return false;
-      return connectionInfo.networkImpl === IMPL_ALGO;
+      // In always use primary account mode
+      if (isAlwaysUsePrimaryMode) {
+        // Allow switching when there are multiple connections
+        return Object.keys(item.connectionMap).length <= SINGLE_CONNECTION;
+      }
+
+      return false;
     },
     [settings.alignPrimaryAccountMode, item.storageType, item.connectionMap],
   );
