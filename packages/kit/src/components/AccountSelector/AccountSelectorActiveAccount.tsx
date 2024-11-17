@@ -77,8 +77,6 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         },
       );
 
-    console.log('networksAccount', networksAccount);
-
     const visibleNetworks = a.networks.filter((n) => {
       const account = networksAccount.find(
         (na) =>
