@@ -423,10 +423,12 @@ class ServiceHistory extends ServiceBase {
     const accounts =
       allNetworkAccounts ||
       (
-        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          networkId,
-        })
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
       ).accountsInfo;
 
     const allNetworksParams = accounts.map((account) => ({

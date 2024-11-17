@@ -88,6 +88,11 @@ function useAllNetworkRequests<T>(params: {
     accountId: string;
     networkId: string;
   }) => void;
+  allNetworkAccountsData?: ({
+    accounts,
+  }: {
+    accounts: IAllNetworkAccountInfo[];
+  }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
   isNFTRequests?: boolean;
@@ -118,6 +123,7 @@ function useAllNetworkRequests<T>(params: {
     allNetworkRequests,
     allNetworkCacheRequests,
     allNetworkCacheData,
+    allNetworkAccountsData,
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
@@ -167,6 +173,10 @@ function useAllNetworkRequests<T>(params: {
           },
         );
       perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+
+      allNetworkAccountsData?.({
+        accounts: accountsInfo,
+      });
 
       if (!accountsInfo || isEmpty(accountsInfo)) {
         setIsEmptyAccount(true);
@@ -358,6 +368,7 @@ function useAllNetworkRequests<T>(params: {
       wallet,
       abortAllNetworkRequests,
       isNFTRequests,
+      allNetworkAccountsData,
       onStarted,
       onFinished,
       clearAllNetworkData,

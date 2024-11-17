@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -18,6 +18,7 @@ import type {
   IDBUtxoAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
@@ -86,6 +87,9 @@ function TokenListContainer(props: ITabPageProps) {
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+  const [allNetworkAccounts, setAllNetworkAccounts] = useState<
+    IAllNetworkAccountInfo[] | undefined
+  >(undefined);
 
   const tokenListRef = useRef<{
     keys: string;
@@ -759,6 +763,13 @@ function TokenListContainer(props: ITabPageProps) {
     ],
   );
 
+  const handleAllNetworkAccountsData = useCallback(
+    ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
+      setAllNetworkAccounts(accounts);
+    },
+    [],
+  );
+
   const { run: runAllNetworksRequests, result: allNetworksResult } =
     useAllNetworkRequests<IFetchAccountTokensResp>({
       account,
@@ -767,6 +778,7 @@ function TokenListContainer(props: ITabPageProps) {
       allNetworkRequests: handleAllNetworkRequests,
       allNetworkCacheRequests: handleAllNetworkCacheRequests,
       allNetworkCacheData: handleAllNetworkCacheData,
+      allNetworkAccountsData: handleAllNetworkAccountsData,
       clearAllNetworkData: handleClearAllNetworkData,
       onStarted: handleAllNetworkRequestsStarted,
       onFinished: handleAllNetworkRequestsFinished,
@@ -1198,10 +1210,13 @@ function TokenListContainer(props: ITabPageProps) {
 
       if (!network.isAllNetworks) return;
 
+      if (isNil(allNetworkAccounts)) return;
+
       const pendingTxs =
         await backgroundApiProxy.serviceHistory.getAllNetworksPendingTxs({
           accountId: account.id,
           networkId: network.id,
+          allNetworkAccounts,
         });
 
       if (isEmpty(pendingTxs)) return;
@@ -1217,7 +1232,12 @@ function TokenListContainer(props: ITabPageProps) {
         );
       }
     },
-    [account, handleRefreshAllNetworkDataByAccounts, network],
+    [
+      account,
+      allNetworkAccounts,
+      handleRefreshAllNetworkDataByAccounts,
+      network,
+    ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
