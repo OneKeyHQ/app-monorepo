@@ -41,6 +41,7 @@ export enum EAppEventBusNames {
   OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
+  SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
@@ -243,6 +244,9 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+  };
   [EAppEventBusNames.ShowFindInWebPage]: {
     tabId: string;
   };

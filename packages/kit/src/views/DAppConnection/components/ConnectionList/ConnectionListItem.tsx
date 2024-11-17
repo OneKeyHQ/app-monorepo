@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import {
   Icon,
   Image,
@@ -7,13 +9,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IConnectionAccountInfo,
-  IConnectionAccountInfoWithNum,
-  IConnectionItemWithStorageType,
-  IConnectionStorageType,
+import {
+  EAlignPrimaryAccountMode,
+  type IConnectionAccountInfo,
+  type IConnectionAccountInfoWithNum,
+  type IConnectionItemWithStorageType,
+  type IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { DAppAccountListItem } from '../DAppAccountList';
@@ -37,11 +41,33 @@ function ConnectionListItem({
     prevAccountInfo: IConnectionAccountInfoWithNum;
   }) => void;
 }) {
+  const [settings] = useSettingsPersistAtom();
   // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
-  const getReadonly = (connectionInfo: IConnectionAccountInfo) => {
-    if (item.storageType !== 'walletConnect') return false;
-    return connectionInfo.networkImpl === IMPL_ALGO;
-  };
+  const getReadonly = useCallback(
+    (connectionInfo: IConnectionAccountInfo) => {
+      // If the primary account is always used, the dApp connection will not switch on connection list
+      const isAlwaysUsePrimaryMode =
+        settings.alignPrimaryAccountMode ===
+        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount;
+      const isWalletConnect = item.storageType === 'walletConnect';
+      const isAlgoNetwork = connectionInfo.networkImpl === IMPL_ALGO;
+      const SINGLE_CONNECTION = 1;
+
+      // Algo network WalletConnect connection is always read-only
+      if (isWalletConnect && isAlgoNetwork) {
+        return true;
+      }
+
+      // In always use primary account mode
+      if (isAlwaysUsePrimaryMode) {
+        // Allow switching when there are multiple connections
+        return Object.keys(item.connectionMap).length <= SINGLE_CONNECTION;
+      }
+
+      return false;
+    },
+    [settings.alignPrimaryAccountMode, item.storageType, item.connectionMap],
+  );
   return (
     <YStack gap="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">

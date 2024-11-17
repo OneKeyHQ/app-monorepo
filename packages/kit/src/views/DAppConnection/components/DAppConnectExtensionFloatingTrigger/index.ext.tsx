@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   HeightTransition,
@@ -16,7 +16,11 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import SyncDappAccountToHomeProvider from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
+import { SyncDappAccountToHomeProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -31,6 +35,8 @@ import {
   type IHandleAccountChangedParams,
   useHandleDiscoveryAccountChanged,
 } from '../../hooks/useHandleAccountChanged';
+
+import type { IExtensionActiveTabDAppInfo } from '../../hooks/useActiveTabDAppInfo';
 
 function SingleAccountAddressSelectorTrigger({
   origin,
@@ -63,6 +69,79 @@ function SingleAccountAddressSelectorTrigger({
     handleAccountChanged,
   });
   return <AccountSelectorTriggerAddressSingle num={num} />;
+}
+
+function SingleAccountAddressSelectorTriggerWithProvider({
+  result,
+  refreshConnectionInfo,
+}: {
+  result: IExtensionActiveTabDAppInfo | null;
+  refreshConnectionInfo: () => void;
+}) {
+  if (result?.connectedAccountsInfo?.length !== 1) {
+    return null;
+  }
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: result?.origin ?? '',
+      }}
+      enabledNum={result?.connectedAccountsInfo?.map(
+        (connectAccount) => connectAccount.num,
+      )}
+      availableNetworksMap={result?.connectedAccountsInfo?.reduce(
+        (acc, connectAccount) => {
+          if (Array.isArray(connectAccount.availableNetworkIds)) {
+            acc[connectAccount.num] = {
+              networkIds: connectAccount.availableNetworkIds,
+            };
+          }
+          return acc;
+        },
+        {} as Record<number, { networkIds: string[] }>,
+      )}
+    >
+      <SingleAccountAddressSelectorTrigger
+        origin={result?.origin ?? ''}
+        num={result?.connectedAccountsInfo?.[0]?.num}
+        account={result?.connectedAccountsInfo?.[0]}
+        afterChangeAccount={() => {
+          void refreshConnectionInfo();
+        }}
+      />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+function SingleAccountAddressSelectorTriggerWrapper({
+  children,
+  hideAccountSelectorTrigger,
+}: {
+  children: React.ReactNode;
+  hideAccountSelectorTrigger?: boolean;
+}) {
+  const [isSwitching, setIsSwitching] = useState(false);
+
+  useEffect(() => {
+    const onSwitchNetwork = (event: { state: 'switching' | 'completed' }) => {
+      setIsSwitching(event.state === 'switching');
+    };
+    appEventBus.on(EAppEventBusNames.OnSwitchDAppNetwork, onSwitchNetwork);
+    return () => {
+      appEventBus.off(EAppEventBusNames.OnSwitchDAppNetwork, onSwitchNetwork);
+    };
+  }, []);
+
+  if (isSwitching || hideAccountSelectorTrigger) {
+    return (
+      <Stack py="$1" w="$16">
+        <Skeleton height="$3" />
+      </Stack>
+    );
+  }
+
+  return children;
 }
 
 function DAppConnectExtensionFloatingTrigger() {
@@ -100,43 +179,15 @@ function DAppConnectExtensionFloatingTrigger() {
 
   const renderAccountTrigger = useCallback(() => {
     if (result?.connectedAccountsInfo?.length === 1) {
-      if (hideAccountSelectorTrigger) {
-        return (
-          <Stack py="$1" w="$16">
-            <Skeleton height="$3" />
-          </Stack>
-        );
-      }
       return (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.discover,
-            sceneUrl: result?.origin ?? '',
-          }}
-          enabledNum={result?.connectedAccountsInfo?.map(
-            (connectAccount) => connectAccount.num,
-          )}
-          availableNetworksMap={result?.connectedAccountsInfo?.reduce(
-            (acc, connectAccount) => {
-              if (Array.isArray(connectAccount.availableNetworkIds)) {
-                acc[connectAccount.num] = {
-                  networkIds: connectAccount.availableNetworkIds,
-                };
-              }
-              return acc;
-            },
-            {} as Record<number, { networkIds: string[] }>,
-          )}
+        <SingleAccountAddressSelectorTriggerWrapper
+          hideAccountSelectorTrigger={hideAccountSelectorTrigger}
         >
-          <SingleAccountAddressSelectorTrigger
-            origin={result?.origin ?? ''}
-            num={result?.connectedAccountsInfo?.[0]?.num}
-            account={result?.connectedAccountsInfo?.[0]}
-            afterChangeAccount={() => {
-              void refreshConnectionInfo();
-            }}
+          <SingleAccountAddressSelectorTriggerWithProvider
+            result={result}
+            refreshConnectionInfo={refreshConnectionInfo}
           />
-        </AccountSelectorProviderMirror>
+        </SingleAccountAddressSelectorTriggerWrapper>
       );
     }
     return (

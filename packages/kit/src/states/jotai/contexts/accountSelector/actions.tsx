@@ -1831,6 +1831,7 @@ export function useAccountSelectorActions() {
     actions.syncLocalDeriveTypeFromGlobal.use();
   const reloadSwapToAccountFromHome = actions.reloadSwapToAccountFromHome.use();
   const addDefaultNetworkAccounts = actions.addDefaultNetworkAccounts.use();
+  const updateSelectedAccount = actions.updateSelectedAccount.use();
 
   return useRef({
     reloadActiveAccountInfo,
@@ -1862,5 +1863,6 @@ export function useAccountSelectorActions() {
     syncLocalDeriveTypeFromGlobal,
     reloadSwapToAccountFromHome,
     addDefaultNetworkAccounts,
+    updateSelectedAccount,
   });
 }
