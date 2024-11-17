@@ -30,7 +30,9 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -77,7 +79,10 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
 
     const visibleNetworks = a.networks.filter((n) => {
       const account = networksAccount.find(
-        (na) => na.network.id === n.id && na.account?.address,
+        (na) =>
+          na.network.id === n.id &&
+          (na.account?.address ||
+            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
       );
       if (account) {
         if (
