@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   useAccountSelectorActions,
+  useAccountSelectorContextDataAtom,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -145,11 +146,17 @@ function SyncDappAccountToHomeCmp({
 }
 
 function SyncHomeAccountPageToDappAccount() {
+  const [accountSelectorContextData] = useAccountSelectorContextDataAtom();
   const actions = useAccountSelectorActions();
   useEffect(() => {
     const fn = async (params: {
       selectedAccount: IAccountSelectorSelectedAccount;
     }) => {
+      if (
+        accountSelectorContextData?.sceneName !== EAccountSelectorSceneName.home
+      ) {
+        return;
+      }
       await actions.current.updateSelectedAccount({
         num: 0,
         builder: () => params.selectedAccount,
@@ -162,7 +169,7 @@ function SyncHomeAccountPageToDappAccount() {
     return () => {
       appEventBus.off(EAppEventBusNames.SyncDappAccountToHomeAccount, fn);
     };
-  }, [actions]);
+  }, [actions, accountSelectorContextData?.sceneName]);
 
   return null;
 }
