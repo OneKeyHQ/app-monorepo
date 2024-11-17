@@ -198,6 +198,9 @@ export function useShouldUpdateConnectedAccount() {
         updatedAccountInfo: willUpdateAccountInfo,
         storageType,
       });
+      await backgroundApiProxy.serviceDApp.syncDappAccountIfPrimaryMode({
+        origin,
+      });
       console.log(
         'useShouldUpdateConnectedAccount handleAccountChanged: ',
         accountSelectorNum,
