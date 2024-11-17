@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -280,6 +280,32 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       });
 
   useShortcutsOnRouteFocused(EShortcutEvents.AccountSelector, handlePress);
+
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    if (account?.name) {
+      const timer = setTimeout(() => {
+        setShowSkeleton(false);
+        isFirstLoad.current = false;
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+    if (isFirstLoad.current) {
+      setShowSkeleton(true);
+    }
+  }, [account?.name]);
+
+  if (showSkeleton && isFirstLoad.current) {
+    return (
+      <Skeleton
+        width={media.gtMd ? 142 : '$9'}
+        height={media.gtMd ? '$12' : '$9'}
+        borderRadius="$2"
+      />
+    );
+  }
 
   return (
     <XStack

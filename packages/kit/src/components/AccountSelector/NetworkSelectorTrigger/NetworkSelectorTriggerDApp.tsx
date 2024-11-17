@@ -1,8 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
   Icon,
   SizableText,
@@ -145,7 +143,6 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
 });
 
 export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
-  const intl = useIntl();
   const {
     activeAccount: { network },
     showChainSelector,
@@ -160,6 +157,13 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
   }, [showChainSelector]);
 
   useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
+
+  if (!network) {
+    return (
+      <Skeleton width={media.gtMd ? 127 : '$9'} height="$9" borderRadius="$2" />
+    );
+  }
+
   return (
     <XStack
       role="button"
