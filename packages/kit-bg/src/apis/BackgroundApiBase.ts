@@ -7,27 +7,29 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import type {
-  EAppEventBusNames,
-  IAppEventBusPayload,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   EEventBusBroadcastMethodNames,
   appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
+import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
@@ -45,6 +47,9 @@ import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JotaiCrossAtom } from '../states/jotai/utils/JotaiCrossAtom';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
+import { consts } from '@onekeyfe/cross-inpage-provider-core';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -296,6 +301,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // send to all dapp sites content-script
 
       // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
+      const currentSettings = await settingsPersistAtom.get();
+      if (
+        currentSettings.alignPrimaryAccountMode ===
+        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+      ) {
+        // eslint-disable-next-line no-param-reassign
+        targetOrigin = consts.ONEKEY_ALIGN_PRIMARY_ACCOUNT;
+      }
       this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
       if (this.bridge) {

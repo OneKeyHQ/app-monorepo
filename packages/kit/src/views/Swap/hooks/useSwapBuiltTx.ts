@@ -7,6 +7,7 @@ import { EPageType, Toast, usePageType } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   useInAppNotificationAtom,
+  useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -22,6 +23,7 @@ import {
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
@@ -71,7 +73,8 @@ export function useSwapBuildTx() {
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
-  const [{ isFirstTimeSwap }, setSettings] = useSettingsPersistAtom();
+  const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
+  const [, setSettings] = useSettingsAtom();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
@@ -99,6 +102,11 @@ export function useSwapBuildTx() {
         setSwapFromTokenAmount(''); // send success, clear from token amount
         setSwapQuoteResultList([]);
         setSwapQuoteEventTotalCount(0);
+        setSettings((v) => ({
+          // reset account switch for reset swap receive address
+          ...v,
+          swapToAnotherAccountSwitchOn: false,
+        }));
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
@@ -133,6 +141,7 @@ export function useSwapBuildTx() {
       setSwapFromTokenAmount,
       setSwapQuoteResultList,
       setSwapQuoteEventTotalCount,
+      setSettings,
     ],
   );
 
@@ -221,8 +230,19 @@ export function useSwapBuildTx() {
               const tokenBalanceBN = new BigNumber(
                 tokenBalanceInfo[0].balanceParsed ?? 0,
               );
+              const shouldAddFromAmount = equalTokenNoCaseSensitive({
+                token1: item.token,
+                token2: fromToken,
+              });
+
               const tokenAmountBN = new BigNumber(item.amount ?? 0);
-              if (tokenBalanceBN.lt(tokenAmountBN)) {
+              const fromTokenAmountBN = new BigNumber(
+                selectQuote?.fromAmount ?? 0,
+              );
+              const finalTokenAmount = shouldAddFromAmount
+                ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
+                : tokenAmountBN.toFixed();
+              if (tokenBalanceBN.lt(finalTokenAmount)) {
                 Toast.error({
                   title: intl.formatMessage(
                     {
@@ -251,7 +271,9 @@ export function useSwapBuildTx() {
       return checkRes;
     },
     [
+      fromToken,
       intl,
+      selectQuote?.fromAmount,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
     ],
@@ -662,7 +684,7 @@ export function useSwapBuildTx() {
                 isFirstTime: isFirstTimeSwap,
                 createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
               });
-              setSettings((prev) => ({
+              setPersistSettings((prev) => ({
                 ...prev,
                 isFirstTimeSwap: false,
               }));
@@ -730,7 +752,7 @@ export function useSwapBuildTx() {
       slippageItem.value,
       isFirstTimeSwap,
       pageType,
-      setSettings,
+      setPersistSettings,
       navigationToSendConfirm,
       cancelBuildTx,
       handleBuildTxSuccess,
@@ -783,7 +805,7 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
           });
-          setSettings((prev) => ({
+          setPersistSettings((prev) => ({
             ...prev,
             isFirstTimeSwap: false,
           }));
@@ -817,7 +839,7 @@ export function useSwapBuildTx() {
     syncRecentTokenPairs,
     isFirstTimeSwap,
     pageType,
-    setSettings,
+    setPersistSettings,
     setSwapShouldRefreshQuote,
   ]);
 

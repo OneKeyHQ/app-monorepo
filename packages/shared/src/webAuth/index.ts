@@ -51,6 +51,7 @@ export const verifiedWebAuth = async (credId: string) => {
   }
   const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
   const getCredentialOptions: CredentialRequestOptions = {
+    mediation: 'required',
     publicKey: {
       allowCredentials: [
         {
@@ -58,6 +59,7 @@ export const verifiedWebAuth = async (credId: string) => {
           id: base64Decode(credId),
         },
       ],
+      userVerification: 'required',
       challenge: challenge.buffer,
       timeout: 60_000,
     },
@@ -106,10 +108,10 @@ export const registerWebAuth = async (credId?: string) => {
           },
         ],
         timeout: 60_000,
-        attestation: 'direct',
         challenge: challenge.buffer,
         authenticatorSelection: {
-          authenticatorAttachment: 'platform',
+          requireResidentKey: true,
+          userVerification: 'required',
         },
       },
     };
