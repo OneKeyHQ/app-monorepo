@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import {
@@ -21,7 +23,6 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
-import { isNil } from 'lodash';
 
 const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
 const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
