@@ -36,7 +36,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -717,6 +720,7 @@ function BasicEarnHome() {
 
   const onBannerPress = useCallback(
     async ({
+      hrefType,
       href,
     }: {
       imgUrl: string;
@@ -748,7 +752,11 @@ function BasicEarnHome() {
           }
           return;
         }
-        openUrlInApp(href);
+        if (hrefType === 'external') {
+          openUrlExternal(href);
+        } else {
+          openUrlInApp(href);
+        }
       }
     },
     [account, indexedAccount?.id, navigation],
