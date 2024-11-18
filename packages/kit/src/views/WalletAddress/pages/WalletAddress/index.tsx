@@ -7,11 +7,10 @@ import {
   useState,
 } from 'react';
 
-import { difference, differenceBy, isNil } from 'lodash';
+import { differenceBy, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
-  IKeyOfIcons,
   IPageNavigationProp,
   IPageScreenProps,
 } from '@onekeyhq/components';
@@ -84,6 +83,11 @@ type IWalletAddressContext = {
   setIsAllNetworksEnabled: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
+  isAllNetworksEnabledWrapper: Record<string, boolean>;
+  setIsAllNetworksEnabledWrapper: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  isOnlyOneNetworkEnabled: boolean;
 };
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
@@ -100,6 +104,9 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   setAccountsCreated: () => {},
   isAllNetworksEnabled: {},
   setIsAllNetworksEnabled: () => {},
+  isAllNetworksEnabledWrapper: {},
+  setIsAllNetworksEnabledWrapper: () => {},
+  isOnlyOneNetworkEnabled: false,
 });
 
 type ISectionItem = {
@@ -116,6 +123,8 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     initAllNetworksState,
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
+    setIsAllNetworksEnabledWrapper,
+    isOnlyOneNetworkEnabled,
   } = useContext(WalletAddressContext);
   const { result, run: onRefreshData } = usePromiseResult(
     () =>
@@ -131,6 +140,10 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const deriveAccounts = result?.networkAccounts ?? [];
   const isDeriveAccountsInitialized = !isNil(result?.networkAccounts);
 
+  const deriveAccountsEnabledCount = deriveAccounts.filter(
+    (a) => a.account,
+  ).length;
+
   const isEnabledNetwork = deriveAccounts.some((a) => {
     const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
       networkId: item.id,
@@ -145,9 +158,17 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     return isEnabled;
   });
 
-  const deriveAccountsEnabledCount = deriveAccounts.filter(
-    (a) => a.account,
-  ).length;
+  useEffect(() => {
+    setIsAllNetworksEnabledWrapper((prev) => ({
+      ...prev,
+      [item.id]: deriveAccountsEnabledCount > 0 ? isEnabledNetwork : false,
+    }));
+  }, [
+    isEnabledNetwork,
+    item.id,
+    setIsAllNetworksEnabledWrapper,
+    deriveAccountsEnabledCount,
+  ]);
 
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
@@ -187,7 +208,9 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     >
       <XStack gap="$6" alignItems="center">
         <IconButton
-          disabled={item.isTestnet}
+          disabled={
+            (isOnlyOneNetworkEnabled && isEnabledNetwork) || item.isTestnet
+          }
           title={
             isEnabledNetwork
               ? intl.formatMessage({
@@ -284,6 +307,8 @@ const WalletAddressListItemIcon = ({
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
     initAllNetworksState,
+    setIsAllNetworksEnabledWrapper,
+    isOnlyOneNetworkEnabled,
   } = useContext(WalletAddressContext);
   const intl = useIntl();
 
@@ -299,6 +324,19 @@ const WalletAddressListItemIcon = ({
     isAllNetworksEnabled[`${network.id}_${deriveType}`] ??
     isEnabledNetworkFromDB;
 
+  useEffect(() => {
+    setIsAllNetworksEnabledWrapper((prev) => ({
+      ...prev,
+      [`${network.id}_${deriveType}`]: account ? isEnabledNetwork : false,
+    }));
+  }, [
+    isEnabledNetwork,
+    network.id,
+    deriveType,
+    setIsAllNetworksEnabledWrapper,
+    account,
+  ]);
+
   if (!account) {
     return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
   }
@@ -306,7 +344,9 @@ const WalletAddressListItemIcon = ({
   return (
     <XStack gap="$6" alignItems="center">
       <IconButton
-        disabled={network.isTestnet}
+        disabled={
+          (isOnlyOneNetworkEnabled && isEnabledNetwork) || network.isTestnet
+        }
         title={
           isEnabledNetwork
             ? intl.formatMessage({
@@ -707,6 +747,16 @@ export default function WalletAddressPage({
   const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
     Record<string, boolean>
   >({});
+
+  const [isAllNetworksEnabledWrapper, setIsAllNetworksEnabledWrapper] =
+    useState<Record<string, boolean>>({});
+
+  const isOnlyOneNetworkEnabled = useMemo(
+    () =>
+      Object.values(isAllNetworksEnabledWrapper).filter((o) => o).length === 1,
+    [isAllNetworksEnabledWrapper],
+  );
+
   const { result, run: refreshLocalData } = usePromiseResult(
     async () => {
       const networks =
@@ -775,6 +825,9 @@ export default function WalletAddressPage({
       setAccountsCreated,
       isAllNetworksEnabled,
       setIsAllNetworksEnabled,
+      isAllNetworksEnabledWrapper,
+      setIsAllNetworksEnabledWrapper,
+      isOnlyOneNetworkEnabled,
     } as IWalletAddressContext;
   }, [
     allNetworksState,
@@ -783,6 +836,8 @@ export default function WalletAddressPage({
     refreshLocalData,
     accountsCreated,
     isAllNetworksEnabled,
+    isAllNetworksEnabledWrapper,
+    isOnlyOneNetworkEnabled,
     result.networksAccount,
   ]);
 
