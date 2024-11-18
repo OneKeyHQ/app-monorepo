@@ -21,6 +21,7 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+import { isNil } from 'lodash';
 
 const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
 const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
@@ -119,6 +120,7 @@ export function isEnabledNetworksInAllNetworks({
   deriveType,
   disabledNetworks,
   enabledNetworks,
+  isTestnet,
 }: {
   networkId: string;
   deriveType: IAccountDeriveTypes | undefined;
@@ -130,7 +132,13 @@ export function isEnabledNetworksInAllNetworks({
     networkId: string;
     deriveType: IAccountDeriveTypes;
   }[];
+  isTestnet: boolean;
 }) {
+  // disable all testnet in all networks by default
+  if (isTestnet) {
+    return false;
+  }
+
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
       return !disabledNetworks.find(

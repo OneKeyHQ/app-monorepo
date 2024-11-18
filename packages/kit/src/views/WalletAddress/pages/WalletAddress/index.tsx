@@ -133,6 +133,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   const isEnabledNetwork = deriveAccounts.some((a) => {
     const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
       networkId: item.id,
+      isTestnet: item.isTestnet,
       deriveType: a.deriveType,
       disabledNetworks: initAllNetworksState.disabledNetworks,
       enabledNetworks: initAllNetworksState.enabledNetworks,
@@ -184,6 +185,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     >
       <XStack gap="$6" alignItems="center">
         <IconButton
+          disabled={item.isTestnet}
           title={
             isEnabledNetwork
               ? intl.formatMessage({
@@ -277,6 +279,7 @@ const WalletAddressListItemIcon = ({
 
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: network.id,
+    isTestnet: network.isTestnet,
     deriveType,
     disabledNetworks: initAllNetworksState.disabledNetworks,
     enabledNetworks: initAllNetworksState.enabledNetworks,
@@ -293,6 +296,7 @@ const WalletAddressListItemIcon = ({
   return (
     <XStack gap="$6" alignItems="center">
       <IconButton
+        disabled={network.isTestnet}
         title={
           isEnabledNetwork
             ? intl.formatMessage({
@@ -377,6 +381,7 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
 
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: item.id,
+    isTestnet: item.isTestnet,
     deriveType,
     disabledNetworks: initAllNetworksState.disabledNetworks,
     enabledNetworks: initAllNetworksState.enabledNetworks,
@@ -415,11 +420,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
           num: 0,
         });
         if (createAddressResult) {
-          setAccountsCreated(true);
-          setIsAllNetworksEnabled((prev) => ({
-            ...prev,
-            [`${item.id}_${deriveType}`]: true,
-          }));
+          if (!item.isTestnet) {
+            setAccountsCreated(true);
+            setIsAllNetworksEnabled((prev) => ({
+              ...prev,
+              [`${item.id}_${deriveType}`]: true,
+            }));
+          }
+
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: [{ networkId: item.id, deriveType }],
           });
@@ -450,13 +458,14 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   }, [
     account,
     item.id,
+    item.isTestnet,
     indexedAccountId,
     createAddress,
     deriveType,
-    setAccountsCreated,
-    setIsAllNetworksEnabled,
     intl,
     refreshLocalData,
+    setAccountsCreated,
+    setIsAllNetworksEnabled,
     appNavigation,
     copyAccountAddress,
   ]);

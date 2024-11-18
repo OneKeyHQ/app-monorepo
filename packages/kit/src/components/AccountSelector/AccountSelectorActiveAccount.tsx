@@ -88,6 +88,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         if (
           isEnabledNetworksInAllNetworks({
             networkId: n.id,
+            isTestnet: n.isTestnet,
             deriveType: account.accountDeriveType,
             disabledNetworks: s.disabledNetworks,
             enabledNetworks: s.enabledNetworks,
