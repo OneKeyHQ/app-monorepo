@@ -6,12 +6,14 @@ import { SectionPressItem } from './SectionPressItem';
 
 export function SentryCrashSettings() {
   if (platformEnv.isNative) {
-    <SectionPressItem
-      title="Sentry Crash Test"
-      onPress={() => {
-        captureException(new Error('First error'));
-      }}
-    />;
+    return (
+      <SectionPressItem
+        title="Sentry Crash Test"
+        onPress={() => {
+          captureException(new Error('First error'));
+        }}
+      />
+    );
   }
   return null;
 }

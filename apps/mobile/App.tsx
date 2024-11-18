@@ -11,4 +11,4 @@ Sentry.init({
   // enableSpotlight: __DEV__,
 });
 
-export default KitProvider;
+export default Sentry.wrap(KitProvider);
