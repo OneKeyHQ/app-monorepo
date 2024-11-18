@@ -81,7 +81,7 @@ const PortfolioItem = ({
         </XStack>
         {tooltip || renderTooltipContent ? (
           <Popover
-            placement="bottom"
+            placement="top"
             title={statusText}
             renderTrigger={
               <IconButton
@@ -139,6 +139,7 @@ type IPortfolioInfoProps = {
   minClaimableNum?: string;
   babylonOverflow?: string;
 
+  showDetailWithdrawalRequested: boolean;
   unbondingDelegationList?: IUnbondingDelegationListItem[];
 
   onClaim?: (params?: { isReward?: boolean }) => void;
@@ -198,6 +199,7 @@ function PortfolioInfo({
   onWithdraw,
   onPortfolioDetails,
 
+  showDetailWithdrawalRequested,
   unbondingDelegationList,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
@@ -260,21 +262,37 @@ function PortfolioInfo({
                 })}
                 renderTooltipContent={
                   <YStack p="$5" gap="$4">
-                    {unbondingDelegationList.map(
-                      ({ amount, timestampLeft }, index) => (
-                        <PendingInactiveItem
-                          key={index}
-                          tokenSymbol={token.symbol}
-                          pendingInactive={amount}
-                          pendingInactivePeriod={timestampLeft}
-                        />
-                      ),
+                    {showDetailWithdrawalRequested ? (
+                      <>
+                        {unbondingDelegationList.map(
+                          ({ amount, timestampLeft }, index) => (
+                            <PendingInactiveItem
+                              key={index}
+                              tokenSymbol={token.symbol}
+                              pendingInactive={amount}
+                              pendingInactivePeriod={timestampLeft}
+                            />
+                          ),
+                        )}
+                        <SizableText size="$bodySm" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.earn_staked_assets_available_after_period,
+                          })}
+                        </SizableText>
+                      </>
+                    ) : (
+                      <SizableText size="$bodyLg">
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.earn_withdrawal_up_to_number_days,
+                          },
+                          {
+                            number:
+                              unbondingDelegationList[0]?.timestampLeft || 1,
+                          },
+                        )}
+                      </SizableText>
                     )}
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.earn_staked_assets_available_after_period,
-                      })}
-                    </SizableText>
                   </YStack>
                 }
               />
@@ -433,6 +451,7 @@ export const PortfolioSection = ({
     token: details.token.info,
     labelForClaimable,
     tooltipForClaimable,
+    showDetailWithdrawalRequested: false,
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];
@@ -449,6 +468,7 @@ export const PortfolioSection = ({
           timestampLeft: Math.ceil(timestampLeftNumber / 3600 / 24),
         };
       });
+    portfolio.showDetailWithdrawalRequested = true;
   } else if (
     portfolio.pendingInactive &&
     Number(portfolio.pendingInactive) &&

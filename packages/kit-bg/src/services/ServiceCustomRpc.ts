@@ -215,7 +215,11 @@ class ServiceCustomRpc extends ServiceBase {
 
   @backgroundMethod()
   public async getAllCustomNetworks(): Promise<IServerNetwork[]> {
-    return this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
+    try {
+      return await this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
+    } catch {
+      return [];
+    }
   }
 
   /*= ===============================
@@ -224,18 +228,23 @@ class ServiceCustomRpc extends ServiceBase {
   @backgroundMethod()
   public async getServerNetworks(): Promise<IServerNetwork[]> {
     return this.semaphore.runExclusive(async () => {
-      const { networks, lastFetchTime } =
-        await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
-      const now = Date.now();
+      try {
+        const { networks, lastFetchTime } =
+          await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+        const now = Date.now();
 
-      if (
-        !lastFetchTime ||
-        now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
-      ) {
-        return this.fetchNetworkFromServer();
+        if (
+          !lastFetchTime ||
+          now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
+        ) {
+          return await this.fetchNetworkFromServer();
+        }
+        defaultLogger.account.wallet.getServerNetworks(networks);
+        return networks;
+      } catch (error) {
+        defaultLogger.account.wallet.getServerNetworksError(error);
+        return [];
       }
-      defaultLogger.account.wallet.getServerNetworks(networks);
-      return networks;
     });
   }
 

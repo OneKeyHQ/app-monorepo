@@ -68,10 +68,12 @@ class ServiceHistory extends ServiceBase {
 
     if (isAllNetworks) {
       accounts = (
-        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          networkId,
-        })
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
       ).accountsInfo;
     }
 
@@ -337,10 +339,12 @@ class ServiceHistory extends ServiceBase {
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
-        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          networkId,
-        })
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
       ).accountsInfo;
       const allNetworksParams = accounts.map((account) => ({
         networkId: account.networkId,
@@ -410,16 +414,22 @@ class ServiceHistory extends ServiceBase {
   public async getAllNetworksPendingTxs({
     accountId,
     networkId,
+    allNetworkAccounts,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkAccounts?: IAllNetworkAccountInfo[];
   }) {
-    const accounts = (
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
-        networkId,
-      })
-    ).accountsInfo;
+    const accounts =
+      allNetworkAccounts ||
+      (
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
+      ).accountsInfo;
 
     const allNetworksParams = accounts.map((account) => ({
       networkId: account.networkId,
