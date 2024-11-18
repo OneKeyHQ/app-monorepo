@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 
-import { difference, differenceBy } from 'lodash';
+import { difference, differenceBy, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -129,6 +129,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
   );
 
   const deriveAccounts = result?.networkAccounts ?? [];
+  const isDeriveAccountsInitialized = !isNil(result?.networkAccounts);
 
   const isEnabledNetwork = deriveAccounts.some((a) => {
     const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
@@ -157,18 +158,18 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     });
   }, [appNavigation, indexedAccountId, item.id, onRefreshData]);
 
-  const subtitle = useMemo(() => {
-    let text = intl.formatMessage({
-      id: ETranslations.copy_address_modal_item_create_address_instruction,
-    });
-    if (deriveAccountsEnabledCount > 0) {
-      text = intl.formatMessage(
-        { id: ETranslations.global_count_addresses },
-        { count: deriveAccountsEnabledCount },
-      );
-    }
-    return text;
-  }, [intl, deriveAccountsEnabledCount]);
+  const subtitle = useMemo(
+    () =>
+      !isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0
+        ? intl.formatMessage(
+            { id: ETranslations.global_count_addresses },
+            { count: deriveAccountsEnabledCount },
+          )
+        : intl.formatMessage({
+            id: ETranslations.copy_address_modal_item_create_address_instruction,
+          }),
+    [intl, deriveAccountsEnabledCount, isDeriveAccountsInitialized],
+  );
 
   return (
     <ListItem
@@ -202,6 +203,7 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
             color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
           }}
           onPress={async () => {
+            if (item.isTestnet) return;
             deriveAccounts.forEach((a) => {
               setIsAllNetworksEnabled((prev) => ({
                 ...prev,
@@ -258,7 +260,9 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
         />
         <Icon
           name={
-            deriveAccountsEnabledCount > 0 ? 'Copy3Outline' : 'PlusLargeOutline'
+            !isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0
+              ? 'Copy3Outline'
+              : 'PlusLargeOutline'
           }
           color="$iconSubdued"
         />
@@ -381,10 +385,6 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
 
   const deriveType = networkDeriveTypeMap[item.id] || 'default';
 
-  const { vaultSettings } = useAccountData({
-    networkId: item.id,
-  });
-
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: item.id,
     isTestnet: item.isTestnet,
@@ -476,7 +476,10 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
     copyAccountAddress,
   ]);
 
-  if (vaultSettings?.mergeDeriveAssetsEnabled) {
+  if (
+    item.id === getNetworkIdsMap().btc ||
+    item.id === getNetworkIdsMap().ltc
+  ) {
     return <WalletAddressDeriveTypeItem item={item} />;
   }
   return (
