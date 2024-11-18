@@ -49,10 +49,7 @@ const PasswordVerify = ({
   onBiologyAuth,
   onPasswordChange,
   onInputPasswordAuth,
-  inputRef,
-}: IPasswordVerifyProps & {
-  inputRef: ref<IInputRef>;
-}) => {
+}: IPasswordVerifyProps) => {
   const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
     mode: 'onSubmit',
@@ -186,7 +183,6 @@ const PasswordVerify = ({
         }}
       >
         <Input
-          ref={inputRef}
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
