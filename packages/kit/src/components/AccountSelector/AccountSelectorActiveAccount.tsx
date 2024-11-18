@@ -66,47 +66,59 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     if (!activeAccount.network?.isAllNetworks) return null;
     const [s, a] = await Promise.all([
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          accountId: activeAccount.account?.id,
+          walletId: activeAccount.wallet?.id,
+        },
+      ),
     ]);
 
     const networksAccount =
       await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
         {
-          networkIds: a.networks.map((n) => n.id),
+          networkIds: [
+            ...a.mainnetItems.map((n) => n.id),
+            ...a.testnetItems.map((n) => n.id),
+          ],
           indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
         },
       );
 
-    const visibleNetworks = a.networks.filter((n) => {
-      const account = networksAccount.find(
-        (na) =>
-          na.network.id === n.id &&
-          (na.account?.address ||
-            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
-      );
-      if (account) {
-        if (
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            isTestnet: n.isTestnet,
-            deriveType: account.accountDeriveType,
-            disabledNetworks: s.disabledNetworks,
-            enabledNetworks: s.enabledNetworks,
-          })
-        ) {
-          return true;
+    const visibleNetworks = [...a.mainnetItems, ...a.testnetItems].filter(
+      (n) => {
+        const account = networksAccount.find(
+          (na) =>
+            na.network.id === n.id &&
+            (na.account?.address ||
+              (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
+        );
+        if (account) {
+          if (
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              isTestnet: n.isTestnet,
+              deriveType: account.accountDeriveType,
+              disabledNetworks: s.disabledNetworks,
+              enabledNetworks: s.enabledNetworks,
+            })
+          ) {
+            return true;
+          }
         }
-      }
-      return false;
-    });
+        return false;
+      },
+    );
 
     return {
       visibleNetworks,
-      allNetworks: a.networks,
+      allNetworks: [...a.mainnetItems, ...a.testnetItems],
     };
   }, [
+    activeAccount.account?.id,
     activeAccount.account?.indexedAccountId,
     activeAccount.network?.isAllNetworks,
+    activeAccount.wallet?.id,
   ]);
 
   const { visibleNetworks, allNetworks } = result ?? {};
