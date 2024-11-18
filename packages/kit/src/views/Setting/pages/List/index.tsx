@@ -121,7 +121,8 @@ const SocialButtonGroup = () => {
         <SizableText color="$textSubdued" onPress={handlePress}>
           {versionString}
         </SizableText>
-        {appUpdateInfo.status !== EAppUpdateStatus.done ? (
+        {!appUpdateInfo.latestVersion ||
+        appUpdateInfo.latestVersion === platformEnv.version ? (
           <SizableText color="$textSubdued" textAlign="center">
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
