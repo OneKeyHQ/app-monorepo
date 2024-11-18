@@ -75,11 +75,7 @@ function SwitchHomeAccountButton({
   );
 }
 
-function SwitchHomeAccountContainer({
-  children,
-  accountId,
-  walletAccountName,
-}: ISwitchHomeAccountButtonProps) {
+function SwitchHomeAccountContainer(props: ISwitchHomeAccountButtonProps) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -87,12 +83,7 @@ function SwitchHomeAccountContainer({
       }}
       enabledNum={[0]}
     >
-      <SwitchHomeAccountButton
-        accountId={accountId}
-        walletAccountName={walletAccountName}
-      >
-        {children}
-      </SwitchHomeAccountButton>
+      <SwitchHomeAccountButton {...props} />
     </AccountSelectorProviderMirror>
   );
 }

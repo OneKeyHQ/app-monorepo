@@ -317,11 +317,6 @@ function HistoryDetails() {
     checkIsFocused = true,
   } = route.params;
 
-  console.log('notificationAccountId', {
-    notificationAccountId,
-    allowClickAccountNameSwitch,
-  });
-
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
 
