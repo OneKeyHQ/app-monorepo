@@ -1,3 +1,4 @@
+import type { ref } from 'react';
 import {
   memo,
   useCallback,
@@ -11,7 +12,11 @@ import {
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
+import type {
+  IInputRef,
+  IKeyOfIcons,
+  IPropsWithTestId,
+} from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,7 +49,10 @@ const PasswordVerify = ({
   onBiologyAuth,
   onPasswordChange,
   onInputPasswordAuth,
-}: IPasswordVerifyProps) => {
+  inputRef,
+}: IPasswordVerifyProps & {
+  inputRef: ref<IInputRef>;
+}) => {
   const intl = useIntl();
   const form = useForm<IPasswordVerifyForm>({
     mode: 'onSubmit',
@@ -178,6 +186,7 @@ const PasswordVerify = ({
         }}
       >
         <Input
+          ref={inputRef}
           selectTextOnFocus
           size="large"
           editable={status.value !== EPasswordVerifyStatus.VERIFYING}
