@@ -4,10 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
-import { differenceBy, isNil } from 'lodash';
+import { differenceBy, isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -32,7 +33,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -748,6 +748,8 @@ export default function WalletAddressPage({
     Record<string, boolean>
   >({});
 
+  const allNetworksStateInit = useRef(false);
+
   const [isAllNetworksEnabledWrapper, setIsAllNetworksEnabledWrapper] =
     useState<Record<string, boolean>>({});
 
@@ -795,13 +797,42 @@ export default function WalletAddressPage({
   const { result: allNetworksState } = usePromiseResult(
     () => backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
     [],
-    {
-      initResult: {
-        enabledNetworks: [],
-        disabledNetworks: [],
-      },
-    },
   );
+
+  useEffect(() => {
+    if (
+      allNetworksStateInit.current ||
+      isEmpty([
+        ...result.networks.mainnetItems,
+        ...result.networks.testnetItems,
+      ]) ||
+      isNil(allNetworksState)
+    ) {
+      return;
+    }
+
+    allNetworksStateInit.current = true;
+    result.networksAccount.forEach((item) => {
+      const { network, account, accountDeriveType } = item;
+      setIsAllNetworksEnabledWrapper((prev) => ({
+        ...prev,
+        [network.id]: account
+          ? isEnabledNetworksInAllNetworks({
+              networkId: network.id,
+              isTestnet: network.isTestnet,
+              deriveType: accountDeriveType,
+              disabledNetworks: allNetworksState.disabledNetworks,
+              enabledNetworks: allNetworksState.enabledNetworks,
+            })
+          : false,
+      }));
+    });
+  }, [
+    allNetworksState,
+    result.networks.mainnetItems,
+    result.networks.testnetItems,
+    result.networksAccount,
+  ]);
 
   const context = useMemo(() => {
     const networkAccountMap: Record<string, INetworkAccount> = {};

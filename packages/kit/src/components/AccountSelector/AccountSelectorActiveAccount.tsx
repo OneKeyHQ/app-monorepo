@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Button,
   Icon,
   NATIVE_HIT_SLOP,
   SizableText,
@@ -33,6 +32,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -74,45 +74,42 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       ),
     ]);
 
-    const networksAccount =
-      await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-        {
-          networkIds: [
-            ...a.mainnetItems.map((n) => n.id),
-            ...a.testnetItems.map((n) => n.id),
-          ],
-          indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
-        },
-      );
+    const all = [...a.mainnetItems, ...a.testnetItems];
+    const visibleNetworks: IServerNetwork[] = [];
 
-    const visibleNetworks = [...a.mainnetItems, ...a.testnetItems].filter(
-      (n) => {
-        const account = networksAccount.find(
-          (na) =>
-            na.network.id === n.id &&
-            (na.account?.address ||
-              (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
+    for (const n of all) {
+      const accounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId: n.id,
+            indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
+          },
         );
-        if (account) {
-          if (
-            isEnabledNetworksInAllNetworks({
-              networkId: n.id,
-              isTestnet: n.isTestnet,
-              deriveType: account.accountDeriveType,
-              disabledNetworks: s.disabledNetworks,
-              enabledNetworks: s.enabledNetworks,
-            })
-          ) {
-            return true;
-          }
+
+      const account = accounts.networkAccounts.find(
+        (na) =>
+          accounts.network.id === n.id &&
+          (na.account?.address ||
+            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
+      );
+      if (account) {
+        if (
+          isEnabledNetworksInAllNetworks({
+            networkId: n.id,
+            isTestnet: n.isTestnet,
+            deriveType: account.deriveType,
+            disabledNetworks: s.disabledNetworks,
+            enabledNetworks: s.enabledNetworks,
+          })
+        ) {
+          visibleNetworks.push(n);
         }
-        return false;
-      },
-    );
+      }
+    }
 
     return {
       visibleNetworks,
-      allNetworks: [...a.mainnetItems, ...a.testnetItems],
+      allNetworks: all,
     };
   }, [
     activeAccount.account?.id,

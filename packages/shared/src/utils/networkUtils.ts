@@ -141,18 +141,12 @@ export function isEnabledNetworksInAllNetworks({
 
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks.find(
-        (n) => n.networkId === networkId && n.deriveType === deriveType,
-      );
+      return !disabledNetworks.find((n) => n.networkId === networkId);
     }
 
-    return enabledNetworks.find(
-      (n) => n.networkId === networkId && n.deriveType === deriveType,
-    );
+    return !!enabledNetworks.find((n) => n.networkId === networkId);
   }
-  return !disabledNetworks.find(
-    (n) => n.networkId === networkId && n.deriveType === deriveType,
-  );
+  return !disabledNetworks.find((n) => n.networkId === networkId);
 }
 
 function isAllNetwork({
