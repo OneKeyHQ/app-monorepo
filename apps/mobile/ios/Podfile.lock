@@ -1262,6 +1262,13 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
+  - RNSentry (6.2.0):
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
+    - React-hermes
+    - Sentry/HybridSDK (= 8.40.1)
   - RNShare (10.2.1):
     - React-Core
   - RNSVG (13.14.0):
@@ -1282,6 +1289,7 @@ PODS:
   - SDWebImageWebPCoder (0.8.5):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
+  - Sentry/HybridSDK (8.40.1)
   - SocketRocket (0.6.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
@@ -1408,6 +1416,7 @@ DEPENDENCIES:
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
+  - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
@@ -1433,6 +1442,7 @@ SPEC REPOS:
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
+    - Sentry
     - SocketRocket
     - SPAlert
     - SPIndicator
@@ -1662,6 +1672,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
+  RNSentry:
+    :path: "../../../node_modules/@sentry/react-native"
   RNShare:
     :path: "../../../node_modules/react-native-share"
   RNSVG:
@@ -1796,12 +1808,14 @@ SPEC CHECKSUMS:
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
   RNReanimated: f5cb331578e0c4263050d77ba8bbec209f6b82d7
   RNScreens: 99476adb9f898a77872e67836bbb9d47988788cc
+  RNSentry: 059abcedf78a8f8c177901cf36b2362bb7dcb512
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
+  Sentry: e9215d7b17f7902692b4f8700e061e4f853e3521
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
