@@ -34,6 +34,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -761,7 +762,7 @@ function BasicEarnHome() {
           $md={{
             height: '$28',
           }}
-          data={earnBanners}
+          data={[...earnBanners, ...earnBanners]}
           onItemPress={onBannerPress}
           isLoading={false}
           leftIconButtonStyle={{
@@ -779,8 +780,8 @@ function BasicEarnHome() {
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: 0,
-            left: 20,
+            right: media.gtMd ? 40 : 0,
+            left: media.gtMd ? 40 : 20,
             justifyContent: 'center',
           }}
         />
