@@ -1,4 +1,3 @@
-import type { ref } from 'react';
 import {
   memo,
   useCallback,
