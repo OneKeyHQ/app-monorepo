@@ -11,11 +11,7 @@ import {
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import type {
-  IInputRef,
-  IKeyOfIcons,
-  IPropsWithTestId,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
