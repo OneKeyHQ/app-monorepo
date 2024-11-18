@@ -789,8 +789,8 @@ function BasicEarnHome() {
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: 40,
-            left: 40,
+            right: '$10',
+            left: '$10',
             justifyContent: 'center',
           }}
         />
