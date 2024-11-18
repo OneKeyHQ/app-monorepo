@@ -202,9 +202,6 @@ const PasswordVerifyContainer = ({
         throw new Error('biology auth verify error');
       }
     } catch (e) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 250);
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: {
@@ -273,7 +270,6 @@ const PasswordVerifyContainer = ({
   return (
     <Stack onLayout={onLayout}>
       <PasswordVerify
-        inputRef={inputRef}
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,
