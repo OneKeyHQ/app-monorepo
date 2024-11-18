@@ -113,7 +113,7 @@ const SocialButtonGroup = () => {
       </XStack>
       <YStack
         jc="center"
-        py="$4"
+        p="$4"
         ai="center"
         userSelect="none"
         testID="setting-version"
@@ -121,8 +121,8 @@ const SocialButtonGroup = () => {
         <SizableText color="$textSubdued" onPress={handlePress}>
           {versionString}
         </SizableText>
-        {appUpdateInfo.status === EAppUpdateStatus.done ? (
-          <SizableText color="$textSubdued">
+        {appUpdateInfo.status !== EAppUpdateStatus.done ? (
+          <SizableText color="$textSubdued" textAlign="center">
             {intl.formatMessage({ id: ETranslations.update_app_up_to_date })}
           </SizableText>
         ) : null}
