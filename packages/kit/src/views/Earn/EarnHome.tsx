@@ -758,6 +758,7 @@ function BasicEarnHome() {
     if (earnBanners) {
       return earnBanners.length ? (
         <Banner
+          showPaginationButton={!platformEnv.isNative}
           height="$36"
           $md={{
             height: '$28',
@@ -780,8 +781,8 @@ function BasicEarnHome() {
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: media.gtMd ? 40 : 0,
-            left: media.gtMd ? 40 : 20,
+            right: 40,
+            left: 40,
             justifyContent: 'center',
           }}
         />
