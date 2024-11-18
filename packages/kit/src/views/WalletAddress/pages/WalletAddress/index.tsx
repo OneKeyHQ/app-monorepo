@@ -144,6 +144,10 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     return isEnabled;
   });
 
+  const deriveAccountsEnabledCount = deriveAccounts.filter(
+    (a) => a.account,
+  ).length;
+
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: item.id,
@@ -157,17 +161,14 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     let text = intl.formatMessage({
       id: ETranslations.copy_address_modal_item_create_address_instruction,
     });
-    const count = result
-      ? result.networkAccounts.filter((o) => o.account).length
-      : 0;
-    if (count > 0) {
+    if (deriveAccountsEnabledCount > 0) {
       text = intl.formatMessage(
         { id: ETranslations.global_count_addresses },
-        { count },
+        { count: deriveAccountsEnabledCount },
       );
     }
     return text;
-  }, [intl, result]);
+  }, [intl, deriveAccountsEnabledCount]);
 
   return (
     <ListItem
@@ -255,7 +256,12 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
             });
           }}
         />
-        <Icon name="Copy3Outline" color="$iconSubdued" />
+        <Icon
+          name={
+            deriveAccountsEnabledCount > 0 ? 'Copy3Outline' : 'PlusLargeOutline'
+          }
+          color="$iconSubdued"
+        />
       </XStack>
     </ListItem>
   );
