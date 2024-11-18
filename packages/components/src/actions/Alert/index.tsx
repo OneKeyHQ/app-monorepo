@@ -177,7 +177,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
       ) : null}
       {closable ? (
         <IconButton
-          title={intl.formatMessage({ id: ETranslations.global_close })}
+          title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
           icon="CrossedSmallSolid"
           size="small"
           variant="tertiary"
