@@ -5,8 +5,6 @@ apply plugin: "com.facebook.react"
 
 apply plugin: 'com.google.gms.google-services'
 
-apply plugin: 'com.google.firebase.crashlytics'
-
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -107,6 +105,7 @@ static def readRootEnvFile(fileName = ".env") {
     return props
 }
 
+apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     ndkVersion rootProject.ext.ndkVersion
 
