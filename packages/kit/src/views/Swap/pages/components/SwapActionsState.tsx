@@ -33,10 +33,7 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import {
-  useSwapActionState,
-  useSwapQuoteLoading,
-} from '../../hooks/useSwapState';
+import { useSwapActionState } from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
