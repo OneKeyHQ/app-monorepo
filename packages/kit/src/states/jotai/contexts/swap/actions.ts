@@ -1250,9 +1250,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      let accountAddress = swapAddressInfo.address;
-      let accountNetworkId = swapAddressInfo.networkId;
-      let accountId = swapAddressInfo.accountInfo?.account?.id;
+      let accountAddress;
+      let accountNetworkId;
+      let accountId;
       if (type === ESwapDirectionType.TO) {
         // fetch to Token balance use FromAccount id
         const toAccountInfos =
@@ -1265,11 +1265,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountAddress = toAccountInfos.accountAddress;
           accountNetworkId = toAccountInfos.networkId;
           accountId = toAccountInfos.accountId;
-        } else {
-          accountAddress = undefined;
-          accountNetworkId = undefined;
-          accountId = undefined;
         }
+      } else {
+        accountAddress = swapAddressInfo.address;
+        accountNetworkId = swapAddressInfo.networkId;
+        accountId = swapAddressInfo.accountInfo?.account?.id;
       }
       let balanceDisplay;
       if (
