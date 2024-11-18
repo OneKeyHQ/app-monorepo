@@ -635,6 +635,10 @@ export default class ServiceNotification extends ServiceBase {
     const { wallets } = await this.getNotificationWalletsAndAccounts();
     const oldAccountActivity = cloneDeep(settings?.accountActivity ?? {});
     const accountActivity: IAccountActivityNotificationSettings = {};
+
+    const currentEnabledAccountCount =
+      await this.backgroundApi.simpleDb.notificationSettings.getEnabledAccountCount();
+
     let totalEnabledCount = 0;
     const isInit = !settings?.accountActivity;
     const updateWalletAccountActivity = (wallet: IDBWallet) => {
@@ -672,14 +676,22 @@ export default class ServiceNotification extends ServiceBase {
           const isWalletEnabled =
             oldAccountActivity?.[wallet.id]?.enabled === true ||
             oldAccountActivity?.[wallet.id]?.enabled === undefined;
+          const isAccountEnabledUndefined =
+            oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
+            undefined;
           const isAccountEnabled =
             oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
-              true ||
-            oldAccountActivity?.[wallet.id]?.accounts?.[account.id]?.enabled ===
-              undefined;
+              true || isAccountEnabledUndefined;
 
           if (isWalletEnabled && isAccountEnabled) {
-            enableAccount(account);
+            if (
+              isAccountEnabledUndefined &&
+              currentEnabledAccountCount >= maxAccountCount
+            ) {
+              disableAccount(account);
+            } else {
+              enableAccount(account);
+            }
           } else {
             disableAccount(account);
           }
