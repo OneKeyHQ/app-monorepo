@@ -204,6 +204,7 @@ export function Banner<T extends IBannerData>({
       </>
     ),
     [
+      showPaginationButton,
       media.gtMd,
       data,
       leftIconButtonStyle,
