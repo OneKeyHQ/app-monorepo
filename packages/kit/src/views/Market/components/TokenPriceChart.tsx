@@ -2,9 +2,14 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  SegmentControl,
+  Select,
+  Stack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -120,11 +125,34 @@ function TradingViewChart({ symbol, defer }: IChartProps) {
 }
 
 function BasicTokenPriceChart({ coinGeckoId, defer, symbol }: IChartProps) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  return devSettings.enabled && devSettings.settings?.showTradingView ? (
-    <TradingViewChart coinGeckoId={coinGeckoId} defer={defer} symbol={symbol} />
-  ) : (
-    <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
+  const [chartViewType, setChartViewType] = useState('TradingView');
+  return (
+    <YStack>
+      <Select
+        items={[
+          {
+            value: 'TradingView',
+            label: 'TradingView',
+          },
+          {
+            value: 'Lite Chart',
+            label: 'Lite Chart',
+          },
+        ]}
+        value={chartViewType}
+        onChange={setChartViewType}
+        title="Chart"
+      />
+      {chartViewType === 'TradingView' ? (
+        <TradingViewChart
+          coinGeckoId={coinGeckoId}
+          defer={defer}
+          symbol={symbol}
+        />
+      ) : (
+        <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
+      )}
+    </YStack>
   );
 }
 
