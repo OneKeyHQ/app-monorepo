@@ -36,7 +36,6 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
