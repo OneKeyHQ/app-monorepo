@@ -32,7 +32,15 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
 };
 
 export const useTradingViewUri = (
-  symbol: string,
+  {
+    identifier,
+    baseToken,
+    targetToken,
+  }: {
+    identifier: string;
+    baseToken: string;
+    targetToken: string;
+  },
   { hideSideToolbar = false }: { hideSideToolbar?: boolean },
 ) => {
   const theme = useThemeVariant();
@@ -52,7 +60,7 @@ export const useTradingViewUri = (
     const params = {
       'show_popup_button': 'false',
       'autosize': 'true',
-      'symbol': `KRAKEN:${symbol.toUpperCase()}USD`,
+      'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
       'interval': 'D',
       'timezone': timezone,
       'theme': theme,
@@ -70,6 +78,14 @@ export const useTradingViewUri = (
     return `https://www.tradingview-widget.com/embed-widget/advanced-chart/?t=${Date.now()}&locale=${locale}#${JSON.stringify(
       params,
     )}`;
-  }, [hideSideToolbar, locale, symbol, theme, timezone]);
+  }, [
+    baseToken,
+    hideSideToolbar,
+    identifier,
+    locale,
+    targetToken,
+    theme,
+    timezone,
+  ]);
   return uri;
 };
