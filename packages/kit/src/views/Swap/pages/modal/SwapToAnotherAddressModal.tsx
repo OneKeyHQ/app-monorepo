@@ -17,7 +17,11 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapManualSelectQuoteProvidersAtom,
+  useSwapQuoteCurrentSelectAtom,
+  useSwapToAnotherAccountAddressAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -52,6 +56,8 @@ const SwapToAnotherAddressPage = () => {
 
   const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
+  const [selectedQuote] = useSwapQuoteCurrentSelectAtom();
+  const [, setSwapManualSelectQuote] = useSwapManualSelectQuoteProvidersAtom();
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
@@ -91,9 +97,17 @@ const SwapToAnotherAddressPage = () => {
         networkId: activeAccount?.network?.id,
         accountInfo: activeAccount,
       }));
+      setSwapManualSelectQuote(selectedQuote);
       navigation.pop();
     },
-    [activeAccount, navigation, setSettings, setSwapToAddress],
+    [
+      activeAccount,
+      navigation,
+      selectedQuote,
+      setSettings,
+      setSwapManualSelectQuote,
+      setSwapToAddress,
+    ],
   );
 
   const handleOnCancel = useCallback(() => {
