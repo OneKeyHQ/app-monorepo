@@ -92,12 +92,12 @@ function JotaiContextRootProvidersAutoMountCmp() {
   const mapEntries = useMemo(() => Object.entries(map), [map]);
   // const mapEntries = [];
   if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      'JotaiContextRootProvidersAutoMount mapEntries:',
-      mapEntries,
-      getJotaiContextTrackerMap(),
-      globalThis.$$jotaiContextStore,
-    );
+    // console.log(
+    //   'JotaiContextRootProvidersAutoMount mapEntries:',
+    //   mapEntries,
+    //   getJotaiContextTrackerMap(),
+    //   globalThis.$$jotaiContextStore,
+    // );
   }
   return (
     <>
