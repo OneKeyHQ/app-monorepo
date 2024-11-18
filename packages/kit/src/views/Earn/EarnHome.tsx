@@ -771,7 +771,7 @@ function BasicEarnHome() {
           $md={{
             height: '$28',
           }}
-          data={[...earnBanners, ...earnBanners]}
+          data={earnBanners}
           onItemPress={onBannerPress}
           isLoading={false}
           leftIconButtonStyle={{
