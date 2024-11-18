@@ -66,7 +66,21 @@ const ProtocolDetailsPage = () => {
         provider,
       }),
     [accountId, networkId, indexedAccountId, symbol, provider],
-    { watchLoading: true },
+    { watchLoading: true, revalidateOnFocus: true },
+  );
+
+  const { result: unbondingDelegationList } = usePromiseResult(
+    () =>
+      earnAccount?.accountAddress
+        ? backgroundApiProxy.serviceStaking.getUnbondingDelegationList({
+            accountAddress: earnAccount?.accountAddress,
+            symbol,
+            networkId,
+            provider,
+          })
+        : Promise.resolve([]),
+    [earnAccount?.accountAddress, symbol, networkId, provider],
+    { watchLoading: true, initResult: [], revalidateOnFocus: true },
   );
 
   const onCreateAddress = useCallback(async () => {
@@ -113,6 +127,7 @@ const ProtocolDetailsPage = () => {
       details: result,
       accountId: earnAccount?.accountId,
       networkId,
+      indexedAccountId,
       symbol,
       provider,
       setStakeLoading,
@@ -124,11 +139,11 @@ const ProtocolDetailsPage = () => {
       },
     });
   }, [
-    result,
-    earnAccount,
-    networkId,
     handleStake,
-    setStakeLoading,
+    result,
+    earnAccount?.accountId,
+    networkId,
+    indexedAccountId,
     symbol,
     provider,
     run,
@@ -268,6 +283,7 @@ const ProtocolDetailsPage = () => {
                   onClaim={onClaim}
                   onWithdraw={onWithdraw}
                   onPortfolioDetails={onPortfolioDetails}
+                  unbondingDelegationList={unbondingDelegationList}
                 />
                 {trackingResp.length > 0 ? (
                   <BabylonTrackingAlert

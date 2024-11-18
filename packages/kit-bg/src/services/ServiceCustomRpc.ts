@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -10,9 +11,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
+import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
 import type {
   ICustomRpcItem,
   IDBCustomRpc,
@@ -62,13 +65,16 @@ class ServiceCustomRpc extends ServiceBase {
   public async getAllCustomRpc(): Promise<ICustomRpcItem[]> {
     const result =
       await this.backgroundApi.simpleDb.customRpc.getAllCustomRpc();
-    return Promise.all(
+    const itemsWithNetwork = await Promise.all(
       result.map(async (r) => ({
         ...r,
         network: await this.backgroundApi.serviceNetwork.getNetwork({
           networkId: r.networkId,
         }),
       })),
+    );
+    return itemsWithNetwork.sort((a, b) =>
+      (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
   }
 
@@ -88,6 +94,7 @@ class ServiceCustomRpc extends ServiceBase {
     });
     const result = await vault.getCustomRpcEndpointStatus({
       rpcUrl: params.rpcUrl,
+      validateChainId: params.validateChainId,
     });
     return result;
   }
@@ -208,7 +215,11 @@ class ServiceCustomRpc extends ServiceBase {
 
   @backgroundMethod()
   public async getAllCustomNetworks(): Promise<IServerNetwork[]> {
-    return this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
+    try {
+      return await this.backgroundApi.simpleDb.customNetwork.getAllCustomNetworks();
+    } catch {
+      return [];
+    }
   }
 
   /*= ===============================
@@ -217,22 +228,29 @@ class ServiceCustomRpc extends ServiceBase {
   @backgroundMethod()
   public async getServerNetworks(): Promise<IServerNetwork[]> {
     return this.semaphore.runExclusive(async () => {
-      const { networks, lastFetchTime } =
-        await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
-      const now = Date.now();
+      try {
+        const { networks, lastFetchTime } =
+          await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+        const now = Date.now();
 
-      if (
-        !lastFetchTime ||
-        now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
-      ) {
-        return this.fetchNetworkFromServer();
+        if (
+          !lastFetchTime ||
+          now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
+        ) {
+          return await this.fetchNetworkFromServer();
+        }
+        defaultLogger.account.wallet.getServerNetworks(networks);
+        return networks;
+      } catch (error) {
+        defaultLogger.account.wallet.getServerNetworksError(error);
+        return [];
       }
-      return networks;
     });
   }
 
   @backgroundMethod()
   public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
+    defaultLogger.account.wallet.fetchNetworkFromServer();
     // Request /wallet/v1/network/list to get all evm networks
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{ data: IServerNetwork[] }>(
@@ -267,7 +285,32 @@ class ServiceCustomRpc extends ServiceBase {
       }
     }
 
+    defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
+  }
+
+  @backgroundMethod()
+  async searchCustomNetworkByChainList(params: { chainId: string }) {
+    try {
+      const chainId = new BigNumber(params.chainId).toNumber();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        {
+          params: {
+            keywords: chainId,
+            showTestNet: true,
+          },
+        },
+      );
+      return (
+        resp.data.data.find((n) =>
+          new BigNumber(n.chainId).isEqualTo(new BigNumber(chainId)),
+        ) || null
+      );
+    } catch {
+      return null;
+    }
   }
 }
 

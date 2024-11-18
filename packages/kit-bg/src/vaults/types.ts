@@ -36,7 +36,12 @@ import type {
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchBuildTxResult,
+  IOKXTransactionObject,
+  ISwapTokenBase,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
@@ -52,7 +57,8 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
+import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -236,6 +242,11 @@ export type IVaultSettings = {
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
   isNativeTokenContractAddressEmpty?: boolean;
+
+  canEditNonce?: boolean;
+  canEditData?: boolean;
+
+  withTxMessage?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -312,6 +323,7 @@ export type IPrepareHdAccountsOptions = {
 };
 export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
+  hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -334,6 +346,61 @@ export type IExportAccountSecretKeysParams = {
   keyType: ECoreApiExportedSecretKeyType;
   relPaths?: string[]; // used for get privateKey of other utxo address
 };
+
+export type IBuildHwAllNetworkPrepareAccountsParams = {
+  path: string; // full path
+  template: string;
+  index: number;
+};
+
+export type IBuildPrepareAccountsPrefixedPathParams = {
+  template: string;
+  index: number;
+};
+
+export type IHwSdkNetwork = AllNetworkAddressParams['network'];
+
+type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+  error: string;
+  code: number;
+  errorCode: string | number; // TODO use code instead
+  connectId: string;
+  deviceId: string;
+};
+
+type IHwAllNetworkPrepareAccountsItemCommon = {
+  path: string;
+  network: IHwSdkNetwork;
+  chainName?: string;
+  prefix?: string;
+};
+export type IHwAllNetworkPrepareAccountsItem =
+  IHwAllNetworkPrepareAccountsItemCommon & {
+    success: true;
+
+    payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
+      address?: string;
+
+      pub?: string;
+      publicKey?: string; // cosmos, sui, aptos 缺
+      publickey?: string; // nostr
+
+      npub?: string; // nostr
+
+      xpub?: string;
+      xpubSegwit?: string;
+
+      node?: HDNodeType; // btc
+
+      serializedPath?: string; // ada
+      stakeAddress?: string; // ada
+
+      derivedPath?: string; // alph
+    };
+  };
+
+export type IHwAllNetworkPrepareAccountsResponse =
+  IHwAllNetworkPrepareAccountsItem[];
 
 export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
@@ -384,6 +451,8 @@ export type ITransferInfo = {
   paymentId?: string; // Dynex chain paymentId
 
   note?: string; // Algo chain note
+
+  hexData?: string; // evm tx hex data
 };
 
 export type IApproveInfo = {
@@ -392,6 +461,7 @@ export type IApproveInfo = {
   amount: string;
   isMax?: boolean;
   tokenInfo?: IToken;
+  swapApproveRes?: IFetchBuildTxResult;
 };
 
 export type ITransferPayload = {
@@ -399,6 +469,7 @@ export type ITransferPayload = {
   isMaxSend: boolean;
   isNFT: boolean;
   originalRecipient: string;
+  isToContract?: boolean;
 };
 
 export enum EWrappedType {
@@ -464,6 +535,7 @@ export interface IBuildUnsignedTxParams {
   specifiedFeeRate?: string;
   prevNonce?: number;
   feeInfo?: IFeeInfoUnit;
+  transferPayload?: ITransferPayload;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
@@ -473,6 +545,7 @@ export interface IUpdateUnsignedTxParams {
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;
+  dataInfo?: { data: string };
 }
 export interface IBroadcastTransactionParams {
   accountId: string;
@@ -567,4 +640,9 @@ export type IQrWalletGetVerifyAddressChainParamsQuery = {
 export type IQrWalletGetVerifyAddressChainParamsResult = {
   scriptType?: string; // BTC only
   chainId?: string; // EVM only
+};
+
+export type IBuildOkxSwapEncodedTxParams = {
+  okxTx: IOKXTransactionObject;
+  fromTokenInfo: ISwapTokenBase;
 };

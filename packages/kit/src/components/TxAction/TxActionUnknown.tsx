@@ -1,6 +1,11 @@
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
@@ -12,6 +17,7 @@ import {
 } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
+import type { RouteProp } from '@react-navigation/core';
 
 function getTxActionUnknownInfo(props: ITxActionProps) {
   const { action } = props;
@@ -79,12 +85,22 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
   const { decodedTx } = props;
   const { unknownFrom, unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
 
+  const route =
+    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
+  const sourceInfo = route.params?.sourceInfo;
+
   return (
     <TxActionCommonDetailView
       networkId={decodedTx.networkId}
       overview={{
+        title: intl.formatMessage({
+          id: ETranslations.global_estimated_results,
+        }),
         content: intl.formatMessage({
-          id: ETranslations.transaction__contract_interaction,
+          id:
+            sourceInfo && sourceInfo.origin
+              ? ETranslations.global_dapp_interaction
+              : ETranslations.transaction__contract_interaction,
         }),
         avatar: {
           src: unknownIcon,

@@ -2,9 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -50,10 +58,12 @@ function useAllNetworkRequests<T>(params: {
   allNetworkRequests: ({
     accountId,
     networkId,
+    dbAccount,
     allNetworkDataInit,
   }: {
     accountId: string;
     networkId: string;
+    dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
@@ -61,11 +71,13 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     accountAddress,
     xpub,
+    simpleDbLocalTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) => Promise<any>;
   allNetworkCacheData?: ({
     data,
@@ -75,6 +87,11 @@ function useAllNetworkRequests<T>(params: {
     data: any;
     accountId: string;
     networkId: string;
+  }) => void;
+  allNetworkAccountsData?: ({
+    accounts,
+  }: {
+    accounts: IAllNetworkAccountInfo[];
   }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
@@ -106,6 +123,7 @@ function useAllNetworkRequests<T>(params: {
     allNetworkRequests,
     allNetworkCacheRequests,
     allNetworkCacheData,
+    allNetworkAccountsData,
     abortAllNetworkRequests,
     clearAllNetworkData,
     isNFTRequests,
@@ -121,6 +139,7 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result } = usePromiseResult(
     async () => {
+      console.log('useAllNetworkRequestsRun >>>>>>>>>>>>>>');
       const requestsUUID = generateUUID();
 
       if (disabled) return;
@@ -135,15 +154,28 @@ function useAllNetworkRequests<T>(params: {
 
       abortAllNetworkRequests?.();
 
+      const perf = perfUtils.createPerf(
+        EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests,
+      );
+
+      perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
       const {
         accountsInfo,
         accountsInfoBackendIndexed,
         accountsInfoBackendNotIndexed,
-      } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: account.id,
-        networkId: network.id,
-        deriveType: undefined,
-        nftEnabledOnly: isNFTRequests,
+      } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId: account.id,
+            networkId: network.id,
+            deriveType: undefined,
+            nftEnabledOnly: isNFTRequests,
+          },
+        );
+      perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
+
+      allNetworkAccountsData?.({
+        accounts: accountsInfo,
       });
 
       if (!accountsInfo || isEmpty(accountsInfo)) {
@@ -170,23 +202,39 @@ function useAllNetworkRequests<T>(params: {
 
       if (!allNetworkDataInit.current) {
         try {
+          perf.markStart('localTokens.getRawData');
+          const simpleDbLocalTokensRawData =
+            (await backgroundApiProxy.simpleDb.localTokens.getRawData()) ??
+            undefined;
+          perf.markEnd('localTokens.getRawData');
+
+          perf.markStart('allNetworkCacheRequests', {
+            localTokensExists: Boolean(simpleDbLocalTokensRawData),
+          });
+
           const cachedData = (
             await Promise.all(
-              Array.from(accountsInfo).map((networkDataString) => {
-                const { accountId, networkId, accountXpub, apiAddress } =
-                  networkDataString;
-                return allNetworkCacheRequests?.({
-                  accountId,
-                  networkId,
-                  xpub: accountXpub,
-                  accountAddress: apiAddress,
-                });
-              }),
+              Array.from(accountsInfo).map(
+                async (networkDataString: IAllNetworkAccountInfo) => {
+                  const { accountId, networkId, accountXpub, apiAddress } =
+                    networkDataString;
+                  const cachedDataResult = await allNetworkCacheRequests?.({
+                    accountId,
+                    networkId,
+                    xpub: accountXpub,
+                    accountAddress: apiAddress,
+                    simpleDbLocalTokensRawData,
+                  });
+                  return cachedDataResult as unknown;
+                },
+              ),
             )
           ).filter(Boolean);
+          perf.markEnd('allNetworkCacheRequests');
 
           if (cachedData && !isEmpty(cachedData)) {
             allNetworkDataInit.current = true;
+            perf.done();
             allNetworkCacheData?.({
               data: cachedData,
               accountId: account.id,
@@ -209,10 +257,11 @@ function useAllNetworkRequests<T>(params: {
         const allNetworks = accountsInfo;
 
         const requests = allNetworks.map((networkDataString) => {
-          const { accountId, networkId } = networkDataString;
+          const { accountId, networkId, dbAccount } = networkDataString;
           return allNetworkRequests({
             accountId,
             networkId,
+            dbAccount,
             allNetworkDataInit: allNetworkDataInit.current,
           });
         });
@@ -319,6 +368,7 @@ function useAllNetworkRequests<T>(params: {
       wallet,
       abortAllNetworkRequests,
       isNFTRequests,
+      allNetworkAccountsData,
       onStarted,
       onFinished,
       clearAllNetworkData,

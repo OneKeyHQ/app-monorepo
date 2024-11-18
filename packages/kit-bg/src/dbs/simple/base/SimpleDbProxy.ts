@@ -5,8 +5,10 @@ import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBas
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -16,6 +18,7 @@ import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomT
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -24,6 +27,7 @@ import type { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs'
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -57,6 +61,10 @@ export class SimpleDbProxy
   browserBookmarks = this._createProxyService(
     'browserBookmarks',
   ) as SimpleDbEntityBrowserBookmarks;
+
+  browserClosedTabs = this._createProxyService(
+    'browserClosedTabs',
+  ) as SimpleDbEntityBrowserClosedTabs;
 
   browserRiskWhiteList = this._createProxyService(
     'browserRiskWhiteList',
@@ -110,6 +118,10 @@ export class SimpleDbProxy
     'networkSelector',
   ) as SimpleDbEntityNetworkSelector;
 
+  notificationSettings = this._createProxyService(
+    'notificationSettings',
+  ) as SimpleDbEntityNotificationSettings;
+
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
@@ -150,9 +162,17 @@ export class SimpleDbProxy
 
   earn = this._createProxyService('earn') as SimpleDbEntityEarn;
 
+  earnOrders = this._createProxyService(
+    'earnOrders',
+  ) as SimpleDbEntityEarnOrders;
+
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
 
   babylonSync = this._createProxyService(
     'babylonSync',
   ) as SimpleDbEntityBabylonSync;
+
+  allNetworks = this._createProxyService(
+    'allNetworks',
+  ) as SimpleDbEntityAllNetworks;
 }

@@ -5,8 +5,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import useCookie from '@onekeyhq/kit/src/hooks/useCookie';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -17,12 +17,12 @@ import { EDemoHomeTabRoutes } from '../Routes';
 import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 
 const useStorage = platformEnv.isNative
-  ? (key: EAppSettingKey, initialValue?: boolean) => {
+  ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
       const [data, setData] = useState(
-        initialValue || appStorage.getSettingBoolean(key),
+        initialValue || appStorage.syncStorage.getBoolean(key),
       );
       const setNewData = (value: boolean) => {
-        appStorage.setSetting(key, value);
+        appStorage.syncStorage.set(key, value);
         setData(value);
       };
       return [data, setNewData];
@@ -34,7 +34,7 @@ const DemoRootHome = () => {
     useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(EAppSettingKey.rrt);
+  const [rrtStatus, changeRRTStatus] = useStorage(EAppSyncStorageKeys.rrt);
 
   const renderHeaderTitle = useCallback(
     () => (
@@ -168,7 +168,7 @@ const DemoRootHome = () => {
                       );
                     }
                   }
-                  window.location.reload();
+                  globalThis.location.reload();
                 }
               }}
             >

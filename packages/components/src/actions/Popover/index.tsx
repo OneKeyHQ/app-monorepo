@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { useWindowDimensions } from 'react-native';
-import { Popover as TMPopover, useMedia } from 'tamagui';
+import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,13 +20,15 @@ import {
   useKeyboardHeight,
   useSafeAreaInsets,
 } from '../../hooks';
-import { SizableText, XStack } from '../../primitives';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
 import { PopoverContent } from './PopoverContent';
 
+import type { IPopoverTooltip } from './type';
+import type { IIconButtonProps } from '../IconButton';
 import type { UseMediaState } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -373,13 +375,13 @@ function RawPopover({
   );
 }
 
-const Popover = ({
+function BasicPopover({
   open,
   onOpenChange: onOpenChangeFunc,
   renderTrigger,
   sheetProps,
   ...rest
-}: IPopoverProps) => {
+}: IPopoverProps) {
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
@@ -425,8 +427,40 @@ const Popover = ({
       {...rest}
     />
   );
-};
+}
 
-Popover.Close = TMPopover.Close;
+function Tooltip({
+  tooltip,
+  title,
+  placement = 'bottom',
+  iconSize = '$4',
+}: IPopoverTooltip & {
+  iconSize?: IIconButtonProps['iconSize'];
+}) {
+  return (
+    <BasicPopover
+      placement={placement}
+      title={title}
+      renderTrigger={
+        <IconButton
+          iconColor="$iconSubdued"
+          iconSize={iconSize}
+          icon="InfoCircleOutline"
+          variant="tertiary"
+        />
+      }
+      renderContent={
+        <YStack p="$5">
+          <SizableText size="$bodyLg">{tooltip}</SizableText>
+        </YStack>
+      }
+    />
+  );
+}
 
-export { Popover };
+export const Popover = withStaticProperties(BasicPopover, {
+  Close: TMPopover.Close,
+  Tooltip,
+});
+
+export * from './type';

@@ -1,28 +1,26 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { debounce, isNil } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EthereumMatic,
-  SepoliaMatic,
-} from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
-  ISearchTokenItem,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -33,6 +31,9 @@ import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+
+import type { IDBAccount } from '../dbs/local/types';
+import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -58,14 +59,32 @@ class ServiceToken extends ServiceBase {
     this._fetchAccountTokensControllers = [];
   }
 
+  localAccountTokensCache: {
+    tokenList: Record<string, IAccountToken[]>;
+    smallBalanceTokenList: Record<string, IAccountToken[]>;
+    riskyTokenList: Record<string, IAccountToken[]>;
+    tokenListValue: Record<string, string>;
+    tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  } = {
+    tokenList: {},
+    smallBalanceTokenList: {},
+    riskyTokenList: {},
+    tokenListValue: {},
+    tokenListMap: {},
+  };
+
   @backgroundMethod()
   public async fetchAccountTokens(
-    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
+    params: IFetchAccountTokensParams & {
+      mergeTokens?: boolean;
+      dbAccount?: IDBAccount;
+    },
   ): Promise<IFetchAccountTokensResp> {
     const {
       mergeTokens,
       flag,
       accountId,
+      dbAccount,
       isAllNetworks,
       isManualRefresh,
       allNetworksAccountId,
@@ -73,7 +92,7 @@ class ServiceToken extends ServiceBase {
       saveToLocal,
       ...rest
     } = params;
-    const { networkId, contractList = [] } = rest;
+    const { networkId } = rest;
     if (
       isAllNetworks &&
       this._currentNetworkId !== getNetworkIdsMap().onekeyall
@@ -86,6 +105,7 @@ class ServiceToken extends ServiceBase {
     const accountParams = {
       accountId,
       networkId,
+      dbAccount,
     };
     const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
       await Promise.all([
@@ -206,19 +226,42 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0')
         .plus(resp.data.data.riskTokens.fiatValue ?? '0');
 
-      await this.updateAccountLocalTokens({
-        accountId,
-        networkId,
-        tokenList: resp.data.data.tokens.data,
-        smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
-        riskyTokenList: resp.data.data.riskTokens.data,
-        tokenListValue: tokenListValue.toFixed(),
-        tokenListMap: {
+      if (isAllNetworks) {
+        const key = buildAccountLocalAssetsKey({
+          networkId,
+          accountAddress,
+          xpub,
+        });
+        this.localAccountTokensCache.tokenList[key] =
+          resp.data.data.tokens.data;
+        this.localAccountTokensCache.smallBalanceTokenList[key] =
+          resp.data.data.smallBalanceTokens.data;
+        this.localAccountTokensCache.riskyTokenList[key] =
+          resp.data.data.riskTokens.data;
+        this.localAccountTokensCache.tokenListValue[key] =
+          tokenListValue.toFixed();
+        this.localAccountTokensCache.tokenListMap[key] = {
           ...resp.data.data.tokens.map,
           ...resp.data.data.smallBalanceTokens.map,
           ...resp.data.data.riskTokens.map,
-        },
-      });
+        };
+        await this._updateAccountLocalTokensDebounced();
+      } else {
+        await this.updateAccountLocalTokens({
+          dbAccount,
+          accountId,
+          networkId,
+          tokenList: resp.data.data.tokens.data,
+          smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
+          riskyTokenList: resp.data.data.riskTokens.data,
+          tokenListValue: tokenListValue.toFixed(),
+          tokenListMap: {
+            ...resp.data.data.tokens.map,
+            ...resp.data.data.smallBalanceTokens.map,
+            ...resp.data.data.riskTokens.map,
+          },
+        });
+      }
     }
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
@@ -229,6 +272,26 @@ class ServiceToken extends ServiceBase {
 
     return resp.data.data;
   }
+
+  _updateAccountLocalTokensDebounced = debounce(
+    async () => {
+      await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+        this.localAccountTokensCache,
+      );
+      this.localAccountTokensCache = {
+        tokenList: {},
+        smallBalanceTokenList: {},
+        riskyTokenList: {},
+        tokenListValue: {},
+        tokenListMap: {},
+      };
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   public async fetchAllNetworkTokens({
@@ -410,6 +473,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async updateAccountLocalTokens(params: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     tokenList: IAccountToken[];
@@ -419,6 +483,7 @@ class ServiceToken extends ServiceBase {
     tokenListValue: string;
   }) {
     const {
+      dbAccount,
       accountId,
       networkId,
       tokenList,
@@ -429,10 +494,12 @@ class ServiceToken extends ServiceBase {
     } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
@@ -456,33 +523,48 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     accountAddress?: string;
     xpub?: string;
+    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
-    const { accountId, networkId } = params;
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.allNetwork__getAccountLocalTokens,
+    );
+
+    const { accountId, networkId, simpleDbLocalTokensRawData } = params;
+
+    let accountAddress: string | undefined;
+    let xpub: string | undefined;
 
     if (params.accountAddress || params.xpub) {
-      return this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
-        networkId,
-        accountAddress: params.accountAddress,
-        xpub: params.xpub,
-      });
+      accountAddress = params.accountAddress;
+      xpub = params.xpub;
+    } else {
+      perf.markStart('getAccountXpubAndAddress');
+      [xpub, accountAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
+      perf.markEnd('getAccountXpubAndAddress');
     }
 
-    const [xpub, accountAddress] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      }),
-    ]);
+    perf.markStart('getAccountTokenList', {
+      accountAddress,
+      networkId,
+      rawDataExist: !!simpleDbLocalTokensRawData,
+    });
     const localTokens =
       await this.backgroundApi.simpleDb.localTokens.getAccountTokenList({
         networkId,
         accountAddress,
         xpub,
+        simpleDbLocalTokensRawData,
       });
+    perf.markEnd('getAccountTokenList');
 
     let tokenList = localTokens.tokenList;
     let smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -495,6 +577,7 @@ class ServiceToken extends ServiceBase {
       (riskyTokenList[0]?.accountId &&
         riskyTokenList[0]?.accountId !== accountId)
     ) {
+      perf.markStart('mapAccountTokenList');
       tokenList = tokenList.map((token) => ({
         ...token,
         accountId,
@@ -512,8 +595,10 @@ class ServiceToken extends ServiceBase {
         accountId,
         networkId,
       }));
+      perf.markEnd('mapAccountTokenList');
     }
 
+    perf.done();
     return {
       ...localTokens,
       tokenList,

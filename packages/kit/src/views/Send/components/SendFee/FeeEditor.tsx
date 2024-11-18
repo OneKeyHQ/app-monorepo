@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN, isNil, isNumber } from 'lodash';
+import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IXStackProps } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import {
-  Alert,
   Button,
   Form,
   Input,
@@ -25,11 +24,12 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  calculateCkbTotalFee,
   calculateSolTotalFee,
   calculateTotalFeeNative,
-  getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -209,6 +209,10 @@ function FeeEditor(props: IProps) {
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
   ).minus(customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0');
 
+  const algoMinFee = new BigNumber(
+    customFee?.feeAlgo?.minFee ?? ALGO_TX_MIN_FEE,
+  ).toFixed();
+
   const form = useForm({
     defaultValues: {
       gasLimit: new BigNumber(
@@ -228,6 +232,19 @@ function FeeEditor(props: IProps) {
       // fee sol
       computeUnitPrice: new BigNumber(
         customFee?.feeSol?.computeUnitPrice ?? '0',
+      ).toFixed(),
+      // fee ckb
+      feeRateCkb: new BigNumber(customFee?.feeCkb?.feeRate ?? '0').toFixed(),
+
+      // fee algo
+      flatFee: BigNumber.max(
+        customFee.feeAlgo?.baseFee ?? '0',
+        algoMinFee,
+      ).toFixed(),
+
+      // fee dot
+      dotExtraTip: new BigNumber(
+        customFee?.feeDot?.extraTipInDot ?? '0',
       ).toFixed(),
     },
     mode: 'onChange',
@@ -260,19 +277,38 @@ function FeeEditor(props: IProps) {
       feeSol: customFee?.feeSol && {
         computeUnitPrice: watchAllFields.computeUnitPrice,
       },
+      feeCkb: customFee?.feeCkb && {
+        feeRate: watchAllFields.feeRateCkb,
+      },
+
+      feeAlgo: customFee?.feeAlgo && {
+        baseFee: watchAllFields.flatFee,
+        minFee: algoMinFee,
+      },
+
+      feeDot: customFee?.feeDot && {
+        extraTipInDot: watchAllFields.dotExtraTip,
+      },
     }),
     [
+      algoMinFee,
       customFee?.common,
+      customFee?.feeAlgo,
+      customFee?.feeCkb,
       customFee?.feeSol,
       customFee?.feeUTXO,
       customFee?.gas,
       customFee?.gasEIP1559,
+      customFee?.feeDot,
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
+      watchAllFields.feeRateCkb,
+      watchAllFields.flatFee,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,
       watchAllFields.maxBaseFee,
       watchAllFields.priorityFee,
+      watchAllFields.dotExtraTip,
     ],
   );
 
@@ -640,6 +676,35 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
+  const handleValidateFeeRateCkb = useCallback((value: string) => {
+    const feeRate = new BigNumber(value || 0);
+    if (feeRate.isNaN() || feeRate.isLessThanOrEqualTo(0)) {
+      return false;
+    }
+    return true;
+  }, []);
+
+  const handleValidateFlatFee = useCallback(
+    (value: string) => {
+      const flatFee = new BigNumber(value || 0);
+      if (flatFee.isNaN() || flatFee.isLessThanOrEqualTo(0)) {
+        return false;
+      }
+
+      if (flatFee.isLessThan(algoMinFee)) {
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          {
+            value: ALGO_TX_MIN_FEE,
+          },
+        );
+      }
+
+      return true;
+    },
+    [algoMinFee, intl],
+  );
+
   const handleApplyFeeInfo = useCallback(async () => {
     onApplyFeeInfo({
       feeType: currentFeeType,
@@ -755,74 +820,188 @@ function FeeEditor(props: IProps) {
     [form],
   );
 
+  const handleValidateDotExtraTip = useCallback(
+    (value: string) => {
+      const extraTip = new BigNumber(value || 0);
+      if (extraTip.isNaN() || extraTip.isLessThanOrEqualTo(0)) {
+        return false;
+      }
+
+      const minExtraTip = new BigNumber(1).shiftedBy(
+        -customFee.common.feeDecimals,
+      );
+      if (extraTip.isNaN() || extraTip.isLessThan(minExtraTip)) {
+        return intl.formatMessage(
+          {
+            id: ETranslations.send_error_minimum_amount,
+          },
+          {
+            amount: minExtraTip.toFixed(),
+            token: customFee.common.feeSymbol,
+          },
+        );
+      }
+      return true;
+    },
+    [customFee.common.feeDecimals, customFee.common.feeSymbol, intl],
+  );
+
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom || !customFee) return null;
+
+    if (customFee?.feeAlgo) {
+      return (
+        <Form form={form}>
+          <YStack>
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.fee_fee,
+              })}
+              name="flatFee"
+              rules={{
+                required: true,
+                validate: handleValidateFlatFee,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
+
+    if (customFee?.feeDot) {
+      return (
+        <Form form={form}>
+          <YStack gap="$5">
+            <Form.Field
+              label={intl.formatMessage(
+                {
+                  id: ETranslations.form__priority_fee,
+                },
+                {
+                  'network': feeSymbol,
+                },
+              )}
+              name="dotExtraTip"
+              rules={{
+                required: true,
+                min: 0,
+                validate: handleValidateDotExtraTip,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
 
     if (customFee?.gasEIP1559) {
       return (
         <Form form={form}>
           <YStack gap="$5">
-            <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.transaction_max_base_fee,
-              })}
-              name="maxBaseFee"
-              description={
-                replaceTxMode
-                  ? null
-                  : `${intl.formatMessage({
-                      id: ETranslations.form_max_base_fee_description,
-                    })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
-              }
-              rules={{
-                required: true,
-                min: 0,
-                validate: handleValidateMaxBaseFee,
-                onChange: (e: { target: { name: string; value: string } }) =>
-                  handleFormValueOnChange({
-                    name: e.target.name,
-                    value: e.target.value,
-                  }),
-              }}
-            >
-              <Input
-                flex={1}
-                addOns={[
-                  {
-                    label: feeSymbol,
-                  },
-                ]}
-              />
-            </Form.Field>
-            <Form.Field
-              label={`${intl.formatMessage({
-                id: ETranslations.form__priority_fee,
-              })}`}
-              name="priorityFee"
-              description={
-                replaceTxMode ? null : recommendPriorityFee.description
-              }
-              rules={{
-                required: true,
-                validate: handleValidatePriorityFee,
-                min: 0,
-                onChange: (e: { target: { name: string; value: string } }) =>
-                  handleFormValueOnChange({
-                    name: e.target.name,
-                    value: e.target.value,
-                  }),
-              }}
-            >
-              <Input
-                flex={1}
-                addOns={[
-                  {
-                    label: feeSymbol,
-                  },
-                ]}
-              />
-            </Form.Field>
+            <YStack>
+              <Form.Field
+                label={intl.formatMessage({
+                  id: ETranslations.transaction_max_base_fee,
+                })}
+                name="maxBaseFee"
+                description={
+                  replaceTxMode
+                    ? null
+                    : `${intl.formatMessage({
+                        id: ETranslations.form_max_base_fee_description,
+                      })}: ${customFee?.gasEIP1559.baseFeePerGas} ${feeSymbol}`
+                }
+                rules={{
+                  required: true,
+                  min: 0,
+                  validate: handleValidateMaxBaseFee,
+                  onChange: (e: { target: { name: string; value: string } }) =>
+                    handleFormValueOnChange({
+                      name: e.target.name,
+                      value: e.target.value,
+                    }),
+                }}
+              >
+                <Input
+                  flex={1}
+                  addOns={[
+                    {
+                      label: feeSymbol,
+                    },
+                  ]}
+                />
+              </Form.Field>
+              {feeAlert ? (
+                <SizableText color="$textCaution" size="$bodyMd" mt="$1.5">
+                  {feeAlert}
+                </SizableText>
+              ) : null}
+            </YStack>
+
+            <YStack>
+              <Form.Field
+                label={`${intl.formatMessage({
+                  id: ETranslations.form__priority_fee,
+                })}`}
+                name="priorityFee"
+                description={
+                  replaceTxMode ? null : recommendPriorityFee.description
+                }
+                rules={{
+                  required: true,
+                  validate: handleValidatePriorityFee,
+                  min: 0,
+                  onChange: (e: { target: { name: string; value: string } }) =>
+                    handleFormValueOnChange({
+                      name: e.target.name,
+                      value: e.target.value,
+                    }),
+                }}
+              >
+                <Input
+                  flex={1}
+                  addOns={[
+                    {
+                      label: feeSymbol,
+                    },
+                  ]}
+                />
+              </Form.Field>
+              {priorityFeeAlert ? (
+                <SizableText color="$textCaution" size="$bodyMd" mt="$1.5">
+                  {priorityFeeAlert}
+                </SizableText>
+              ) : null}
+            </YStack>
+
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
@@ -982,19 +1161,58 @@ function FeeEditor(props: IProps) {
         </Form>
       );
     }
+
+    if (customFee?.feeCkb) {
+      return (
+        <Form form={form}>
+          <YStack>
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.fee_fee_rate,
+              })}
+              name="feeRateCkb"
+              rules={{
+                required: true,
+                validate: handleValidateFeeRateCkb,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                    intRequired: true,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: 'shannons/kB',
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
   }, [
     currentFeeType,
     customFee,
+    feeAlert,
     feeSymbol,
     form,
     handleFormValueOnChange,
     handleValidateComputeUnitPrice,
+    handleValidateDotExtraTip,
     handleValidateFeeRate,
+    handleValidateFeeRateCkb,
+    handleValidateFlatFee,
     handleValidateGasLimit,
     handleValidateGasPrice,
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
+    priorityFeeAlert,
     recommendGasLimit.gasLimit,
     recommendPriorityFee.description,
     replaceTxMode,
@@ -1009,7 +1227,60 @@ function FeeEditor(props: IProps) {
         ? customFee
         : feeSelectorItems[currentFeeIndex]?.feeInfo) ?? {};
 
-    if (fee.gasEIP1559) {
+    if (fee.feeAlgo) {
+      let feeAlgo = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        feeAlgo = new BigNumber(watchAllFields.flatFee || 0);
+      } else {
+        feeAlgo = new BigNumber(fee.feeAlgo.baseFee || 0);
+      }
+
+      const feeInNative = calculateTotalFeeNative({
+        amount: feeAlgo,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: feeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.feeDot) {
+      let extraTip = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        extraTip = new BigNumber(watchAllFields.dotExtraTip || '0');
+      } else {
+        extraTip = new BigNumber(fee.feeDot.extraTipInDot || '0');
+      }
+
+      const max = new BigNumber(fee.gas?.gasLimit || '0')
+        .multipliedBy(fee.gas?.gasPrice || '0')
+        .plus(extraTip)
+        .toFixed();
+
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: max,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: maxFeeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(maxFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.gasEIP1559) {
       let limit = new BigNumber(0);
       let priorityFee = new BigNumber(0);
       let maxFee = new BigNumber(0);
@@ -1116,11 +1387,6 @@ function FeeEditor(props: IProps) {
       });
 
       feeInfoItems = [
-        // {
-        //   label: 'vSize',
-        //   customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
-        //   customSymbol: 'vB',
-        // },
         {
           label: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
           customValue: feeRate.toFixed() ?? '0',
@@ -1184,6 +1450,41 @@ function FeeEditor(props: IProps) {
             .toFixed(),
         },
       ];
+    } else if (fee.feeCkb) {
+      let feeRate = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        feeRate = new BigNumber(watchAllFields.feeRateCkb || 0);
+      } else {
+        feeRate = new BigNumber(fee.feeCkb.feeRate || 0);
+      }
+
+      const max = calculateCkbTotalFee({
+        feeRate,
+        txSize: unsignedTxs[0]?.txSize || 0,
+        feeInfo: fee,
+      });
+
+      const feeInNative = calculateTotalFeeNative({
+        amount: max,
+        feeInfo: fee,
+        withoutBaseFee: true,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee_rate }),
+          customValue: feeRate.toFixed() ?? '0',
+          customSymbol: 'shannons/kB',
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: feeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
     }
 
     return (
@@ -1197,12 +1498,6 @@ function FeeEditor(props: IProps) {
             })}
           />
         ))}
-        {feeAlert && currentFeeType === EFeeType.Custom ? (
-          <Alert type="warning" mt="$4" title={feeAlert} />
-        ) : null}
-        {priorityFeeAlert && currentFeeType === EFeeType.Custom ? (
-          <Alert type="warning" mt="$4" title={priorityFeeAlert} />
-        ) : null}
       </>
     );
   }, [
@@ -1210,17 +1505,18 @@ function FeeEditor(props: IProps) {
     currentFeeType,
     customFee,
     estimateFeeParams?.estimateFeeParamsSol,
-    feeAlert,
     feeSelectorItems,
     feeSymbol,
     intl,
     nativeSymbol,
     nativeTokenPrice,
-    priorityFeeAlert,
     unsignedTxs,
     vaultSettings?.withL1BaseFee,
     watchAllFields.computeUnitPrice,
+    watchAllFields.dotExtraTip,
     watchAllFields.feeRate,
+    watchAllFields.feeRateCkb,
+    watchAllFields.flatFee,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,
     watchAllFields.maxBaseFee,
@@ -1309,7 +1605,7 @@ function FeeEditor(props: IProps) {
 
   return (
     <>
-      <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$72">
+      <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
           {renderFeeEditorForm()}

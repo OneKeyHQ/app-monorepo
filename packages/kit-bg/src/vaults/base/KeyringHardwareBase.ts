@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  OneKeyInternalError,
+  UnsupportedAddressTypeError,
+} from '@onekeyhq/shared/src/errors';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -15,7 +21,11 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IPrepareHardwareAccountsParams } from '../types';
+import type {
+  IHwAllNetworkPrepareAccountsItem,
+  IHwSdkNetwork,
+  IPrepareHardwareAccountsParams,
+} from '../types';
 
 export type IWalletPassphraseState = {
   passphraseState?: string;
@@ -25,6 +35,8 @@ export type IWalletPassphraseState = {
 export abstract class KeyringHardwareBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.hardware;
 
+  hwSdkNetwork: IHwSdkNetwork | undefined;
+
   async getHardwareSDKInstance() {
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstance();
 
@@ -32,7 +44,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     // The direct call to backgroundApi is used here
     // This is a special case and direct access to backgroundApi is not recommended elsewhere.
     const sdk =
-      await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
+      await globalThis?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
     const r = (sdk as typeof HardwareSDK) ?? HardwareSDK;
 
     defaultLogger.account.accountCreatePerf.getHardwareSDKInstanceDone();
@@ -77,6 +89,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         deviceId,
         pathPrefix,
         pathSuffix,
+        template,
         coinName,
         showOnOnekeyFn,
       }),
@@ -124,5 +137,72 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       sdkGetDataFn: sdkGetAddressFn,
       errorMessage: 'Unable to get addresses.',
     });
+  }
+
+  async getAllNetworkPrepareAccounts<T>({
+    hwSdkNetwork,
+    params,
+    usedIndexes,
+    buildPath,
+    buildResultAccount,
+  }: {
+    hwSdkNetwork: IHwSdkNetwork | undefined;
+    params: IPrepareHardwareAccountsParams;
+    usedIndexes: number[];
+    buildPath: (p: { index: number }) => string | Promise<string>;
+    buildResultAccount: (p: {
+      account: IHwAllNetworkPrepareAccountsItem;
+      index: number;
+    }) => T;
+  }): Promise<
+    | {
+        success: true;
+        payload: T[];
+      }
+    | undefined
+  > {
+    if (!hwSdkNetwork) {
+      return undefined;
+    }
+    const { hwAllNetworkPrepareAccountsResponse } = params;
+    if (hwAllNetworkPrepareAccountsResponse?.length) {
+      const resultAccounts: T[] = [];
+      for (const index of usedIndexes) {
+        const path: string = await buildPath({
+          index,
+        });
+        const account = hwAllNetworkPrepareAccountsResponse?.find(
+          (item) =>
+            item.network && item.path === path && item.network === hwSdkNetwork,
+        );
+        if (account && account.success) {
+          resultAccounts.push(buildResultAccount({ account, index }));
+        }
+      }
+      if (resultAccounts.length === usedIndexes.length) {
+        return {
+          success: true,
+          payload: resultAccounts,
+        };
+      }
+
+      // if result length not match to indexes, throw first error item
+      const hasErrorItem = hwAllNetworkPrepareAccountsResponse?.find(
+        (item) => !item.success && !!item.payload?.error,
+      );
+      if (!hasErrorItem?.success && hasErrorItem?.payload?.error) {
+        if (
+          // response.payload.code === HardwareErrorCode.RuntimeError &&
+          hasErrorItem?.payload?.error?.indexOf(
+            'Failure_DataError,Forbidden key path',
+          ) !== -1
+        ) {
+          throw new UnsupportedAddressTypeError();
+        }
+        throw convertDeviceError(hasErrorItem.payload);
+        // throw new OneKeyInternalError(hasErrorItem.payload.error);
+      }
+      throw new OneKeyInternalError('SDK GetAllNetworkAccounts Failed');
+    }
   }
 }

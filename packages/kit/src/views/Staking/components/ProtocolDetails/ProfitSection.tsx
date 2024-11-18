@@ -11,23 +11,31 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { formatStakingDistanceToNowStrict } from '../utils';
+
 import { GridItem } from './GridItem';
 
 type IProfitInfoProps = {
   apr?: string;
   earningsIn24h?: string;
+  rewardToken?: string;
   rewardTokens?: string;
   updateFrequency?: string;
   unstakingPeriod?: number;
   earnPoints?: boolean;
+  stakingTime?: number;
+  nextLaunchLeft?: string;
 };
 
 function ProfitInfo({
   apr,
   earningsIn24h,
+  rewardToken,
   rewardTokens,
   updateFrequency,
   unstakingPeriod,
+  stakingTime,
+  nextLaunchLeft,
   earnPoints,
 }: IProfitInfoProps) {
   const intl = useIntl();
@@ -101,10 +109,30 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
+          {stakingTime ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_earnings_start,
+              })}
+            >
+              {intl.formatMessage(
+                { id: ETranslations.earn_in_number },
+                {
+                  number: formatStakingDistanceToNowStrict(stakingTime),
+                },
+              )}
+            </GridItem>
+          ) : null}
           {unstakingPeriod ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_unstaking_period,
+              })}
+              tooltip={intl.formatMessage({
+                id:
+                  rewardToken === 'APT'
+                    ? ETranslations.earn_earn_during_unstaking_tooltip
+                    : ETranslations.earn_unstaking_period_tooltip,
               })}
             >
               {intl.formatMessage(
@@ -130,10 +158,13 @@ export const ProfitSection = ({
   const props: IProfitInfoProps = {
     apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
     earningsIn24h: details.earnings24h,
+    rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
     // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
+    stakingTime: details.provider.stakingTime,
+    nextLaunchLeft: details.provider.nextLaunchLeft,
   };
   return <ProfitInfo {...props} />;
 };

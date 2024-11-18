@@ -21,7 +21,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 const TRON_RESOURCE_DOC_URL =
-  'https://developers.tron.network/docs/resource-model';
+  'https://help.onekey.so/hc/articles/11039593254799';
 
 function ResourceDetails({
   name,
@@ -131,12 +131,17 @@ function ResourceDetailsContent({
     <Stack gap="$5">
       <XStack justifyContent="flex-start">
         <Button
+          flex={1}
+          textAlign="left"
+          justifyContent="flex-start"
           size="small"
           variant="tertiary"
           icon="QuestionmarkOutline"
           onPress={() => openUrlInApp(TRON_RESOURCE_DOC_URL)}
         >
-          {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          {intl.formatMessage({
+            id: ETranslations.global_energy_bandwidth_learn,
+          })}
         </Button>
       </XStack>
       {isLoading ? (
@@ -180,7 +185,7 @@ export const showTronResourceDetailsDialog = ({
     ),
     showCancelButton: false,
     onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.global_done,
+      id: ETranslations.global_ok,
     }),
     onConfirm: async ({ close }) => {
       await close();

@@ -2,7 +2,6 @@ import type {
   ComponentType,
   CompositionEventHandler,
   ForwardedRef,
-  ReactComponentElement,
   RefObject,
 } from 'react';
 import {
@@ -64,7 +63,6 @@ export type IInputProps = {
   InputComponentStyle?: IStackStyle;
   addOnsContainerProps?: IStackProps;
   addOnsItemProps?: IStackProps;
-  displayAsMaskWhenEmptyValue?: boolean;
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
   leftIconName?: IKeyOfIcons;
@@ -161,7 +159,6 @@ function BaseInput(
     selectTextOnFocus,
     onFocus,
     value,
-    displayAsMaskWhenEmptyValue,
     onPaste,
     onChangeText,
     keyboardType,
@@ -350,11 +347,7 @@ function BaseInput(
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
-          value={
-            displayAsMaskWhenEmptyValue && !value
-              ? '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••'
-              : value
-          }
+          value={value}
           onFocus={handleFocus}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
@@ -404,6 +397,7 @@ function BaseInput(
                   loading,
                   testID = '',
                   renderContent,
+                  tooltipProps,
                 },
                 index,
               ) => {
@@ -418,11 +412,11 @@ function BaseInput(
                 };
 
                 return (
-                  <Group.Item key={`${iconName || index}-${label || index}`}>
+                  <Group.Item key={`${iconName || index}-${index}`}>
                     {renderContent ?? (
                       <InputAddOnItem
                         testID={testID}
-                        key={`${iconName || ''}-${label || ''}`}
+                        key={`${iconName || ''}-${index}`}
                         label={label}
                         loading={loading}
                         size={size}
@@ -430,6 +424,7 @@ function BaseInput(
                         iconColor={getIconColor()}
                         error={error}
                         onPress={onPress}
+                        tooltipProps={tooltipProps}
                         {...addOnsItemProps}
                       />
                     )}

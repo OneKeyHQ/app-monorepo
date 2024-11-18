@@ -1,8 +1,13 @@
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+
 import {
   BtcDappNetworkTypes,
+  BtcDappUniSetChainTypes,
   EBtcDappNetworkTypeEnum,
+  EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
+import { getDefaultEnabledEVMNetworksInAllNetworks } from '../config/presetNetworks';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -16,6 +21,9 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+
+const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
+const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -88,6 +96,57 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
   }
 }
 
+export function getBtcDappUniSetChainName(network: IServerNetwork) {
+  if (network && isBTCNetwork(network.id)) {
+    if (network.isTestnet) {
+      if (network.id === getNetworkIdsMap().sbtc) {
+        return Promise.resolve(
+          BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_SIGNET],
+        );
+      }
+      return Promise.resolve(
+        BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_TESTNET],
+      );
+    }
+    return Promise.resolve(
+      BtcDappUniSetChainTypes[EBtcDappUniSetChainTypeEnum.BITCOIN_MAINNET],
+    );
+  }
+}
+
+export function isEnabledNetworksInAllNetworks({
+  networkId,
+  deriveType,
+  disabledNetworks,
+  enabledNetworks,
+}: {
+  networkId: string;
+  deriveType: IAccountDeriveTypes | undefined;
+  disabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+  enabledNetworks: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }[];
+}) {
+  if (getNetworkImpl({ networkId }) === IMPL_EVM) {
+    if (defaultEnabledEVMNetworkIds.includes(networkId)) {
+      return !disabledNetworks.find(
+        (n) => n.networkId === networkId && n.deriveType === deriveType,
+      );
+    }
+
+    return enabledNetworks.find(
+      (n) => n.networkId === networkId && n.deriveType === deriveType,
+    );
+  }
+  return !disabledNetworks.find(
+    (n) => n.networkId === networkId && n.deriveType === deriveType,
+  );
+}
+
 function isAllNetwork({
   networkId,
 }: {
@@ -145,4 +204,5 @@ export default {
   isAllNetwork,
   getDefaultDeriveTypeVisibleNetworks,
   toNetworkIdFallback,
+  getBtcDappUniSetChainName,
 };

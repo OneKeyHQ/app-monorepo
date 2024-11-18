@@ -1,4 +1,4 @@
-import { SUI_TYPE_ARG } from '@mysten/sui.js';
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
@@ -49,6 +49,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 120,
+  customRpcEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

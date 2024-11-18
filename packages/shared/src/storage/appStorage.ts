@@ -4,10 +4,10 @@
 
 import platformEnv from '../platformEnv';
 
-import { buildAppStorageFactory } from './appSetting';
 import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
 import nativeAsyncStorageInstance from './instance/nativeAsyncStorageInstance';
+import { buildAppStorageFactory } from './syncStorage';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
@@ -37,9 +37,9 @@ export const mockStorage = mockStorageInstance;
  */
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appStorage = appStorage;
+  globalThis.$$appStorage = appStorage;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  global.$$appStorage.print = createPrintMethod({ storage: appStorage });
+  globalThis.$$appStorage.print = createPrintMethod({ storage: appStorage });
 }
 
 export default buildAppStorageFactory(appStorage);

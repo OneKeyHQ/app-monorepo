@@ -13,6 +13,7 @@ import type {
 import {
   useAccountIsAutoCreatingAtom,
   useAccountManualCreatingAtom,
+  useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -61,6 +62,8 @@ export function AccountSelectorCreateAddressButton({
   const { serviceAccount } = backgroundApiProxy;
   const [accountIsAutoCreating, setAccountIsAutoCreating] =
     useAccountIsAutoCreatingAtom();
+  const [indexedAccountAddressCreationState] =
+    useIndexedAccountAddressCreationStateAtom();
   const isFocused = useIsFocused();
 
   const networkId = account?.networkId;
@@ -83,24 +86,35 @@ export function AccountSelectorCreateAddressButton({
   const [accountManualCreatingAtom, setAccountManualCreatingAtom] =
     useAccountManualCreatingAtom();
 
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+
   const isLoading = useMemo(
     () =>
       (accountManualCreatingAtom.isLoading &&
         accountManualCreatingAtom.key === manualCreatingKey) ||
+      (addressCreationState &&
+        addressCreationState?.indexedAccountId === indexedAccountId &&
+        addressCreationState?.walletId === walletId) ||
       (accountIsAutoCreating &&
         accountIsAutoCreating.walletId === walletId &&
         accountIsAutoCreating.indexedAccountId === indexedAccountId &&
         accountIsAutoCreating.networkId === networkId &&
-        accountIsAutoCreating.deriveType === deriveType),
+        accountIsAutoCreating.deriveType === deriveType) ||
+      (indexedAccountAddressCreationState?.indexedAccountId ===
+        indexedAccountId &&
+        indexedAccountAddressCreationState?.walletId === walletId),
     [
       accountManualCreatingAtom.isLoading,
       accountManualCreatingAtom.key,
       manualCreatingKey,
-      accountIsAutoCreating,
-      walletId,
+      addressCreationState,
       indexedAccountId,
+      walletId,
+      accountIsAutoCreating,
       networkId,
       deriveType,
+      indexedAccountAddressCreationState?.indexedAccountId,
+      indexedAccountAddressCreationState?.walletId,
     ],
   );
 

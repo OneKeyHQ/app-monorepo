@@ -10,10 +10,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
@@ -91,6 +93,11 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.NetworkSelector,
+    showChainSelector,
+  );
+
   return (
     <XStack
       testID="account-network-trigger-button"
@@ -137,6 +144,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     </XStack>
   );
 }
+
 export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 
 export function ControlledNetworkSelectorTrigger({

@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -16,6 +16,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -150,6 +151,10 @@ export function HomePageView({
     [tabs, screenWidth, onRefresh],
   );
 
+  useEffect(() => {
+    void Icon.prefetch('CloudOffOutline');
+  }, []);
+
   const renderHomePageContent = useCallback(() => {
     if (
       (softwareAccountDisabled &&
@@ -233,11 +238,11 @@ export function HomePageView({
       content = renderHomePageContent();
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
-
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
+          <NetworkAlert />
           {
             // The upgrade reminder does not need to be displayed on the Url Account page
             sceneName === EAccountSelectorSceneName.home ? (

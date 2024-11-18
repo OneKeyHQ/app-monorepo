@@ -8,12 +8,14 @@ import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   contextAtomMethod,
   customFeeAtom,
+  decodedTxsAtom,
   isSinglePresetAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
@@ -24,6 +26,7 @@ import {
   sendSelectedFeeInfoAtom,
   sendTxStatusAtom,
   tokenApproveInfoAtom,
+  txAdvancedSettingsAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -39,6 +42,10 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(unsignedTxsAtom(), unsignedTxs);
     },
   );
+
+  updateDecodedTxs = contextAtomMethod((get, set, decodedTxs: IDecodedTx[]) => {
+    set(decodedTxsAtom(), decodedTxs);
+  });
 
   updateSendSelectedFee = contextAtomMethod(
     (
@@ -122,9 +129,13 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set,
       status: {
         isInsufficientNativeBalance?: boolean;
+        isSubmitting?: boolean;
       },
     ) => {
-      set(sendTxStatusAtom(), status);
+      set(sendTxStatusAtom(), {
+        ...get(sendTxStatusAtom()),
+        ...status,
+      });
     },
   );
 
@@ -135,6 +146,15 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   updateTokenApproveInfo = contextAtomMethod(
     (get, set, payload: { allowance: string; isUnlimited: boolean }) => {
       set(tokenApproveInfoAtom(), payload);
+    },
+  );
+
+  updateTxAdvancedSettings = contextAtomMethod(
+    (get, set, payload: { nonce?: string; dataChanged?: boolean }) => {
+      set(txAdvancedSettingsAtom(), {
+        ...get(txAdvancedSettingsAtom()),
+        ...payload,
+      });
     },
   );
 }
@@ -160,7 +180,8 @@ export function useSendConfirmActions() {
   const updateIsSinglePreset = actions.updateIsSinglePreset.use();
   const updatePreCheckTxStatus = actions.updatePreCheckTxStatus.use();
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
-
+  const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
+  const updateDecodedTxs = actions.updateDecodedTxs.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -174,5 +195,7 @@ export function useSendConfirmActions() {
     updateIsSinglePreset,
     updatePreCheckTxStatus,
     updateTokenApproveInfo,
+    updateTxAdvancedSettings,
+    updateDecodedTxs,
   });
 }

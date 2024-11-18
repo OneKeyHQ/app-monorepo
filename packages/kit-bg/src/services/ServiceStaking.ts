@@ -3,18 +3,23 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IChangedPendingTxInfo,
+} from '@onekeyhq/shared/types/history';
 import type {
   IAllowanceOverview,
   IAvailableAsset,
@@ -28,6 +33,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
+  IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
   IStakeClaimBaseParams,
@@ -36,15 +42,22 @@ import type {
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+
+import type {
+  IAddEarnOrderParams,
+  IEarnOrderItem,
+} from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -160,7 +173,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/stake`, {
+    }>(`/earn/v2/stake`, {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -189,7 +202,7 @@ class ServiceStaking extends ServiceBase {
     }
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/unstake`, {
+    }>(`/earn/v2/unstake`, {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
@@ -248,7 +261,7 @@ class ServiceStaking extends ServiceBase {
 
     const resp = await client.post<{
       data: IStakeTxResponse;
-    }>(`/earn/v1/claim`, {
+    }>(`/earn/v2/claim`, {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
@@ -569,6 +582,45 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkAmount({
+    networkId,
+    accountId,
+    symbol,
+    provider,
+    action,
+    amount,
+  }: {
+    accountId?: string;
+    networkId?: string;
+    symbol?: string;
+    provider?: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount?: string;
+  }) {
+    if (!networkId || !accountId || !provider) {
+      throw new Error('networkId or accountId or provider not found');
+    }
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const result = await client.get<{
+      code: number;
+      message: string;
+    }>(`/earn/v1/check-amount`, {
+      params: {
+        networkId,
+        accountAddress: account.address,
+        symbol,
+        provider: provider || '',
+        action,
+        amount,
+      },
+    });
+    const { code, message } = result.data;
+    return Number(code) === 0 ? '' : message;
+  }
+
+  @backgroundMethod()
   async getStakingConfigs({
     networkId,
     symbol,
@@ -733,6 +785,43 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getUnbondingDelegationList(params: {
+    accountAddress: string;
+    provider: string;
+    networkId: string;
+    symbol: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: {
+        delegations: IEarnUnbondingDelegationList;
+      };
+    }>(`/earn/v1/unbonding-delegation/list`, {
+      params,
+    });
+    return resp.data.data.delegations;
+  }
+
+  @backgroundMethod()
+  fetchEarnHomePageData() {
+    return this._fetchEarnHomePageData();
+  }
+
+  _fetchEarnHomePageData = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const res = await client.get<{ data: IDiscoveryBanner[] }>(
+        '/utility/v1/earn-banner/list',
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    },
+  );
+
+  @backgroundMethod()
   async getEarnAvailableAccounts(params: {
     accountId: string;
     networkId: string;
@@ -776,7 +865,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     accountId: string;
     networkId: string;
-    tx: IStakeTxResponse;
+    tx: IStakeTx;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const encodedTx = await vault.buildStakeEncodedTx(tx as any);
@@ -828,6 +917,108 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async removeBabylonTrackingItem(item: { txIds: string[] }) {
     return simpleDb.babylonSync.removeTrackingItem({ txIds: item.txIds });
+  }
+
+  @backgroundMethod()
+  async getPendingActivationPortfolioList({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IBabylonPortfolioItem[]> {
+    const trackingItems = await this.getBabylonTrackingItems({
+      accountId,
+      networkId,
+    });
+    const pendingActivationItems = trackingItems.filter(
+      (o) => o.action === 'stake',
+    );
+    return pendingActivationItems.map((o) => {
+      const item = {
+        txId: '',
+        status: 'local_pending_activation',
+        amount: o.amount,
+        fiatValue: '',
+        lockBlocks: 0,
+        isOverflow: '',
+      } as IBabylonPortfolioItem;
+      if (o.minStakeTerm && o.createAt) {
+        item.startTime = o.createAt;
+        item.endTime = o.createAt + o.minStakeTerm;
+      }
+      return item;
+    });
+  }
+
+  @backgroundMethod()
+  async addEarnOrder(order: IAddEarnOrderParams) {
+    defaultLogger.staking.order.addOrder(order);
+    return simpleDb.earnOrders.addOrder(order);
+  }
+
+  @backgroundMethod()
+  async updateEarnOrder({ txs }: { txs: IChangedPendingTxInfo[] }) {
+    for (const tx of txs) {
+      try {
+        const order =
+          await this.backgroundApi.simpleDb.earnOrders.getOrderByTxId(tx.txId);
+        if (order && tx.status !== EDecodedTxStatus.Pending) {
+          order.status = tx.status;
+          await this.updateEarnOrderStatusToServer({ order });
+          await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId({
+            currentTxId: tx.txId,
+            status: tx.status,
+          });
+          defaultLogger.staking.order.updateOrderStatus({
+            txId: tx.txId,
+            status: tx.status,
+          });
+        }
+      } catch (e) {
+        // ignore error, continue loop
+        defaultLogger.staking.order.updateOrderStatusError({
+          txId: tx.txId,
+          status: tx.status,
+        });
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
+    const maxRetries = 3;
+    let lastError;
+
+    for (let i = 0; i < maxRetries; i += 1) {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Earn);
+        await client.post('/earn/v1/orders', {
+          orderId: order.orderId,
+          networkId: order.networkId,
+          txId: order.txId,
+        });
+        return; // Return early on success
+      } catch (error) {
+        lastError = error;
+        if (i === maxRetries - 1) break; // Exit loop on final retry
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // 1s, 2s, 3s
+      }
+    }
+
+    throw lastError; // Throw last error after all retries fail
+  }
+
+  @backgroundMethod()
+  async updateOrderStatusByTxId(params: {
+    currentTxId: string;
+    newTxId?: string;
+    status: EDecodedTxStatus;
+  }) {
+    defaultLogger.staking.order.updateOrderStatusByTxId(params);
+    await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+      params,
+    );
   }
 }
 

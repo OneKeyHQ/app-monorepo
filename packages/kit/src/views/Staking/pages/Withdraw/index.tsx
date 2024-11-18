@@ -105,11 +105,14 @@ const WithdrawPage = () => {
     return resp;
   }, [networkId, provider.name, tokenInfo.symbol, identity]);
 
-  const unstakingPeriod = useMemo(() => {
-    if (details.provider.unstakingTime) {
-      return Math.ceil(details.provider.unstakingTime / (24 * 60 * 60));
-    }
-    return details.unstakingPeriod; // day
+  const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
+    const showDetail = !!details?.provider?.unstakingTime;
+    return {
+      showDetailWithdrawalRequested: showDetail,
+      unstakingPeriod: showDetail
+        ? Math.ceil(Number(details.provider.unstakingTime) / (24 * 60 * 60))
+        : details.unstakingPeriod, // day
+    };
   }, [details]);
 
   return (
@@ -125,9 +128,11 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(
-            Number(active ?? 0) + Number(overflow ?? 0),
-          ).toFixed()}
+          balance={BigNumber(active ?? 0)
+            .plus(overflow ?? 0)
+            .toFixed()}
+          accountId={accountId}
+          networkId={networkId}
           initialAmount={initialAmount}
           tokenSymbol={tokenInfo.symbol}
           tokenImageUri={tokenInfo.logoURI}
@@ -139,6 +144,7 @@ const WithdrawPage = () => {
               ? String(provider.minUnstakeAmount)
               : undefined
           }
+          showDetailWithdrawalRequested={showDetailWithdrawalRequested}
           unstakingPeriod={unstakingPeriod}
           providerLabel={providerLabel}
           showPayWith={showPayWith}

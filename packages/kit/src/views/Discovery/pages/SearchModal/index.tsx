@@ -216,22 +216,26 @@ function SearchModal() {
               id: ETranslations.browser_search_dapp_or_enter_url,
             })}
             onSubmitEditing={() => {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                navigation,
-                useCurrentWindow,
-                tabId,
-                webSite: {
-                  url: searchValue,
-                  title: searchValue,
-                },
-              });
+              if (!searchValue) {
+                navigation.pop();
+              } else {
+                handleOpenWebSite({
+                  switchToMultiTabBrowser: gtMd,
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  webSite: {
+                    url: searchValue,
+                    title: searchValue,
+                  },
+                });
 
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: searchValue,
-                dappName: searchValue,
-                enterMethod: EEnterMethod.addressBar,
-              });
+                defaultLogger.discovery.dapp.enterDapp({
+                  dappDomain: searchValue,
+                  dappName: searchValue,
+                  enterMethod: EEnterMethod.addressBar,
+                });
+              }
             }}
           />
         </Stack>

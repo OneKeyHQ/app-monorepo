@@ -12,7 +12,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
@@ -127,8 +129,14 @@ export function AccountSelectorTriggerBase({
     ],
   );
 
-  if (spotlightProps) {
-    return <SpotlightView {...spotlightProps}>{content}</SpotlightView>;
-  }
-  return content;
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.AccountSelector,
+    showAccountSelector,
+  );
+
+  return spotlightProps ? (
+    <SpotlightView {...spotlightProps}>{content}</SpotlightView>
+  ) : (
+    content
+  );
 }

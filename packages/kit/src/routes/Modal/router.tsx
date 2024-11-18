@@ -22,6 +22,7 @@ import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
+import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -30,6 +31,23 @@ import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
+
+const onboardingRouterConfig = {
+  onMounted: () => {
+    console.log('OnboardingModal onMounted');
+  },
+  onUnmounted: async () => {
+    await v4migrationAtom.set((v) => ({
+      ...v,
+      isProcessing: false,
+      isMigrationModalOpen: false,
+    }));
+    console.log('OnboardingModal onUnmounted');
+    await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
+  },
+  name: EModalRoutes.OnboardingModal,
+  children: OnboardingRouter,
+};
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
@@ -56,22 +74,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       // void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
   },
-  {
-    onMounted: () => {
-      console.log('OnboardingModal onMounted');
-    },
-    onUnmounted: async () => {
-      await v4migrationAtom.set((v) => ({
-        ...v,
-        isProcessing: false,
-        isMigrationModalOpen: false,
-      }));
-      console.log('OnboardingModal onUnmounted');
-      await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
-    },
-    name: EModalRoutes.OnboardingModal,
-    children: OnboardingRouter,
-  },
+  onboardingRouterConfig,
   {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,
@@ -144,6 +147,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.NotificationsModal,
     children: ModalNotificationsRouter,
   },
+  {
+    name: EModalRoutes.ShortcutsModal,
+    children: ShortcutsModalRouter,
+  },
 ];
 
 // Pages in Dev Mode
@@ -155,3 +162,23 @@ if (platformEnv.isDev) {
 }
 
 export const modalRouter = router;
+
+export const fullModalRouter = [
+  onboardingRouterConfig,
+  {
+    name: EModalRoutes.AppUpdateModal,
+    children: AppUpdateRouter,
+  },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
+  },
+];

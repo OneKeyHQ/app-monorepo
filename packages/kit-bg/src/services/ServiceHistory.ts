@@ -15,10 +15,10 @@ import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
+  IChangedPendingTxInfo,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
   IFetchHistoryTxDetailsParams,
-  IFetchHistoryTxDetailsResp,
   IFetchTxDetailsParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
@@ -68,10 +68,12 @@ class ServiceHistory extends ServiceBase {
 
     if (isAllNetworks) {
       accounts = (
-        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          networkId,
-        })
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
       ).accountsInfo;
     }
 
@@ -145,6 +147,7 @@ class ServiceHistory extends ServiceBase {
         }
         confirmedTxs.push({
           ...localHistoryPendingTx,
+          originalId: localHistoryPendingTx.id,
           id: vaultSettings.useRemoteTxId
             ? fixedLocalHistoryId || localHistoryPendingTx.id
             : localHistoryPendingTx.id,
@@ -153,6 +156,7 @@ class ServiceHistory extends ServiceBase {
             txid: vaultSettings.useRemoteTxId
               ? remoteTxId
               : localHistoryPendingTx.decodedTx.txid,
+            originalTxId: localHistoryPendingTx.decodedTx.originalTxId,
             status:
               confirmedTx?.data.status === EOnChainHistoryTxStatus.Success
                 ? EDecodedTxStatus.Confirmed
@@ -284,10 +288,44 @@ class ServiceHistory extends ServiceBase {
       tx.decodedTx.networkLogoURI = network.logoURI;
     }
 
+    const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
+    const changedPendingTxInfos: IChangedPendingTxInfo[] = [];
+    localHistoryPendingTxs.forEach((tx) => {
+      const txInResult = finalPendingTxs.find((item) => item.id === tx.id);
+      if (!txInResult) {
+        accountsWithChangedPendingTxs.add(
+          `${tx.decodedTx.accountId}_${tx.decodedTx.networkId}`,
+        );
+        const confirmedTx = result.find((item) => item.id === tx.id);
+        if (confirmedTx) {
+          changedPendingTxInfos.push({
+            accountId: confirmedTx.decodedTx.accountId,
+            networkId: confirmedTx.decodedTx.networkId,
+            txId: confirmedTx.decodedTx.txid,
+            status: confirmedTx.decodedTx.status,
+          });
+        }
+      }
+    });
+
+    if (changedPendingTxInfos.length > 0) {
+      // Check if staking transaction status has changed, if so request backend to update order status
+      void this.backgroundApi.serviceStaking.updateEarnOrder({
+        txs: changedPendingTxInfos,
+      });
+    }
+
     return {
       txs: result,
-      pendingTxsUpdated:
-        finalPendingTxs.length !== localHistoryPendingTxs.length,
+      accountsWithChangedPendingTxs: Array.from(
+        accountsWithChangedPendingTxs,
+      ).map((item) => {
+        const [a, n] = item.split('_');
+        return {
+          accountId: a,
+          networkId: n,
+        };
+      }),
     };
   }
 
@@ -301,10 +339,12 @@ class ServiceHistory extends ServiceBase {
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
-        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          networkId,
-        })
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
       ).accountsInfo;
       const allNetworksParams = accounts.map((account) => ({
         networkId: account.networkId,
@@ -374,16 +414,22 @@ class ServiceHistory extends ServiceBase {
   public async getAllNetworksPendingTxs({
     accountId,
     networkId,
+    allNetworkAccounts,
   }: {
     accountId: string;
     networkId: string;
+    allNetworkAccounts?: IAllNetworkAccountInfo[];
   }) {
-    const accounts = (
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
-        networkId,
-      })
-    ).accountsInfo;
+    const accounts =
+      allNetworkAccounts ||
+      (
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+          {
+            accountId,
+            networkId,
+          },
+        )
+      ).accountsInfo;
 
     const allNetworksParams = accounts.map((account) => ({
       networkId: account.networkId,
@@ -415,25 +461,29 @@ class ServiceHistory extends ServiceBase {
     // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
     let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
-    confirmedTxsToSave = confirmedTxs.map((tx) => {
-      const onChainHistoryTx = onChainHistoryTxs.find(
-        (item) => item.id === tx.id,
-      );
-      if (onChainHistoryTx) {
-        return onChainHistoryTx;
-      }
-      return tx;
-    });
+    confirmedTxsToSave = confirmedTxs
+      .map((tx) => {
+        const onChainHistoryTx = onChainHistoryTxs.find(
+          (item) => item.id === tx.id,
+        );
+        if (onChainHistoryTx) {
+          return onChainHistoryTx;
+        }
+        return tx;
+      })
+      .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+
+    const finalConfirmedTxs = unionBy(
+      [...confirmedTxsToSave, ...onChainHistoryTxs],
+      (tx) => tx.id,
+    ).filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
       {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxsToSave: unionBy(
-          [...confirmedTxsToSave, ...onChainHistoryTxs],
-          (tx) => tx.id,
-        ),
+        confirmedTxsToSave: finalConfirmedTxs,
       },
     );
 
@@ -861,6 +911,29 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getAccountLocalPendingTxsNonceList(params: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId } = params;
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+    return this.backgroundApi.simpleDb.localHistory.getPendingNonceList({
+      networkId,
+      accountAddress,
+      xpub,
+    });
+  }
+
+  @backgroundMethod()
   public async saveSendConfirmHistoryTxs(params: {
     networkId: string;
     accountId: string;
@@ -948,6 +1021,16 @@ class ServiceHistory extends ServiceBase {
             replaceTxInfo.replaceType === EReplaceTxType.Cancel
               ? ESwapTxHistoryStatus.CANCELING
               : ESwapTxHistoryStatus.PENDING,
+        });
+
+        // Listen for staking transaction speed-up changes
+        void this.backgroundApi.serviceStaking.updateOrderStatusByTxId({
+          currentTxId: prevTx.decodedTx.txid,
+          newTxId: newHistoryTx.decodedTx.txid,
+          status:
+            replaceTxInfo.replaceType === EReplaceTxType.Cancel
+              ? EDecodedTxStatus.Removed
+              : EDecodedTxStatus.Pending,
         });
       }
     }

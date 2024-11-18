@@ -1,5 +1,6 @@
 import { type PropsWithChildren, useCallback } from 'react';
 
+import type { IAlertProps } from '@onekeyhq/components';
 import {
   SizableText,
   Skeleton,
@@ -21,7 +22,9 @@ function DAppRequestLayout({
   urlSecurityInfo,
   favicon,
   children,
-  isRiskSignMethod,
+  displaySignMessageAlert,
+  signMessageAlertProps,
+  fullScreen = true,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -29,7 +32,9 @@ function DAppRequestLayout({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
-  isRiskSignMethod?: boolean;
+  displaySignMessageAlert?: boolean;
+  signMessageAlertProps?: IAlertProps;
+  fullScreen?: boolean;
 }>) {
   const { top } = useSafeAreaInsets();
 
@@ -59,11 +64,13 @@ function DAppRequestLayout({
   return (
     <Stack
       $md={{
-        mt: top,
+        mt: fullScreen ? top : undefined,
       }}
     >
       <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />
-      {isRiskSignMethod ? <DAppSignMessageAlert /> : null}
+      {displaySignMessageAlert ? (
+        <DAppSignMessageAlert signMessageAlertProps={signMessageAlertProps} />
+      ) : null}
       <Stack p="$5" gap="$8">
         <Stack gap="$2.5">
           <DAppSiteMark

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
 import { has } from 'lodash';
 
@@ -41,10 +42,13 @@ import type {
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  IOKXTransactionObject,
   ISwapApproveTransaction,
+  ISwapCheckSupportResponse,
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
+  ISwapTokenBase,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -56,6 +60,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { inAppNotificationAtom } from '../states/jotai/atoms';
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -754,6 +759,27 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkSupportSwap({
+    networkId,
+    contractAddress,
+  }: {
+    networkId: string;
+    contractAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const resp = await client.get<{
+      data: ISwapCheckSupportResponse[];
+    }>(`/swap/v1/check-support`, {
+      params: {
+        networkId,
+        contractAddress,
+        protocol: 'Swap',
+      },
+    });
+    return resp.data.data[0];
+  }
+
+  @backgroundMethod()
   async fetchApproveAllowance({
     networkId,
     tokenAddress,
@@ -928,6 +954,21 @@ export default class ServiceSwap extends ServiceBase {
         };
       });
       if (item.status !== ESwapTxHistoryStatus.PENDING) {
+        let fromAmountFinal = item.baseInfo.fromAmount;
+        if (item.swapInfo.otherFeeInfos?.length) {
+          item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: extraFeeInfo.token,
+                token2: item.baseInfo.fromToken,
+              })
+            ) {
+              fromAmountFinal = new BigNumber(fromAmountFinal)
+                .plus(extraFeeInfo.amount ?? 0)
+                .toFixed();
+            }
+          });
+        }
         void this.backgroundApi.serviceApp.showToast({
           method:
             item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
@@ -1224,5 +1265,22 @@ export default class ServiceSwap extends ServiceBase {
       toTokenBaseInfo,
       isExit,
     );
+  }
+
+  @backgroundMethod()
+  async buildOkxSwapEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    okxTx: IOKXTransactionObject;
+    fromTokenInfo: ISwapTokenBase;
+  }) {
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
+    return vault.buildOkxSwapEncodedTx({
+      okxTx: params.okxTx,
+      fromTokenInfo: params.fromTokenInfo,
+    });
   }
 }

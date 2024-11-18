@@ -9,6 +9,7 @@ import {
   SortableSectionList,
   Stack,
   XStack,
+  useShortcuts,
 } from '@onekeyhq/components';
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -37,19 +38,21 @@ import {
   EModalRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
-import { useShortcuts } from '../../hooks/useShortcuts';
+import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const ITEM_HEIGHT = 32;
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
+
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
-  useShortcuts();
+  useDiscoveryShortcuts();
   // register desktop new window event
   useDesktopNewWindow();
 
@@ -63,6 +66,7 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabs,
+    reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
@@ -185,6 +189,37 @@ function DesktopCustomTabBar() {
     () => [{ data: result?.pinnedTabs }, { data: result?.unpinnedTabs }],
     [result?.pinnedTabs, result?.unpinnedTabs],
   );
+
+  const handleShortcuts = useCallback(
+    (eventName: EShortcutEvents) => {
+      switch (eventName) {
+        case EShortcutEvents.TabPin6:
+        case EShortcutEvents.TabPin7:
+        case EShortcutEvents.TabPin8:
+        case EShortcutEvents.TabPin9:
+          if (result?.pinnedTabs?.length) {
+            const id =
+              result?.pinnedTabs?.[Number(eventName.match(/\d+/)?.[0]) - 6]?.id;
+            if (id) {
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              setCurrentWebTab(id);
+            }
+          }
+          break;
+        case EShortcutEvents.ReOpenLastClosedTab:
+          if (reOpenLastClosedTab()) {
+            navigation.switchTab(ETabRoutes.MultiTabBrowser);
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [navigation, reOpenLastClosedTab, result?.pinnedTabs, setCurrentWebTab],
+  );
+
+  useShortcuts(undefined, handleShortcuts);
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -285,14 +320,18 @@ function DesktopCustomTabBar() {
     <Stack testID="sideabr-browser-section" flex={1}>
       <HandleRebuildBrowserData />
       <SortableSectionList
+        mx="$-3"
+        px="$3"
         ref={scrollViewRef}
         sections={sections}
         renderItem={({
           item: t,
           dragProps,
+          index,
         }: {
           item: IWebTab & { hasConnectedAccount: boolean };
           dragProps?: Record<string, any>;
+          index: number;
         }) => (
           <Stack dataSet={dragProps}>
             <DesktopCustomTabBarItem
@@ -364,6 +403,7 @@ function DesktopCustomTabBar() {
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
                 })}
+                shortcutKey={EShortcutEvents.NewTab}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {

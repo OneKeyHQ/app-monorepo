@@ -9,7 +9,11 @@ import type {
   IEncodedTxTron,
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -24,6 +28,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
@@ -47,10 +55,12 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -220,12 +230,19 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
+    const accountAddress = await this.getAccountAddress();
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const { swapInfo } = unsignedTx;
 
-    let action: IDecodedTxAction = { type: EDecodedTxActionType.UNKNOWN };
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: accountAddress,
+        to: '',
+      },
+    };
     let toAddress = '';
 
     if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
@@ -618,5 +635,120 @@ export default class Vault extends VaultBase {
       energyUsageTotal: receipt?.energyUsageTotal,
       netUsage: receipt?.netUsage,
     });
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const tronWeb = new TronWeb({ fullHost: params.rpcUrl });
+    const start = performance.now();
+    const {
+      result: { number: blockNumber },
+    } = await tronWeb.fullNode.request(
+      'jsonrpc',
+      {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getBlockByNumber',
+        params: ['latest', false],
+      },
+      'post',
+    );
+    const bestBlockNumber = parseInt(blockNumber, 10);
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const tronWeb = new TronWeb({ fullHost: rpcUrl });
+    const ret = await tronWeb.trx.sendRawTransaction(
+      JSON.parse(signedTx.rawTx),
+    );
+
+    if (typeof ret.code !== 'undefined') {
+      throw new OneKeyInternalError(
+        `${ret.code} ${Buffer.from(ret.message || '', 'hex').toString()}`,
+      );
+    }
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
+  }
+
+  override async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTxTron> {
+    const { okxTx, fromTokenInfo } = params;
+    const { from, to, value, data, signatureData: _signatureData } = okxTx;
+    const signatureData: { functionSelector: string } = JSON.parse(
+      (_signatureData as string[])[0] ?? '{}',
+    );
+
+    let signatureDataHex = '';
+    if (signatureData) {
+      signatureDataHex = signatureData.functionSelector ?? '';
+    }
+
+    const functionParams = defaultAbiCoder.decode(
+      ['uint256', 'uint256', 'uint256', 'bytes32[]'],
+      `0x${data.slice(10)}`,
+    ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
+
+    const [{ result, transaction }] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: IUnsignedTransaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                to,
+                signatureDataHex,
+                {
+                  feeLimit: 300_000_000,
+                  callValue: parseInt(value, 10),
+                },
+                [
+                  { type: 'uint256', value: functionParams[0]._hex },
+                  {
+                    type: 'uint256',
+                    value: functionParams[1]._hex,
+                  },
+                  { type: 'uint256', value: functionParams[2]._hex },
+                  {
+                    type: 'bytes32[]',
+                    value: functionParams[3],
+                  },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build token transfer transaction',
+      );
+    }
+    return transaction;
   }
 }

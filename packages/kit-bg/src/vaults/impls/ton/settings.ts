@@ -52,6 +52,8 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
 
+  customRpcEnabled: true,
+
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,
     ECoreApiExportedSecretKeyType.mnemonic,

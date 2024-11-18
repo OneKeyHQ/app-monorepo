@@ -1,15 +1,16 @@
+import BigNumber from 'bignumber.js';
+import { isArray } from 'lodash';
+
+import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IEstimateGasParams,
-  IEstimateGasResp,
-} from '@onekeyhq/shared/types/fee';
+import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
+import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 import ServiceBase from './ServiceBase';
 
@@ -43,7 +44,8 @@ class ServiceGas extends ServiceBase {
     this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
-    return {
+
+    const feeResult = {
       common: {
         baseFee: feeInfo.baseFee,
         feeDecimals: feeInfo.feeDecimals,
@@ -56,7 +58,6 @@ class ServiceGas extends ServiceBase {
       gasEIP1559: feeInfo.gasEIP1559,
       feeUTXO: feeInfo.feeUTXO,
       feeTron: feeInfo.feeTron,
-      gasFil: feeInfo.gasFil,
       feeSol: feeInfo.computeUnitPrice
         ? [
             {
@@ -64,7 +65,42 @@ class ServiceGas extends ServiceBase {
             },
           ]
         : undefined,
+      feeCkb: feeInfo.feeCkb
+        ? feeInfo.feeCkb.map((item) => ({
+            ...item,
+            feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
+          }))
+        : undefined,
+      feeAlgo: (isArray(feeInfo.feeAlgo)
+        ? feeInfo.feeAlgo
+        : [feeInfo.feeAlgo]
+      ).filter((item) => !!item),
+      feeDot: feeInfo.feeData
+        ?.map((item) => {
+          if (!item.extraTip || feeInfo.feeDecimals === undefined) {
+            return undefined;
+          }
+          return {
+            extraTipInDot: new BigNumber(item.extraTip)
+              .shiftedBy(-feeInfo.feeDecimals)
+              .toFixed(),
+          };
+        })
+        .filter((item) => !!item),
     };
+
+    // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
+    if (feeInfo.gasFil && !feeInfo.gasEIP1559) {
+      feeResult.gasEIP1559 = feeInfo.gasFil.map((item) => ({
+        baseFeePerGas: FIL_MIN_BASE_FEE,
+        maxFeePerGas: item.gasFeeCap,
+        maxPriorityFeePerGas: item.gasPremium,
+        gasLimit: item.gasLimit,
+        gasLimitForDisplay: item.gasLimit,
+      }));
+    }
+
+    return feeResult;
   }
 
   @backgroundMethod()

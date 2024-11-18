@@ -19,6 +19,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -31,13 +32,29 @@ import {
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ckb.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'nervos';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+      chainName: 'ckb',
+    };
+  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -52,23 +69,47 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             pathPrefix,
+            template,
             pathSuffix,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
 
-            const response = await sdk.nervosGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                network: config.PREFIX,
-              })),
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                pub: account.payload?.pub || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // const response = await sdk.nervosGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${pathSuffix.replace(
+            //       '{index}',
+            //       `${index}`,
+            //     )}`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     network: config.PREFIX,
+            //   })),
+            // });
+            // return response;
           },
         });
 

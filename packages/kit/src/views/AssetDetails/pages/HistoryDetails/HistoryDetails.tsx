@@ -113,6 +113,7 @@ export function AssetItem({
   isApprove,
   isApproveUnlimited,
   isAllNetworks,
+  networkId,
 }: {
   asset: {
     name: string;
@@ -130,6 +131,7 @@ export function AssetItem({
   isApprove?: boolean;
   isApproveUnlimited?: boolean;
   isAllNetworks?: boolean;
+  networkId?: string;
 }) {
   const intl = useIntl();
   let primary = null;
@@ -226,6 +228,8 @@ export function AssetItem({
         isNFT={asset.isNFT}
         tokenImageUri={asset.icon}
         networkImageUri={isAllNetworks ? networkIcon : undefined}
+        showNetworkIcon={isAllNetworks}
+        networkId={networkId}
       />
       <ListItem.Text
         flexGrow={1}
@@ -288,8 +292,6 @@ function HistoryDetails() {
       }),
     [accountId, networkId],
   ).result;
-
-  console.log('txid changed', txid);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -472,6 +474,7 @@ function HistoryDetails() {
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
             isAllNetworks={isAllNetworks}
+            networkId={networkId}
           />
         );
       }
@@ -496,11 +499,12 @@ function HistoryDetails() {
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
             isAllNetworks={isAllNetworks}
+            networkId={networkId}
           />
         );
       });
     },
-    [isAllNetworks, network?.logoURI, settings.currencyInfo.symbol],
+    [isAllNetworks, network?.logoURI, networkId, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
@@ -1014,6 +1018,7 @@ function HistoryDetails() {
                 compact
               />
             ) : null}
+
             {vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
@@ -1073,4 +1078,4 @@ function HistoryDetails() {
   );
 }
 
-export { HistoryDetails };
+export default HistoryDetails;

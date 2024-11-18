@@ -877,18 +877,18 @@ const linea: IServerNetwork = {
   'defaultEnabled': true,
   'backendIndex': false,
 };
-const klaytn: IServerNetwork = {
+const kaia: IServerNetwork = {
   'impl': 'evm',
   'chainId': '8217',
   'id': 'evm--8217',
-  'name': 'Klaytn',
-  'symbol': 'KLAY',
-  'code': 'klaytn',
-  'shortcode': 'klaytn',
-  'shortname': 'Cypress',
+  'name': 'Kaia',
+  'symbol': 'KAIA',
+  'code': 'Kaia',
+  'shortcode': 'kaia',
+  'shortname': 'kaia',
   'decimals': 18,
   'feeMeta': {
-    'code': 'klay',
+    'code': 'kaia',
     'decimals': 9,
     'symbol': 'Gwei',
   },
@@ -899,7 +899,7 @@ const klaytn: IServerNetwork = {
     'isTokenSupported': true,
     'isNFTEnabled': false,
   },
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/klaytn.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/kaia.png',
   'defaultEnabled': true,
   'backendIndex': false,
 };
@@ -1583,7 +1583,67 @@ const zircuit: IServerNetwork = {
     'isNFTEnabled': false,
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/zircuit.png',
-  'defaultEnabled': false,
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const neox: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '47763',
+  'id': 'evm--47763',
+  'name': 'Neo X Mainnet',
+  'symbol': 'GAS',
+  'code': 'neox',
+  'shortcode': 'neox',
+  'shortname': 'neox',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'gas',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1729561119021.0.635920670130657.0.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const azero: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '41455',
+  'id': 'evm--41455',
+  'name': 'Aleph Zero EVM',
+  'symbol': 'AZERO',
+  'code': 'alephazero',
+  'shortcode': 'alephazero',
+  'shortname': 'azero',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'azero',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI':
+    'https://uni.onekey-asset.com/dashboard/logo/upload_1729837141734.0.5402483107018017.0.png',
+  'defaultEnabled': true,
   'backendIndex': false,
 };
 
@@ -2514,7 +2574,7 @@ export const presetNetworksMap = {
   mantle,
   mantapacific,
   linea,
-  klaytn,
+  kaia,
   kava,
   iotex,
   harmony,
@@ -2540,6 +2600,8 @@ export const presetNetworksMap = {
   aurora,
   holesky,
   zircuit,
+  neox,
+  azero,
 
   // cosmos
   celestia,
@@ -2579,6 +2641,32 @@ export const presetNetworksMap = {
   ton,
   scdo,
 };
+
+// top 20 tvl evm networks
+export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
+  (): IServerNetwork[] => [
+    eth,
+    bsc,
+    base,
+    arbitrum,
+    avalanche,
+    polygon,
+    core,
+    optimism,
+    blast,
+    mantle,
+    cronos,
+    linea,
+    btr,
+    pulse,
+    scr,
+    mode,
+    xdai,
+    bob,
+    zircuit,
+    kava,
+  ],
+);
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   dangerAllNetworkRepresent,
@@ -2622,7 +2710,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   mantle,
   mantapacific,
   linea,
-  klaytn,
+  kaia,
   kava,
   iotex,
   harmony,
@@ -2648,6 +2736,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   aurora,
   holesky,
   zircuit,
+  neox,
+  azero,
   // cosmos
   celestia,
   secret,

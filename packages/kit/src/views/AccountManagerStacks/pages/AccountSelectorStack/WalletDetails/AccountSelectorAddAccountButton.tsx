@@ -13,7 +13,10 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { indexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  indexedAccountAddressCreationStateAtom,
+  useIndexedAccountAddressCreationStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -22,6 +25,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function AccountSelectorAddAccountButton({
   num,
@@ -42,6 +46,10 @@ export function AccountSelectorAddAccountButton({
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+  const loading = Boolean(
+    addressCreationState?.indexedAccountId && addressCreationState?.walletId,
+  );
 
   const { serviceAccount } = backgroundApiProxy;
 
@@ -66,6 +74,9 @@ export function AccountSelectorAddAccountButton({
 
   const handleAddAccount = useDebouncedCallback(
     async () => {
+      if (loading) {
+        return;
+      }
       if (isOthersUniversal) {
         if (section.walletId === WALLET_TYPE_WATCHING) {
           handleImportWatchingAccount();
@@ -81,6 +92,15 @@ export function AccountSelectorAddAccountButton({
       if (!focusedWalletInfo) {
         return;
       }
+
+      let isNavigationPopped = false;
+      const popNavigation = () => {
+        if (isNavigationPopped) {
+          return;
+        }
+        isNavigationPopped = true;
+        navigation.popStack();
+      };
 
       try {
         const focusedWallet = focusedWalletInfo?.wallet;
@@ -105,16 +125,26 @@ export function AccountSelectorAddAccountButton({
               walletId: focusedWallet?.id,
               indexedAccountId: indexedAccount?.id,
             });
-
+            await timerUtils.wait(1500);
+            popNavigation();
             await actions.current.addDefaultNetworkAccounts({
               wallet: focusedWallet,
               indexedAccount,
+              autoHandleExitError: false, // always throw error
             });
           }
         }
       } finally {
         await indexedAccountAddressCreationStateAtom.set(undefined);
-        navigation.popStack();
+        if (focusedWalletInfo.device?.connectId) {
+          await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
+            {
+              connectId: focusedWalletInfo.device?.connectId,
+              hardClose: true,
+            },
+          );
+        }
+        popNavigation();
       }
     },
     300,

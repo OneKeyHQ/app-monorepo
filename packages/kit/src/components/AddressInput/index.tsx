@@ -111,6 +111,7 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   if (status === 'not-interacted') {
     return (
       <Popover
+        placement="bottom-start"
         title={intl.formatMessage({
           id: ETranslations.send_label_first_transfer,
         })}
@@ -139,6 +140,7 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   if (status === 'interacted') {
     return (
       <Popover
+        placement="bottom-start"
         title={intl.formatMessage({
           id: ETranslations.send_label_transferred,
         })}
@@ -167,6 +169,7 @@ const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
   return isContract ? (
     <Popover
       title={intl.formatMessage({ id: ETranslations.global_contract })}
+      placement="bottom-start"
       renderTrigger={
         <Badge badgeType="critical" badgeSize="sm">
           {intl.formatMessage({ id: ETranslations.global_contract })}
@@ -189,6 +192,7 @@ export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
   pending?: boolean;
+  isContract?: boolean;
   validateError?: {
     type?: Exclude<IAddressValidateStatus, 'valid'>;
     message?: string;
@@ -441,6 +445,7 @@ export function AddressInput(props: IAddressInputProps) {
         raw: queryResult.input,
         resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
         pending: false,
+        isContract: queryResult.isContract,
       });
     } else {
       onChange?.({
@@ -450,6 +455,7 @@ export function AddressInput(props: IAddressInputProps) {
           type: queryResult.validStatus,
           message: getValidateMessage(queryResult.validStatus),
         },
+        isContract: queryResult.isContract,
       });
     }
   }, [

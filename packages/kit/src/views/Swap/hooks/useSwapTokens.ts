@@ -180,7 +180,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         )) ||
       (params?.importToToken &&
         swapNetworksRef.current.find(
-          (net) => net.networkId === params?.importFromToken?.networkId,
+          (net) => net.networkId === params?.importToToken?.networkId,
         ))
     ) {
       if (params?.importFromToken) {
@@ -650,7 +650,7 @@ export function useSwapSelectedTokenInfo({
   type: ESwapDirectionType;
   token?: ISwapToken;
 }) {
-  const swapAddressInfo = useSwapAddressInfo(type);
+  const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
   const [orderFinishCheckBalance, setOrderFinishCheckBalance] = useState(0);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;

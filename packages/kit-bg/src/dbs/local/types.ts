@@ -138,6 +138,8 @@ export type IDBWallet = IDBBaseObjectWithName & {
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   hiddenWallets?: IDBWallet[]; // readonly field
+  dbAccounts?: IDBAccount[]; // readonly field
+  dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
@@ -197,6 +199,7 @@ export type IDBEnsureAccountNameNotDuplicateParams = {
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
   ignoreEmptySingletonWalletAccounts?: boolean | undefined;
+  includingAccounts?: boolean | undefined;
 };
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)

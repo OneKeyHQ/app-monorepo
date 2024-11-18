@@ -17,6 +17,9 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -30,14 +33,32 @@ import {
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { CommonParams, TonSignMessageParams } from '@onekeyfe/hd-core';
+import type {
+  AllNetworkAddressParams,
+  CommonParams,
+  TonSignMessageParams,
+} from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'ton';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
+  }
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -53,24 +74,48 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
 
-            const response = await sdk.tonGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                walletVersion: TonWalletVersion.V4R2,
-                isBounceable: false,
-                isTestnetOnly: false,
-              })),
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                publicKey: account.payload?.publicKey || '',
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
             });
-            return response;
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+
+            // const response = await sdk.tonGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: usedIndexes.map((index, arrIndex) => ({
+            //     path: `${pathPrefix}/${pathSuffix.replace(
+            //       '{index}',
+            //       `${index}`,
+            //     )}`,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //     walletVersion: TonWalletVersion.V4R2,
+            //     isBounceable: false,
+            //     isTestnetOnly: false,
+            //   })),
+            // });
+            // return response;
           },
         });
 
@@ -118,7 +163,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       path: account.path,
       ...deviceCommonParams,
       destination: msg.address,
-      tonAmount: Number(msg.amount.toString()),
+      tonAmount: msg.amount.toString(),
       seqno: encodedTx.sequenceNo || 0,
       expireAt: encodedTx.validUntil || 0,
       comment: msg.payload,
@@ -128,11 +173,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
     if (msg.jetton?.amount) {
       hwParams.destination = msg.jetton.toAddress;
-      hwParams.jettonAmount = Number(msg.jetton.amount);
+      hwParams.jettonAmount = msg.jetton.amount;
       hwParams.jettonMasterAddress = msg.jetton.jettonMasterAddress;
       hwParams.jettonWalletAddress = msg.jetton.jettonWalletAddress;
       if (msg.jetton.fwdFee) {
-        hwParams.fwdFee = Number(msg.jetton.fwdFee);
+        hwParams.fwdFee = msg.jetton.fwdFee;
       }
       hwParams.comment = undefined;
       if (msg.jetton.fwdPayload) {
@@ -158,7 +203,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       hwParams.extPayload = [];
       encodedTx.messages.slice(1).forEach((extMsg) => {
         hwParams.extDestination?.push(extMsg.address);
-        hwParams.extTonAmount?.push(Number(extMsg.amount.toString()));
+        hwParams.extTonAmount?.push(extMsg.amount.toString());
         hwParams.extPayload?.push(extMsg.payload ?? '');
       });
     }
@@ -179,6 +224,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const signingMessageHex = Buffer.from(
       await signingMessage.toBoc(),
     ).toString('hex');
+    const signingMessageHash = Buffer.from(
+      await signingMessage.hash(),
+    ).toString('hex');
+    // For Pro, check the boc
     if (
       !result.skip_validate &&
       signingMessageHexFromHw !== signingMessageHex
@@ -189,6 +238,17 @@ export class KeyringHardware extends KeyringHardwareBase {
         signingMessageHex,
       );
       signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+    }
+    // For 1S, check the hash
+    if (
+      result.skip_validate &&
+      signingMessageHexFromHw !== signingMessageHash
+    ) {
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_failed_to_sign_transaction,
+        }),
+      );
     }
     const signedTx = serializeSignedTx({
       fromAddress: encodedTx.from,

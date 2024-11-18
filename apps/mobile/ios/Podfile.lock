@@ -1115,7 +1115,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.11):
+  - react-native-lite-card (1.0.12):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1126,7 +1126,7 @@ PODS:
   - react-native-mmkv (2.10.2):
     - MMKV (>= 1.2.13)
     - React-Core
-  - react-native-netinfo (9.5.0):
+  - react-native-netinfo (11.4.1):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -1910,10 +1910,10 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: 70c7cafe80186a6022da6741a76741e215633b6c
   react-native-compat: 896f9ea99a6917730b112c3be4d400fa1e6b5381
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: 2bff60015bba1192443d288069e5f32808589c89
+  react-native-lite-card: a7a68f79d02449a4a1eeea52c2cb52d592bbe014
   react-native-metrix: dd791bfe9f9acfeb6bdd07da19747136ac977a4d
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
-  react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
+  react-native-netinfo: f0a9899081c185db1de5bb2fdc1c88c202a059ac
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284

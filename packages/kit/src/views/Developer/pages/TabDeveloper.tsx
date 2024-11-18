@@ -16,8 +16,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
-import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,12 +28,12 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { StartTimePanel } from '../../Setting/pages/List/DevSettingsSection/StartTimePanel';
 
 const useStorage = platformEnv.isNative
-  ? (key: EAppSettingKey, initialValue?: boolean) => {
+  ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
       const [data, setData] = useState(
-        initialValue || appStorage.getSettingBoolean(key),
+        initialValue || appStorage.syncStorage.getBoolean(key),
       );
       const setNewData = (value: boolean) => {
-        appStorage.setSetting(key, value);
+        appStorage.syncStorage.set(key, value);
         setData(value);
       };
       return [data, setNewData];
@@ -111,7 +111,7 @@ const TabDeveloper = () => {
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
   // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(EAppSettingKey.rrt);
+  const [rrtStatus, changeRRTStatus] = useStorage(EAppSyncStorageKeys.rrt);
 
   return (
     <AccountSelectorProviderMirror
@@ -180,7 +180,7 @@ const TabDeveloper = () => {
                         );
                       }
                     }
-                    window.location.reload();
+                    globalThis.location.reload();
                   }
                 }}
               >

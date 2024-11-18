@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Empty,
   IconButton,
   SectionList,
@@ -16,6 +17,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -42,6 +45,23 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
     () => copyText(item.message),
     [item.message, copyText],
   );
+  const primaryType = usePromiseResult(async () => {
+    if (item.network.impl !== IMPL_EVM) {
+      return null;
+    }
+    if (item.contentType === 'json') {
+      try {
+        const result = JSON.parse(item.message) as { primaryType?: string };
+        if (result.primaryType) {
+          return result.primaryType;
+        }
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [item.contentType, item.message, item.network.impl]);
+
   return (
     <Stack px="$5" pb="$3">
       <YStack
@@ -78,15 +98,22 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
             borderWidth={0}
           />
         </XStack>
-        <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-          <Stack mr="$2">
-            <NetworkAvatar size={16} networkId={item.networkId} />
-          </Stack>
-          <SizableText color="$textSubdued" size="$bodySmMedium">
-            {item.network.name}
-            {' • '}
-            {utils.shortenAddress({ address: item.address })}
-          </SizableText>
+        <XStack p="$3" alignItems="center" justifyContent="space-between">
+          <XStack backgroundColor="$bgSubdued" alignItems="center">
+            <Stack mr="$2">
+              <NetworkAvatar size={16} networkId={item.networkId} />
+            </Stack>
+            <SizableText color="$textSubdued" size="$bodySmMedium">
+              {item.network.name}
+              {' • '}
+              {utils.shortenAddress({ address: item.address })}
+            </SizableText>
+          </XStack>
+          {primaryType.result ? (
+            <Badge badgeType="info" badgeSize="sm">
+              {primaryType.result}
+            </Badge>
+          ) : null}
         </XStack>
       </YStack>
     </Stack>

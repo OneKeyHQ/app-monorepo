@@ -48,6 +48,7 @@ const settings: IVaultSettings = {
   editApproveAmountEnabled: true,
 
   defaultFeePresetIndex: 0,
+  customRpcEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

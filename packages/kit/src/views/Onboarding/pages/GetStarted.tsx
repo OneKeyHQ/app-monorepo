@@ -23,6 +23,7 @@ import {
   ThemeableStack,
   View,
   XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -117,6 +118,7 @@ export function GetStarted({
 }: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { top } = useSafeAreaInsets();
   let { showCloseButton } = route.params || {};
   if (process.env.NODE_ENV !== 'production') {
     showCloseButton = true;
@@ -350,7 +352,7 @@ export function GetStarted({
           )}
         </SizableText>
         {showCloseButton ? (
-          <View position="absolute" left="$5" top="$5">
+          <View position="absolute" left="$5" top={top || '$5'}>
             <Page.Close>
               <IconButton icon="CrossedLargeOutline" variant="tertiary" />
             </Page.Close>
@@ -364,8 +366,9 @@ export function GetStarted({
 export default GetStarted;
 
 export const openOnBoardingFromExt = () => {
+  // eslint-disable-next-line unicorn/prefer-global-this
   if (platformEnv.isExtension && typeof window !== 'undefined') {
-    return window.location.hash.includes('fromExt=true');
+    return globalThis.location.hash.includes('fromExt=true');
   }
   return false;
 };

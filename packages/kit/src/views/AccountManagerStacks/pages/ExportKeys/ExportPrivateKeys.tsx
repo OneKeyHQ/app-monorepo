@@ -7,6 +7,7 @@ import type {
   IKeyOfIcons,
   IPageScreenProps,
   IPropsWithTestId,
+  ITextAreaInputProps,
 } from '@onekeyhq/components';
 import {
   Form,
@@ -50,8 +51,29 @@ type IFormValues = {
   networkId?: string;
   deriveType?: IAccountDeriveTypes | '';
   rawKeyContent: string;
-  hiddenKeyContent?: string;
 };
+
+const SECURE_ENTRY_PLACEHOLDER =
+  '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+
+function SecureEntryTextArea({
+  secureEntry,
+  value,
+  onChange,
+  ...props
+}: Omit<ITextAreaInputProps, 'onChange'> & {
+  onChange?: ITextAreaInputProps['onChangeText'];
+  secureEntry: boolean;
+}) {
+  return (
+    <TextAreaInput
+      testID="account-key-input"
+      value={secureEntry ? SECURE_ENTRY_PLACEHOLDER : value}
+      onChangeText={onChange}
+      {...props}
+    />
+  );
+}
 
 function ExportPrivateKeysPage({
   indexedAccount,
@@ -128,7 +150,6 @@ function ExportPrivateKeysPage({
       networkId: initialNetworkId,
       deriveType: activeAccount?.deriveType ?? undefined,
       rawKeyContent: '',
-      hiddenKeyContent: '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -137,19 +158,11 @@ function ExportPrivateKeysPage({
   const networkIdValue = form.watch('networkId');
   const deriveTypeValue = form.watch('deriveType');
 
-  const reset = useCallback(
-    (key?: keyof IFormValues) => {
-      if (key) {
-        form.setValue(key, '');
-      } else {
-        form.setValue('rawKeyContent', '');
-        form.clearErrors('rawKeyContent');
-        form.setValue('hiddenKeyContent', '');
-        setSecureEntry(true);
-      }
-    },
-    [form],
-  );
+  const reset = useCallback(() => {
+    form.setValue('rawKeyContent', '');
+    form.clearErrors('rawKeyContent');
+    setSecureEntry(true);
+  }, [form]);
 
   const generateKey = useCallback(
     async ({
@@ -157,15 +170,13 @@ function ExportPrivateKeysPage({
       indexedAccountId,
       networkId,
       deriveType,
-      showText = false,
     }: {
       accountId: string | undefined;
       indexedAccountId: string | undefined;
       networkId: string;
       deriveType: IAccountDeriveTypes | undefined | '';
-      showText?: boolean;
     }) => {
-      reset(showText ? undefined : 'hiddenKeyContent');
+      reset();
       if ((!indexedAccountId && !accountId) || !networkId) {
         return;
       }
@@ -183,7 +194,7 @@ function ExportPrivateKeysPage({
             accountName,
           });
         if (key) {
-          form.setValue(showText ? 'rawKeyContent' : 'hiddenKeyContent', key);
+          form.setValue('rawKeyContent', key);
         }
       } catch (error) {
         const ignoreErrorClasses: Array<EOneKeyErrorClassNames | undefined> = [
@@ -205,17 +216,13 @@ function ExportPrivateKeysPage({
   const generateKeyDebounced = useDebouncedCallback(generateKey, 600);
 
   const refreshKey = useCallback(
-    async ({
-      noDebouncedCall,
-      showText = false,
-    }: { noDebouncedCall?: boolean; showText?: boolean } = {}) => {
+    async ({ noDebouncedCall }: { noDebouncedCall?: boolean } = {}) => {
       const fn = noDebouncedCall ? generateKey : generateKeyDebounced;
       await fn({
         accountId: account?.id,
         indexedAccountId: indexedAccount?.id,
         networkId: networkIdValue || '',
         deriveType: deriveTypeValue,
-        showText,
       });
     },
     [
@@ -239,23 +246,26 @@ function ExportPrivateKeysPage({
         iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
         onPress: async () => {
           const rawKeyValue = form.getValues('rawKeyContent') || '';
-          if (!rawKeyValue) {
-            await refreshKey({ noDebouncedCall: true, showText: true });
-          } else {
-            reset();
+          if (!rawKeyValue || rawKeyValue === SECURE_ENTRY_PLACEHOLDER) {
+            await refreshKey({ noDebouncedCall: true });
           }
-          setSecureEntry(!secureEntry);
+          const nextSecureEntry = !secureEntry;
+          if (nextSecureEntry) {
+            reset();
+          } else {
+            setSecureEntry(nextSecureEntry);
+          }
         },
       },
       {
         iconName: 'Copy3Outline',
         testID: 'account-key-copy-btn',
         onPress: async () => {
-          let keyContent = form.getValues('hiddenKeyContent') || '';
+          let keyContent = form.getValues('rawKeyContent') || '';
           if (!keyContent) {
             await refreshKey({ noDebouncedCall: true });
           }
-          keyContent = form.getValues('hiddenKeyContent') || '';
+          keyContent = form.getValues('rawKeyContent') || '';
           if (exportType === 'privateKey') {
             showCopyPrivateKeysDialog({
               title: intl.formatMessage({
@@ -331,13 +341,12 @@ function ExportPrivateKeysPage({
           ) : null}
 
           <Form.Field label={keyLabel} name="rawKeyContent">
-            <TextAreaInput
+            <SecureEntryTextArea
+              secureEntry={secureEntry}
               testID="account-key-input"
               size={media.gtMd ? 'medium' : 'large'}
               editable={false}
-              placeholder="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
               addOns={actions}
-              displayAsMaskWhenEmptyValue
             />
           </Form.Field>
         </Form>

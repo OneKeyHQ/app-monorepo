@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Switch as TMSwitch, useTheme } from 'tamagui';
 
 import type { IFormFieldProps } from '../types';
@@ -13,28 +15,41 @@ export type ISwitchProps = IFormFieldProps<
   Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
     size?: 'small' | 'large';
   }
->;
+> & {
+  isUncontrolled?: boolean;
+};
 
 export function Switch({
   value,
+  defaultChecked,
   onChange,
   size = 'large',
   disabled,
+  isUncontrolled,
   ...restProps
 }: ISwitchProps) {
   const theme = useTheme();
+  const [stateChecked, setStateChecked] = useState(defaultChecked);
+
+  const checked = isUncontrolled ? stateChecked : value;
 
   return (
     <TMSwitch
       tag="span"
       unstyled
-      checked={value}
-      onCheckedChange={onChange}
+      checked={checked}
+      defaultChecked={defaultChecked}
+      onCheckedChange={(v) => {
+        if (isUncontrolled) {
+          setStateChecked(v);
+        }
+        onChange?.(v);
+      }}
       native
       w={size === 'small' ? 38 : 54}
       h={size === 'small' ? '$6' : '$8'}
       minHeight={size === 'small' ? '$6' : '$8'}
-      bg={value ? '$bgPrimary' : '$neutral5'}
+      bg={checked ? '$bgPrimary' : '$neutral5'}
       p="$0"
       borderRadius="$full"
       borderWidth="$0.5"

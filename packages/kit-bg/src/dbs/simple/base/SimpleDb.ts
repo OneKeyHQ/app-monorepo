@@ -1,8 +1,10 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -12,6 +14,7 @@ import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -20,6 +23,7 @@ import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -32,6 +36,8 @@ export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
+
+  browserClosedTabs = new SimpleDbEntityBrowserClosedTabs();
 
   browserRiskWhiteList = new SimpleDbEntityBrowserRiskWhiteList();
 
@@ -59,6 +65,8 @@ export class SimpleDb {
 
   networkSelector = new SimpleDbEntityNetworkSelector();
 
+  notificationSettings = new SimpleDbEntityNotificationSettings();
+
   lightning = new SimpleDbEntityLightning();
 
   feeInfo = new SimpleDbEntityFeeInfo();
@@ -66,6 +74,8 @@ export class SimpleDb {
   marketWatchList = new SimpleDbEntityMarketWatchList();
 
   earn = new SimpleDbEntityEarn();
+
+  earnOrders = new SimpleDbEntityEarnOrders();
 
   universalSearch = new SimpleDbEntityUniversalSearch();
 
@@ -86,4 +96,6 @@ export class SimpleDb {
   localNFTs = new SimpleDbEntityLocalNFTs();
 
   babylonSync = new SimpleDbEntityBabylonSync();
+
+  allNetworks = new SimpleDbEntityAllNetworks();
 }

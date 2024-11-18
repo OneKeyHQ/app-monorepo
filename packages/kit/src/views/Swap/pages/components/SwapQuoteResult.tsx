@@ -183,6 +183,7 @@ const SwapQuoteResult = ({
     slippageOnSave,
     setSwapSlippageDialogOpening,
   ]);
+
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
@@ -275,6 +276,7 @@ const SwapQuoteResult = ({
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
                   fromToken={fromToken}
+                  onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
                   showLock={!!quoteResult?.allowanceResult}
                   onPress={

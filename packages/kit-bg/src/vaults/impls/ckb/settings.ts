@@ -24,7 +24,7 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_CKB,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: true,
+  importedAccountEnabled: false,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
@@ -41,12 +41,14 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 6,
 
   minTransferAmount: '0.00000546',
   nativeMinTransferAmount: '61',
+
+  customRpcEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

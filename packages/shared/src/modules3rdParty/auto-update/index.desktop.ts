@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+
 import { ETranslations } from '../../locale';
 import { appLocale } from '../../locale/appLocale';
 import { defaultLogger } from '../../logger/logger';
@@ -16,7 +18,7 @@ import type {
 } from './type';
 
 const updateCheckingTasks: (() => void)[] = [];
-window.desktopApi?.on?.('update/checking', () => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_CHECKING, () => {
   defaultLogger.update.app.log('checking');
   while (updateCheckingTasks.length) {
     updateCheckingTasks.pop()?.();
@@ -24,24 +26,24 @@ window.desktopApi?.on?.('update/checking', () => {
 });
 
 const updateAvailableTasks: (() => void)[] = [];
-window.desktopApi?.on?.('update/available', ({ version }) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_AVAILABLE, ({ version }) => {
   defaultLogger.update.app.log('available', version);
   while (updateAvailableTasks.length) {
     updateAvailableTasks.pop()?.();
   }
 });
 
-window.desktopApi?.on?.('update/not-available', (params) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_NOT_AVAILABLE, (params) => {
   console.log('update/not-available', params);
   defaultLogger.update.app.log('not-available');
 });
 
-window.desktopApi?.on?.('update/download', ({ version }) => {
+globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_DOWNLOAD, ({ version }) => {
   defaultLogger.update.app.log('download', version);
 });
 
 const updateVerifyTasks: (() => void)[] = [];
-window.desktopApi.on('update/verified', () => {
+globalThis.desktopApi.on(ipcMessageKeys.UPDATE_VERIFIED, () => {
   defaultLogger.update.app.log('update/verified');
   while (updateVerifyTasks.length) {
     updateVerifyTasks.pop()?.();
@@ -55,8 +57,8 @@ let updateDownloadingTasks: ((params: {
   percent: number;
   bytesPerSecond: number;
 }) => void)[] = [];
-window.desktopApi?.on?.(
-  'update/downloading',
+globalThis.desktopApi?.on?.(
+  ipcMessageKeys.UPDATE_DOWNLOADING,
   (params: {
     percent: number;
     delta: number;
@@ -71,17 +73,20 @@ window.desktopApi?.on?.(
 );
 
 const updateDownloadedTasks: ((event: IUpdateDownloadedEvent) => void)[] = [];
-window.desktopApi.on('update/downloaded', (event: IUpdateDownloadedEvent) => {
-  defaultLogger.update.app.log('download');
-  while (updateDownloadedTasks.length) {
-    updateDownloadedTasks.pop()?.(event);
-  }
-  updateDownloadingTasks = [];
-});
+globalThis.desktopApi.on(
+  ipcMessageKeys.UPDATE_DOWNLOADED,
+  (event: IUpdateDownloadedEvent) => {
+    defaultLogger.update.app.log('download');
+    while (updateDownloadedTasks.length) {
+      updateDownloadedTasks.pop()?.(event);
+    }
+    updateDownloadingTasks = [];
+  },
+);
 
 const updateErrorTasks: ((error: { message: string }) => void)[] = [];
-window.desktopApi?.on?.(
-  'update/error',
+globalThis.desktopApi?.on?.(
+  ipcMessageKeys.UPDATE_ERROR,
   ({
     err,
     isNetworkError,
@@ -103,20 +108,20 @@ window.desktopApi?.on?.(
 export const downloadPackage: IDownloadPackage = () =>
   new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
     updateAvailableTasks.push(() => {
-      window.desktopApi.downloadUpdate();
+      globalThis.desktopApi.downloadUpdate();
     });
     updateDownloadedTasks.push((event: IUpdateDownloadedEvent) => {
       resolve(event);
     });
     updateErrorTasks.push(reject);
-    window.desktopApi.checkForUpdates();
+    globalThis.desktopApi.checkForUpdates();
   });
 
 export const verifyPackage: IVerifyPackage = async (params) =>
   new Promise((resolve, reject) => {
     updateVerifyTasks.push(resolve);
     updateErrorTasks.push(reject);
-    window.desktopApi.verifyUpdate(params);
+    globalThis.desktopApi.verifyUpdate(params);
   });
 
 export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
@@ -124,7 +129,7 @@ export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
     defaultLogger.update.app.log('install');
     updateErrorTasks.push(reject);
     // verifyUpdate will be called by default in the electron module when calling to installUpdate
-    window.desktopApi.installUpdate({
+    globalThis.desktopApi.installUpdate({
       ...downloadedEvent,
       dialog: {
         message: appLocale.intl.formatMessage({
@@ -173,5 +178,5 @@ export const useDownloadProgress: IUseDownloadProgress = (
 };
 
 export const clearPackage: IClearPackage = async () => {
-  window.desktopApi.clearUpdate();
+  globalThis.desktopApi.clearUpdate();
 };

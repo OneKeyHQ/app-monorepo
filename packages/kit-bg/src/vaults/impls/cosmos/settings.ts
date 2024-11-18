@@ -62,6 +62,8 @@ const settings: IVaultSettings = {
   withMemo: true,
   memoMaxLength: 512,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

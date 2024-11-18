@@ -25,12 +25,6 @@ export enum ESwapTabSwitchType {
   LIMIT = 'limit',
 }
 
-export enum ESwapReceiveAddressType {
-  USER_ACCOUNT = 'user_account',
-  INPUT = 'input',
-  ADDRESS_BOOK = 'address_book',
-}
-
 export enum ESwapDirectionType {
   FROM = 'from',
   TO = 'to',
@@ -288,10 +282,24 @@ export interface IFetchQuoteLimit {
   max?: string;
   min?: string;
 }
+export interface IQuoteResultFeeOtherFeeInfo {
+  token: {
+    networkId: string;
+    contractAddress: string;
+    symbol: string;
+    price: string;
+    decimals: number;
+    logoURI?: string;
+    name?: string;
+    isNative?: boolean;
+  };
+  amount: string;
+}
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
+  otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
 }
 
 export enum ESwapApproveAllowanceType {
@@ -402,12 +410,26 @@ export interface IThorSwapCallData {
   fromAsset: string;
   amountIn: string;
 }
+export interface IOKXTransactionObject {
+  data: string;
+  from: string;
+  gas?: string;
+  gasLimit?: string;
+  gasPrice: string;
+  minReceiveAmount: string;
+  to: string;
+  value: string;
+  maxPriorityFeePerGas: string;
+  randomKeyAccount?: string[];
+  signatureData?: string[];
+}
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
   thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
+  OKXTxObject?: IOKXTransactionObject;
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
@@ -416,6 +438,10 @@ export interface IFetchBuildTxResponse {
 export interface ISwapInfoSide {
   amount: string;
   token: ISwapToken;
+  accountInfo: {
+    accountId?: string;
+    networkId: string;
+  };
 }
 export interface ISwapTxInfo {
   sender: ISwapInfoSide;
@@ -473,10 +499,28 @@ export interface IFetchSwapTxHistoryStatusResponse {
   dealReceiveAmount?: string;
   blockNumber?: number;
 }
+
+export interface ISwapCheckSupportResponse {
+  contractAddress: string;
+  isSupportCrossChain: boolean;
+  isSupportSwap: boolean;
+  networkId: string;
+}
+
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
   currency?: string;
+  accountInfo: {
+    sender: {
+      accountId?: string;
+      networkId: string;
+    };
+    receiver: {
+      accountId?: string;
+      networkId: string;
+    };
+  };
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -500,6 +544,7 @@ export interface ISwapTxHistory {
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
+    otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
   };

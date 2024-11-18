@@ -31,7 +31,7 @@ const createOffscreenApiModule = memoizee(
             };
             // chrome.runtime.sendMessage(message);
             // TODO backgroundApiProxyInOffscreen
-            void window.extJsBridgeOffscreenToBg.request({ data: message });
+            void globalThis.extJsBridgeOffscreenToBg.request({ data: message });
           });
         }
         return HardwareLowLevelSDK;

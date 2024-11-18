@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, isEmpty } from 'lodash';
 import { AppState } from 'react-native';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -30,6 +31,11 @@ export type IPromiseResultOptions<T> = {
   pollingInterval?: number;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
+  // automatically revalidate when Page gets focused
+  revalidateOnFocus?: boolean;
+  // automatically revalidate when the browser regains a network connection
+  revalidateOnReconnect?: boolean;
+  testID?: string;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -119,9 +125,14 @@ export function usePromiseResult<T>(
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
+  const isEmptyResultRef = useRef<boolean>(true);
+
+  if (platformEnv.isNative) {
+    isEmptyResultRef.current = isEmpty(result);
+  }
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused();
+  const _isFocused = useIsFocused({ testID: options.testID });
   const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;
@@ -291,6 +302,25 @@ export function usePromiseResult<T>(
   }, runnerDeps);
 
   const isFocusedRefValue = isFocusedRef.current;
+  const prevFocusedRef = useRef(isFocusedRefValue);
+  const isLoadingRef = useRef(isLoading);
+  const runWithPollingNonce = useCallback(() => {
+    isDepsChangedOnBlur.current = false;
+    void runRef.current({ pollingNonce: pollingNonceRef.current });
+  }, [runRef]);
+
+  const { isRawInternetReachable: isInternetReachable } = useNetInfo();
+  const prevIsInternetReachableRef = useRef(isInternetReachable);
+
+  useEffect(() => {
+    if (optionsRef.current.revalidateOnReconnect) {
+      if (prevIsInternetReachableRef.current === false && isInternetReachable) {
+        runWithPollingNonce();
+      }
+      prevIsInternetReachableRef.current = isInternetReachable;
+    }
+  }, [isInternetReachable, runWithPollingNonce]);
+
   useEffect(() => {
     if (optionsRef.current.checkIsFocused) {
       if (isFocusedRefValue) {
@@ -298,12 +328,29 @@ export function usePromiseResult<T>(
       } else {
         resetDefer();
       }
-      if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        isDepsChangedOnBlur.current = false;
-        void runRef.current({ pollingNonce: pollingNonceRef.current });
+
+      // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
+      if (
+        platformEnv.isNative &&
+        !isLoadingRef.current &&
+        isEmptyResultRef.current &&
+        optionsRef.current.revalidateOnReconnect
+      ) {
+        runWithPollingNonce();
       }
+
+      if (
+        prevFocusedRef.current === false &&
+        isFocusedRefValue &&
+        optionsRef.current.revalidateOnFocus
+      ) {
+        runWithPollingNonce();
+      } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
+        runWithPollingNonce();
+      }
+      prevFocusedRef.current = isFocusedRefValue;
     }
-  }, [isFocusedRefValue, resetDefer, resolveDefer]);
+  }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
   return { result, isLoading, run, setResult };
 }

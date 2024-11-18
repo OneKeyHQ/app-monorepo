@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -13,6 +13,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -24,6 +25,8 @@ import {
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
+  useSendTxStatusAtom,
+  useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
@@ -32,6 +35,7 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -64,7 +68,7 @@ type IProps = {
 function TxFeeContainer(props: IProps) {
   const { accountId, networkId, useFeeInTx, feeInfoEditable = true } = props;
   const intl = useIntl();
-  const txFeeInit = useRef(false);
+  const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
@@ -75,6 +79,8 @@ function TxFeeContainer(props: IProps) {
   const [isSinglePreset] = useIsSinglePresetAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
+  const [sendTxStatus] = useSendTxStatusAtom();
+  const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -82,6 +88,7 @@ function TxFeeContainer(props: IProps) {
     updateCustomFee,
     updateSendSelectedFee,
     updateIsSinglePreset,
+    updateTxAdvancedSettings,
   } = useSendConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -95,6 +102,14 @@ function TxFeeContainer(props: IProps) {
     () =>
       unsignedTxs.length === 1 &&
       unsignedTxs[0].swapInfo &&
+      unsignedTxs[0].feeInfo,
+    [unsignedTxs],
+  );
+
+  const isSecondApproveTxWithFeeInfo = useMemo(
+    () =>
+      unsignedTxs.length === 1 &&
+      unsignedTxs[0].approveInfo &&
       unsignedTxs[0].feeInfo,
     [unsignedTxs],
   );
@@ -136,12 +151,17 @@ function TxFeeContainer(props: IProps) {
             encodedTx: unsignedTxs[0].encodedTx,
           });
 
-        if (isLastSwapTxWithFeeInfo && unsignedTxs[0].feeInfo) {
+        if (
+          (isLastSwapTxWithFeeInfo || isSecondApproveTxWithFeeInfo) &&
+          unsignedTxs[0].feeInfo
+        ) {
           const r = unsignedTxs[0].feeInfo;
           updateSendFeeStatus({
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
+          setTxFeeInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
           return {
             r: {
               ...r,
@@ -149,8 +169,10 @@ function TxFeeContainer(props: IProps) {
               gasEIP1559: r.gasEIP1559 ? [r.gasEIP1559] : undefined,
               feeUTXO: r.feeUTXO ? [r.feeUTXO] : undefined,
               feeTron: r.feeTron ? [r.feeTron] : undefined,
-              gasFil: r.gasFil ? [r.gasFil] : undefined,
               feeSol: r.feeSol ? [r.feeSol] : undefined,
+              feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
+              feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
+              feeDot: r.feeDot ? [r.feeDot] : undefined,
             },
             e,
           };
@@ -174,12 +196,15 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
+        setTxFeeInit(true);
+        updateTxAdvancedSettings({ dataChanged: false });
         return {
           r,
           e,
         };
       } catch (e) {
-        txFeeInit.current = true;
+        setTxFeeInit(true);
+        updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
           errMessage:
@@ -193,9 +218,11 @@ function TxFeeContainer(props: IProps) {
     [
       accountId,
       isLastSwapTxWithFeeInfo,
+      isSecondApproveTxWithFeeInfo,
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
+      updateTxAdvancedSettings,
     ],
     {
       watchLoading: true,
@@ -205,7 +232,9 @@ function TxFeeContainer(props: IProps) {
           })
         : undefined,
       overrideIsFocused: (isPageFocused) =>
-        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
+        isPageFocused &&
+        sendSelectedFee.feeType !== EFeeType.Custom &&
+        !sendTxStatus.isSubmitting,
     },
   );
 
@@ -213,6 +242,7 @@ function TxFeeContainer(props: IProps) {
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
+    !isSecondApproveTxWithFeeInfo &&
     (!!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled);
 
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
@@ -223,8 +253,10 @@ function TxFeeContainer(props: IProps) {
         txFee.gas?.length ||
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
-        txFee.gasFil?.length ||
         txFee.feeSol?.length ||
+        txFee.feeCkb?.length ||
+        txFee.feeAlgo?.length ||
+        txFee.feeDot?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -234,9 +266,27 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: txFee.gasEIP1559?.[i],
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
-          gasFil: txFee.gasFil?.[i],
           feeSol: txFee.feeSol?.[i],
+          feeCkb: txFee.feeCkb?.[i],
+          feeAlgo: txFee.feeAlgo?.[i],
+          feeDot: txFee.feeDot?.[i],
         };
+
+        const useDappFeeAndNotEditFee =
+          vaultSettings?.editFeeEnabled && !feeInfoEditable && useFeeInTx;
+        if (useDappFeeAndNotEditFee && network) {
+          const { tip } = unsignedTxs[0].encodedTx as IEncodedTxDot;
+          const feeDecimals = feeInfo.common?.feeDecimals;
+          if (feeInfo.feeDot && tip && typeof feeDecimals === 'number') {
+            // Only the fee display is affected on sendConfirm page
+            feeInfo.feeDot = {
+              ...feeInfo.feeDot,
+              extraTipInDot: new BigNumber(tip)
+                .shiftedBy(-feeDecimals)
+                .toFixed(),
+            };
+          }
+        }
 
         items.push({
           label: intl.formatMessage({
@@ -304,6 +354,30 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.feeSol = {
             ...txFee.feeSol[sendSelectedFee.presetIndex],
             ...(customFee?.feeSol ?? {}),
+          };
+        }
+
+        if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
+          customFeeInfo.feeCkb = {
+            ...txFee.feeCkb[sendSelectedFee.presetIndex],
+            ...(customFee?.feeCkb ?? {}),
+          };
+        }
+
+        if (txFee.feeAlgo && !isEmpty(txFee.feeAlgo)) {
+          customFeeInfo.feeAlgo = {
+            ...txFee.feeAlgo[sendSelectedFee.presetIndex],
+            ...(customFee?.feeAlgo ?? {
+              minFee: ALGO_TX_MIN_FEE,
+              baseFee: ALGO_TX_MIN_FEE,
+            }),
+          };
+        }
+
+        if (txFee.feeDot && !isEmpty(txFee.feeDot)) {
+          customFeeInfo.feeDot = {
+            ...txFee.feeDot[sendSelectedFee.presetIndex],
+            ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
           };
         }
 
@@ -457,6 +531,9 @@ function TxFeeContainer(props: IProps) {
     customFee?.gasEIP1559,
     customFee?.feeUTXO,
     customFee?.feeSol,
+    customFee?.feeCkb,
+    customFee?.feeAlgo,
+    customFee?.feeDot,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
@@ -501,7 +578,10 @@ function TxFeeContainer(props: IProps) {
       let specialGasLimit: string | undefined;
 
       // build second approve tx fee info base on first approve fee info
-      if (isMultiTxs && unsignedTx.approveInfo && i !== 0) {
+      if (
+        (isMultiTxs && unsignedTx.approveInfo && i !== 0) ||
+        isSecondApproveTxWithFeeInfo
+      ) {
         specialGasLimit = new BigNumber(baseGasLimit ?? 0)
           .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE)
           .toFixed();
@@ -509,7 +589,7 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
-        (isMultiTxs || (!isMultiTxs && unsignedTx.feeInfo)) &&
+        (isMultiTxs || isLastSwapTxWithFeeInfo) &&
         unsignedTx.swapInfo &&
         (selectedFeeInfo.gas || selectedFeeInfo.gasEIP1559)
       ) {
@@ -582,8 +662,6 @@ function TxFeeContainer(props: IProps) {
       });
     }
 
-    txFeeInit.current = true;
-
     // Due to the tendency to use higher fee estimates for approve&swap multi-txs to ensure success,
     // we adjust the displayed fee to be closer to the actual on-chain cost for the user
     if (
@@ -612,7 +690,9 @@ function TxFeeContainer(props: IProps) {
   }, [
     estimateFeeParams,
     feeSelectorItems,
+    isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    isSecondApproveTxWithFeeInfo,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFee?.common.nativeTokenPrice,
@@ -664,8 +744,7 @@ function TxFeeContainer(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit.current || nativeTokenInfo.isLoading || !nativeTokenInfo)
-      return;
+    if (!txFeeInit || nativeTokenInfo.isLoading || !nativeTokenInfo) return;
 
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
@@ -680,6 +759,7 @@ function TxFeeContainer(props: IProps) {
     nativeTokenInfo.isLoading,
     nativeTokenTransferAmountToUpdate,
     selectedFee,
+    txFeeInit,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
@@ -737,7 +817,7 @@ function TxFeeContainer(props: IProps) {
 
     if (sendFeeStatus.errMessage) return null;
 
-    if (!txFeeInit.current) {
+    if (!txFeeInit) {
       return (
         <Stack py="$1">
           <Skeleton height="$3" width="$12" />
@@ -762,9 +842,7 @@ function TxFeeContainer(props: IProps) {
     return (
       <FeeSelectorTrigger
         onPress={handlePress}
-        disabled={
-          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit.current
-        }
+        disabled={sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit}
       />
     );
   }, [
@@ -777,6 +855,7 @@ function TxFeeContainer(props: IProps) {
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
+    txFeeInit,
     vaultSettings?.editFeeEnabled,
   ]);
 
@@ -815,6 +894,17 @@ function TxFeeContainer(props: IProps) {
     ),
     [selectedFee?.totalFiatForDisplay, settings.currencyInfo.symbol],
   );
+
+  useEffect(() => {
+    if (txAdvancedSettings.dataChanged) {
+      setTxFeeInit(false);
+    }
+  }, [
+    txAdvancedSettings.dataChanged,
+    updateSendSelectedFee,
+    updateTxAdvancedSettings,
+  ]);
+
   return (
     <Stack
       mb="$5"
@@ -838,14 +928,14 @@ function TxFeeContainer(props: IProps) {
         {renderFeeEditor()}
       </XStack>
       <XStack gap="$1" alignItems="center">
-        {txFeeInit.current ? (
+        {txFeeInit ? (
           renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit.current && !isNil(selectedFee?.totalFiatForDisplay)
+        {txFeeInit && !isNil(selectedFee?.totalFiatForDisplay)
           ? renderTotalFiat()
           : ''}
       </XStack>

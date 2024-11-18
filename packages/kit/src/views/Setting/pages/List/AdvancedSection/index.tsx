@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -13,8 +14,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import { Section } from '../Section';
 
 const HardwareBridgeListItems = () => {
   const onPressBridgeStatus = useCallback(() => {
@@ -92,6 +91,11 @@ export const AdvancedSection = () => {
     navigation.push(EModalSettingRoutes.SettingAlignPrimaryAccount);
   }, [navigation]);
 
+  const onCustomizeTransaction = useCallback(() => {
+    defaultLogger.setting.page.enterCustomizeTransaction();
+    navigation.push(EModalSettingRoutes.SettingCustomTransaction);
+  }, [navigation]);
+
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
@@ -121,6 +125,14 @@ export const AdvancedSection = () => {
         icon="BranchesOutline"
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
+        })}
+        drillIn
+      />
+      <ListItem
+        onPress={onCustomizeTransaction}
+        icon="LabOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_customize_transaction,
         })}
         drillIn
       />

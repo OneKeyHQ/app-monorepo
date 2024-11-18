@@ -39,11 +39,12 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: true,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 30,
 
+  customRpcEnabled: true,
   defaultFeePresetIndex: 0,
 
   accountDeriveInfo,

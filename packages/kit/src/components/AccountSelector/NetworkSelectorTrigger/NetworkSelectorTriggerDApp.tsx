@@ -8,8 +8,10 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
@@ -153,6 +155,14 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const handlePress = useCallback(async () => {
     showChainSelector();
   }, [showChainSelector]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
+
+  if (!network) {
+    return (
+      <Skeleton width={media.gtMd ? 127 : '$9'} height="$9" borderRadius="$2" />
+    );
+  }
 
   return (
     <XStack

@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -31,6 +32,19 @@ import { useDappCloseHandler } from '../../../DAppConnection/pages/DappOpenModal
 
 import type { RouteProp } from '@react-navigation/core';
 
+const parseChainId = (chainId: string | number): string => {
+  if (typeof chainId === 'number') {
+    return chainId.toString();
+  }
+  if (typeof chainId === 'string') {
+    if (chainId.startsWith('0x')) {
+      return parseInt(chainId, 16).toString();
+    }
+    return chainId;
+  }
+  return '';
+};
+
 function AddCustomNetwork() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -50,7 +64,7 @@ function AddCustomNetwork() {
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
 
-  const isNewNetwork = !!routeChainId;
+  const isEditMode = !!(route.params ?? {}).chainId;
 
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
@@ -59,10 +73,21 @@ function AddCustomNetwork() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const getInitialChainId = () => {
+    if (routeChainId) {
+      return String(routeChainId);
+    }
+    if (networkInfo?.chainId) {
+      return parseChainId(networkInfo.chainId);
+    }
+    return '';
+  };
+
   const form = useForm<{
     networkName: string;
     rpcUrl: string;
-    chainId: number;
+    chainId: string;
     symbol: string;
     blockExplorerUrl: string;
   }>({
@@ -70,9 +95,7 @@ function AddCustomNetwork() {
     defaultValues: {
       networkName: routeNetworkName ?? networkInfo?.chainName ?? '',
       rpcUrl: routeRpcUrl ?? networkInfo?.rpcUrls?.[0] ?? '',
-      chainId:
-        routeChainId ??
-        (networkInfo?.chainId ? Number(networkInfo?.chainId) : undefined),
+      chainId: getInitialChainId(),
       symbol: routeSymbol ?? networkInfo?.nativeCurrency?.symbol ?? '',
       blockExplorerUrl:
         routeBlockExplorerUrl ?? networkInfo?.blockExplorerUrls?.[0] ?? '',
@@ -89,11 +112,10 @@ function AddCustomNetwork() {
             rpcUrl,
           });
         if (chainId) {
-          form.setValue('chainId', chainId);
+          form.setValue('chainId', parseChainId(chainId));
         }
         return chainId;
       } catch (error) {
-        // @ts-expect-error
         form.setValue('chainId', '');
         throw error;
       } finally {
@@ -103,19 +125,62 @@ function AddCustomNetwork() {
     [form],
   );
 
+  const [symbolDescription, setSymbolDescription] = useState('');
+  const observedChainId = form.watch('chainId');
+  useEffect(() => {
+    async function searchChainDataFromServer() {
+      const chainId = new BigNumber(observedChainId);
+      if (!chainId.isInteger()) {
+        return;
+      }
+      const chainInfo =
+        await backgroundApiProxy.serviceCustomRpc.searchCustomNetworkByChainList(
+          {
+            chainId: chainId.toString(),
+          },
+        );
+      if (!chainInfo) {
+        return;
+      }
+      const currentSymbol = form.getValues('symbol');
+      if (
+        chainInfo.nativeCurrency?.symbol &&
+        chainInfo.nativeCurrency.symbol !== currentSymbol
+      ) {
+        setSymbolDescription(
+          intl.formatMessage(
+            {
+              id: ETranslations.form_symbol_recommend_text,
+            },
+            {
+              chainID: chainId.toString(),
+              symbol: chainInfo.nativeCurrency?.symbol,
+            },
+          ),
+        );
+        console.log(
+          'chainInfo.nativeCurrency?.symbol: ',
+          chainInfo.nativeCurrency?.symbol,
+          currentSymbol,
+        );
+      }
+    }
+    void searchChainDataFromServer();
+  }, [observedChainId, form, intl]);
+
   const [isLoading, setIsLoading] = useState(false);
   const onSubmit = useCallback(async () => {
     try {
-      setIsLoading(true);
       const isValid = await form.trigger();
       if (!isValid) {
         return;
       }
+      setIsLoading(true);
 
       const { networkName, rpcUrl, chainId, symbol, blockExplorerUrl } =
         form.getValues();
 
-      let finalChainId = chainId;
+      let finalChainId = parseInt(chainId, 10);
       try {
         if (!finalChainId) {
           const chainIdFromRpc = await getChainId(rpcUrl);
@@ -177,7 +242,9 @@ function AddCustomNetwork() {
       }, 500);
       Toast.success({
         title: intl.formatMessage({
-          id: ETranslations.custom_network_add_custom_network_successfully_toast_text,
+          id: isEditMode
+            ? ETranslations.feedback_change_saved
+            : ETranslations.custom_network_add_custom_network_successfully_toast_text,
         }),
       });
       navigation.pop();
@@ -191,7 +258,7 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, dappApprove, intl, navigation, getChainId, onSuccess]);
+  }, [form, dappApprove, intl, navigation, getChainId, onSuccess, isEditMode]);
 
   const onDelete = useCallback(async () => {
     if (!routeNetworkId) {
@@ -342,6 +409,7 @@ function AddCustomNetwork() {
             label={intl.formatMessage({
               id: ETranslations.manage_token_custom_token_symbol,
             })}
+            description={symbolDescription}
             rules={{
               required: {
                 value: true,

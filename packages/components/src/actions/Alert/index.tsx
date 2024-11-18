@@ -40,12 +40,13 @@ const AlertContext = createStyledContext<{
   fullBleed: false,
 });
 
-type IAlertProps = {
+export type IAlertProps = {
   type?: IAlertType;
   fullBleed?: boolean;
   title?: string;
   description?: string;
   closable?: boolean;
+  onClose?: () => void;
   icon?: IKeyOfIcons;
   action?: IAlertActionProps;
 };
@@ -119,11 +120,15 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
     type,
     fullBleed,
     action,
+    onClose: onCloseProp,
     ...rest
   } = props;
 
   const [show, setShow] = useState(true);
-  const onClose = useCallback(() => setShow(false), []);
+  const onClose = useCallback(() => {
+    setShow(false);
+    onCloseProp?.();
+  }, [onCloseProp]);
 
   if (!show) return null;
 

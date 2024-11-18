@@ -85,6 +85,12 @@ function PageFirmwareUpdateInstall() {
       onUnmounted={async () => {
         console.log('PageFirmwareUpdateInstall unmounted');
         await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
+        if (result?.originalConnectId) {
+          await backgroundApiProxy.serviceHardware.cancel({
+            connectId: result.originalConnectId,
+            forceDeviceResetToHome: true,
+          });
+        }
       }}
     >
       <FirmwareUpdatePageLayout>

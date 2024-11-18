@@ -76,10 +76,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
-import type {
-  IStakeTxResponse,
-  IStakingInfo,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -115,6 +112,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -437,6 +435,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }): Promise<{
     encodedTx: IEncodedTx | undefined;
     estimateFeeParams?: IEstimateFeeParams;
+  }> {
+    return Promise.resolve({
+      encodedTx,
+    });
+  }
+
+  async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<{
+    encodedTx: Partial<IEncodedTx> | undefined;
   }> {
     return Promise.resolve({
       encodedTx,
@@ -855,6 +865,58 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
     const providerInfo = swapInfo.swapBuildResData.result.info;
+    const otherFeeInfos = swapInfo.swapBuildResData.result.fee?.otherFeeInfos;
+    const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
+
+    let transfers: IDecodedTxTransferInfo[] = [
+      {
+        from: swapInfo.accountAddress,
+        to: '',
+        tokenIdOnNetwork: swapSendToken.contractAddress,
+        icon: swapSendToken.logoURI ?? '',
+        name: swapSendToken.name ?? '',
+        symbol: swapSendToken.symbol,
+        amount: swapInfo.sender.amount,
+        isNFT: false,
+        isNative: swapSendToken.isNative,
+      },
+      {
+        from: '',
+        to: swapInfo.receivingAddress,
+        tokenIdOnNetwork: swapReceiveToken.contractAddress,
+        icon: swapReceiveToken.logoURI ?? '',
+        name: swapReceiveToken.name ?? '',
+        symbol: swapReceiveToken.symbol,
+        amount: swapInfo.receiver.amount,
+        isNFT: false,
+        isNative: swapReceiveToken.isNative,
+      },
+    ];
+
+    if (otherFeeInfos) {
+      otherFeeInfos.forEach((feeInfo) => {
+        if (feeInfo.token.contractAddress === transfers[0].tokenIdOnNetwork) {
+          transfers[0].amount = new BigNumber(transfers[0].amount)
+            .plus(feeInfo.amount)
+            .toFixed();
+        } else {
+          otherFeeInfoTransfers.push({
+            from: swapInfo.accountAddress,
+            to: '',
+            tokenIdOnNetwork: feeInfo.token.contractAddress,
+            icon: feeInfo.token.logoURI ?? '',
+            name: feeInfo.token.name ?? '',
+            symbol: feeInfo.token.symbol,
+            amount: feeInfo.amount,
+            isNFT: false,
+            isNative: feeInfo.token.isNative,
+          });
+        }
+      });
+    }
+
+    transfers = [...otherFeeInfoTransfers, ...transfers];
+
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
       to: swapToAddress ?? '',
@@ -866,30 +928,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
       swapReceivedNetworkId: swapInfo.receiver.token.networkId,
-      transfers: [
-        {
-          from: swapInfo.accountAddress,
-          to: '',
-          tokenIdOnNetwork: swapSendToken.contractAddress,
-          icon: swapSendToken.logoURI ?? '',
-          name: swapSendToken.name ?? '',
-          symbol: swapSendToken.symbol,
-          amount: swapInfo.sender.amount,
-          isNFT: false,
-          isNative: swapSendToken.isNative,
-        },
-        {
-          from: '',
-          to: swapInfo.receivingAddress,
-          tokenIdOnNetwork: swapReceiveToken.contractAddress,
-          icon: swapReceiveToken.logoURI ?? '',
-          name: swapReceiveToken.name ?? '',
-          symbol: swapReceiveToken.symbol,
-          amount: swapInfo.receiver.amount,
-          isNFT: false,
-          isNative: swapReceiveToken.isNative,
-        },
-      ],
+      transfers,
     });
     return action;
   }
@@ -957,11 +996,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // TODO resetCache after dbAccount and network DB updated
   // TODO add memo
-  async getAccount(): Promise<INetworkAccount> {
-    const account: IDBAccount =
-      await this.backgroundApi.serviceAccount.getDBAccount({
+  async getAccount({
+    dbAccount,
+  }: {
+    dbAccount?: IDBAccount;
+  } = {}): Promise<INetworkAccount> {
+    let account: IDBAccount | undefined = dbAccount;
+    if (!account || account?.id !== this.accountId) {
+      account = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: this.accountId,
       });
+    }
 
     if (
       !accountUtils.isAccountCompatibleWithNetwork({
@@ -1003,8 +1048,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         key: this.networkId,
         fallbackIndex: -1,
       });
+
       if (!externalAccountAddress) {
         const impl = await this.getNetworkImpl();
+
         externalAccountAddress = buildExternalAccountAddress({
           key: impl,
           fallbackIndex: 0,
@@ -1034,6 +1081,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     ) {
       throw new Error('VaultBase.getAccount ERROR: address is invalid');
     }
+
     return {
       ...account,
       addressDetail,
@@ -1049,8 +1097,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return (await this.getAccount()).path;
   }
 
-  async getAccountXpub(): Promise<string | undefined> {
-    const networkAccount = await this.getAccount();
+  async getAccountXpub({
+    dbAccount,
+  }: {
+    dbAccount?: IDBAccount;
+  } = {}): Promise<string | undefined> {
+    const networkAccount = await this.getAccount({ dbAccount });
     return this.getXpubFromAccount(networkAccount);
   }
 
@@ -1107,7 +1159,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // Staking
-  buildStakeEncodedTx(params: IStakeTxResponse): Promise<IEncodedTx> {
+  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
     return Promise.resolve(params as IEncodedTx);
   }
 
@@ -1276,6 +1328,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByRpc(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
+    throw new NotImplemented();
+  }
+
+  async buildOkxSwapEncodedTx(
+    params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
 }

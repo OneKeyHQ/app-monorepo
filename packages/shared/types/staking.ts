@@ -23,6 +23,7 @@ export type IStakingInfo = {
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
   receive?: { amount: string; token: IToken };
+  orderId?: string;
 };
 
 export type IStakeProviderInfo = {
@@ -46,6 +47,7 @@ export type IStakeProviderInfo = {
   isStaking?: boolean;
 
   unstakingTime?: number;
+  stakingTime?: number;
 
   // native token only
   minTransactionFee?: string;
@@ -146,11 +148,16 @@ export enum EStakeTxType {
   BtcBabylon = 'btc-babylon',
 }
 
-export type IStakeTxResponse =
+export type IStakeTx =
   | IStakeTxBtcBabylon
   | IStakeTxEthEvertStake
   | IStakeTxEthLido
   | IStakeTxCosmosAmino;
+
+export type IStakeTxResponse = {
+  tx: IStakeTx;
+  orderId: string;
+};
 
 // Babylon
 export type IStakeTxBtcBabylon = {
@@ -240,7 +247,8 @@ export type IBabylonPortfolioStatus =
   | 'active'
   | 'withdraw_requested'
   | 'claimable'
-  | 'claimed';
+  | 'claimed'
+  | 'local_pending_activation'; // local_pending_activation created by client side ;
 
 export type IBabylonPortfolioItem = {
   txId: string;
@@ -360,6 +368,13 @@ export type IEarnFAQList = IEarnFAQListItem[];
 
 export type IEarnEstimateAction = 'stake' | 'unstake' | 'claim';
 
+export type IEarnUnbondingDelegationListItem = {
+  amount: string;
+  timestampLeft: number;
+};
+
+export type IEarnUnbondingDelegationList = IEarnUnbondingDelegationListItem[];
+
 export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
   feeFiatValue: string;
@@ -379,4 +394,6 @@ export interface IEarnBabylonTrackingItem {
   createAt: number;
   accountId: string;
   networkId: string;
+  amount: string;
+  minStakeTerm?: number;
 }

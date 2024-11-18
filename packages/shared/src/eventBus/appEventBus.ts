@@ -31,6 +31,7 @@ export enum EAppEventBusNames {
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   WalletRemove = 'WalletRemove',
+  WalletRename = 'WalletRename',
   AccountUpdate = 'AccountUpdate',
   AccountRemove = 'AccountRemove',
   AddDBAccountsToWallet = 'AddDBAccountsToWallet',
@@ -40,6 +41,7 @@ export enum EAppEventBusNames {
   OnSwitchDAppNetwork = 'OnSwitchDAppNetwork',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
+  SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
@@ -48,7 +50,8 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
-  ShowQrcode = 'ShowQrcode',
+  ShowAirGapQrcode = 'ShowAirGapQrcode',
+  HideAirGapQrcode = 'HideAirGapQrcode',
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
@@ -78,6 +81,7 @@ export enum EAppEventBusNames {
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
   AddedCustomNetwork = 'AddedCustomNetwork',
+  ShowFindInWebPage = 'ShowFindInWebPage',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -92,6 +96,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
+    walletId: string;
+  };
+  [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: undefined;
@@ -143,12 +150,15 @@ export interface IAppEventBusPayload {
     duration?: number;
     errorCode?: number;
   };
-  [EAppEventBusNames.ShowQrcode]: {
+  [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
     promiseId?: number;
     value?: string;
     valueUr?: IAirGapUrJson;
+  };
+  [EAppEventBusNames.HideAirGapQrcode]: {
+    flag?: string; // close toast should skipReject: flag=skipReject
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
@@ -197,7 +207,14 @@ export interface IAppEventBusPayload {
     map: Record<string, ITokenFiat>;
     merge?: boolean;
   };
-  [EAppEventBusNames.RefreshTokenList]: undefined;
+  [EAppEventBusNames.RefreshTokenList]:
+    | undefined
+    | {
+        accounts: {
+          accountId: string;
+          networkId: string;
+        }[];
+      };
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -227,6 +244,12 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+  };
+  [EAppEventBusNames.ShowFindInWebPage]: {
+    tabId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -362,7 +385,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.$$appEventBus = appEventBus;
+  globalThis.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };

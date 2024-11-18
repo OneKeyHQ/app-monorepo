@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
+import { useIntl } from 'react-intl';
+
+import {
+  ActionList,
+  IconButton,
+  Tooltip,
+} from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import {
   Icon,
@@ -11,7 +17,9 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import type {
   Animated,
@@ -29,6 +37,7 @@ export interface IDesktopTabItemProps {
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
+  shortcutKey?: EShortcutEvents | string[];
   onClose?: () => void;
 }
 
@@ -45,9 +54,11 @@ export function DesktopTabItem(
     showAvatar = false,
     onPress,
     onClose,
+    shortcutKey,
     ...rest
   } = props;
 
+  const intl = useIntl();
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>();
   const [isHovered, setIsHovered] = useState(false);
@@ -81,8 +92,8 @@ export function DesktopTabItem(
     },
     [onPress, selected],
   );
-  return (
-    <YStack testID={rest.testID} ref={stackRef}>
+  const trigger = useMemo(
+    () => (
       <XStack
         alignItems="center"
         py="$1.5"
@@ -93,7 +104,6 @@ export function DesktopTabItem(
           borderRadius: '$2',
         }}
         userSelect="none"
-        style={tabBarStyle as ViewStyle}
         {...(!selected && {
           pressStyle: {
             bg: '$bgActive',
@@ -154,6 +164,13 @@ export function DesktopTabItem(
             icon="CrossedSmallOutline"
             variant="tertiary"
             focusVisibleStyle={undefined}
+            title={
+              <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+                {intl.formatMessage({
+                  id: ETranslations.global_close,
+                })}
+              </Tooltip.Text>
+            }
             p="$0.5"
             m={-3}
             testID="browser-bar-options"
@@ -177,6 +194,40 @@ export function DesktopTabItem(
           />
         ) : null}
       </XStack>
+    ),
+    [
+      actionList,
+      avatarSrc,
+      icon,
+      intl,
+      isContextMenuOpened,
+      isHovered,
+      label,
+      onClose,
+      onMouseEnter,
+      onMouseLeave,
+      reloadOnPress,
+      rest,
+      selected,
+      showAvatar,
+    ],
+  );
+  return (
+    <YStack
+      testID={rest.testID}
+      ref={stackRef}
+      style={tabBarStyle as ViewStyle}
+    >
+      {platformEnv.isDesktop && shortcutKey ? (
+        <Tooltip
+          shortcutKey={shortcutKey}
+          renderTrigger={trigger}
+          renderContent={label}
+          placement="right"
+        />
+      ) : (
+        trigger
+      )}
     </YStack>
   );
 }

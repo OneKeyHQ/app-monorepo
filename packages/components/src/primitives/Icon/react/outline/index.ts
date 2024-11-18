@@ -355,6 +355,7 @@ export { default as Ethereum } from './Ethereum';
 export { default as Euro } from './Euro';
 export { default as ExpandWindow } from './ExpandWindow';
 export { default as Expand } from './Expand';
+export { default as EyeClosed } from './EyeClosed';
 export { default as EyeOff } from './EyeOff';
 export { default as Eye } from './Eye';
 export { default as FaceAddReaction } from './FaceAddReaction';

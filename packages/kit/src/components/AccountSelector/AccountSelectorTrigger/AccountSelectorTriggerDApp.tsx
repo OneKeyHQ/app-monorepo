@@ -1,11 +1,10 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  Image,
   SizableText,
   Skeleton,
   View,
@@ -20,9 +19,11 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import { useAccountSelectorSyncLoadingAtom } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorTrigger,
@@ -96,7 +97,10 @@ const InterAddressText = ({
   isLoading?: boolean;
   addressText: string;
 }) => {
-  if (isLoading) {
+  if (
+    isLoading ||
+    accountUtils.isAllNetworkMockAddress({ address: addressText })
+  ) {
     return (
       <XStack alignItems="center" h="$5">
         <Skeleton w={196} h={14} />
@@ -275,6 +279,34 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         id: ETranslations.wallet_no_address,
       });
 
+  useShortcutsOnRouteFocused(EShortcutEvents.AccountSelector, handlePress);
+
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    if (account?.name) {
+      const timer = setTimeout(() => {
+        setShowSkeleton(false);
+        isFirstLoad.current = false;
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+    if (isFirstLoad.current) {
+      setShowSkeleton(true);
+    }
+  }, [account?.name]);
+
+  if (showSkeleton && isFirstLoad.current) {
+    return (
+      <Skeleton
+        width={media.gtMd ? 142 : '$9'}
+        height={media.gtMd ? '$12' : '$9'}
+        borderRadius="$2"
+      />
+    );
+  }
+
   return (
     <XStack
       role="button"
@@ -332,9 +364,18 @@ export function AccountSelectorTriggerAddressSingle({ num }: { num: number }) {
 
   const [showNoAddress, setShowNoAddress] = useState(false);
 
-  const addressText = accountUtils.shortenAddress({
-    address: account?.address || '',
-  });
+  let addressText = '';
+  if (
+    accountUtils.isAllNetworkMockAddress({ address: account?.address || '' })
+  ) {
+    addressText = '';
+  } else if (!account?.address && account?.addressDetail.isValid) {
+    addressText = account?.name || '';
+  } else {
+    addressText = accountUtils.shortenAddress({
+      address: account?.address || '',
+    });
+  }
 
   useEffect(() => {
     if (!addressText) {

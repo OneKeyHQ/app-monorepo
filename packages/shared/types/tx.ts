@@ -4,8 +4,9 @@ import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightni
 import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import type { IFeeInfoUnit, ISendSelectedFeeInfo } from './fee';
+import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 
 export enum EDecodedTxDirection {
@@ -93,6 +94,7 @@ export type IDecodedTx = {
   owner: string; // tx belongs to both receiver and sender
   signer: string; // creator, sender, fromAddress
   to?: string;
+  isToContract?: boolean;
 
   nonce: number;
   actions: IDecodedTxAction[]; // inputActions
@@ -111,6 +113,7 @@ export type IDecodedTx = {
   xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
+  approveInfo?: IApproveInfo;
   totalFeeInNative?: string;
   totalFeeFiatValue?: string;
 
@@ -126,6 +129,8 @@ export type IDecodedTx = {
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
   nativeAmountValue?: string;
+
+  originalTxId?: string; // for ton
 };
 
 export type IDecodedTxActionBase = {
@@ -215,6 +220,7 @@ export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;
   feeInfo?: IFeeInfoUnit;
+  approveInfo?: IApproveInfo;
 };
 
 export type IReplaceTxInfo = {

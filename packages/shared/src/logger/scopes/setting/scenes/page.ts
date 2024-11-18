@@ -46,13 +46,25 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public oneKeyLiteBackup({ isSuccess }: { isSuccess: boolean }) {
+  public oneKeyLiteBackup() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public oneKeyLiteBackupResult({ isSuccess }: { isSuccess: boolean }) {
     return { isSuccess };
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public oneKeyLiteImport({ isSuccess }: { isSuccess: boolean }) {
+  public oneKeyLiteImport() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public oneKeyLiteImportResult({ isSuccess }: { isSuccess: boolean }) {
     return { isSuccess };
   }
 
@@ -76,6 +88,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public keyTagImportResult({ isSuccess }: { isSuccess: boolean }) {
+    return { isSuccess };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public clearData({
     action,
   }: {
@@ -87,6 +105,12 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public enterCustomRPC() {
+    return {};
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public enterCustomizeTransaction() {
     return {};
   }
 

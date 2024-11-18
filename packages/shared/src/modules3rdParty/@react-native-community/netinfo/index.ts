@@ -1,3 +1,16 @@
-import NetInfo from '@react-native-community/netinfo';
+import { useNetInfo as useNetInfoNative } from '@react-native-community/netinfo';
 
-export default NetInfo;
+export * from '@react-native-community/netinfo';
+
+export const useNetInfo = () => {
+  const { isConnected, isInternetReachable, isWifiEnabled, type } =
+    useNetInfoNative();
+  return {
+    type,
+    isConnected,
+    // The initial value of isInternetReachable is null, and it is treated as true at the UI layer.
+    isInternetReachable: isInternetReachable !== false,
+    isRawInternetReachable: isInternetReachable,
+    isWifiEnabled,
+  };
+};

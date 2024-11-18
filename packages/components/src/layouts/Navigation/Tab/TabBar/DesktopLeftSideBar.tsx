@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -13,13 +13,9 @@ import {
 } from '@onekeyhq/components/src/hocs';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
-import type {
-  IKeyOfIcons,
-  IXStackProps,
-} from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Icon,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -27,6 +23,13 @@ import {
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
@@ -51,6 +54,7 @@ function TabItemView({
   onPress: () => void;
   options: BottomTabNavigationOptions & {
     actionList?: IActionListSection[];
+    shortcutKey?: EShortcutEvents;
   };
   isCollapse?: boolean;
 }) {
@@ -68,6 +72,7 @@ function TabItemView({
         onPress={onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
+        shortcutKey={options.shortcutKey}
         tabBarStyle={options.tabBarStyle}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
@@ -82,7 +87,7 @@ function TabItemView({
   return contentMemo;
 }
 
-function DownloadButton(props: IXStackProps) {
+function DownloadButton() {
   const intl = useIntl();
   const onPress = useCallback(() => {
     openUrlExternal(DOWNLOAD_URL);
@@ -91,32 +96,14 @@ function DownloadButton(props: IXStackProps) {
     return null;
   }
   return (
-    <XStack
-      mt="$2"
-      px="$3"
-      py="$2"
-      backgroundColor="$bgStrong"
-      borderRadius="$2"
-      borderCurve="continuous"
-      userSelect="none"
+    <DesktopTabItem
       onPress={onPress}
-      hoverStyle={{
-        bg: '$gray6',
-      }}
-      pressStyle={{
-        bg: '$gray7',
-      }}
-      {...props}
-    >
-      <SizableText size="$bodyMdMedium" flex={1}>
-        {intl.formatMessage({ id: ETranslations.global_download })}
-      </SizableText>
-      <XStack gap="$1" alignItems="center">
-        <Icon name="AppleBrand" size="$5" y={-2} color="$iconSubdued" />
-        <Icon name="GooglePlayBrand" size="$4.5" color="$iconSubdued" />
-        <Icon name="ChromeBrand" size="$4.5" color="$iconSubdued" />
-      </XStack>
-    </XStack>
+      icon="DownloadOutline"
+      selected={false}
+      label={intl.formatMessage({
+        id: ETranslations.global_download,
+      })}
+    />
   );
 }
 
@@ -140,6 +127,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
+  const intl = useIntl();
   const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
@@ -204,6 +192,15 @@ export function DesktopLeftSideBar({
     ],
   );
 
+  const appNavigation = useNavigation<any>();
+  const openSettingPage = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    appNavigation.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.SettingModal,
+      params: EModalSettingRoutes.SettingListModal,
+    });
+  }, [appNavigation]);
+
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
@@ -248,13 +245,27 @@ export function DesktopLeftSideBar({
         >
           <YStack flex={1}>
             <OneKeyLogo />
-            <YStack flex={1} p="$3">
+            <YStack flex={1} pt="$3" px="$3">
               {tabs}
-              <Stack mt="auto">
-                <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
-                <DownloadButton />
-              </Stack>
             </YStack>
+            <Stack
+              p="$3"
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="$borderSubdued"
+            >
+              <DesktopTabItem
+                onPress={openSettingPage}
+                selected={false}
+                icon="SettingsOutline"
+                label={intl.formatMessage({
+                  id: ETranslations.settings_settings,
+                })}
+                shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
+                testID="setting"
+              />
+              <DownloadButton />
+              <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
+            </Stack>
           </YStack>
         </MotiView>
       </YStack>

@@ -58,6 +58,8 @@ const settings: IVaultSettings = {
 
   hideTxUtxoListWhenPending: true,
 
+  customRpcEnabled: true,
+
   accountDeriveInfo,
   networkInfo: {
     default: {

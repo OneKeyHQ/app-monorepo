@@ -6,8 +6,9 @@ import {
   TransactionSkeleton,
   minimalCellCapacityCompatible,
 } from '@ckb-lumos/helpers';
+import { RPC } from '@ckb-lumos/rpc';
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import {
   getConfig,
@@ -15,7 +16,7 @@ import {
 } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
@@ -31,6 +32,11 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -53,6 +59,7 @@ import { decodeBalanceWithCell, decodeNaiveBalance } from './utils/balance';
 import { convertTokenHistoryUtxos } from './utils/history';
 import {
   DEFAULT_MIN_INPUT_CAPACITY,
+  convertRawTxToApiTransaction,
   convertTxSkeletonToTransaction,
   convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
@@ -62,6 +69,7 @@ import { transfer as xUDTTransafer } from './utils/xudt';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -146,11 +154,12 @@ export default class Vault extends VaultBase {
   override buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxCkb> {
-    const { transfersInfo } = params;
+    const { transfersInfo, specifiedFeeRate } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       if (transfersInfo.length === 1) {
         return this._buildEncodedTxFromTransfer({
           transferInfo: transfersInfo[0],
+          specifiedFeeRate,
         });
       }
       throw new OneKeyInternalError('Batch transfers not supported');
@@ -160,8 +169,10 @@ export default class Vault extends VaultBase {
 
   async _buildEncodedTxFromTransfer({
     transferInfo,
+    specifiedFeeRate,
   }: {
     transferInfo: ITransferInfo;
+    specifiedFeeRate?: string;
   }) {
     const { tokenInfo, amount, from, to } = transferInfo;
 
@@ -179,7 +190,14 @@ export default class Vault extends VaultBase {
     const indexer = await this.getIndexer();
     const accountAddress = await this.getAccountAddress();
     const network = await this.getNetwork();
-    const { median } = await client.getFeeRateStatistics();
+
+    let feeRate = '';
+    if (!isNil(specifiedFeeRate)) {
+      feeRate = specifiedFeeRate;
+    } else {
+      const { median } = await client.getFeeRateStatistics();
+      feeRate = median;
+    }
 
     let txSkeleton: TransactionSkeletonType = TransactionSkeleton({
       cellProvider: {
@@ -237,7 +255,7 @@ export default class Vault extends VaultBase {
       txSkeleton = await common.payFeeByFeeRate(
         txSkeleton,
         [from],
-        median,
+        feeRate,
         undefined,
         {
           config,
@@ -290,10 +308,11 @@ export default class Vault extends VaultBase {
       );
 
     let limit = allInputAmount.minus(allOutputAmount).toString();
+    const size = getTransactionSizeByTxSkeleton(txSkeleton);
+
     if (allInputAmount.isLessThanOrEqualTo(allOutputAmount)) {
       // fix max send fee
-      const size = getTransactionSizeByTxSkeleton(txSkeleton);
-      limit = new BigNumber(median, 16).multipliedBy(size).div(1024).toFixed(0);
+      limit = new BigNumber(feeRate).multipliedBy(size).div(1000).toFixed(0);
 
       console.log('fix max send fee,', {
         limit,
@@ -317,9 +336,11 @@ export default class Vault extends VaultBase {
 
     return {
       tx,
+      txSize: size,
       feeInfo: {
         limit,
         price: '1',
+        feeRate,
       },
     };
   }
@@ -577,12 +598,21 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxCkb);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxCkb,
+        transfersInfo: params.transfersInfo ?? [],
+      });
     }
     throw new OneKeyInternalError();
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxCkb) {
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxCkb;
+    transfersInfo: ITransferInfo[];
+  }) {
     const client = await this.getClient();
     const txs = await convertTxToTxSkeleton({
       client,
@@ -617,13 +647,54 @@ export default class Vault extends VaultBase {
 
     return {
       encodedTx,
+      txSize: encodedTx.txSize,
+      transfersInfo,
     };
   }
 
-  override updateUnsignedTx(
-    params: IUpdateUnsignedTxParams,
-  ): Promise<IUnsignedTxPro> {
-    return Promise.resolve(params.unsignedTx);
+  override async updateUnsignedTx(options: {
+    unsignedTx: IUnsignedTxPro;
+    feeInfo?: IFeeInfoUnit | undefined;
+  }): Promise<IUnsignedTxPro> {
+    const { unsignedTx, feeInfo } = options;
+    let encodedTxNew = unsignedTx.encodedTx as IEncodedTxCkb;
+    if (feeInfo) {
+      if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+        throw new OneKeyInternalError('transfersInfo is required');
+      }
+      encodedTxNew = await this._attachFeeInfoToEncodedTx({
+        encodedTx: unsignedTx.encodedTx as IEncodedTxCkb,
+        transfersInfo: unsignedTx.transfersInfo,
+        feeInfo,
+      });
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+
+    return Promise.resolve(unsignedTx);
+  }
+
+  async _attachFeeInfoToEncodedTx({
+    encodedTx,
+    feeInfo,
+    transfersInfo,
+  }: {
+    encodedTx: IEncodedTxCkb;
+    feeInfo: IFeeInfoUnit;
+    transfersInfo: ITransferInfo[];
+  }) {
+    if (feeInfo.feeCkb?.feeRate) {
+      const feeRate = feeInfo.feeCkb.feeRate;
+
+      if (typeof feeRate === 'string') {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+          specifiedFeeRate: feeRate,
+        });
+      }
+    }
+
+    return Promise.resolve(encodedTx);
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
@@ -671,5 +742,38 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const client = new RPC(params.rpcUrl);
+    const start = performance.now();
+    const bestBlockNumber = await client.getTipBlockNumber();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: parseInt(bestBlockNumber, 10),
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new RPC(rpcUrl);
+    const transaction = convertRawTxToApiTransaction(signedTx.rawTx);
+    const txId = await client.sendTransaction(transaction, 'passthrough');
+    console.log('broadcastTransaction END:', {
+      txid: txId,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: txId,
+    };
   }
 }

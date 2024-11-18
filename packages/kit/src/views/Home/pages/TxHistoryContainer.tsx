@@ -115,8 +115,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
         accountId: account.id,
         networkId: network.id,
       });
-      if (r.pendingTxsUpdated) {
-        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      if (r.accountsWithChangedPendingTxs.length > 0) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+          accounts: r.accountsWithChangedPendingTxs,
+        });
       }
       isManualRefresh.current = false;
     },

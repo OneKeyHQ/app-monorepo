@@ -19,6 +19,8 @@ function TokenIconView(props: IProps) {
         size={tableLayout ? 'md' : 'lg'}
         tokenImageUri={icon}
         networkImageUri={network?.logoURI}
+        networkId={networkId}
+        showNetworkIcon
       />
     );
   }

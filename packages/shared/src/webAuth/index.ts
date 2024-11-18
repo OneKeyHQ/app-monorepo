@@ -14,23 +14,23 @@ export const base64Decode = function (base64: string): ArrayBuffer {
 };
 
 const isContextSupportWebAuth = Boolean(
-  platformEnv.isExtChrome && global?.navigator?.credentials,
+  platformEnv.isExtChrome && globalThis?.navigator?.credentials,
 );
 
 const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
   let isAvailable = false;
-  if (global?.PublicKeyCredential) {
+  if (globalThis?.PublicKeyCredential) {
     isAvailable =
-      await global?.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      await globalThis?.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
   }
   return isAvailable;
 };
 
 const isCMA = async () => {
   let isAvailable = false;
-  if (global?.PublicKeyCredential) {
+  if (globalThis?.PublicKeyCredential) {
     isAvailable =
-      await global?.PublicKeyCredential.isConditionalMediationAvailable();
+      await globalThis?.PublicKeyCredential.isConditionalMediationAvailable();
   }
   return isAvailable;
 };
@@ -49,8 +49,9 @@ export const verifiedWebAuth = async (credId: string) => {
   if (!(await isSupportWebAuth())) {
     throw new Error('Not support web auth');
   }
-  const challenge = global.crypto.getRandomValues(new Uint8Array(32));
+  const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
   const getCredentialOptions: CredentialRequestOptions = {
+    mediation: 'required',
     publicKey: {
       allowCredentials: [
         {
@@ -58,6 +59,7 @@ export const verifiedWebAuth = async (credId: string) => {
           id: base64Decode(credId),
         },
       ],
+      userVerification: 'required',
       challenge: challenge.buffer,
       timeout: 60_000,
     },
@@ -84,7 +86,7 @@ export const registerWebAuth = async (credId?: string) => {
       }
       return undefined;
     }
-    const challenge = global.crypto.getRandomValues(new Uint8Array(32));
+    const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
     const createCredentialOptions: CredentialCreationOptions = {
       publicKey: {
         rp: {
@@ -106,10 +108,10 @@ export const registerWebAuth = async (credId?: string) => {
           },
         ],
         timeout: 60_000,
-        attestation: 'direct',
         challenge: challenge.buffer,
         authenticatorSelection: {
-          authenticatorAttachment: 'platform',
+          requireResidentKey: true,
+          userVerification: 'required',
         },
       },
     };

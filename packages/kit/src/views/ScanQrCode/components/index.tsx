@@ -81,7 +81,7 @@ export function ScanQrCode({
   const handlePermission = useCallback(async () => {
     const readSilentStatus =
       platformEnv.isDesktopMac || platformEnv.isDesktopWin
-        ? window.desktopApi.getMediaAccessStatus('camera')
+        ? globalThis.desktopApi.getMediaAccessStatus('camera')
         : (await getPermissionsAsync())?.status;
     if (readSilentStatus === PermissionStatus.GRANTED) {
       setCurrentPermission(PermissionStatus.GRANTED);
@@ -163,7 +163,6 @@ export function ScanQrCode({
       style={{
         flex: 1,
       }}
-      isActive={isFocused}
       handleScanResult={reloadHandleBarCodeScanned}
     >
       {qrWalletScene ? (

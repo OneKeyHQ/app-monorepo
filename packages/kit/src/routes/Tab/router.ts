@@ -9,6 +9,7 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';

@@ -4,16 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type {
-  IImageSourceProps,
-  IKeyOfIcons,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Icon,
   IconButton,
-  Image,
   Page,
   Popover,
   SectionList,
@@ -49,14 +44,6 @@ import type { RouteProp } from '@react-navigation/core';
 enum ESwapProviderStatus {
   AVAILABLE = 'Available',
   UNAVAILABLE = 'Unavailable',
-}
-
-interface IProtocolFeeInfo {
-  name: string;
-  fee: number;
-  color: string;
-  icon: IImageSourceProps['source'];
-  maxFee: number;
 }
 
 const InformationItem = ({
@@ -207,62 +194,6 @@ const SwapProviderSelectModal = () => {
     ],
   );
 
-  const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
-    () => [
-      {
-        maxFee: 0.875,
-        name: 'metamask',
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
-        },
-        fee: 0.875,
-        color: '#F5841F',
-        url: 'https://uni.onekey-asset.com/static/logo/metamasklogo.png',
-      },
-      {
-        maxFee: 0.875,
-        name: 'zerion',
-        fee: 0.8,
-        color: '#2461ED',
-
-        icon: {
-          uri: 'https://uni.onekey-asset.com/static/logo/zerionlogo.png',
-        },
-      },
-      {
-        maxFee: 0.875,
-        name: 'oneKey',
-        fee: 0.3,
-        // color: '#202020',
-        color: '$bgInverse',
-        icon: require('@onekeyhq/kit/assets/logo.png'),
-      },
-    ],
-    [],
-  );
-
-  const renderProtocolFeeListItem = useCallback(
-    (item: IProtocolFeeInfo) => (
-      <XStack gap="$3" alignItems="center">
-        <Stack w={20} h={20}>
-          <Image source={item.icon} w={16} h={16} />
-        </Stack>
-        <Stack flex={1}>
-          <Stack
-            backgroundColor={item.color}
-            borderRadius="$full"
-            width={`${(item.fee / item.maxFee) * 100}%`}
-            height="$1"
-          />
-        </Stack>
-        <SizableText size="$bodySm" color="$text" textAlign="right">
-          {item.fee}%
-        </SizableText>
-      </XStack>
-    ),
-    [],
-  );
-
   const rightInfoComponent = useCallback(
     () => (
       <Popover
@@ -316,46 +247,11 @@ const SwapProviderSelectModal = () => {
                 })}
               />
             </Stack>
-            <Stack gap="$3">
-              <Stack gap="$1">
-                <SizableText size="$headingMd" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.provider_ios_popover_onekey_fee,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.provider_ios_popover_onekey_fee_content,
-                  })}
-                </SizableText>
-              </Stack>
-              <Stack gap="$2">
-                <XStack gap="$3">
-                  <SizableText size="$bodySm" color="$textSubdued" flex={100}>
-                    {intl.formatMessage({
-                      id: ETranslations.provider_popover_wallet,
-                    })}
-                  </SizableText>
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    textAlign="right"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.provider_popover_fee_rate,
-                    })}
-                  </SizableText>
-                </XStack>
-                {protocolFeeInfoList.map((item) =>
-                  renderProtocolFeeListItem(item),
-                )}
-              </Stack>
-            </Stack>
           </Stack>
         }
       />
     ),
-    [intl, protocolFeeInfoList, renderProtocolFeeListItem],
+    [intl],
   );
   return (
     <Page>

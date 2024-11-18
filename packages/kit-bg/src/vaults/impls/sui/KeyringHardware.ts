@@ -1,4 +1,6 @@
-import { Ed25519PublicKey, toB64, toSerializedSignature } from '@mysten/sui.js';
+import { toSerializedSignature } from '@mysten/sui/cryptography';
+import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
+import { toBase64 } from '@mysten/sui/utils';
 
 import { handleSignData } from '@onekeyhq/core/src/chains/sui/CoreChainSoftware';
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
@@ -8,11 +10,9 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import {
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -25,42 +25,27 @@ import { toTransaction } from './sdkSui/utils';
 import type IVaultSui from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sui.hd;
 
-  async getPublicKey(
-    connectId: string,
-    deviceId: string,
-    paths: Array<string>,
-    deviceParams: IDeviceSharedCallParams,
-  ): Promise<Array<string>> {
-    let response;
-    const sdk = await this.getHardwareSDKInstance();
-    try {
-      response = await sdk.suiGetPublicKey(connectId, deviceId, {
-        bundle: paths.map((path) => ({ path })),
-        ...deviceParams.deviceCommonParams,
-      });
-    } catch (error: any) {
-      console.log(error);
-      throw new OneKeyHardwareError(error);
-    }
+  override hwSdkNetwork: IHwSdkNetwork = 'sui';
 
-    if (!response.success) {
-      console.error(response.payload);
-      throw convertDeviceError(response.payload);
-    }
-
-    const pubKeys = response.payload
-      .map((result) => result.publicKey)
-      .filter((item: string | undefined): item is string => !!item);
-
-    return pubKeys;
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+    };
   }
 
   override prepareAccounts(
@@ -76,41 +61,48 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             pathPrefix,
+            template,
             showOnOnekeyFn,
           }) => {
-            const sdk = await this.getHardwareSDKInstance();
-            paths.push(
-              ...usedIndexes.map((index) => `${pathPrefix}/${index}'/0'/0'`),
-            );
-            const response = await sdk.suiGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
-              bundle: paths.map((path, arrIndex) => ({
-                path,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-              })),
-            });
+            const buildFullPath = (p: { index: number }) =>
+              accountUtils.buildPathFromTemplate({
+                template,
+                index: p.index,
+              });
 
-            return response;
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              hwSdkNetwork: this.hwSdkNetwork,
+              buildPath: buildFullPath,
+              buildResultAccount: ({ account, index }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                publicKey: account.payload?.publicKey || '',
+              }),
+            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new Error('use sdk allNetworkGetAddress instead');
+
+            // const sdk = await this.getHardwareSDKInstance();
+            // paths.push(
+            //   ...usedIndexes.map((index) => `${pathPrefix}/${index}'/0'/0'`),
+            // );
+            // const response = await sdk.suiGetAddress(connectId, deviceId, {
+            //   ...params.deviceParams.deviceCommonParams,
+            //   bundle: paths.map((path, arrIndex) => ({
+            //     path,
+            //     showOnOneKey: showOnOnekeyFn(arrIndex),
+            //   })),
+            // });
+
+            // return response;
           },
         });
 
-        const includePublicKey = addressesInfo.every(
-          (item) => !!item.publicKey,
-        );
-        let publicKeys: string[] = [];
-        const { dbDevice } = params.deviceParams;
-        const { connectId, deviceId } = dbDevice;
-        if (!includePublicKey) {
-          publicKeys = await this.getPublicKey(
-            connectId,
-            deviceId,
-            paths,
-            params.deviceParams,
-          );
-        }
-
         const ret: ICoreApiGetAddressItem[] = [];
-        const index = 0;
         for (const addressInfo of addressesInfo) {
           const { address, path, publicKey } = addressInfo;
           if (!address) {
@@ -119,7 +111,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           const item: ICoreApiGetAddressItem = {
             address: hexUtils.addHexPrefix(address),
             path,
-            publicKey: publicKey || publicKeys[index] || '',
+            publicKey: publicKey || '',
           };
           ret.push(item);
         }
@@ -144,7 +136,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.sender,
       encodedTx,
     );
-    const signData = handleSignData(initialTransaction, true);
+    const signData = handleSignData(initialTransaction);
 
     const response = await sdk.suiSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
@@ -158,12 +150,14 @@ export class KeyringHardware extends KeyringHardwareBase {
       const serializeSignature = toSerializedSignature({
         signatureScheme: 'ED25519',
         signature: bufferUtils.hexToBytes(signature),
-        pubKey: new Ed25519PublicKey(bufferUtils.hexToBytes(senderPublicKey)),
+        publicKey: new Ed25519PublicKey(
+          bufferUtils.hexToBytes(senderPublicKey),
+        ),
       });
 
       return {
         txid: '',
-        rawTx: toB64(initialTransaction),
+        rawTx: toBase64(initialTransaction),
         signatureScheme: 'ed25519',
         signature: serializeSignature,
         publicKey: hexUtils.addHexPrefix(senderPublicKey),
@@ -194,12 +188,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         return toSerializedSignature({
           signatureScheme: 'ED25519',
           signature: bufferUtils.hexToBytes(response.payload.signature),
-          pubKey: new Ed25519PublicKey(
+          publicKey: new Ed25519PublicKey(
             bufferUtils.hexToBytes(checkIsDefined(dbAccount.pub)),
           ),
         });
       }),
     );
-    return result.map((ret) => JSON.stringify(ret));
+    return result;
   }
 }

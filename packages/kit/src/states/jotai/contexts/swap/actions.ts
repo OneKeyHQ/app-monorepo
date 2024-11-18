@@ -222,6 +222,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return null;
   };
 
+  resetSwapTokenData = contextAtomMethod(async (get, set, type) => {
+    if (type === ESwapDirectionType.FROM) {
+      set(swapSelectFromTokenAtom(), undefined);
+      set(swapSelectedFromTokenBalanceAtom(), '');
+    } else {
+      set(swapSelectToTokenAtom(), undefined);
+      set(swapSelectedToTokenBalanceAtom(), '');
+    }
+    set(swapQuoteListAtom(), []);
+    set(rateDifferenceAtom(), undefined);
+  });
+
   selectFromToken = contextAtomMethod(
     async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
       const toToken = get(swapSelectToTokenAtom());
@@ -239,6 +251,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapSelectFromTokenAtom(), token);
         set(swapSelectToTokenAtom(), needChangeToToken);
       } else {
+        if (
+          toToken?.networkId !== token.networkId &&
+          swapTypeSwitchValue === ESwapTabSwitchType.SWAP
+        ) {
+          void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
+        }
         set(swapSelectFromTokenAtom(), token);
       }
     },
@@ -1102,6 +1120,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      // check other fee
+      const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
+      if (otherFeeInfo?.length) {
+        otherFeeInfo.forEach((item) => {
+          const tokenAmountBN = new BigNumber(item.amount ?? 0);
+          if (tokenAmountBN.gt(0)) {
+            alertsRes = [
+              ...alertsRes,
+              {
+                icon: 'HandCoinsOutline',
+                title: appLocale.intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_alert_require_native_token_title,
+                  },
+                  {
+                    n: numberFormat(tokenAmountBN.toFixed(), {
+                      formatter: 'balance',
+                    }) as string,
+                    token: item.token?.symbol ?? '',
+                  },
+                ),
+                alertLevel: ESwapAlertLevel.WARNING,
+                message: appLocale.intl.formatMessage({
+                  id: ETranslations.swap_page_alert_require_native_token_content,
+                }),
+              },
+            ];
+          }
+        });
+      }
+
       if (tokenMetadata?.swapTokenMetadata) {
         const { buyToken, sellToken } = tokenMetadata.swapTokenMetadata;
         const buyTokenBuyTaxBN = new BigNumber(
@@ -1447,6 +1496,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
     ) => {
       set(swapTypeSwitchAtom(), type);
+      this.cleanManualSelectQuoteProviders.call(set);
+      this.resetSwapSlippage.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -1458,14 +1509,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (net) => net.networkId === fromToken?.networkId,
         )
       ) {
-        set(swapSelectFromTokenAtom(), undefined);
+        void this.resetSwapTokenData.call(set, ESwapDirectionType.FROM);
       }
       if (
         toToken &&
         !swapSupportNetworks.some((net) => net.networkId === toToken?.networkId)
       ) {
-        set(swapSelectToTokenAtom(), undefined);
-        set(swapSelectedToTokenBalanceAtom(), '');
+        void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
       }
       if (
         swapSupportNetworks.some(
@@ -1491,6 +1541,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             });
             if (needChangeToToken) {
               set(swapSelectToTokenAtom(), needChangeToToken);
+              void this.syncNetworksSort.call(set, needChangeToToken.networkId);
             }
           }
         } else if (type === ESwapTabSwitchType.SWAP) {
@@ -1504,18 +1555,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (toToken?.networkId !== fromToken?.networkId) {
             if (
               !fromToken?.isNative &&
+              fromNetworkDefault?.fromToken &&
               fromNetworkDefault?.fromToken?.isNative
             ) {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.fromToken);
+              void this.syncNetworksSort.call(
+                set,
+                fromNetworkDefault.fromToken?.networkId,
+              );
             } else if (
               fromToken?.isNative &&
               fromNetworkDefault.toToken &&
               !fromNetworkDefault.toToken.isNative
             ) {
               set(swapSelectToTokenAtom(), fromNetworkDefault?.toToken);
+              void this.syncNetworksSort.call(
+                set,
+                fromNetworkDefault?.toToken?.networkId,
+              );
             } else {
-              set(swapSelectToTokenAtom(), undefined);
-              set(swapSelectedToTokenBalanceAtom(), '');
+              void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
             }
           }
         }

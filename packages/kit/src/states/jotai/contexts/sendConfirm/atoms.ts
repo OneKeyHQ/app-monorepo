@@ -4,6 +4,7 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -21,6 +22,10 @@ export {
 
 export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
+>([]);
+
+export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<
+  IDecodedTx[]
 >([]);
 
 export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
@@ -90,8 +95,10 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
   contextAtom<{
     isInsufficientNativeBalance?: boolean;
+    isSubmitting?: boolean;
   }>({
     isInsufficientNativeBalance: false,
+    isSubmitting: false,
   });
 
 export const { atom: preCheckTxStatusAtom, use: usePreCheckTxStatusAtom } =
@@ -111,4 +118,13 @@ export const { atom: tokenApproveInfoAtom, use: useTokenApproveInfoAtom } =
   }>({
     allowance: '',
     isUnlimited: false,
+  });
+
+export const { atom: txAdvancedSettingsAtom, use: useTxAdvancedSettingsAtom } =
+  contextAtom<{
+    nonce: string;
+    dataChanged: boolean;
+  }>({
+    nonce: '',
+    dataChanged: false,
   });

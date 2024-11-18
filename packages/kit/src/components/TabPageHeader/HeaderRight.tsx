@@ -3,7 +3,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  Shortcut,
+  SizableText,
+  Stack,
+  Tooltip,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -13,12 +21,16 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useNotificationsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -37,7 +49,8 @@ export function HeaderRight({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
+  const [{ firstTimeGuideOpened, badge }] = useNotificationsPersistAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const {
     activeAccount: { account },
@@ -72,10 +85,21 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const settingsButton = (
+    const settingsButton = media.gtMd ? null : (
       <HeaderIconButton
         key="setting"
-        title={intl.formatMessage({ id: ETranslations.settings_settings })}
+        title={
+          <XStack gap="$2">
+            <Tooltip.Text>
+              {intl.formatMessage({ id: ETranslations.settings_settings })}
+            </Tooltip.Text>
+            <Shortcut pl="$2">
+              <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
+              <Shortcut.Key>,</Shortcut.Key>
+            </Shortcut>
+          </XStack>
+        }
+        titlePlacement="bottom"
         icon="SettingsOutline"
         testID="setting"
         onPress={openSettingPage}
@@ -147,7 +171,7 @@ export function HeaderRight({
       />
     );
     let notificationsButton: ReactNode | null = (
-      <Stack key="notifications">
+      <Stack key="notifications" testID="headerRightNotificationsButton">
         <HeaderIconButton
           title={intl.formatMessage({
             id: ETranslations.global_notifications,
@@ -219,7 +243,7 @@ export function HeaderRight({
     }
 
     // notifications is not supported on web currently
-    if (platformEnv.isWeb) {
+    if (platformEnv.isWeb && !devSettings.enabled) {
       notificationsButton = null;
     }
 
@@ -234,10 +258,11 @@ export function HeaderRight({
     openSettingPage,
     onScanButtonPressed,
     openNotificationsModal,
-    badge,
     firstTimeGuideOpened,
+    badge,
     media.gtMd,
     sceneName,
+    devSettings.enabled,
   ]);
   return (
     <HeaderButtonGroup

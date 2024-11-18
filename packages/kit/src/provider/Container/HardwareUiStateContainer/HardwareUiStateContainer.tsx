@@ -1,4 +1,4 @@
-import type { ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   forwardRef,
   memo,
@@ -9,15 +9,19 @@ import {
   useState,
 } from 'react';
 
+import { Semaphore } from 'async-mutex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
+  Portal,
   SizableText,
   Toast,
 } from '@onekeyhq/components';
+import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
+import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -53,9 +57,12 @@ import {
 } from './constants';
 
 function HardwareSingletonDialogCmp(
-  props: any,
+  props: ComponentProps<typeof DialogContainer> & {
+    state: IHardwareUiState | undefined;
+  },
   ref: ForwardedRef<IDialogInstance>,
 ) {
+  const { open } = props;
   const { state }: { state: IHardwareUiState | undefined } = props;
   const action = state?.action;
   const connectId = state?.connectId || '';
@@ -67,16 +74,23 @@ function HardwareSingletonDialogCmp(
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
-  const title = useRef('Loading');
-  const content = useRef(
-    <CommonDeviceLoading>
-      {platformEnv.isDev ? (
-        <SizableText size="$bodySmMedium">{action}</SizableText>
-      ) : null}
-    </CommonDeviceLoading>,
+  const defaultLoadingView = useMemo(
+    () => (
+      <CommonDeviceLoading>
+        {platformEnv.isDev ? (
+          <SizableText size="$bodySmMedium">
+            {action || 'unknow action'}
+          </SizableText>
+        ) : null}
+      </CommonDeviceLoading>
+    ),
+    [action],
   );
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
     let delayTime = SHOW_CLOSE_ACTION_MIN_DURATION;
     if (
       action &&
@@ -95,92 +109,124 @@ function HardwareSingletonDialogCmp(
     return () => {
       clearTimeout(timer);
     };
-  }, [action]);
+  }, [action, open]);
 
-  if (action === EHardwareUiStateAction.DeviceChecking) {
-    title.current = intl.formatMessage({
-      id: ETranslations.global_checking_device,
-    });
-    content.current = <CommonDeviceLoading />;
-  }
+  useEffect(() => {
+    if (!open) {
+      setIsShowExitButton(false);
+    }
+  }, [open]);
 
-  if (action === EHardwareUiStateAction.ProcessLoading) {
-    title.current = intl.formatMessage({ id: ETranslations.global_processing });
-    content.current = <CommonDeviceLoading />;
-  }
+  const result = useMemo<{ title: string; content: React.ReactNode }>(() => {
+    let title = intl.formatMessage({ id: ETranslations.global_processing });
 
-  // EnterPin on Device
-  if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-    title.current = intl.formatMessage({
-      id: ETranslations.enter_pin_enter_on_device,
-    });
-    content.current = (
-      <EnterPinOnDevice deviceType={state?.payload?.deviceType} />
-    );
-  }
+    let content = defaultLoadingView;
 
-  // EnterPin on App
-  if (action === EHardwareUiStateAction.REQUEST_PIN) {
-    title.current = intl.formatMessage({
-      id: ETranslations.enter_pin_title,
-    });
-    content.current = (
-      <EnterPin
-        onConfirm={async (value) => {
-          await serviceHardwareUI.sendPinToDevice({
-            pin: value,
-          });
-          await serviceHardwareUI.closeHardwareUiStateDialog({
-            skipDeviceCancel: true,
-            connectId: state?.connectId,
-          });
-        }}
-        switchOnDevice={async () => {
-          await serviceHardwareUI.sendEnterPinOnDeviceEvent({
-            connectId,
-            payload: state?.payload,
-          });
-        }}
-      />
-    );
-  }
+    if (action === EHardwareUiStateAction.DeviceChecking) {
+      title = intl.formatMessage({
+        id: ETranslations.global_checking_device,
+      });
+      content = defaultLoadingView;
+    }
 
-  // ConfirmOnDevice: use toast instead
+    if (action === EHardwareUiStateAction.ProcessLoading) {
+      title = intl.formatMessage({ id: ETranslations.global_processing });
+      content = defaultLoadingView;
+    }
 
-  // EnterPassphrase on App
-  if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-    title.current = intl.formatMessage({
-      id: ETranslations.global_enter_passphrase,
-    });
-    content.current = (
-      <EnterPhase
-        isSingleInput={!!state?.payload?.passphraseState}
-        onConfirm={async ({ passphrase }) => {
-          await serviceHardwareUI.sendPassphraseToDevice({
-            passphrase,
-          });
-          await serviceHardwareUI.showDeviceProcessLoadingDialog({ connectId });
-        }}
-        switchOnDevice={async () => {
-          await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
-        }}
-      />
-    );
-  }
+    // EnterPin on Device
+    if (action === EHardwareUiStateAction.EnterPinOnDevice) {
+      title = intl.formatMessage({
+        id: ETranslations.enter_pin_enter_on_device,
+      });
+      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
+    }
 
-  // EnterPassphraseOnDevice
-  if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE) {
-    title.current = intl.formatMessage({
-      id: ETranslations.hardware_enter_passphrase_on_device,
-    });
-    content.current = (
-      <EnterPassphraseOnDevice deviceType={state?.payload?.deviceType} />
-    );
-  }
+    // EnterPin on App
+    if (action === EHardwareUiStateAction.REQUEST_PIN) {
+      title = intl.formatMessage({
+        id: ETranslations.enter_pin_title,
+      });
+      content = (
+        <EnterPin
+          onConfirm={async (value) => {
+            await serviceHardwareUI.sendPinToDevice({
+              pin: value,
+            });
+            await serviceHardwareUI.closeHardwareUiStateDialog({
+              skipDeviceCancel: true,
+              connectId: state?.connectId,
+              skipDelayClose: true,
+            });
+          }}
+          switchOnDevice={async () => {
+            await serviceHardwareUI.sendEnterPinOnDeviceEvent({
+              connectId,
+              payload: state?.payload,
+            });
+          }}
+        />
+      );
+    }
+
+    // ConfirmOnDevice: use toast instead
+
+    // EnterPassphrase on App
+    if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      title = intl.formatMessage({
+        id: ETranslations.global_enter_passphrase,
+      });
+      content = (
+        <EnterPhase
+          isSingleInput={!!state?.payload?.passphraseState}
+          onConfirm={async ({ passphrase }) => {
+            await serviceHardwareUI.sendPassphraseToDevice({
+              passphrase,
+            });
+            // The device will not emit a loading event
+            // so we need to manually display the loading to inform the user that the device is currently processing
+
+            // **** The call sequence is prone to problems, causing the loading dialog to fail to close properly, so it is temporarily disabled
+            await serviceHardwareUI.showDeviceProcessLoadingDialog({
+              connectId,
+            });
+
+            // TODO skip show loading dialog if custom dialog is shown
+            // ETranslations.onboarding_finalize_generating_accounts
+          }}
+          switchOnDevice={async () => {
+            await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
+          }}
+        />
+      );
+    }
+
+    // EnterPassphraseOnDevice
+    if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE) {
+      title = intl.formatMessage({
+        id: ETranslations.hardware_enter_passphrase_on_device,
+      });
+      content = (
+        <EnterPassphraseOnDevice deviceType={state?.payload?.deviceType} />
+      );
+    }
+
+    return { title, content };
+  }, [
+    action,
+    connectId,
+    defaultLoadingView,
+    intl,
+    serviceHardwareUI,
+    state?.connectId,
+    state?.payload,
+  ]);
+
+  const dialogKey = result.title + (action?.toString() || '');
 
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
-    return <OpenBleSettingsDialog ref={ref} {...props} />;
+    return <OpenBleSettingsDialog key={dialogKey} ref={ref} {...props} />;
   }
 
   // Need Open Bluetooth Notify Change Error Dialog Container
@@ -188,7 +234,9 @@ function HardwareSingletonDialogCmp(
     action ===
     EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
   ) {
-    return <OpenBleNotifyChangeErrorDialog ref={ref} {...props} />;
+    return (
+      <OpenBleNotifyChangeErrorDialog key={dialogKey} ref={ref} {...props} />
+    );
   }
 
   // Bluetooth Permission Dialog Container
@@ -196,13 +244,15 @@ function HardwareSingletonDialogCmp(
     action === EHardwareUiStateAction.LOCATION_PERMISSION ||
     action === EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION
   ) {
-    return <RequireBlePermissionDialog ref={ref} {...props} />;
+    return <RequireBlePermissionDialog key={dialogKey} ref={ref} {...props} />;
   }
   return (
     <DialogContainer
       ref={ref}
-      title={title.current}
-      renderContent={content.current}
+      // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
+      key={dialogKey}
+      title={result.title}
+      renderContent={result.content}
       {...props} // pass down cloneElement props
       showExitButton={showCloseButton}
     />
@@ -227,6 +277,306 @@ const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
 };
 
 const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
+
+function HardwareUiStateContainerCmpControlled() {
+  const [state] = useHardwareUiStateAtom();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const { serviceHardwareUI } = backgroundApiProxy;
+
+  const action = state?.action;
+
+  const AUTO_CLOSED_FLAG = 'autoClosed';
+
+  const log = (...args: any[]) => {
+    const ts = Date.now();
+    console.log(`${ts}## HardwareUiStateContainerUiLog`, ...args);
+  };
+
+  log('state', action, state);
+
+  const getDeviceType = useCallback(
+    (currentState: IHardwareUiState | undefined) =>
+      currentState?.payload?.deviceType || 'unknown',
+    [],
+  );
+
+  const hasToastAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) {
+        return false;
+      }
+
+      if (
+        [EHardwareUiStateAction.REQUEST_BUTTON].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.ConfirmOnDevice ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.InstallingFirmware
+        ) {
+          return true;
+        }
+      }
+
+      // **** ui-close_window from hardware may cause toast to be closed abnormally, use withHardwareProcessing to close it uniformly
+      // if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+      // return false;
+      // }
+
+      // **** should hide toast when firmware is flashing in progress
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+        return false;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        // **** should hide toast when firmware reboot to bootloader or erased
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.GoToBootloaderSuccess ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.FirmwareEraseSuccess
+        ) {
+          return false;
+        }
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  const hasToastCloseAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+        return true;
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_TIP) {
+        if (
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.GoToBootloaderSuccess ||
+          currentState?.payload?.firmwareTipData?.message ===
+            EFirmwareUpdateTipMessages.FirmwareEraseSuccess
+        ) {
+          return true;
+        }
+      }
+
+      if (currentState?.action === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  // const isToastActionRef = useRef(isToastAction);
+  // isToastActionRef.current = isToastAction;
+
+  const hasDialogAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+
+      if (hasToastAction(currentState)) return false;
+
+      if (
+        [
+          EHardwareUiStateAction.FIRMWARE_TIP,
+          EHardwareUiStateAction.FIRMWARE_PROGRESS,
+          EHardwareUiStateAction.CLOSE_UI_WINDOW,
+          EHardwareUiStateAction.PREVIOUS_ADDRESS,
+        ].includes(currentState?.action)
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+    [hasToastAction],
+  );
+
+  const hasOperationAction = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (!currentState?.action) return false;
+      if (hasToastAction(currentState)) return false;
+
+      if (
+        currentState &&
+        [
+          EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
+          EHardwareUiStateAction.LOCATION_PERMISSION,
+          EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+        ].includes(currentState.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [hasToastAction],
+  );
+
+  const hasDeviceResetToHome = useCallback(
+    (currentState: IHardwareUiState | undefined) => {
+      if (
+        currentState?.action &&
+        [
+          EHardwareUiStateAction.REQUEST_PASSPHRASE,
+          EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+          EHardwareUiStateAction.REQUEST_PIN,
+          EHardwareUiStateAction.EnterPinOnDevice,
+          EHardwareUiStateAction.REQUEST_BUTTON,
+        ].includes(currentState?.action)
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  const shouldSkipCancel = useMemo(() => {
+    // TODO atom firmware is updating
+    if (
+      action &&
+      [
+        EHardwareUiStateAction.FIRMWARE_TIP,
+        EHardwareUiStateAction.FIRMWARE_PROGRESS,
+      ].includes(action)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [action]);
+
+  const shouldSkipCancelRef = useRef(shouldSkipCancel);
+  shouldSkipCancelRef.current = shouldSkipCancel;
+
+  const actionStatus = useMemo(() => {
+    const isToastAction = hasToastAction(state);
+    const isDialogAction = hasDialogAction(state);
+    const isToastCloseAction = hasToastCloseAction(state);
+    const isOperationAction = hasOperationAction(state);
+    const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
+    const currentDeviceType = getDeviceType(state);
+    return {
+      isToastAction,
+      isDialogAction,
+      isToastCloseAction,
+      isOperationAction,
+      currentShouldDeviceResetToHome,
+      currentDeviceType,
+    };
+  }, [
+    getDeviceType,
+    hasDeviceResetToHome,
+    hasDialogAction,
+    hasOperationAction,
+    hasToastAction,
+    hasToastCloseAction,
+    state,
+  ]);
+
+  const dialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+  if (process.env.NODE_ENV !== 'production') {
+    // @ts-ignore
+    globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
+    // @ts-ignore
+    globalThis.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
+  }
+
+  const toastElement = (
+    <ShowCustom
+      ref={toastInstanceRef}
+      open={actionStatus.isToastAction}
+      dismissOnOverlayPress={false}
+      disableSwipeGesture
+      onClose={async (params) => {
+        log('close toast:', params, state, {
+          currentShouldDeviceResetToHome:
+            actionStatus.currentShouldDeviceResetToHome,
+          shouldSkipCancel: shouldSkipCancelRef.current,
+        });
+        if (params?.flag !== AUTO_CLOSED_FLAG) {
+          appEventBus.emit(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            undefined,
+          );
+          await serviceHardwareUI.closeHardwareUiStateDialog({
+            connectId: state?.connectId,
+            skipDeviceCancel: shouldSkipCancelRef.current,
+            deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+          });
+        }
+      }}
+    >
+      <ConfirmOnDeviceToastContent
+        deviceType={actionStatus.currentDeviceType}
+      />
+    </ShowCustom>
+  );
+
+  const dialogElement = (
+    <HardwareSingletonDialog
+      ref={dialogInstanceRef}
+      open={actionStatus.isDialogAction}
+      state={state}
+      dismissOnOverlayPress={false}
+      // disableSwipeGesture
+      disableDrag
+      showFooter={!!actionStatus.isOperationAction}
+      onClose={async (params) => {
+        log(
+          'close dialog',
+          { params, state },
+          {
+            currentShouldDeviceResetToHome:
+              actionStatus.currentShouldDeviceResetToHome,
+            shouldSkipCancel: shouldSkipCancelRef.current,
+          },
+        );
+
+        if (params?.flag !== AUTO_CLOSED_FLAG) {
+          appEventBus.emit(
+            EAppEventBusNames.CloseHardwareUiStateDialogManually,
+            undefined,
+          );
+          await serviceHardwareUI.closeHardwareUiStateDialog({
+            connectId: state?.connectId,
+            reason: 'HardwareUiStateContainer onClose',
+            skipDeviceCancel: shouldSkipCancelRef.current,
+            deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
+          });
+        }
+      }}
+    />
+  );
+
+  return (
+    <>
+      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
+        {toastElement}
+      </Portal.Body>
+      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+        {dialogElement}
+      </Portal.Body>
+    </>
+  );
+}
 
 function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
@@ -437,13 +787,18 @@ function HardwareUiStateContainerCmp() {
         state: currentState,
         action: () =>
           Dialog.show({
+            portalContainer: undefined,
             dismissOnOverlayPress: false,
             // disableSwipeGesture: true,
             disableDrag: true,
             showFooter: !!isOperationAction,
             // eslint-disable-next-line react/no-unstable-nested-components
             dialogContainer: ({ ref }: { ref: any }) => (
-              <HardwareSingletonDialog ref={ref} state={currentState} />
+              <HardwareSingletonDialog
+                ref={ref}
+                state={currentState}
+                onClose={async () => {}}
+              />
             ),
             async onClose(params) {
               log('close dialog', params, currentState, {
@@ -528,6 +883,8 @@ function HardwareUiStateContainerCmp() {
     };
   }, []);
 
+  const mutex = useMemo(() => new Semaphore(1), []);
+
   useEffect(() => {
     const handleStateChange = async () => {
       const isToastAction = hasToastAction(state);
@@ -537,7 +894,8 @@ function HardwareUiStateContainerCmp() {
       console.log('HardwareUiStateContainer action change === ', {
         isToastAction,
         isDialogAction,
-        state: state?.action,
+        stateAction: state?.action,
+        state,
         hasSameDialogAction: hasSameDialogAction(state),
         hasSameToastAction: hasSameToastAction(state),
         dialogCurrentState:
@@ -563,16 +921,22 @@ function HardwareUiStateContainerCmp() {
       } else {
         await toastQueueManagerRef.current?.closeAll();
         await dialogQueueManagerRef.current?.closeAll();
+        if (toastQueueManagerRef?.current) {
+          toastQueueManagerRef.current.currentActionState = undefined;
+        }
+        if (dialogQueueManagerRef?.current) {
+          dialogQueueManagerRef.current.currentActionState = undefined;
+        }
       }
     };
-
-    void handleStateChange();
+    void mutex.runExclusive(handleStateChange);
   }, [
     hasDialogAction,
     hasSameDialogAction,
     hasSameToastAction,
     hasToastAction,
     hasToastCloseAction,
+    mutex,
     showActionsDialog,
     showActionsToast,
     state,
@@ -581,4 +945,7 @@ function HardwareUiStateContainerCmp() {
   return null;
 }
 
-export const HardwareUiStateContainer = memo(HardwareUiStateContainerCmp);
+export const HardwareUiStateContainer = memo(
+  // HardwareUiStateContainerCmp
+  HardwareUiStateContainerCmpControlled,
+);

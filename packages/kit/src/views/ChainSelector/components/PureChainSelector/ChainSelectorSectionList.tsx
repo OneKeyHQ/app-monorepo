@@ -1,4 +1,11 @@
-import { type FC, useCallback, useMemo, useState } from 'react';
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +20,7 @@ import type { ISectionListProps } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 
@@ -65,7 +73,13 @@ const ChainSelectorSectionListContent = ({
 
   return (
     <SectionList
-      ListEmptyComponent={ListEmptyComponent}
+      contentContainerStyle={
+        platformEnv.isNative
+          ? undefined
+          : {
+              minHeight: '100vh',
+            }
+      }
       ListFooterComponent={<Stack h={bottom || '$2'} />}
       estimatedItemSize={48}
       sections={sections}
@@ -117,6 +131,33 @@ type IChainSelectorSectionListProps = {
   unavailable?: IServerNetworkMatch[];
 };
 
+const usePending = () => {
+  const [isPending, setIsPending] = useState(false);
+  const timerIdRef = useRef<ReturnType<typeof setTimeout>>();
+  const clearPendingTimer = useCallback(() => {
+    clearTimeout(timerIdRef.current);
+    timerIdRef.current = setTimeout(() => {
+      setIsPending(false);
+    }, 50);
+  }, []);
+  const changeIsPending = useCallback(
+    (pending: boolean) => {
+      setIsPending(pending);
+      if (pending) {
+        clearPendingTimer();
+      }
+    },
+    [clearPendingTimer],
+  );
+  useEffect(
+    () => () => {
+      clearTimeout(timerIdRef.current);
+    },
+    [],
+  );
+  return [isPending, changeIsPending] as ReturnType<typeof useState>;
+};
+
 export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   networks,
   networkId,
@@ -125,9 +166,15 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
-  const onChangeText = useCallback((value: string) => {
-    setText(value.trim());
-  }, []);
+  const [isPending, setIsPending] = usePending();
+
+  const onChangeText = useCallback(
+    (value: string) => {
+      setText(value.trim());
+      setIsPending(true);
+    },
+    [setIsPending],
+  );
 
   const networkFuseSearch = useFuseSearch(networks);
 
@@ -240,6 +287,21 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     return initialScrollIndexNumber;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections, networkId, text]);
+
+  const renderSections = useCallback(
+    () =>
+      sections.length ? (
+        <ChainSelectorSectionListContent
+          sections={sections}
+          networkId={networkId}
+          onPressItem={onPressItem}
+          initialScrollIndex={initialScrollIndex}
+        />
+      ) : (
+        <ListEmptyComponent />
+      ),
+    [initialScrollIndex, networkId, onPressItem, sections],
+  );
   return (
     <Stack flex={1}>
       <Stack px="$5" pb="$4">
@@ -250,12 +312,8 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           onChangeText={onChangeText}
         />
       </Stack>
-      <ChainSelectorSectionListContent
-        sections={sections}
-        networkId={networkId}
-        onPressItem={onPressItem}
-        initialScrollIndex={initialScrollIndex}
-      />
+      {/* Re-render the entire list after each text update */}
+      {isPending ? null : renderSections()}
     </Stack>
   );
 };

@@ -1,3 +1,5 @@
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -101,5 +103,43 @@ export class WalletScene extends BaseScene {
   @LogToLocal()
   public customNetworkAdded(params: { chainID: string }) {
     return params;
+  }
+
+  @LogToLocal()
+  public fetchNetworkFromServer() {
+    return {};
+  }
+
+  @LogToLocal()
+  public insertServerNetwork(networks: IServerNetwork[]) {
+    return networks.map((network) => ({
+      name: network.name,
+      chainId: network.chainId,
+    }));
+  }
+
+  @LogToLocal()
+  public getServerNetworks(networks: IServerNetwork[]) {
+    return networks.map((network) => ({
+      name: network.name,
+      chainId: network.chainId,
+    }));
+  }
+
+  @LogToLocal()
+  public getServerNetworksError(error: any) {
+    let errorMessage = 'Unknown error';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+
+    return {
+      error: errorMessage,
+    };
   }
 }

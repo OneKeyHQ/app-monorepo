@@ -13,6 +13,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -239,15 +240,18 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
+    let isToContract = false;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
+      isToContract = true;
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapData: encodedTx.data,
         swapToAddress: encodedTx.to,
       });
     } else if (stakingInfo) {
+      isToContract = true;
       action = await this.buildInternalStakingAction({
         stakingInfo,
         accountAddress,
@@ -265,7 +269,23 @@ export default class Vault extends VaultBase {
         }
       }
 
-      if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+      try {
+        const parseResult =
+          await this.backgroundApi.serviceSend.parseTransaction({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            encodedTx,
+            accountAddress,
+          });
+        isToContract = parseResult.parsedTx.to.isContract;
+      } catch (e) {
+        // ignore
+      }
+
+      if (
+        isToContract === false ||
+        checkIsEvmNativeTransfer({ tx: nativeTx })
+      ) {
         const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
@@ -286,9 +306,10 @@ export default class Vault extends VaultBase {
     }
 
     return this._buildDecodedTx({
-      encodedTx,
+      unsignedTx,
       action,
       extraNativeTransferAction,
+      isToContract,
     });
   }
 
@@ -375,6 +396,7 @@ export default class Vault extends VaultBase {
       nonceInfo,
       nativeAmountInfo,
       tokenApproveInfo,
+      dataInfo,
     } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
 
@@ -383,6 +405,14 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         tokenApproveInfo,
       });
+
+      if (unsignedTx.approveInfo) {
+        unsignedTx.approveInfo = {
+          ...unsignedTx.approveInfo,
+          amount: tokenApproveInfo.allowance,
+          isMax: tokenApproveInfo.isUnlimited,
+        };
+      }
     }
 
     if (feeInfo) {
@@ -407,6 +437,13 @@ export default class Vault extends VaultBase {
       });
     }
 
+    if (dataInfo) {
+      encodedTxNew = await this._attachDataInfoToEncodedTx({
+        encodedTx: encodedTxNew,
+        dataInfo,
+      });
+    }
+
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
   }
@@ -422,11 +459,14 @@ export default class Vault extends VaultBase {
   }
 
   async _buildDecodedTx(params: {
-    encodedTx: IEncodedTxEvm;
+    unsignedTx: IUnsignedTxPro;
     action: IDecodedTxAction | undefined;
     extraNativeTransferAction: IDecodedTxAction | undefined;
+    isToContract?: boolean;
   }): Promise<IDecodedTx> {
-    const { encodedTx, action, extraNativeTransferAction } = params;
+    const { unsignedTx, action, extraNativeTransferAction, isToContract } =
+      params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
     const finalActions = mergeAssetTransferActions(
       [action, extraNativeTransferAction].filter(Boolean),
@@ -437,6 +477,7 @@ export default class Vault extends VaultBase {
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
+      isToContract,
       nonce: Number(encodedTx.nonce) ?? 0,
       actions: finalActions,
       status: EDecodedTxStatus.Pending,
@@ -444,6 +485,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       encodedTx,
       extraInfo: null,
+      approveInfo: unsignedTx.approveInfo,
     };
     return decodedTx;
   }
@@ -455,7 +497,7 @@ export default class Vault extends VaultBase {
     const transfersInfo = params.transfersInfo as ITransferInfo[];
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
-      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+      const { from, to, amount, tokenInfo, nftInfo, hexData } = transferInfo;
 
       if (!transferInfo.to) {
         throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
@@ -502,7 +544,8 @@ export default class Vault extends VaultBase {
                 value: amount,
               }),
             ),
-            data: '0x',
+            // only attach custom hex data to native token transfer
+            data: hexData && hexUtils.isHexString(hexData) ? hexData : '0x',
           };
         }
 
@@ -620,8 +663,8 @@ export default class Vault extends VaultBase {
     const encodedTxWithFee = { ...encodedTx };
 
     if (!isNil(gasInfo?.gasLimit)) {
-      encodedTxWithFee.gas = gasInfo.gasLimit;
-      encodedTxWithFee.gasLimit = gasInfo.gasLimit;
+      encodedTxWithFee.gas = toBigIntHex(new BigNumber(gasInfo.gasLimit));
+      encodedTxWithFee.gasLimit = toBigIntHex(new BigNumber(gasInfo.gasLimit));
     }
 
     if (feeInfo.gasEIP1559) {
@@ -654,6 +697,19 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
       nonce: nonceInfo.nonce,
+    };
+
+    return Promise.resolve(tx);
+  }
+
+  async _attachDataInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    dataInfo: { data: string };
+  }): Promise<IEncodedTxEvm> {
+    const { encodedTx, dataInfo } = params;
+    const tx = {
+      ...encodedTx,
+      data: dataInfo.data,
     };
 
     return Promise.resolve(tx);
@@ -1025,6 +1081,25 @@ export default class Vault extends VaultBase {
         to,
         data,
         value: transferValue,
+      },
+    });
+  }
+
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm | undefined;
+  }) {
+    if (!encodedTx) {
+      return { encodedTx };
+    }
+    const { to, data, value } = encodedTx;
+
+    return Promise.resolve({
+      encodedTx: {
+        to,
+        data,
+        value,
       },
     });
   }

@@ -8,7 +8,6 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -49,6 +48,24 @@ export function calculateSolTotalFee({
     .toFixed();
 }
 
+export function calculateCkbTotalFee({
+  feeRate,
+  txSize,
+  feeInfo,
+}: {
+  feeRate: string | BigNumber;
+  txSize: number;
+  feeInfo: IFeeInfoUnit;
+}) {
+  const ratio = 1000;
+  const base = new BigNumber(txSize).multipliedBy(feeRate);
+  let fee = base.div(ratio);
+  if (fee.multipliedBy(ratio).lt(base)) {
+    fee = fee.plus(1);
+  }
+  return fee.shiftedBy(-feeInfo.common.feeDecimals).toFixed();
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
@@ -59,6 +76,36 @@ export function calculateTotalFeeRange({
   estimateFeeParams?: IEstimateFeeParams;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
+  if (feeInfo.feeAlgo) {
+    const { baseFee } = feeInfo.feeAlgo;
+    return {
+      min: nanToZeroString(baseFee),
+      max: nanToZeroString(baseFee),
+      minForDisplay: nanToZeroString(baseFee),
+      maxForDisplay: nanToZeroString(baseFee),
+      withoutBaseFee: true,
+    };
+  }
+
+  // Add additional fees on top of gasLimit and gasPrice calculations
+  if (feeInfo.feeDot) {
+    const { extraTipInDot } = feeInfo.feeDot;
+    const { gasLimit, gasPrice } = feeInfo.gas || {};
+    const baseFee = new BigNumber(gasLimit ?? '0').multipliedBy(
+      new BigNumber(gasPrice ?? '0'),
+    );
+
+    const max = baseFee.plus(extraTipInDot ?? '0').toFixed();
+    const min = max;
+
+    return {
+      min: nanToZeroString(min),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(min),
+      maxForDisplay: nanToZeroString(max),
+    };
+  }
+
   if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;
@@ -128,18 +175,6 @@ export function calculateTotalFeeRange({
     };
   }
 
-  if (feeInfo.gasFil) {
-    const gasInfo = feeInfo.gasFil;
-    const limit = gasInfo.gasLimit;
-    const max = new BigNumber(limit).times(gasInfo.gasFeeCap).toFixed();
-
-    return {
-      min: nanToZeroString(max),
-      max: nanToZeroString(max),
-      minForDisplay: nanToZeroString(max),
-      maxForDisplay: nanToZeroString(max),
-    };
-  }
   if (feeInfo.feeSol && estimateFeeParams?.estimateFeeParamsSol) {
     const { computeUnitPrice } = feeInfo.feeSol;
     const { computeUnitLimit, baseFee, computeUnitPriceDecimals } =
@@ -157,6 +192,23 @@ export function calculateTotalFeeRange({
       max: nanToZeroString(max),
       minForDisplay: nanToZeroString(max),
       maxForDisplay: nanToZeroString(max),
+      withoutBaseFee: true,
+    };
+  }
+
+  if (feeInfo.feeCkb) {
+    let fee = '0';
+    const { feeRate } = feeInfo.feeCkb;
+    fee = calculateCkbTotalFee({
+      feeRate: feeRate ?? '0',
+      txSize: txSize ?? 0,
+      feeInfo,
+    });
+    return {
+      min: nanToZeroString(fee),
+      max: nanToZeroString(fee),
+      minForDisplay: nanToZeroString(fee),
+      maxForDisplay: nanToZeroString(fee),
       withoutBaseFee: true,
     };
   }
