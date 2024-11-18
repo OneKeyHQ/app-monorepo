@@ -650,7 +650,7 @@ export function useSwapSelectedTokenInfo({
   type: ESwapDirectionType;
   token?: ISwapToken;
 }) {
-  const swapAddressInfo = useSwapAddressInfo(type);
+  const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
   const [orderFinishCheckBalance, setOrderFinishCheckBalance] = useState(0);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
