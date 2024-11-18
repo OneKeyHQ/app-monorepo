@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
+import type { IInputRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
@@ -45,6 +46,7 @@ const PasswordVerifyContainer = ({
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(false);
+  const inputRef = useRef<IInputRef>();
 
   const isExtLockAndNoCachePassword = Boolean(
     platformEnv.isExtension && name === 'lock' && !hasCachedPassword,
@@ -200,6 +202,9 @@ const PasswordVerifyContainer = ({
         throw new Error('biology auth verify error');
       }
     } catch (e) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 250);
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: {
@@ -268,6 +273,7 @@ const PasswordVerifyContainer = ({
   return (
     <Stack onLayout={onLayout}>
       <PasswordVerify
+        inputRef={inputRef}
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,
