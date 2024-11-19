@@ -11,6 +11,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -108,6 +109,8 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
+const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -240,7 +243,7 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
-    let isToContract = false;
+    let isToContract: boolean | undefined;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
@@ -987,6 +990,10 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, txDesc, transferPayload } = params;
     const accountAddress = await this.getAccountAddress();
+
+    if (!enabledNFTNetworkIds.includes(this.networkId)) {
+      return;
+    }
 
     if (
       txDesc.name !== EErc721TxDescriptionName.SafeTransferFrom &&
