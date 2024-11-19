@@ -770,21 +770,24 @@ function TokenListContainer(props: ITabPageProps) {
     [],
   );
 
-  const { run: runAllNetworksRequests, result: allNetworksResult } =
-    useAllNetworkRequests<IFetchAccountTokensResp>({
-      account,
-      network,
-      wallet,
-      allNetworkRequests: handleAllNetworkRequests,
-      allNetworkCacheRequests: handleAllNetworkCacheRequests,
-      allNetworkCacheData: handleAllNetworkCacheData,
-      allNetworkAccountsData: handleAllNetworkAccountsData,
-      clearAllNetworkData: handleClearAllNetworkData,
-      onStarted: handleAllNetworkRequestsStarted,
-      onFinished: handleAllNetworkRequestsFinished,
-      interval: 200,
-      shouldAlwaysFetch,
-    });
+  const {
+    run: runAllNetworksRequests,
+    result: allNetworksResult,
+    isEmptyAccount,
+  } = useAllNetworkRequests<IFetchAccountTokensResp>({
+    account,
+    network,
+    wallet,
+    allNetworkRequests: handleAllNetworkRequests,
+    allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheData: handleAllNetworkCacheData,
+    allNetworkAccountsData: handleAllNetworkAccountsData,
+    clearAllNetworkData: handleClearAllNetworkData,
+    onStarted: handleAllNetworkRequestsStarted,
+    onFinished: handleAllNetworkRequestsFinished,
+    interval: 200,
+    shouldAlwaysFetch,
+  });
 
   const updateAllNetworksTokenList = useCallback(async () => {
     const tokenList: {
@@ -1283,6 +1286,19 @@ function TokenListContainer(props: ITabPageProps) {
     run,
     runAllNetworksRequests,
   ]);
+
+  useEffect(() => {
+    if (isEmptyAccount) {
+      updateTokenListState({
+        initialized: true,
+        isRefreshing: false,
+      });
+      updateAccountOverviewState({
+        initialized: true,
+        isRefreshing: false,
+      });
+    }
+  }, [isEmptyAccount, updateAccountOverviewState, updateTokenListState]);
 
   return (
     <TokenListView
