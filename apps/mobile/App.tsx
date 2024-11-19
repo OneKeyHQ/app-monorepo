@@ -2,8 +2,12 @@
 import '@onekeyhq/shared/src/polyfills';
 
 import { KitProvider } from '@onekeyhq/kit';
-import { initSentry, wrap } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import {
+  initSentry,
+  withProfiler,
+  wrap,
+} from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 initSentry();
 
-export default wrap(KitProvider);
+export default withProfiler(wrap(KitProvider));

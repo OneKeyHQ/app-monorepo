@@ -14,3 +14,5 @@ export const initSentry = () => {
 export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
   Component;
 export const nativeCrash = () => {};
+
+export { withProfiler, withErrorBoundary } from '@sentry/react';
