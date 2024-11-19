@@ -883,10 +883,12 @@ class ServiceNetwork extends ServiceBase {
     accountId,
     networkIds,
     walletId: _walletId,
+    clearCache,
   }: {
     accountId?: string;
     walletId?: string;
     networkIds?: string[];
+    clearCache?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -894,6 +896,10 @@ class ServiceNetwork extends ServiceBase {
     frequentlyUsedItems: IServerNetwork[];
     allNetworkItem?: IServerNetwork;
   }> {
+    if (clearCache) {
+      await this._getNetworkVaultSettings.clear();
+    }
+
     let networkVaultSettings = await this._getNetworkVaultSettings();
     if (networkIds) {
       const networkIdsSet = new Set<string>(networkIds);

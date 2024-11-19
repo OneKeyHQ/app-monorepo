@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -49,6 +49,7 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const shouldClearAllNetworksCache = useRef(false);
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -70,9 +71,12 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         {
           accountId: activeAccount.account?.id,
           walletId: activeAccount.wallet?.id,
+          clearCache: shouldClearAllNetworksCache.current,
         },
       ),
     ]);
+
+    shouldClearAllNetworksCache.current = false;
 
     const all = [...a.mainnetItems, ...a.testnetItems];
     const visibleNetworks: IServerNetwork[] = [];
@@ -121,11 +125,22 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { visibleNetworks, allNetworks } = result ?? {};
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, () => run());
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
+    const reloadAllNetworks = () => {
+      shouldClearAllNetworksCache.current = true;
+      void run();
+    };
+
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () =>
+      reloadAllNetworks(),
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () => run());
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () =>
+        reloadAllNetworks(),
+      );
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () =>
+        reloadAllNetworks(),
+      );
     };
   }, [run]);
 
