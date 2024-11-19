@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Kết nối ví cứng chỉ có sẵn trên ứng dụng chính thức",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Kết nối ví cứng chỉ có sẵn trên các ứng dụng của bên thứ ba",
   "hidden_assets": "Tài sản ẩn",
+  "history.notification_receiver_label": "Thông báo nhận được bởi",
   "history.switch_account_dialog_title": "Chuyển tài khoản chính sang {account}?",
   "hw_banner_description": "Bảo mật tiền điện tử của bạn với ví cứng mạnh mẽ nhất",
   "interact_with_contract": "Tương tác với (Đến)",

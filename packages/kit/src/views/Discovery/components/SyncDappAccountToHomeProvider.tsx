@@ -5,7 +5,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import {
   useAccountSelectorActions,
   useAccountSelectorContextDataAtom,
-  useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -24,75 +23,48 @@ import { useSpotlight } from '../../../components/Spotlight';
 export function useSyncDappAccountToHomeAccount() {
   const actions = useAccountSelectorActions();
 
-  const {
-    activeAccount: { account: homeAccount },
-  } = useActiveAccount({ num: 0 });
-
   const syncDappAccountToWallet = useCallback(
     async ({
       dAppAccountInfos,
-      forceSelectNetwork,
     }: {
       dAppAccountInfos: IConnectionAccountInfo[] | null;
-      forceSelectNetwork: boolean;
     }) => {
-      try {
-        if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
-          return;
-        }
+      if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
+        return;
+      }
 
-        const { serviceAccount } = backgroundApiProxy;
-        const dAppAccount = dAppAccountInfos[0];
-        const { indexedAccountId, accountId, networkId } = dAppAccount;
-        const account = await serviceAccount.getAccount({
-          accountId,
-          networkId: networkId ?? '',
-        });
-        const isOtherWallet = accountUtils.isOthersAccount({
-          accountId,
-        });
+      const { serviceAccount } = backgroundApiProxy;
+      const dAppAccount = dAppAccountInfos[0];
+      const { indexedAccountId, accountId, networkId } = dAppAccount;
+      const account = await serviceAccount.getAccount({
+        accountId,
+        networkId: networkId ?? '',
+      });
+      const isOtherWallet = accountUtils.isOthersAccount({
+        accountId,
+      });
 
-        if (isOtherWallet) {
-          const isCompatibleNetwork =
-            accountUtils.isAccountCompatibleWithNetwork({
-              // @ts-expect-error
-              account: homeAccount,
-              networkId: networkId ?? '',
-            });
-          let autoChangeToAccountMatchedNetwork = forceSelectNetwork;
-          if (!forceSelectNetwork && !isCompatibleNetwork) {
-            autoChangeToAccountMatchedNetwork = false;
-          }
-          await actions.current.confirmAccountSelect({
-            num: 0,
-            indexedAccount: undefined,
-            othersWalletAccount: account,
-            autoChangeToAccountMatchedNetworkId:
-              autoChangeToAccountMatchedNetwork ? networkId : undefined,
-          });
-        } else {
-          const indexedAccount = await serviceAccount.getIndexedAccount({
-            id: indexedAccountId ?? '',
-          });
-          await actions.current.confirmAccountSelect({
-            num: 0,
-            indexedAccount,
-            othersWalletAccount: undefined,
-            autoChangeToAccountMatchedNetworkId: undefined,
-            forceSelectToNetworkId: forceSelectNetwork ? networkId : undefined,
-          });
-        }
-      } finally {
-        setTimeout(() => {
-          void backgroundApiProxy.serviceDApp.setIsAlignPrimaryAccountProcessing(
-            {
-              processing: false,
-            },
-          );
-        }, 20);
+      if (isOtherWallet) {
+        await actions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: undefined,
+          othersWalletAccount: account,
+          autoChangeToAccountMatchedNetworkId: networkId,
+        });
+      } else {
+        const indexedAccount = await serviceAccount.getIndexedAccount({
+          id: indexedAccountId ?? '',
+        });
+        await actions.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount,
+          othersWalletAccount: undefined,
+          autoChangeToAccountMatchedNetworkId: undefined,
+          forceSelectToNetworkId: networkId,
+        });
       }
     },
-    [actions, homeAccount],
+    [actions],
   );
 
   return { syncDappAccountToWallet };
@@ -127,7 +99,6 @@ function SyncDappAccountToHomeCmp({
       }
       await syncDappAccountToWallet({
         dAppAccountInfos,
-        forceSelectNetwork: true,
       });
       if (isFirstVisitRef.current) {
         void tourVisited(1);

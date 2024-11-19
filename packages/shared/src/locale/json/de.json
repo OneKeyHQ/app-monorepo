@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Die Verbindung zur Hardware-Wallet ist nur über die offizielle App möglich",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Die Verbindung mit der Hardware-Wallet ist nur über Drittanbieter-Apps verfügbar",
   "hidden_assets": "Versteckte Vermögenswerte",
+  "history.notification_receiver_label": "Benachrichtigung erhalten von",
   "history.switch_account_dialog_title": "Primärkonto auf {account} umstellen?",
   "hw_banner_description": "Sichern Sie Ihre Krypto mit der leistungsstärksten Hardware-Wallet",
   "interact_with_contract": "Interagieren mit (An)",

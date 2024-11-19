@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "A conexão com a carteira de hardware está disponível apenas no aplicativo oficial",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "A conexão com a carteira de hardware está disponível apenas em aplicativos de terceiros",
   "hidden_assets": "Ativos ocultos",
+  "history.notification_receiver_label": "Notificação recebida por",
   "history.switch_account_dialog_title": "Alterar a conta principal para {account}?",
   "hw_banner_description": "Proteja seu cripto com a carteira de hardware mais poderosa",
   "interact_with_contract": "Interagir com (Para)",
