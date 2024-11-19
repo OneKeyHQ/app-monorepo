@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import Sentry from '@sentry/electron/renderer';
+import * as Sentry from '@sentry/electron/renderer';
 import { withErrorBoundary, withProfiler } from '@sentry/react';
 
 import { buildIntegrations } from './basicOptions';
