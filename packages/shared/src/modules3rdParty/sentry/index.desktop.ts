@@ -18,3 +18,7 @@ export const nativeCrash = () => {};
 export const withSentryHOC = (
   Component: ComponentType<any>,
 ): ComponentType<any> => withErrorBoundary(withProfiler(Component), {});
+
+export const navigationIntegration = {
+  registerNavigationContainer: (ref: any) => {},
+};

@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import {
   init,
+  reactNavigationIntegration,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
   withProfiler,
@@ -12,6 +13,10 @@ import { basicOptions } from './basicOptions';
 
 export * from '@sentry/react-native';
 
+export const navigationIntegration = reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
+
 export const initSentry = () => {
   init({
     dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
@@ -19,6 +24,7 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
+    integrations: [navigationIntegration],
   });
 };
 

@@ -21,3 +21,7 @@ export const withSentryHOC = (
   Component: ComponentType<any>,
 ): ComponentType<any> =>
   Sentry.withErrorBoundary(Sentry.withProfiler(Component), {});
+
+export const navigationIntegration = {
+  registerNavigationContainer: (ref: any) => {},
+};
