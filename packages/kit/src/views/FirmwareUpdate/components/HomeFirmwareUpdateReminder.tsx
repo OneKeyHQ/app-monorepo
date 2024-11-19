@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { useFirmwareUpdatesDetectStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -59,7 +59,7 @@ function HomeFirmwareUpdateReminderCmp() {
   const connectId = activeAccount.device?.connectId;
   const actions = useFirmwareUpdateActions();
 
-  const [detectStatus] = useFirmwareUpdatesDetectStatusAtom();
+  const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();

@@ -1,9 +1,10 @@
+import { useIntl } from 'react-intl';
+
 import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { useIntl } from 'react-intl';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
