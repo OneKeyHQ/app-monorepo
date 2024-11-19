@@ -34,10 +34,6 @@ jobs:
         run: |
           echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
-      
-      - name: Setup Sentry Token
-        run: |
-          echo c250cnlzX2V5SnBZWFFpT2pFM016RTVORFF3TURrdU1UazFOemd6TENKMWNtd2lPaUpvZEhSd2N6b3ZMM05sYm5SeWVTNXBieUlzSW5KbFoybHZibDkxY213aU9pSm9kSFJ3Y3pvdkwyUmxMbk5sYm5SeWVTNXBieUlzSW05eVp5STZJbTl1Wld0bGVTMWlZaUo5XzVObmgxWVIreXN4TWVVS1V0bTduUmFqM2N3aE14QWRVa29mT29WRlczOXM= | base64 -d > apps/mobile/.env.local
 
       - name: Setup Expo
         uses: OneKeyHQ/actions/expo-server@main
@@ -108,11 +104,13 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_TOKEN: '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'
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
           echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
           echo "NO_FLIPPER=1" >> .env.expo
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> apps/mobile/.env.local
       
       - name: Install Dep
         env:
