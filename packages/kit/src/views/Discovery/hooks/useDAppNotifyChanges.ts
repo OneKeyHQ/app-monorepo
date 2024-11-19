@@ -44,6 +44,11 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
     setIsFocusedInDiscoveryTab(isFocus);
   });
+  useListenTabFocusState([ETabRoutes.Discovery], (isFocus) => {
+    if (platformEnv.isNative) {
+      setIsFocusedInDiscoveryTab(isFocus);
+    }
+  });
   const previousUrl = usePrevious(tab?.url);
 
   // reconnect jsBridge
@@ -113,6 +118,8 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
           innerRef.removeEventListener('dom-ready', onDomReady);
         };
       }
+    } else if (platformEnv.isNative) {
+      notifyChanges(tab?.url, 'immediately');
     }
   }, [
     isFocusedInDiscoveryTab,
@@ -197,6 +204,9 @@ export function useShouldUpdateConnectedAccount() {
         accountSelectorNum,
         updatedAccountInfo: willUpdateAccountInfo,
         storageType,
+      });
+      await backgroundApiProxy.serviceDApp.syncDappAccountIfPrimaryMode({
+        origin,
       });
       console.log(
         'useShouldUpdateConnectedAccount handleAccountChanged: ',

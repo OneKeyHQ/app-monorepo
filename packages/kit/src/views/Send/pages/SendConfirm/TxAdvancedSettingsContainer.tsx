@@ -53,7 +53,7 @@ const showNonceFaq = () => {
 const showHexDataFaq = () => {
   Dialog.show({
     title: appLocale.intl.formatMessage({
-      id: ETranslations.global_hex_data,
+      id: ETranslations.global_hex_data_default,
     }),
     icon: 'ConsoleOutline',
     description: appLocale.intl.formatMessage({
@@ -221,7 +221,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
         ) : null}
         <Form.Field
           label={intl.formatMessage({
-            id: ETranslations.global_hex_data,
+            id: ETranslations.global_hex_data_default,
           })}
           name="data"
           labelAddon={
@@ -231,7 +231,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
               onPress={() => showHexDataFaq()}
             >
               {intl.formatMessage({
-                id: ETranslations.global_hex_data_faq,
+                id: ETranslations.global_hex_data_default_faq,
               })}
             </Button>
           }

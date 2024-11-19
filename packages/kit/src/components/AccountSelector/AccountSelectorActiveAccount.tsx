@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Button,
   Icon,
   NATIVE_HIT_SLOP,
   SizableText,
@@ -30,7 +29,10 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -64,43 +66,56 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     if (!activeAccount.network?.isAllNetworks) return null;
     const [s, a] = await Promise.all([
       backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+        {
+          accountId: activeAccount.account?.id,
+          walletId: activeAccount.wallet?.id,
+        },
+      ),
     ]);
 
-    const networksAccount =
-      await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-        {
-          networkIds: a.networks.map((n) => n.id),
-          indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
-        },
-      );
+    const all = [...a.mainnetItems, ...a.testnetItems];
+    const visibleNetworks: IServerNetwork[] = [];
 
-    const visibleNetworks = a.networks.filter((n) => {
-      const account = networksAccount.find(
-        (na) => na.network.id === n.id && na.account?.address,
+    for (const n of all) {
+      const accounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          {
+            networkId: n.id,
+            indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
+          },
+        );
+
+      const account = accounts.networkAccounts.find(
+        (na) =>
+          accounts.network.id === n.id &&
+          (na.account?.address ||
+            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
       );
       if (account) {
         if (
           isEnabledNetworksInAllNetworks({
             networkId: n.id,
-            deriveType: account.accountDeriveType,
+            isTestnet: n.isTestnet,
+            deriveType: account.deriveType,
             disabledNetworks: s.disabledNetworks,
             enabledNetworks: s.enabledNetworks,
           })
         ) {
-          return true;
+          visibleNetworks.push(n);
         }
       }
-      return false;
-    });
+    }
 
     return {
       visibleNetworks,
-      allNetworks: a.networks,
+      allNetworks: all,
     };
   }, [
+    activeAccount.account?.id,
     activeAccount.account?.indexedAccountId,
     activeAccount.network?.isAllNetworks,
+    activeAccount.wallet?.id,
   ]);
 
   const { visibleNetworks, allNetworks } = result ?? {};

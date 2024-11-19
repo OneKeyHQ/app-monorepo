@@ -49,21 +49,6 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 const ITEM_HEIGHT = 32;
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
-const getShortcutKey = (index: number) => {
-  switch (index) {
-    case 0:
-      return EShortcutEvents.TabPin6;
-    case 1:
-      return EShortcutEvents.TabPin7;
-    case 2:
-      return EShortcutEvents.TabPin8;
-    case 3:
-      return EShortcutEvents.TabPin9;
-    default:
-      return undefined;
-  }
-};
-
 function DesktopCustomTabBar() {
   const intl = useIntl();
   // register desktop shortcuts for browser tab
@@ -354,7 +339,6 @@ function DesktopCustomTabBar() {
               key={t.id}
               activeTabId={activeTabId}
               onPress={onTabPress}
-              shortcutKey={t.isPinned ? getShortcutKey(index) : undefined}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}

@@ -200,6 +200,7 @@ export interface ITableProps<T> {
   showBackToTopButton?: boolean;
   dataSource: T[];
   columns: ITableColumn<T>[];
+  contentContainerStyle?: IListViewProps<T>['contentContainerStyle'];
   renderScrollComponent?: IListViewProps<T>['renderScrollComponent'];
   TableHeaderComponent?: IListViewProps<T>['ListHeaderComponent'];
   TableFooterComponent?: IListViewProps<T>['ListFooterComponent'];
@@ -355,6 +356,7 @@ function BasicTable<T>({
   onHeaderRow,
   onRow,
   rowProps,
+  contentContainerStyle,
   headerRowProps,
   renderScrollComponent,
   showHeader = true,
@@ -417,6 +419,7 @@ function BasicTable<T>({
     () => (
       <ListView
         ref={listViewRef}
+        contentContainerStyle={contentContainerStyle}
         stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
         estimatedItemSize={estimatedItemSize}
         // @ts-ignore
@@ -441,6 +444,7 @@ function BasicTable<T>({
       TableEmptyComponent,
       TableFooterComponent,
       TableHeaderComponent,
+      contentContainerStyle,
       dataSource,
       estimatedItemSize,
       estimatedListSize,

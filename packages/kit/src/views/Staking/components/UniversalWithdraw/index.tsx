@@ -49,6 +49,7 @@ type IUniversalWithdrawProps = {
   tokenSymbol?: string;
 
   minAmount?: string;
+  showDetailWithdrawalRequested: boolean;
   unstakingPeriod?: number;
 
   showPayWith?: boolean;
@@ -76,6 +77,7 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
+  showDetailWithdrawalRequested,
   unstakingPeriod,
   providerLabel,
   decimals,
@@ -335,7 +337,7 @@ export const UniversalWithdraw = ({
                 title={intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
-                placement="bottom-start"
+                placement="top"
                 renderTrigger={
                   <IconButton
                     iconColor="$iconSubdued"
@@ -359,7 +361,9 @@ export const UniversalWithdraw = ({
             <CalculationListItem.Value>
               {intl.formatMessage(
                 {
-                  id: ETranslations.earn_claim_available_in_number_days,
+                  id: showDetailWithdrawalRequested
+                    ? ETranslations.earn_claim_available_in_number_days
+                    : ETranslations.earn_up_to_number_days,
                 },
                 { 'number': unstakingPeriod },
               )}

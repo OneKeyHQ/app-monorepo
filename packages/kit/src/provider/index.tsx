@@ -1,6 +1,7 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Toast } from '@onekeyhq/components';
+import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
@@ -54,6 +55,7 @@ export function KitProvider(props: any = {}) {
           <SystemLocaleTracker />
           <StateActiveContainer />
           <InAppNotification />
+          <SyncHomeAccountToDappAccountProvider />
         </ThemeProvider>
       </GestureHandlerRootView>
     </GlobalJotaiReady>

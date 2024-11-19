@@ -9,7 +9,9 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/perfUtils';
@@ -29,6 +31,7 @@ export type IAllNetworkAccountInfo = {
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
   deriveType: IAccountDeriveTypes | undefined;
+  isTestnet: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
@@ -132,6 +135,45 @@ class ServiceAllNetwork extends ServiceBase {
       .filter((acc) => acc.impl !== IMPL_ALLNETWORKS);
 
     return dbAccounts;
+  }
+
+  @backgroundMethod()
+  async getAllNetworkAccountsWithEnabledNetworks(
+    params: IAllNetworkAccountsParams,
+  ): Promise<IAllNetworkAccountsInfoResult> {
+    const { accountsInfo } = await this.getAllNetworkAccounts(params);
+
+    const { enabledNetworks, disabledNetworks } =
+      await this.getAllNetworksState();
+
+    const enabledAccountsInfo = [];
+    const enabledAccountsInfoBackendIndexed = [];
+    const enabledAccountsInfoBackendNotIndexed = [];
+
+    for (const accountInfo of accountsInfo) {
+      if (
+        isEnabledNetworksInAllNetworks({
+          networkId: accountInfo.networkId,
+          isTestnet: accountInfo.isTestnet,
+          deriveType: accountInfo.deriveType,
+          disabledNetworks,
+          enabledNetworks,
+        })
+      ) {
+        enabledAccountsInfo.push(accountInfo);
+        if (accountInfo.isBackendIndexed) {
+          enabledAccountsInfoBackendIndexed.push(accountInfo);
+        } else {
+          enabledAccountsInfoBackendNotIndexed.push(accountInfo);
+        }
+      }
+    }
+
+    return {
+      accountsInfo: enabledAccountsInfo,
+      accountsInfoBackendIndexed: enabledAccountsInfoBackendIndexed,
+      accountsInfoBackendNotIndexed: enabledAccountsInfoBackendNotIndexed,
+    };
   }
 
   @backgroundMethod()
@@ -289,6 +331,7 @@ class ServiceAllNetwork extends ServiceBase {
                 accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
+                isTestnet: n.isTestnet,
                 dbAccount: a,
                 deriveType,
               };
@@ -318,6 +361,7 @@ class ServiceAllNetwork extends ServiceBase {
             isBackendIndexed,
             dbAccount: undefined,
             deriveType: undefined,
+            isTestnet: n.isTestnet,
           });
         }
       }),
@@ -362,10 +406,12 @@ class ServiceAllNetwork extends ServiceBase {
     params: IAllNetworkAccountsParams & { withoutAccountId?: boolean },
   ) {
     const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        ...params,
-        includingNonExistingAccount: true,
-      });
+      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
+        {
+          ...params,
+          includingNonExistingAccount: true,
+        },
+      );
     return {
       allNetworkAccounts: accountsInfo.map((acc) => ({
         accountId: params.withoutAccountId ? undefined : acc.accountId,
