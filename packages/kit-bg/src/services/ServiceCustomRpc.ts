@@ -237,10 +237,12 @@ class ServiceCustomRpc extends ServiceBase {
           !lastFetchTime ||
           now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
         ) {
-          return await this.fetchNetworkFromServer();
+          this.fetchNetworkFromServer().catch((error) => {
+            defaultLogger.account.wallet.getServerNetworksError(error);
+          });
         }
         defaultLogger.account.wallet.getServerNetworks(networks);
-        return networks;
+        return networks || [];
       } catch (error) {
         defaultLogger.account.wallet.getServerNetworksError(error);
         return [];
@@ -284,6 +286,9 @@ class ServiceCustomRpc extends ServiceBase {
         });
       }
     }
+
+    // If the server network is updated, clear the getAllNetworks cache
+    await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
