@@ -9,9 +9,9 @@ module.exports = {
   },
   plugins: [
     sentryWebpackPlugin({
-      org: process.env.SENTRY_ORG,
+      org: 'onekey-bb',
       project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN,
+      authToken: process.env.SENTRY_TOKEN,
       release: {
         name: `${process.env.VERSION}-${process.env.BUILD_NUMBER}`,
       },
