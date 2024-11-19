@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Koneksi dompet perangkat keras hanya tersedia di aplikasi resmi",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Koneksi dompet perangkat keras hanya tersedia di aplikasi pihak ketiga",
   "hidden_assets": "Aset tersembunyi",
+  "history.notification_receiver_label": "Pemberitahuan diterima oleh",
   "history.switch_account_dialog_title": "Ubah akun utama ke {account}?",
   "hw_banner_description": "Amanakan kripto Anda dengan dompet perangkat keras yang paling kuat",
   "interact_with_contract": "Berinteraksi dengan (Kepada)",

@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "La connessione al portafoglio hardware è disponibile solo sull'app ufficiale",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "La connessione al portafoglio hardware è disponibile solo su app di terze parti",
   "hidden_assets": "Beni nascosti",
+  "history.notification_receiver_label": "Notifica ricevuta da",
   "history.switch_account_dialog_title": "Passare all'account principale {account}?",
   "hw_banner_description": "Proteggi le tue criptovalute con il portafoglio hardware più potente",
   "interact_with_contract": "Interagisci con (A)",
