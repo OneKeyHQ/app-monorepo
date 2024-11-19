@@ -62,9 +62,9 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
     const settings = await this.getRawData();
     let count = 0;
     Object.values(settings?.accountActivity || {}).forEach((wallet) => {
-      if (wallet.enabled) {
-        Object.values(wallet.accounts || {}).forEach((account) => {
-          if (account.enabled) {
+      if (wallet?.enabled) {
+        Object.values(wallet?.accounts || {}).forEach((account) => {
+          if (account?.enabled) {
             count += 1;
           }
         });

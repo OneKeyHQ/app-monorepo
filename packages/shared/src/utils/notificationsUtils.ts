@@ -34,11 +34,13 @@ function convertWebPermissionToEnum(
 
 async function navigateToNotificationDetail({
   notificationId,
+  notificationAccountId,
   message,
   isFromNotificationClick,
   navigation,
 }: {
   notificationId: string;
+  notificationAccountId?: string;
   message: INotificationPushMessageInfo | undefined;
   isFromNotificationClick?: boolean; // click by system notification banner
   navigation?: IAppNavigation;
@@ -73,7 +75,9 @@ async function navigateToNotificationDetail({
         accountAddress,
         transactionHash,
         notificationId,
+        notificationAccountId,
         checkIsFocused: false,
+        allowClickAccountNameSwitch: true,
       };
     }
   }

@@ -832,10 +832,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return indexedAccount;
   }
 
-  async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
+  async getIndexedAccountByAccount({
+    account,
+  }: {
+    account: IDBAccount | undefined;
+  }): Promise<IDBIndexedAccount | undefined> {
     const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
     );
+    if (!account) {
+      return undefined;
+    }
 
     perf.markStart('checkAccountType');
     const accountId = account.id;
