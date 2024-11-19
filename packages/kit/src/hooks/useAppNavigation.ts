@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { Page, rootNavigationRef } from '@onekeyhq/components';
 import type {
@@ -93,7 +92,7 @@ function useAppNavigation<
     [],
   );
 
-  const pushModalPage = useDebouncedCallback(
+  const pushModalPage = useCallback(
     <T extends EModalRoutes>(
       modalType: ERootRoutes.Modal | ERootRoutes.iOSFullScreen,
       route: T,
@@ -107,6 +106,14 @@ function useAppNavigation<
       let rootNavigation = navigationInstance;
       while (rootNavigation?.getParent()) {
         rootNavigation = rootNavigation.getParent();
+      }
+
+      const existPageIndex = rootNavigation?.getState?.()?.routes?.findIndex(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (rootRoute) => params?.screen === rootRoute?.params?.params?.screen,
+      );
+      if (existPageIndex === 0) {
+        return;
       }
 
       // eslint-disable-next-line no-extra-boolean-cast
@@ -132,7 +139,7 @@ function useAppNavigation<
         params,
       });
     },
-    150,
+    [],
   );
 
   const pushModal = useCallback(
