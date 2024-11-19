@@ -140,19 +140,14 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       reloadAllNetworks,
     );
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () =>
-      reloadAllNetworks(),
-    );
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
     return () => {
-      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, () =>
-        reloadAllNetworks(),
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        reloadAllNetworks,
       );
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () =>
-        reloadAllNetworks(),
-      );
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () =>
-        reloadAllNetworks(),
-      );
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
     };
   }, [run]);
 
