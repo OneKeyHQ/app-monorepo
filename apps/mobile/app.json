@@ -35,7 +35,7 @@
     },
     "plugins": [
       [
-        "@sentry/react-native/expo",
+        "../../node_modules/@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
           "project": "react-native",
