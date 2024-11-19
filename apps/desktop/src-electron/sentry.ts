@@ -19,6 +19,10 @@ export const initSentry = () => {
     dsn,
     enableRendererProfiling: true,
     ...basicOptions,
+    transportOptions: {
+      maxAgeDays: 30,
+      maxQueueSize: 60,
+    },
     integrations: [
       Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
