@@ -1,4 +1,4 @@
-import { uniq, uniqBy } from 'lodash';
+import { uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
@@ -9,11 +9,9 @@ import type { IAccountDeriveTypes } from '../../../vaults/types';
 export interface IAllNetworksDBStruct {
   disabledNetworks: {
     networkId: string;
-    deriveType: IAccountDeriveTypes;
   }[];
   enabledNetworks: {
     networkId: string;
-    deriveType: IAccountDeriveTypes;
   }[];
 }
 
@@ -38,11 +36,9 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
   }: {
     disabledNetworks?: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
     enabledNetworks?: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
   }): Promise<void> {
     await this.setRawData(({ rawData }) => {
@@ -51,23 +47,17 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
 
       const finalEnabledNetworks = uniqBy(
         [...originalEnabledNetworks, ...enabledNetworks],
-        (n) => `${n.networkId}_${n.deriveType}`,
+        (n) => n.networkId,
       ).filter(
-        (n) =>
-          !disabledNetworks.find(
-            (o) => o.networkId === n.networkId && o.deriveType === n.deriveType,
-          ),
+        (n) => !disabledNetworks.find((o) => o.networkId === n.networkId),
       );
 
       // remove duplicated networks
       const finalDisabledNetworks = uniqBy(
         [...originalDisabledNetworks, ...disabledNetworks],
-        (n) => `${n.networkId}_${n.deriveType}`,
+        (n) => n.networkId,
       ).filter(
-        (n) =>
-          !enabledNetworks.find(
-            (o) => o.networkId === n.networkId && o.deriveType === n.deriveType,
-          ),
+        (n) => !enabledNetworks.find((o) => o.networkId === n.networkId),
       );
       return {
         disabledNetworks: finalDisabledNetworks,
