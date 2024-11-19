@@ -12,6 +12,7 @@ import {
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -35,6 +36,11 @@ const LastActivityTracker = () => {
               ? 'test'
               : 'prod',
         }),
+      });
+      setSentryUser({
+        instanceId,
+        platform: platformEnv.appPlatform || '',
+        appChannel: platformEnv.appChannel || '',
       });
     }, 0);
     defaultLogger.app.page.appStart();
