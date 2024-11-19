@@ -1250,9 +1250,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      let accountAddress;
-      let accountNetworkId;
-      let accountId;
+      let accountAddress: string | undefined;
+      let accountNetworkId: string | undefined;
+      let accountId: string | undefined;
       if (type === ESwapDirectionType.TO) {
         // fetch to Token balance use FromAccount id
         const toAccountInfos =
