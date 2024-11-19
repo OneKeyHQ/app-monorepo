@@ -1,5 +1,4 @@
-import { captureException, nativeCrash } from '@sentry/react-native';
-
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SectionPressItem } from './SectionPressItem';
@@ -9,32 +8,36 @@ function a() {
 }
 
 export function SentryCrashSettings() {
+  const sections = [
+    <SectionPressItem
+      key="SentryCrashTest"
+      title="Sentry Crash Test"
+      onPress={() => {
+        captureException(new Error('First error'));
+      }}
+    />,
+  ];
   if (platformEnv.isNative) {
-    return (
-      <>
-        <SectionPressItem
-          title="Sentry Crash Test"
-          onPress={() => {
-            captureException(new Error('First error'));
-          }}
-        />
-
-        <SectionPressItem
-          title="Sentry Native Crash"
-          onPress={() => {
-            nativeCrash();
-          }}
-        />
-      </>
+    sections.push(
+      <SectionPressItem
+        title="Sentry Native Crash"
+        onPress={() => {
+          const nativeSentry =
+            require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@sentry/react-native');
+          nativeSentry.nativeCrash();
+        }}
+      />,
+    );
+  } else if (platformEnv.isDesktop) {
+    sections.push(
+      <SectionPressItem
+        title="Sentry Native Crash"
+        onPress={() => {
+          globalThis.desktopApi.testCrash();
+        }}
+      />,
     );
   }
 
-  return (
-    <SectionPressItem
-      title="Sentry Crash Test"
-      onPress={() => {
-        a();
-      }}
-    />
-  );
+  return sections;
 }

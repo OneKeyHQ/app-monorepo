@@ -716,6 +716,10 @@ function createMainWindow() {
     void shell.openPath(path.dirname(logger.transports.file.getFile().path));
   });
 
+  ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
+    throw new Error('Test Electron Native crash');
+  });
+
   ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
     void session.defaultSession.clearStorageData({
       storages: ['cookies', 'cachestorage'],

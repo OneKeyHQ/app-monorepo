@@ -5,8 +5,7 @@ import 'setimmediate';
 // eslint-disable-next-line import/order
 import { createRoot } from 'react-dom/client';
 
-// eslint-disable-next-line import/order
-import * as Sentry from '@sentry/react';
+import * as Sentry from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 import App from '../App';
 

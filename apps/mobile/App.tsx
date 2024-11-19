@@ -2,7 +2,7 @@
 import '@onekeyhq/shared/src/polyfills';
 
 import { KitProvider } from '@onekeyhq/kit';
-import * as Sentry from '@sentry/react-native';
+import * as Sentry from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 Sentry.init({
   dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
