@@ -11,6 +11,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -108,8 +109,6 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-
-import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 
 const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
 
