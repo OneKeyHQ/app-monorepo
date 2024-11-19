@@ -132,7 +132,7 @@ function useAppNavigation<
         params,
       });
     },
-    250,
+    150,
   );
 
   const pushModal = useCallback(
