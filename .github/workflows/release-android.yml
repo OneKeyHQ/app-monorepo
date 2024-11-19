@@ -93,11 +93,21 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_TOKEN: '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'
+
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
           echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
           echo "NO_FLIPPER=1" >> .env.expo
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> apps/mobile/.env.local
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
