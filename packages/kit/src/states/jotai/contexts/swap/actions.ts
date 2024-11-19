@@ -1250,9 +1250,27 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      const accountAddress = swapAddressInfo.address;
-      const accountNetworkId = swapAddressInfo.networkId;
-      const accountId = swapAddressInfo.accountInfo?.account?.id;
+      let accountAddress: string | undefined;
+      let accountNetworkId: string | undefined;
+      let accountId: string | undefined;
+      if (type === ESwapDirectionType.TO) {
+        // fetch to Token balance use FromAccount id
+        const toAccountInfos =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId: swapAddressInfo.accountInfo?.account?.id ?? '',
+            networkId: token?.networkId ?? '',
+            indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
+          });
+        if (toAccountInfos) {
+          accountAddress = toAccountInfos.accountAddress;
+          accountNetworkId = toAccountInfos.networkId;
+          accountId = toAccountInfos.accountId;
+        }
+      } else {
+        accountAddress = swapAddressInfo.address;
+        accountNetworkId = swapAddressInfo.networkId;
+        accountId = swapAddressInfo.accountInfo?.account?.id;
+      }
       let balanceDisplay;
       if (
         token &&
