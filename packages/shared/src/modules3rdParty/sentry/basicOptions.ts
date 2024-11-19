@@ -1,7 +1,8 @@
 import type { BrowserOptions } from '@sentry/browser';
 
 export const basicOptions: BrowserOptions = {
-  maxBreadcrumbs: 60,
+  enabled: process.env.NODE_ENV === 'production',
+  maxBreadcrumbs: 100,
 };
 
 export const buildOptions = (Sentry: typeof import('@sentry/react')) => ({
