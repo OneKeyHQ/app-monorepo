@@ -757,9 +757,7 @@ function buildAccountValueKey({
 }
 
 function isAllNetworkMockAddress({ address }: { address?: string }) {
-  if (!address) return false;
-  const shortened = shortenAddress({ address: ALL_NETWORK_ACCOUNT_MOCK_ADDRESS });
-  return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS || address === shortened;
+  return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
 
 export default {
