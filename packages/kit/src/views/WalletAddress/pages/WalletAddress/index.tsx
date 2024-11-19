@@ -72,11 +72,9 @@ type IWalletAddressContext = {
   initAllNetworksState: {
     enabledNetworks: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
     disabledNetworks: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
   };
   isAllNetworksEnabled: Record<string, boolean>;
@@ -148,7 +146,6 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
       networkId: item.id,
       isTestnet: item.isTestnet,
-      deriveType: a.deriveType,
       disabledNetworks: initAllNetworksState.disabledNetworks,
       enabledNetworks: initAllNetworksState.enabledNetworks,
     });
@@ -207,80 +204,80 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
       }
     >
       <XStack gap="$6" alignItems="center">
-        <IconButton
-          disabled={
-            (isOnlyOneNetworkEnabled && isEnabledNetwork) || item.isTestnet
-          }
-          title={
-            isEnabledNetwork
-              ? intl.formatMessage({
-                  id: ETranslations.network_visible_in_all_network_tooltip_title,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.network_invisible_in_all_network_tooltip_title,
-                })
-          }
-          variant="tertiary"
-          icon={isEnabledNetwork ? 'EyeOutline' : 'EyeClosedOutline'}
-          iconProps={{
-            color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
-          }}
-          onPress={async () => {
-            if (item.isTestnet) return;
-            deriveAccounts.forEach((a) => {
-              setIsAllNetworksEnabled((prev) => ({
-                ...prev,
-                [`${item.id}_${a.deriveType}`]: !isEnabledNetwork,
-              }));
-            });
-            const disabledNetworks: {
-              networkId: string;
-              deriveType: IAccountDeriveTypes;
-            }[] = [];
-            const enabledNetworks: {
-              networkId: string;
-              deriveType: IAccountDeriveTypes;
-            }[] = [];
-            if (isEnabledNetwork) {
-              deriveAccounts.forEach((a) => {
-                disabledNetworks.push({
-                  networkId: item.id,
-                  deriveType: a.deriveType,
-                });
-              });
-            } else {
-              deriveAccounts.forEach((a) => {
-                enabledNetworks.push({
-                  networkId: item.id,
-                  deriveType: a.deriveType,
-                });
-              });
+        {!isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0 ? (
+          <IconButton
+            disabled={
+              (isOnlyOneNetworkEnabled && isEnabledNetwork) || item.isTestnet
             }
-            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-              enabledNetworks,
-              disabledNetworks,
-            });
-            Toast.success({
-              title: isEnabledNetwork
-                ? intl.formatMessage(
-                    {
-                      id: ETranslations.feedback_network_hidden_from_all_networks_toast_title,
-                    },
-                    {
-                      network: item.name,
-                    },
-                  )
-                : intl.formatMessage(
-                    {
-                      id: ETranslations.feedback_network_shown_in_all_networks_toast_title,
-                    },
-                    {
-                      network: item.name,
-                    },
-                  ),
-            });
-          }}
-        />
+            title={
+              isEnabledNetwork
+                ? intl.formatMessage({
+                    id: ETranslations.network_visible_in_all_network_tooltip_title,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.network_invisible_in_all_network_tooltip_title,
+                  })
+            }
+            variant="tertiary"
+            icon={isEnabledNetwork ? 'EyeOutline' : 'EyeClosedOutline'}
+            iconProps={{
+              color: isEnabledNetwork ? '$iconSubdued' : '$iconDisabled',
+            }}
+            onPress={async () => {
+              if (item.isTestnet) return;
+              deriveAccounts.forEach((a) => {
+                setIsAllNetworksEnabled((prev) => ({
+                  ...prev,
+                  [`${item.id}_${a.deriveType}`]: !isEnabledNetwork,
+                }));
+              });
+              const disabledNetworks: {
+                networkId: string;
+              }[] = [];
+              const enabledNetworks: {
+                networkId: string;
+              }[] = [];
+              if (isEnabledNetwork) {
+                deriveAccounts.forEach((a) => {
+                  disabledNetworks.push({
+                    networkId: item.id,
+                  });
+                });
+              } else {
+                deriveAccounts.forEach((a) => {
+                  enabledNetworks.push({
+                    networkId: item.id,
+                  });
+                });
+              }
+              await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState(
+                {
+                  enabledNetworks,
+                  disabledNetworks,
+                },
+              );
+              Toast.success({
+                title: isEnabledNetwork
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.feedback_network_hidden_from_all_networks_toast_title,
+                      },
+                      {
+                        network: item.name,
+                      },
+                    )
+                  : intl.formatMessage(
+                      {
+                        id: ETranslations.feedback_network_shown_in_all_networks_toast_title,
+                      },
+                      {
+                        network: item.name,
+                      },
+                    ),
+              });
+            }}
+          />
+        ) : null}
         <Icon
           name={
             !isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0
@@ -315,19 +312,17 @@ const WalletAddressListItemIcon = ({
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: network.id,
     isTestnet: network.isTestnet,
-    deriveType,
     disabledNetworks: initAllNetworksState.disabledNetworks,
     enabledNetworks: initAllNetworksState.enabledNetworks,
   });
 
   const isEnabledNetwork =
-    isAllNetworksEnabled[`${network.id}_${deriveType}`] ??
-    isEnabledNetworkFromDB;
+    isAllNetworksEnabled[network.id] ?? isEnabledNetworkFromDB;
 
   useEffect(() => {
     setIsAllNetworksEnabledWrapper((prev) => ({
       ...prev,
-      [`${network.id}_${deriveType}`]: account ? isEnabledNetwork : false,
+      [network.id]: account ? isEnabledNetwork : false,
     }));
   }, [
     isEnabledNetwork,
@@ -364,19 +359,17 @@ const WalletAddressListItemIcon = ({
         onPress={async () => {
           setIsAllNetworksEnabled((prev) => ({
             ...prev,
-            [`${network.id}_${deriveType}`]: !isEnabledNetwork,
+            [network.id]: !isEnabledNetwork,
           }));
           const disabledNetworks = [];
           const enabledNetworks = [];
           if (isEnabledNetwork) {
             disabledNetworks.push({
               networkId: network.id,
-              deriveType,
             });
           } else {
             enabledNetworks.push({
               networkId: network.id,
-              deriveType,
             });
           }
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
@@ -428,13 +421,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
   const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
     networkId: item.id,
     isTestnet: item.isTestnet,
-    deriveType,
     disabledNetworks: initAllNetworksState.disabledNetworks,
     enabledNetworks: initAllNetworksState.enabledNetworks,
   });
 
   const isEnabledNetwork =
-    isAllNetworksEnabled[`${item.id}_${deriveType}`] ?? isEnabledNetworkFromDB;
+    isAllNetworksEnabled[item.id] ?? isEnabledNetworkFromDB;
 
   const copyAccountAddress = useCopyAccountAddress();
   const appNavigation =
@@ -470,12 +462,12 @@ const WalletAddressListItem = ({ item }: { item: IServerNetwork }) => {
             setAccountsCreated(true);
             setIsAllNetworksEnabled((prev) => ({
               ...prev,
-              [`${item.id}_${deriveType}`]: true,
+              [item.id]: true,
             }));
           }
 
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-            enabledNetworks: [{ networkId: item.id, deriveType }],
+            enabledNetworks: [{ networkId: item.id }],
           });
           Toast.success({
             title: intl.formatMessage({
@@ -707,12 +699,12 @@ const WalletAddress = ({
           differenceBy(
             latestAllNetworksState.disabledNetworks,
             initAllNetworksState.disabledNetworks,
-            ({ networkId, deriveType }) => `${networkId}_${deriveType}`,
+            ({ networkId }) => networkId,
           ).length > 0 ||
           differenceBy(
             latestAllNetworksState.enabledNetworks,
             initAllNetworksState.enabledNetworks,
-            ({ networkId, deriveType }) => `${networkId}_${deriveType}`,
+            ({ networkId }) => networkId,
           ).length > 0
         ) {
           appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
@@ -813,14 +805,13 @@ export default function WalletAddressPage({
 
     allNetworksStateInit.current = true;
     result.networksAccount.forEach((item) => {
-      const { network, account, accountDeriveType } = item;
+      const { network, account } = item;
       setIsAllNetworksEnabledWrapper((prev) => ({
         ...prev,
         [network.id]: account
           ? isEnabledNetworksInAllNetworks({
               networkId: network.id,
               isTestnet: network.isTestnet,
-              deriveType: accountDeriveType,
               disabledNetworks: allNetworksState.disabledNetworks,
               enabledNetworks: allNetworksState.enabledNetworks,
             })

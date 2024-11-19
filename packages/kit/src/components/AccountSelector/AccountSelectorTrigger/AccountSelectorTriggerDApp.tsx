@@ -299,11 +299,21 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   if (showSkeleton && isFirstLoad.current) {
     return (
-      <Skeleton
-        width={media.gtMd ? 142 : '$9'}
-        height={media.gtMd ? '$12' : '$9'}
-        borderRadius="$2"
-      />
+      <>
+        {media.gtMd ? (
+          <Skeleton.Group show>
+            <XStack gap="$2" alignItems="center">
+              <Skeleton w="$6" h="$6" borderRadius="$2" />
+              <YStack>
+                <Skeleton.BodySm />
+                <Skeleton.BodyMd />
+              </YStack>
+            </XStack>
+          </Skeleton.Group>
+        ) : (
+          <Skeleton w="$6" h="$6" borderRadius="$2" />
+        )}
+      </>
     );
   }
 
@@ -311,6 +321,10 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
     <XStack
       role="button"
       p="$1.5"
+      mx="$-1.5"
+      $gtMd={{
+        py: '$0.5',
+      }}
       borderRadius="$2"
       alignItems="center"
       hoverStyle={{
