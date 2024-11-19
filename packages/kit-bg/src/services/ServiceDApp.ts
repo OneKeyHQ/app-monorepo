@@ -559,6 +559,10 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest,
       options,
     });
+    const shouldAlignPrimaryAccount = await this.shouldAlignPrimaryAccount({
+      origin,
+      storageType,
+    });
     const allAccountsInfo = [];
     for (const networkImpl of networkImpls) {
       const accountsInfo =
@@ -567,8 +571,8 @@ class ServiceDApp extends ServiceBase {
           storageType,
           networkImpl,
         );
-      if (accountsInfo) {
-        if (accountsInfo.length === 1) {
+      if (Array.isArray(accountsInfo) && accountsInfo.length) {
+        if (shouldAlignPrimaryAccount) {
           const accountInfo = await this.alignPrimaryAccountToHomeAccount({
             origin,
             connectedAccountInfo: accountsInfo[0],
@@ -1218,7 +1222,7 @@ class ServiceDApp extends ServiceBase {
       return false;
     }
     const isOtherWallet = accountUtils.isOthersWallet({
-      walletId: homeAccountSelectorInfo.walletId ?? '',
+      walletId: homeAccountSelectorInfo?.walletId ?? '',
     });
     const isSameAccount = isOtherWallet
       ? connectedAccountInfo.othersWalletAccountId &&
@@ -1344,6 +1348,33 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldAlignPrimaryAccount({
+    origin,
+    storageType,
+  }: {
+    origin: string;
+    storageType: IConnectionStorageType;
+  }) {
+    if (storageType === 'walletConnect') {
+      return false;
+    }
+
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return false;
+    }
+
+    const connectedAccounts = await this.findInjectedAccountByOrigin(origin);
+    if (Array.isArray(connectedAccounts) && connectedAccounts.length === 1) {
+      return true;
+    }
+    return false;
+  }
+
+  @backgroundMethod()
   async setIsAlignPrimaryAccountProcessing({
     processing,
   }: {
@@ -1388,6 +1419,10 @@ class ServiceDApp extends ServiceBase {
           processing: false,
         });
       }, 200);
+    } else {
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
+      });
     }
   }
 

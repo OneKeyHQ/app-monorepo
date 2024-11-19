@@ -293,6 +293,15 @@ class ServiceAccount extends ServiceBase {
     return localDb.getIndexedAccountSafe({ id });
   }
 
+  @backgroundMethod()
+  async getIndexedAccountByAccount({
+    account,
+  }: {
+    account: IDBAccount | undefined;
+  }) {
+    return localDb.getIndexedAccountByAccount({ account });
+  }
+
   async buildPrepareHdOrHwIndexes({
     indexedAccountId,
     indexes,
