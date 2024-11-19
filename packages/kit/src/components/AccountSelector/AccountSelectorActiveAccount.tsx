@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -49,6 +49,7 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const shouldClearAllNetworksCache = useRef(false);
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -70,25 +71,35 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         {
           accountId: activeAccount.account?.id,
           walletId: activeAccount.wallet?.id,
+          clearCache: shouldClearAllNetworksCache.current,
         },
       ),
     ]);
 
+    shouldClearAllNetworksCache.current = false;
+
     const all = [...a.mainnetItems, ...a.testnetItems];
     const visibleNetworks: IServerNetwork[] = [];
-
     for (const n of all) {
-      const accounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+      const [accountDeriveType, accounts, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: n.id,
+        }),
+        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
             networkId: n.id,
             indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
           },
-        );
+        ),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId: n.id }),
+      ]);
 
       const account = accounts.networkAccounts.find(
         (na) =>
           accounts.network.id === n.id &&
+          (vaultSettings.mergeDeriveAssetsEnabled ||
+            (!vaultSettings.mergeDeriveAssetsEnabled &&
+              na?.deriveType === accountDeriveType)) &&
           (na.account?.address ||
             (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
       );
@@ -97,7 +108,6 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
           isEnabledNetworksInAllNetworks({
             networkId: n.id,
             isTestnet: n.isTestnet,
-            deriveType: account.deriveType,
             disabledNetworks: s.disabledNetworks,
             enabledNetworks: s.enabledNetworks,
           })
@@ -121,11 +131,23 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { visibleNetworks, allNetworks } = result ?? {};
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, () => run());
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
+    const reloadAllNetworks = () => {
+      shouldClearAllNetworksCache.current = true;
+      void run();
+    };
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      reloadAllNetworks,
+    );
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
     return () => {
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () => run());
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        reloadAllNetworks,
+      );
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
     };
   }, [run]);
 

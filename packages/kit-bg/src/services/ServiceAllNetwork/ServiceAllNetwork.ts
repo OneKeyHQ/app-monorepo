@@ -150,12 +150,14 @@ class ServiceAllNetwork extends ServiceBase {
     const enabledAccountsInfoBackendIndexed = [];
     const enabledAccountsInfoBackendNotIndexed = [];
 
+    console.log({ enabledNetworks, disabledNetworks });
+    console.log(accountsInfo);
+
     for (const accountInfo of accountsInfo) {
       if (
         isEnabledNetworksInAllNetworks({
           networkId: accountInfo.networkId,
           isTestnet: accountInfo.isTestnet,
-          deriveType: accountInfo.deriveType,
           disabledNetworks,
           enabledNetworks,
         })
@@ -389,11 +391,9 @@ class ServiceAllNetwork extends ServiceBase {
   async updateAllNetworksState(params: {
     disabledNetworks?: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
     enabledNetworks?: {
       networkId: string;
-      deriveType: IAccountDeriveTypes;
     }[];
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(

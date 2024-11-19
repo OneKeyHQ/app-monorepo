@@ -181,7 +181,6 @@ function useAllNetworkRequests<T>(params: {
       if (!accountsInfo || isEmpty(accountsInfo)) {
         setIsEmptyAccount(true);
         isFetching.current = false;
-        return;
       }
 
       let resp: Array<T> | null = null;
@@ -190,7 +189,6 @@ function useAllNetworkRequests<T>(params: {
       if (accountsInfo.length === 0) {
         setIsEmptyAccount(true);
         isFetching.current = false;
-        return;
       }
 
       setIsEmptyAccount(false);
