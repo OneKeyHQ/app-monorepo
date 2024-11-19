@@ -74,9 +74,11 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_TOKEN: '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'
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env
 
       - name: Build Target
         env:
