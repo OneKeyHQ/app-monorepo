@@ -34,6 +34,10 @@ jobs:
         run: |
           echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
+      
+      - name: Setup Sentry Token
+        run: |
+          echo c250cnlzX2V5SnBZWFFpT2pFM016RTVORFF3TURrdU1UazFOemd6TENKMWNtd2lPaUpvZEhSd2N6b3ZMM05sYm5SeWVTNXBieUlzSW5KbFoybHZibDkxY213aU9pSm9kSFJ3Y3pvdkwyUmxMbk5sYm5SeWVTNXBieUlzSW05eVp5STZJbTl1Wld0bGVTMWlZaUo5XzVObmgxWVIreXN4TWVVS1V0bTduUmFqM2N3aE14QWRVa29mT29WRlczOXM= | base64 -d > apps/mobile/.env.local
 
       - name: Setup Expo
         uses: OneKeyHQ/actions/expo-server@main
