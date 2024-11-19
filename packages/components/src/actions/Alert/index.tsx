@@ -1,7 +1,10 @@
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   Button,
@@ -130,6 +133,8 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
     onCloseProp?.();
   }, [onCloseProp]);
 
+  const intl = useIntl();
+
   if (!show) return null;
 
   return (
@@ -172,7 +177,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
       ) : null}
       {closable ? (
         <IconButton
-          title="Dismiss"
+          title={intl.formatMessage({ id: ETranslations.explore_dismiss })}
           icon="CrossedSmallSolid"
           size="small"
           variant="tertiary"
