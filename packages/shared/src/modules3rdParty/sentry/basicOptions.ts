@@ -11,11 +11,16 @@ export const basicOptions: BrowserOptions = {
       if (words.length < 13) {
         return event;
       }
+      let isWordValid = true;
       for (let index = 0; index < words.length; index += 1) {
         const word = words[index];
-        if (word.length < 20) {
-          return event;
+        if (word.length > 20) {
+          isWordValid = false;
+          break;
         }
+      }
+      if (isWordValid) {
+        return event;
       }
       if (event.exception?.values) {
         for (let index = 0; index < event.exception.values.length; index += 1) {
