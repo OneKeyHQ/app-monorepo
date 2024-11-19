@@ -299,6 +299,9 @@ export const {
     return manualSelectQuoteResult;
   }
   if (list?.length > 0) {
+    if (!manualSelectQuoteProviders?.unSupportReceiveAddressDifferent) {
+      return list.find((item) => !item.unSupportReceiveAddressDifferent);
+    }
     return list[0];
   }
   return undefined;
