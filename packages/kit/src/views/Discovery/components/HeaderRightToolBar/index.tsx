@@ -118,10 +118,18 @@ function AvatarStackTrigger({
   }, [accountsInfo]);
 
   return (
-    <XStack gap="$4">
+    <XStack gap="$4" alignItems="center">
       <XStack role="button" testID="multi-avatar">
         {accounts?.slice(0, 2).map((account, index) => (
-          <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
+          <Stack
+            key={index}
+            borderWidth={2}
+            borderColor="$bgApp"
+            ml="$-0.5"
+            {...(index === 0 && {
+              zIndex: 1,
+            })}
+          >
             <AccountAvatar
               key={account?.account.id}
               account={account.account}
@@ -265,6 +273,8 @@ function HeaderRightToolBar() {
     if (connectedAccountsInfo.length === 1) {
       return (
         <Stack
+          ml="$6"
+          gap="$6"
           $gtMd={{
             width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
@@ -302,22 +312,24 @@ function HeaderRightToolBar() {
       );
     }
     return (
-      <Popover
-        title="Connected Accounts"
-        keepChildrenMounted
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-        renderTrigger={
-          <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
-        }
-        renderContent={
-          <AccountSelectorPopoverContent
-            origin={origin}
-            accountsInfo={connectedAccountsInfo}
-            afterChangeAccount={afterChangeAccount}
-          />
-        }
-      />
+      <Stack ml="$6">
+        <Popover
+          title="Connected Accounts"
+          keepChildrenMounted
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+          renderTrigger={
+            <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
+          }
+          renderContent={
+            <AccountSelectorPopoverContent
+              origin={origin}
+              accountsInfo={connectedAccountsInfo}
+              afterChangeAccount={afterChangeAccount}
+            />
+          }
+        />
+      </Stack>
     );
   }, [
     isLoading,
