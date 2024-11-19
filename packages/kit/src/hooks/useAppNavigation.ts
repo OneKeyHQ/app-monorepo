@@ -143,7 +143,7 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params);
+      pushModalPage(ERootRoutes.Modal, route, params as any);
     },
     [pushModalPage],
   );
@@ -156,7 +156,7 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.iOSFullScreen, route, params);
+      pushModalPage(ERootRoutes.iOSFullScreen, route, params as any);
     },
     [pushModalPage],
   );
