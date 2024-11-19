@@ -11,11 +11,14 @@ import { registerRootComponent } from 'expo';
 
 import App from './App';
 
-import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import {
+  initSentry,
+  withProfiler,
+} from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 initSentry();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
 // the environment is set up appropriately
-registerRootComponent(App);
+registerRootComponent(withProfiler(App));
