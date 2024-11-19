@@ -139,11 +139,11 @@ export const {
 // firmware update ----------------------------------------------
 
 export const {
-  target: firmwareUpdatesDetectStatusAtom,
-  use: useFirmwareUpdatesDetectStatusAtom,
+  target: firmwareUpdatesDetectStatusPersistAtom,
+  use: useFirmwareUpdatesDetectStatusPersistAtom,
 } = globalAtom<IFirmwareUpdatesDetectStatus | undefined>({
   initialValue: undefined,
-  name: EAtomNames.firmwareUpdatesDetectStatusAtom,
+  name: EAtomNames.firmwareUpdatesDetectStatusPersistAtom,
   persist: true,
 });
 

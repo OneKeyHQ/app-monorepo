@@ -30,7 +30,7 @@ import {
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import {
   useFirmwareUpdateRetryAtom,
-  useFirmwareUpdatesDetectStatusAtom,
+  useFirmwareUpdatesDetectStatusPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import * as AllErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -98,7 +98,7 @@ function BootloaderModeUpdateButton() {
 }
 
 function ClearUpdateInfoDetectCacheButton() {
-  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusAtom();
+  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   return (
     <Button
       onPress={() => {
