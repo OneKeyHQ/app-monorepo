@@ -2662,9 +2662,9 @@ export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
     scr,
     mode,
     xdai,
+    b2,
     bob,
     zircuit,
-    kava,
   ],
 );
 

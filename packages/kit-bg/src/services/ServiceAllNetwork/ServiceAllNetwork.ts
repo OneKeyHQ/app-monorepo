@@ -31,6 +31,7 @@ export type IAllNetworkAccountInfo = {
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
   deriveType: IAccountDeriveTypes | undefined;
+  isTestnet: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
@@ -153,6 +154,7 @@ class ServiceAllNetwork extends ServiceBase {
       if (
         isEnabledNetworksInAllNetworks({
           networkId: accountInfo.networkId,
+          isTestnet: accountInfo.isTestnet,
           deriveType: accountInfo.deriveType,
           disabledNetworks,
           enabledNetworks,
@@ -329,6 +331,7 @@ class ServiceAllNetwork extends ServiceBase {
                 accountXpub,
                 isBackendIndexed,
                 isNftEnabled,
+                isTestnet: n.isTestnet,
                 dbAccount: a,
                 deriveType,
               };
@@ -358,6 +361,7 @@ class ServiceAllNetwork extends ServiceBase {
             isBackendIndexed,
             dbAccount: undefined,
             deriveType: undefined,
+            isTestnet: n.isTestnet,
           });
         }
       }),
