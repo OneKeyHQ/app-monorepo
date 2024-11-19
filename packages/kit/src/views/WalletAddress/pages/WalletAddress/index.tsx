@@ -667,6 +667,27 @@ const WalletAddressContent = ({
   );
 };
 
+function WalletAddressPageView({
+  onClose,
+  children,
+}: {
+  onClose?: () => Promise<void>;
+  children: React.ReactNode;
+}) {
+  const intl = useIntl();
+  return (
+    <Page safeAreaEnabled={false} onClose={onClose}>
+      <Page.Header
+        // title={accountId || ''}
+        title={intl.formatMessage({
+          id: ETranslations.copy_address_modal_title,
+        })}
+      />
+      <Page.Body>{children}</Page.Body>
+    </Page>
+  );
+}
+
 const WalletAddress = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   accountId,
@@ -684,8 +705,7 @@ const WalletAddress = ({
     useContext(WalletAddressContext);
 
   return (
-    <Page
-      safeAreaEnabled={false}
+    <WalletAddressPageView
       onClose={async () => {
         const latestAllNetworksState =
           await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
@@ -706,20 +726,12 @@ const WalletAddress = ({
         }
       }}
     >
-      <Page.Header
-        // title={accountId || ''}
-        title={intl.formatMessage({
-          id: ETranslations.copy_address_modal_title,
-        })}
+      <WalletAddressContent
+        testnetItems={testnetItems}
+        mainnetItems={mainnetItems}
+        frequentlyUsedNetworks={frequentlyUsedNetworks}
       />
-      <Page.Body>
-        <WalletAddressContent
-          testnetItems={testnetItems}
-          mainnetItems={mainnetItems}
-          frequentlyUsedNetworks={frequentlyUsedNetworks}
-        />
-      </Page.Body>
-    </Page>
+    </WalletAddressPageView>
   );
 };
 
@@ -746,7 +758,11 @@ export default function WalletAddressPage({
     [isAllNetworksEnabledWrapper],
   );
 
-  const { result, run: refreshLocalData } = usePromiseResult(
+  const {
+    result,
+    run: refreshLocalData,
+    isLoading,
+  } = usePromiseResult(
     async () => {
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
@@ -769,6 +785,7 @@ export default function WalletAddressPage({
     },
     [accountId, indexedAccountId, walletId],
     {
+      watchLoading: true,
       initResult: {
         networksAccount: [],
         networks: {
@@ -867,12 +884,20 @@ export default function WalletAddressPage({
       enabledNum={[0]}
     >
       <WalletAddressContext.Provider value={context}>
-        <WalletAddress
-          accountId={accountId} // route.params.accountId
-          testnetItems={result.networks.testnetItems}
-          mainnetItems={result.networks.mainnetItems}
-          frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
-        />
+        {isLoading ? (
+          <WalletAddressPageView>
+            <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
+              <Spinner size="large" />
+            </Stack>
+          </WalletAddressPageView>
+        ) : (
+          <WalletAddress
+            accountId={accountId} // route.params.accountId
+            testnetItems={result.networks.testnetItems}
+            mainnetItems={result.networks.mainnetItems}
+            frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+          />
+        )}
       </WalletAddressContext.Provider>
     </AccountSelectorProviderMirror>
   );
