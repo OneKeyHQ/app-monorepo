@@ -1,13 +1,12 @@
 import { init } from '@sentry/react';
 
-export * from '@sentry/react';
-
 export const initSentry = () => {
   init({
-    dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
+    dsn: 'https://7850b8d23c313bf0df1bcaead128af6f@o4508208799809536.ingest.de.sentry.io/4508325155831888',
   });
 };
 
+export * from '@sentry/react';
 export const wrap = (Component: ComponentType<T>): ComponentType<T> =>
   Component;
 export const nativeCrash = () => {};

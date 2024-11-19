@@ -11,12 +11,9 @@ import { registerRootComponent } from 'expo';
 
 import App from './App';
 
-import * as Sentry from '@sentry/react';
+import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
-Sentry.init({
-  dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
-  integrations: [],
-});
+initSentry();
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

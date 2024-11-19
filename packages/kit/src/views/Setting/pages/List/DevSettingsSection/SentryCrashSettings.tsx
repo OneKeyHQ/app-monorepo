@@ -1,4 +1,7 @@
-import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import {
+  captureException,
+  nativeCrash,
+} from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SectionPressItem } from './SectionPressItem';
@@ -22,9 +25,7 @@ export function SentryCrashSettings() {
       <SectionPressItem
         title="Sentry Native Crash"
         onPress={() => {
-          const nativeSentry =
-            require('@onekeyhq/shared/src/modules3rdParty/sentry') as typeof import('@sentry/react-native');
-          nativeSentry.nativeCrash();
+          nativeCrash();
         }}
       />,
     );
