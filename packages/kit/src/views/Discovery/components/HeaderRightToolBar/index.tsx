@@ -35,7 +35,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider';
 
-import { ShortcutsActionButton } from './ShortcutsActionButton.desktop';
+import { ShortcutsActionButton } from './ShortcutsActionButton';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 
