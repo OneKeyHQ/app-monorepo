@@ -57,6 +57,19 @@ export async function jotaiInitFromUi({
   globalJotaiStorageReadyHandler.resolveReady(true);
 }
 
+function checkAtomNameMatched(key: string, value: string) {
+  if (key !== value) {
+    const isNotificationsPersistAtom =
+      key === 'notificationsPersistAtom' && value === 'notificationsAtom';
+    if (isNotificationsPersistAtom) {
+      return;
+    }
+    throw new Error(
+      `Atom name not matched with key: key=${key} value=${value}`,
+    );
+  }
+}
+
 export async function jotaiInit() {
   const allAtoms = await import('./atoms');
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};
@@ -66,9 +79,7 @@ export async function jotaiInit() {
     }
   });
   Object.entries(EAtomNames).forEach(([key, value]) => {
-    if (key !== value) {
-      throw new Error(`Atom names key value not matched: ${key}`);
-    }
+    checkAtomNameMatched(key, value);
     if (!value.endsWith('Atom')) {
       throw new Error(`Atom name should be end with Atom: ${value}`);
     }
@@ -83,11 +94,7 @@ export async function jotaiInit() {
       if (!value.name) {
         return;
       }
-      if (key !== value.name) {
-        throw new Error(
-          `Atom name not matched with key: key=${key} name=${value.name}`,
-        );
-      }
+      checkAtomNameMatched(key, value.name);
       const storageKey = buildJotaiStorageKey(value.name);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const atomObj = value.atom() as unknown as IJotaiWritableAtomPro<
