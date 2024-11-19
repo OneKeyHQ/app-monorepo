@@ -1,5 +1,7 @@
 import Sentry from '@sentry/electron/main';
 
+import { basicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
+
 export const initSentry = () => {
   let dsn =
     'https://05ed77019985fb3c81f0bcbdbe1774cd@o4508208799809536.ingest.de.sentry.io/4508320047890512';
@@ -15,5 +17,14 @@ export const initSentry = () => {
   }
   Sentry.init({
     dsn,
+    enableRendererProfiling: true,
+    ...basicOptions,
+    integrations: [
+      Sentry.anrIntegration({ captureStackTrace: true }),
+      Sentry.childProcessIntegration({
+        breadcrumbs: [],
+        events: ['oom'],
+      }),
+    ],
   });
 };

@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 import { init } from '@sentry/react';
 
 export const initSentry = () => {
