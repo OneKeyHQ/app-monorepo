@@ -118,34 +118,37 @@ function AvatarStackTrigger({
   }, [accountsInfo]);
 
   return (
-    <XStack role="button" testID="multi-avatar">
-      {accounts?.slice(0, 2).map((account, index) => (
-        <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
-          <AccountAvatar
-            key={account?.account.id}
-            account={account.account}
-            size="small"
-            zIndex={-index}
-            networkId={account?.networkId}
-            indexedAccount={account.indexedAccount}
-          />
-        </Stack>
-      ))}
-      {accountsInfo.length > 2 ? (
-        <XStack
-          w="$6"
-          h="$6"
-          px="$1"
-          bg="$bgStrong"
-          borderRadius="$2"
-          ml="$-1"
-          alignItems="center"
-        >
-          <SizableText size="$bodyMd" color="$text">
-            +{accountsInfo.length - 2}
-          </SizableText>
-        </XStack>
-      ) : null}
+    <XStack gap="$4">
+      <XStack role="button" testID="multi-avatar">
+        {accounts?.slice(0, 2).map((account, index) => (
+          <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
+            <AccountAvatar
+              key={account?.account.id}
+              account={account.account}
+              size="small"
+              zIndex={-index}
+              networkId={account?.networkId}
+              indexedAccount={account.indexedAccount}
+            />
+          </Stack>
+        ))}
+        {accountsInfo.length > 2 ? (
+          <XStack
+            w="$6"
+            h="$6"
+            px="$1"
+            bg="$bgStrong"
+            borderRadius="$2"
+            ml="$-1"
+            alignItems="center"
+          >
+            <SizableText size="$bodyMd" color="$text">
+              +{accountsInfo.length - 2}
+            </SizableText>
+          </XStack>
+        ) : null}
+      </XStack>
+      <ShortcutsActionButton />
     </XStack>
   );
 }
