@@ -35,7 +35,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider';
 
-import { ShortcutsActionButton } from './ShortcutsActionButton.desktop';
+import { ShortcutsActionButton } from './ShortcutsActionButton';
 
 import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 
@@ -87,13 +87,9 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack gap="$3" alignItems="center">
-      <Stack>
-        <NetworkSelectorTriggerBrowserSingle num={num} />
-      </Stack>
-      <Stack>
-        <AccountSelectorTriggerBrowserSingle num={num} />
-      </Stack>
+    <XStack gap="$6" alignItems="center">
+      <NetworkSelectorTriggerBrowserSingle num={num} />
+      <AccountSelectorTriggerBrowserSingle num={num} />
     </XStack>
   );
 }
@@ -122,34 +118,45 @@ function AvatarStackTrigger({
   }, [accountsInfo]);
 
   return (
-    <XStack role="button" testID="multi-avatar">
-      {accounts?.slice(0, 2).map((account, index) => (
-        <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
-          <AccountAvatar
-            key={account?.account.id}
-            account={account.account}
-            size="small"
-            zIndex={-index}
-            networkId={account?.networkId}
-            indexedAccount={account.indexedAccount}
-          />
-        </Stack>
-      ))}
-      {accountsInfo.length > 2 ? (
-        <XStack
-          w="$6"
-          h="$6"
-          px="$1"
-          bg="$bgStrong"
-          borderRadius="$2"
-          ml="$-1"
-          alignItems="center"
-        >
-          <SizableText size="$bodyMd" color="$text">
-            +{accountsInfo.length - 2}
-          </SizableText>
-        </XStack>
-      ) : null}
+    <XStack gap="$4" alignItems="center">
+      <XStack role="button" testID="multi-avatar">
+        {accounts?.slice(0, 2).map((account, index) => (
+          <Stack
+            key={index}
+            borderWidth={2}
+            borderColor="$bgApp"
+            ml="$-0.5"
+            {...(index === 0 && {
+              zIndex: 1,
+            })}
+          >
+            <AccountAvatar
+              key={account?.account.id}
+              account={account.account}
+              size="small"
+              zIndex={-index}
+              networkId={account?.networkId}
+              indexedAccount={account.indexedAccount}
+            />
+          </Stack>
+        ))}
+        {accountsInfo.length > 2 ? (
+          <XStack
+            w="$6"
+            h="$6"
+            px="$1"
+            bg="$bgStrong"
+            borderRadius="$2"
+            ml="$-1"
+            alignItems="center"
+          >
+            <SizableText size="$bodyMd" color="$text">
+              +{accountsInfo.length - 2}
+            </SizableText>
+          </XStack>
+        ) : null}
+      </XStack>
+      <ShortcutsActionButton />
     </XStack>
   );
 }
@@ -266,6 +273,8 @@ function HeaderRightToolBar() {
     if (connectedAccountsInfo.length === 1) {
       return (
         <Stack
+          ml="$6"
+          gap="$6"
           $gtMd={{
             width: platformEnv.isNative ? undefined : '100%',
             flexDirection: 'row-reverse',
@@ -291,36 +300,36 @@ function HeaderRightToolBar() {
                 },
               }}
             >
-              <XStack mr="$-1.5" flexShrink={1}>
-                <SingleAccountAndNetworkSelectorTrigger
-                  origin={origin}
-                  num={accountInfo.num}
-                  account={accountInfo}
-                  afterChangeAccount={afterChangeAccount}
-                />
-              </XStack>
+              <SingleAccountAndNetworkSelectorTrigger
+                origin={origin}
+                num={accountInfo.num}
+                account={accountInfo}
+                afterChangeAccount={afterChangeAccount}
+              />
             </AccountSelectorProviderMirror>
           ))}
         </Stack>
       );
     }
     return (
-      <Popover
-        title="Connected Accounts"
-        keepChildrenMounted
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-        renderTrigger={
-          <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
-        }
-        renderContent={
-          <AccountSelectorPopoverContent
-            origin={origin}
-            accountsInfo={connectedAccountsInfo}
-            afterChangeAccount={afterChangeAccount}
-          />
-        }
-      />
+      <Stack ml="$6">
+        <Popover
+          title="Connected Accounts"
+          keepChildrenMounted
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+          renderTrigger={
+            <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
+          }
+          renderContent={
+            <AccountSelectorPopoverContent
+              origin={origin}
+              accountsInfo={connectedAccountsInfo}
+              afterChangeAccount={afterChangeAccount}
+            />
+          }
+        />
+      </Stack>
     );
   }, [
     isLoading,

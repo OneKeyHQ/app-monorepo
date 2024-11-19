@@ -1272,11 +1272,13 @@ function TokenListContainer(props: ITabPageProps) {
         refresh(undefined);
       }
     };
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     };
   }, [
     handleRefreshAllNetworkData,
