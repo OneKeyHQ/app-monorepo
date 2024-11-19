@@ -32,6 +32,7 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '../../vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
@@ -956,6 +957,11 @@ class ServiceNetwork extends ServiceBase {
         networkId: getNetworkIdsMap().onekeyall,
       });
 
+    if (allNetworkItem) {
+      allNetworkItem.name = appLocale.intl.formatMessage({
+        id: ETranslations.global_all_networks,
+      });
+    }
     let unavailableNetworks: IServerNetwork[] = [];
     const frequentlyUsedNetworks: IServerNetwork[] = [];
     const networks: IServerNetwork[] = [];
