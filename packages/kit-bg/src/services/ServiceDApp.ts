@@ -571,7 +571,7 @@ class ServiceDApp extends ServiceBase {
           storageType,
           networkImpl,
         );
-      if (accountsInfo) {
+      if (Array.isArray(accountsInfo) && accountsInfo.length) {
         if (shouldAlignPrimaryAccount) {
           const accountInfo = await this.alignPrimaryAccountToHomeAccount({
             origin,
