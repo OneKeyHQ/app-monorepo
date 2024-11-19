@@ -16,6 +16,7 @@ export enum EPerformanceTimerLogNames {
   allNetwork__getAccountLocalTokens = 'allNetwork__getAccountLocalTokens',
   allNetwork__useAllNetworkRequests = 'allNetwork__useAllNetworkRequests',
   allNetwork__handleAllNetworkCacheRequests = 'allNetwork__handleAllNetworkCacheRequests',
+  serviceNetwork__getAllNetworks = 'serviceNetwork__getAllNetworks',
 }
 
 function getPerformanceTimerLogConfigMap() {
