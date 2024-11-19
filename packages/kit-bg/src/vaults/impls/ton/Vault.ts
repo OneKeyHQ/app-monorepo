@@ -407,6 +407,7 @@ export default class Vault extends VaultBase {
     });
     return {
       encodedTx: {
+        ...encodedTx,
         body: Buffer.from(await serializeUnsignedTx.body.toBoc(false)).toString(
           'base64',
         ),
