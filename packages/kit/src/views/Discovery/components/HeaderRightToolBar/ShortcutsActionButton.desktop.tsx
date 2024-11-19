@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList, IconButton, useMedia } from '@onekeyhq/components';
+import { ActionList, IconButton } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -16,7 +16,6 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
@@ -24,7 +23,6 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import type { IWebTab } from '../../types';
 
 export function ShortcutsActionButton() {
-  const { gtMd } = useMedia();
   const { activeTabId: id } = useActiveTabId();
   const intl = useIntl();
   const { tab }: { tab: IWebTab | undefined } = useWebTabDataById(id as string);
@@ -62,10 +60,9 @@ export function ShortcutsActionButton() {
       appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
     };
   }, [run]);
-  return gtMd ? (
+  return (
     <ActionList
-      offset={{ mainAxis: 0, crossAxis: 18 }}
-      placement="left-end"
+      placement="bottom-end"
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       sections={[
         {
@@ -98,21 +95,6 @@ export function ShortcutsActionButton() {
         },
         {
           items: [
-            {
-              label: intl.formatMessage({
-                id: ETranslations.settings_shortcuts,
-              }),
-              icon: 'ShortcutsCustom',
-              onPress: () => {
-                navigation.pushModal(EModalRoutes.ShortcutsModal, {
-                  screen: EModalShortcutsRoutes.ShortcutsPreview,
-                });
-              },
-            },
-          ],
-        },
-        {
-          items: [
             tabDetail?.hasConnectedAccount && {
               label: intl.formatMessage({
                 id: ETranslations.explore_disconnect,
@@ -124,14 +106,7 @@ export function ShortcutsActionButton() {
           ].filter(Boolean) as IActionListItemProps[],
         },
       ]}
-      renderTrigger={
-        <IconButton
-          ml="$2"
-          flex={1}
-          icon="DotHorOutline"
-          backgroundColor="$bgApp"
-        />
-      }
+      renderTrigger={<IconButton variant="tertiary" icon="DotHorOutline" />}
     />
-  ) : null;
+  );
 }

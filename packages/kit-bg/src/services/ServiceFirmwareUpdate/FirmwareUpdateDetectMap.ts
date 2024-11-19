@@ -6,7 +6,7 @@ import type {
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
 
-import { firmwareUpdatesDetectStatusAtom } from '../../states/jotai/atoms';
+import { firmwareUpdatesDetectStatusPersistAtom } from '../../states/jotai/atoms';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
@@ -74,7 +74,7 @@ export class FirmwareUpdateDetectMap {
   }
 
   async updateDetectStatusAtom({ connectId }: { connectId: string }) {
-    await firmwareUpdatesDetectStatusAtom.set(
+    await firmwareUpdatesDetectStatusPersistAtom.set(
       (value: IFirmwareUpdatesDetectStatus | undefined) => {
         const detectCache = this.detectMapCache[connectId];
         const hasUpdateInfo = detectCache && detectCache?.updateInfo;

@@ -118,20 +118,16 @@ export function getBtcDappUniSetChainName(network: IServerNetwork) {
 
 export function isEnabledNetworksInAllNetworks({
   networkId,
-  deriveType,
   disabledNetworks,
   enabledNetworks,
   isTestnet,
 }: {
   networkId: string;
-  deriveType: IAccountDeriveTypes | undefined;
   disabledNetworks: {
     networkId: string;
-    deriveType: IAccountDeriveTypes;
   }[];
   enabledNetworks: {
     networkId: string;
-    deriveType: IAccountDeriveTypes;
   }[];
   isTestnet: boolean;
 }) {

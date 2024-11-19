@@ -43,6 +43,7 @@ export enum EAppEventBusNames {
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
   SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
+  NetworkDeriveTypeChanged = 'NetworkDeriveTypeChanged',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
   FinalizeWalletSetupError = 'FinalizeWalletSetupError',
@@ -114,6 +115,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
   [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
