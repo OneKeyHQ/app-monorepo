@@ -297,8 +297,16 @@ export function DeriveTypeSelectorTriggerGlobalStandAlone({
   renderTrigger,
   placement,
   offset,
+  onChange,
 }: {
   networkId: string;
+  onChange?: ({
+    type,
+    originalDeriveType,
+  }: {
+    type: IAccountDeriveTypes;
+    originalDeriveType: IAccountDeriveTypes | undefined;
+  }) => void;
 } & IDeriveTypeSelectorTriggerPropsBase) {
   const [deriveTypeChangedTs, setDeriveTypeChangedTs] = useState(0);
   const { result: options = [] } = usePromiseResult(
@@ -322,6 +330,10 @@ export function DeriveTypeSelectorTriggerGlobalStandAlone({
       value={deriveType}
       items={options}
       onChange={async (type) => {
+        onChange?.({
+          type,
+          originalDeriveType: deriveType,
+        });
         await backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
           networkId: networkId || '',
           deriveType: type,
