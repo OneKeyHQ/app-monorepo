@@ -87,13 +87,9 @@ function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack gap="$3" alignItems="center">
-      <Stack>
-        <NetworkSelectorTriggerBrowserSingle num={num} />
-      </Stack>
-      <Stack>
-        <AccountSelectorTriggerBrowserSingle num={num} />
-      </Stack>
+    <XStack gap="$6" alignItems="center">
+      <NetworkSelectorTriggerBrowserSingle num={num} />
+      <AccountSelectorTriggerBrowserSingle num={num} />
     </XStack>
   );
 }
@@ -291,14 +287,12 @@ function HeaderRightToolBar() {
                 },
               }}
             >
-              <XStack mr="$-1.5" flexShrink={1}>
-                <SingleAccountAndNetworkSelectorTrigger
-                  origin={origin}
-                  num={accountInfo.num}
-                  account={accountInfo}
-                  afterChangeAccount={afterChangeAccount}
-                />
-              </XStack>
+              <SingleAccountAndNetworkSelectorTrigger
+                origin={origin}
+                num={accountInfo.num}
+                account={accountInfo}
+                afterChangeAccount={afterChangeAccount}
+              />
             </AccountSelectorProviderMirror>
           ))}
         </Stack>
