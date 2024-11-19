@@ -65,14 +65,14 @@ function ListShortcutsItem() {
       screen: EModalShortcutsRoutes.ShortcutsPreview,
     });
   }, [navigation]);
-  return platformEnv.isNative ? null : (
+  return platformEnv.isDesktop ? (
     <ListItem
       onPress={toShortcutsPage}
       icon="ShortcutsCustom"
       title={intl.formatMessage({ id: ETranslations.settings_shortcuts })}
       drillIn
     />
-  );
+  ) : null;
 }
 
 export const ResourceSection = () => {

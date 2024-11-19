@@ -98,14 +98,17 @@ export const AdvancedSection = () => {
 
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
-      <ListItem
-        onPress={onAlignPrimaryAccount}
-        icon="RefreshCcwOutline"
-        title={intl.formatMessage({
-          id: ETranslations.settings_account_sync_modal_title,
-        })}
-        drillIn
-      />
+      {platformEnv.isWeb ? null : (
+        <ListItem
+          onPress={onAlignPrimaryAccount}
+          icon="RefreshCcwOutline"
+          title={intl.formatMessage({
+            id: ETranslations.settings_account_sync_modal_title,
+          })}
+          drillIn
+        />
+      )}
+
       <ListItem
         onPress={onAddCustomNetwork}
         icon="GlobusOutline"
