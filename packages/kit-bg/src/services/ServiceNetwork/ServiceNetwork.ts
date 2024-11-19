@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -32,7 +33,6 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '../../vaults/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const defaultPinnedNetworkIds = [
   getNetworkIdsMap().btc,
