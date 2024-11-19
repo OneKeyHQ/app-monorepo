@@ -14,8 +14,7 @@ export const initSentry = () => {
 };
 
 export * from '@sentry/react';
-export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
-  Component;
+
 export const nativeCrash = () => {};
 
 export const withSentryHOC = (

@@ -1,11 +1,11 @@
 import type { ComponentType } from 'react';
 
 import {
-  wrap as NativeWrap,
   init,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
   withProfiler,
+  wrap,
 } from '@sentry/react-native';
 
 import { basicOptions } from './basicOptions';
@@ -22,7 +22,6 @@ export const initSentry = () => {
   });
 };
 
-export const wrap = NativeWrap;
 export const nativeCrash = sentryNativeCrash;
 
 export const withSentryHOC = (
