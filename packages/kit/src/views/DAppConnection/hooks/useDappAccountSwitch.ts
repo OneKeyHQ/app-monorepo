@@ -243,6 +243,12 @@ export function useDappAccountSwitch({
   useEffect(() => {
     const sync = async () => {
       if (
+        settings?.alignPrimaryAccountMode !==
+        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+      ) {
+        return;
+      }
+      if (
         Array.isArray(result?.connectedAccountsInfo) &&
         result?.connectedAccountsInfo?.length === 1
       ) {
@@ -277,6 +283,7 @@ export function useDappAccountSwitch({
     };
     void sync();
   }, [
+    settings?.alignPrimaryAccountMode,
     result?.origin,
     result?.connectedAccountsInfo,
     refreshConnectionInfo,

@@ -1202,6 +1202,7 @@
   hardware_wallet_connection_is_only_available_on_the_official_app = 'hardware.wallet_connection_is_only_available_on_the_official_app',
   hardware_wallet_connection_is_only_available_on_the_third_party_apps = 'hardware.wallet_connection_is_only_available_on_the_third_party_apps',
   hidden_assets = 'hidden_assets',
+  history_notification_receiver_label = 'history.notification_receiver_label',
   history_switch_account_dialog_title = 'history.switch_account_dialog_title',
   hw_banner_description = 'hw_banner_description',
   interact_with_contract = 'interact_with_contract',

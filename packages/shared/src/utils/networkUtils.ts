@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import {
@@ -119,6 +121,7 @@ export function isEnabledNetworksInAllNetworks({
   deriveType,
   disabledNetworks,
   enabledNetworks,
+  isTestnet,
 }: {
   networkId: string;
   deriveType: IAccountDeriveTypes | undefined;
@@ -130,21 +133,21 @@ export function isEnabledNetworksInAllNetworks({
     networkId: string;
     deriveType: IAccountDeriveTypes;
   }[];
+  isTestnet: boolean;
 }) {
+  // disable all testnet in all networks by default
+  if (isTestnet) {
+    return false;
+  }
+
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks.find(
-        (n) => n.networkId === networkId && n.deriveType === deriveType,
-      );
+      return !disabledNetworks.find((n) => n.networkId === networkId);
     }
 
-    return enabledNetworks.find(
-      (n) => n.networkId === networkId && n.deriveType === deriveType,
-    );
+    return !!enabledNetworks.find((n) => n.networkId === networkId);
   }
-  return !disabledNetworks.find(
-    (n) => n.networkId === networkId && n.deriveType === deriveType,
-  );
+  return !disabledNetworks.find((n) => n.networkId === networkId);
 }
 
 function isAllNetwork({

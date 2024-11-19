@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "হার্ডওয়্যার ওয়ালেট সংযোগ কেবল অফিসিয়াল অ্যাপে পাওয়া যায়",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "হার্ডওয়্যার ওয়ালেট সংযোগ কেবল তৃতীয় পক্ষের অ্যাপসে উপলব্ধ",
   "hidden_assets": "গোপন সম্পত্তি",
+  "history.notification_receiver_label": "বিজ্ঞপ্তি প্রাপ্ত হয়েছে",
   "history.switch_account_dialog_title": "প্রাথমিক অ্যাকাউন্ট {account} এ পরিবর্তন করবেন?",
   "hw_banner_description": "আপনার ক্রিপ্টো সংরক্ষণ করুন সবচেয়ে শক্তিশালী হার্ডওয়্যার ওয়ালেটের সাহায্যে",
   "interact_with_contract": "(এর সাথে) যোগাযোগ করুন (প্রতি)",

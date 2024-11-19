@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "La connexion au portefeuille matériel n'est disponible que sur l'application officielle",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "La connexion à un portefeuille matériel n'est disponible que sur les applications tierces",
   "hidden_assets": "Actifs cachés",
+  "history.notification_receiver_label": "Notification reçue par",
   "history.switch_account_dialog_title": "Passer au compte principal {account} ?",
   "hw_banner_description": "Sécurisez votre crypto avec le portefeuille matériel le plus puissant",
   "interact_with_contract": "Interagir avec (À)",
