@@ -100,6 +100,7 @@ export function Banner<T extends IBannerData>({
   indicatorContainerStyle,
   leftIconButtonStyle,
   rightIconButtonStyle,
+  showPaginationButton = false,
   ...props
 }: {
   data: T[];
@@ -108,6 +109,7 @@ export function Banner<T extends IBannerData>({
   rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
+  showPaginationButton?: boolean;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
@@ -134,7 +136,7 @@ export function Banner<T extends IBannerData>({
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
       <>
-        {media.gtMd ? (
+        {showPaginationButton || media.gtMd ? (
           <>
             {currentIndex !== 0 ? (
               <IconButton
@@ -202,6 +204,7 @@ export function Banner<T extends IBannerData>({
       </>
     ),
     [
+      showPaginationButton,
       media.gtMd,
       data,
       leftIconButtonStyle,
