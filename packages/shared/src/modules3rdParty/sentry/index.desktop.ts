@@ -7,6 +7,6 @@ export * from '@sentry/electron/renderer';
 export const initSentry = () => {
   init();
 };
-export const wrap = (Component: ComponentType<T>): ComponentType<T> =>
+export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
   Component;
 export const nativeCrash = () => {};
