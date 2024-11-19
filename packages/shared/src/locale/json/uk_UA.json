@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Підключення апаратного гаманця доступне лише в офіційному додатку",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Підключення апаратного гаманця доступне лише в додатках від третіх сторін",
   "hidden_assets": "Приховані активи",
+  "history.notification_receiver_label": "Сповіщення отримано від",
   "history.switch_account_dialog_title": "Переключити основний рахунок на {account}?",
   "hw_banner_description": "Захистіть свою криптовалюту за допомогою найпотужнішого апаратного гаманця",
   "interact_with_contract": "Взаємодіяти з (До)",

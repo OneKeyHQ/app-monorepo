@@ -2,6 +2,8 @@ import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { useIntl } from 'react-intl';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -27,12 +29,20 @@ function SwitchHomeAccountButton({
 }: ISwitchHomeAccountButtonProps) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
+  const intl = useIntl();
   return (
     <Stack
       onPress={async () => {
         Dialog.show({
           icon: 'SwitchHorOutline',
-          title: `Switch primary account to ${walletAccountName}`,
+          title: intl.formatMessage(
+            {
+              id: ETranslations.history_switch_account_dialog_title,
+            },
+            {
+              account: walletAccountName,
+            },
+          ), // `Switch primary account to ${walletAccountName}`,
           onConfirm: async () => {
             const account =
               await backgroundApiProxy.serviceAccount.getDBAccountSafe({

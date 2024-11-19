@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "การเชื่อมต่อกระเป๋าเงินฮาร์ดแวร์สามารถทำได้เฉพาะบนแอปพลิเคชันอย่างเป็นทางการเท่านั้น",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "การเชื่อมต่อกระเป๋าเงินฮาร์ดแวร์สามารถทำได้เฉพาะบนแอปพลิเคชันของบุคคลที่สามเท่านั้น",
   "hidden_assets": "สินทรัพย์ที่ซ่อนอยู่",
+  "history.notification_receiver_label": "การแจ้งเตือนที่ได้รับโดย",
   "history.switch_account_dialog_title": "เปลี่ยนบัญชีหลักเป็น {account}?",
   "hw_banner_description": "รักษาความปลอดภัยสำหรับคริปโตของคุณด้วยกระเป๋าเงินฮาร์ดแวร์ที่ทรงพลังที่สุด",
   "interact_with_contract": "ติดต่อกับ (ถึง)",

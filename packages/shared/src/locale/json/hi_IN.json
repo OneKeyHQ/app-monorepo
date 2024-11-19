@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "हार्डवेयर वॉलेट कनेक्शन केवल आधिकारिक ऐप पर ही उपलब्ध है",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "हार्डवेयर वॉलेट कनेक्शन केवल तीसरे पक्ष के ऐप्स पर उपलब्ध है",
   "hidden_assets": "छिपे हुए संपत्ति",
+  "history.notification_receiver_label": "द्वारा अधिसूचना प्राप्त हुई",
   "history.switch_account_dialog_title": "प्राथमिक खाता {account} में बदलें?",
   "hw_banner_description": "अपने क्रिप्टो को सबसे शक्तिशाली हार्डवेयर वॉलेट के साथ सुरक्षित करें",
   "interact_with_contract": "(से) संवाद करें",

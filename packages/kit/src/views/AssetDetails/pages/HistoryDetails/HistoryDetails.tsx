@@ -270,13 +270,16 @@ function NotificationAccountInfo({
       notificationAccount?.address,
     [notificationAccount],
   );
+  const intl = useIntl();
 
   return (
     <>
       <Divider mx="$5" />
       <InfoItemGroup>
         <InfoItem
-          label="Notification received by"
+          label={intl.formatMessage({
+            id: ETranslations.history_notification_receiver_label,
+          })}
           renderContent={notificationAccountAddress}
           compact
           description={
