@@ -7,6 +7,7 @@ export const basicOptions: BrowserOptions = {
     const error = hint.originalException as { message?: string };
     if (error && error.message) {
       const words = error.message.split(' ');
+
       if (words.length < 13) {
         return event;
       }
