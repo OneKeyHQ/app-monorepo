@@ -4,10 +4,9 @@ import '@onekeyhq/shared/src/polyfills';
 import { KitProvider } from '@onekeyhq/kit';
 import {
   initSentry,
-  withProfiler,
-  wrap,
+  withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 initSentry();
 
-export default withProfiler(wrap(KitProvider));
+export default withSentryHOC(KitProvider);

@@ -1,7 +1,11 @@
+import type { ComponentType } from 'react';
+
 import {
   wrap as NativeWrap,
   init,
   nativeCrash as sentryNativeCrash,
+  withErrorBoundary,
+  withProfiler,
 } from '@sentry/react-native';
 
 import { basicOptions } from './basicOptions';
@@ -20,3 +24,7 @@ export const initSentry = () => {
 
 export const wrap = NativeWrap;
 export const nativeCrash = sentryNativeCrash;
+
+export const withSentryHOC = (
+  Component: ComponentType<any>,
+): ComponentType<any> => withErrorBoundary(withProfiler(wrap(Component)), {});

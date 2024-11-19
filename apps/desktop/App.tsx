@@ -6,9 +6,9 @@ import { KitProvider } from '@onekeyhq/kit';
 
 import {
   initSentry,
-  withProfiler,
+  withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 initSentry();
 
-export default withProfiler(KitProvider);
+export default withSentryHOC(KitProvider);

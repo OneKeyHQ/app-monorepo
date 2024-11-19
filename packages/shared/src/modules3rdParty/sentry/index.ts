@@ -18,3 +18,8 @@ export const initSentry = () => {
 export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
   Component;
 export const nativeCrash = () => {};
+
+export const withSentryHOC = (
+  Component: ComponentType<any>,
+): ComponentType<any> =>
+  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {});

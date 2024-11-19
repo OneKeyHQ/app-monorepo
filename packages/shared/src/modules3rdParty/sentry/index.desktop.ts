@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 
 import Sentry from '@sentry/electron/renderer';
+import { withErrorBoundary, withProfiler } from '@sentry/react';
 
 import { buildIntegrations } from './basicOptions';
 
@@ -15,4 +16,6 @@ export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
   Component;
 export const nativeCrash = () => {};
 
-export { withProfiler, withErrorBoundary } from '@sentry/react';
+export const withSentryHOC = (
+  Component: ComponentType<any>,
+): ComponentType<any> => withErrorBoundary(withProfiler(Component), {});

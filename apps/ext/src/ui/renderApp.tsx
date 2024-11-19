@@ -7,19 +7,19 @@ import { createRoot } from 'react-dom/client';
 
 import {
   initSentry,
-  withProfiler,
+  withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 import App from '../App';
 
 initSentry();
 
-const WithProfilerApp = withProfiler(App);
+const WithSentryHOC = withSentryHOC(App);
 
 function renderApp() {
   const root = globalThis.document.querySelector('#root');
   if (!root) throw new Error('No root element found!');
-  createRoot(root).render(<WithProfilerApp />);
+  createRoot(root).render(<WithSentryHOC />);
 }
 
 export default renderApp;
