@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import Sentry from '@sentry/react';
+import * as Sentry from '@sentry/react';
 
 import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 
