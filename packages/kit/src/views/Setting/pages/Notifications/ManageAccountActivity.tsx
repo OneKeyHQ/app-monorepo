@@ -1,9 +1,11 @@
 import {
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -228,15 +230,57 @@ function formatSavedEnabledValue(value: boolean) {
   // : value;
 }
 
-function AccordionItem({
-  wallet,
-  onWalletEnabledChange,
+function AccountAccordionItem({
+  account,
+  isAccountEnabled,
+  isOthersWallet,
+  toggleAccountSwitch,
 }: {
+  account: IDBAccount | IDBIndexedAccount;
+  isAccountEnabled: boolean;
+  isOthersWallet: boolean;
+  toggleAccountSwitch: (
+    value: boolean,
+    dbAccount: IDBAccount | IDBIndexedAccount,
+  ) => void;
+}) {
+  console.log('render AccountAccordionItem', account.name);
+  return (
+    <XStack
+      key={account.id}
+      gap="$3"
+      alignItems="center"
+      pl={56}
+      pr="$5"
+      py="$2"
+    >
+      <AccountAvatar
+        dbAccount={isOthersWallet ? (account as IDBAccount) : undefined}
+        indexedAccount={
+          isOthersWallet ? undefined : (account as IDBIndexedAccount)
+        }
+      />
+      <SizableText flex={1} size="$bodyLgMedium">
+        {account.name}
+      </SizableText>
+      <Switch
+        value={isAccountEnabled}
+        onChange={(value) => toggleAccountSwitch(value, account)}
+      />
+    </XStack>
+  );
+}
+
+const AccountAccordionItemMemo = memo(AccountAccordionItem);
+
+function AccountAccordionItemContainer({
+  account,
+  wallet,
+  isOthersWallet,
+}: {
+  account: IDBAccount | IDBIndexedAccount;
   wallet: IDBWallet;
-  onWalletEnabledChange: (params: {
-    wallet: IDBWallet;
-    enabled: boolean;
-  }) => void;
+  isOthersWallet: boolean;
 }) {
   const intl = useIntl();
   const {
@@ -246,117 +290,102 @@ function AccordionItem({
     maxAccountCount,
   } = useContextAccountNotificationSettings();
 
-  const isWalletEnabled = isWalletEnabledFn({
-    settings: accountNotificationSettings,
-    wallet,
-  });
-  const isOthersWallet = useMemo(
+  const totalEnabledAccountsCountRef = useRef(totalEnabledAccountsCount);
+  totalEnabledAccountsCountRef.current = totalEnabledAccountsCount;
+
+  const isAccountEnabled = useMemo(
     () =>
-      accountUtils.isOthersWallet({
-        walletId: wallet.id,
+      isAccountEnabledFn({
+        settings: accountNotificationSettings,
+        account,
+        wallet,
       }),
-    [wallet.id],
+    [accountNotificationSettings, account, wallet],
   );
 
-  // prevent event bubbling
-  const stopPropagation = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-  };
+  const toggleAccountSwitch = useCallback(
+    (value: boolean, dbAccount: IDBAccount | IDBIndexedAccount) => {
+      saveAccountNotificationSettings((prevSettings) => {
+        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newValue = value;
 
-  // handle switch change
-  const toggleWalletSwitch = (value: boolean) => {
-    saveAccountNotificationSettings((prevSettings) => {
-      const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
-      const newValue = value;
-
-      if (newValue && newSettings?.[wallet.id]?.accounts) {
-        let enabledAccountsCount = 0;
-        Object.values(newSettings?.[wallet.id]?.accounts || {}).forEach(
-          (item) => {
-            if (item.enabled) {
-              enabledAccountsCount += 1;
-              if (
-                totalEnabledAccountsCount + enabledAccountsCount >
-                maxAccountCount
-              ) {
-                item.enabled = false;
-              }
-            }
-          },
-        );
-      }
-
-      newSettings[wallet.id] = {
-        ...newSettings?.[wallet.id],
-        enabled: formatSavedEnabledValue(newValue),
-      };
-      onWalletEnabledChange({
-        wallet,
-        enabled: newValue,
-      });
-      return newSettings;
-    });
-  };
-
-  const toggleAccountSwitch = (
-    value: boolean,
-    account: IDBAccount | IDBIndexedAccount,
-  ) => {
-    saveAccountNotificationSettings((prevSettings) => {
-      const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
-      const newValue = value;
-
-      if (newValue) {
-        if (totalEnabledAccountsCount >= maxAccountCount) {
-          Dialog.confirm({
-            title: intl.formatMessage({
-              id: ETranslations.notifications_account_reached_limit_dialog_title,
-            }),
-            description: intl.formatMessage(
-              {
-                id: ETranslations.notifications_account_reached_limit_dialog_desc,
-              },
-              {
-                maxAccountCount,
-              },
-            ),
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_got_it,
-            }),
-          });
-          return newSettings;
+        if (newValue) {
+          if (totalEnabledAccountsCountRef.current >= maxAccountCount) {
+            Dialog.confirm({
+              title: intl.formatMessage({
+                id: ETranslations.notifications_account_reached_limit_dialog_title,
+              }),
+              description: intl.formatMessage(
+                {
+                  id: ETranslations.notifications_account_reached_limit_dialog_desc,
+                },
+                {
+                  maxAccountCount,
+                },
+              ),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+            });
+            return newSettings;
+          }
         }
-      }
 
-      newSettings[wallet.id] = {
-        ...newSettings?.[wallet.id],
-        accounts: {
-          ...newSettings?.[wallet.id]?.accounts,
-          [account.id]: {
-            enabled: formatSavedEnabledValue(newValue),
+        newSettings[wallet.id] = {
+          ...newSettings?.[wallet.id],
+          accounts: {
+            ...newSettings?.[wallet.id]?.accounts,
+            [dbAccount.id]: {
+              enabled: formatSavedEnabledValue(newValue),
+            },
           },
-        },
-      };
-      return newSettings;
-    });
-  };
+        };
+        return newSettings;
+      });
+    },
+    [intl, maxAccountCount, saveAccountNotificationSettings, wallet.id],
+  );
 
-  const totalAccountsCount =
-    (wallet.dbAccounts ?? wallet.dbIndexedAccounts)?.length ?? 0;
-  const enabledAccountsCount = useMemo(() => {
-    if (!isWalletEnabled) {
-      return 0;
-    }
-    return Object.values(
-      accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    ).filter((account) => account.enabled === true).length;
-    // return (
-    //   totalAccountsCount -
-    //   Object.values(
-    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
-    //   ).filter((account) => account.enabled === false).length
-    // );
-  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
+  return (
+    <AccountAccordionItemMemo
+      account={account}
+      isAccountEnabled={isAccountEnabled}
+      isOthersWallet={isOthersWallet}
+      toggleAccountSwitch={toggleAccountSwitch}
+    />
+  );
+}
+
+function WalletAccordionItem({
+  wallet,
+  isOthersWallet,
+  isWalletEnabled,
+  enabledAccountsCount,
+  totalAccountsCount,
+  toggleWalletSwitch,
+}: {
+  wallet: IDBWallet;
+  isOthersWallet: boolean;
+  isWalletEnabled: boolean;
+  enabledAccountsCount: number;
+  totalAccountsCount: number;
+  toggleWalletSwitch: (value: boolean) => void;
+}) {
+  if (totalAccountsCount === 1) {
+    // debugger;
+  }
+  console.log('render WalletAccordionItem', wallet.name, {
+    wallet,
+    isOthersWallet,
+    isWalletEnabled,
+    enabledAccountsCount,
+    totalAccountsCount,
+    toggleWalletSwitch,
+  });
+  // prevent event bubbling
+  const stopPropagation = useCallback((event: GestureResponderEvent) => {
+    event.stopPropagation();
+  }, []);
 
   return (
     <Accordion.Item
@@ -442,36 +471,130 @@ function AccordionItem({
           }}
         >
           {(wallet.dbAccounts ?? wallet.dbIndexedAccounts)?.map((account) => (
-            <XStack
+            <AccountAccordionItemContainer
               key={account.id}
-              gap="$3"
-              alignItems="center"
-              pl={56}
-              pr="$5"
-              py="$2"
-            >
-              <AccountAvatar
-                dbAccount={isOthersWallet ? (account as IDBAccount) : undefined}
-                indexedAccount={
-                  isOthersWallet ? undefined : (account as IDBIndexedAccount)
-                }
-              />
-              <SizableText flex={1} size="$bodyLgMedium">
-                {account.name}
-              </SizableText>
-              <Switch
-                value={isAccountEnabledFn({
-                  settings: accountNotificationSettings,
-                  account,
-                  wallet,
-                })}
-                onChange={(value) => toggleAccountSwitch(value, account)}
-              />
-            </XStack>
+              account={account}
+              wallet={wallet}
+              isOthersWallet={isOthersWallet}
+            />
           ))}
         </Accordion.Content>
       </Accordion.HeightAnimator>
     </Accordion.Item>
+  );
+}
+
+const WalletAccordionItemMemo = memo(WalletAccordionItem);
+
+function WalletAccordionItemContainer({
+  wallet,
+  onWalletEnabledChange,
+}: {
+  wallet: IDBWallet;
+  onWalletEnabledChange: (params: {
+    wallet: IDBWallet;
+    enabled: boolean;
+  }) => void;
+}) {
+  const {
+    settings: accountNotificationSettings,
+    saveSettings: saveAccountNotificationSettings,
+    totalEnabledAccountsCount,
+    maxAccountCount,
+  } = useContextAccountNotificationSettings();
+
+  const totalEnabledAccountsCountRef = useRef(totalEnabledAccountsCount);
+  totalEnabledAccountsCountRef.current = totalEnabledAccountsCount;
+
+  const isWalletEnabled = useMemo(
+    () =>
+      isWalletEnabledFn({
+        settings: accountNotificationSettings,
+        wallet,
+      }),
+    [accountNotificationSettings, wallet],
+  );
+  const isOthersWallet = useMemo(
+    () =>
+      accountUtils.isOthersWallet({
+        walletId: wallet.id,
+      }),
+    [wallet.id],
+  );
+
+  // handle switch change
+  const toggleWalletSwitch = useCallback(
+    (value: boolean) => {
+      saveAccountNotificationSettings((prevSettings) => {
+        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newValue = value;
+
+        if (newValue && newSettings?.[wallet.id]?.accounts) {
+          let enabledAccountsCount = 0;
+          Object.values(newSettings?.[wallet.id]?.accounts || {}).forEach(
+            (item) => {
+              if (item.enabled) {
+                enabledAccountsCount += 1;
+                if (
+                  totalEnabledAccountsCountRef.current + enabledAccountsCount >
+                  maxAccountCount
+                ) {
+                  item.enabled = false;
+                }
+              }
+            },
+          );
+        }
+
+        newSettings[wallet.id] = {
+          ...newSettings?.[wallet.id],
+          enabled: formatSavedEnabledValue(newValue),
+        };
+        onWalletEnabledChange({
+          wallet,
+          enabled: newValue,
+        });
+        return newSettings;
+      });
+    },
+    [
+      maxAccountCount,
+      onWalletEnabledChange,
+      saveAccountNotificationSettings,
+      wallet,
+    ],
+  );
+
+  const totalAccountsCount = useMemo(() => {
+    const result = (wallet.dbAccounts ?? wallet.dbIndexedAccounts)?.length ?? 0;
+
+    return result;
+  }, [wallet.dbAccounts, wallet.dbIndexedAccounts]);
+
+  const enabledAccountsCount = useMemo(() => {
+    if (!isWalletEnabled) {
+      return 0;
+    }
+    return Object.values(
+      accountNotificationSettings?.[wallet.id]?.accounts ?? {},
+    ).filter((account) => account.enabled === true).length;
+    // return (
+    //   totalAccountsCount -
+    //   Object.values(
+    //     accountNotificationSettings?.[wallet.id]?.accounts ?? {},
+    //   ).filter((account) => account.enabled === false).length
+    // );
+  }, [isWalletEnabled, accountNotificationSettings, wallet.id]);
+
+  return (
+    <WalletAccordionItemMemo
+      wallet={wallet}
+      isOthersWallet={isOthersWallet}
+      isWalletEnabled={isWalletEnabled}
+      enabledAccountsCount={enabledAccountsCount}
+      totalAccountsCount={totalAccountsCount}
+      toggleWalletSwitch={toggleWalletSwitch}
+    />
   );
 }
 
@@ -492,8 +615,34 @@ function LoadingView({ show }: { show: boolean }) {
   );
 }
 
-function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
-  const [expandValue, setExpandValue] = useState(wallets?.[0]?.id);
+function getDefaultExpandWalletId({
+  wallets,
+  settings,
+}: {
+  wallets: IDBWallet[];
+  settings: IAccountActivityNotificationSettings;
+}) {
+  for (const wallet of wallets) {
+    if (settings[wallet.id]?.enabled) {
+      return wallet.id;
+    }
+    for (const hiddenWallet of wallet.hiddenWallets || []) {
+      if (settings[hiddenWallet.id]?.enabled) {
+        return hiddenWallet.id;
+      }
+    }
+  }
+  return wallets?.[0]?.id;
+}
+
+function WalletAccordionList({
+  defaultExpandWalletId,
+  wallets,
+}: {
+  defaultExpandWalletId: string | undefined;
+  wallets: IDBWallet[];
+}) {
+  const [expandValue, setExpandValue] = useState(defaultExpandWalletId);
 
   const onWalletEnabledChange = useCallback(
     (params: { wallet: IDBWallet; enabled: boolean }) => {
@@ -523,13 +672,13 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
             borderTopColor: '$borderSubdued',
           })}
         >
-          <AccordionItem
+          <WalletAccordionItemContainer
             wallet={wallet}
             onWalletEnabledChange={onWalletEnabledChange}
           />
           {/* render items for */}
           {wallet.hiddenWallets?.map((hiddenWallet) => (
-            <AccordionItem
+            <WalletAccordionItemContainer
               key={hiddenWallet.id}
               wallet={hiddenWallet}
               onWalletEnabledChange={onWalletEnabledChange}
@@ -541,14 +690,28 @@ function WalletAccordionList({ wallets }: { wallets: IDBWallet[] }) {
   );
 }
 
+const WalletAccordionListMemo = memo(WalletAccordionList);
+
 function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
   const intl = useIntl();
-  const { totalEnabledAccountsCount, maxAccountCount } =
-    useContextAccountNotificationSettings();
+  const {
+    totalEnabledAccountsCount,
+    maxAccountCount,
+    settings: accountNotificationSettings,
+  } = useContextAccountNotificationSettings();
   const shouldShowAlert = useMemo(
     () => totalEnabledAccountsCount / maxAccountCount >= 0.9,
     [totalEnabledAccountsCount, maxAccountCount],
   );
+
+  const defaultExpandWalletIdRef = useRef<string | undefined>();
+  if (!defaultExpandWalletIdRef.current && accountNotificationSettings) {
+    defaultExpandWalletIdRef.current = getDefaultExpandWalletId({
+      wallets,
+      settings: accountNotificationSettings,
+    });
+  }
+
   return (
     <>
       {shouldShowAlert ? (
@@ -569,7 +732,12 @@ function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
           closable={false}
         />
       ) : null}
-      <WalletAccordionList wallets={wallets} />
+      {accountNotificationSettings ? (
+        <WalletAccordionListMemo
+          wallets={wallets}
+          defaultExpandWalletId={defaultExpandWalletIdRef.current}
+        />
+      ) : null}
     </>
   );
 }

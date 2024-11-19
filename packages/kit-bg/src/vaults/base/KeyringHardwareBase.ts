@@ -202,6 +202,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         throw convertDeviceError(hasErrorItem.payload);
         // throw new OneKeyInternalError(hasErrorItem.payload.error);
       }
+      throw new OneKeyInternalError('SDK GetAllNetworkAccounts Failed');
     }
   }
 }
