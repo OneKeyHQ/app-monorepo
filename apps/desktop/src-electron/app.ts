@@ -3,7 +3,6 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
-import Sentry from '@sentry/electron/main';
 import {
   attachTitlebarToWindow,
   setupTitlebar,
@@ -45,15 +44,14 @@ import * as store from './libs/store';
 import { parseContentPList } from './libs/utils';
 import initProcess, { restartBridge } from './process';
 import { resourcesPath, staticPath } from './resoucePath';
+import { initSentry } from './sentry';
 import {
   checkAvailabilityAsync,
   requestVerificationAsync,
   startServices,
 } from './service';
 
-Sentry.init({
-  dsn: 'https://05ed77019985fb3c81f0bcbdbe1774cd@o4508208799809536.ingest.de.sentry.io/4508320047890512',
-});
+initSentry();
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;

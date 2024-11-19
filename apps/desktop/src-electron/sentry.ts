@@ -1,0 +1,19 @@
+import Sentry from '@sentry/electron/main';
+
+export const initSentry = () => {
+  let dsn =
+    'https://05ed77019985fb3c81f0bcbdbe1774cd@o4508208799809536.ingest.de.sentry.io/4508320047890512';
+  if (globalThis.desktopApi.isMas) {
+    dsn =
+      'https://80fff328f1cb3aa66917ca017ad3f92e@o4508208799809536.ingest.de.sentry.io/4508325159632976';
+  } else if (process.env.DESK_CHANNEL === 'ms-store') {
+    dsn =
+      'https://2a500dd98b6e0348ac9da8cc38ab1f55@o4508208799809536.ingest.de.sentry.io/4508325162385488';
+  } else if (globalThis?.desktopApi?.channel === 'snap') {
+    dsn =
+      'https://8c4df967faf64ee7daa2d26d7e2f3fb0@o4508208799809536.ingest.de.sentry.io/4508325161074768';
+  }
+  Sentry.init({
+    dsn,
+  });
+};
