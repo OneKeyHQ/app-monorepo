@@ -140,9 +140,13 @@ export const AccountSelectorTriggerDappConnectionCmp = ({
 
   let addressText = '';
   if (account?.address) {
-    addressText = accountUtils.shortenAddress({
+    addressText = accountUtils.isAllNetworkMockAddress({
       address: account.address || '',
-    });
+    })
+      ? account.address
+      : accountUtils.shortenAddress({
+          address: account.address || '',
+        });
   } else if (!account?.address && account?.addressDetail.isValid) {
     addressText = '';
   } else {
