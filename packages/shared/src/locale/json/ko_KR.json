@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "하드웨어 지갑 연결은 공식 앱에서만 가능합니다",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "하드웨어 지갑 연결은 서드파티 앱에서만 가능합니다",
   "hidden_assets": "숨겨진 자산",
+  "history.notification_receiver_label": "알림 수신자",
   "history.switch_account_dialog_title": "주 계정을 {account}(으)로 전환하시겠습니까?",
   "hw_banner_description": "가장 강력한 하드웨어 지갑으로 귀하의 암호화폐를 보호하세요",
   "interact_with_contract": "(~와) 상호 작용하기",

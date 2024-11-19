@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Подключение аппаратного кошелька доступно только в официальном приложении",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Подключение аппаратного кошелька доступно только в сторонних приложениях",
   "hidden_assets": "Скрытые активы",
+  "history.notification_receiver_label": "Уведомление получено",
   "history.switch_account_dialog_title": "Переключить основной аккаунт на {account}?",
   "hw_banner_description": "Защитите свою криптовалюту с помощью самого мощного аппаратного кошелька",
   "interact_with_contract": "Взаимодействовать с (К)",

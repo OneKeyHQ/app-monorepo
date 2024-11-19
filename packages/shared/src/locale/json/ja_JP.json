@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "ハードウェアウォレットの接続は公式アプリでのみ利用可能です",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "ハードウェアウォレットの接続は、サードパーティのアプリでのみ利用可能です",
   "hidden_assets": "隠された資産",
+  "history.notification_receiver_label": "通知を受け取った人",
   "history.switch_account_dialog_title": "主なアカウントを{account}に切り替えますか？",
   "hw_banner_description": "最強力なハードウェアウォレットであなたの暗号を保護します",
   "interact_with_contract": "(に)交流する",

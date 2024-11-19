@@ -304,6 +304,8 @@ function NotificationList() {
                   void notificationsUtils.navigateToNotificationDetail({
                     navigation,
                     message: item.body,
+                    notificationAccountId:
+                      item?.body?.extras?.params?.accountId,
                     notificationId:
                       item?.msgId ||
                       item?.body?.extras?.params?.msgId ||

@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "Hardware wallet connection is only available on the official app",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "Hardware wallet connection is only available on third-party apps",
   "hidden_assets": "Hidden assets",
+  "history.notification_receiver_label": "Notification received by",
   "history.switch_account_dialog_title": "Switch primary account to {account}?",
   "hw_banner_description": "Secure your crypto with the most powerful hardware wallet",
   "interact_with_contract": "Interact with (To)",

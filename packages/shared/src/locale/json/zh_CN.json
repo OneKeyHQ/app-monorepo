@@ -1197,6 +1197,7 @@
   "hardware.wallet_connection_is_only_available_on_the_official_app": "硬件钱包连接只在官方应用程序上可用",
   "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "硬件钱包连接只在第三方应用程序上可用",
   "hidden_assets": "隐藏资产",
+  "history.notification_receiver_label": "通知接收者",
   "history.switch_account_dialog_title": "将首要账户切换为{account}？",
   "hw_banner_description": "使用迄今为止最强大的硬件钱包保护您的加密资产",
   "interact_with_contract": "交互地址 (至)",
