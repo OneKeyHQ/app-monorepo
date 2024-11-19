@@ -1,11 +1,15 @@
 import type { ComponentType } from 'react';
 
-import { init } from '@sentry/electron/renderer';
+import Sentry from '@sentry/electron/renderer';
+
+import { buildIntegrations } from './basicOptions';
 
 export * from '@sentry/electron/renderer';
 
 export const initSentry = () => {
-  init();
+  Sentry.init({
+    integrations: buildIntegrations(Sentry as any),
+  });
 };
 export const wrap = (Component: ComponentType<any>): ComponentType<any> =>
   Component;

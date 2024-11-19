@@ -1,10 +1,13 @@
 import type { ComponentType } from 'react';
 
-import { init } from '@sentry/react';
+import Sentry from '@sentry/react';
+
+import { buildIntegrations } from './basicOptions';
 
 export const initSentry = () => {
-  init({
+  Sentry.init({
     dsn: 'https://7850b8d23c313bf0df1bcaead128af6f@o4508208799809536.ingest.de.sentry.io/4508325155831888',
+    integrations: buildIntegrations(Sentry),
   });
 };
 
