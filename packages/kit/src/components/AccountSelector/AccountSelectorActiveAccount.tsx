@@ -65,6 +65,10 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     const { network, wallet } = activeAccount;
     if (!network?.isAllNetworks) return null;
 
+    if (shouldClearAllNetworksCache.current) {
+      await backgroundApiProxy.serviceNetwork.clearNetworkVaultSettings();
+    }
+
     const { networkIds } =
       await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
         clearCache: shouldClearAllNetworksCache.current,
