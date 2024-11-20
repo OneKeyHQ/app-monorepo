@@ -18,7 +18,7 @@ export interface IAllNetworksDBStruct {
 export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDBStruct> {
   entityName = 'allNetworks';
 
-  override enableCache = false;
+  override enableCache = true;
 
   @backgroundMethod()
   async getAllNetworksState(): Promise<IAllNetworksDBStruct> {

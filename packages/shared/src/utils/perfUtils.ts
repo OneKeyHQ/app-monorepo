@@ -7,17 +7,25 @@ import { EAppSyncStorageKeys } from '../storage/syncStorage';
 import { formatDateFns } from './dateUtils';
 
 export enum EPerformanceTimerLogNames {
+  // localDB
   localDB__getAccount = 'localDB__getAccount',
   localDB__getIndexedAccount = 'localDB__getIndexedAccount',
   localDB__getIndexedAccountByAccount = 'localDB__getIndexedAccountByAccount',
+  // simpleDB
   simpleDB__getAccountTokenList = 'simpleDB__getAccountTokenList',
   simpleDB__updateAccountTokenList = 'simpleDB__updateAccountTokenList',
+  // allNetwork
   allNetwork__getAllNetworkAccounts_EachAccount = 'allNetwork__getAllNetworkAccounts_EachAccount',
   allNetwork__getAccountLocalTokens = 'allNetwork__getAccountLocalTokens',
   allNetwork__useAllNetworkRequests = 'allNetwork__useAllNetworkRequests',
   allNetwork__handleAllNetworkCacheRequests = 'allNetwork__handleAllNetworkCacheRequests',
+  allNetwork__walletAddressPage = 'allNetwork__walletAddressPage',
+  // serviceNetwork
   serviceNetwork__getAllNetworks = 'serviceNetwork__getAllNetworks',
   serviceNetwork__getAllNetworksWithCache = 'serviceNetwork__getAllNetworksWithCache',
+  // serviceAccount
+  serviceAccount__getNetworkAccountsInSameIndexedAccountId = 'serviceAccount__getNetworkAccountsInSameIndexedAccountId',
+  serviceAccount__getNetworkAccountsInSameIndexedAccountId_EachAccount = 'serviceAccount__getNetworkAccountsInSameIndexedAccountId_EachAccount',
 }
 
 function getPerformanceTimerLogConfigMap() {

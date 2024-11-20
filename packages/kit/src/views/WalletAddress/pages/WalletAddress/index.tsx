@@ -29,8 +29,6 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -40,6 +38,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
+import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -53,9 +53,13 @@ import {
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import debugUtils from '@onekeyhq/shared/src/utils/debugUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   EAccountSelectorSceneName,
   type IServerNetwork,
@@ -95,6 +99,8 @@ type IWalletAddressContext = {
   ) => void;
   isOnlyOneNetworkEnabled: boolean;
 };
+
+const log = debugUtils.createSimpleDebugLog('<WalletAddressPage>', true);
 
 const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
@@ -564,7 +570,7 @@ const WalletAddressContent = ({
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
-  console.log('WalletAddressPage WalletAddressContentRender');
+  log('WalletAddressContentRender');
 
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
@@ -778,7 +784,7 @@ export default function WalletAddressPage({
           return prev;
         }
         if (process.env.NODE_ENV !== 'production') {
-          console.log('WalletAddressPage isAllNetworksEnabledWrapperChanged:', {
+          log('isAllNetworksEnabledWrapperChanged:', {
             prev,
             newData,
             diff: Object.keys(newData)
@@ -808,10 +814,18 @@ export default function WalletAddressPage({
     isLoading,
   } = usePromiseResult(
     async () => {
+      const perf = perfUtils.createPerf(
+        EPerformanceTimerLogNames.allNetwork__walletAddressPage,
+      );
+
+      perf.markStart('getChainSelectorNetworksCompatibleWithAccountId');
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
           { accountId, walletId },
         );
+      perf.markEnd('getChainSelectorNetworksCompatibleWithAccountId');
+
+      perf.markStart('buildNetworkIds');
       const networkIds = Array.from(
         new Set(
           [
@@ -821,14 +835,23 @@ export default function WalletAddressPage({
           ].map((o) => o.id),
         ),
       );
+      perf.markEnd('buildNetworkIds');
+
+      perf.markStart('getNetworkAccountsInSameIndexedAccountId');
       const networksAccount =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           { networkIds, indexedAccountId },
         );
+      perf.markEnd('getNetworkAccountsInSameIndexedAccountId');
+
+      perf.markStart('getAllNetworksState');
       const allNetworksState: IAllNetworksDBStruct =
         await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+      perf.markEnd('getAllNetworksState');
 
-      console.log('WalletAddressPage fetchBaseData');
+      perf.done();
+
+      log('fetchBaseData');
       return { networksAccount, networks, allNetworksState };
     },
     [accountId, indexedAccountId, walletId],
@@ -882,7 +905,7 @@ export default function WalletAddressPage({
       ...prev,
       ...updateMap,
     }));
-    console.log('WalletAddressPage update-isAllNetworksEnabledWrapper');
+    log('update-isAllNetworksEnabledWrapper');
   }, [
     result.allNetworksState,
     result.networks.mainnetItems,
@@ -892,7 +915,7 @@ export default function WalletAddressPage({
   ]);
 
   const context = useMemo(() => {
-    console.log('WalletAddressPage contextCalculate');
+    log('contextCalculate');
     const networkAccountMap: Record<string, INetworkAccount> = {};
     const networkDeriveTypeMap: Record<string, IAccountDeriveTypes> = {};
     for (let i = 0; i < result.networksAccount.length; i += 1) {
