@@ -100,7 +100,6 @@ const SwapRecentTokenPairsGroup = ({
                 size="sm"
                 tokenImageUri={tokenPair.toToken.logoURI}
               />
-
               <SizableText
                 ml="$1"
                 size="$bodyMdMedium"
