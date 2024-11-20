@@ -71,6 +71,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  key: string;
   networkId: string;
   tx: string;
   riskLevel: number;

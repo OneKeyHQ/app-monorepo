@@ -9,6 +9,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAccountCompatibleWithTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -221,14 +222,14 @@ class ServiceHistory extends ServiceBase {
         networkId: account.networkId,
         accountAddress: account.apiAddress,
         xpub: account.accountXpub,
-        pendingTxs: pendingTxs.filter(
-          (tx) => tx.decodedTx.networkId === account.networkId,
+        pendingTxs: pendingTxs.filter((tx) =>
+          isAccountCompatibleWithTx({ account, tx }),
         ),
-        confirmedTxs: mergedConfirmedTxs.filter(
-          (tx) => tx.decodedTx.networkId === account.networkId,
+        confirmedTxs: mergedConfirmedTxs.filter((tx) =>
+          isAccountCompatibleWithTx({ account, tx }),
         ),
-        onChainHistoryTxs: onChainHistoryTxs.filter(
-          (tx) => tx.decodedTx.networkId === account.networkId,
+        onChainHistoryTxs: onChainHistoryTxs.filter((tx) =>
+          isAccountCompatibleWithTx({ account, tx }),
         ),
       }));
 
@@ -389,6 +390,7 @@ class ServiceHistory extends ServiceBase {
         networkId,
       }),
     ]);
+
     const localHistoryConfirmedTxs =
       await this.getAccountLocalHistoryPendingTxs({
         networkId,
@@ -473,10 +475,27 @@ class ServiceHistory extends ServiceBase {
       })
       .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
-    const finalConfirmedTxs = unionBy(
-      [...confirmedTxsToSave, ...onChainHistoryTxs],
+    const resp = unionBy(
+      [...onChainHistoryTxs, ...confirmedTxsToSave],
       (tx) => tx.id,
-    ).filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+    );
+
+    const finalConfirmedTxs = [];
+    const confirmedTxsToRemove = [];
+
+    for (let i = 0; i < resp.length; i += 1) {
+      const tx = resp[i];
+      if (
+        tx.decodedTx.status === EDecodedTxStatus.Pending ||
+        (!isNil(xpub) &&
+          !isNil(tx.decodedTx.xpub) &&
+          xpub !== tx.decodedTx.xpub)
+      ) {
+        confirmedTxsToRemove.push(tx);
+      } else {
+        finalConfirmedTxs.push(tx);
+      }
+    }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
       {
@@ -484,6 +503,7 @@ class ServiceHistory extends ServiceBase {
         accountAddress,
         xpub,
         confirmedTxsToSave: finalConfirmedTxs,
+        confirmedTxsToRemove,
       },
     );
 
