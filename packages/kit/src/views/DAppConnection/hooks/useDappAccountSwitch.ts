@@ -12,6 +12,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getScopeFromImpl } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
@@ -260,7 +261,33 @@ export function useDappAccountSwitch({
         const isSyncing =
           await backgroundApiProxy.serviceDApp.getAlignPrimaryAccountProcessing();
 
-        if (!isSameAccount && !isSyncing) {
+        let isAvailableAccount = false;
+        try {
+          const isOtherWallet = accountUtils.isOthersWallet({
+            walletId: selectedAccount?.walletId ?? '',
+          });
+          const networkAccountWithSelectedAccount =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              indexedAccountId: isOtherWallet
+                ? undefined
+                : selectedAccount?.indexedAccountId,
+              networkId: result.connectedAccountsInfo[0].networkId ?? '',
+              deriveType: selectedAccount?.deriveType ?? 'default',
+              accountId: isOtherWallet
+                ? selectedAccount?.othersWalletAccountId
+                : undefined,
+            });
+          if (
+            networkAccountWithSelectedAccount?.address ||
+            networkAccountWithSelectedAccount?.addressDetail.isValid
+          ) {
+            isAvailableAccount = true;
+          }
+        } catch (e) {
+          isAvailableAccount = false;
+        }
+
+        if (!isSameAccount && !isSyncing && isAvailableAccount) {
           const scopes = getScopeFromImpl({
             impl: result.connectedAccountsInfo[0].networkImpl,
           });

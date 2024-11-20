@@ -1298,13 +1298,13 @@ class ServiceDApp extends ServiceBase {
             : undefined,
         });
     } catch (e) {
-      // disconnect website if build account error
-      void this.disconnectWebsite({
-        origin,
-        storageType,
-      });
-      console.log(`Build Account Error: `, e);
-      return null;
+      // void this.disconnectWebsite({
+      //   origin,
+      //   storageType,
+      // });
+      console.log(`Build dApp Account Error: `, e);
+      // If build account error, use the previous account
+      return connectedAccountInfo;
     }
 
     // 4. merge account info
