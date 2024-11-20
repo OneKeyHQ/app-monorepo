@@ -1670,7 +1670,7 @@
   "settings.sign_text": "簽名內容",
   "settings.signature_record": "簽名記錄",
   "settings.spend_dust_utxo": "花費塵埃 UTXO",
-  "settings.spend_dust_utxo_desc": "使用塵埃UTXO會增加交易費用並降低隱私，建議禁用此功能以避免惡意追蹤。",
+  "settings.spend_dust_utxo_desc": "使用塵埃 UTXO 會增加交易費用並降低隱私，建議禁用此功能以避免惡意追蹤。",
   "settings.step1_get_bip39_dotmap": "步驟1：獲取 BIP39 點陣圖",
   "settings.step1_get_bip39_dotmap_desc": "請訪問線上的{dotmap}，或參考您購買 KeyTag 附帶的入門指南。",
   "settings.step2_match_recovery_phrase_dots": "步驟 2：匹配助記詞與點陣",

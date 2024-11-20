@@ -2166,7 +2166,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     address: string;
     normalizedAddress: string;
   }): Promise<
-    Array<{ walletName: string; accountName: string; accountId: string }>
+    Array<{
+      walletName: string;
+      accountName: string;
+      accountId: string; // accountId or indexedAccountId
+    }>
   > {
     try {
       const db = await this.readyDb;
