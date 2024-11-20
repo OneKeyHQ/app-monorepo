@@ -59,11 +59,11 @@ export async function jotaiInitFromUi({
 
 function checkAtomNameMatched(key: string, value: string) {
   if (key !== value) {
-    const isNotificationsPersistAtom =
-      key === 'notificationsPersistAtom' && value === 'notificationsAtom';
-    if (isNotificationsPersistAtom) {
-      return;
-    }
+    // const isNotificationsPersistAtom =
+    //   key === 'notificationsPersistAtom' && value === 'notificationsAtom';
+    // if (isNotificationsPersistAtom) {
+    //   return;
+    // }
     throw new Error(
       `Atom name not matched with key: key=${key} value=${value}`,
     );

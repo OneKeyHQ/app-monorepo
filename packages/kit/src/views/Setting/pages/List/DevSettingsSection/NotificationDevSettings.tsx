@@ -15,7 +15,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { INotificationsDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   useNotificationsDevSettingsPersistAtom,
-  useNotificationsPersistAtom,
+  useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 interface INotificationSectionFieldItem extends PropsWithChildren {
@@ -60,7 +60,7 @@ function NotificationSectionFieldItem({
 }
 
 export function NotificationDevSettings() {
-  const [, setData] = useNotificationsPersistAtom();
+  const [, setData] = useNotificationsAtom();
   return (
     <Stack>
       <NotificationSectionFieldItem

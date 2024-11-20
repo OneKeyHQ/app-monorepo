@@ -35,7 +35,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
-  notificationsPersistAtom = 'notificationsAtom', // persist
+  notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }
