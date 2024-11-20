@@ -238,6 +238,7 @@ export type IAddressQueryResult = {
   input?: string;
   validStatus?: IAddressValidateStatus;
   walletAccountName?: string;
+  walletAccountId?: string; // accountId or indexedAccountId
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];

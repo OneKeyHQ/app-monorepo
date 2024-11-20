@@ -1,6 +1,10 @@
 import { useIntl } from 'react-intl';
 
 import { Badge, Dialog, Stack, XStack } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -45,17 +49,28 @@ function SwitchHomeAccountButton({
             },
           ), // `Switch primary account to ${walletAccountName}`,
           onConfirm: async () => {
-            const account =
-              await backgroundApiProxy.serviceAccount.getDBAccountSafe({
-                accountId: accountId || '',
-              });
+            let account: IDBAccount | undefined;
+            let indexedAccount: IDBIndexedAccount | undefined;
 
-            const indexedAccount =
-              await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount(
-                {
-                  account,
-                },
-              );
+            // eslint-disable-next-line prefer-const
+            account = await backgroundApiProxy.serviceAccount.getDBAccountSafe({
+              accountId: accountId || '',
+            });
+
+            if (account) {
+              indexedAccount =
+                await backgroundApiProxy.serviceAccount.getIndexedAccountByAccount(
+                  {
+                    account,
+                  },
+                );
+            } else {
+              // may be indexedAccountId
+              indexedAccount =
+                await backgroundApiProxy.serviceAccount.getIndexedAccountSafe({
+                  id: accountId || '',
+                });
+            }
 
             if (!indexedAccount && !account) {
               return;
@@ -134,7 +149,7 @@ function AddressInfo(props: IProps) {
       {addressQueryResult.walletAccountName ? (
         <AccountNameContainer
           walletAccountName={addressQueryResult.walletAccountName}
-          accountId={accountId}
+          accountId={addressQueryResult.walletAccountId}
         >
           <Badge badgeType="success" badgeSize="sm">
             {addressQueryResult.walletAccountName}
