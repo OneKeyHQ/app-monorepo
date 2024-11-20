@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -177,8 +177,11 @@ function TokenListContainer(props: ITabPageProps) {
     updateSearchKey,
   } = useTokenListActions().current;
 
-  const { updateAccountWorth, updateAccountOverviewState } =
-    useAccountOverviewActions().current;
+  const {
+    updateAccountWorth,
+    updateAccountOverviewState,
+    updateAllNetworksState,
+  } = useAccountOverviewActions().current;
 
   const { run } = usePromiseResult(
     async () => {
@@ -764,10 +767,19 @@ function TokenListContainer(props: ITabPageProps) {
   );
 
   const handleAllNetworkAccountsData = useCallback(
-    ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
+    ({
+      accounts,
+      allAccounts,
+    }: {
+      accounts: IAllNetworkAccountInfo[];
+      allAccounts: IAllNetworkAccountInfo[];
+    }) => {
+      updateAllNetworksState({
+        visibleCount: uniqBy(allAccounts, 'networkId').length,
+      });
       setAllNetworkAccounts(accounts);
     },
-    [],
+    [updateAllNetworksState],
   );
 
   const {
