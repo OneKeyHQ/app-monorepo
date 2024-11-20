@@ -43,8 +43,8 @@ import {
 
 import { NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import {
+  notificationsAtom,
   notificationsDevSettingsPersistAtom,
-  notificationsPersistAtom,
   notificationsReadedAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
@@ -203,7 +203,7 @@ export default class ServiceNotification extends ServiceBase {
 
     this.addShowedNotificationId(msgId);
 
-    await notificationsPersistAtom.set((v) => ({
+    await notificationsAtom.set((v) => ({
       ...v,
       lastReceivedTime: Date.now(),
     }));
@@ -413,7 +413,7 @@ export default class ServiceNotification extends ServiceBase {
   setBadgeDebounced = debounce(
     async (params: INotificationSetBadgeParams) => {
       defaultLogger.notification.common.setBadge(params);
-      await notificationsPersistAtom.set((v) => ({
+      await notificationsAtom.set((v) => ({
         ...v,
         badge: params.count ?? undefined,
       }));
@@ -442,7 +442,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async increaseLocalBadgeCount() {
-    const { badge } = await notificationsPersistAtom.get();
+    const { badge } = await notificationsAtom.get();
     const newBadgeCount = (badge || 0) + 1;
     await this.setBadge({ count: newBadgeCount });
   }
@@ -599,7 +599,7 @@ export default class ServiceNotification extends ServiceBase {
       await this.registerClientWithSyncAccounts({
         syncMethod: ENotificationPushSyncMethod.override,
       });
-      await notificationsPersistAtom.set((v) => ({
+      await notificationsAtom.set((v) => ({
         ...v,
         lastRegisterTime: Date.now(),
       }));
@@ -629,7 +629,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async fixAccountActivityNotificationSettings() {
     const maxAccountCount =
-      (await notificationsPersistAtom.get()).maxAccountCount ??
+      (await notificationsAtom.get()).maxAccountCount ??
       NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
 
     const settings =
@@ -722,7 +722,7 @@ export default class ServiceNotification extends ServiceBase {
     await this.backgroundApi.simpleDb.notificationSettings.saveAccountActivityNotificationSettings(
       accountActivity,
     );
-    await notificationsPersistAtom.set((v) => ({
+    await notificationsAtom.set((v) => ({
       ...v,
       lastSettingsUpdateTime: Date.now(),
     }));
@@ -772,7 +772,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async registerClientDaily() {
-    const { lastRegisterTime } = await notificationsPersistAtom.get();
+    const { lastRegisterTime } = await notificationsAtom.get();
     if (
       lastRegisterTime &&
       Date.now() - lastRegisterTime <
@@ -817,7 +817,7 @@ export default class ServiceNotification extends ServiceBase {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result.data;
     } catch (error) {
-      await notificationsPersistAtom.set((v) => ({
+      await notificationsAtom.set((v) => ({
         ...v,
         lastRegisterTime: undefined,
       }));
@@ -907,10 +907,10 @@ export default class ServiceNotification extends ServiceBase {
         NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const currentMaxAccountCount = (await notificationsPersistAtom.get())
+      const currentMaxAccountCount = (await notificationsAtom.get())
         .maxAccountCount;
 
-      await notificationsPersistAtom.set((v) => ({
+      await notificationsAtom.set((v) => ({
         ...v,
         maxAccountCount,
       }));
@@ -1008,7 +1008,7 @@ export default class ServiceNotification extends ServiceBase {
     if (result?.data?.data?.pushEnabled) {
       void this.registerClientWithOverrideAllAccounts();
     }
-    await notificationsPersistAtom.set((v) => ({
+    await notificationsAtom.set((v) => ({
       ...v,
       lastSettingsUpdateTime: Date.now(),
     }));
