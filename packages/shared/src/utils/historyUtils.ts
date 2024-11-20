@@ -1,11 +1,11 @@
 import { isNil } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
-import { OneKeyInternalError } from '../errors';
 import { ETranslations } from '../locale';
 
 import { formatDate } from './dateUtils';
@@ -236,4 +236,23 @@ export function convertToSectionGroups(params: {
     return [pendingGroup, ...dateGroups].filter(Boolean);
   }
   return [...dateGroups].filter(Boolean);
+}
+
+export function isAccountCompatibleWithTx({
+  account,
+  tx,
+}: {
+  account: IAllNetworkAccountInfo;
+  tx: IAccountHistoryTx;
+}) {
+  if (
+    account.networkId === tx.decodedTx.networkId &&
+    ((!isNil(account.accountXpub) &&
+      !isNil(tx.decodedTx.xpub) &&
+      account.accountXpub === tx.decodedTx.xpub) ||
+      (isNil(tx.decodedTx.xpub) && isNil(account.accountXpub)))
+  ) {
+    return true;
+  }
+  return false;
 }
