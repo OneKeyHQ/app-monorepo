@@ -7,6 +7,7 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 export interface IAllNetworksDBStruct {
+  // TODO performance, use map instead of array
   disabledNetworks: {
     networkId: string;
   }[];

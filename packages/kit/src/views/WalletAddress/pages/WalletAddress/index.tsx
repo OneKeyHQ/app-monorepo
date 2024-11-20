@@ -755,6 +755,8 @@ const WalletAddress = ({
   );
 };
 
+const WalletAddressMemo = memo(WalletAddress);
+
 export default function WalletAddressPage({
   route,
 }: IPageScreenProps<
@@ -989,14 +991,14 @@ export default function WalletAddressPage({
       enabledNum={[0]}
     >
       <WalletAddressContext.Provider value={context}>
-        {isLoading ? (
+        {isLoading && !result.networksAccount?.length ? (
           <WalletAddressPageView>
             <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
               <Spinner size="large" />
             </Stack>
           </WalletAddressPageView>
         ) : (
-          <WalletAddress
+          <WalletAddressMemo
             accountId={accountId} // route.params.accountId
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
