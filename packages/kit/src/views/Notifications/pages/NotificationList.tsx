@@ -19,7 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import {
-  useNotificationsPersistAtom,
+  useNotificationsAtom,
   useNotificationsReadedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -85,7 +85,7 @@ function NotificationItem({
 
   const { title, content } = item.body;
   const { createdAt, readed, msgId } = item;
-  const [{ badge }] = useNotificationsPersistAtom();
+  const [{ badge }] = useNotificationsAtom();
   const [readedMap] = useNotificationsReadedAtom();
   return (
     <ListItem
@@ -152,7 +152,7 @@ function MaxAccountLimitWarning() {
       lastSettingsUpdateTime,
       maxAccountCount = NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
     },
-  ] = useNotificationsPersistAtom();
+  ] = useNotificationsAtom();
 
   const { result } = usePromiseResult(async () => {
     noop(lastSettingsUpdateTime);
@@ -223,7 +223,7 @@ function NotificationList() {
   const navigation = useAppNavigation();
   const renderHeaderRight = useCallback(() => <HeaderRight />, []);
   const [{ lastReceivedTime, firstTimeGuideOpened }, setNotificationsData] =
-    useNotificationsPersistAtom();
+    useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
 

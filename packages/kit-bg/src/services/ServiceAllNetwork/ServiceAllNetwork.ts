@@ -150,9 +150,6 @@ class ServiceAllNetwork extends ServiceBase {
     const enabledAccountsInfoBackendIndexed = [];
     const enabledAccountsInfoBackendNotIndexed = [];
 
-    console.log({ enabledNetworks, disabledNetworks });
-    console.log(accountsInfo);
-
     for (const accountInfo of accountsInfo) {
       if (
         isEnabledNetworksInAllNetworks({

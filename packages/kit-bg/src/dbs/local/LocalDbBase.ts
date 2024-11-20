@@ -693,18 +693,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId: wallet.id,
       })
     ) {
+      const $appLocale = appLocale;
+      await $appLocale.isReady;
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_watched,
         });
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_connected_account,
         });
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_private_key,
         });
       }

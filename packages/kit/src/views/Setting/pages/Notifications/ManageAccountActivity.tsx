@@ -40,7 +40,7 @@ import {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
-import { useNotificationsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -125,7 +125,7 @@ function AccountNotificationSettingsProvider({
     {
       maxAccountCount = NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
     },
-  ] = useNotificationsPersistAtom();
+  ] = useNotificationsAtom();
 
   const saveSettings = useCallback(
     (
