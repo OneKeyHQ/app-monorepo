@@ -911,11 +911,6 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearNetworkVaultSettings() {
-    void this._getNetworkVaultSettings.clear();
-  }
-
-  @backgroundMethod()
   async getChainSelectorNetworksCompatibleWithAccountId({
     accountId,
     networkIds,
