@@ -142,18 +142,15 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     (a) => a.account,
   ).length;
 
-  const isEnabledNetwork = deriveAccounts.some((a) => {
-    const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
-      networkId: item.id,
-      isTestnet: item.isTestnet,
-      disabledNetworks: initAllNetworksState.disabledNetworks,
-      enabledNetworks: initAllNetworksState.enabledNetworks,
-    });
-    const isEnabled =
-      isAllNetworksEnabled[`${item.id}_${a.deriveType}`] ??
-      isEnabledNetworkFromDB;
-    return isEnabled;
+  const isEnabledNetworkFromDB = isEnabledNetworksInAllNetworks({
+    networkId: item.id,
+    isTestnet: item.isTestnet,
+    disabledNetworks: initAllNetworksState.disabledNetworks,
+    enabledNetworks: initAllNetworksState.enabledNetworks,
   });
+
+  const isEnabledNetwork =
+    isAllNetworksEnabled[item.id] ?? isEnabledNetworkFromDB;
 
   useEffect(() => {
     setIsAllNetworksEnabledWrapper((prev) => ({
@@ -225,12 +222,10 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
             }}
             onPress={async () => {
               if (item.isTestnet) return;
-              deriveAccounts.forEach((a) => {
-                setIsAllNetworksEnabled((prev) => ({
-                  ...prev,
-                  [`${item.id}_${a.deriveType}`]: !isEnabledNetwork,
-                }));
-              });
+              setIsAllNetworksEnabled((prev) => ({
+                ...prev,
+                [item.id]: !isEnabledNetwork,
+              }));
               const disabledNetworks: {
                 networkId: string;
               }[] = [];

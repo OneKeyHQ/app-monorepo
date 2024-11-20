@@ -37,6 +37,7 @@ export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
   accountsInfoBackendIndexed: IAllNetworkAccountInfo[];
   accountsInfoBackendNotIndexed: IAllNetworkAccountInfo[];
+  allAccountsInfo: IAllNetworkAccountInfo[];
 };
 export type IAllNetworkAccountsParams = {
   networkId: string; // all networkId or single networkId
@@ -220,6 +221,7 @@ class ServiceAllNetwork extends ServiceBase {
     const accountsInfo: Array<IAllNetworkAccountInfo> = [];
     const accountsInfoBackendIndexed: Array<IAllNetworkAccountInfo> = [];
     const accountsInfoBackendNotIndexed: Array<IAllNetworkAccountInfo> = [];
+    const allAccountsInfo: Array<IAllNetworkAccountInfo> = [];
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAllNetworks');
     const { networks: allNetworks } =
@@ -249,6 +251,7 @@ class ServiceAllNetwork extends ServiceBase {
               accountsInfoBackendNotIndexed.push(accountInfo);
             }
           }
+          allAccountsInfo.push(accountInfo);
         };
 
         let compatibleAccountExists = false;
@@ -372,6 +375,7 @@ class ServiceAllNetwork extends ServiceBase {
     defaultLogger.account.allNetworkAccountPerf.getAllNetworkAccountsEnd();
     return {
       accountsInfo,
+      allAccountsInfo,
       accountsInfoBackendIndexed,
       accountsInfoBackendNotIndexed,
     };

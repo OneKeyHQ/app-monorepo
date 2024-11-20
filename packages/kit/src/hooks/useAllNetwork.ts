@@ -90,8 +90,10 @@ function useAllNetworkRequests<T>(params: {
   }) => void;
   allNetworkAccountsData?: ({
     accounts,
+    allAccounts,
   }: {
     accounts: IAllNetworkAccountInfo[];
+    allAccounts: IAllNetworkAccountInfo[];
   }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
@@ -163,6 +165,7 @@ function useAllNetworkRequests<T>(params: {
         accountsInfo,
         accountsInfoBackendIndexed,
         accountsInfoBackendNotIndexed,
+        allAccountsInfo,
       } =
         await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
           {
@@ -176,6 +179,7 @@ function useAllNetworkRequests<T>(params: {
 
       allNetworkAccountsData?.({
         accounts: accountsInfo,
+        allAccounts: allAccountsInfo,
       });
 
       if (!accountsInfo || isEmpty(accountsInfo)) {

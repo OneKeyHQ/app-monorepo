@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,10 +14,6 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -29,14 +25,8 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils, {
-  isEnabledNetworksInAllNetworks,
-} from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
 import {
   useActiveAccount,
@@ -45,11 +35,13 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import { useAllNetworksStateStateAtom } from '../../states/jotai/contexts/accountOverview';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const shouldClearAllNetworksCache = useRef(false);
+  const [allNetworksState] = useAllNetworksStateStateAtom();
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -62,94 +54,6 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       setIsFocus(!hideByModal);
     },
   );
-
-  const { result, run } = usePromiseResult(async () => {
-    if (!activeAccount.network?.isAllNetworks) return null;
-    const [s, a] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId: activeAccount.account?.id,
-          walletId: activeAccount.wallet?.id,
-          clearCache: shouldClearAllNetworksCache.current,
-        },
-      ),
-    ]);
-
-    shouldClearAllNetworksCache.current = false;
-
-    const all = [...a.mainnetItems, ...a.testnetItems];
-    const visibleNetworks: IServerNetwork[] = [];
-    for (const n of all) {
-      const [accountDeriveType, accounts, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: n.id,
-        }),
-        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: n.id,
-            indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
-          },
-        ),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId: n.id }),
-      ]);
-
-      const account = accounts.networkAccounts.find(
-        (na) =>
-          accounts.network.id === n.id &&
-          (vaultSettings.mergeDeriveAssetsEnabled ||
-            (!vaultSettings.mergeDeriveAssetsEnabled &&
-              na?.deriveType === accountDeriveType)) &&
-          (na.account?.address ||
-            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
-      );
-      if (account) {
-        if (
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            isTestnet: n.isTestnet,
-            disabledNetworks: s.disabledNetworks,
-            enabledNetworks: s.enabledNetworks,
-          })
-        ) {
-          visibleNetworks.push(n);
-        }
-      }
-    }
-
-    return {
-      visibleNetworks,
-      allNetworks: all,
-    };
-  }, [
-    activeAccount.account?.id,
-    activeAccount.account?.indexedAccountId,
-    activeAccount.network?.isAllNetworks,
-    activeAccount.wallet?.id,
-  ]);
-
-  const { visibleNetworks, allNetworks } = result ?? {};
-
-  useEffect(() => {
-    const reloadAllNetworks = () => {
-      shouldClearAllNetworksCache.current = true;
-      void run();
-    };
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      reloadAllNetworks,
-    );
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        reloadAllNetworks,
-      );
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    };
-  }, [run]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -191,9 +95,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         <SizableText size="$bodyMd">
-          {allNetworks && visibleNetworks
-            ? `${visibleNetworks.length} / ${allNetworks.length}`
-            : ''}
+          {`${allNetworksState.visibleCount} / 0`}
         </SizableText>
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
