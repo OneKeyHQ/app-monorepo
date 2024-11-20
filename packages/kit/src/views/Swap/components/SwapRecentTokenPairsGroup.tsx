@@ -11,9 +11,10 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { Token } from '../../../components/Token';
 import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
 
-const needFoldingMinCount = 6;
+const needFoldingMinCount = 4;
 
 interface ISwapRecentTokenPairsGroupProps {
   fromTokenAmount?: string;
@@ -86,7 +87,23 @@ const SwapRecentTokenPairsGroup = ({
                 onSelectTokenPairs(tokenPair);
               }}
             >
-              <SizableText size="$bodyMdMedium">{`${tokenPair.fromToken.symbol}/${tokenPair.toToken.symbol}`}</SizableText>
+              <Token
+                w="$4.5"
+                h="$4.5"
+                size="sm"
+                tokenImageUri={tokenPair.fromToken.logoURI}
+              />
+              <Token
+                ml="$-1.5"
+                w="$4.5"
+                h="$4.5"
+                size="sm"
+                tokenImageUri={tokenPair.toToken.logoURI}
+              />
+              <SizableText
+                ml="$1"
+                size="$bodyMdMedium"
+              >{`${tokenPair.fromToken.symbol} → ${tokenPair.toToken.symbol}`}</SizableText>
             </XStack>
           ))}
           {tokenPairsInCurrentType.length >= needFoldingMinCount ? (
@@ -142,7 +159,6 @@ const SwapRecentTokenPairsGroup = ({
   ) {
     return null;
   }
-
   return (
     <YStack gap="$1">
       <SizableText size="$bodyMd" color="$textSubdued">
