@@ -332,6 +332,7 @@ class ServiceAccountProfile extends ServiceBase {
         }
 
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
+        result.walletAccountId = item.accountId;
       }
     }
     if (

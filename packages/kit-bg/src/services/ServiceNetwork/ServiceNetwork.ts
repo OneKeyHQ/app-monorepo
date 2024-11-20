@@ -59,11 +59,16 @@ class ServiceNetwork extends ServiceBase {
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
+      clearCache?: boolean;
     } = {},
   ): Promise<{ networks: IServerNetwork[] }> {
     const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.serviceNetwork__getAllNetworksWithCache,
     );
+    const { clearCache } = params;
+    if (clearCache) {
+      await this.getAllNetworksWithCache.clear();
+    }
     perf.markStart('getAllNetworksWithCache');
     const result = await this.getAllNetworksWithCache(params);
     perf.markEnd('getAllNetworksWithCache');
@@ -170,8 +175,10 @@ class ServiceNetwork extends ServiceBase {
   );
 
   @backgroundMethod()
-  async getAllNetworkIds(): Promise<{ networkIds: string[] }> {
-    const { networks } = await this.getAllNetworks();
+  async getAllNetworkIds({
+    clearCache,
+  }: { clearCache?: boolean } = {}): Promise<{ networkIds: string[] }> {
+    const { networks } = await this.getAllNetworks({ clearCache });
     const networkIds = networks.map((n) => n.id);
     return {
       networkIds,

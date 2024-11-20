@@ -713,6 +713,7 @@ export default class Vault extends VaultBase {
     }
 
     if (
+      !unsignedTx.swapInfo &&
       instructions.some(
         (instruction) =>
           instruction.programId.toString() ===

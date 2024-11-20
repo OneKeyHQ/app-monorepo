@@ -9,10 +9,20 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   accountOverviewStateAtom,
   accountWorthAtom,
+  allNetworksStateAtom,
   contextAtomMethod,
 } from './atoms';
 
 class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
+  updateAllNetworksState = contextAtomMethod(
+    (get, set, payload: { visibleCount: number }) => {
+      set(allNetworksStateAtom(), {
+        ...get(allNetworksStateAtom()),
+        ...payload,
+      });
+    },
+  );
+
   updateAccountOverviewState = contextAtomMethod(
     (get, set, payload: { initialized?: boolean; isRefreshing?: boolean }) => {
       set(accountOverviewStateAtom(), {
@@ -73,8 +83,10 @@ export function useAccountOverviewActions() {
 
   const updateAccountWorth = actions.updateAccountWorth.use();
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
+  const updateAllNetworksState = actions.updateAllNetworksState.use();
 
   return useRef({
+    updateAllNetworksState,
     updateAccountWorth,
     updateAccountOverviewState,
   });
