@@ -188,6 +188,7 @@ class ServiceCustomRpc extends ServiceBase {
       networkInfo,
     });
 
+    void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
     setTimeout(() => {
       void this.backgroundApi.serviceNetwork.clearNetworkVaultSettingsCache();
       appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
@@ -208,6 +209,7 @@ class ServiceCustomRpc extends ServiceBase {
       await this.deleteCustomRpc(params.networkId);
     }
     await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(params);
+    void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
     setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
     }, 300);
