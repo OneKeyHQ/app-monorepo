@@ -299,7 +299,10 @@ export const {
     return manualSelectQuoteResult;
   }
   if (list?.length > 0) {
-    if (!manualSelectQuoteProviders?.unSupportReceiveAddressDifferent) {
+    if (
+      manualSelectQuoteProviders &&
+      !manualSelectQuoteProviders?.unSupportReceiveAddressDifferent
+    ) {
       return list.find((item) => !item.unSupportReceiveAddressDifferent);
     }
     return list[0];
