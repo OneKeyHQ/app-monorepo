@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -8,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { differenceBy, isEmpty, isNil } from 'lodash';
+import { differenceBy, isEmpty, isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -28,6 +29,8 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -37,7 +40,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -61,6 +63,10 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
+type IIsAllNetworksEnabledWrapperMap = {
+  [networkId: string]: boolean;
+};
+
 type IWalletAddressContext = {
   networkAccountMap: Record<string, INetworkAccount>;
   networkDeriveTypeMap: Record<string, IAccountDeriveTypes>;
@@ -82,9 +88,11 @@ type IWalletAddressContext = {
     React.SetStateAction<Record<string, boolean>>
   >;
   isAllNetworksEnabledWrapper: Record<string, boolean>;
-  setIsAllNetworksEnabledWrapper: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >;
+  setIsAllNetworksEnabledWrapper: (
+    fn: (
+      data: IIsAllNetworksEnabledWrapperMap,
+    ) => IIsAllNetworksEnabledWrapperMap,
+  ) => void;
   isOnlyOneNetworkEnabled: boolean;
 };
 
@@ -153,7 +161,8 @@ const WalletAddressDeriveTypeItem = ({ item }: { item: IServerNetwork }) => {
     isAllNetworksEnabled[item.id] ?? isEnabledNetworkFromDB;
 
   useEffect(() => {
-    setIsAllNetworksEnabledWrapper((prev) => ({
+    // TODO performance, update at top
+    setIsAllNetworksEnabledWrapper((prev: IIsAllNetworksEnabledWrapperMap) => ({
       ...prev,
       [item.id]: deriveAccountsEnabledCount > 0 ? isEnabledNetwork : false,
     }));
@@ -315,6 +324,7 @@ const WalletAddressListItemIcon = ({
     isAllNetworksEnabled[network.id] ?? isEnabledNetworkFromDB;
 
   useEffect(() => {
+    // TODO performance, update at top
     setIsAllNetworksEnabledWrapper((prev) => ({
       ...prev,
       [network.id]: account ? isEnabledNetwork : false,
@@ -554,6 +564,8 @@ const WalletAddressContent = ({
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) => {
+  console.log('WalletAddressPage WalletAddressContentRender');
+
   const intl = useIntl();
   const [searchText, setSearchText] = useState('');
   const { bottom } = useSafeAreaInsets();
@@ -667,6 +679,8 @@ const WalletAddressContent = ({
   );
 };
 
+const WalletAddressContentMemo = memo(WalletAddressContent);
+
 function WalletAddressPageView({
   onClose,
   children,
@@ -726,7 +740,7 @@ const WalletAddress = ({
         }
       }}
     >
-      <WalletAddressContent
+      <WalletAddressContentMemo
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
         frequentlyUsedNetworks={frequentlyUsedNetworks}
@@ -749,8 +763,38 @@ export default function WalletAddressPage({
 
   const allNetworksStateInit = useRef(false);
 
-  const [isAllNetworksEnabledWrapper, setIsAllNetworksEnabledWrapper] =
-    useState<Record<string, boolean>>({});
+  const [isAllNetworksEnabledWrapper, setIsAllNetworksEnabledWrapperBase] =
+    useState<IIsAllNetworksEnabledWrapperMap>({});
+
+  const setIsAllNetworksEnabledWrapper = useCallback(
+    (
+      fn: (
+        data: IIsAllNetworksEnabledWrapperMap,
+      ) => IIsAllNetworksEnabledWrapperMap,
+    ) => {
+      setIsAllNetworksEnabledWrapperBase((prev) => {
+        const newData = fn(prev);
+        if (isEqual(prev, newData)) {
+          return prev;
+        }
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('WalletAddressPage isAllNetworksEnabledWrapperChanged:', {
+            prev,
+            newData,
+            diff: Object.keys(newData)
+              .filter((key) => prev[key] !== newData[key])
+              .map((key) => ({
+                key,
+                old: prev[key],
+                new: newData[key],
+              })),
+          });
+        }
+        return newData;
+      });
+    },
+    [],
+  );
 
   const isOnlyOneNetworkEnabled = useMemo(
     () =>
@@ -781,13 +825,21 @@ export default function WalletAddressPage({
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
           { networkIds, indexedAccountId },
         );
-      return { networksAccount, networks };
+      const allNetworksState: IAllNetworksDBStruct =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+
+      console.log('WalletAddressPage fetchBaseData');
+      return { networksAccount, networks, allNetworksState };
     },
     [accountId, indexedAccountId, walletId],
     {
       watchLoading: true,
       initResult: {
         networksAccount: [],
+        allNetworksState: {
+          disabledNetworks: [],
+          enabledNetworks: [],
+        },
         networks: {
           mainnetItems: [],
           testnetItems: [],
@@ -798,11 +850,6 @@ export default function WalletAddressPage({
     },
   );
 
-  const { result: allNetworksState } = usePromiseResult(
-    () => backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-    [],
-  );
-
   useEffect(() => {
     if (
       allNetworksStateInit.current ||
@@ -810,34 +857,42 @@ export default function WalletAddressPage({
         ...result.networks.mainnetItems,
         ...result.networks.testnetItems,
       ]) ||
-      isNil(allNetworksState)
+      isNil(result.allNetworksState)
     ) {
       return;
     }
 
     allNetworksStateInit.current = true;
+
+    const updateMap: Record<string, boolean> = {};
     result.networksAccount.forEach((item) => {
       const { network, account } = item;
-      setIsAllNetworksEnabledWrapper((prev) => ({
-        ...prev,
-        [network.id]: account
-          ? isEnabledNetworksInAllNetworks({
-              networkId: network.id,
-              isTestnet: network.isTestnet,
-              disabledNetworks: allNetworksState.disabledNetworks,
-              enabledNetworks: allNetworksState.enabledNetworks,
-            })
-          : false,
-      }));
+      if (account) {
+        updateMap[network.id] = isEnabledNetworksInAllNetworks({
+          networkId: network.id,
+          isTestnet: network.isTestnet,
+          disabledNetworks: result.allNetworksState.disabledNetworks,
+          enabledNetworks: result.allNetworksState.enabledNetworks,
+        });
+      } else {
+        updateMap[network.id] = false;
+      }
     });
+    setIsAllNetworksEnabledWrapper((prev) => ({
+      ...prev,
+      ...updateMap,
+    }));
+    console.log('WalletAddressPage update-isAllNetworksEnabledWrapper');
   }, [
-    allNetworksState,
+    result.allNetworksState,
     result.networks.mainnetItems,
     result.networks.testnetItems,
     result.networksAccount,
+    setIsAllNetworksEnabledWrapper,
   ]);
 
   const context = useMemo(() => {
+    console.log('WalletAddressPage contextCalculate');
     const networkAccountMap: Record<string, INetworkAccount> = {};
     const networkDeriveTypeMap: Record<string, IAccountDeriveTypes> = {};
     for (let i = 0; i < result.networksAccount.length; i += 1) {
@@ -848,10 +903,10 @@ export default function WalletAddressPage({
       }
       networkDeriveTypeMap[network.id] = accountDeriveType;
     }
-    return {
+    const contextData: IWalletAddressContext = {
       networkAccountMap,
       networkDeriveTypeMap,
-      initAllNetworksState: allNetworksState,
+      initAllNetworksState: result.allNetworksState,
       accountId,
       indexedAccountId,
       refreshLocalData,
@@ -862,9 +917,11 @@ export default function WalletAddressPage({
       isAllNetworksEnabledWrapper,
       setIsAllNetworksEnabledWrapper,
       isOnlyOneNetworkEnabled,
-    } as IWalletAddressContext;
+    };
+    return contextData;
   }, [
-    allNetworksState,
+    result.allNetworksState,
+    result.networksAccount,
     accountId,
     indexedAccountId,
     refreshLocalData,
@@ -872,7 +929,7 @@ export default function WalletAddressPage({
     isAllNetworksEnabled,
     isAllNetworksEnabledWrapper,
     isOnlyOneNetworkEnabled,
-    result.networksAccount,
+    setIsAllNetworksEnabledWrapper,
   ]);
 
   return (
