@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +14,10 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -26,8 +30,11 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
+import { useAllNetworksStateStateAtom } from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -35,7 +42,6 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import { useAllNetworksStateStateAtom } from '../../states/jotai/contexts/accountOverview';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -54,6 +60,47 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       setIsFocus(!hideByModal);
     },
   );
+
+  const { result: allNetworksCount, run } = usePromiseResult(async () => {
+    const { network, wallet } = activeAccount;
+    if (!network?.isAllNetworks) return null;
+
+    const { networkIds } =
+      await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
+        clearCache: shouldClearAllNetworksCache.current,
+      });
+    const { networkIdsCompatible } =
+      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+        {
+          walletId: wallet?.id,
+          networkIds,
+        },
+      );
+
+    shouldClearAllNetworksCache.current = false;
+    return networkIdsCompatible.length;
+  }, [activeAccount]);
+
+  useEffect(() => {
+    const reloadAllNetworks = () => {
+      shouldClearAllNetworksCache.current = true;
+      void run();
+    };
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      reloadAllNetworks,
+    );
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        reloadAllNetworks,
+      );
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
+    };
+  }, [run]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -95,7 +142,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         <SizableText size="$bodyMd">
-          {`${allNetworksState.visibleCount} / 0`}
+          {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
         </SizableText>
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}

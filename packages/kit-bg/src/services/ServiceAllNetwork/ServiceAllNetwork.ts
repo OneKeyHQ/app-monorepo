@@ -142,7 +142,9 @@ class ServiceAllNetwork extends ServiceBase {
   async getAllNetworkAccountsWithEnabledNetworks(
     params: IAllNetworkAccountsParams,
   ): Promise<IAllNetworkAccountsInfoResult> {
-    const { accountsInfo } = await this.getAllNetworkAccounts(params);
+    const { accountsInfo, allAccountsInfo } = await this.getAllNetworkAccounts(
+      params,
+    );
 
     const { enabledNetworks, disabledNetworks } =
       await this.getAllNetworksState();
@@ -150,6 +152,15 @@ class ServiceAllNetwork extends ServiceBase {
     const enabledAccountsInfo = [];
     const enabledAccountsInfoBackendIndexed = [];
     const enabledAccountsInfoBackendNotIndexed = [];
+
+    const enabledAllAccountsInfo = allAccountsInfo.filter((accountInfo) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: accountInfo.networkId,
+        isTestnet: accountInfo.isTestnet,
+        disabledNetworks,
+        enabledNetworks,
+      }),
+    );
 
     for (const accountInfo of accountsInfo) {
       if (
@@ -173,6 +184,7 @@ class ServiceAllNetwork extends ServiceBase {
       accountsInfo: enabledAccountsInfo,
       accountsInfoBackendIndexed: enabledAccountsInfoBackendIndexed,
       accountsInfoBackendNotIndexed: enabledAccountsInfoBackendNotIndexed,
+      allAccountsInfo: enabledAllAccountsInfo,
     };
   }
 
