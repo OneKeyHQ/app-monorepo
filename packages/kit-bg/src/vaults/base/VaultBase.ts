@@ -536,21 +536,29 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       tokens,
       nfts,
       accountAddress: originAccountAddress,
-      xpub,
+      xpub: originXpub,
       allNetworkHistoryExtraItems,
     } = params;
     let accountId = originAccountId;
     let networkId = originNetworkId;
     let accountAddress = originAccountAddress;
-
+    let xpub = originXpub;
     if (originNetworkId === getNetworkIdsMap().onekeyall) {
-      const allNetworkAccount = allNetworkHistoryExtraItems?.find(
-        (i) => i.networkId === onChainHistoryTx.networkId,
-      );
+      const allNetworkAccount = allNetworkHistoryExtraItems?.find((i) => {
+        const [_, txXpub] = onChainHistoryTx.key.split('_');
+        if (!isNil(i.accountXpub)) {
+          return (
+            i.networkId === onChainHistoryTx.networkId &&
+            i.accountXpub === txXpub
+          );
+        }
+        return i.networkId === onChainHistoryTx.networkId;
+      });
       if (allNetworkAccount) {
         accountId = allNetworkAccount.accountId;
         networkId = allNetworkAccount.networkId;
         accountAddress = allNetworkAccount.accountAddress;
+        xpub = allNetworkAccount.accountXpub;
       }
     }
 
