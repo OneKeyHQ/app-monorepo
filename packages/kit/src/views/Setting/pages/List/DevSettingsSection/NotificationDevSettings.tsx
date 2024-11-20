@@ -14,8 +14,8 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { INotificationsDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  useNotificationsDevSettingsPersistAtom,
   useNotificationsAtom,
+  useNotificationsDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 interface INotificationSectionFieldItem extends PropsWithChildren {

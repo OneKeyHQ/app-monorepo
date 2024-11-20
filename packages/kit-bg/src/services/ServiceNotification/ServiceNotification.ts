@@ -43,8 +43,8 @@ import {
 
 import { NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import {
-  notificationsDevSettingsPersistAtom,
   notificationsAtom,
+  notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
