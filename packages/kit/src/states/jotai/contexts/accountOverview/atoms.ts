@@ -38,3 +38,10 @@ export const {
   isRefreshing: false,
   initialized: false,
 });
+
+export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
+  contextAtom<{
+    visibleCount: number;
+  }>({
+    visibleCount: 0,
+  });

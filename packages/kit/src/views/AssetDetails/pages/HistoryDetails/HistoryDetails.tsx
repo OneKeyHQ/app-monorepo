@@ -831,7 +831,6 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
-
     if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
       return (
         <>
