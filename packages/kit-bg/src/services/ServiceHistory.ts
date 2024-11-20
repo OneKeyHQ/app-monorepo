@@ -9,6 +9,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isAccountCompatibleWithTx } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -38,7 +39,6 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
-import { isAccountCompatibleWithTx } from '@onekeyhq/shared/src/utils/historyUtils';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
