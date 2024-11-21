@@ -7,6 +7,7 @@ import {
   Button,
   Dialog,
   Divider,
+  Empty,
   IconButton,
   Page,
   SectionList,
@@ -149,6 +150,16 @@ function HistoryListModal() {
         <SectionList
           testID="History-SectionList"
           height="100%"
+          ListEmptyComponent={
+            <Empty
+              py="$32"
+              my="$4"
+              icon="ClockTimeHistoryOutline"
+              title={intl.formatMessage({
+                id: ETranslations.explore_no_history,
+              })}
+            />
+          }
           estimatedItemSize="$16"
           extraData={isEditing}
           sections={isNil(dataSource) ? [] : dataSource}

@@ -154,115 +154,6 @@ function BookmarkListModal() {
   );
   const { gtMd } = useMedia();
 
-  const renderContent = () => {
-    if (!dataSource.length) {
-      return (
-        <Empty
-          flex={1}
-          pb="$16"
-          icon="BookmarkOutline"
-          title={intl.formatMessage({
-            // eslint-disable-next-line spellcheck/spell-checker
-            id: ETranslations.explore_no_boomark,
-          })}
-        />
-      );
-    }
-
-    return (
-      <SortableListView
-        data={dataSource}
-        enabled={isEditing}
-        keyExtractor={(item) => `${item.url}`}
-        getItemLayout={(_, index) => ({
-          length: CELL_HEIGHT,
-          offset: index * CELL_HEIGHT,
-          index,
-        })}
-        onDragEnd={(ret) => onSortBookmarks(ret.data)}
-        renderItem={({ item, getIndex, drag, dragProps }) => (
-          <ListItem
-            h={CELL_HEIGHT}
-            testID={`search-modal-${item.url.toLowerCase()}`}
-            {...(!isEditing && {
-              onPress: () => {
-                handleOpenWebSite({
-                  navigation,
-                  switchToMultiTabBrowser: gtMd,
-                  webSite: {
-                    url: item.url,
-                    title: item.title,
-                  },
-                });
-                defaultLogger.discovery.dapp.enterDapp({
-                  dappDomain: item.url,
-                  dappName: item.title,
-                  enterMethod: EEnterMethod.bookmark,
-                });
-              },
-            })}
-          >
-            {isEditing ? (
-              <ListItem.IconButton
-                title={intl.formatMessage({
-                  id: ETranslations.global_remove,
-                })}
-                key="remove"
-                icon="MinusCircleSolid"
-                iconProps={{
-                  color: '$iconCritical',
-                }}
-                onPress={() => {
-                  void deleteCell(getIndex);
-                  Toast.success({
-                    title: intl.formatMessage({
-                      id: ETranslations.explore_removed_success,
-                    }),
-                  });
-                }}
-                testID="action-list-item-rename"
-              />
-            ) : null}
-            <ListItem.Avatar
-              avatar={<DiscoveryIcon size="$10" uri={item.logo} />}
-            />
-            <ListItem.Text
-              primary={item.title}
-              primaryTextProps={{
-                numberOfLines: 1,
-              }}
-              secondary={item.url}
-              secondaryTextProps={{
-                numberOfLines: 1,
-              }}
-              flex={1}
-            />
-            {isEditing ? (
-              <XStack gap="$6">
-                <ListItem.IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.explore_rename,
-                  })}
-                  key="rename"
-                  icon="PencilOutline"
-                  onPress={() => onRename(item)}
-                  testID="action-list-item-rename"
-                />
-                <ListItem.IconButton
-                  key="darg"
-                  cursor="move"
-                  icon="DragOutline"
-                  onPressIn={drag}
-                  dataSet={dragProps}
-                />
-              </XStack>
-            ) : null}
-          </ListItem>
-        )}
-      />
-    );
-  };
-
   return (
     <Page>
       <Page.Header
@@ -271,7 +162,109 @@ function BookmarkListModal() {
         })}
         headerRight={headerRight}
       />
-      <Page.Body>{renderContent()}</Page.Body>
+      <Page.Body>
+        <SortableListView
+          data={dataSource}
+          enabled={isEditing}
+          keyExtractor={(item) => `${item.url}`}
+          getItemLayout={(_, index) => ({
+            length: CELL_HEIGHT,
+            offset: index * CELL_HEIGHT,
+            index,
+          })}
+          onDragEnd={(ret) => onSortBookmarks(ret.data)}
+          ListEmptyComponent={
+            <Empty
+              py="$32"
+              my="$4"
+              icon="BookmarkOutline"
+              title={intl.formatMessage({
+                // eslint-disable-next-line spellcheck/spell-checker
+                id: ETranslations.explore_no_boomark,
+              })}
+            />
+          }
+          renderItem={({ item, getIndex, drag, dragProps }) => (
+            <ListItem
+              h={CELL_HEIGHT}
+              testID={`search-modal-${item.url.toLowerCase()}`}
+              {...(!isEditing && {
+                onPress: () => {
+                  handleOpenWebSite({
+                    navigation,
+                    switchToMultiTabBrowser: gtMd,
+                    webSite: {
+                      url: item.url,
+                      title: item.title,
+                    },
+                  });
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: item.url,
+                    dappName: item.title,
+                    enterMethod: EEnterMethod.bookmark,
+                  });
+                },
+              })}
+            >
+              {isEditing ? (
+                <ListItem.IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.global_remove,
+                  })}
+                  key="remove"
+                  icon="MinusCircleSolid"
+                  iconProps={{
+                    color: '$iconCritical',
+                  }}
+                  onPress={() => {
+                    void deleteCell(getIndex);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.explore_removed_success,
+                      }),
+                    });
+                  }}
+                  testID="action-list-item-rename"
+                />
+              ) : null}
+              <ListItem.Avatar
+                avatar={<DiscoveryIcon size="$10" uri={item.logo} />}
+              />
+              <ListItem.Text
+                primary={item.title}
+                primaryTextProps={{
+                  numberOfLines: 1,
+                }}
+                secondary={item.url}
+                secondaryTextProps={{
+                  numberOfLines: 1,
+                }}
+                flex={1}
+              />
+              {isEditing ? (
+                <XStack gap="$6">
+                  <ListItem.IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.explore_rename,
+                    })}
+                    key="rename"
+                    icon="PencilOutline"
+                    onPress={() => onRename(item)}
+                    testID="action-list-item-rename"
+                  />
+                  <ListItem.IconButton
+                    key="darg"
+                    cursor="move"
+                    icon="DragOutline"
+                    onPressIn={drag}
+                    dataSet={dragProps}
+                  />
+                </XStack>
+              ) : null}
+            </ListItem>
+          )}
+        />
+      </Page.Body>
     </Page>
   );
 }
