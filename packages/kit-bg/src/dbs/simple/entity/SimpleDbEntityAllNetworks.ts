@@ -7,6 +7,19 @@ export interface IAllNetworksDBStruct {
   enabledNetworks: Record<string, boolean>;
 }
 
+const removeConflictingNetworks = (
+  networks: Record<string, boolean>,
+  conflictingNetworks: Record<string, boolean>,
+): Record<string, boolean> => {
+  const result = { ...networks };
+  for (const networkId in result) {
+    if (conflictingNetworks[networkId]) {
+      delete result[networkId];
+    }
+  }
+  return result;
+};
+
 export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDBStruct> {
   entityName = 'allNetworks';
 
@@ -33,29 +46,23 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
       const originalDisabledNetworks = rawData?.disabledNetworks ?? {};
       const originalEnabledNetworks = rawData?.enabledNetworks ?? {};
 
-      const finalEnabledNetworks = {
+      const mergedEnabled = {
         ...originalEnabledNetworks,
         ...enabledNetworks,
       };
-
-      // delete enabled networks in finalEnabledNetworks which are in disabledNetworks
-      for (const networkId in finalEnabledNetworks) {
-        if (disabledNetworks[networkId]) {
-          delete finalEnabledNetworks[networkId];
-        }
-      }
-
-      const finalDisabledNetworks = {
+      const mergedDisabled = {
         ...originalDisabledNetworks,
         ...disabledNetworks,
       };
 
-      // delete disabled networks in finalDisabledNetworks which are in enabledNetworks
-      for (const networkId in finalDisabledNetworks) {
-        if (enabledNetworks[networkId]) {
-          delete finalDisabledNetworks[networkId];
-        }
-      }
+      const finalEnabledNetworks = removeConflictingNetworks(
+        mergedEnabled,
+        disabledNetworks,
+      );
+      const finalDisabledNetworks = removeConflictingNetworks(
+        mergedDisabled,
+        enabledNetworks,
+      );
 
       return {
         disabledNetworks: finalDisabledNetworks,
