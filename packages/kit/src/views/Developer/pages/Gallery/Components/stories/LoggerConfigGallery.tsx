@@ -202,19 +202,6 @@ const LoggingConfigCheckbox = () => {
         />
       </XStack>
       {renderCheckBoxes(enabledConfig)}
-
-      <SizableText>PerformanceTimer Log</SizableText>
-      {Object.values(EPerformanceTimerLogNames).map((logName) => (
-        <Checkbox
-          key={logName}
-          isUncontrolled
-          defaultChecked={perfUtils.getPerformanceTimerLogConfig(logName)}
-          label={logName}
-          onChange={(v) =>
-            perfUtils.updatePerformanceTimerLogConfig(logName as any, !!v)
-          }
-        />
-      ))}
     </Stack>
   );
 };

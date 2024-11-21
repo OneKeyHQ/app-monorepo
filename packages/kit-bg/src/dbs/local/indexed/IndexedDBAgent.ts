@@ -97,10 +97,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     readOnly?: boolean;
   }) {
     if (!this.txPair || alwaysCreate) {
+      // eslint-disable-next-line spellcheck/spell-checker
+      // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
+      const mode: 'readwrite' = readOnly ? ('readonly' as any) : 'readwrite';
       const dbTx = db.transaction(
         ALL_LOCAL_DB_STORE_NAMES,
         // 'readwrite',
-        readOnly ? ('readonly' as any) : 'readwrite',
+        mode,
       );
 
       const contextStore = this._getOrCreateObjectStore(

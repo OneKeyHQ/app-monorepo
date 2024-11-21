@@ -272,6 +272,11 @@ function NotificationAccountInfo({
   );
   const intl = useIntl();
 
+  // account may be deleted
+  if (!notificationAccountAddress) {
+    return null;
+  }
+
   return (
     <>
       <Divider mx="$5" />
