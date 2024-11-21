@@ -60,6 +60,9 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -1519,11 +1522,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getNetworkAccount({
+    dbAccount,
     accountId,
     indexedAccountId,
     deriveType,
     networkId,
   }: {
+    dbAccount?: IDBAccount;
     accountId: string | undefined;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
@@ -1531,6 +1536,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<INetworkAccount> {
     if (accountId) {
       return this.getAccount({
+        dbAccount,
         accountId,
         networkId,
       });
@@ -1543,6 +1549,7 @@ class ServiceAccount extends ServiceBase {
         networkId,
         deriveType,
         indexedAccountIds: [indexedAccountId],
+        dbAccounts: [dbAccount].filter(Boolean),
       });
       if (accounts[0]) {
         return accounts[0];
@@ -1686,10 +1693,12 @@ class ServiceAccount extends ServiceBase {
    * @returns A promise that resolves to an object containing the retrieved accounts.
    */
   async getAccountsByIndexedAccounts({
+    dbAccounts,
     indexedAccountIds,
     networkId,
     deriveType,
   }: {
+    dbAccounts?: IDBAccount[];
     indexedAccountIds: string[];
     networkId: string;
     deriveType: IAccountDeriveTypes;
@@ -1706,7 +1715,14 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        return this.getAccount({ accountId: realDBAccountId, networkId });
+        const dbAccount: IDBAccount | undefined = dbAccounts?.find(
+          (o) => o.id === realDBAccountId,
+        );
+        return this.getAccount({
+          accountId: realDBAccountId,
+          networkId,
+          dbAccount,
+        });
       }),
     );
     return {
@@ -2462,25 +2478,49 @@ class ServiceAccount extends ServiceBase {
       account?: INetworkAccount;
     }[]
   > {
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.serviceAccount__getNetworkAccountsInSameIndexedAccountId,
+    );
+
+    perf.markStart('getAccountsInSameIndexedAccountId');
     const { serviceNetwork } = this.backgroundApi;
     const dbAccounts = await this.getAccountsInSameIndexedAccountId({
       indexedAccountId,
     });
-    return Promise.all(
+    perf.markEnd('getAccountsInSameIndexedAccountId');
+
+    perf.markStart('processAllNetworksAccounts');
+    const result = await Promise.all(
       networkIds.map(async (networkId) => {
+        const perfEachAccount = perfUtils.createPerf(
+          EPerformanceTimerLogNames.serviceAccount__getNetworkAccountsInSameIndexedAccountId_EachAccount,
+        );
+
+        perfEachAccount.markStart('getCompatibleAccount');
         const dbAccount = dbAccounts.find((account) =>
           accountUtils.isAccountCompatibleWithNetwork({
             account,
             networkId,
           }),
         );
+        perfEachAccount.markEnd('getCompatibleAccount');
+
         let account: INetworkAccount | undefined;
+
+        perfEachAccount.markStart('getNetwork');
         const network = await serviceNetwork.getNetwork({ networkId });
+        perfEachAccount.markEnd('getNetwork');
+
+        perfEachAccount.markStart('getGlobalDeriveTypeOfNetwork');
         const accountDeriveType =
           await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+        perfEachAccount.markEnd('getGlobalDeriveTypeOfNetwork');
+
         if (dbAccount) {
+          perfEachAccount.markStart('getNetworkAccount');
           try {
             account = await this.getNetworkAccount({
+              dbAccount,
               accountId: undefined,
               networkId,
               deriveType: accountDeriveType,
@@ -2489,10 +2529,18 @@ class ServiceAccount extends ServiceBase {
           } catch {
             console.log('failed to get Network account');
           }
+          perfEachAccount.markEnd('getNetworkAccount');
         }
+
+        perfEachAccount.done();
         return { network, accountDeriveType, account };
       }),
     );
+    perf.markEnd('processAllNetworksAccounts');
+
+    perf.done();
+
+    return result;
   }
 
   @backgroundMethod()
