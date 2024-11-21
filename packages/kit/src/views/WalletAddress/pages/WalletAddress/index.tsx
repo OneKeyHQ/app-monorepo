@@ -769,7 +769,9 @@ function WalletAddress({
       ).length > 0
     ) {
       // TODO performance, always emit when Modal open
-      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      }, 1000);
     }
   }, [
     accountsCreated,
@@ -904,19 +906,17 @@ export default function WalletAddressPage({
     allNetworksStateInit.current = true;
 
     const updateMap: Record<string, boolean> = {};
-    result.networksAccount.forEach((item) => {
-      const { networkId, isTestnet, dbAccount } = item;
-      if (dbAccount) {
-        updateMap[networkId] = isEnabledNetworksInAllNetworks({
-          networkId,
-          isTestnet,
+    [...result.networks.mainnetItems, ...result.networks.testnetItems].forEach(
+      (item) => {
+        updateMap[item.id] = isEnabledNetworksInAllNetworks({
+          networkId: item.id,
+          isTestnet: item.isTestnet,
           disabledNetworks: result.allNetworksState.disabledNetworks,
           enabledNetworks: result.allNetworksState.enabledNetworks,
         });
-      } else {
-        updateMap[networkId] = false;
-      }
-    });
+      },
+    );
+
     setIsAllNetworksEnabled((prev) => ({
       ...prev,
       ...updateMap,

@@ -257,7 +257,6 @@ function useAllNetworkRequests<T>(params: {
 
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
-
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId, dbAccount } = networkDataString;
           return allNetworkRequests({
