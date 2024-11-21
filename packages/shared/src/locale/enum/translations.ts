@@ -1049,6 +1049,8 @@
   global_serial_number_start_desc = 'global.serial_number_start_desc',
   global_set_password = 'global.set_password',
   global_setings_up = 'global.setings_up',
+  global_show_less = 'global.show_less',
+  global_show_more = 'global.show_more',
   global_show_recovery_phrase = 'global.show_recovery_phrase',
   global_sign = 'global.sign',
   global_single_chain_account = 'global.single_chain_account',
