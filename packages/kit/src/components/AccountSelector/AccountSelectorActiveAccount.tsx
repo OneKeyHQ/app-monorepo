@@ -7,6 +7,7 @@ import {
   Icon,
   NATIVE_HIT_SLOP,
   SizableText,
+  Skeleton,
   Tooltip,
   XStack,
   useClipboard,
@@ -34,7 +35,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
-import { useAllNetworksStateStateAtom } from '../../states/jotai/contexts/accountOverview';
+import {
+  useAccountOverviewStateAtom,
+  useAllNetworksStateStateAtom,
+} from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -48,6 +52,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const { activeAccount } = useActiveAccount({ num });
   const shouldClearAllNetworksCache = useRef(false);
   const [allNetworksState] = useAllNetworksStateStateAtom();
+  const [overviewState] = useAccountOverviewStateAtom();
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -145,9 +150,13 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         onPress={handleAllNetworkCopyAddress}
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
-        <SizableText size="$bodyMd">
-          {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
-        </SizableText>
+        {overviewState.initialized ? (
+          <SizableText size="$bodyMd">
+            {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
+          </SizableText>
+        ) : (
+          <Skeleton h="$5" w="$10" />
+        )}
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
