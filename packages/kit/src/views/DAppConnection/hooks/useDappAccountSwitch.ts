@@ -11,6 +11,10 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getScopeFromImpl } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -241,74 +245,71 @@ export function useDappAccountSwitch({
     setShouldSwitchAccount(false);
   }, []);
 
-  useEffect(() => {
-    const sync = async () => {
-      if (
-        settings?.alignPrimaryAccountMode !==
-        EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
-      ) {
-        return;
-      }
-      if (
-        Array.isArray(result?.connectedAccountsInfo) &&
-        result?.connectedAccountsInfo?.length === 1
-      ) {
-        const isSameAccount =
-          await backgroundApiProxy.serviceDApp.isSameConnectedAccount({
-            homeAccountSelectorInfo: selectedAccount,
-            connectedAccountInfo: result.connectedAccountsInfo[0],
-          });
-        const isSyncing =
-          await backgroundApiProxy.serviceDApp.getAlignPrimaryAccountProcessing();
+  const syncPrimaryAccount = useCallback(async () => {
+    if (
+      settings?.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return;
+    }
+    if (
+      Array.isArray(result?.connectedAccountsInfo) &&
+      result?.connectedAccountsInfo?.length === 1
+    ) {
+      const isSameAccount =
+        await backgroundApiProxy.serviceDApp.isSameConnectedAccount({
+          homeAccountSelectorInfo: selectedAccount,
+          connectedAccountInfo: result.connectedAccountsInfo[0],
+        });
+      const isSyncing =
+        await backgroundApiProxy.serviceDApp.getAlignPrimaryAccountProcessing();
 
-        let isAvailableAccount = false;
-        try {
-          const isOtherWallet = accountUtils.isOthersWallet({
-            walletId: selectedAccount?.walletId ?? '',
+      let isAvailableAccount = false;
+      try {
+        const isOtherWallet = accountUtils.isOthersWallet({
+          walletId: selectedAccount?.walletId ?? '',
+        });
+        const networkAccountWithSelectedAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            indexedAccountId: isOtherWallet
+              ? undefined
+              : selectedAccount?.indexedAccountId,
+            networkId: result.connectedAccountsInfo[0].networkId ?? '',
+            deriveType: selectedAccount?.deriveType ?? 'default',
+            accountId: isOtherWallet
+              ? selectedAccount?.othersWalletAccountId
+              : undefined,
           });
-          const networkAccountWithSelectedAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              indexedAccountId: isOtherWallet
-                ? undefined
-                : selectedAccount?.indexedAccountId,
-              networkId: result.connectedAccountsInfo[0].networkId ?? '',
-              deriveType: selectedAccount?.deriveType ?? 'default',
-              accountId: isOtherWallet
-                ? selectedAccount?.othersWalletAccountId
-                : undefined,
-            });
-          if (
-            networkAccountWithSelectedAccount?.address ||
-            networkAccountWithSelectedAccount?.addressDetail.isValid
-          ) {
-            isAvailableAccount = true;
-          }
-        } catch (e) {
-          isAvailableAccount = false;
+        if (
+          networkAccountWithSelectedAccount?.address ||
+          networkAccountWithSelectedAccount?.addressDetail.isValid
+        ) {
+          isAvailableAccount = true;
         }
+      } catch (e) {
+        isAvailableAccount = false;
+      }
 
-        if (!isSameAccount && !isSyncing && isAvailableAccount) {
-          const scopes = getScopeFromImpl({
-            impl: result.connectedAccountsInfo[0].networkImpl,
+      if (!isSameAccount && !isSyncing && isAvailableAccount) {
+        const scopes = getScopeFromImpl({
+          impl: result.connectedAccountsInfo[0].networkImpl,
+        });
+        // update connected accounts info from home
+        if (scopes && scopes.length) {
+          await backgroundApiProxy.serviceDApp.getConnectedAccountsInfo({
+            origin: result.origin,
+            scope: scopes[0],
+            isWalletConnectRequest: false,
           });
-          // update connected accounts info from home
-          if (scopes && scopes.length) {
-            await backgroundApiProxy.serviceDApp.getConnectedAccountsInfo({
-              origin: result.origin,
-              scope: scopes[0],
-              isWalletConnectRequest: false,
-            });
-          }
-          refreshConnectionInfo();
-          if (result?.origin) {
-            void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(
-              result.origin,
-            );
-          }
+        }
+        refreshConnectionInfo();
+        if (result?.origin) {
+          void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(
+            result.origin,
+          );
         }
       }
-    };
-    void sync();
+    }
   }, [
     settings?.alignPrimaryAccountMode,
     result?.origin,
@@ -316,6 +317,24 @@ export function useDappAccountSwitch({
     refreshConnectionInfo,
     selectedAccount,
   ]);
+
+  useEffect(() => {
+    void syncPrimaryAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    settings?.alignPrimaryAccountMode,
+    result?.origin,
+    result?.connectedAccountsInfo,
+    refreshConnectionInfo,
+    selectedAccount,
+  ]);
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.AccountUpdate, syncPrimaryAccount);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, syncPrimaryAccount);
+    };
+  }, [syncPrimaryAccount]);
 
   return {
     shouldSwitchAccount,
