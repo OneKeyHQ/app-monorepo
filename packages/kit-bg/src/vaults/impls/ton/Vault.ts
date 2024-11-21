@@ -28,7 +28,7 @@ import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
 } from '@onekeyhq/shared/types/fee';
-import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -494,6 +494,10 @@ export default class Vault extends VaultBase {
     nativeAmountInfo?: INativeAmountInfo;
     feeInfo?: IFeeInfoUnit;
   }): Promise<boolean> {
+    if (params.precheckTiming !== ESendPreCheckTimingEnum.Confirm) {
+      return true;
+    }
+
     const resp =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId: this.networkId,
@@ -508,16 +512,18 @@ export default class Vault extends VaultBase {
       new BigNumber('0'),
     );
     const balanceDiff = nativeBalance.minus(amount);
-    if (!balanceDiff.isGreaterThanOrEqualTo(0)) {
-      const network = await this.getNetwork();
-      throw new OneKeyInternalError({
-        key: ETranslations.swap_page_toast_insufficient_balance_content,
-        info: {
-          token: network.symbol,
-          number: balanceDiff.abs().shiftedBy(-network.decimals).toFixed(),
-        },
-      });
+
+    if (balanceDiff.isGreaterThanOrEqualTo(0)) {
+      return true;
     }
-    return true;
+
+    const network = await this.getNetwork();
+    throw new OneKeyInternalError({
+      key: ETranslations.swap_page_toast_insufficient_balance_content,
+      info: {
+        token: network.symbol,
+        number: amount.shiftedBy(-network.decimals).toFixed(),
+      },
+    });
   }
 }
