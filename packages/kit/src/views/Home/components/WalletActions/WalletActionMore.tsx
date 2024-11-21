@@ -60,7 +60,7 @@ export function WalletActionMore() {
 
   const handleCopyAddress = useCallback(() => {
     if (isAllNetworkEnabled) {
-      handleAllNetworkCopyAddress();
+      void handleAllNetworkCopyAddress();
     } else if (wallet?.type === WALLET_TYPE_HW) {
       handleOnReceive();
     } else {
