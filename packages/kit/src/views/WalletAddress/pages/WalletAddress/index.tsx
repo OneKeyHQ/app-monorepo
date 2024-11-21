@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { differenceBy, isEmpty, isEqual, isNil } from 'lodash';
+import { differenceBy, isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -67,10 +67,6 @@ import {
 } from '@onekeyhq/shared/types';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
-type IIsAllNetworksEnabledWrapperMap = {
-  [networkId: string]: boolean;
-};
-
 type IWalletAddressContext = {
   networkAccountMap: Record<string, IAllNetworkAccountInfo[]>;
   networkDeriveTypeMap: Record<string, IAccountDeriveTypes[]>;
@@ -79,25 +75,13 @@ type IWalletAddressContext = {
   refreshLocalData: () => void;
   accountsCreated: boolean;
   setAccountsCreated: (accountsCreated: boolean) => void;
-  initAllNetworksState: {
-    enabledNetworks: {
-      networkId: string;
-    }[];
-    disabledNetworks: {
-      networkId: string;
-    }[];
-  };
+  initAllNetworksState: IAllNetworksDBStruct;
   isAllNetworksEnabled: Record<string, boolean>;
   setIsAllNetworksEnabled: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
-  isAllNetworksEnabledWrapper: Record<string, boolean>;
-  setIsAllNetworksEnabledWrapper: (
-    fn: (
-      data: IIsAllNetworksEnabledWrapperMap,
-    ) => IIsAllNetworksEnabledWrapperMap,
-  ) => void;
-  isOnlyOneNetworkEnabled: boolean;
+  isOnlyOneNetworkVisible: boolean;
+  allNetworksStateInit: boolean;
 };
 
 const log = debugUtils.createSimpleDebugLog('<WalletAddressPage>', true);
@@ -109,16 +93,15 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   indexedAccountId: '',
   refreshLocalData: () => {},
   initAllNetworksState: {
-    enabledNetworks: [],
-    disabledNetworks: [],
+    enabledNetworks: {},
+    disabledNetworks: {},
   },
   accountsCreated: false,
   setAccountsCreated: () => {},
   isAllNetworksEnabled: {},
   setIsAllNetworksEnabled: () => {},
-  isAllNetworksEnabledWrapper: {},
-  setIsAllNetworksEnabledWrapper: () => {},
-  isOnlyOneNetworkEnabled: false,
+  isOnlyOneNetworkVisible: false,
+  allNetworksStateInit: false,
 });
 
 type ISectionItem = {
@@ -133,11 +116,9 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
   const {
     networkAccountMap,
     indexedAccountId,
-    initAllNetworksState,
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
-    setIsAllNetworksEnabledWrapper,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     refreshLocalData,
   } = useContext(WalletAddressContext);
 
@@ -157,58 +138,46 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
     };
   }, [networkAccountMap, network.id]);
 
-  const {
-    deriveAccountsEnabledCount,
-    networkAccounts,
-    deriveAccounts,
-    isDeriveAccountsInitialized,
-  } = memoData;
-
-  const isEnabledNetworkFromDB = useMemo(
-    () =>
-      isEnabledNetworksInAllNetworks({
-        networkId: network.id,
-        isTestnet: network.isTestnet,
-        disabledNetworks: initAllNetworksState.disabledNetworks,
-        enabledNetworks: initAllNetworksState.enabledNetworks,
-      }),
-    [
-      initAllNetworksState.disabledNetworks,
-      initAllNetworksState.enabledNetworks,
-      network.id,
-      network.isTestnet,
-    ],
-  );
-
-  const isEnabledNetwork = useMemo(
-    () => isAllNetworksEnabled[network.id] ?? isEnabledNetworkFromDB,
-    [isAllNetworksEnabled, isEnabledNetworkFromDB, network.id],
-  );
-
-  useEffect(() => {
-    // TODO performance, update at top
-    setIsAllNetworksEnabledWrapper((prev: IIsAllNetworksEnabledWrapperMap) => ({
-      ...prev,
-      [network.id]: deriveAccountsEnabledCount > 0 ? isEnabledNetwork : false,
-    }));
-  }, [
-    isEnabledNetwork,
-    network.id,
-    setIsAllNetworksEnabledWrapper,
-    deriveAccountsEnabledCount,
-  ]);
+  const isEnabledNetwork = isAllNetworksEnabled[network.id];
+  const { deriveAccountsEnabledCount, isDeriveAccountsInitialized } = memoData;
 
   const onPress = useCallback(() => {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: network.id,
       indexedAccountId,
-      onUnmounted: refreshLocalData,
+      onUnmounted: async ({
+        isAccountCreated,
+      }: {
+        isAccountCreated: boolean;
+      }) => {
+        if (isAccountCreated) {
+          refreshLocalData();
+          if (!network.isTestnet) {
+            setIsAllNetworksEnabled((prev) => ({
+              ...prev,
+              [network.id]: true,
+            }));
+            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+              enabledNetworks: {
+                [network.id]: true,
+              },
+            });
+          }
+        }
+      },
       actionType: EDeriveAddressActionType.Copy,
     });
-  }, [appNavigation, indexedAccountId, network.id, refreshLocalData]);
+  }, [
+    appNavigation,
+    indexedAccountId,
+    network.id,
+    network.isTestnet,
+    refreshLocalData,
+    setIsAllNetworksEnabled,
+  ]);
 
   const isEnabled = useMemo(
-    () => !isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0,
+    () => isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0,
     [deriveAccountsEnabledCount, isDeriveAccountsInitialized],
   );
 
@@ -230,7 +199,7 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
       return (
         <IconButton
           disabled={
-            (isOnlyOneNetworkEnabled && isEnabledNetwork) || network.isTestnet
+            (isOnlyOneNetworkVisible && isEnabledNetwork) || network.isTestnet
           }
           title={
             isEnabledNetwork
@@ -253,24 +222,12 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
               [network.id]: !isEnabledNetwork,
             }));
 
-            const disabledNetworks: {
-              networkId: string;
-            }[] = [];
-            const enabledNetworks: {
-              networkId: string;
-            }[] = [];
+            const disabledNetworks: Record<string, boolean> = {};
+            const enabledNetworks: Record<string, boolean> = {};
             if (isEnabledNetwork) {
-              deriveAccounts.forEach((a) => {
-                disabledNetworks.push({
-                  networkId: network.id,
-                });
-              });
+              disabledNetworks[network.id] = true;
             } else {
-              deriveAccounts.forEach((a) => {
-                enabledNetworks.push({
-                  networkId: network.id,
-                });
-              });
+              enabledNetworks[network.id] = true;
             }
             await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
               enabledNetworks,
@@ -302,14 +259,13 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
     return null;
   }, [
     isEnabled,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     isEnabledNetwork,
     network.isTestnet,
     network.name,
     network.id,
     intl,
     setIsAllNetworksEnabled,
-    deriveAccounts,
   ]);
 
   const copyIcon = useMemo(
@@ -357,42 +313,30 @@ const WalletAddressDeriveTypeItemMemo = memo(WalletAddressDeriveTypeItem);
 function WalletAddressListItemIcon({
   account,
   network,
-  isEnabledNetwork,
 }: {
   account?: IAllNetworkAccountInfo;
   network: IServerNetwork;
-  isEnabledNetwork: boolean;
 }) {
   const {
     setIsAllNetworksEnabled,
-    setIsAllNetworksEnabledWrapper,
-    isOnlyOneNetworkEnabled,
+    isAllNetworksEnabled,
+    isOnlyOneNetworkVisible,
   } = useContext(WalletAddressContext);
   const intl = useIntl();
 
-  useEffect(() => {
-    // TODO performance, update at top
-    setIsAllNetworksEnabledWrapper((prev) => ({
-      ...prev,
-      [network.id]: account ? isEnabledNetwork : false,
-    }));
-  }, [isEnabledNetwork, network.id, setIsAllNetworksEnabledWrapper, account]);
+  const isEnabledNetwork = isAllNetworksEnabled[network.id];
 
   const onPressEyeIcon = useCallback(async () => {
     setIsAllNetworksEnabled((prev) => ({
       ...prev,
       [network.id]: !isEnabledNetwork,
     }));
-    const disabledNetworks = [];
-    const enabledNetworks = [];
+    const disabledNetworks: Record<string, boolean> = {};
+    const enabledNetworks: Record<string, boolean> = {};
     if (isEnabledNetwork) {
-      disabledNetworks.push({
-        networkId: network.id,
-      });
+      disabledNetworks[network.id] = true;
     } else {
-      enabledNetworks.push({
-        networkId: network.id,
-      });
+      enabledNetworks[network.id] = true;
     }
     await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
       enabledNetworks,
@@ -432,7 +376,7 @@ function WalletAddressListItemIcon({
     return (
       <IconButton
         disabled={
-          (isOnlyOneNetworkEnabled && isEnabledNetwork) || network.isTestnet
+          (isOnlyOneNetworkVisible && isEnabledNetwork) || network.isTestnet
         }
         title={
           isEnabledNetwork
@@ -455,7 +399,7 @@ function WalletAddressListItemIcon({
     account,
     intl,
     isEnabledNetwork,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     network.isTestnet,
     onPressEyeIcon,
   ]);
@@ -484,29 +428,9 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
     setAccountsCreated,
-    initAllNetworksState,
   } = useContext(WalletAddressContext);
 
-  const isEnabledNetworkFromDB = useMemo(
-    () =>
-      isEnabledNetworksInAllNetworks({
-        networkId: network.id,
-        isTestnet: network.isTestnet,
-        disabledNetworks: initAllNetworksState.disabledNetworks,
-        enabledNetworks: initAllNetworksState.enabledNetworks,
-      }),
-    [
-      initAllNetworksState.disabledNetworks,
-      initAllNetworksState.enabledNetworks,
-      network.id,
-      network.isTestnet,
-    ],
-  );
-
-  const isEnabledNetwork = useMemo(
-    () => isAllNetworksEnabled[network.id] ?? isEnabledNetworkFromDB,
-    [isAllNetworksEnabled, isEnabledNetworkFromDB, network.id],
-  );
+  const isEnabledNetwork = isAllNetworksEnabled[network.id];
 
   const copyAccountAddress = useCopyAccountAddress();
   const appNavigation =
@@ -561,7 +485,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             }));
           }
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-            enabledNetworks: [{ networkId: network.id }],
+            enabledNetworks: { [network.id]: true },
           });
           Toast.success({
             title: intl.formatMessage({
@@ -634,11 +558,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             <Spinner />
           </Stack>
         ) : (
-          <WalletAddressListItemIconMemo
-            isEnabledNetwork={isEnabledNetwork}
-            account={account}
-            network={network}
-          />
+          <WalletAddressListItemIconMemo account={account} network={network} />
         )}
       </ListItem>
     ),
@@ -825,31 +745,37 @@ function WalletAddress({
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) {
-  const intl = useIntl();
-  const { initAllNetworksState, accountsCreated } =
+  const { initAllNetworksState, accountsCreated, allNetworksStateInit } =
     useContext(WalletAddressContext);
 
   const onClose = useCallback(async () => {
+    if (!allNetworksStateInit) {
+      return;
+    }
+
     const latestAllNetworksState =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
     if (
       accountsCreated ||
       differenceBy(
-        latestAllNetworksState.disabledNetworks,
-        initAllNetworksState.disabledNetworks,
-        ({ networkId }) => networkId,
+        Object.entries(latestAllNetworksState.disabledNetworks),
+        Object.entries(initAllNetworksState.disabledNetworks),
+        ([networkId]) => networkId,
       ).length > 0 ||
       differenceBy(
-        latestAllNetworksState.enabledNetworks,
-        initAllNetworksState.enabledNetworks,
-        ({ networkId }) => networkId,
+        Object.entries(latestAllNetworksState.enabledNetworks),
+        Object.entries(initAllNetworksState.enabledNetworks),
+        ([networkId]) => networkId,
       ).length > 0
     ) {
       // TODO performance, always emit when Modal open
-      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      }, 300);
     }
   }, [
     accountsCreated,
+    allNetworksStateInit,
     initAllNetworksState.disabledNetworks,
     initAllNetworksState.enabledNetworks,
   ]);
@@ -879,46 +805,6 @@ export default function WalletAddressPage({
   >({});
 
   const allNetworksStateInit = useRef(false);
-
-  // TODO performance what is this?
-  const [isAllNetworksEnabledWrapper, setIsAllNetworksEnabledWrapperBase] =
-    useState<IIsAllNetworksEnabledWrapperMap>({});
-
-  const setIsAllNetworksEnabledWrapper = useCallback(
-    (
-      fn: (
-        data: IIsAllNetworksEnabledWrapperMap,
-      ) => IIsAllNetworksEnabledWrapperMap,
-    ) => {
-      setIsAllNetworksEnabledWrapperBase((prev) => {
-        const newData = fn(prev);
-        if (isEqual(prev, newData)) {
-          return prev;
-        }
-        if (process.env.NODE_ENV !== 'production') {
-          log('isAllNetworksEnabledWrapperChanged:', {
-            prev,
-            newData,
-            diff: Object.keys(newData)
-              .filter((key) => prev[key] !== newData[key])
-              .map((key) => ({
-                key,
-                old: prev[key],
-                new: newData[key],
-              })),
-          });
-        }
-        return newData;
-      });
-    },
-    [],
-  );
-
-  const isOnlyOneNetworkEnabled = useMemo(
-    () =>
-      Object.values(isAllNetworksEnabledWrapper).filter((o) => o).length === 1,
-    [isAllNetworksEnabledWrapper],
-  );
 
   const {
     result,
@@ -971,6 +857,7 @@ export default function WalletAddressPage({
       perf.markStart('getAllNetworksState');
       const allNetworksState: IAllNetworksDBStruct =
         await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+
       perf.markEnd('getAllNetworksState');
 
       perf.done();
@@ -988,8 +875,8 @@ export default function WalletAddressPage({
       initResult: {
         networksAccount: [],
         allNetworksState: {
-          disabledNetworks: [],
-          enabledNetworks: [],
+          disabledNetworks: {},
+          enabledNetworks: {},
         },
         networks: {
           mainnetItems: [],
@@ -1000,6 +887,17 @@ export default function WalletAddressPage({
       },
     },
   );
+
+  const isOnlyOneNetworkVisible = useMemo(() => {
+    const networkIdsSet = new Set(
+      result.networksAccount.map((o) => o.networkId),
+    );
+    return (
+      Object.entries(isAllNetworksEnabled).filter(
+        ([networkId, isEnabled]) => isEnabled && networkIdsSet.has(networkId),
+      ).length === 1
+    );
+  }, [isAllNetworksEnabled, result.networksAccount]);
 
   useEffect(() => {
     if (
@@ -1016,20 +914,18 @@ export default function WalletAddressPage({
     allNetworksStateInit.current = true;
 
     const updateMap: Record<string, boolean> = {};
-    result.networksAccount.forEach((item) => {
-      const { networkId, isTestnet, dbAccount } = item;
-      if (dbAccount) {
-        updateMap[networkId] = isEnabledNetworksInAllNetworks({
-          networkId,
-          isTestnet,
+    [...result.networks.mainnetItems, ...result.networks.testnetItems].forEach(
+      (item) => {
+        updateMap[item.id] = isEnabledNetworksInAllNetworks({
+          networkId: item.id,
+          isTestnet: item.isTestnet,
           disabledNetworks: result.allNetworksState.disabledNetworks,
           enabledNetworks: result.allNetworksState.enabledNetworks,
         });
-      } else {
-        updateMap[networkId] = false;
-      }
-    });
-    setIsAllNetworksEnabledWrapper((prev) => ({
+      },
+    );
+
+    setIsAllNetworksEnabled((prev) => ({
       ...prev,
       ...updateMap,
     }));
@@ -1039,7 +935,6 @@ export default function WalletAddressPage({
     result.networks.mainnetItems,
     result.networks.testnetItems,
     result.networksAccount,
-    setIsAllNetworksEnabledWrapper,
   ]);
 
   const context = useMemo(() => {
@@ -1073,9 +968,8 @@ export default function WalletAddressPage({
       setAccountsCreated,
       isAllNetworksEnabled,
       setIsAllNetworksEnabled,
-      isAllNetworksEnabledWrapper,
-      setIsAllNetworksEnabledWrapper,
-      isOnlyOneNetworkEnabled,
+      isOnlyOneNetworkVisible,
+      allNetworksStateInit: allNetworksStateInit.current,
     };
     return contextData;
   }, [
@@ -1086,9 +980,7 @@ export default function WalletAddressPage({
     refreshLocalData,
     accountsCreated,
     isAllNetworksEnabled,
-    isAllNetworksEnabledWrapper,
-    isOnlyOneNetworkEnabled,
-    setIsAllNetworksEnabledWrapper,
+    isOnlyOneNetworkVisible,
   ]);
 
   return (

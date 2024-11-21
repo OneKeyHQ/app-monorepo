@@ -1,20 +1,24 @@
-import { uniqBy } from 'lodash';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-import type { IAccountDeriveTypes } from '../../../vaults/types';
-
 export interface IAllNetworksDBStruct {
-  // TODO performance, use map instead of array
-  disabledNetworks: {
-    networkId: string;
-  }[];
-  enabledNetworks: {
-    networkId: string;
-  }[];
+  disabledNetworks: Record<string, boolean>;
+  enabledNetworks: Record<string, boolean>;
 }
+
+const removeConflictingNetworks = (
+  networks: Record<string, boolean>,
+  conflictingNetworks: Record<string, boolean>,
+): Record<string, boolean> => {
+  const result = { ...networks };
+  for (const networkId in result) {
+    if (conflictingNetworks[networkId]) {
+      delete result[networkId];
+    }
+  }
+  return result;
+};
 
 export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDBStruct> {
   entityName = 'allNetworks';
@@ -25,41 +29,41 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
   async getAllNetworksState(): Promise<IAllNetworksDBStruct> {
     const data = await this.getRawData();
     return {
-      disabledNetworks: data?.disabledNetworks ?? [],
-      enabledNetworks: data?.enabledNetworks ?? [],
+      disabledNetworks: data?.disabledNetworks ?? {},
+      enabledNetworks: data?.enabledNetworks ?? {},
     };
   }
 
   @backgroundMethod()
   async updateAllNetworksState({
-    disabledNetworks = [],
-    enabledNetworks = [],
+    disabledNetworks = {},
+    enabledNetworks = {},
   }: {
-    disabledNetworks?: {
-      networkId: string;
-    }[];
-    enabledNetworks?: {
-      networkId: string;
-    }[];
+    disabledNetworks?: Record<string, boolean>;
+    enabledNetworks?: Record<string, boolean>;
   }): Promise<void> {
     await this.setRawData(({ rawData }) => {
-      const originalDisabledNetworks = rawData?.disabledNetworks ?? [];
-      const originalEnabledNetworks = rawData?.enabledNetworks ?? [];
+      const originalDisabledNetworks = rawData?.disabledNetworks ?? {};
+      const originalEnabledNetworks = rawData?.enabledNetworks ?? {};
 
-      const finalEnabledNetworks = uniqBy(
-        [...originalEnabledNetworks, ...enabledNetworks],
-        (n) => n.networkId,
-      ).filter(
-        (n) => !disabledNetworks.find((o) => o.networkId === n.networkId),
+      const mergedEnabled = {
+        ...originalEnabledNetworks,
+        ...enabledNetworks,
+      };
+      const mergedDisabled = {
+        ...originalDisabledNetworks,
+        ...disabledNetworks,
+      };
+
+      const finalEnabledNetworks = removeConflictingNetworks(
+        mergedEnabled,
+        disabledNetworks,
+      );
+      const finalDisabledNetworks = removeConflictingNetworks(
+        mergedDisabled,
+        enabledNetworks,
       );
 
-      // remove duplicated networks
-      const finalDisabledNetworks = uniqBy(
-        [...originalDisabledNetworks, ...disabledNetworks],
-        (n) => n.networkId,
-      ).filter(
-        (n) => !enabledNetworks.find((o) => o.networkId === n.networkId),
-      );
       return {
         disabledNetworks: finalDisabledNetworks,
         enabledNetworks: finalEnabledNetworks,

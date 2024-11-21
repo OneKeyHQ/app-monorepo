@@ -212,8 +212,8 @@ class ServiceAllNetwork extends ServiceBase {
     );
     const enableNFTNetworkIds = getEnabledNFTNetworkIds();
 
-    let enabledNetworks: { networkId: string }[] = [];
-    let disabledNetworks: { networkId: string }[] = [];
+    let enabledNetworks: Record<string, boolean> = {};
+    let disabledNetworks: Record<string, boolean> = {};
 
     if (networksEnabledOnly) {
       const allNetworkState = await this.getAllNetworksState();
@@ -387,12 +387,8 @@ class ServiceAllNetwork extends ServiceBase {
 
   @backgroundMethod()
   async updateAllNetworksState(params: {
-    disabledNetworks?: {
-      networkId: string;
-    }[];
-    enabledNetworks?: {
-      networkId: string;
-    }[];
+    disabledNetworks?: Record<string, boolean>;
+    enabledNetworks?: Record<string, boolean>;
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,

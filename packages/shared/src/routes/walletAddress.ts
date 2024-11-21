@@ -27,7 +27,7 @@ export type IDeriveTypesAddressParams = {
     deriveInfo: IAccountDeriveInfo;
     deriveType: IAccountDeriveTypes;
   }) => void;
-  onUnmounted?: () => void;
+  onUnmounted?: ({ isAccountCreated }: { isAccountCreated?: boolean }) => void;
 };
 
 export type IModalWalletAddressParamList = {
