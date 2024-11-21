@@ -80,7 +80,7 @@ type IWalletAddressContext = {
   setIsAllNetworksEnabled: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
-  isOnlyOneNetworkEnabled: boolean;
+  isOnlyOneNetworkVisible: boolean;
   allNetworksStateInit: boolean;
 };
 
@@ -100,7 +100,7 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   setAccountsCreated: () => {},
   isAllNetworksEnabled: {},
   setIsAllNetworksEnabled: () => {},
-  isOnlyOneNetworkEnabled: false,
+  isOnlyOneNetworkVisible: false,
   allNetworksStateInit: false,
 });
 
@@ -118,7 +118,7 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
     indexedAccountId,
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     refreshLocalData,
   } = useContext(WalletAddressContext);
 
@@ -199,7 +199,7 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
       return (
         <IconButton
           disabled={
-            (isOnlyOneNetworkEnabled && isEnabledNetwork) || network.isTestnet
+            (isOnlyOneNetworkVisible && isEnabledNetwork) || network.isTestnet
           }
           title={
             isEnabledNetwork
@@ -259,7 +259,7 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
     return null;
   }, [
     isEnabled,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     isEnabledNetwork,
     network.isTestnet,
     network.name,
@@ -320,7 +320,7 @@ function WalletAddressListItemIcon({
   const {
     setIsAllNetworksEnabled,
     isAllNetworksEnabled,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
   } = useContext(WalletAddressContext);
   const intl = useIntl();
 
@@ -376,7 +376,7 @@ function WalletAddressListItemIcon({
     return (
       <IconButton
         disabled={
-          (isOnlyOneNetworkEnabled && isEnabledNetwork) || network.isTestnet
+          (isOnlyOneNetworkVisible && isEnabledNetwork) || network.isTestnet
         }
         title={
           isEnabledNetwork
@@ -399,7 +399,7 @@ function WalletAddressListItemIcon({
     account,
     intl,
     isEnabledNetwork,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
     network.isTestnet,
     onPressEyeIcon,
   ]);
@@ -771,7 +771,7 @@ function WalletAddress({
       // TODO performance, always emit when Modal open
       setTimeout(() => {
         appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      }, 1000);
+      }, 300);
     }
   }, [
     accountsCreated,
@@ -805,9 +805,6 @@ export default function WalletAddressPage({
   >({});
 
   const allNetworksStateInit = useRef(false);
-
-  const isOnlyOneNetworkEnabled =
-    Object.values(isAllNetworksEnabled).filter((o) => o).length === 1;
 
   const {
     result,
@@ -891,6 +888,16 @@ export default function WalletAddressPage({
     },
   );
 
+  const isOnlyOneNetworkVisible = useMemo(
+    () =>
+      Object.entries(isAllNetworksEnabled).filter(
+        ([networkId, isEnabled]) =>
+          isEnabled &&
+          result.networksAccount.find((o) => o.networkId === networkId),
+      ).length === 1,
+    [isAllNetworksEnabled, result.networksAccount],
+  );
+
   useEffect(() => {
     if (
       allNetworksStateInit.current ||
@@ -960,7 +967,7 @@ export default function WalletAddressPage({
       setAccountsCreated,
       isAllNetworksEnabled,
       setIsAllNetworksEnabled,
-      isOnlyOneNetworkEnabled,
+      isOnlyOneNetworkVisible,
       allNetworksStateInit: allNetworksStateInit.current,
     };
     return contextData;
@@ -972,7 +979,7 @@ export default function WalletAddressPage({
     refreshLocalData,
     accountsCreated,
     isAllNetworksEnabled,
-    isOnlyOneNetworkEnabled,
+    isOnlyOneNetworkVisible,
   ]);
 
   return (
