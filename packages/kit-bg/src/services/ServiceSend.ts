@@ -312,12 +312,14 @@ class ServiceSend extends ServiceBase {
     unsignedTxs,
     tokenApproveInfo,
     nonceInfo,
+    feeInfoEditable,
   }: ISendTxBaseParams & {
     unsignedTxs: IUnsignedTxPro[];
     tokenApproveInfo?: ITokenApproveInfo;
     feeInfos?: ISendSelectedFeeInfo[];
     nativeAmountInfo?: INativeAmountInfo;
     nonceInfo?: { nonce: number };
+    feeInfoEditable?: boolean;
   }) {
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -332,6 +334,7 @@ class ServiceSend extends ServiceBase {
         nativeAmountInfo,
         tokenApproveInfo,
         nonceInfo,
+        feeInfoEditable,
       });
 
       newUnsignedTxs.push(newUnsignedTx);

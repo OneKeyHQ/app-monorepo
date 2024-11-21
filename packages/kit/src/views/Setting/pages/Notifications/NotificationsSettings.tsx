@@ -132,6 +132,7 @@ export default function NotificationsSettings() {
                 }}
               />
               <Switch
+                size="small"
                 value={!!settings?.pushEnabled}
                 onChange={(checked) => {
                   void updateSettings({
@@ -158,6 +159,7 @@ export default function NotificationsSettings() {
                     }}
                   />
                   <Switch
+                    size="small"
                     value={!!settings?.accountActivityPushEnabled}
                     onChange={(checked) => {
                       void updateSettings({

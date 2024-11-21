@@ -98,6 +98,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  isTxOverSize,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
@@ -1031,7 +1032,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo, feeInfo } = params;
+    const { unsignedTx, nativeAmountInfo, feeInfo, feeInfoEditable } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxSol;
 
     if (nativeAmountInfo) {
@@ -1040,7 +1041,8 @@ export default class Vault extends VaultBase {
         nativeAmountInfo,
       });
     }
-    if (feeInfo) {
+
+    if (feeInfo && feeInfoEditable !== false) {
       encodedTxNew = await this._attachFeeInfoToEncodedTx({
         encodedTx: encodedTxNew,
         feeInfo,
@@ -1338,7 +1340,7 @@ export default class Vault extends VaultBase {
       computeUnitPrice = feeInfo.feeSol.computeUnitPrice;
     }
 
-    return this._attachFeeInfoToEncodedTx({
+    const encodedTxWithFee = await this._attachFeeInfoToEncodedTx({
       encodedTx,
       feeInfo: {
         ...feeInfo,
@@ -1347,6 +1349,12 @@ export default class Vault extends VaultBase {
         },
       },
     });
+
+    if (isTxOverSize(encodedTxWithFee)) {
+      return '';
+    }
+
+    return encodedTxWithFee;
   }
 
   override async getCustomRpcEndpointStatus(

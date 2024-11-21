@@ -436,53 +436,6 @@ export function useSwapBuildTx() {
                 .toFixed(),
             };
           } else if (res?.OKXTxObject) {
-            if (res.result.fromTokenInfo.networkId === 'ton--mainnet') {
-              const tonNativeTokenInfo =
-                await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                  networkId: 'ton--mainnet',
-                  contractAddress: '',
-                  accountAddress: swapFromAddressInfo.address,
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                });
-              if (tonNativeTokenInfo?.length) {
-                const txValueBN = new BigNumber(
-                  res.OKXTxObject.value,
-                ).shiftedBy(-tonNativeTokenInfo[0].decimals);
-                if (
-                  txValueBN.gt(
-                    new BigNumber(tonNativeTokenInfo[0].balanceParsed ?? 0),
-                  )
-                ) {
-                  Toast.error({
-                    title: intl.formatMessage(
-                      {
-                        id: ETranslations.swap_page_toast_insufficient_balance_title,
-                      },
-                      { token: tonNativeTokenInfo[0].symbol },
-                    ),
-                    message: intl.formatMessage(
-                      {
-                        id: ETranslations.swap_page_toast_insufficient_balance_content,
-                      },
-                      {
-                        token: tonNativeTokenInfo[0].symbol,
-                        number: numberFormat(txValueBN.toFixed(), {
-                          formatter: 'balance',
-                        }) as string,
-                      },
-                    ),
-                  });
-                  return null;
-                }
-              } else {
-                Toast.error({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_failed,
-                  }),
-                });
-                return null;
-              }
-            }
             encodedTx =
               await backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx({
                 accountId: swapFromAddressInfo?.accountInfo?.account?.id ?? '',
@@ -560,7 +513,6 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
-    intl,
   ]);
 
   const approveTx = useCallback(
