@@ -542,6 +542,7 @@ export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
+  feeInfoEditable?: boolean;
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;

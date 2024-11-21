@@ -148,6 +148,7 @@ function SendConfirmActionsContainer(props: IProps) {
               maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
             }
           : undefined,
+        feeInfoEditable,
       });
     } catch (e: any) {
       updateSendTxStatus({ isSubmitting: false });
@@ -271,6 +272,7 @@ function SendConfirmActionsContainer(props: IProps) {
     dappApprove,
     tokenApproveInfo,
     txAdvancedSettings.nonce,
+    feeInfoEditable,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
