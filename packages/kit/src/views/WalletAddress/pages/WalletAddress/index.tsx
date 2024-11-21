@@ -888,15 +888,16 @@ export default function WalletAddressPage({
     },
   );
 
-  const isOnlyOneNetworkVisible = useMemo(
-    () =>
+  const isOnlyOneNetworkVisible = useMemo(() => {
+    const networkIdsSet = new Set(
+      result.networksAccount.map((o) => o.networkId),
+    );
+    return (
       Object.entries(isAllNetworksEnabled).filter(
-        ([networkId, isEnabled]) =>
-          isEnabled &&
-          result.networksAccount.find((o) => o.networkId === networkId),
-      ).length === 1,
-    [isAllNetworksEnabled, result.networksAccount],
-  );
+        ([networkId, isEnabled]) => isEnabled && networkIdsSet.has(networkId),
+      ).length === 1
+    );
+  }, [isAllNetworksEnabled, result.networksAccount]);
 
   useEffect(() => {
     if (
