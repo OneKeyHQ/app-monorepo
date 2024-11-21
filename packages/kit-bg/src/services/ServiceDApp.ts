@@ -434,6 +434,11 @@ class ServiceDApp extends ServiceBase {
       })),
     });
     void this.syncDappAccountIfPrimaryMode({ origin });
+    // If alignPrimaryAccountMode is AlwaysUsePrimaryAccount,
+    // we need to notify the dapp accounts changed after connected
+    setTimeout(() => {
+      void this.notifyDAppAccountsChangedAfterConnected({ origin });
+    }, 300);
   }
 
   @backgroundMethod()
@@ -544,6 +549,22 @@ class ServiceDApp extends ServiceBase {
     await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
     await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  async notifyDAppAccountsChangedAfterConnected({
+    origin,
+  }: {
+    origin: string;
+  }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return;
+    }
+    void this.notifyDAppAccountsChanged(origin);
   }
 
   @backgroundMethod()

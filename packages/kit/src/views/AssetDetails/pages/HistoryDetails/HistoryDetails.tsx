@@ -272,6 +272,11 @@ function NotificationAccountInfo({
   );
   const intl = useIntl();
 
+  // account may be deleted
+  if (!notificationAccountAddress) {
+    return null;
+  }
+
   return (
     <>
       <Divider mx="$5" />
@@ -831,7 +836,6 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
-
     if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
       return (
         <>

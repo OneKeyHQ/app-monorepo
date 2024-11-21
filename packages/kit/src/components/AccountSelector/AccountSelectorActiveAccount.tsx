@@ -29,15 +29,12 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils, {
-  isEnabledNetworksInAllNetworks,
-} from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
+import { useAllNetworksStateStateAtom } from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -50,6 +47,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const shouldClearAllNetworksCache = useRef(false);
+  const [allNetworksState] = useAllNetworksStateStateAtom();
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -63,72 +61,29 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     },
   );
 
-  const { result, run } = usePromiseResult(async () => {
-    if (!activeAccount.network?.isAllNetworks) return null;
-    const [s, a] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId: activeAccount.account?.id,
-          walletId: activeAccount.wallet?.id,
-          clearCache: shouldClearAllNetworksCache.current,
-        },
-      ),
-    ]);
+  const { result: allNetworksCount, run } = usePromiseResult(async () => {
+    const { network, wallet } = activeAccount;
+    if (!network?.isAllNetworks) return null;
 
-    shouldClearAllNetworksCache.current = false;
-
-    const all = [...a.mainnetItems, ...a.testnetItems];
-    const visibleNetworks: IServerNetwork[] = [];
-    for (const n of all) {
-      const [accountDeriveType, accounts, vaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: n.id,
-        }),
-        backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: n.id,
-            indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
-          },
-        ),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId: n.id }),
-      ]);
-
-      const account = accounts.networkAccounts.find(
-        (na) =>
-          accounts.network.id === n.id &&
-          (vaultSettings.mergeDeriveAssetsEnabled ||
-            (!vaultSettings.mergeDeriveAssetsEnabled &&
-              na?.deriveType === accountDeriveType)) &&
-          (na.account?.address ||
-            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
-      );
-      if (account) {
-        if (
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            isTestnet: n.isTestnet,
-            disabledNetworks: s.disabledNetworks,
-            enabledNetworks: s.enabledNetworks,
-          })
-        ) {
-          visibleNetworks.push(n);
-        }
-      }
+    if (shouldClearAllNetworksCache.current) {
+      await backgroundApiProxy.serviceNetwork.clearNetworkVaultSettingsCache();
     }
 
-    return {
-      visibleNetworks,
-      allNetworks: all,
-    };
-  }, [
-    activeAccount.account?.id,
-    activeAccount.account?.indexedAccountId,
-    activeAccount.network?.isAllNetworks,
-    activeAccount.wallet?.id,
-  ]);
+    const { networkIds } =
+      await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
+        clearCache: shouldClearAllNetworksCache.current,
+      });
+    const { networkIdsCompatible } =
+      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+        {
+          walletId: wallet?.id,
+          networkIds,
+        },
+      );
 
-  const { visibleNetworks, allNetworks } = result ?? {};
+    shouldClearAllNetworksCache.current = false;
+    return networkIdsCompatible.length;
+  }, [activeAccount]);
 
   useEffect(() => {
     const reloadAllNetworks = () => {
@@ -191,9 +146,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         <SizableText size="$bodyMd">
-          {allNetworks && visibleNetworks
-            ? `${visibleNetworks.length} / ${allNetworks.length}`
-            : ''}
+          {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
         </SizableText>
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}

@@ -66,16 +66,18 @@ class ServiceHistory extends ServiceBase {
     let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
     let localHistoryPendingTxs: IAccountHistoryTx[] = [];
     let accounts: IAllNetworkAccountInfo[] = [];
+    let allAccounts: IAllNetworkAccountInfo[] = [];
 
     if (isAllNetworks) {
-      accounts = (
+      const resp =
         await this.backgroundApi.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
           {
             accountId,
             networkId,
           },
-        )
-      ).accountsInfo;
+        );
+      accounts = resp.accountsInfo;
+      allAccounts = resp.allAccountsInfo;
     }
 
     // 1. Get the locally pending transactions
@@ -317,6 +319,8 @@ class ServiceHistory extends ServiceBase {
     }
 
     return {
+      accounts,
+      allAccounts,
       txs: result,
       accountsWithChangedPendingTxs: Array.from(
         accountsWithChangedPendingTxs,
