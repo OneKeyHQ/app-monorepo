@@ -81,6 +81,7 @@ type IWalletAddressContext = {
     React.SetStateAction<Record<string, boolean>>
   >;
   isOnlyOneNetworkEnabled: boolean;
+  allNetworksStateInit: boolean;
 };
 
 const log = debugUtils.createSimpleDebugLog('<WalletAddressPage>', true);
@@ -100,6 +101,7 @@ const WalletAddressContext = createContext<IWalletAddressContext>({
   isAllNetworksEnabled: {},
   setIsAllNetworksEnabled: () => {},
   isOnlyOneNetworkEnabled: false,
+  allNetworksStateInit: false,
 });
 
 type ISectionItem = {
@@ -143,13 +145,39 @@ function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
     appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
       networkId: network.id,
       indexedAccountId,
-      onUnmounted: refreshLocalData,
+      onUnmounted: async ({
+        isAccountCreated,
+      }: {
+        isAccountCreated: boolean;
+      }) => {
+        if (isAccountCreated) {
+          refreshLocalData();
+          if (!network.isTestnet) {
+            setIsAllNetworksEnabled((prev) => ({
+              ...prev,
+              [network.id]: true,
+            }));
+            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+              enabledNetworks: {
+                [network.id]: true,
+              },
+            });
+          }
+        }
+      },
       actionType: EDeriveAddressActionType.Copy,
     });
-  }, [appNavigation, indexedAccountId, network.id, refreshLocalData]);
+  }, [
+    appNavigation,
+    indexedAccountId,
+    network.id,
+    network.isTestnet,
+    refreshLocalData,
+    setIsAllNetworksEnabled,
+  ]);
 
   const isEnabled = useMemo(
-    () => !isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0,
+    () => isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0,
     [deriveAccountsEnabledCount, isDeriveAccountsInitialized],
   );
 
@@ -717,10 +745,14 @@ function WalletAddress({
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) {
-  const { initAllNetworksState, accountsCreated } =
+  const { initAllNetworksState, accountsCreated, allNetworksStateInit } =
     useContext(WalletAddressContext);
 
   const onClose = useCallback(async () => {
+    if (!allNetworksStateInit) {
+      return;
+    }
+
     const latestAllNetworksState =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
     if (
@@ -741,6 +773,7 @@ function WalletAddress({
     }
   }, [
     accountsCreated,
+    allNetworksStateInit,
     initAllNetworksState.disabledNetworks,
     initAllNetworksState.enabledNetworks,
   ]);
@@ -825,6 +858,7 @@ export default function WalletAddressPage({
       perf.markStart('getAllNetworksState');
       const allNetworksState: IAllNetworksDBStruct =
         await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+
       perf.markEnd('getAllNetworksState');
 
       perf.done();
@@ -927,6 +961,7 @@ export default function WalletAddressPage({
       isAllNetworksEnabled,
       setIsAllNetworksEnabled,
       isOnlyOneNetworkEnabled,
+      allNetworksStateInit: allNetworksStateInit.current,
     };
     return contextData;
   }, [
