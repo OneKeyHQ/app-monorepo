@@ -792,13 +792,25 @@ function WalletAddress({
 }
 const WalletAddressMemo = memo(WalletAddress);
 
-export default function WalletAddressPage({
-  route,
-}: IPageScreenProps<
-  IModalWalletAddressParamList,
-  EModalWalletAddressRoutes.WalletAddress
->) {
-  const { accountId, walletId, indexedAccountId } = route.params;
+function PageLoading() {
+  return (
+    <WalletAddressPageView>
+      <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
+        <Spinner size="large" />
+      </Stack>
+    </WalletAddressPageView>
+  );
+}
+
+function WalletAddressPageMainView({
+  accountId,
+  walletId,
+  indexedAccountId,
+}: {
+  accountId?: string;
+  walletId?: string;
+  indexedAccountId: string;
+}) {
   const [accountsCreated, setAccountsCreated] = useState(false);
   const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
     Record<string, boolean>
@@ -992,12 +1004,8 @@ export default function WalletAddressPage({
       enabledNum={[0]}
     >
       <WalletAddressContext.Provider value={context}>
-        {isLoading && !result.networksAccount?.length ? (
-          <WalletAddressPageView>
-            <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
-              <Spinner size="large" />
-            </Stack>
-          </WalletAddressPageView>
+        {isLoading && !result.networks?.mainnetItems?.length ? (
+          <PageLoading />
         ) : (
           <WalletAddressMemo
             accountId={accountId} // route.params.accountId
@@ -1008,5 +1016,39 @@ export default function WalletAddressPage({
         )}
       </WalletAddressContext.Provider>
     </AccountSelectorProviderMirror>
+  );
+}
+
+const WalletAddressPageMainViewMemo = memo(WalletAddressPageMainView);
+
+export default function WalletAddressPage({
+  route,
+}: IPageScreenProps<
+  IModalWalletAddressParamList,
+  EModalWalletAddressRoutes.WalletAddress
+>) {
+  const { accountId, walletId, indexedAccountId } = route.params;
+
+  const { result: allNetworkMockedAccountId } = usePromiseResult(async () => {
+    if (!accountId) {
+      const allNetworkMockedAccount =
+        await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+          indexedAccountId,
+        });
+      return allNetworkMockedAccount?.id || accountId;
+    }
+    return accountId;
+  }, [accountId, indexedAccountId]);
+
+  if (!allNetworkMockedAccountId) {
+    return <PageLoading />;
+  }
+
+  return (
+    <WalletAddressPageMainViewMemo
+      accountId={allNetworkMockedAccountId}
+      walletId={walletId}
+      indexedAccountId={indexedAccountId}
+    />
   );
 }
