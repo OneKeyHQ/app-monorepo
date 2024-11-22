@@ -787,9 +787,10 @@ function TokenListContainer(props: ITabPageProps) {
     result: allNetworksResult,
     isEmptyAccount,
   } = useAllNetworkRequests<IFetchAccountTokensResp>({
-    account,
-    network,
-    wallet,
+    accountId: account?.id,
+    networkId: network?.id,
+    walletId: wallet?.id,
+    isAllNetworks: network?.isAllNetworks,
     allNetworkRequests: handleAllNetworkRequests,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,
