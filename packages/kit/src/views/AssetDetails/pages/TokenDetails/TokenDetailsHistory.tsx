@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -24,8 +25,14 @@ function TokenDetailsHistory(
 ) {
   const navigation = useAppNavigation();
 
-  const { accountId, networkId, tokenInfo, historyInit, setHistoryInit } =
-    props;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    historyInit,
+    setHistoryInit,
+    ListHeaderComponent,
+  } = props;
 
   /**
    * since some tokens are slow to load history,
@@ -106,6 +113,7 @@ function TokenDetailsHistory(
         isLoading={isLoadingTokenHistory}
         data={tokenHistory ?? []}
         onPressHistory={handleHistoryItemPress}
+        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       />
     </ProviderJotaiContextHistoryList>
   );
