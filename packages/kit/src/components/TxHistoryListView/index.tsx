@@ -167,7 +167,6 @@ function TxHistoryListView(props: IProps) {
     );
   }
 
-  console.log('screenHeight', screenHeight, bottom, top);
   return (
     <SectionList
       {...(listViewProps as any)}
