@@ -176,7 +176,7 @@ function TxHistoryListView(props: IProps) {
       contentContainerStyle={{
         ...contentContainerStyle,
       }}
-      h={platformEnv.isNativeIOS ? screenHeight - top - bottom - 85 : '100%'}
+      h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
       onLayout={onLayout}
       sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}

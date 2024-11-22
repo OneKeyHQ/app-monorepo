@@ -113,7 +113,7 @@ function TokenDetailsHistory(
         isLoading={isLoadingTokenHistory}
         data={tokenHistory ?? []}
         onPressHistory={handleHistoryItemPress}
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       />
     </ProviderJotaiContextHistoryList>
   );
