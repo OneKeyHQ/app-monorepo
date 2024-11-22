@@ -26,7 +26,7 @@ export const marketNavigation = {
     await timerUtils.wait(50);
     navigation.switchTab(ETabRoutes.Market);
     await timerUtils.wait(50);
-    navigation.push(ETabRoutes.Market, {
+    navigation.navigate(ETabRoutes.Market, {
       screen: ETabMarketRoutes.MarketDetail,
       params: {
         token: coinGeckoId,
