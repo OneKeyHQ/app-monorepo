@@ -23,14 +23,11 @@ export const marketNavigation = {
       coinGeckoId: string;
     },
   ) {
-    await timerUtils.wait(50);
+    await timerUtils.wait(80);
     navigation.switchTab(ETabRoutes.Market);
-    await timerUtils.wait(50);
-    navigation.navigate(ETabRoutes.Market, {
-      screen: ETabMarketRoutes.MarketDetail,
-      params: {
-        token: coinGeckoId,
-      },
+    await timerUtils.wait(80);
+    navigation.push(ETabMarketRoutes.MarketDetail, {
+      token: coinGeckoId,
     });
   },
 };
