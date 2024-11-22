@@ -23,15 +23,23 @@ export const useAllNetworkCopyAddressHandler = ({
     networkUtils.isAllNetwork({ networkId: network.id }) &&
     indexedAccount !== undefined;
 
-  const handleAllNetworkCopyAddress = useCallback(() => {
+  const handleAllNetworkCopyAddress = useCallback(async () => {
     console.log(activeAccountRef.current);
     if (!indexedAccount) {
       return;
     }
+    const accountId = account?.id;
+    // if (!accountId) {
+    //   const allNetworkMockedAccount =
+    //     await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+    //       indexedAccountId: indexedAccount.id,
+    //     });
+    //   accountId = allNetworkMockedAccount.id;
+    // }
     appNavigation.pushModal(EModalRoutes.WalletAddress, {
       screen: EModalWalletAddressRoutes.WalletAddress,
       params: {
-        accountId: account?.id,
+        accountId,
         indexedAccountId: indexedAccount.id,
         walletId: wallet?.id,
       },
