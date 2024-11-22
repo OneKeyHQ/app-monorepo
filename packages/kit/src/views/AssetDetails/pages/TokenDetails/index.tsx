@@ -4,7 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IActionListSection, IListViewProps } from '@onekeyhq/components';
+import type {
+  IActionListSection,
+  IListViewProps,
+  ISectionListProps,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Page,
@@ -54,6 +58,7 @@ export type IProps = {
   isAllNetworks?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
+  ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
 };
 
 function TokenDetails() {
