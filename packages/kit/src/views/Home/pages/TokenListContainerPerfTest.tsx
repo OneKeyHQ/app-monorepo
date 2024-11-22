@@ -99,9 +99,10 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
   }, [setOverview]);
 
   useAllNetworkRequests<IFetchAccountTokensResp>({
-    account,
-    network,
-    wallet,
+    accountId: account?.id,
+    networkId: network?.id,
+    walletId: wallet?.id,
+    isAllNetworks: network?.isAllNetworks,
     allNetworkRequests: empty as any,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,

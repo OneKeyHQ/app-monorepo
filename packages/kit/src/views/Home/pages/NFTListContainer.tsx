@@ -212,9 +212,10 @@ function NFTListContainer(props: ITabPageProps) {
     result: allNetworksResult,
     isEmptyAccount,
   } = useAllNetworkRequests<IFetchAccountNFTsResp>({
-    account,
-    network,
-    wallet,
+    accountId: account?.id,
+    networkId: network?.id,
+    walletId: wallet?.id,
+    isAllNetworks: network?.isAllNetworks,
     allNetworkRequests: handleAllNetworkRequests,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,

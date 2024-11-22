@@ -17,14 +17,11 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-// import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
-// import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
