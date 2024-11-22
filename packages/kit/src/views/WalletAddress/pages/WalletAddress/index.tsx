@@ -771,7 +771,7 @@ function WalletAddress({
       // TODO performance, always emit when Modal open
       setTimeout(() => {
         appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-      }, 300);
+      }, 100);
     }
   }, [
     accountsCreated,
