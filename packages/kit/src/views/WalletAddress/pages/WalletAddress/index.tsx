@@ -29,6 +29,9 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -38,9 +41,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
-import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
-import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -792,13 +792,25 @@ function WalletAddress({
 }
 const WalletAddressMemo = memo(WalletAddress);
 
-export default function WalletAddressPage({
-  route,
-}: IPageScreenProps<
-  IModalWalletAddressParamList,
-  EModalWalletAddressRoutes.WalletAddress
->) {
-  const { accountId, walletId, indexedAccountId } = route.params;
+function PageLoading() {
+  return (
+    <WalletAddressPageView>
+      <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
+        <Spinner size="large" />
+      </Stack>
+    </WalletAddressPageView>
+  );
+}
+
+function WalletAddressPageMainView({
+  accountId,
+  walletId,
+  indexedAccountId,
+}: {
+  accountId?: string;
+  walletId?: string;
+  indexedAccountId: string;
+}) {
   const [accountsCreated, setAccountsCreated] = useState(false);
   const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
     Record<string, boolean>
@@ -822,6 +834,9 @@ export default function WalletAddressPage({
           { accountId, walletId },
         );
       perf.markEnd('getChainSelectorNetworksCompatibleWithAccountId');
+
+      // hide testnet in all networks
+      networks.testnetItems = [];
 
       // perf.markStart('buildNetworkIds');
       // const networkIds = Array.from(
@@ -992,12 +1007,8 @@ export default function WalletAddressPage({
       enabledNum={[0]}
     >
       <WalletAddressContext.Provider value={context}>
-        {isLoading && !result.networksAccount?.length ? (
-          <WalletAddressPageView>
-            <Stack p="$5" h="$100" alignItems="center" justifyContent="center">
-              <Spinner size="large" />
-            </Stack>
-          </WalletAddressPageView>
+        {isLoading && !result.networks?.mainnetItems?.length ? (
+          <PageLoading />
         ) : (
           <WalletAddressMemo
             accountId={accountId} // route.params.accountId
@@ -1008,5 +1019,39 @@ export default function WalletAddressPage({
         )}
       </WalletAddressContext.Provider>
     </AccountSelectorProviderMirror>
+  );
+}
+
+const WalletAddressPageMainViewMemo = memo(WalletAddressPageMainView);
+
+export default function WalletAddressPage({
+  route,
+}: IPageScreenProps<
+  IModalWalletAddressParamList,
+  EModalWalletAddressRoutes.WalletAddress
+>) {
+  const { accountId, walletId, indexedAccountId } = route.params;
+
+  const { result: allNetworkMockedAccountId } = usePromiseResult(async () => {
+    if (!accountId) {
+      const allNetworkMockedAccount =
+        await backgroundApiProxy.serviceAccount.getMockedAllNetworkAccount({
+          indexedAccountId,
+        });
+      return allNetworkMockedAccount?.id || accountId;
+    }
+    return accountId;
+  }, [accountId, indexedAccountId]);
+
+  if (!allNetworkMockedAccountId) {
+    return <PageLoading />;
+  }
+
+  return (
+    <WalletAddressPageMainViewMemo
+      accountId={allNetworkMockedAccountId}
+      walletId={walletId}
+      indexedAccountId={indexedAccountId}
+    />
   );
 }
