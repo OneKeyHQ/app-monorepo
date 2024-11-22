@@ -1,3 +1,4 @@
+import { isEmpty } from 'lodash';
 import { createIntl, createIntlCache } from 'react-intl';
 
 import type { ILocaleSymbol } from './type';
@@ -17,6 +18,12 @@ class AppLocale {
 
   intl!: IntlShape;
 
+  private isReadyResolve!: (value: boolean) => void;
+
+  isReady = new Promise<boolean>((resolve) => {
+    this.isReadyResolve = resolve;
+  });
+
   setLocale(
     locale: ResolvedIntlConfig['locale'],
     messages: ResolvedIntlConfig['messages'],
@@ -28,6 +35,10 @@ class AppLocale {
       },
       this.cache,
     );
+
+    if (!isEmpty(messages)) {
+      this.isReadyResolve(true);
+    }
   }
 
   getLocale() {

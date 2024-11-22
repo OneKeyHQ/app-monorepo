@@ -37,6 +37,7 @@ export type IAllNetworkAccountsInfoResult = {
   accountsInfo: IAllNetworkAccountInfo[];
   accountsInfoBackendIndexed: IAllNetworkAccountInfo[];
   accountsInfoBackendNotIndexed: IAllNetworkAccountInfo[];
+  allAccountsInfo: IAllNetworkAccountInfo[];
 };
 export type IAllNetworkAccountsParams = {
   networkId: string; // all networkId or single networkId
@@ -46,6 +47,7 @@ export type IAllNetworkAccountsParams = {
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
   fetchAllNetworkAccounts?: boolean;
+  networksEnabledOnly?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -141,39 +143,11 @@ class ServiceAllNetwork extends ServiceBase {
   async getAllNetworkAccountsWithEnabledNetworks(
     params: IAllNetworkAccountsParams,
   ): Promise<IAllNetworkAccountsInfoResult> {
-    const { accountsInfo } = await this.getAllNetworkAccounts(params);
-
-    const { enabledNetworks, disabledNetworks } =
-      await this.getAllNetworksState();
-
-    const enabledAccountsInfo = [];
-    const enabledAccountsInfoBackendIndexed = [];
-    const enabledAccountsInfoBackendNotIndexed = [];
-
-    for (const accountInfo of accountsInfo) {
-      if (
-        isEnabledNetworksInAllNetworks({
-          networkId: accountInfo.networkId,
-          isTestnet: accountInfo.isTestnet,
-          deriveType: accountInfo.deriveType,
-          disabledNetworks,
-          enabledNetworks,
-        })
-      ) {
-        enabledAccountsInfo.push(accountInfo);
-        if (accountInfo.isBackendIndexed) {
-          enabledAccountsInfoBackendIndexed.push(accountInfo);
-        } else {
-          enabledAccountsInfoBackendNotIndexed.push(accountInfo);
-        }
-      }
-    }
-
-    return {
-      accountsInfo: enabledAccountsInfo,
-      accountsInfoBackendIndexed: enabledAccountsInfoBackendIndexed,
-      accountsInfoBackendNotIndexed: enabledAccountsInfoBackendNotIndexed,
-    };
+    const accountsInfoResult = await this.getAllNetworkAccounts({
+      ...params,
+      networksEnabledOnly: true,
+    });
+    return accountsInfoResult;
   }
 
   @backgroundMethod()
@@ -189,6 +163,7 @@ class ServiceAllNetwork extends ServiceBase {
       includingNonExistingAccount,
       includingNotEqualGlobalDeriveTypeAccount,
       fetchAllNetworkAccounts,
+      networksEnabledOnly,
     } = params;
 
     const isAllNetwork =
@@ -221,6 +196,7 @@ class ServiceAllNetwork extends ServiceBase {
     const accountsInfo: Array<IAllNetworkAccountInfo> = [];
     const accountsInfoBackendIndexed: Array<IAllNetworkAccountInfo> = [];
     const accountsInfoBackendNotIndexed: Array<IAllNetworkAccountInfo> = [];
+    const allAccountsInfo: Array<IAllNetworkAccountInfo> = [];
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAllNetworks');
     const { networks: allNetworks } =
@@ -235,6 +211,16 @@ class ServiceAllNetwork extends ServiceBase {
       'process all networks',
     );
     const enableNFTNetworkIds = getEnabledNFTNetworkIds();
+
+    let enabledNetworks: Record<string, boolean> = {};
+    let disabledNetworks: Record<string, boolean> = {};
+
+    if (networksEnabledOnly) {
+      const allNetworkState = await this.getAllNetworksState();
+      enabledNetworks = allNetworkState.enabledNetworks;
+      disabledNetworks = allNetworkState.disabledNetworks;
+    }
+
     await Promise.all(
       allNetworks.map(async (n) => {
         const { backendIndex: isBackendIndexed } = n;
@@ -242,6 +228,18 @@ class ServiceAllNetwork extends ServiceBase {
         const isNftEnabled = enableNFTNetworkIds.includes(realNetworkId);
 
         const appendAccountInfo = (accountInfo: IAllNetworkAccountInfo) => {
+          if (
+            networksEnabledOnly &&
+            !isEnabledNetworksInAllNetworks({
+              networkId: accountInfo.networkId,
+              isTestnet: accountInfo.isTestnet,
+              disabledNetworks,
+              enabledNetworks,
+            })
+          ) {
+            return;
+          }
+
           if (!params.nftEnabledOnly || isNftEnabled) {
             accountsInfo.push(accountInfo);
             if (isBackendIndexed) {
@@ -250,6 +248,7 @@ class ServiceAllNetwork extends ServiceBase {
               accountsInfoBackendNotIndexed.push(accountInfo);
             }
           }
+          allAccountsInfo.push(accountInfo);
         };
 
         let compatibleAccountExists = false;
@@ -373,6 +372,7 @@ class ServiceAllNetwork extends ServiceBase {
     defaultLogger.account.allNetworkAccountPerf.getAllNetworkAccountsEnd();
     return {
       accountsInfo,
+      allAccountsInfo,
       accountsInfoBackendIndexed,
       accountsInfoBackendNotIndexed,
     };
@@ -387,14 +387,8 @@ class ServiceAllNetwork extends ServiceBase {
 
   @backgroundMethod()
   async updateAllNetworksState(params: {
-    disabledNetworks?: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[];
-    enabledNetworks?: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[];
+    disabledNetworks?: Record<string, boolean>;
+    enabledNetworks?: Record<string, boolean>;
   }) {
     await this.backgroundApi.simpleDb.allNetworks.updateAllNetworksState(
       params,

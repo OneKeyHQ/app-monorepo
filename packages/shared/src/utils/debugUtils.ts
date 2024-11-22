@@ -33,6 +33,17 @@ export function useDebugComponentRemountLog({
   }, []);
 }
 
+function createSimpleDebugLog(logName: string, enable: boolean) {
+  const log = (...args: any[]) => {
+    if (!enable) {
+      return;
+    }
+    console.log(`@@SimpleDebugLog:::${logName}`, ...args);
+  };
+  return log;
+}
+
 export default {
   useDebugComponentRemountLog,
+  createSimpleDebugLog,
 };

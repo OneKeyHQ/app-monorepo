@@ -318,8 +318,14 @@ function FeeEditor(props: IProps) {
         customFee?.gasEIP1559.maxPriorityFeePerGas ?? '0',
       );
 
-      const maxFeeInfo = feeSelectorItems[0];
-      const minFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
+      const minFeeInfo = feeSelectorItems[0];
+      let maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
+
+      if (maxFeeInfo.type === EFeeType.Custom) {
+        maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 2];
+        maxFeeInfo = maxFeeInfo || minFeeInfo;
+      }
+
       const min = minFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0';
       const max = new BigNumber(
         maxFeeInfo?.feeInfo?.gasEIP1559?.maxPriorityFeePerGas ?? '0',

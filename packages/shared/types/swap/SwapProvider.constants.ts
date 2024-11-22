@@ -414,7 +414,7 @@ export const swapDefaultSetTokens: Record<
       'symbol': 'SOL',
       'decimals': 9,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1723028080499.0.6427884446150325.0.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
     },
@@ -725,7 +725,7 @@ export const tokenDetailSwapDefaultToTokens: Record<string, ISwapToken> = {
     'symbol': 'SOL',
     'decimals': 9,
     'logoURI':
-      'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
+      'https://uni.onekey-asset.com/dashboard/logo/upload_1723028080499.0.6427884446150325.0.png',
     'isNative': true,
     'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
   },
@@ -1166,7 +1166,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'symbol': 'SOL',
       'decimals': 9,
       'logoURI':
-        'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
+        'https://uni.onekey-asset.com/dashboard/logo/upload_1723028080499.0.6427884446150325.0.png',
 
       'isNative': true,
       'isPopular': true,

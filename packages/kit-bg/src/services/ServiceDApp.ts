@@ -434,6 +434,11 @@ class ServiceDApp extends ServiceBase {
       })),
     });
     void this.syncDappAccountIfPrimaryMode({ origin });
+    // If alignPrimaryAccountMode is AlwaysUsePrimaryAccount,
+    // we need to notify the dapp accounts changed after connected
+    setTimeout(() => {
+      void this.notifyDAppAccountsChangedAfterConnected({ origin });
+    }, 300);
   }
 
   @backgroundMethod()
@@ -547,6 +552,22 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async notifyDAppAccountsChangedAfterConnected({
+    origin,
+  }: {
+    origin: string;
+  }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return;
+    }
+    void this.notifyDAppAccountsChanged(origin);
+  }
+
+  @backgroundMethod()
   async getConnectedAccountsInfo({
     origin,
     scope,
@@ -559,6 +580,10 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest,
       options,
     });
+    const shouldAlignPrimaryAccount = await this.shouldAlignPrimaryAccount({
+      origin,
+      storageType,
+    });
     const allAccountsInfo = [];
     for (const networkImpl of networkImpls) {
       const accountsInfo =
@@ -567,8 +592,8 @@ class ServiceDApp extends ServiceBase {
           storageType,
           networkImpl,
         );
-      if (accountsInfo) {
-        if (accountsInfo.length === 1) {
+      if (Array.isArray(accountsInfo) && accountsInfo.length) {
+        if (shouldAlignPrimaryAccount) {
           const accountInfo = await this.alignPrimaryAccountToHomeAccount({
             origin,
             connectedAccountInfo: accountsInfo[0],
@@ -1218,7 +1243,7 @@ class ServiceDApp extends ServiceBase {
       return false;
     }
     const isOtherWallet = accountUtils.isOthersWallet({
-      walletId: homeAccountSelectorInfo.walletId ?? '',
+      walletId: homeAccountSelectorInfo?.walletId ?? '',
     });
     const isSameAccount = isOtherWallet
       ? connectedAccountInfo.othersWalletAccountId &&
@@ -1294,13 +1319,13 @@ class ServiceDApp extends ServiceBase {
             : undefined,
         });
     } catch (e) {
-      // disconnect website if build account error
-      void this.disconnectWebsite({
-        origin,
-        storageType,
-      });
-      console.log(`Build Account Error: `, e);
-      return null;
+      // void this.disconnectWebsite({
+      //   origin,
+      //   storageType,
+      // });
+      console.log(`Build dApp Account Error: `, e);
+      // If build account error, use the previous account
+      return connectedAccountInfo;
     }
 
     // 4. merge account info
@@ -1341,6 +1366,33 @@ class ServiceDApp extends ServiceBase {
         state: 'completed',
       });
     }, 20);
+  }
+
+  @backgroundMethod()
+  async shouldAlignPrimaryAccount({
+    origin,
+    storageType,
+  }: {
+    origin: string;
+    storageType: IConnectionStorageType;
+  }) {
+    if (storageType === 'walletConnect') {
+      return false;
+    }
+
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return false;
+    }
+
+    const connectedAccounts = await this.findInjectedAccountByOrigin(origin);
+    if (Array.isArray(connectedAccounts) && connectedAccounts.length === 1) {
+      return true;
+    }
+    return false;
   }
 
   @backgroundMethod()
@@ -1388,6 +1440,10 @@ class ServiceDApp extends ServiceBase {
           processing: false,
         });
       }, 200);
+    } else {
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
+      });
     }
   }
 

@@ -693,18 +693,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         walletId: wallet.id,
       })
     ) {
+      const $appLocale = appLocale;
+      await $appLocale.isReady;
       if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_watched,
         });
       }
       if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_connected_account,
         });
       }
       if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
-        wallet.name = appLocale.intl.formatMessage({
+        wallet.name = $appLocale.intl.formatMessage({
           id: ETranslations.global_private_key,
         });
       }
@@ -832,10 +834,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return indexedAccount;
   }
 
-  async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
+  async getIndexedAccountByAccount({
+    account,
+  }: {
+    account: IDBAccount | undefined;
+  }): Promise<IDBIndexedAccount | undefined> {
     const perf = perfUtils.createPerf(
       EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
     );
+    if (!account) {
+      return undefined;
+    }
 
     perf.markStart('checkAccountType');
     const accountId = account.id;
@@ -2157,7 +2166,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     address: string;
     normalizedAddress: string;
   }): Promise<
-    Array<{ walletName: string; accountName: string; accountId: string }>
+    Array<{
+      walletName: string;
+      accountName: string;
+      accountId: string; // accountId or indexedAccountId
+    }>
   > {
     try {
       const db = await this.readyDb;

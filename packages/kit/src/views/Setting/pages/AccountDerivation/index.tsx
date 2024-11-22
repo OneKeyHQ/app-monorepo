@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import { type FC, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,12 +7,28 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { DeriveTypeSelectorTriggerGlobalStandAlone } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IAccountDerivationListItemProps = {
   title: string;
   icon?: string;
   networkId: string;
+  setDeriveTypes: React.Dispatch<
+    React.SetStateAction<
+      Record<
+        string,
+        {
+          type: IAccountDeriveTypes;
+          originalDeriveType: IAccountDeriveTypes | undefined;
+        }
+      >
+    >
+  >;
 };
 
 const offset = { mainAxis: -4, crossAxis: -10 };
@@ -21,11 +37,18 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
   title,
   icon,
   networkId,
+  setDeriveTypes,
 }) => (
   <DeriveTypeSelectorTriggerGlobalStandAlone
     networkId={networkId}
     placement="bottom-end"
     offset={offset}
+    onChange={({ type, originalDeriveType }) => {
+      setDeriveTypes((prev) => ({
+        ...prev,
+        [networkId]: { type, originalDeriveType },
+      }));
+    }}
     renderTrigger={({ label }) => (
       <ListItem
         userSelect="none"
@@ -42,6 +65,15 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
 );
 
 const AccountDerivation = () => {
+  const [deriveTypes, setDeriveTypes] = useState<
+    Record<
+      string,
+      {
+        type: IAccountDeriveTypes;
+        originalDeriveType: IAccountDeriveTypes | undefined;
+      }
+    >
+  >({});
   const {
     result: { items },
     isLoading,
@@ -55,7 +87,21 @@ const AccountDerivation = () => {
   );
   const intl = useIntl();
   return (
-    <Page scrollEnabled>
+    <Page
+      scrollEnabled
+      onClose={() => {
+        if (
+          Object.values(deriveTypes).some(
+            ({ originalDeriveType, type }) => originalDeriveType !== type,
+          )
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.NetworkDeriveTypeChanged,
+            undefined,
+          );
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.settings_account_derivation_path,
@@ -76,6 +122,7 @@ const AccountDerivation = () => {
               title={o.title}
               icon={o.icon}
               networkId={o.defaultNetworkId}
+              setDeriveTypes={setDeriveTypes}
             />
           ))}
         </Stack>

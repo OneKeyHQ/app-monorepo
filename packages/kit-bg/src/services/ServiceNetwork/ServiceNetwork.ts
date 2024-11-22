@@ -10,10 +10,14 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -55,62 +59,126 @@ class ServiceNetwork extends ServiceBase {
       excludeNetworkIds?: string[];
       excludeTestNetwork?: boolean;
       uniqByImpl?: boolean;
+      clearCache?: boolean;
     } = {},
   ): Promise<{ networks: IServerNetwork[] }> {
-    // TODO save to simpleDB
-    const excludeTestNetwork = params?.excludeTestNetwork ?? false;
-    const uniqByImpl = params?.uniqByImpl ?? false;
-    const excludeNetworkIds = params?.excludeNetworkIds ?? [];
-    if (params.excludeAllNetworkItem) {
-      excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
+    const perf = perfUtils.createPerf(
+      EPerformanceTimerLogNames.serviceNetwork__getAllNetworksWithCache,
+    );
+    const { clearCache } = params;
+    if (clearCache) {
+      await this.getAllNetworksWithCache.clear();
     }
-
-    const presetNetworks = getPresetNetworks();
-
-    // Fetch server and custom networks
-    const [serverNetworks, customNetworks] = await Promise.all([
-      this.backgroundApi.serviceCustomRpc.getServerNetworks(),
-      this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
-    ]);
-
-    // Create a Map to store unique networks by id
-    // Priority: serverNetworks > presetNetworks > customNetworks
-    const networkMap = new Map<string, IServerNetwork>();
-
-    // Helper function to add networks to the map
-    const addNetworks = (networks: IServerNetwork[]) => {
-      networks.forEach((network) => {
-        if (!networkMap.has(network.id)) {
-          networkMap.set(network.id, network);
-        }
-      });
-    };
-
-    // Add networks in order of priority
-    addNetworks(presetNetworks);
-    addNetworks(serverNetworks);
-    addNetworks(customNetworks);
-
-    // Convert Map back to array
-    let networks = Array.from(networkMap.values());
-    if (params.excludeCustomNetwork) {
-      excludeNetworkIds.push(...customNetworks.map((n) => n.id));
-    }
-    if (uniqByImpl) {
-      networks = uniqBy(networks, (n) => n.impl);
-    }
-    if (excludeTestNetwork) {
-      networks = networks.filter((n) => !n.isTestnet);
-    }
-    if (excludeNetworkIds?.length) {
-      networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
-    }
-    return Promise.resolve({ networks });
+    perf.markStart('getAllNetworksWithCache');
+    const result = await this.getAllNetworksWithCache(params);
+    perf.markEnd('getAllNetworksWithCache');
+    perf.done();
+    return result;
   }
 
+  getAllNetworksWithCache = memoizee(
+    async (
+      params: {
+        excludeAllNetworkItem?: boolean;
+        excludeCustomNetwork?: boolean;
+        excludeNetworkIds?: string[];
+        excludeTestNetwork?: boolean;
+        uniqByImpl?: boolean;
+      } = {},
+    ) => {
+      const perf = perfUtils.createPerf(
+        EPerformanceTimerLogNames.serviceNetwork__getAllNetworks,
+      );
+
+      perf.markStart('getPresetNetworks');
+      // TODO save to simpleDB
+      const excludeTestNetwork = params?.excludeTestNetwork ?? false;
+      const uniqByImpl = params?.uniqByImpl ?? false;
+      const excludeNetworkIds = params?.excludeNetworkIds ?? [];
+      if (params.excludeAllNetworkItem) {
+        excludeNetworkIds.push(getNetworkIdsMap().onekeyall);
+      }
+      const presetNetworks = getPresetNetworks();
+      perf.markEnd('getPresetNetworks');
+
+      perf.markStart('getServerNetworks-and-getAllCustomNetworks');
+      // Fetch server and custom networks
+      const [serverNetworks, customNetworks] = await Promise.all([
+        this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+        this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
+      ]);
+      perf.markEnd('getServerNetworks-and-getAllCustomNetworks');
+
+      // Create a Map to store unique networks by id
+      // Priority: serverNetworks > presetNetworks > customNetworks
+      const networkMap = new Map<string, IServerNetwork>();
+
+      // Helper function to add networks to the map
+      const addNetworks = (networks: IServerNetwork[]) => {
+        networks.forEach((network) => {
+          if (!networkMap.has(network.id)) {
+            networkMap.set(network.id, network);
+          }
+        });
+      };
+
+      perf.markStart('addNetworks-presetNetworks');
+      // Add networks in order of priority
+      addNetworks(presetNetworks);
+      perf.markEnd('addNetworks-presetNetworks');
+
+      perf.markStart('addNetworks-serverNetworks');
+      addNetworks(serverNetworks);
+      perf.markEnd('addNetworks-serverNetworks');
+
+      perf.markStart('addNetworks-customNetworks');
+      addNetworks(customNetworks);
+      perf.markEnd('addNetworks-customNetworks');
+
+      perf.markStart('convertMapToArray');
+      // Convert Map back to array
+      let networks = Array.from(networkMap.values());
+      perf.markEnd('convertMapToArray');
+
+      perf.markStart('filterNetworks-excludeCustomNetwork');
+      if (params.excludeCustomNetwork) {
+        excludeNetworkIds.push(...customNetworks.map((n) => n.id));
+      }
+      perf.markEnd('filterNetworks-excludeCustomNetwork');
+
+      perf.markStart('filterNetworks-uniqByImpl');
+      if (uniqByImpl) {
+        networks = uniqBy(networks, (n) => n.impl);
+      }
+      perf.markEnd('filterNetworks-uniqByImpl');
+
+      perf.markStart('filterNetworks-excludeTestNetwork');
+      if (excludeTestNetwork) {
+        networks = networks.filter((n) => !n.isTestnet);
+      }
+      perf.markEnd('filterNetworks-excludeTestNetwork');
+
+      perf.markStart('filterNetworks-excludeNetworkIds');
+      if (excludeNetworkIds?.length) {
+        networks = networks.filter((n) => !excludeNetworkIds.includes(n.id));
+      }
+      perf.markEnd('filterNetworks-excludeNetworkIds');
+
+      perf.done();
+
+      return Promise.resolve({ networks });
+    },
+    {
+      promise: true,
+      maxAge: 5 * 60 * 1000,
+    },
+  );
+
   @backgroundMethod()
-  async getAllNetworkIds(): Promise<{ networkIds: string[] }> {
-    const { networks } = await this.getAllNetworks();
+  async getAllNetworkIds({
+    clearCache,
+  }: { clearCache?: boolean } = {}): Promise<{ networkIds: string[] }> {
+    const { networks } = await this.getAllNetworks({ clearCache });
     const networkIds = networks.map((n) => n.id);
     return {
       networkIds,
@@ -847,10 +915,12 @@ class ServiceNetwork extends ServiceBase {
     accountId,
     networkIds,
     walletId: _walletId,
+    clearCache,
   }: {
     accountId?: string;
     walletId?: string;
     networkIds?: string[];
+    clearCache?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -858,6 +928,10 @@ class ServiceNetwork extends ServiceBase {
     frequentlyUsedItems: IServerNetwork[];
     allNetworkItem?: IServerNetwork;
   }> {
+    if (clearCache) {
+      await this._getNetworkVaultSettings.clear();
+    }
+
     let networkVaultSettings = await this._getNetworkVaultSettings();
     if (networkIds) {
       const networkIdsSet = new Set<string>(networkIds);
@@ -921,6 +995,11 @@ class ServiceNetwork extends ServiceBase {
         networkId: getNetworkIdsMap().onekeyall,
       });
 
+    if (allNetworkItem) {
+      allNetworkItem.name = appLocale.intl.formatMessage({
+        id: ETranslations.global_all_networks,
+      });
+    }
     let unavailableNetworks: IServerNetwork[] = [];
     const frequentlyUsedNetworks: IServerNetwork[] = [];
     const networks: IServerNetwork[] = [];
@@ -980,6 +1059,11 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async clearNetworkVaultSettingsCache() {
     void this._getNetworkVaultSettings.clear();
+  }
+
+  @backgroundMethod()
+  async clearAllNetworksCache() {
+    void this.getAllNetworksWithCache.clear();
   }
 }
 
