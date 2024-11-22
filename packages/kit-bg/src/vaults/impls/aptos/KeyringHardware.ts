@@ -75,6 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                pub: account.payload?.pub || '',
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -106,15 +107,14 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < list.length; i += 1) {
           const item = list[i];
-          const { path, address } = item;
+          const { path, address, pub } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address || '',
             path,
-            publicKey: '',
-            // publicKey: publicKey || '',
+            publicKey: pub || '',
           };
           ret.push(addressInfo);
         }
