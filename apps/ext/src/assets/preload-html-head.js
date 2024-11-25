@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 /*
 - packages/shared/src/web/index.html.ejs
 - packages/kit/src/store/reducers/settings.ts # setThemePreloadToLocalStorage
@@ -26,7 +27,7 @@
         window.$$onekeyPerfTrace.timeline.slice(-200);
     },
   };
-  window.$$onekeyPerfTrace.log({
+  window.$$onekeyPerfTrace?.log({
     name: 'APP_START: preload-html-head.js start',
   });
   // $$onekeyPerfTrace end ----------------------------------------------
