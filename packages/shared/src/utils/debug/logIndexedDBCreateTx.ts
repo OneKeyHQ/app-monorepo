@@ -3,9 +3,19 @@ import { cloneDeep, debounce, isEqual } from 'lodash';
 import appGlobals from '../../appGlobals';
 import dateUtils from '../dateUtils';
 
+/*
+- 开启监控 monitor ： 3 秒调用超过 50 次，弹 toast 告警，每隔 3 秒清空状态，不输出完整日志
+  - 开发包始终开启
+  - 生产包 + 开发者模式开启
+  - 关闭监控： 不清空状态
+- 开启日志： 持续输出日志
+- 开启自动断点
+  - 仅开发包
+*/
+
 const IS_ENABLED = true;
 const DEBUGGER_MODE_ENABLED = true;
-const toastWarningSize = 30;
+const toastWarningSize = 50;
 // ----------------------------------------------
 const logName = '@@indexedDB_tx_create: ';
 const maxIndexedDbCallDetailsSize = 50;
@@ -125,6 +135,7 @@ function logResult({
 
     if (!isEqual(logDataAll, lastLogIndexedDBResultAll)) {
       const logData = cloneDeep(sortMapData(indexedDBResult));
+
       console.log(
         isWarning ? `\x1b[33m${logName}\x1b[0m` : logName,
         getNowString(),
@@ -132,16 +143,15 @@ function logResult({
       );
 
       console.groupCollapsed('\t', logName, 'Details');
-      console.log(
-        cloneDeep({
+      console.log({
+        globalStats: logDataAll,
+        globalRecentCalls,
+        currentStats: logData,
+        currentCallsDetail: cloneDeep({
           ...localDbCallDetails,
           ...simpleDbCallDetails,
           ...appStorageCallDetails,
         }),
-      );
-      console.log({
-        globalStats: logDataAll,
-        globalRecentCalls,
       });
       console.groupEnd();
 

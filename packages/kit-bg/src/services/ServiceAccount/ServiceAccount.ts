@@ -218,8 +218,14 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWalletDeviceSafe({ walletId }: { walletId: string }) {
-    return localDb.getWalletDeviceSafe({ walletId });
+  async getWalletDeviceSafe({
+    dbWallet,
+    walletId,
+  }: {
+    dbWallet?: IDBWallet;
+    walletId: string;
+  }) {
+    return localDb.getWalletDeviceSafe({ dbWallet, walletId });
   }
 
   // TODO move to serviceHardware
@@ -1354,7 +1360,7 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
-    return localDb.getIndexedAccounts({ walletId });
+    return localDb.getIndexedAccountsOfWallet({ walletId });
   }
 
   @backgroundMethod()
