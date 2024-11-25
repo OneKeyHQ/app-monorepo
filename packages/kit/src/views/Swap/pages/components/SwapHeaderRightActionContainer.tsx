@@ -160,7 +160,7 @@ const SwapHeaderRightActionContainer = () => {
         />
       )}
       <HeaderIconButton
-        icon="SettingsOutline"
+        icon="SliderHorOutline"
         onPress={onOpenSwapSettings}
         iconProps={{ size: 24 }}
         size="medium"
