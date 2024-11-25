@@ -79,6 +79,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -109,7 +110,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {
   switch (walletType) {
@@ -555,6 +555,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const includingAccounts = option?.includingAccounts;
     const db = await this.readyDb;
 
+    let allIndexedAccounts: IDBIndexedAccount[] | undefined;
+    if (includingAccounts) {
+      if (!allIndexedAccounts) {
+        allIndexedAccounts = (await this.getAllIndexedAccounts())
+          .indexedAccounts;
+      }
+    }
+
     const fillDbAccounts = async (newWallet: IDBWallet) => {
       const isOthersWallet = accountUtils.isOthersWallet({
         walletId: newWallet.id,
@@ -567,6 +575,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } else {
         const { accounts } = await this.getIndexedAccounts({
           walletId: newWallet.id,
+          allIndexedAccounts,
         });
         newWallet.dbIndexedAccounts = accounts;
       }
@@ -900,7 +909,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return undefined;
   }
 
-  async getIndexedAccounts({ walletId }: { walletId: string }) {
+  async getIndexedAccounts({
+    walletId,
+    allIndexedAccounts,
+  }: {
+    walletId: string;
+    allIndexedAccounts?: IDBIndexedAccount[];
+  }) {
     const db = await this.readyDb;
     let accounts: IDBIndexedAccount[] = [];
 
@@ -909,9 +924,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (wallet) {
       // TODO performance
-      const { indexedAccounts } = await this.getAllIndexedAccounts();
+      const allIndexedAccounts0 =
+        allIndexedAccounts ||
+        (await this.getAllIndexedAccounts()).indexedAccounts;
       // console.log('getIndexedAccountsOfWallet', records);
-      accounts = indexedAccounts.filter((item) => item.walletId === walletId);
+      accounts = allIndexedAccounts0.filter(
+        (item) => item.walletId === walletId,
+      );
     }
 
     return {

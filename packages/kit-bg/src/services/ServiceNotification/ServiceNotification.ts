@@ -558,6 +558,7 @@ export default class ServiceNotification extends ServiceBase {
 
     const { syncAccounts } = await this.convertToSyncAccounts(accounts);
 
+    // accountIds is undefined means sync all accounts
     if (!accountIds) {
       void this.backgroundApi.serviceAppCleanup.cleanup({
         accountsRemoved,

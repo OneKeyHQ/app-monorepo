@@ -8,7 +8,19 @@ const isEnabled = true;
 const resetModeEnabled = true;
 let resetStartTime: number | undefined;
 const maxIndexedDbCallDetailsSize = 49;
-const toastWarningSize = 20;
+const toastWarningSize = 30;
+
+const shouldTxCreateDebuggerRule: Record<string, boolean> = {
+  'OneKeyStorage_readonly': false,
+  'OneKeyStorage_readwrite': false,
+  'OneKeyV5_readonly': false,
+  'OneKeyV5_readwrite': false,
+};
+
+const shouldLocalDbDebuggerRule: Record<string, number> = {
+  'localDb.txGetRecordById__IndexedAccount': 10,
+  'localDb.txGetAllRecords__IndexedAccount': 7,
+};
 
 let appStorageCallDetails: {
   [method: string]: {
@@ -78,6 +90,25 @@ function logResult({
     return;
   }
   clearTimeout(resetTimer);
+
+  if (process.env.NODE_ENV !== 'production' && isEnabled) {
+    console.log(
+      isWarning ? `\x1b[33m${logName}\x1b[0m` : logName,
+      dateUtils.formatTime(new Date(), { formatTemplate: 'HH:mm:ss.SSS' }),
+      sortMapData(indexedDBResult),
+    );
+    console.groupCollapsed('\t', logName, 'Details');
+    console.log(
+      {
+        ...localDbCallDetails,
+        ...simpleDbCallDetails,
+        ...appStorageCallDetails,
+      },
+      sortMapData(indexedDBResultAll),
+    );
+    console.groupEnd();
+  }
+
   if (resetModeEnabled && autoReset) {
     if (!resetStartTime) {
       resetStartTime = Date.now();
@@ -97,30 +128,13 @@ function logResult({
       }
     }
   }
-  if (process.env.NODE_ENV !== 'production' && isEnabled) {
-    console.log(
-      isWarning ? `\x1b[33m${logName}\x1b[0m` : logName,
-      dateUtils.formatTime(new Date(), { formatTemplate: 'HH:mm:ss.SSS' }),
-      sortMapData(indexedDBResult),
-    );
-    console.groupCollapsed('\t', logName, 'Details');
-    console.log(
-      {
-        ...localDbCallDetails,
-        ...simpleDbCallDetails,
-        ...appStorageCallDetails,
-      },
-      sortMapData(indexedDBResultAll),
-    );
-    console.groupEnd();
-  }
 }
 const logResultDebounced = debounce(logResult, 600, {
   leading: true,
   trailing: true,
 });
 
-function toastWarningAndReset() {
+function toastWarningAndReset(key: string) {
   if (!isEnabled) {
     return;
   }
@@ -130,6 +144,9 @@ function toastWarningAndReset() {
     message: JSON.stringify(sortMapData(indexedDBResult)),
   });
   logResult({ isWarning: true });
+  if (shouldTxCreateDebuggerRule[key]) {
+    debugger;
+  }
   resetData();
 }
 
@@ -153,8 +170,13 @@ export function logLocalDbCall(method: string, table: string, params: any[]) {
       ].calls.slice(-1 * maxIndexedDbCallDetailsSize);
     }
     localDbCallDetails[method][table].total += 1;
-    if (localDbCallDetails[method][table].total > 500) {
-      // debugger;
+    if (
+      shouldLocalDbDebuggerRule[`${method}__${table}`] &&
+      localDbCallDetails[method][table].total >=
+        shouldLocalDbDebuggerRule[`${method}__${table}`]
+    ) {
+      logResult();
+      debugger;
     }
   }
 }
@@ -225,7 +247,7 @@ export function logIndexedDBCreateTx() {
         indexedDBResult[key] = (indexedDBResult[key] || 0) + 1;
         indexedDBResultAll[key] = (indexedDBResultAll[key] || 0) + 1;
         if (indexedDBResult[key] > toastWarningSize) {
-          toastWarningAndReset();
+          toastWarningAndReset(key);
         }
         logResultDebounced({ autoReset: true });
 

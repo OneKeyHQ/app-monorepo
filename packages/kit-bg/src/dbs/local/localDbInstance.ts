@@ -8,4 +8,5 @@ import type { LocalDbBase } from './LocalDbBase';
 
 const localDb: LocalDbBase = new LocalDbIndexed();
 
+logIndexedDBCreateTx();
 export default localDb;

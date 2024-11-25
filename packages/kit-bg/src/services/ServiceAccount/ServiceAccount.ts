@@ -146,6 +146,29 @@ export type IAddHDOrHWAccountsResult = {
 class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
+      this.clearAccountCache();
+    });
+    appEventBus.on(EAppEventBusNames.AccountRemove, () => {
+      this.clearAccountCache();
+    });
+    appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
+      this.clearAccountCache();
+    });
+    appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
+      this.clearAccountCache();
+    });
+    appEventBus.on(EAppEventBusNames.WalletRename, () => {
+      this.clearAccountCache();
+    });
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
+      this.clearAccountCache();
+    });
+  }
+
+  clearAccountCache() {
+    this.getIndexedAccountWithMemo.clear();
   }
 
   @backgroundMethod()
@@ -323,8 +346,15 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getIndexedAccount({ id }: { id: string }) {
-    return localDb.getIndexedAccount({ id });
+    return this.getIndexedAccountWithMemo({ id });
   }
+
+  getIndexedAccountWithMemo = memoizee(
+    ({ id }: { id: string }) => localDb.getIndexedAccount({ id }),
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
 
   @backgroundMethod()
   async getIndexedAccountSafe({ id }: { id: string }) {
@@ -1598,20 +1628,27 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAllIndexedAccounts({
-    noRemovedCheck,
-  }: { noRemovedCheck?: boolean } = {}) {
+    allWallets,
+    filterRemoved,
+  }: {
+    allWallets?: IDBWallet[];
+    filterRemoved?: boolean;
+  } = {}) {
     const { indexedAccounts } = await localDb.getAllIndexedAccounts();
     let indexedAccountsExists: IDBIndexedAccount[] = [];
     const indexedAccountsRemoved: IDBIndexedAccount[] = [];
-    if (!noRemovedCheck) {
+    if (filterRemoved) {
+      const wallets: IDBWallet[] =
+        allWallets ||
+        (await this.getAllWallets({ refillWalletInfo: true })).wallets;
       await Promise.all(
         indexedAccounts.map(async (indexedAccount) => {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: indexedAccount.id,
           });
           let isRemoved = false;
-          if (walletId) {
-            const wallet = await this.getWalletSafe({ walletId });
+          if (walletId && wallets?.length) {
+            const wallet = wallets.find((o) => o.id === walletId);
             if (!wallet) {
               isRemoved = true;
             }
@@ -1632,10 +1669,6 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  async getAllIndexedAccounts2() {
-    return localDb.getAllIndexedAccounts();
-  }
-
   @backgroundMethod()
   async getAllAccounts({
     ids,
@@ -1647,8 +1680,6 @@ class ServiceAccount extends ServiceBase {
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
     const { accounts } = await localDb.getAllAccounts({ ids });
 
-    const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
-    const { indexedAccounts } = await this.getAllIndexedAccounts();
     const removedHiddenWallet: {
       [walletId: string]: true;
     } = {};
@@ -1663,6 +1694,12 @@ class ServiceAccount extends ServiceBase {
     let accountsRemoved: IDBAccount[] | undefined;
 
     if (filterRemoved) {
+      const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
+      const { indexedAccounts } = await this.getAllIndexedAccounts({
+        allWallets: wallets,
+        filterRemoved,
+      });
+
       accountsRemoved = [];
       accountsFiltered = (
         await Promise.all(
@@ -1689,7 +1726,9 @@ class ServiceAccount extends ServiceBase {
                 pushRemovedAccount();
                 return null;
               }
-              const wallet = wallets.find((o) => o.id === walletId);
+              const wallet: IDBWallet | undefined = wallets.find(
+                (o) => o.id === walletId,
+              );
               if (!wallet) {
                 removedWallet[walletId] = true;
                 pushRemovedAccount();
@@ -1706,9 +1745,8 @@ class ServiceAccount extends ServiceBase {
                 pushRemovedAccount();
                 return null;
               }
-              const indexedAccount = indexedAccounts.find(
-                (o) => o.id === indexedAccountId,
-              );
+              const indexedAccount: IDBIndexedAccount | undefined =
+                indexedAccounts.find((o) => o.id === indexedAccountId);
               if (!indexedAccount) {
                 removedIndexedAccount[indexedAccountId] = true;
                 pushRemovedAccount();
