@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,7 +33,10 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { useSwapActionState } from '../../hooks/useSwapState';
+import {
+  useSwapActionState,
+  useSwapSlippagePercentageModeInfo,
+} from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
@@ -58,6 +61,8 @@ const SwapActionsState = ({
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const swapSlippageRef = useRef(slippageItem);
   const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
@@ -94,9 +99,14 @@ const SwapActionsState = ({
   const pageType = usePageType();
   const { md } = useMedia();
 
+  if (swapSlippageRef.current !== slippageItem) {
+    swapSlippageRef.current = slippageItem;
+  }
+
   const onActionHandler = useCallback(() => {
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
+        swapSlippageRef.current,
         swapFromAddressInfo?.address,
         swapFromAddressInfo?.accountInfo?.account?.id,
       );

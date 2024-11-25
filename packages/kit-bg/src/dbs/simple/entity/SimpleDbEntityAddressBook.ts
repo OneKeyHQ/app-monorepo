@@ -14,7 +14,7 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
   override enableCache = false;
 
   updateItemsAndHash({ items, hash }: { items: IAddressItem[]; hash: string }) {
-    return this.setRawData(({ rawData }) => ({
+    return this.setRawData((rawData) => ({
       items,
       hash,
       backupHash: rawData?.backupHash ?? '',
@@ -27,7 +27,7 @@ export class SimpleDbEntityAddressBook extends SimpleDbEntityBase<IAddressBookDa
   }
 
   setBackupHash(text: string) {
-    return this.setRawData(({ rawData }) => ({
+    return this.setRawData((rawData) => ({
       items: rawData?.items ?? [],
       hash: rawData?.hash ?? '',
       backupHash: text,

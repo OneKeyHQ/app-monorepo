@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
+import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -57,6 +58,10 @@ export class SimpleDbProxy
   browserTabs = this._createProxyService(
     'browserTabs',
   ) as SimpleDbEntityBrowserTabs;
+
+  appCleanup = this._createProxyService(
+    'appCleanup',
+  ) as SimpleDbEntityAppCleanup;
 
   browserBookmarks = this._createProxyService(
     'browserBookmarks',

@@ -19,7 +19,7 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
   @backgroundMethod()
   async upsertServerNetworks(params: { networkInfos: IServerNetwork[] }) {
     const { networkInfos } = params;
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const now = Date.now();
       const data: IServerNetworkDBStruct = {
         data: {},

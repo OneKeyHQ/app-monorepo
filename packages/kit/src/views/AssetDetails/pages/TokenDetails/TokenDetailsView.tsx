@@ -61,7 +61,7 @@ function TokenDetailsViews(props: IProps) {
       </Stack>
     );
   }
-  if (platformEnv.isNativeIOS) {
+  if (platformEnv.isNative) {
     return (
       <>
         <TokenDetailsHistory
