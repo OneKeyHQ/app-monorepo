@@ -48,6 +48,7 @@ export type IAllNetworkAccountsParams = {
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
   fetchAllNetworkAccounts?: boolean;
   networksEnabledOnly?: boolean;
+  excludeTestNetwork?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -146,6 +147,7 @@ class ServiceAllNetwork extends ServiceBase {
     const accountsInfoResult = await this.getAllNetworkAccounts({
       ...params,
       networksEnabledOnly: true,
+      excludeTestNetwork: params.excludeTestNetwork ?? false,
     });
     return accountsInfoResult;
   }
@@ -164,6 +166,7 @@ class ServiceAllNetwork extends ServiceBase {
       includingNotEqualGlobalDeriveTypeAccount,
       fetchAllNetworkAccounts,
       networksEnabledOnly,
+      excludeTestNetwork = true,
     } = params;
 
     const isAllNetwork =
@@ -201,7 +204,7 @@ class ServiceAllNetwork extends ServiceBase {
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAllNetworks');
     const { networks: allNetworks } =
       await this.backgroundApi.serviceNetwork.getAllNetworks({
-        excludeTestNetwork: true,
+        excludeTestNetwork,
       });
     defaultLogger.account.allNetworkAccountPerf.consoleLog(
       'getAllNetworks done',
