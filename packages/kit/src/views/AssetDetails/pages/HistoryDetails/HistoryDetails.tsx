@@ -387,7 +387,14 @@ function HistoryDetails() {
       };
     },
 
-    [accountId, networkId, accountAddress, txid, historyTxParam],
+    [
+      accountAddress,
+      accountId,
+      networkId,
+      txid,
+      vaultSettings?.fixConfirmedTxEnabled,
+      historyTxParam,
+    ],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
