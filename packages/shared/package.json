@@ -6,7 +6,8 @@
   "scripts": {
     "_folderslint": "yarn folderslint",
     "fetch:locale": "npx lokalise-client fetch && node ./scripts/build-local-json-map.js",
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "author": "",
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",

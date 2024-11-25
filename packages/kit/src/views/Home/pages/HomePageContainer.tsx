@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';

@@ -477,6 +477,15 @@ export default class ServiceNotification extends ServiceBase {
     });
 
     const syncAccounts: INotificationPushSyncAccount[] = [];
+
+    const notificationSettingsRawData =
+      await this.backgroundApi.simpleDb.notificationSettings.getRawData();
+
+    const { wallets: allWallets } =
+      await this.backgroundApi.serviceAccount.getAllWallets({
+        refillWalletInfo: true,
+      });
+
     for (const account of dbAccounts) {
       const networks = supportNetworksFiltered.filter(
         (item) =>
@@ -489,6 +498,7 @@ export default class ServiceNotification extends ServiceBase {
           networkAccount = await this.backgroundApi.serviceAccount.getAccount({
             accountId: account.id,
             networkId: network.networkId,
+            dbAccount: account,
           });
         } catch (error) {
           //
@@ -503,12 +513,11 @@ export default class ServiceNotification extends ServiceBase {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: networkAccount.id,
           });
-          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-            walletId,
-          });
+          const wallet = allWallets.find((item) => item.id === walletId);
           const isEnabled =
             await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
               {
+                notificationSettingsRawData,
                 walletId,
                 accountId: account.id,
                 indexedAccountId: account.indexedAccountId,

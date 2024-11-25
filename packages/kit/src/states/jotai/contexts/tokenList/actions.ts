@@ -492,10 +492,10 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         initialized?: boolean;
       },
     ) => {
-      set(tokenListStateAtom(), {
-        ...get(tokenListStateAtom()),
+      set(tokenListStateAtom(), (v) => ({
+        ...v,
         ...payload,
-      });
+      }));
     },
   );
 

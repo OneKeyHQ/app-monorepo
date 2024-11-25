@@ -56,13 +56,13 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   INetworkAccount,
@@ -79,6 +79,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -91,6 +92,7 @@ import type {
   IDBDeviceSettings,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
+  IDBGetAllWalletsParams,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -108,7 +110,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {
   switch (walletType) {
@@ -520,13 +521,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
-  async getAllWallets(): Promise<{
+  async getAllWallets({
+    refillWalletInfo,
+  }: IDBGetAllWalletsParams = {}): Promise<{
     wallets: IDBWallet[];
   }> {
     const db = await this.readyDb;
-    const { records } = await db.getAllRecords({
+    let { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.Wallet,
     });
+    if (refillWalletInfo) {
+      records = await Promise.all(
+        records.map((wallet) => this.refillWalletInfo({ wallet })),
+      );
+    }
     return {
       wallets: records,
     };
@@ -814,9 +822,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getIndexedAccount({ id }: { id: string }): Promise<IDBIndexedAccount> {
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.localDB__getIndexedAccount,
-    );
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.localDB__getIndexedAccount,
+    });
 
     perf.markStart('readyDb');
     const db = await this.readyDb;
@@ -854,9 +862,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     account: IDBAccount | undefined;
   }): Promise<IDBIndexedAccount | undefined> {
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
-    );
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.localDB__getIndexedAccountByAccount,
+    });
     if (!account) {
       return undefined;
     }
@@ -901,9 +909,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     if (wallet) {
       // TODO performance
-      const { indexedAccounts: records } = await this.getAllIndexedAccounts();
-      console.log('getIndexedAccountsOfWallet', records);
-      accounts = records.filter((item) => item.walletId === walletId);
+      const { indexedAccounts } = await this.getAllIndexedAccounts();
+      // console.log('getIndexedAccountsOfWallet', records);
+      accounts = indexedAccounts.filter((item) => item.walletId === walletId);
     }
 
     return {
@@ -2613,10 +2621,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.localDB__getAccount,
-      { accountId },
-    );
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.localDB__getAccount,
+      params: { accountId },
+    });
 
     perf.markStart('readyDb');
     const db = await this.readyDb;

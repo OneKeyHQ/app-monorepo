@@ -1,6 +1,7 @@
 import { isPlainObject } from 'lodash';
 
 import platformEnv from '../platformEnv';
+import { logAppStorageCall } from '../utils/debug/logIndexedDBCreateTx';
 import resetUtils from '../utils/resetUtils';
 
 import mmkvStorageInstance from './instance/mmkvStorageInstance';
@@ -14,6 +15,7 @@ export enum EAppSyncStorageKeys {
   onekey_webembed_config = 'onekey_webembed_config',
   onekey_disable_bg_api_serializable_checking = 'onekey_disable_bg_api_serializable_checking',
   onekey_perf_timer_log_config = 'onekey_perf_timer_log_config',
+  onekey_debug_render_tracker = 'onekey_debug_render_tracker',
 }
 
 const syncStorageWeb = {
@@ -112,16 +114,23 @@ export const buildAppStorageFactory = (
   const storage = appStorage as IAppStorage;
 
   const originalSetItem = storage.setItem;
+  const originalGetItem = storage.getItem;
   const originalRemoveItem = storage.removeItem;
 
   const setItem: IAppStorage['setItem'] = (key, value, callback) => {
     resetUtils.checkNotInResetting();
+    logAppStorageCall('setItem', key);
     return originalSetItem.call(storage, key, value, callback);
+  };
+  const getItem: IAppStorage['getItem'] = (key, callback) => {
+    logAppStorageCall('getItem', key);
+    return originalGetItem.call(storage, key, callback);
   };
   const removeItem: IAppStorage['removeItem'] = (key, callback) =>
     originalRemoveItem.call(storage, key, callback);
 
   storage.setItem = setItem;
+  storage.getItem = getItem;
   storage.removeItem = removeItem;
 
   storage.syncStorage = syncStorage;

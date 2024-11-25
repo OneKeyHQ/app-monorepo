@@ -1,3 +1,5 @@
+import { logIndexedDBCreateTx } from '@onekeyhq/shared/src/utils/debug/logIndexedDBCreateTx';
+
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
 
 import type { LocalDbBase } from './LocalDbBase';

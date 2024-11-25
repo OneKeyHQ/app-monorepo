@@ -110,6 +110,18 @@ textarea {
   max-width: 400px !important;
 }
 
+.debug-render-tracker-times-badge {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  /* left: 50%; */
+  /* transform: translateX(-50%); */
+  z-index: 999999;
+  font-size: 12px;
+  color: #a17b83;
+  font-weight: bold;
+}
+
 .debug-render-tracker-animated-bg {
   position: relative;
 }

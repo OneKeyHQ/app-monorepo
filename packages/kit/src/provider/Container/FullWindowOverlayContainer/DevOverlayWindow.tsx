@@ -1,15 +1,23 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
+
+import { isObject } from 'lodash';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
-  Select,
+  IconButton,
+  SizableText,
   Slider,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
@@ -21,42 +29,62 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 function DevOverlayWindow() {
-  const [position, setPosition] = useState<{
-    top: number;
-    left?: number;
-    right?: number;
-  }>({
-    top: 10,
-    right: 0,
-    left: undefined,
-  });
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
+  const devOverlayWindow =
+    devSettings.enabled && devSettings.settings?.showDevOverlayWindow;
+  const positionInfo = useMemo(() => {
+    if (isObject(devOverlayWindow)) {
+      return devOverlayWindow;
+    }
+    return {
+      top: 10,
+      align: 'right',
+    };
+  }, [devOverlayWindow]);
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
 
   const [passwordSetting] = usePasswordPersistAtom();
 
-  const handlePress = useCallback(() => {
-    const dialog = Dialog.confirm({
-      title: 'Dev Menu',
-      onConfirm: async ({ getForm }) => {
-        const form = getForm();
-        const values = form?.getValues();
-        setPosition({
-          top: values?.top,
-          left: values?.align === 'left' ? 0 : undefined,
-          right: values?.align === 'right' ? 0 : undefined,
-        });
+  const updateTopPosition = useThrottledCallback((value: number) => {
+    setDevSettings((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        showDevOverlayWindow: {
+          align:
+            (isObject(prev.settings?.showDevOverlayWindow)
+              ? prev.settings?.showDevOverlayWindow?.align
+              : 'right') || 'right',
+          top: value,
+        },
       },
+    }));
+  }, 100);
+
+  const updateAlign = useDebouncedCallback((value: 'left' | 'right') => {
+    setDevSettings((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        showDevOverlayWindow: {
+          ...(isObject(prev.settings?.showDevOverlayWindow)
+            ? prev.settings?.showDevOverlayWindow
+            : { top: 10 }),
+          align: value,
+        },
+      },
+    }));
+  }, 100);
+
+  const handlePress = useCallback(() => {
+    const dialog = Dialog.show({
+      title: 'DevOverlayWindow',
+      showConfirmButton: false,
+      showCancelButton: false,
       renderContent: (
-        <Dialog.Form
-          formProps={{
-            values: {
-              top: position.top,
-              align: position.left !== undefined ? 'left' : 'right',
-            },
-          }}
-        >
-          <YStack gap="$6">
+        <YStack gap="$4">
+          <XStack gap="$2">
             <Button
               onPress={() => {
                 navigation.pushModal(EModalRoutes.SettingModal, {
@@ -66,7 +94,7 @@ function DevOverlayWindow() {
               }}
               testID="open-settings-page"
             >
-              Open Settings page
+              Settings
             </Button>
             <Button
               onPress={() => {
@@ -75,7 +103,7 @@ function DevOverlayWindow() {
               }}
               testID="open-home-page"
             >
-              Open home page
+              Home
             </Button>
             <Button
               onPress={async () => {
@@ -88,43 +116,78 @@ function DevOverlayWindow() {
                 void dialog.close();
               }}
             >
-              Lock Now
+              Lock
             </Button>
-            <Dialog.FormField name="top" label="Top">
-              <Slider min={1} max={100} step={1} />
-            </Dialog.FormField>
+          </XStack>
 
-            <Dialog.FormField name="align" label="align">
-              <Select
-                items={[
-                  {
-                    value: 'left',
-                    label: 'left',
-                  },
-                  {
-                    value: 'right',
-                    label: 'right',
-                  },
-                ]}
-                title="Align"
+          <XStack gap="$2" alignItems="center">
+            <SizableText>TOP</SizableText>
+            <Stack flex={1}>
+              <Slider
+                min={1}
+                max={100}
+                step={1}
+                defaultValue={positionInfo.top}
+                onChange={(v) => {
+                  updateTopPosition(v);
+                }}
               />
-            </Dialog.FormField>
-          </YStack>
-        </Dialog.Form>
+            </Stack>
+          </XStack>
+
+          <XStack gap="$2" alignItems="center">
+            <SizableText>ALIGN</SizableText>
+            <Button
+              size="small"
+              onPress={() => {
+                updateAlign('left');
+              }}
+            >
+              Left
+            </Button>
+            <Button
+              size="small"
+              onPress={() => {
+                updateAlign('right');
+              }}
+            >
+              Right
+            </Button>
+          </XStack>
+        </YStack>
       ),
     });
-  }, [navigation, passwordSetting.isPasswordSet, position.left, position.top]);
+  }, [
+    positionInfo.top,
+    navigation,
+    passwordSetting.isPasswordSet,
+    updateTopPosition,
+    updateAlign,
+  ]);
+
+  if (!devOverlayWindow) {
+    return null;
+  }
 
   return (
-    <Stack position="absolute" {...position} top={`${position.top}%`}>
-      <Button
-        circular
-        icon="CodeOutline"
-        alignContent="center"
-        justifyContent="center"
-        onPress={handlePress}
+    <Stack
+      position="absolute"
+      left={positionInfo.align === 'left' ? 0 : undefined}
+      right={positionInfo.align === 'right' ? 0 : undefined}
+      top={`${positionInfo.top > 95 ? 95 : positionInfo.top}%`}
+    >
+      <IconButton
+        size="small"
         testID="dev-button"
+        icon="BugSolid"
+        iconProps={{
+          // color: '$iconCritical',
+          color: '$iconSuccess',
+        }}
+        backgroundColor="$bgSuccess"
+        onPress={handlePress}
       />
+      {/* <Icon name="BugSolid" color="$iconSuccess" /> */}
     </Stack>
   );
 }

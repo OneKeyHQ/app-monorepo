@@ -11,7 +11,7 @@ import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/List/ResourceS
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import perfUtils, {
   EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import LoggingConfigCheckbox from './LoggerConfigGallery';
 import { Layout } from './utils/Layout';
