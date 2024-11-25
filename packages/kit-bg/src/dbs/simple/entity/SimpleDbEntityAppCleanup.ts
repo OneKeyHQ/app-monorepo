@@ -5,5 +5,5 @@ export class SimpleDbEntityAppCleanup extends SimpleDbEntityBase<{
 }> {
   entityName = 'appCleanup';
 
-  override enableCache = false;
+  override enableCache = true;
 }
