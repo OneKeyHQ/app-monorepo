@@ -1,5 +1,3 @@
-import { keyBy, merge } from 'lodash';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
@@ -38,7 +36,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
       xpub,
     });
 
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       list: {
         ...rawData?.list,
         [key]: nfts,

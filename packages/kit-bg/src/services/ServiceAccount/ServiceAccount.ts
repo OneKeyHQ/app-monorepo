@@ -87,6 +87,7 @@ import type {
   IDBCreateHwWalletParams,
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
+  IDBCredentialBase,
   IDBDevice,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
@@ -238,9 +239,42 @@ class ServiceAccount extends ServiceBase {
     return false;
   }
 
+  async getAllCredentials() {
+    const credentials = await localDb.getAllCredentials();
+    const credentialsExisted: IDBCredentialBase[] = [];
+    const credentialsRemoved: IDBCredentialBase[] = [];
+
+    for (const credential of credentials) {
+      let isRemoved = false;
+      if (accountUtils.isHdWallet({ walletId: credential.id })) {
+        const wallet = await this.getWalletSafe({ walletId: credential.id });
+        if (!wallet) {
+          isRemoved = true;
+        }
+      }
+      if (accountUtils.isImportedAccount({ accountId: credential.id })) {
+        const account = await this.getDBAccountSafe({
+          accountId: credential.id,
+        });
+        if (!account) {
+          isRemoved = true;
+        }
+      }
+      if (isRemoved) {
+        credentialsRemoved.push(credential);
+      } else {
+        credentialsExisted.push(credential);
+      }
+    }
+    return {
+      credentials: credentialsExisted,
+      credentialsRemoved,
+    };
+  }
+
   @backgroundMethod()
   async dumpCredentials() {
-    const credentials = await localDb.getCredentials();
+    const { credentials } = await this.getAllCredentials();
     return credentials.reduce(
       (mapping, { id, credential }) =>
         Object.assign(mapping, { [id]: credential }),
@@ -1561,13 +1595,53 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async getAllIndexedAccounts({
+    noRemovedCheck,
+  }: { noRemovedCheck?: boolean } = {}) {
+    const { indexedAccounts } = await localDb.getAllIndexedAccounts();
+    let indexedAccountsExists: IDBIndexedAccount[] = [];
+    const indexedAccountsRemoved: IDBIndexedAccount[] = [];
+    if (!noRemovedCheck) {
+      await Promise.all(
+        indexedAccounts.map(async (indexedAccount) => {
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: indexedAccount.id,
+          });
+          let isRemoved = false;
+          if (walletId) {
+            const wallet = await this.getWalletSafe({ walletId });
+            if (!wallet) {
+              isRemoved = true;
+            }
+          }
+          if (isRemoved) {
+            indexedAccountsRemoved.push(indexedAccount);
+          } else {
+            indexedAccountsExists.push(indexedAccount);
+          }
+        }),
+      );
+    } else {
+      indexedAccountsExists = indexedAccounts;
+    }
+    return {
+      indexedAccounts: indexedAccountsExists,
+      indexedAccountsRemoved,
+    };
+  }
+
+  @backgroundMethod()
   async getAllAccounts({
     ids,
     filterRemoved,
-  }: { ids?: string[]; filterRemoved?: boolean } = {}) {
+  }: {
+    ids?: string[];
+    filterRemoved?: boolean;
+  } = {}) {
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
     const { accounts } = await localDb.getAllAccounts({ ids });
-    const invisibleWallet: {
+    const removedHiddenWallet: {
       [walletId: string]: true;
     } = {};
     const removedWallet: {
@@ -1576,9 +1650,12 @@ class ServiceAccount extends ServiceBase {
     const removedIndexedAccount: {
       [indexedAccountId: string]: true;
     } = {};
+
     let accountsFiltered: IDBAccount[] = accounts;
+    let accountsRemoved: IDBAccount[] | undefined;
 
     if (filterRemoved) {
+      accountsRemoved = [];
       accountsFiltered = (
         await Promise.all(
           accounts.map(async (account) => {
@@ -1595,22 +1672,30 @@ class ServiceAccount extends ServiceBase {
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: id,
             });
+            const pushRemovedAccount = () => {
+              accountsRemoved?.push(account);
+            };
+
             if (walletId) {
-              if (removedWallet[walletId] || invisibleWallet[walletId]) {
+              if (removedWallet[walletId] || removedHiddenWallet[walletId]) {
+                pushRemovedAccount();
                 return null;
               }
               const wallet = await this.getWalletSafe({ walletId });
               if (!wallet) {
                 removedWallet[walletId] = true;
+                pushRemovedAccount();
                 return null;
               }
               if (localDb.isTempWalletRemoved({ wallet })) {
-                invisibleWallet[walletId] = true;
+                removedHiddenWallet[walletId] = true;
+                pushRemovedAccount();
                 return null;
               }
             }
             if (indexedAccountId) {
               if (removedIndexedAccount[indexedAccountId]) {
+                pushRemovedAccount();
                 return null;
               }
               const indexedAccount = await this.getIndexedAccountSafe({
@@ -1618,6 +1703,7 @@ class ServiceAccount extends ServiceBase {
               });
               if (!indexedAccount) {
                 removedIndexedAccount[indexedAccountId] = true;
+                pushRemovedAccount();
                 return null;
               }
             }
@@ -1626,8 +1712,10 @@ class ServiceAccount extends ServiceBase {
         )
       ).filter(Boolean);
     }
+
     return {
       accounts: accountsFiltered,
+      accountsRemoved,
     };
   }
 

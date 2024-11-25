@@ -19,7 +19,7 @@ export class SimpleDbEntityFeeInfo extends SimpleDbEntityBase<IFeeInfoDb> {
     networkId: string;
     presetIndex: number;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data = rawData?.presetIndex ?? {};
       data[networkId] = presetIndex;
       return {
