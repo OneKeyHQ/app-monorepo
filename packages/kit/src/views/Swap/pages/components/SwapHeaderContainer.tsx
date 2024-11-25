@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { EPageType, IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   useSwapActions,
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
@@ -71,12 +72,12 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
-  // pageType?: EPageType;
+  pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
 }
 
 const SwapHeaderContainer = ({
-  // pageType,
+  pageType,
   defaultSwapType,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
@@ -84,7 +85,6 @@ const SwapHeaderContainer = ({
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -105,6 +105,8 @@ const SwapHeaderContainer = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const { onSlippageHandleClick } = useSwapSlippageActions();
 
   return (
     <XStack justifyContent="space-between">
@@ -131,7 +133,10 @@ const SwapHeaderContainer = ({
           {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </CustomTabItem>
       </XStack>
-      {headerRight()}
+      <SwapHeaderRightActionContainer
+        pageType={pageType}
+        onSlippageHandleClick={onSlippageHandleClick}
+      />
     </XStack>
   );
 };

@@ -1,12 +1,8 @@
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import {
-  ESwapProviderSort,
-  swapSlippageAutoValue,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
@@ -14,15 +10,11 @@ import type {
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
   ISwapNetwork,
-  ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSlippageSegmentKey,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -375,49 +367,10 @@ export const {
 } = contextAtom<boolean>(false);
 
 // swap slippage
-
-export const {
-  atom: swapSlippagePercentageModeAtom,
-  use: useSwapSlippagePercentageModeAtom,
-} = contextAtom<ESwapSlippageSegmentKey>(ESwapSlippageSegmentKey.AUTO);
-
 export const {
   atom: swapAutoSlippageSuggestedValueAtom,
   use: useSwapAutoSlippageSuggestedValueAtom,
 } = contextAtom<ISwapAutoSlippageSuggestedValue | undefined>(undefined);
-
-export const {
-  atom: swapSlippagePercentageCustomValueAtom,
-  use: useSwapSlippagePercentageCustomValueAtom,
-} = contextAtom<number>(swapSlippageAutoValue);
-
-export const {
-  atom: swapSlippagePercentageAtom,
-  use: useSwapSlippagePercentageAtom,
-} = contextAtomComputed<{
-  slippageItem: ISwapSlippageSegmentItem;
-  autoValue: number;
-}>((get) => {
-  const mode = get(swapSlippagePercentageModeAtom());
-  const quoteResult = get(swapQuoteCurrentSelectAtom());
-  let autoValue = swapSlippageAutoValue;
-  let value = swapSlippageAutoValue;
-  if (!isNil(quoteResult?.autoSuggestedSlippage)) {
-    autoValue = quoteResult.autoSuggestedSlippage;
-  }
-  if (mode === ESwapSlippageSegmentKey.AUTO) {
-    value = autoValue;
-  } else {
-    value = get(swapSlippagePercentageCustomValueAtom());
-  }
-  return {
-    slippageItem: {
-      key: mode,
-      value,
-    },
-    autoValue,
-  };
-});
 
 export const {
   atom: swapSlippageDialogOpeningAtom,
