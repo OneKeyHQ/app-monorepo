@@ -1,5 +1,4 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IAllNetworksDBStruct {
@@ -42,9 +41,10 @@ export class SimpleDbEntityAllNetworks extends SimpleDbEntityBase<IAllNetworksDB
     disabledNetworks?: Record<string, boolean>;
     enabledNetworks?: Record<string, boolean>;
   }): Promise<void> {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData(( rawData ) => {
       const originalDisabledNetworks = rawData?.disabledNetworks ?? {};
       const originalEnabledNetworks = rawData?.enabledNetworks ?? {};
+
 
       const mergedEnabled = {
         ...originalEnabledNetworks,

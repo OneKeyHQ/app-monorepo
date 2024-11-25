@@ -1,3 +1,4 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -402,7 +403,7 @@ async function batchGetPublicKeysAsync(
   params: IBatchGetPublicKeysAsyncParams,
 ): Promise<ISecretPublicKeyInfo[]> {
   if (platformEnv.isNative) {
-    const keys = await globalThis.$webembedApiProxy.secret.batchGetPublicKeys(
+    const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
       params,
     );
     return keys.map((key) => ({
@@ -524,7 +525,7 @@ export function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return globalThis.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
+    return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
   }
   return Promise.resolve(
     mnemonicFromEntropy(params.hdCredential, params.password),
@@ -539,7 +540,7 @@ export async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
   if (platformEnv.isNative) {
-    const hex = await globalThis.$webembedApiProxy.secret.mnemonicToSeedAsync(
+    const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(
       params,
     );
     return Buffer.from(hex, 'hex');
@@ -558,7 +559,7 @@ export async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
-    return globalThis.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
+    return appGlobals.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
       params,
     );
   }
