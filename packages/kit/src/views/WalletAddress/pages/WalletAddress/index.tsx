@@ -849,7 +849,6 @@ function WalletAddressPageMainView({
             excludeTestNetwork: false,
           });
         networksAccount = accountsInfo;
-        console.log('networksAccount', networksAccount);
       }
       perf.markEnd('getAllNetworkAccounts');
 
