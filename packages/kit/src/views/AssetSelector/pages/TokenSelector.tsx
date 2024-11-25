@@ -119,6 +119,7 @@ function TokenSelector() {
                 ...params,
                 includingNonExistingAccount: true,
                 deriveType,
+                excludeTestNetwork: false,
               });
             accounts = accountsInfo;
           }

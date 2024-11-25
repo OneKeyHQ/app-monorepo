@@ -265,6 +265,52 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   }
 
   @backgroundMethod()
+  public async updateLocalHistoryConfirmedTxStatus(params: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+    txid: string;
+    status: EDecodedTxStatus;
+  }) {
+    const { networkId, accountAddress, xpub, txid, status } = params;
+
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+
+    const rawData = await this.getRawData();
+
+    const confirmedTxs = rawData?.confirmedTxs?.[key] || [];
+
+    const targetTxIndex = confirmedTxs.findIndex(
+      (tx) => tx.decodedTx.txid === txid,
+    );
+
+    if (
+      targetTxIndex === -1 ||
+      confirmedTxs[targetTxIndex].decodedTx.status === status
+    )
+      return;
+
+    const updatedConfirmedTxs = [...confirmedTxs];
+    updatedConfirmedTxs[targetTxIndex] = {
+      ...updatedConfirmedTxs[targetTxIndex],
+      decodedTx: {
+        ...updatedConfirmedTxs[targetTxIndex].decodedTx,
+        status,
+      },
+    };
+
+    return this.setRawData({
+      pendingTxs: rawData?.pendingTxs || {},
+      confirmedTxs: assign({}, rawData?.confirmedTxs, {
+        [key]: updatedConfirmedTxs,
+      }),
+    });
+  }
+
+  @backgroundMethod()
   public async getAccountsLocalHistoryPendingTxs(
     params: {
       networkId: string;

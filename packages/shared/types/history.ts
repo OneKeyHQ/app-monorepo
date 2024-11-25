@@ -185,6 +185,7 @@ export type IFetchHistoryTxDetailsParams = {
   withUTXOs?: boolean;
   accountAddress?: string;
   xpub?: string;
+  fixConfirmedTxStatus?: boolean;
 };
 
 export type IFetchTxDetailsParams = {

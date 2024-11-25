@@ -247,6 +247,8 @@ export type IVaultSettings = {
   canEditData?: boolean;
 
   withTxMessage?: boolean;
+
+  fixConfirmedTxEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

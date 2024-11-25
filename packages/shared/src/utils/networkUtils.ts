@@ -127,9 +127,8 @@ export function isEnabledNetworksInAllNetworks({
   enabledNetworks: Record<string, boolean>;
   isTestnet: boolean;
 }) {
-  // disable all testnet in all networks by default
   if (isTestnet) {
-    return false;
+    return !!enabledNetworks[networkId];
   }
 
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {

@@ -62,6 +62,7 @@ const settings: IVaultSettings = {
   withMemo: true,
   memoMaxLength: 123,
   useRemoteTxId: true,
+  fixConfirmedTxEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {
