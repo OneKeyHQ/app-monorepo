@@ -9,7 +9,10 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isAccountCompatibleWithTx } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  getOnChainHistoryTxStatus,
+  isAccountCompatibleWithTx,
+} from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -737,7 +740,13 @@ class ServiceHistory extends ServiceBase {
       const resp = await vault.fetchAccountHistoryDetail(requestParams);
 
       if (params.fixConfirmedTxStatus) {
-        resp.data.data.status = EOnChainHistoryTxStatus.Confirmed;
+        void this.updateLocalHistoryConfirmedTxStatus({
+          networkId,
+          accountAddress,
+          xpub,
+          txid,
+          status: getOnChainHistoryTxStatus(resp.data.data.data.status),
+        });
       }
 
       return resp.data.data;
@@ -748,23 +757,15 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateConfirmedTxStatus(params: {
-    accountId: string;
+  public async updateLocalHistoryConfirmedTxStatus(params: {
     networkId: string;
+    accountAddress?: string;
+    xpub?: string;
     txid: string;
-    confirmedTxs: {
-      txid: string;
-      status: EOnChainHistoryTxStatus;
-    }[];
+    status: EDecodedTxStatus;
   }) {
-    const { accountId, networkId, txid, confirmedTxs } = params;
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
-      {
-        networkId,
-        accountAddress,
-        xpub,
-        confirmedTxs: confirmedTxs,
-      },
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxStatus(
+      params,
     );
   }
 
