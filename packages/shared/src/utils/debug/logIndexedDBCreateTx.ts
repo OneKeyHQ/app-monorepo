@@ -1,7 +1,6 @@
 import { debounce } from 'lodash';
 
-import type { Toast } from '@onekeyhq/components';
-
+import appGlobals from '../../appGlobals';
 import dateUtils from '../dateUtils';
 
 const logName = '@@indexedDB_tx_create: ';
@@ -126,7 +125,7 @@ function toastWarningAndReset() {
     return;
   }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-  (globalThis?.$$Toast as typeof Toast | undefined)?.error({
+  appGlobals?.$Toast?.error({
     title: 'IndexedDB is being accessed too frequently',
     message: JSON.stringify(sortMapData(indexedDBResult)),
   });

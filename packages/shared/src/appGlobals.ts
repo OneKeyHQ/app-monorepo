@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { IToast } from '@onekeyhq/components';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type BackgroundApi from '@onekeyhq/kit-bg/src/apis/BackgroundApi';
 import type BackgroundApiProxy from '@onekeyhq/kit-bg/src/apis/BackgroundApiProxy';
@@ -20,6 +21,7 @@ export type IAppGlobals = {
   $webembedApiProxy: IWebembedApi;
   $navigationRef: React.RefObject<NavigationContainerRef<any>>;
   $defaultLogger?: DefaultLogger;
+  $Toast?: IToast;
   // Ext internal (ui,background,contentScript)
   extJsBridgeUiToBg: JsBridgeBase;
   extJsBridgeOffscreenToBg: JsBridgeBase;
@@ -41,7 +43,6 @@ export type IAppGlobals = {
   $$localforage?: any;
   $$appEventBus?: any;
   $$platformEnv?: any;
-  $$Toast?: any;
 };
 
 const appGlobals: IAppGlobals = {

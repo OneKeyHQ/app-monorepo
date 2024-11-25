@@ -24,9 +24,7 @@ if (platformEnv.isRuntimeBrowser) {
   globalThis._frameTimestamp = null;
 }
 
-if (process.env.NODE_ENV !== 'production') {
-  appGlobals.$$Toast = Toast;
-}
+appGlobals.$Toast = Toast;
 
 const LastActivityTracker = LazyLoad(
   () => import('../components/LastActivityTracker'),
