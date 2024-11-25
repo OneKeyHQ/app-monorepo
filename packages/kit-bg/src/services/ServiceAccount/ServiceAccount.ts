@@ -1639,8 +1639,7 @@ class ServiceAccount extends ServiceBase {
     const indexedAccountsRemoved: IDBIndexedAccount[] = [];
     if (filterRemoved) {
       const wallets: IDBWallet[] =
-        allWallets ||
-        (await this.getAllWallets({ refillWalletInfo: true })).wallets;
+        allWallets || (await this.getAllWallets()).wallets;
       await Promise.all(
         indexedAccounts.map(async (indexedAccount) => {
           const walletId = accountUtils.getWalletIdFromAccountId({

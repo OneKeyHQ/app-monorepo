@@ -274,7 +274,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    logLocalDbCall(`getRecordById`, params.name, [params.id]);
+    // logLocalDbCall(`getRecordById`, params.name, [params.id]);
     return this.withTransaction(
       async (tx) => {
         const [record] = await this.txGetRecordById({

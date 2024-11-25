@@ -1,16 +1,17 @@
-import { debounce } from 'lodash';
+import { cloneDeep, debounce, isEqual } from 'lodash';
 
 import appGlobals from '../../appGlobals';
 import dateUtils from '../dateUtils';
 
-const logName = '@@indexedDB_tx_create: ';
-const isEnabled = true;
-const resetModeEnabled = true;
-let resetStartTime: number | undefined;
-const maxIndexedDbCallDetailsSize = 49;
+const IS_ENABLED = true;
+const DEBUGGER_MODE_ENABLED = true;
 const toastWarningSize = 30;
+// ----------------------------------------------
+const logName = '@@indexedDB_tx_create: ';
+const maxIndexedDbCallDetailsSize = 50;
+const maxRecentCallsSize = 2000;
 
-const shouldTxCreateDebuggerRule: Record<string, boolean> = {
+const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
   'OneKeyStorage_readonly': false,
   'OneKeyStorage_readwrite': false,
   'OneKeyV5_readonly': false,
@@ -18,9 +19,13 @@ const shouldTxCreateDebuggerRule: Record<string, boolean> = {
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {
-  'localDb.txGetRecordById__IndexedAccount': 10,
-  'localDb.txGetAllRecords__IndexedAccount': 7,
+  'localDb.txGetRecordById__IndexedAccount': 999,
+  'localDb.txGetAllRecords__IndexedAccount': 999,
+  'localDb.txGetAllRecords__Account': 999,
+  'localDb.txGetRecordById__Wallet': 999,
 };
+
+let resetStartTime: number | undefined;
 
 let appStorageCallDetails: {
   [method: string]: {
@@ -49,6 +54,8 @@ let localDbCallDetails: {
   };
 } = {};
 
+const globalRecentCalls: Array<[string, string, any[]] | [string, string]> = [];
+
 let indexedDBResult: {
   [key: string]: number;
 } = {};
@@ -57,15 +64,37 @@ const indexedDBResultAll: {
   [key: string]: number;
 } = {};
 
+let lastLogIndexedDBResultAll:
+  | Partial<{
+      [key: string]: number;
+    }>
+  | undefined;
+
+function getNowString() {
+  return dateUtils.formatTime(new Date(), { formatTemplate: 'HH:mm:ss.SSS' });
+}
+
 function resetData() {
-  indexedDBResult = {};
-  localDbCallDetails = {};
-  simpleDbCallDetails = {};
-  appStorageCallDetails = {};
-  resetStartTime = undefined;
+  if (!IS_ENABLED) {
+    return;
+  }
+  if (DEBUGGER_MODE_ENABLED) {
+    indexedDBResult = {};
+    localDbCallDetails = {};
+    simpleDbCallDetails = {};
+    appStorageCallDetails = {};
+    resetStartTime = undefined;
+    globalRecentCalls.push([
+      getNowString(),
+      '---------- resetData ------------',
+    ]);
+  }
 }
 
 function sortMapData(data: { [key: string]: number }) {
+  if (!IS_ENABLED) {
+    return;
+  }
   const sortedResult: Partial<{
     [key: string]: number;
   }> = {};
@@ -86,30 +115,41 @@ function logResult({
   autoReset?: boolean;
   isWarning?: boolean;
 } = {}) {
-  if (!isEnabled) {
+  clearTimeout(resetTimer);
+  if (!IS_ENABLED) {
     return;
   }
-  clearTimeout(resetTimer);
 
-  if (process.env.NODE_ENV !== 'production' && isEnabled) {
-    console.log(
-      isWarning ? `\x1b[33m${logName}\x1b[0m` : logName,
-      dateUtils.formatTime(new Date(), { formatTemplate: 'HH:mm:ss.SSS' }),
-      sortMapData(indexedDBResult),
-    );
-    console.groupCollapsed('\t', logName, 'Details');
-    console.log(
-      {
-        ...localDbCallDetails,
-        ...simpleDbCallDetails,
-        ...appStorageCallDetails,
-      },
-      sortMapData(indexedDBResultAll),
-    );
-    console.groupEnd();
+  if (process.env.NODE_ENV !== 'production' && IS_ENABLED) {
+    const logDataAll = cloneDeep(sortMapData(indexedDBResultAll));
+
+    if (!isEqual(logDataAll, lastLogIndexedDBResultAll)) {
+      const logData = cloneDeep(sortMapData(indexedDBResult));
+      console.log(
+        isWarning ? `\x1b[33m${logName}\x1b[0m` : logName,
+        getNowString(),
+        logData,
+      );
+
+      console.groupCollapsed('\t', logName, 'Details');
+      console.log(
+        cloneDeep({
+          ...localDbCallDetails,
+          ...simpleDbCallDetails,
+          ...appStorageCallDetails,
+        }),
+      );
+      console.log({
+        globalStats: logDataAll,
+        globalRecentCalls,
+      });
+      console.groupEnd();
+
+      lastLogIndexedDBResultAll = logDataAll;
+    }
   }
 
-  if (resetModeEnabled && autoReset) {
+  if (DEBUGGER_MODE_ENABLED && autoReset) {
     if (!resetStartTime) {
       resetStartTime = Date.now();
       clearTimeout(resetTimer);
@@ -135,23 +175,28 @@ const logResultDebounced = debounce(logResult, 600, {
 });
 
 function toastWarningAndReset(key: string) {
-  if (!isEnabled) {
+  if (!IS_ENABLED) {
     return;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-  appGlobals?.$Toast?.error({
-    title: 'IndexedDB is being accessed too frequently',
-    message: JSON.stringify(sortMapData(indexedDBResult)),
-  });
-  logResult({ isWarning: true });
-  if (shouldTxCreateDebuggerRule[key]) {
-    debugger;
+  if (DEBUGGER_MODE_ENABLED) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    appGlobals?.$Toast?.error({
+      title: 'IndexedDB is being accessed too frequently',
+      message: JSON.stringify(sortMapData(indexedDBResult)),
+    });
+    logResult({ isWarning: true });
+    if (shouldDbTxCreatedDebuggerRule[key]) {
+      debugger;
+    }
+    resetData();
   }
-  resetData();
 }
 
 export function logLocalDbCall(method: string, table: string, params: any[]) {
-  if (process.env.NODE_ENV !== 'production' && isEnabled) {
+  if (!IS_ENABLED) {
+    return;
+  }
+  if (process.env.NODE_ENV !== 'production' && IS_ENABLED) {
     // eslint-disable-next-line no-param-reassign
     method = `localDb.${method}`;
     localDbCallDetails[method] = localDbCallDetails[method] || {};
@@ -170,19 +215,27 @@ export function logLocalDbCall(method: string, table: string, params: any[]) {
       ].calls.slice(-1 * maxIndexedDbCallDetailsSize);
     }
     localDbCallDetails[method][table].total += 1;
+
+    globalRecentCalls.push([getNowString(), `${method}__${table}`, params]);
+
     if (
       shouldLocalDbDebuggerRule[`${method}__${table}`] &&
       localDbCallDetails[method][table].total >=
         shouldLocalDbDebuggerRule[`${method}__${table}`]
     ) {
-      logResult();
-      debugger;
+      if (DEBUGGER_MODE_ENABLED) {
+        logResult();
+        debugger;
+      }
     }
   }
 }
 
 export function logSimpleDbCall(method: string, entity: string) {
-  if (process.env.NODE_ENV !== 'production' && isEnabled) {
+  if (!IS_ENABLED) {
+    return;
+  }
+  if (process.env.NODE_ENV !== 'production' && IS_ENABLED) {
     // eslint-disable-next-line no-param-reassign
     method = `simpleDb.${method}`;
     simpleDbCallDetails[method] = simpleDbCallDetails[method] || {
@@ -193,11 +246,16 @@ export function logSimpleDbCall(method: string, entity: string) {
       simpleDbCallDetails[method].details[entity] || 0;
     simpleDbCallDetails[method].details[entity] += 1;
     simpleDbCallDetails[method].total += 1;
+
+    globalRecentCalls.push([getNowString(), `${method}__${entity}`]);
   }
 }
 
 export function logAppStorageCall(method: string, key: string) {
-  if (process.env.NODE_ENV !== 'production' && isEnabled) {
+  if (!IS_ENABLED) {
+    return;
+  }
+  if (process.env.NODE_ENV !== 'production' && IS_ENABLED) {
     // eslint-disable-next-line no-param-reassign
     method = `appStorage.${method}`;
     appStorageCallDetails[method] = appStorageCallDetails[method] || {
@@ -208,14 +266,19 @@ export function logAppStorageCall(method: string, key: string) {
       appStorageCallDetails[method].details[key] || 0;
     appStorageCallDetails[method].details[key] += 1;
     appStorageCallDetails[method].total += 1;
+
+    globalRecentCalls.push([getNowString(), `${method}__${key}`]);
   }
 }
 
 export function logIndexedDBCreateTx() {
+  if (!IS_ENABLED) {
+    return;
+  }
   try {
     if (
       process.env.NODE_ENV !== 'production' &&
-      isEnabled &&
+      IS_ENABLED &&
       globalThis?.IDBDatabase?.prototype
     ) {
       // @ts-ignore
@@ -233,14 +296,6 @@ export function logIndexedDBCreateTx() {
         mode?: IDBTransactionMode,
         options?: IDBTransactionOptions,
       ) {
-        // console.log('@@indexedDB_tx_create: ', {
-        //   mode, // readonly | readwrite
-        //   db: this.name,
-        //   dbVersion: this.version,
-        //   storeNames,
-        //   options,
-        // });
-
         clearTimeout(resetTimer);
         logResultDebounced({ autoReset: true });
         const key = `${this.name}_${mode || 'undefined'}`;
@@ -250,6 +305,8 @@ export function logIndexedDBCreateTx() {
           toastWarningAndReset(key);
         }
         logResultDebounced({ autoReset: true });
+
+        globalRecentCalls.slice(-1 * maxRecentCallsSize);
 
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
