@@ -233,7 +233,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       this.cleanManualSelectQuoteProviders.call(set);
-      // this.resetSwapSlippage.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
       const needChangeToToken = this.needChangeToken({
         token,
@@ -258,7 +257,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     this.cleanManualSelectQuoteProviders.call(set);
-    // this.resetSwapSlippage.call(set);
     await this.syncNetworksSort.call(set, token.networkId);
     set(swapSelectToTokenAtom(), token);
   });
@@ -1525,7 +1523,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapTypeSwitchAtom(), type);
       this.cleanManualSelectQuoteProviders.call(set);
-      // this.resetSwapSlippage.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
