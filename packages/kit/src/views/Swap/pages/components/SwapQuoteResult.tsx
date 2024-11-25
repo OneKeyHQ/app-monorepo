@@ -1,12 +1,10 @@
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
-  Dialog,
   Divider,
   Icon,
   NumberSizeableText,
@@ -19,18 +17,12 @@ import {
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSlippageDialogOpeningAtom,
-  useSwapSlippagePercentageAtom,
-  useSwapSlippagePercentageCustomValueAtom,
-  useSwapSlippagePercentageModeAtom,
   useSwapTokenMetadataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
-  ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
@@ -39,10 +31,10 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
-import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
@@ -66,22 +58,7 @@ const SwapQuoteResult = ({
     useSwapProviderSupportReceiveAddressAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
-  const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
-  const [{ slippageItem, autoValue }] = useSwapSlippagePercentageAtom();
-  const [, setSwapSlippageCustomValue] =
-    useSwapSlippagePercentageCustomValueAtom();
-  const [, setSwapSlippageMode] = useSwapSlippagePercentageModeAtom();
-  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
-  const slippageOnSave = useCallback(
-    (item: ISwapSlippageSegmentItem, close: IDialogInstance['close']) => {
-      setSwapSlippageMode(item.key);
-      if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
-        setSwapSlippageCustomValue(item.value);
-      }
-      void close({ flag: 'save' });
-    },
-    [setSwapSlippageCustomValue, setSwapSlippageMode],
-  );
+  const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
 
   const swapRecipientAddress = useSwapRecipientAddressInfo(
     settingsPersistAtom.swapEnableRecipientAddress,
@@ -158,31 +135,6 @@ const SwapQuoteResult = ({
     },
     [calculateTaxItem],
   );
-
-  const slippageHandleClick = useCallback(() => {
-    dialogRef.current = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.slippage_tolerance_title }),
-      renderContent: (
-        <SwapSlippageContentContainer
-          swapSlippage={slippageItem}
-          autoValue={autoValue}
-          onSave={slippageOnSave}
-        />
-      ),
-      onOpen: () => {
-        setSwapSlippageDialogOpening({ status: true });
-      },
-      onClose: (extra) => {
-        setSwapSlippageDialogOpening({ status: false, flag: extra?.flag });
-      },
-    });
-  }, [
-    intl,
-    slippageItem,
-    autoValue,
-    slippageOnSave,
-    setSwapSlippageDialogOpening,
-  ]);
 
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
@@ -291,7 +243,8 @@ const SwapQuoteResult = ({
               {quoteResult?.toAmount && !quoteResult?.unSupportSlippage ? (
                 <SwapSlippageTriggerContainer
                   isLoading={swapQuoteLoading}
-                  onPress={slippageHandleClick}
+                  onPress={onSlippageHandleClick}
+                  slippageItem={slippageItem}
                 />
               ) : null}
               {quoteResult?.fee?.estimatedFeeFiatValue ? (

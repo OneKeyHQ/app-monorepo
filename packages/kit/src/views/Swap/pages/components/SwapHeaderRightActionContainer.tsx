@@ -1,11 +1,15 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
   Dialog,
+  Divider,
+  EPageType,
+  Icon,
   SizableText,
   Stack,
   Switch,
@@ -18,6 +22,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  EJotaiContextStoreNames,
   useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -26,7 +31,17 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  swapSlippageDecimal,
+  swapSlippageWillAheadMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapSlippageSegmentKey,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 const SwapSettingsCommonItem = ({
   value,
@@ -59,13 +74,104 @@ const SwapSettingsCommonItem = ({
   </XStack>
 );
 
-const SwapSettingsDialogContent = () => {
+const SwapSettingsSlippageItem = ({
+  title,
+  rightTrigger,
+}: {
+  title: string;
+  rightTrigger: React.ReactNode;
+}) => (
+  <XStack justifyContent="space-between" alignItems="center">
+    <XStack>
+      <SizableText userSelect="none" mr="$1" size="$bodyLgMedium" color="$text">
+        {title}
+      </SizableText>
+    </XStack>
+    <XStack gap="$2">{rightTrigger}</XStack>
+  </XStack>
+);
+
+const SwapSettingsDialogContent = ({
+  onSlippageHandleClick,
+}: {
+  onSlippageHandleClick: () => void;
+}) => {
   const intl = useIntl();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [{ swapBatchApproveAndSwap, swapEnableRecipientAddress }, setSettings] =
     useSettingsPersistAtom();
   const [, setNoPersistSettings] = useSettingsAtom();
+  const displaySlippage = useMemo(
+    () =>
+      new BigNumber(slippageItem.value)
+        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    [slippageItem.value],
+  );
+  const slippageDisplayValue = useMemo(
+    () =>
+      slippageItem.key === ESwapSlippageSegmentKey.AUTO
+        ? intl.formatMessage({
+            id: ETranslations.global_auto,
+          })
+        : intl.formatMessage(
+            {
+              id: ETranslations.swap_page_provider_custom,
+            },
+            { number: displaySlippage },
+          ),
+    [displaySlippage, intl, slippageItem.key],
+  );
+  const valueComponent = useMemo(
+    () => (
+      <SizableText
+        size="$bodyMd"
+        ml="$0.5"
+        color={
+          slippageItem.value > swapSlippageWillAheadMinValue
+            ? '$textCritical'
+            : '$textSubdued'
+        }
+      >
+        {slippageDisplayValue}
+      </SizableText>
+    ),
+    [slippageDisplayValue, slippageItem.value],
+  );
+  const rightTrigger = useMemo(
+    () => (
+      <XStack
+        userSelect="none"
+        hoverStyle={{
+          opacity: 0.5,
+        }}
+        alignItems="center"
+        onPress={onSlippageHandleClick}
+        cursor="pointer"
+      >
+        {slippageItem.key === ESwapSlippageSegmentKey.AUTO ? (
+          <Icon name="Ai3StarOutline" size="$5" color="$iconSuccess" />
+        ) : null}
+        {valueComponent}
+        <Icon
+          name="ChevronRightSmallOutline"
+          mr="$-1"
+          size="$5"
+          color="$iconSubdued"
+        />
+      </XStack>
+    ),
+    [onSlippageHandleClick, slippageItem.key, valueComponent],
+  );
   return (
     <YStack gap="$5">
+      <SwapSettingsSlippageItem
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_provider_slippage_tolerance,
+        })}
+        rightTrigger={rightTrigger}
+      />
+      <Divider />
       <SwapSettingsCommonItem
         title={intl.formatMessage({
           id: ETranslations.swap_page_settings_simple_mode,
@@ -107,7 +213,13 @@ const SwapSettingsDialogContent = () => {
   );
 };
 
-const SwapHeaderRightActionContainer = () => {
+const SwapHeaderRightActionContainer = ({
+  pageType,
+  onSlippageHandleClick,
+}: {
+  pageType?: EPageType;
+  onSlippageHandleClick: () => void;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
@@ -126,17 +238,30 @@ const SwapHeaderRightActionContainer = () => {
       screen: EModalSwapRoutes.SwapHistoryList,
     });
   }, [navigation]);
+
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.swap_page_settings,
       }),
-      renderContent: <SwapSettingsDialogContent />,
+      renderContent: (
+        <SwapProviderMirror
+          storeName={
+            pageType === EPageType.modal
+              ? EJotaiContextStoreNames.swapModal
+              : EJotaiContextStoreNames.swap
+          }
+        >
+          <SwapSettingsDialogContent
+            onSlippageHandleClick={onSlippageHandleClick}
+          />
+        </SwapProviderMirror>
+      ),
       showConfirmButton: false,
       showCancelButton: false,
       showFooter: false,
     });
-  }, [intl]);
+  }, [intl, onSlippageHandleClick, pageType]);
 
   return (
     <HeaderButtonGroup>
