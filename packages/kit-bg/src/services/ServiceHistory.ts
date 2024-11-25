@@ -736,11 +736,36 @@ class ServiceHistory extends ServiceBase {
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const resp = await vault.fetchAccountHistoryDetail(requestParams);
 
+      if (params.fixConfirmedTxStatus) {
+        resp.data.data.status = EOnChainHistoryTxStatus.Confirmed;
+      }
+
       return resp.data.data;
     } catch (e) {
       console.log(e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  public async updateConfirmedTxStatus(params: {
+    accountId: string;
+    networkId: string;
+    txid: string;
+    confirmedTxs: {
+      txid: string;
+      status: EOnChainHistoryTxStatus;
+    }[];
+  }) {
+    const { accountId, networkId, txid, confirmedTxs } = params;
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        confirmedTxs: confirmedTxs,
+      },
+    );
   }
 
   @backgroundMethod()

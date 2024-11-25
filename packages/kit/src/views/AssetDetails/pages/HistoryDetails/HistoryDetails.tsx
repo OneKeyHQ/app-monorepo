@@ -355,6 +355,7 @@ function HistoryDetails() {
         networkId,
         accountAddress,
         txid,
+        fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
       });
       historyInit.current = true;
       if (
