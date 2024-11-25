@@ -3,6 +3,7 @@ import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorageInstance from '@onekeyhq/shared/src/storage/appStorage';
+import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
@@ -20,7 +21,7 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly entityName: string;
 
-  readonly enableCache: boolean = true;
+  abstract enableCache: boolean;
 
   get entityKey() {
     return `${SIMPLE_DB_KEY_PREFIX}:${this.entityName}`;
@@ -57,12 +58,24 @@ abstract class SimpleDbEntityBase<T> {
         data = null;
       }
     } else {
-      data = savedDataStr as any;
+      const savedDataObj = savedDataStr as unknown as
+        | {
+            data: T | undefined;
+            updatedAt: number;
+          }
+        | undefined
+        | null;
+      if (!isNil(savedDataObj?.updatedAt) || !isNil(savedDataObj?.data)) {
+        updatedAt = savedDataObj?.updatedAt;
+        data = savedDataObj?.data;
+      } else {
+        data = savedDataObj as any;
+      }
     }
+    this.updatedAt = updatedAt ?? 0;
     if (this.enableCache) {
       this.cachedRawData = data;
     }
-    this.updatedAt = updatedAt ?? 0;
     return data;
   }
 
@@ -70,8 +83,8 @@ abstract class SimpleDbEntityBase<T> {
   async setRawData(
     dataOrBuilder:
       | T
-      | ((options: { rawData: T | null | undefined }) => T)
-      | ((options: { rawData: T | null | undefined }) => Promise<T>),
+      | ((rawData: T | null | undefined) => T)
+      | ((rawData: T | null | undefined) => Promise<T>),
   ) {
     return this.mutex.runExclusive(async () => {
       const updatedAt = Date.now();
@@ -79,7 +92,7 @@ abstract class SimpleDbEntityBase<T> {
 
       if (isFunction(dataOrBuilder)) {
         const rawData = await this.getRawData();
-        data = await dataOrBuilder({ rawData });
+        data = await dataOrBuilder(rawData);
       } else {
         data = dataOrBuilder;
       }
@@ -91,8 +104,13 @@ abstract class SimpleDbEntityBase<T> {
         data,
         updatedAt,
       };
-      // TODO JSON.stringify only for native?
-      await this.appStorage.setItem(this.entityKey, JSON.stringify(savedData));
+      await this.appStorage.setItem(
+        this.entityKey,
+        appStorageUtils.canSaveAsObject() && !isString(savedData)
+          ? (savedData as any)
+          : JSON.stringify(savedData),
+      );
+
       this.updatedAt = updatedAt;
       return data;
     });
