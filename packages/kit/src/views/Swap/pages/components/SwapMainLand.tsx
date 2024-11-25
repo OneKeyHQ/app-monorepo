@@ -154,6 +154,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           }}
         >
           <SwapHeaderContainer
+            pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
           <SwapQuoteInput
@@ -195,7 +196,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
         : EJotaiContextStoreNames.swap
     }
   >
-    <SwapMainLoad {...props} />
+    <SwapMainLoad {...props} pageType={props?.pageType} />
   </SwapProviderMirror>
 );
 
