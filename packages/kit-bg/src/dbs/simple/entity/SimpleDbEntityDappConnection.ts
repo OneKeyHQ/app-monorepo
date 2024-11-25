@@ -84,7 +84,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     replaceExistAccount?: boolean;
     walletConnectTopic?: string;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       let data: IDappConnectionData['data'] = {
         injectedProvider: {},
         walletConnect: {},
@@ -183,7 +183,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     updatedAccountInfo: IConnectionAccountInfo;
     storageType: IConnectionStorageType;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
           data: {
@@ -291,7 +291,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
   @backgroundMethod()
   async deleteConnection(origin: string, storageType: IConnectionStorageType) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
           data: {
@@ -375,7 +375,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     newNetworkId: string,
     storageType: IConnectionStorageType,
   ) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       // Check if rawData.data is a valid object and use it if it is
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         // If rawData is invalid or rawData.data is missing, return rawData unchanged
@@ -494,7 +494,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
   @backgroundMethod()
   async removeWallet({ walletId }: { walletId: string }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return rawData as IDappConnectionData;
       }
@@ -526,7 +526,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     accountId?: string;
     indexedAccountId?: string;
   }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return rawData as IDappConnectionData;
       }

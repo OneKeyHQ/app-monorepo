@@ -53,7 +53,7 @@ export function useFirmwareUpdateActions() {
   );
 
   /*
-  $$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
+  appGlobals.$$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
   */
   const openChangeLogModal = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {

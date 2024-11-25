@@ -1,5 +1,5 @@
 import { verifyMessage } from '@ethersproject/wallet';
-import { random } from 'lodash';
+import { random, range } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
@@ -14,6 +14,7 @@ import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceE
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IWalletConnectChainString } from '@onekeyhq/shared/src/walletConnect/types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -785,6 +786,48 @@ class ServiceDemo extends ServiceBase {
       )?.map((item) => item.payload?.address),
     });
     return response;
+  }
+
+  @backgroundMethod()
+  async demoAddDappConnectedHistoryRecords(count = 10_000) {
+    await Promise.all(
+      range(0, count).map(async (i) => {
+        await localDb.addConnectedSite({
+          url: `https://onekey.so/${i}`,
+          networkIds: [getNetworkIdsMap().eth],
+          addresses: ['0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e'],
+        });
+      }),
+    );
+    return 'Done';
+  }
+
+  @backgroundMethod()
+  async demoRemoveAllConnectedHistoryRecords() {
+    await localDb.removeAllConnectedSite();
+    return 'Done';
+  }
+
+  @backgroundMethod()
+  async demoAddBrowserHistoryRecords(count = 10_000) {
+    await this.backgroundApi.simpleDb.browserHistory.setRawData((data) => ({
+      data: [
+        ...range(0, count).map((i) => ({
+          id: generateUUID(),
+          url: `https://onekey.so/${i}`,
+          title: `title ${i}`,
+          createdAt: Date.now(),
+        })),
+        ...(data?.data ?? []),
+      ],
+    }));
+    return 'Done';
+  }
+
+  @backgroundMethod()
+  async demoRemoveAllBrowserHistoryRecords() {
+    await this.backgroundApi.simpleDb.browserHistory.setRawData({ data: [] });
+    return 'Done';
   }
 }
 

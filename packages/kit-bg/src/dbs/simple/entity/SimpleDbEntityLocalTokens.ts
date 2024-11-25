@@ -49,7 +49,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       })),
       '$key',
     );
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: merge({}, rawData?.data, tokenMap),
       tokenList: rawData?.tokenList ?? {},
       smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
@@ -159,7 +159,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('setRawData');
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
       tokenList: {
         ...rawData?.tokenList,
@@ -194,7 +194,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
   }) {
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
       tokenList: {
         ...rawData?.tokenList,

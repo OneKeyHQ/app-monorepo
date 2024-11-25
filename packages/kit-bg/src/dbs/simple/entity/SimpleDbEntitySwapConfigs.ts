@@ -16,6 +16,8 @@ export interface ISwapConfigs {
 export class SimpleDbEntitySwapConfigs extends SimpleDbEntityBase<ISwapConfigs> {
   entityName = 'swapConfigs';
 
+  override enableCache = false;
+
   @backgroundMethod()
   async getRecentTokenPairs() {
     const data = await this.getRawData();

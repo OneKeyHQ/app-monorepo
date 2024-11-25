@@ -2,6 +2,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Toast } from '@onekeyhq/components';
 import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
@@ -24,7 +25,7 @@ if (platformEnv.isRuntimeBrowser) {
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  globalThis.$$Toast = Toast;
+  appGlobals.$$Toast = Toast;
 }
 
 const LastActivityTracker = LazyLoad(

@@ -69,13 +69,13 @@ export default class ServiceNotification extends ServiceBase {
       // clear cache
       await this.getSupportedNetworks.clear();
       void this.registerClientWithAppendAccounts({
-        dbAccounts: accounts,
+        dbAccounts: accounts, // append
       });
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, (params) => {
       const { accounts } = params;
       void this.registerClientWithAppendAccounts({
-        dbAccounts: accounts,
+        dbAccounts: accounts, // replace
       });
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
@@ -157,6 +157,7 @@ export default class ServiceNotification extends ServiceBase {
       socketId,
     });
     defaultLogger.notification.common.pushProviderConnected(this.pushClient);
+    // register when webSocket or jpush established
     return this.registerClientWithOverrideAllAccounts();
   };
 
@@ -540,14 +541,19 @@ export default class ServiceNotification extends ServiceBase {
   async buildSyncAccounts({ accountIds }: { accountIds?: string[] }): Promise<{
     syncAccounts: INotificationPushSyncAccount[];
   }> {
-    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
-      {
+    const { accounts, accountsRemoved } =
+      await this.backgroundApi.serviceAccount.getAllAccounts({
         ids: accountIds,
         filterRemoved: true,
-      },
-    );
+      });
 
     const { syncAccounts } = await this.convertToSyncAccounts(accounts);
+
+    if (!accountIds) {
+      void this.backgroundApi.serviceAppCleanup.cleanup({
+        accountsRemoved,
+      });
+    }
 
     return {
       syncAccounts,
@@ -587,6 +593,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async updateClientBasicAppInfo() {
+    // update client basic app info: locale, currencyInfo, hideValue
     await this.registerClient({
       client: this.pushClient,
       syncMethod: ENotificationPushSyncMethod.append,

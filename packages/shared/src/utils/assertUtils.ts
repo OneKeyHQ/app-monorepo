@@ -70,7 +70,20 @@ export function isSerializable(obj: any, keyPath?: string[]) {
 
   if (!isPlainObject(obj) && !isArray(obj)) {
     // like regex, date
-    console.log('isSerializable false >>>>>> : ', keyPath, obj);
+    console.log(
+      'isSerializable false >>>>>> : ',
+      'keyPath',
+      keyPath,
+      'obj',
+      obj,
+      {
+        isPlainObject: isPlainObject(obj),
+        isArray: isArray(obj),
+        isArray2: Array.isArray(obj),
+        typeofInfo: typeof obj,
+        length: (obj as { length?: number } | undefined)?.length,
+      },
+    );
     return false;
   }
 
