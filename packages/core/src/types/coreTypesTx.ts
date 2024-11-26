@@ -112,6 +112,7 @@ export type IUnsignedTxPro = IUnsignedTx & {
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
   uuid?: string;
+  isInternalSwap?: boolean;
 };
 export type ISignedTx = {
   txid: string;
