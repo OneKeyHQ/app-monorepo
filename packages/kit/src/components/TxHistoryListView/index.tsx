@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IListViewProps } from '@onekeyhq/components';
 import {
@@ -11,6 +12,7 @@ import {
   XStack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -108,6 +110,9 @@ function TxHistoryListView(props: IProps) {
     searchKey,
   });
 
+  const { bottom, top } = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+
   const sections = useMemo(
     () =>
       convertToSectionGroups({
@@ -170,7 +175,7 @@ function TxHistoryListView(props: IProps) {
       contentContainerStyle={{
         ...contentContainerStyle,
       }}
-      h="100%"
+      h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
       onLayout={onLayout}
       sections={sections}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
@@ -178,16 +183,16 @@ function TxHistoryListView(props: IProps) {
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
-      ListHeaderComponent={ListHeaderComponent}
+      ListHeaderComponent={
+        showHeader && data?.length > 0 ? (
+          <TxHistoryListHeader filteredHistory={filteredHistory} />
+        ) : (
+          ListHeaderComponent
+        )
+      }
       keyExtractor={(tx, index) =>
         (tx as IAccountHistoryTx).id || index.toString(10)
       }
-      {...(showHeader &&
-        data?.length > 0 && {
-          ListHeaderComponent: (
-            <TxHistoryListHeader filteredHistory={filteredHistory} />
-          ),
-        })}
     />
   );
 }

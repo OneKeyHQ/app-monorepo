@@ -47,6 +47,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
@@ -785,6 +786,8 @@ function TxFeeContainer(props: IProps) {
       }),
       isAsync: true,
       showFooter: false,
+      disableDrag: platformEnv.isNative,
+      dismissOnOverlayPress: !platformEnv.isNative,
       renderContent: (
         <FeeEditor
           networkId={networkId}

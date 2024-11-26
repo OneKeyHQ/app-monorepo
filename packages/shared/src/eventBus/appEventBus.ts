@@ -7,6 +7,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
+import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
@@ -43,6 +44,7 @@ export enum EAppEventBusNames {
   DAppLastFocusUrlUpdate = 'DAppLastFocusUrlUpdate',
   SyncDappAccountToHomeAccount = 'SyncDappAccountToHomeAccount',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
+  NetworkDeriveTypeChanged = 'NetworkDeriveTypeChanged',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
   FinalizeWalletSetupError = 'FinalizeWalletSetupError',
@@ -114,6 +116,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
   [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
@@ -385,7 +388,7 @@ class AppEventBus extends CrossEventEmitter {
 const appEventBus = new AppEventBus();
 
 if (process.env.NODE_ENV !== 'production') {
-  globalThis.$$appEventBus = appEventBus;
+  appGlobals.$$appEventBus = appEventBus;
 }
 
 export { appEventBus };

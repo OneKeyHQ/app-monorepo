@@ -11,10 +11,10 @@ export type INotificationsPersistAtomData = {
   lastSettingsUpdateTime: number | undefined;
 };
 export const {
-  target: notificationsPersistAtom,
-  use: useNotificationsPersistAtom,
+  target: notificationsAtom, // persist
+  use: useNotificationsAtom,
 } = globalAtom<INotificationsPersistAtomData>({
-  name: EAtomNames.notificationsPersistAtom,
+  name: EAtomNames.notificationsAtom,
   persist: true,
   initialValue: {
     firstTimeGuideOpened: undefined,

@@ -1,8 +1,17 @@
 import { useCallback } from 'react';
 
-import { Accordion, Button, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Accordion,
+  Button,
+  Checkbox,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
 import { exportLogs } from '@onekeyhq/kit/src/views/Setting/pages/List/ResourceSection/StateLogsItem/logs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/perfUtils';
 
 import LoggingConfigCheckbox from './LoggerConfigGallery';
 import { Layout } from './utils/Layout';
@@ -15,19 +24,51 @@ const LoggerDemo = () => {
     <Stack gap="$2">
       <Accordion
         type="multiple"
-        defaultValue={['logging-config', 'logging-demo']}
+        defaultValue={
+          [
+            // 'logging-config',
+            // 'logging-perf',
+            // 'logging-demo'
+          ]
+        }
       >
         <Accordion.Item value="logging-config">
           <Accordion.Trigger>
-            <SizableText>LoggingConfig</SizableText>
+            {({ open }: { open: boolean }) => (
+              <SizableText>LoggingConfig {open ? '↓' : '→'}</SizableText>
+            )}
           </Accordion.Trigger>
           <Accordion.Content>
             <LoggingConfigCheckbox />
           </Accordion.Content>
         </Accordion.Item>
+
+        <Accordion.Item value="logging-perf">
+          <Accordion.Trigger>
+            {({ open }: { open: boolean }) => (
+              <SizableText>PerformanceTimer Log {open ? '↓' : '→'}</SizableText>
+            )}
+          </Accordion.Trigger>
+          <Accordion.Content>
+            {Object.values(EPerformanceTimerLogNames).map((logName) => (
+              <Checkbox
+                key={logName}
+                isUncontrolled
+                defaultChecked={perfUtils.getPerformanceTimerLogConfig(logName)}
+                label={logName}
+                onChange={(v) =>
+                  perfUtils.updatePerformanceTimerLogConfig(logName as any, !!v)
+                }
+              />
+            ))}
+          </Accordion.Content>
+        </Accordion.Item>
+
         <Accordion.Item value="logging-demo">
           <Accordion.Trigger>
-            <SizableText>LoggingDemo</SizableText>
+            {({ open }: { open: boolean }) => (
+              <SizableText>LoggingDemo {open ? '↓' : '→'}</SizableText>
+            )}
           </Accordion.Trigger>
           <Accordion.Content>
             <Button onPress={() => defaultLogger.demo.math.sum(1, 2)}>

@@ -140,7 +140,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         flex={1}
         marginHorizontal="auto"
         width="100%"
-        maxWidth={pageType === EPageType.modal ? '100%' : 480}
+        maxWidth={pageType === EPageType.modal ? '100%' : 500}
       >
         <YStack
           pt="$2.5"
@@ -154,6 +154,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           }}
         >
           <SwapHeaderContainer
+            pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
           <SwapQuoteInput
@@ -195,7 +196,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
         : EJotaiContextStoreNames.swap
     }
   >
-    <SwapMainLoad {...props} />
+    <SwapMainLoad {...props} pageType={props?.pageType} />
   </SwapProviderMirror>
 );
 

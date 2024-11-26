@@ -51,6 +51,7 @@ const DeriveTypesAddressContent = createContext<{
   network?: IServerNetwork;
   refreshLocalData?: () => void;
   indexedAccountId: string;
+  isAccountCreated: boolean;
   actionType?: EDeriveAddressActionType;
   onSelected?: ({
     account,
@@ -63,10 +64,13 @@ const DeriveTypesAddressContent = createContext<{
   }) => void;
   token?: IToken;
   tokenMap?: Record<string, ITokenFiat>;
+  setIsAccountCreated: React.Dispatch<React.SetStateAction<boolean>>;
 }>({
   indexedAccountId: '',
   actionType: EDeriveAddressActionType.Copy,
   tokenMap: {},
+  isAccountCreated: false,
+  setIsAccountCreated: () => {},
 });
 
 type IDeriveTypesAddressItemType = {
@@ -91,6 +95,7 @@ const DeriveTypesAddressItem = ({
     onSelected,
     token,
     tokenMap,
+    setIsAccountCreated,
   } = useContext(DeriveTypesAddressContent);
   const { createAddress } = useAccountSelectorCreateAddress();
 
@@ -146,6 +151,7 @@ const DeriveTypesAddressItem = ({
           },
         });
         if (createAddressResult) {
+          setIsAccountCreated(true);
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.swap_page_toast_address_generated,
@@ -158,17 +164,18 @@ const DeriveTypesAddressItem = ({
       }
     }
   }, [
-    item.account,
-    item.deriveType,
-    item.deriveInfo,
     network,
+    item.account,
+    item.deriveInfo,
+    item.deriveType,
     actionType,
     copyAccountAddress,
     onSelected,
     indexedAccountId,
-    intl,
-    refreshLocalData,
     createAddress,
+    refreshLocalData,
+    setIsAccountCreated,
+    intl,
   ]);
   return (
     <ListItem
@@ -258,6 +265,7 @@ export default function DeriveTypesAddressPage({
     token,
     tokenMap,
   } = route.params;
+  const [isAccountCreated, setIsAccountCreated] = useState(false);
   const { result, run: refreshLocalData } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
@@ -277,6 +285,8 @@ export default function DeriveTypesAddressPage({
       onSelected,
       tokenMap,
       token,
+      isAccountCreated,
+      setIsAccountCreated,
     }),
     [
       result?.network,
@@ -286,6 +296,8 @@ export default function DeriveTypesAddressPage({
       onSelected,
       tokenMap,
       token,
+      isAccountCreated,
+      setIsAccountCreated,
     ],
   );
   return (
@@ -297,7 +309,13 @@ export default function DeriveTypesAddressPage({
       enabledNum={[0]}
     >
       <DeriveTypesAddressContent.Provider value={context}>
-        <Page onUnmounted={onUnmounted}>
+        <Page
+          onUnmounted={() => {
+            onUnmounted?.({
+              isAccountCreated,
+            });
+          }}
+        >
           <Page.Header
             title={intl.formatMessage({ id: ETranslations.address_type })}
           />

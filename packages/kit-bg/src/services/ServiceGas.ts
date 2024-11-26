@@ -91,10 +91,19 @@ class ServiceGas extends ServiceBase {
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
     if (feeInfo.gasFil && !feeInfo.gasEIP1559) {
+      feeResult.common.feeSymbol = feeResult.common.nativeSymbol;
+      feeResult.common.feeDecimals = feeResult.common.nativeDecimals;
+
       feeResult.gasEIP1559 = feeInfo.gasFil.map((item) => ({
-        baseFeePerGas: FIL_MIN_BASE_FEE,
-        maxFeePerGas: item.gasFeeCap,
-        maxPriorityFeePerGas: item.gasPremium,
+        baseFeePerGas: new BigNumber(FIL_MIN_BASE_FEE)
+          .shiftedBy(-feeResult.common.feeDecimals)
+          .toFixed(),
+        maxFeePerGas: new BigNumber(item.gasFeeCap)
+          .shiftedBy(-feeResult.common.feeDecimals)
+          .toFixed(),
+        maxPriorityFeePerGas: new BigNumber(item.gasPremium)
+          .shiftedBy(-feeResult.common.feeDecimals)
+          .toFixed(),
         gasLimit: item.gasLimit,
         gasLimitForDisplay: item.gasLimit,
       }));

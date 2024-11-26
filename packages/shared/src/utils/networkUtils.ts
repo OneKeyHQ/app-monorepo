@@ -118,36 +118,27 @@ export function getBtcDappUniSetChainName(network: IServerNetwork) {
 
 export function isEnabledNetworksInAllNetworks({
   networkId,
-  deriveType,
   disabledNetworks,
   enabledNetworks,
   isTestnet,
 }: {
   networkId: string;
-  deriveType: IAccountDeriveTypes | undefined;
-  disabledNetworks: {
-    networkId: string;
-    deriveType: IAccountDeriveTypes;
-  }[];
-  enabledNetworks: {
-    networkId: string;
-    deriveType: IAccountDeriveTypes;
-  }[];
+  disabledNetworks: Record<string, boolean>;
+  enabledNetworks: Record<string, boolean>;
   isTestnet: boolean;
 }) {
-  // disable all testnet in all networks by default
   if (isTestnet) {
-    return false;
+    return !!enabledNetworks[networkId];
   }
 
   if (getNetworkImpl({ networkId }) === IMPL_EVM) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks.find((n) => n.networkId === networkId);
+      return !disabledNetworks[networkId];
     }
 
-    return !!enabledNetworks.find((n) => n.networkId === networkId);
+    return !!enabledNetworks[networkId];
   }
-  return !disabledNetworks.find((n) => n.networkId === networkId);
+  return !disabledNetworks[networkId];
 }
 
 function isAllNetwork({

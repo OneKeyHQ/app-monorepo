@@ -18,6 +18,7 @@ import type {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -30,7 +31,6 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
-import type { HDNodeType } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.cosmos.hd;
@@ -112,7 +112,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
           const { path, publicKey } = item;
-          const pubkey = hexToBytes(`0x${publicKey}`);
+          const pubkey = hexToBytes(hexUtils.addHexPrefix(publicKey));
           const addressInfo: ICoreApiGetAddressItem = {
             address: '',
             path,

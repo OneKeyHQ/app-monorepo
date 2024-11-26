@@ -247,6 +247,8 @@ export type IVaultSettings = {
   canEditData?: boolean;
 
   withTxMessage?: boolean;
+
+  fixConfirmedTxEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -542,6 +544,7 @@ export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
+  feeInfoEditable?: boolean;
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: ITokenApproveInfo;
   nativeAmountInfo?: INativeAmountInfo;

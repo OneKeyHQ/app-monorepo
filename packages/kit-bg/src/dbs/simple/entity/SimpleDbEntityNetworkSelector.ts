@@ -10,7 +10,7 @@ export class SimpleDbEntityNetworkSelector extends SimpleDbEntityBase<INetworkSe
   override enableCache = false;
 
   setPinnedNetworkIds({ networkIds }: { networkIds: string[] }) {
-    return this.setRawData(({ rawData }) => ({
+    return this.setRawData((rawData) => ({
       ...rawData,
       pinnedNetworkIds: networkIds,
     }));

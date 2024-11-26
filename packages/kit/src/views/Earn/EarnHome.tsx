@@ -58,7 +58,7 @@ import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
-import { EarntNavigation } from './earnUtils';
+import { EarnNavigation } from './earnUtils';
 
 interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
@@ -742,7 +742,7 @@ function BasicEarnHome() {
           const params = new URLSearchParams(query);
           const networkId = params.get('networkId');
           if (provider && symbol && networkId) {
-            void EarntNavigation.pushDetailPageFromDeeplink(navigation, {
+            void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
               accountId: account?.id ?? '',
               indexedAccountId: indexedAccount?.id,
               provider,

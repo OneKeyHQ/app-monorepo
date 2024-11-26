@@ -272,6 +272,11 @@ function NotificationAccountInfo({
   );
   const intl = useIntl();
 
+  // account may be deleted
+  if (!notificationAccountAddress) {
+    return null;
+  }
+
   return (
     <>
       <Divider mx="$5" />
@@ -350,6 +355,7 @@ function HistoryDetails() {
         networkId,
         accountAddress,
         txid,
+        fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
       });
       historyInit.current = true;
       if (
@@ -381,7 +387,14 @@ function HistoryDetails() {
       };
     },
 
-    [accountId, networkId, accountAddress, txid, historyTxParam],
+    [
+      accountAddress,
+      accountId,
+      networkId,
+      txid,
+      vaultSettings?.fixConfirmedTxEnabled,
+      historyTxParam,
+    ],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -831,7 +844,6 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
-
     if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
       return (
         <>

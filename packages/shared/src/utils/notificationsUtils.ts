@@ -7,6 +7,7 @@ import {
   ENotificationPermission,
   ENotificationPushMessageAckAction,
 } from '../../types/notification';
+import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 import { EModalAssetDetailRoutes, EModalRoutes } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
@@ -83,7 +84,7 @@ async function navigateToNotificationDetail({
   }
 
   if (shouldAckRead) {
-    void globalThis.$backgroundApiProxy.serviceNotification.ackNotificationMessage(
+    void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
       {
         msgId: notificationId,
         action: ENotificationPushMessageAckAction.readed,
@@ -125,7 +126,7 @@ async function navigateToNotificationDetail({
         modalParams.screen,
         modalParams.params,
       );
-      globalThis.$navigationRef.current?.dispatch(pushAction);
+      appGlobals.$navigationRef.current?.dispatch(pushAction);
     }
   }
 }

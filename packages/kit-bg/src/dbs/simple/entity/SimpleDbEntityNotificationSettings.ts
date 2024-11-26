@@ -28,7 +28,7 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
   async saveAccountActivityNotificationSettings(
     settings: IAccountActivityNotificationSettings | undefined,
   ) {
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       ...rawData,
       accountActivity: settings,
     }));

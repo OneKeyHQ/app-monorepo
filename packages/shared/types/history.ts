@@ -71,6 +71,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  key: string;
   networkId: string;
   tx: string;
   riskLevel: number;
@@ -184,6 +185,7 @@ export type IFetchHistoryTxDetailsParams = {
   withUTXOs?: boolean;
   accountAddress?: string;
   xpub?: string;
+  fixConfirmedTxStatus?: boolean;
 };
 
 export type IFetchTxDetailsParams = {

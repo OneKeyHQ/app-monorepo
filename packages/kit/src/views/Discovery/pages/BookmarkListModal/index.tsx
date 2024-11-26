@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Empty,
   Input,
   Page,
   SortableListView,
@@ -152,6 +153,7 @@ function BookmarkListModal() {
     [isEditing, intl],
   );
   const { gtMd } = useMedia();
+
   return (
     <Page>
       <Page.Header
@@ -171,6 +173,17 @@ function BookmarkListModal() {
             index,
           })}
           onDragEnd={(ret) => onSortBookmarks(ret.data)}
+          ListEmptyComponent={
+            <Empty
+              py="$32"
+              my="$4"
+              icon="BookmarkOutline"
+              title={intl.formatMessage({
+                // eslint-disable-next-line spellcheck/spell-checker
+                id: ETranslations.explore_no_boomark,
+              })}
+            />
+          }
           renderItem={({ item, getIndex, drag, dragProps }) => (
             <ListItem
               h={CELL_HEIGHT}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   Icon,
   NATIVE_HIT_SLOP,
   SizableText,
+  Skeleton,
   Tooltip,
   XStack,
   useClipboard,
@@ -29,15 +30,15 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils, {
-  isEnabledNetworksInAllNetworks,
-} from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
+import {
+  useAccountOverviewStateAtom,
+  useAllNetworksStateStateAtom,
+} from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -49,6 +50,9 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
+  const shouldClearAllNetworksCache = useRef(false);
+  const [allNetworksState] = useAllNetworksStateStateAtom();
+  const [overviewState] = useAccountOverviewStateAtom();
 
   const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -62,70 +66,48 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     },
   );
 
-  const { result, run } = usePromiseResult(async () => {
-    if (!activeAccount.network?.isAllNetworks) return null;
-    const [s, a] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId: activeAccount.account?.id,
-          walletId: activeAccount.wallet?.id,
-        },
-      ),
-    ]);
+  const { result: allNetworksCount, run } = usePromiseResult(async () => {
+    const { network, wallet } = activeAccount;
+    if (!network?.isAllNetworks) return null;
 
-    const all = [...a.mainnetItems, ...a.testnetItems];
-    const visibleNetworks: IServerNetwork[] = [];
-
-    for (const n of all) {
-      const accounts =
-        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-          {
-            networkId: n.id,
-            indexedAccountId: activeAccount.account?.indexedAccountId ?? '',
-          },
-        );
-
-      const account = accounts.networkAccounts.find(
-        (na) =>
-          accounts.network.id === n.id &&
-          (na.account?.address ||
-            (na.account && networkUtils.isLightningNetworkByNetworkId(n.id))),
-      );
-      if (account) {
-        if (
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            isTestnet: n.isTestnet,
-            deriveType: account.deriveType,
-            disabledNetworks: s.disabledNetworks,
-            enabledNetworks: s.enabledNetworks,
-          })
-        ) {
-          visibleNetworks.push(n);
-        }
-      }
+    if (shouldClearAllNetworksCache.current) {
+      await backgroundApiProxy.serviceNetwork.clearNetworkVaultSettingsCache();
     }
 
-    return {
-      visibleNetworks,
-      allNetworks: all,
-    };
-  }, [
-    activeAccount.account?.id,
-    activeAccount.account?.indexedAccountId,
-    activeAccount.network?.isAllNetworks,
-    activeAccount.wallet?.id,
-  ]);
+    const { networkIds } =
+      await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
+        clearCache: shouldClearAllNetworksCache.current,
+      });
+    const { networkIdsCompatible } =
+      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+        {
+          walletId: wallet?.id,
+          networkIds,
+        },
+      );
 
-  const { visibleNetworks, allNetworks } = result ?? {};
+    shouldClearAllNetworksCache.current = false;
+    return networkIdsCompatible.length;
+  }, [activeAccount]);
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, () => run());
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => run());
+    const reloadAllNetworks = () => {
+      shouldClearAllNetworksCache.current = true;
+      void run();
+    };
+    appEventBus.on(
+      EAppEventBusNames.NetworkDeriveTypeChanged,
+      reloadAllNetworks,
+    );
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
     return () => {
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, () => run());
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, () => run());
+      appEventBus.off(
+        EAppEventBusNames.NetworkDeriveTypeChanged,
+        reloadAllNetworks,
+      );
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
     };
   }, [run]);
 
@@ -168,11 +150,13 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
         onPress={handleAllNetworkCopyAddress}
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
-        <SizableText size="$bodyMd">
-          {allNetworks && visibleNetworks
-            ? `${visibleNetworks.length} / ${allNetworks.length}`
-            : ''}
-        </SizableText>
+        {overviewState.initialized ? (
+          <SizableText size="$bodyMd">
+            {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
+          </SizableText>
+        ) : (
+          <Skeleton h="$5" w="$10" />
+        )}
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>

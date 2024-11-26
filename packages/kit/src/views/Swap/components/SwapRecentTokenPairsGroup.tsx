@@ -4,16 +4,17 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapTabSwitchType,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { Token } from '../../../components/Token';
 import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
 
-const needFoldingMinCount = 6;
+const needFoldingMinCount = 4;
 
 interface ISwapRecentTokenPairsGroupProps {
   fromTokenAmount?: string;
@@ -63,7 +64,8 @@ const SwapRecentTokenPairsGroup = ({
               role="button"
               userSelect="none"
               alignItems="center"
-              px="$2"
+              pl="$1"
+              pr="$2.5"
               py="$1"
               bg="$bg"
               borderRadius="$4"
@@ -86,19 +88,51 @@ const SwapRecentTokenPairsGroup = ({
                 onSelectTokenPairs(tokenPair);
               }}
             >
-              <SizableText size="$bodyMdMedium">{`${tokenPair.fromToken.symbol}/${tokenPair.toToken.symbol}`}</SizableText>
+              <YStack
+                borderWidth={2}
+                borderRadius="$full"
+                borderColor="$bg"
+                my="$-0.5"
+              >
+                <Token
+                  w="$4.5"
+                  h="$4.5"
+                  size="sm"
+                  tokenImageUri={tokenPair.fromToken.logoURI}
+                />
+              </YStack>
+              <YStack
+                borderWidth={2}
+                borderRadius="$full"
+                borderColor="$bg"
+                ml="$-2"
+                my="$-0.5"
+              >
+                <Token
+                  w="$4.5"
+                  h="$4.5"
+                  size="sm"
+                  tokenImageUri={tokenPair.toToken.logoURI}
+                />
+              </YStack>
+              <SizableText
+                ml="$1"
+                size="$bodyMdMedium"
+              >{`${tokenPair.fromToken.symbol} → ${tokenPair.toToken.symbol}`}</SizableText>
             </XStack>
           ))}
           {tokenPairsInCurrentType.length >= needFoldingMinCount ? (
-            <Stack
+            <XStack
               key="more-token-pairs"
               role="button"
               userSelect="none"
               alignItems="center"
-              px="$1.5"
+              pl="$1.5"
+              pr="$2.5"
               py="$1"
               bg="$bg"
-              borderRadius="$4"
+              gap="$1"
+              borderRadius="$full"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
               hoverStyle={{
@@ -118,31 +152,28 @@ const SwapRecentTokenPairsGroup = ({
                 setOpenMore(!openMore);
               }}
             >
-              <Stack
-                animation="quick"
-                justifyContent="center"
-                alignItems="center"
-                rotate={openMore ? '180deg' : '0deg'}
-              >
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  color={openMore ? '$iconActive' : '$iconSubdued'}
-                  size="$5"
-                />
-              </Stack>
-            </Stack>
+              <Icon
+                size="$4.5"
+                name={openMore ? 'MinusSmallOutline' : 'PlusSmallOutline'}
+                color="$iconSubdued"
+              />
+              <SizableText size="$bodyMdMedium">
+                {openMore
+                  ? intl.formatMessage({ id: ETranslations.global_show_less })
+                  : intl.formatMessage({ id: ETranslations.global_show_more })}
+              </SizableText>
+            </XStack>
           ) : null}
         </>
       </XStack>
     );
-  }, [onSelectTokenPairs, openMore, tokenPairsInCurrentType]);
+  }, [intl, onSelectTokenPairs, openMore, tokenPairsInCurrentType]);
   if (
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
     !tokenPairsInCurrentType?.length
   ) {
     return null;
   }
-
   return (
     <YStack gap="$1">
       <SizableText size="$bodyMd" color="$textSubdued">

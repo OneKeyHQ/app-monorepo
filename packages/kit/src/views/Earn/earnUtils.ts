@@ -2,7 +2,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
-export const EarntNavigation = {
+export const EarnNavigation = {
   async pushDetailPageFromDeeplink(
     navigation: IAppNavigation,
     {

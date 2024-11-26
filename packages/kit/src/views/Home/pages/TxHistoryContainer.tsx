@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
-import { isEmpty } from 'lodash';
+import { isEmpty, uniqBy } from 'lodash';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -17,16 +17,14 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-// import { sortHistoryTxsByTime } from '@onekeyhq/shared/src/utils/historyUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
-// import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useHistoryListActions,
@@ -38,6 +36,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     useTabIsRefreshingFocused();
 
   const { updateSearchKey } = useHistoryListActions().current;
+  const { updateAllNetworksState } = useAccountOverviewActions().current;
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -103,6 +102,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
         networkId: network.id,
         isManualRefresh: isManualRefresh.current,
       });
+
+      updateAllNetworksState({
+        visibleCount: uniqBy(r.allAccounts, 'networkId').length,
+      });
+
       setHistoryState({
         initialized: true,
         isRefreshing: false,
@@ -122,7 +126,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       }
       isManualRefresh.current = false;
     },
-    [account, network, setIsHeaderRefreshing],
+    [account, network, setIsHeaderRefreshing, updateAllNetworksState],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -181,6 +185,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       clearCallback,
     );
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
 
     return () => {
       appEventBus.off(
@@ -188,6 +193,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         clearCallback,
       );
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
     };
   }, [isFocused, run]);
 

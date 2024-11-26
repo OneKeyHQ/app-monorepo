@@ -1,3 +1,4 @@
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -70,4 +71,4 @@ export class JotaiBgSync {
 
 export const jotaiBgSync = new JotaiBgSync();
 // use global var to avoid circular dependency
-globalThis.$jotaiBgSync = jotaiBgSync;
+appGlobals.$jotaiBgSync = jotaiBgSync;

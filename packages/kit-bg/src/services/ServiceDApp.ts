@@ -7,6 +7,7 @@ import type {
   ISignedTxPro,
   IUnsignedMessage,
 } from '@onekeyhq/core/src/types';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
   backgroundMethod,
@@ -210,7 +211,7 @@ class ServiceDApp extends ServiceBase {
       }
     } else {
       const doOpenModal = () =>
-        globalThis.$navigationRef.current?.navigate(
+        appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
           modalParams.params,
         );
@@ -434,6 +435,11 @@ class ServiceDApp extends ServiceBase {
       })),
     });
     void this.syncDappAccountIfPrimaryMode({ origin });
+    // If alignPrimaryAccountMode is AlwaysUsePrimaryAccount,
+    // we need to notify the dapp accounts changed after connected
+    setTimeout(() => {
+      void this.notifyDAppAccountsChangedAfterConnected({ origin });
+    }, 300);
   }
 
   @backgroundMethod()
@@ -544,6 +550,22 @@ class ServiceDApp extends ServiceBase {
     await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
     await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+  }
+
+  @backgroundMethod()
+  async notifyDAppAccountsChangedAfterConnected({
+    origin,
+  }: {
+    origin: string;
+  }) {
+    const currentSettings = await settingsPersistAtom.get();
+    if (
+      currentSettings.alignPrimaryAccountMode !==
+      EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
+    ) {
+      return;
+    }
+    void this.notifyDAppAccountsChanged(origin);
   }
 
   @backgroundMethod()
@@ -1298,13 +1320,13 @@ class ServiceDApp extends ServiceBase {
             : undefined,
         });
     } catch (e) {
-      // disconnect website if build account error
-      void this.disconnectWebsite({
-        origin,
-        storageType,
-      });
-      console.log(`Build Account Error: `, e);
-      return null;
+      // void this.disconnectWebsite({
+      //   origin,
+      //   storageType,
+      // });
+      console.log(`Build dApp Account Error: `, e);
+      // If build account error, use the previous account
+      return connectedAccountInfo;
     }
 
     // 4. merge account info

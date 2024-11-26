@@ -160,7 +160,18 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   if (!network) {
     return (
-      <Skeleton width={media.gtMd ? 127 : '$9'} height="$9" borderRadius="$2" />
+      <>
+        {media.gtMd ? (
+          <Skeleton.Group show>
+            <XStack gap="$2" alignItems="center">
+              <Skeleton w="$6" h="$6" borderRadius="$full" />
+              <Skeleton.BodyMd />
+            </XStack>
+          </Skeleton.Group>
+        ) : (
+          <Skeleton w="$6" h="$6" borderRadius="$full" />
+        )}
+      </>
     );
   }
 
@@ -169,6 +180,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       role="button"
       alignItems="center"
       p="$1.5"
+      m="$-1.5"
       borderRadius="$2"
       hoverStyle={
         triggerDisabled

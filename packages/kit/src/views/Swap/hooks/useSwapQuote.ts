@@ -35,6 +35,7 @@ import {
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapQuote() {
   const intl = useIntl();
@@ -47,6 +48,7 @@ export function useSwapQuote() {
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
@@ -62,6 +64,7 @@ export function useSwapQuote() {
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
+  const swapSlippageRef = useRef(slippageItem);
   if (swapQuoteFetchingRef.current !== swapQuoteFetching) {
     swapQuoteFetchingRef.current = swapQuoteFetching;
   }
@@ -78,6 +81,9 @@ export function useSwapQuote() {
   }
   if (swapShouldRefreshRef.current !== swapShouldRefresh) {
     swapShouldRefreshRef.current = swapShouldRefresh;
+  }
+  if (swapSlippageRef.current !== slippageItem) {
+    swapSlippageRef.current = slippageItem;
   }
   const isFocused = useIsFocused();
   const isFocusRef = useRef(isFocused);
@@ -111,6 +117,7 @@ export function useSwapQuote() {
     if (!isFocusRef.current) return;
     if (!fromTokenAmount) {
       void quoteAction(
+        swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
       );
@@ -125,11 +132,13 @@ export function useSwapQuote() {
       swapSlippageDialogOpening.flag === 'save'
     ) {
       void quoteAction(
+        swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
       );
     } else {
       void recoverQuoteInterval(
+        swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
       );
@@ -152,6 +161,7 @@ export function useSwapQuote() {
       !swapApprovingTransaction.resetApproveValue
     ) {
       void quoteAction(
+        swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
@@ -202,6 +212,7 @@ export function useSwapQuote() {
     }
     alignmentDecimal();
     void quoteAction(
+      swapSlippageRef.current,
       activeAccountRef.current?.address,
       activeAccountRef.current?.accountInfo?.account?.id,
     );
@@ -241,6 +252,7 @@ export function useSwapQuote() {
     }
     alignmentDecimal();
     void quoteAction(
+      swapSlippageRef.current,
       activeAccountRef.current?.address,
       activeAccountRef.current?.accountInfo?.account?.id,
     );
@@ -287,6 +299,7 @@ export function useSwapQuote() {
             !swapShouldRefreshRef.current
           ) {
             void recoverQuoteInterval(
+              swapSlippageRef.current,
               activeAccountRef.current?.address,
               activeAccountRef.current?.accountInfo?.account?.id,
             );
@@ -315,6 +328,7 @@ export function useSwapQuote() {
           !swapShouldRefreshRef.current
         ) {
           void recoverQuoteInterval(
+            swapSlippageRef.current,
             activeAccountRef.current?.address,
             activeAccountRef.current?.accountInfo?.account?.id,
           );

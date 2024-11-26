@@ -40,7 +40,7 @@ import {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
-import { useNotificationsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -125,7 +125,7 @@ function AccountNotificationSettingsProvider({
     {
       maxAccountCount = NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
     },
-  ] = useNotificationsPersistAtom();
+  ] = useNotificationsAtom();
 
   const saveSettings = useCallback(
     (
@@ -264,6 +264,7 @@ function AccountAccordionItem({
         {account.name}
       </SizableText>
       <Switch
+        size="small"
         value={isAccountEnabled}
         onChange={(value) => toggleAccountSwitch(value, account)}
       />
@@ -452,6 +453,7 @@ function WalletAccordionItem({
               </XStack>
             </XStack>
             <Switch
+              size="small"
               value={isWalletEnabled}
               onChange={toggleWalletSwitch}
               onPress={stopPropagation}
@@ -608,7 +610,7 @@ function LoadingView({ show }: { show: boolean }) {
             <Skeleton w="$10" h="$10" radius={8} />
             <Skeleton.BodyLg />
           </XStack>
-          <Switch disabled />
+          <Switch size="small" disabled />
         </XStack>
       ))}
     </Skeleton.Group>

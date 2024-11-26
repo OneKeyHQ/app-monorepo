@@ -11,6 +11,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -23,7 +24,11 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateFeeParams,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -62,6 +67,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
@@ -480,5 +486,44 @@ export default class Vault extends VaultBase {
       to,
       messages: [message],
     };
+  }
+
+  override async precheckUnsignedTx(params: {
+    unsignedTx: IUnsignedTxPro;
+    precheckTiming: ESendPreCheckTimingEnum;
+    nativeAmountInfo?: INativeAmountInfo;
+    feeInfo?: IFeeInfoUnit;
+  }): Promise<boolean> {
+    if (params.precheckTiming !== ESendPreCheckTimingEnum.Confirm) {
+      return true;
+    }
+
+    const resp =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        withNetWorth: true,
+      });
+    const nativeBalance = new BigNumber(resp.balance ?? '0');
+    const { encodedTx } = params.unsignedTx;
+    const messages = (encodedTx as IEncodedTxTon).messages;
+    const amount = messages.reduce(
+      (acc, current) => acc.plus(new BigNumber(current.amount)),
+      new BigNumber('0'),
+    );
+    const balanceDiff = nativeBalance.minus(amount);
+
+    if (balanceDiff.isGreaterThanOrEqualTo(0)) {
+      return true;
+    }
+
+    const network = await this.getNetwork();
+    throw new OneKeyInternalError({
+      key: ETranslations.swap_page_toast_insufficient_balance_content,
+      info: {
+        token: network.symbol,
+        number: amount.shiftedBy(-network.decimals).toFixed(),
+      },
+    });
   }
 }
