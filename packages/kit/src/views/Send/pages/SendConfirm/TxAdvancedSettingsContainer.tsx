@@ -107,6 +107,7 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const canEditNonce = useMemo(
     () =>
       unsignedTxs.length === 1 &&
+      !unsignedTxs[0].isInternalSwap &&
       vaultSettings?.canEditNonce &&
       settings.isCustomNonceEnabled &&
       !isNil(unsignedTxs[0].nonce),

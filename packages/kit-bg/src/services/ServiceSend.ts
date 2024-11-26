@@ -509,6 +509,7 @@ class ServiceSend extends ServiceBase {
       specifiedFeeRate,
       prevNonce,
       feeInfo,
+      isInternalSwap,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -531,6 +532,9 @@ class ServiceSend extends ServiceBase {
         feeInfo,
       });
     }
+
+    newUnsignedTx.isInternalSwap = isInternalSwap;
+
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
     }
