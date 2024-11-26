@@ -143,6 +143,8 @@ export default class ServiceNotification extends ServiceBase {
     return this.pushClient;
   }
 
+  isFirstTimeAllAccountsRegistered = false;
+
   onPushProviderConnected = async ({
     jpushId,
     socketId,
@@ -157,8 +159,13 @@ export default class ServiceNotification extends ServiceBase {
       socketId,
     });
     defaultLogger.notification.common.pushProviderConnected(this.pushClient);
-    // register when webSocket or jpush established
-    return this.registerClientWithOverrideAllAccounts();
+    if (!this.isFirstTimeAllAccountsRegistered) {
+      this.isFirstTimeAllAccountsRegistered = true;
+      // register when webSocket or jpush established
+      void this.registerClientWithOverrideAllAccounts();
+    } else {
+      void this.updateClientBasicAppInfo();
+    }
   };
 
   onNotificationReceived = async (
