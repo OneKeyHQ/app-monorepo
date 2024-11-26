@@ -198,11 +198,11 @@ const SwapHistoryDetailModal = () => {
       <XStack alignItems="center" gap="$1">
         <Image
           source={{ uri: txHistory.swapInfo.provider.providerLogo }}
-          width={20}
-          height={20}
-          borderRadius="$full"
+          w="$5"
+          h="$5"
+          borderRadius="$1"
         />
-        <SizableText size={14} color="$textSubdued">
+        <SizableText size="$bodyLg" color="$textSubdued">
           {txHistory.swapInfo.provider.providerName}
         </SizableText>
       </XStack>
