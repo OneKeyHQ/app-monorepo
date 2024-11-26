@@ -796,6 +796,7 @@
   "global.continue": "続ける",
   "global.continue_anyway": "それでも続行",
   "global.contract": "契約",
+  "global.contract_call": "契約コール",
   "global.copied": "コピーしました",
   "global.copy": "コピー",
   "global.copy_address": "住所をコピー",
