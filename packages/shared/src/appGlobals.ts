@@ -10,7 +10,9 @@ import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebe
 import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import type { DefaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import type { IAppStorage } from './storage/syncStorage';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type Realm from 'realm';
 
@@ -22,6 +24,7 @@ export type IAppGlobals = {
   $navigationRef: React.RefObject<NavigationContainerRef<any>>;
   $defaultLogger?: DefaultLogger;
   $Toast?: IToast;
+  $appStorage?: IAppStorage;
   // Ext internal (ui,background,contentScript)
   extJsBridgeUiToBg: JsBridgeBase;
   extJsBridgeOffscreenToBg: JsBridgeBase;
@@ -39,7 +42,6 @@ export type IAppGlobals = {
   $$localDbV4?: any;
   $$realm?: Realm;
   $$realmV4?: Realm;
-  $$appStorage?: any;
   $$localforage?: any;
   $$appEventBus?: any;
   $$platformEnv?: any;

@@ -1,7 +1,7 @@
 import { isNil, isNumber } from 'lodash';
 
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { logLocalDbCall } from '@onekeyhq/shared/src/utils/debug/logIndexedDBCreateTx';
+import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
@@ -293,7 +293,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
     const { tx: paramsTx, name } = params;
-    logLocalDbCall(`txGetRecordsCount`, name, [true]);
+    dbPerfMonitor.logLocalDbCall(`txGetRecordsCount`, name, [true]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx(tx, name);
       const count = await store.count();
@@ -308,7 +308,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
     const { tx: paramsTx, name, ids, limit, offset } = params;
-    logLocalDbCall(`txGetAllRecords`, name, [`records: ${ids?.length || ''}`]);
+    dbPerfMonitor.logLocalDbCall(`txGetAllRecords`, name, [
+      `records: ${ids?.length || ''}`,
+    ]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx<T>(tx, name);
       // TODO add query support
@@ -370,7 +372,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       tx: ILocalDBTransaction,
     ) => {
       const store = this._getObjectStoreFromTx(tx, name);
-      logLocalDbCall(`txGetRecordById`, name, [id]);
+      dbPerfMonitor.logLocalDbCall(`txGetRecordById`, name, [id]);
       const record = await store.get(id);
       if (!record) {
         const error = new Error(`record not found: ${name} ${id}`);
@@ -388,7 +390,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     resetUtils.checkNotInResetting();
     const { name, tx, updater } = params;
     const pairs = await this.buildRecordPairsFromIds(params);
-    logLocalDbCall(`txUpdateRecords`, name, [`records: ${pairs.length}`]);
+    dbPerfMonitor.logLocalDbCall(`txUpdateRecords`, name, [
+      `records: ${pairs.length}`,
+    ]);
     await Promise.all(
       pairs.map((pair) =>
         this._executeUpdateRecord({
@@ -413,7 +417,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       skipped: 0,
       addedIds: [],
     };
-    logLocalDbCall(`txAddRecords`, name, [`records: ${records.length}`]);
+    dbPerfMonitor.logLocalDbCall(`txAddRecords`, name, [
+      `records: ${records.length}`,
+    ]);
     for (const record of records) {
       let shouldAdd = true;
       if (skipIfExists) {
@@ -440,7 +446,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     const { name, tx } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     const pairs = await this.buildRecordPairsFromIds(params);
-    logLocalDbCall(`txRemoveRecords`, name, [`records: ${pairs.length}`]);
+    dbPerfMonitor.logLocalDbCall(`txRemoveRecords`, name, [
+      `records: ${pairs.length}`,
+    ]);
     await Promise.all(
       pairs.map(async (pair) => {
         // TODO only remove first record?

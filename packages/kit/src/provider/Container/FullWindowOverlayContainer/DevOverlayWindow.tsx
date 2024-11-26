@@ -8,9 +8,12 @@ import {
   Button,
   Dialog,
   IconButton,
+  Input,
   SizableText,
   Slider,
   Stack,
+  Switch,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +27,7 @@ import {
   EModalSettingRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -154,6 +158,117 @@ function DevOverlayWindow() {
               Right
             </Button>
           </XStack>
+
+          <YStack gap="$2">
+            <XStack gap="$2" alignItems="center">
+              <SizableText
+                size="$headingLg"
+                onPress={() => {
+                  console.log(dbPerfMonitor.getSettings());
+                }}
+              >
+                DB Perf Monitor
+              </SizableText>
+              <Stack flex={1} />
+              <Button
+                size="small"
+                onPress={() => {
+                  dbPerfMonitor.resetAllData();
+                }}
+              >
+                重置统计数据
+              </Button>
+            </XStack>
+            <XStack gap="$2" alignItems="center">
+              <Tooltip
+                renderTrigger={<SizableText>告警</SizableText>}
+                renderContent={
+                  <SizableText>
+                    告警开启后，统计数据每隔 3 秒自动重置
+                  </SizableText>
+                }
+              />
+              <Switch
+                isUncontrolled
+                defaultChecked={
+                  dbPerfMonitor.getSettings()?.toastWarningEnabled
+                }
+                onChange={(v) => {
+                  dbPerfMonitor.updateSettings({
+                    toastWarningEnabled: v,
+                  });
+                }}
+              />
+              <Stack flex={1} />
+              <Tooltip
+                renderTrigger={<SizableText>告警阈值</SizableText>}
+                renderContent={
+                  <SizableText>
+                    当数据库调用频率超过阈值后 Toast 告警
+                  </SizableText>
+                }
+              />
+              <Input
+                addOns={[
+                  {
+                    label: '次/3秒',
+                  },
+                ]}
+                size="small"
+                width={50}
+                defaultValue={dbPerfMonitor
+                  .getSettings()
+                  ?.toastWarningSize.toString()}
+                onChangeText={(v) => {
+                  const value = Number(v);
+                  if (Number.isNaN(value)) {
+                    return;
+                  }
+                  dbPerfMonitor.updateSettings({
+                    toastWarningSize: value,
+                  });
+                }}
+              />
+            </XStack>
+            <XStack gap="$2" alignItems="center">
+              <Tooltip
+                renderTrigger={<SizableText>实时日志</SizableText>}
+                renderContent={
+                  <SizableText>
+                    开启数据库调用统计数据的实时日志，关闭后仅打印告警日志
+                  </SizableText>
+                }
+              />
+              <Switch
+                isUncontrolled
+                defaultChecked={dbPerfMonitor.getSettings()?.consoleLogEnabled}
+                onChange={(v) => {
+                  dbPerfMonitor.updateSettings({
+                    consoleLogEnabled: v,
+                  });
+                }}
+              />
+              <Stack flex={1} />
+              <Tooltip
+                renderTrigger={<SizableText>自动断点</SizableText>}
+                renderContent={
+                  <SizableText>
+                    需代码中先配置 DebuggerRule, 当满足规则时自动断点,
+                    方便排查函数调用栈
+                  </SizableText>
+                }
+              />
+              <Switch
+                isUncontrolled
+                defaultChecked={dbPerfMonitor.getSettings()?.debuggerEnabled}
+                onChange={(v) => {
+                  dbPerfMonitor.updateSettings({
+                    debuggerEnabled: v,
+                  });
+                }}
+              />
+            </XStack>
+          </YStack>
         </YStack>
       ),
     });

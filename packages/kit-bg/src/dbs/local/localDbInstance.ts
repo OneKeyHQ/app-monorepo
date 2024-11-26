@@ -1,4 +1,4 @@
-import { logIndexedDBCreateTx } from '@onekeyhq/shared/src/utils/debug/logIndexedDBCreateTx';
+import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
 
@@ -8,5 +8,5 @@ import type { LocalDbBase } from './LocalDbBase';
 
 const localDb: LocalDbBase = new LocalDbIndexed();
 
-logIndexedDBCreateTx();
+dbPerfMonitor.logIndexedDBCreateTx();
 export default localDb;
