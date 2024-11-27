@@ -41,6 +41,7 @@ export function PairDetailDialog({
     target,
     market,
     last,
+    depth_data: depthData,
     volume,
     last_updated_at: lastUpdateAt,
     bid_ask_spread_percentage: spread,
@@ -88,8 +89,33 @@ export function PairDetailDialog({
         </PoolDetailsItem>
         <PoolDetailsItem
           title={intl.formatMessage({
+            id: ETranslations.market_plus_2_percent_depth,
+          })}
+          isNumeric
+          currency
+          formatter="price"
+        >
+          {depthData?.['+2%'] || '-'}
+        </PoolDetailsItem>
+      </XStack>
+
+      <XStack gap="$4">
+        <PoolDetailsItem
+          title={intl.formatMessage({
+            id: ETranslations.market_minus_2_percent_depth,
+          })}
+          currency
+          isNumeric
+          formatter="price"
+        >
+          {depthData?.['-2%'] || '-'}
+        </PoolDetailsItem>
+        <PoolDetailsItem
+          title={intl.formatMessage({
             id: ETranslations.market_twenty_four_hour_volume,
           })}
+          formatter="marketCap"
+          currency
           isNumeric
         >
           {String(volume)}
