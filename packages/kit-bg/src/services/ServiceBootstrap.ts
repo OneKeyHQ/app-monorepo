@@ -1,5 +1,9 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -25,6 +29,15 @@ class ServiceBootstrap extends ServiceBase {
     if (platformEnv.isExtension) {
       await this.backgroundApi.serviceDevSetting.initAnalytics();
     }
+    void this.saveDevModeToSyncStorage();
+  }
+
+  async saveDevModeToSyncStorage() {
+    const devSettings = await devSettingsPersistAtom.get();
+    appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
   }
 }
 

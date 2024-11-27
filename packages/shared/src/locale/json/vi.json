@@ -796,6 +796,7 @@
   "global.continue": "Tiếp tục",
   "global.continue_anyway": "Tiếp tục bất kể",
   "global.contract": "Hợp đồng",
+  "global.contract_call": "Gọi hợp đồng",
   "global.copied": "Đã sao chép",
   "global.copy": "Sao chép",
   "global.copy_address": "Sao chép địa chỉ",

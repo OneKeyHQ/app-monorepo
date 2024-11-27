@@ -32,6 +32,8 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import {
   isBgApiSerializableCheckingDisabled,
   toggleBgApiSerializableChecking,
@@ -262,6 +264,27 @@ export const DevSettingsSection = () => {
           defaultChecked={!isBgApiSerializableCheckingDisabled()}
           onChange={(v) => {
             toggleBgApiSerializableChecking(v);
+          }}
+        />
+      </ListItem>
+
+      <ListItem
+        title="DebugRenderTracker 组件渲染高亮"
+        subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
+      >
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={
+            appStorage.syncStorage.getBoolean(
+              EAppSyncStorageKeys.onekey_debug_render_tracker,
+            ) ?? false
+          }
+          onChange={(v) => {
+            appStorage.syncStorage.set(
+              EAppSyncStorageKeys.onekey_debug_render_tracker,
+              v,
+            );
           }}
         />
       </ListItem>

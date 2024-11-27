@@ -765,6 +765,7 @@ class ServiceAccountSelector extends ServiceBase {
       let device: IDBDevice | undefined;
       if (isHw) {
         device = await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+          dbWallet: wallet,
           walletId: focusedWallet,
         });
       }

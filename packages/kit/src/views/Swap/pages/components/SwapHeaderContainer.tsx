@@ -17,7 +17,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
@@ -106,8 +105,6 @@ const SwapHeaderContainer = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { onSlippageHandleClick } = useSwapSlippageActions();
-
   return (
     <XStack justifyContent="space-between">
       <XStack gap="$3">
@@ -133,10 +130,7 @@ const SwapHeaderContainer = ({
           {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </CustomTabItem>
       </XStack>
-      <SwapHeaderRightActionContainer
-        pageType={pageType}
-        onSlippageHandleClick={onSlippageHandleClick}
-      />
+      <SwapHeaderRightActionContainer pageType={pageType} />
     </XStack>
   );
 };
