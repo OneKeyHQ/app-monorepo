@@ -2,22 +2,10 @@ import wordLists from 'bip39/src/wordlists/english.json';
 
 import type { BrowserOptions } from '@sentry/browser';
 
-// Check if errorText contains a private key pattern
-const checkPrivateKey = (errorText: string) => {
-  if (
-    typeof errorText === 'string' &&
-    // Check for common private key formats
-    (errorText.length > 20 ||
-      /^[0-9a-f]{64}$/i.test(errorText) || // Raw hex private key
-      /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/.test(errorText) || // WIF format
-      /^[a-f0-9]{128}$/i.test(errorText) || // Extended private key
-      /^0x[0-9a-f]{64}$/i.test(errorText)) // Ethereum style private key
-  ) {
-    // If private key detected, redact the event
-    return true;
-  }
-  return false;
-};
+// dirty check for common private key formats
+
+const checkPrivateKey = (errorText: string) =>
+  typeof errorText === 'string' && errorText.length > 26;
 
 // Check if text contains mnemonic phrases
 const checkAndRedactMnemonicWords = (words: string[]) => {
@@ -74,6 +62,11 @@ export const basicOptions: BrowserOptions = {
           }
         }
       }
+    }
+    if (Array.isArray(event.breadcrumbs)) {
+      event.breadcrumbs = event.breadcrumbs.filter(
+        (e) => e.category !== 'sentry.event' && e.level !== 'error',
+      );
     }
     return event;
   },
