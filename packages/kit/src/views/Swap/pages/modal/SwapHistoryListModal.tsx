@@ -121,8 +121,14 @@ const SwapHistoryListModal = () => {
       title: intl.formatMessage({
         id: ETranslations.swap_history_all_history_title,
       }),
-      onConfirm: () => {
-        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'success',
+          title: intl.formatMessage({
+            id: ETranslations.settings_clear_successful,
+          }),
+        });
       },
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_clear,
