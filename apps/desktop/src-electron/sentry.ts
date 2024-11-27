@@ -26,8 +26,24 @@ export const initSentry = () => {
     integrations: [
       Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
-        breadcrumbs: [],
-        events: ['oom'],
+        breadcrumbs: [
+          'clean-exit',
+          'abnormal-exit',
+          'killed',
+          'crashed',
+          'oom',
+          'launch-failed',
+          'integrity-failure',
+        ],
+        events: [
+          'clean-exit',
+          'abnormal-exit',
+          'killed',
+          'crashed',
+          'oom',
+          'launch-failed',
+          'integrity-failure',
+        ],
       }),
     ],
   });
