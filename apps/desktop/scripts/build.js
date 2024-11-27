@@ -10,6 +10,8 @@ const gitRevision = childProcess
   .toString()
   .trim();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const hrstart = process.hrtime();
 build({
   entryPoints: ['app.ts', 'preload.ts', 'service/windowsHello.ts'].map((f) =>
@@ -18,6 +20,7 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
   alias: {
     '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
