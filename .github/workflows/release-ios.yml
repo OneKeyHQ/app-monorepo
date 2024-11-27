@@ -114,7 +114,7 @@ jobs:
     
       - name: Write .sentry.properties
         run: |
-          echo "auth.token=${{ env.SENTRY_TOKEN }}" >> apps/mobile/ios/sentry.properties
+          echo "auth.token=${{ secrets.SENTRY_TOKEN }}" >> apps/mobile/ios/sentry.properties
       
       - name: Install Dep
         env:
