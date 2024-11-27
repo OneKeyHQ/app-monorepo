@@ -127,7 +127,7 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
     async (event, params: INotificationShowParams) => {
       // electron show notification
       const { notificationId, title, description, icon } = params;
-      // console.log('NOTIFICATION_SHOW ', params);
+      console.log('NOTIFICATION_SHOW ', params);
       const uuid = notificationId || generateUUID();
       const notification = new Notification({
         title,
@@ -136,7 +136,7 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
       });
       notification.show();
 
-      // console.log('notification show', notification);
+      console.log('notification show', notification);
 
       notification.on('click', () => {
         logger.info('notification clicked');
