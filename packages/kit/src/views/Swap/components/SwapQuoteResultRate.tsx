@@ -110,7 +110,7 @@ const SwapQuoteResultRate = ({
     <XStack alignItems="center" gap="$5">
       {isLoading ? (
         <Stack py="$0.5">
-          <Skeleton h="$4.5" w="$32" />
+          <Skeleton h="$4" w="$32" />
         </Stack>
       ) : (
         <XStack gap="$1" alignItems="center">
