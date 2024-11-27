@@ -40,7 +40,7 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 };
 
 export const basicOptions: BrowserOptions = {
-  enabled: true,
+  enabled: process.env.NODE_ENV === 'production',
   maxBreadcrumbs: 100,
   beforeSend: (event) => {
     if (Array.isArray(event.exception?.values)) {
