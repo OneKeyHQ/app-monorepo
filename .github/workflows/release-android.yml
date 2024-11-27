@@ -90,7 +90,6 @@ jobs:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
           SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
-
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
