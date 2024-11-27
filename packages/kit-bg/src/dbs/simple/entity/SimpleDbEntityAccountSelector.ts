@@ -60,7 +60,7 @@ export interface IAccountSelectorPersistInfo {
 export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSelectorPersistInfo> {
   entityName = 'accountSelector';
 
-  override enableCache = false;
+  override enableCache = true;
 
   @backgroundMethod()
   async saveSelectedAccount({

@@ -84,7 +84,7 @@ const BaseSlippageInput = ({
   );
 };
 
-const SlippageInput = memo(BaseSlippageInput);
+export const SlippageInput = memo(BaseSlippageInput);
 
 const SwapsSlippageContentContainer = ({
   swapSlippage,

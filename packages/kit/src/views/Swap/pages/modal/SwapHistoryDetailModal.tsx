@@ -401,6 +401,12 @@ const SwapHistoryDetailModal = () => {
         await backgroundApiProxy.serviceSwap.cleanOneSwapHistory(
           txHistory.txInfo.txId,
         );
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'success',
+          title: intl.formatMessage({
+            id: ETranslations.settings_clear_successful,
+          }),
+        });
         navigation.pop();
       },
       onConfirmText: intl.formatMessage({

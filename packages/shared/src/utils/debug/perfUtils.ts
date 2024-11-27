@@ -1,10 +1,9 @@
 import { isNil } from 'lodash';
 
-import errorUtils from '../errors/utils/errorUtils';
-import appStorage from '../storage/appStorage';
-import { EAppSyncStorageKeys } from '../storage/syncStorage';
-
-import { formatDateFns } from './dateUtils';
+import errorUtils from '../../errors/utils/errorUtils';
+import appStorage from '../../storage/appStorage';
+import { EAppSyncStorageKeys } from '../../storage/syncStorage';
+import { formatDateFns } from '../dateUtils';
 
 export enum EPerformanceTimerLogNames {
   // localDB
@@ -20,6 +19,7 @@ export enum EPerformanceTimerLogNames {
   allNetwork__useAllNetworkRequests = 'allNetwork__useAllNetworkRequests',
   allNetwork__handleAllNetworkCacheRequests = 'allNetwork__handleAllNetworkCacheRequests',
   allNetwork__walletAddressPage = 'allNetwork__walletAddressPage',
+  allNetwork__TokenListView = 'allNetwork__TokenListView',
   // serviceNetwork
   serviceNetwork__getAllNetworks = 'serviceNetwork__getAllNetworks',
   serviceNetwork__getAllNetworksWithCache = 'serviceNetwork__getAllNetworksWithCache',
@@ -45,15 +45,19 @@ function updatePerformanceTimerLogConfig(
   logName: EPerformanceTimerLogNames,
   value: boolean,
 ) {
-  const configMap = getPerformanceTimerLogConfigMap();
+  try {
+    const configMap = getPerformanceTimerLogConfigMap();
 
-  appStorage.syncStorage.setObject(
-    EAppSyncStorageKeys.onekey_perf_timer_log_config,
-    {
-      ...configMap,
-      [logName]: value,
-    },
-  );
+    appStorage.syncStorage.setObject(
+      EAppSyncStorageKeys.onekey_perf_timer_log_config,
+      {
+        ...configMap,
+        [logName]: value,
+      },
+    );
+  } catch (error) {
+    errorUtils.autoPrintErrorIgnore(error);
+  }
 }
 
 function getPerformanceTimerLogConfig(logName: EPerformanceTimerLogNames) {
@@ -63,16 +67,20 @@ function getPerformanceTimerLogConfig(logName: EPerformanceTimerLogNames) {
 const repeatTimesMap: Record<EPerformanceTimerLogNames, number> = {} as any;
 
 const timeFormat = 'HH:mm:ss.SSS';
+
+type IPerformanceTimerOptions = {
+  name: EPerformanceTimerLogNames;
+  params?: Record<string, any>;
+  keepPrevDetail?: boolean;
+};
 class PerformanceTimer {
-  constructor(
-    logName: EPerformanceTimerLogNames,
-    params?: Record<string, any>,
-  ) {
+  constructor(options: IPerformanceTimerOptions) {
+    const { name: logName } = options;
     this.logName = logName;
-    this.params = params;
+    this.options = options;
   }
 
-  params?: Record<string, any>;
+  options: IPerformanceTimerOptions;
 
   private logName: EPerformanceTimerLogNames;
 
@@ -86,6 +94,7 @@ class PerformanceTimer {
       endAt?: string;
       duration: number | undefined;
       params?: Record<string, any>;
+      memo?: Record<string, any> | string;
     };
   } = {};
 
@@ -114,26 +123,42 @@ class PerformanceTimer {
     };
   }
 
-  markEnd(name: string) {
+  markEnd(name: string, memo?: Record<string, any> | string) {
     if (!this.isEnabled) {
       return;
     }
 
     if (!this.detail[name]) {
-      return;
+      this.detail[name] = {
+        duration: undefined,
+        start: undefined,
+        end: undefined,
+      };
     }
     this.detail[name].end = Date.now();
     this.detail[name].duration =
-      (this?.detail?.[name]?.end ?? 0) - (this?.detail?.[name]?.start ?? 0);
+      this?.detail?.[name]?.end && this?.detail?.[name]?.start
+        ? (this?.detail?.[name]?.end ?? 0) - (this?.detail?.[name]?.start ?? 0)
+        : undefined;
 
     this.detail[name].endAt = formatDateFns(
       new Date(this?.detail?.[name]?.end ?? 0),
       timeFormat,
     );
-    this.detail[name].startAt = formatDateFns(
-      new Date(this?.detail?.[name]?.start ?? 0),
-      timeFormat,
-    );
+    this.detail[name].startAt = this?.detail?.[name]?.start
+      ? formatDateFns(new Date(this?.detail?.[name]?.start ?? 0), timeFormat)
+      : undefined;
+    this.detail[name].memo = memo;
+
+    this.detail[name] = {
+      duration: this.detail[name].duration,
+      startAt: this.detail[name].startAt,
+      endAt: this.detail[name].endAt,
+      params: this.detail[name].params,
+      memo: this.detail[name].memo,
+      start: this.detail[name].start,
+      end: this.detail[name].end,
+    };
   }
 
   reset() {
@@ -142,13 +167,20 @@ class PerformanceTimer {
     }
 
     this.create = Date.now();
-    this.detail = {};
+    if (this.options.keepPrevDetail) {
+      Object.values(this.detail).forEach((item) => {
+        item.start = Date.now();
+      });
+    } else {
+      this.detail = {};
+    }
   }
 
   done({ minDuration }: { minDuration?: number } = {}) {
     if (!this.isEnabled) {
       return;
     }
+
     const done = Date.now();
     repeatTimesMap[this.logName] = (repeatTimesMap?.[this.logName] ?? 0) + 1;
     const result = {
@@ -158,7 +190,7 @@ class PerformanceTimer {
       createAt: formatDateFns(new Date(this.create), timeFormat),
       done,
       doneAt: formatDateFns(new Date(done), timeFormat),
-      params: this.params,
+      params: this.options.params,
       repeat: repeatTimesMap[this.logName],
     };
     if (result.duration >= (minDuration ?? -10)) {
@@ -168,11 +200,8 @@ class PerformanceTimer {
   }
 }
 
-function createPerf(
-  logName: EPerformanceTimerLogNames,
-  params?: Record<string, any>,
-) {
-  const perf = new PerformanceTimer(logName, params);
+function createPerf(options: IPerformanceTimerOptions) {
+  const perf = new PerformanceTimer(options);
   perf.reset();
   return perf;
 }
