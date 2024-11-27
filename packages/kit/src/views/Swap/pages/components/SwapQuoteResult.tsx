@@ -41,11 +41,13 @@ interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
   onOpenProviderList?: () => void;
   onOpenRecipient?: () => void;
+  refreshAction: (manual?: boolean) => void;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
+  refreshAction,
   onOpenRecipient,
 }: ISwapQuoteResultProps) => {
   const [openResult, setOpenResult] = useState(false);
@@ -173,6 +175,7 @@ const SwapQuoteResult = ({
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
                 providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
+                refreshAction={refreshAction}
                 onOpenResult={
                   quoteResult?.info.provider && !swapQuoteLoading
                     ? () => setOpenResult(!openResult)
