@@ -46,8 +46,8 @@ export const basicOptions: BrowserOptions = {
       for (let index = 0; index < event.exception.values.length; index += 1) {
         const errorText = event.exception.values[index].value;
         if (errorText) {
-          let textSlices = errorText?.split(' ');
           try {
+            let textSlices = errorText?.split(' ');
             for (let i = 0; i < textSlices.length; i += 1) {
               const textSlice = textSlices[i];
               if (checkPrivateKey(textSlice)) {
