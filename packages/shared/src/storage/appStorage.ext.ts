@@ -23,9 +23,4 @@ export const mockStorage = mockStorageInstance;
 - Desktop | Web: WebStorage -> IndexedDB
  */
 
-if (process.env.NODE_ENV !== 'production') {
-  appGlobals.$$appStorage = appStorage;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  appGlobals.$$appStorage.print = createPrintMethod({ storage: appStorage });
-}
 export default buildAppStorageFactory(appStorage);

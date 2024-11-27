@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
   ListView,
@@ -12,6 +12,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -32,6 +35,7 @@ import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
+import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
@@ -60,7 +64,7 @@ type IProps = {
   hideValue?: boolean;
 };
 
-function TokenListView(props: IProps) {
+function TokenListViewCmp(props: IProps) {
   const {
     onPressToken,
     tableLayout,
@@ -89,9 +93,17 @@ function TokenListView(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [tokenSelectorSearchKey] = useTokenSelectorSearchKeyAtom();
 
-  const tokens = isTokenSelector
-    ? tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens)
-    : tokenList.tokens;
+  const tokens = useMemo(
+    () =>
+      isTokenSelector
+        ? tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens)
+        : tokenList.tokens,
+    [
+      isTokenSelector,
+      tokenList.tokens,
+      smallBalanceTokenList.smallBalanceTokens,
+    ],
+  );
   const [searchTokenState] = useSearchTokenStateAtom();
 
   const [tokenSelectorSearchTokenState] =
@@ -101,14 +113,26 @@ function TokenListView(props: IProps) {
 
   const [tokenSelectorSearchTokenList] = useTokenSelectorSearchTokenListAtom();
 
-  const filteredTokens = getFilteredTokenBySearchKey({
-    tokens,
-    searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
-    searchAll,
-    searchTokenList: isTokenSelector
-      ? tokenSelectorSearchTokenList.tokens
-      : searchTokenList.tokens,
-  });
+  const filteredTokens = useMemo(
+    () =>
+      getFilteredTokenBySearchKey({
+        tokens,
+        searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
+        searchAll,
+        searchTokenList: isTokenSelector
+          ? tokenSelectorSearchTokenList.tokens
+          : searchTokenList.tokens,
+      }),
+    [
+      tokens,
+      isTokenSelector,
+      tokenSelectorSearchKey,
+      searchKey,
+      searchAll,
+      tokenSelectorSearchTokenList.tokens,
+      searchTokenList.tokens,
+    ],
+  );
 
   const { listViewProps, listViewRef, onLayout } =
     useTabListScroll<IAccountToken>({
@@ -134,11 +158,56 @@ function TokenListView(props: IProps) {
       appEventBus.off(EAppEventBusNames.TabListStateUpdate, fn);
     };
   }, []);
-  if (
-    (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
-    (!isTokenSelector && searchTokenState.isSearching) ||
-    (!tokenListState.initialized && tokenListState.isRefreshing)
-  ) {
+
+  const showSkeleton = useMemo(
+    () =>
+      (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
+      (!isTokenSelector && searchTokenState.isSearching) ||
+      (!tokenListState.initialized && tokenListState.isRefreshing),
+    [
+      isTokenSelector,
+      searchTokenState.isSearching,
+      tokenListState.initialized,
+      tokenListState.isRefreshing,
+      tokenSelectorSearchTokenState.isSearching,
+    ],
+  );
+
+  useEffect(() => {
+    if (showSkeleton) {
+      perfTokenListView.reset();
+    } else {
+      perfTokenListView.done();
+    }
+  }, [showSkeleton]);
+
+  useEffect(() => {
+    if (!tokenListState.initialized) {
+      perfTokenListView.markStart('tokenListStateInitialize');
+    } else {
+      perfTokenListView.markEnd('tokenListStateInitialize');
+    }
+  }, [tokenListState.initialized]);
+
+  useEffect(() => {
+    if (tokenListState.isRefreshing) {
+      perfTokenListView.markStart('tokenListStateRefreshing');
+      perfTokenListView.markStart('tokenListRefreshing_tokenListPageUseEffect');
+      perfTokenListView.markStart(
+        'tokenListRefreshing_tokenListContainerRefreshList',
+      );
+      perfTokenListView.markStart('tokenListRefreshing_allNetworkRequests');
+      perfTokenListView.markStart('tokenListRefreshing_allNetworkCacheData');
+      perfTokenListView.markStart('tokenListRefreshing_initTokenListData');
+      perfTokenListView.markStart('tokenListRefreshing_emptyAccount');
+    } else {
+      perfTokenListView.markEnd('tokenListStateRefreshing');
+      perfTokenListView.markEnd('tokenListRefreshing_1');
+      perfTokenListView.markEnd('tokenListRefreshing_2');
+    }
+  }, [tokenListState.isRefreshing]);
+
+  if (showSkeleton) {
     return (
       <NestedScrollView style={{ flex: 1 }}>
         <ListLoading isTokenSelectorView={!tableLayout} />
@@ -211,5 +280,7 @@ function TokenListView(props: IProps) {
     />
   );
 }
+
+const TokenListView = memo(TokenListViewCmp);
 
 export { TokenListView };

@@ -9,12 +9,12 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
 
 import ServiceBase from '../ServiceBase';
 
@@ -258,9 +258,9 @@ class ServiceAllNetwork extends ServiceBase {
 
         await Promise.all(
           dbAccounts.map(async (a) => {
-            const perf = perfUtils.createPerf(
-              EPerformanceTimerLogNames.allNetwork__getAllNetworkAccounts_EachAccount,
-            );
+            const perf = perfUtils.createPerf({
+              name: EPerformanceTimerLogNames.allNetwork__getAllNetworkAccounts_EachAccount,
+            });
 
             const isCompatible = accountUtils.isAccountCompatibleWithNetwork({
               account: a,

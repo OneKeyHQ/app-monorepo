@@ -10,12 +10,24 @@ export type IRadioProps = IFormFieldProps<
   {
     disabled?: boolean;
     options: { label: string; description?: string; value: string }[];
+    defaultValue?: string;
   }
 >;
 
-export function Radio({ value, onChange, disabled, options }: IRadioProps) {
+export function Radio({
+  value,
+  defaultValue,
+  onChange,
+  disabled,
+  options,
+}: IRadioProps) {
   return (
-    <RadioGroup value={value} onValueChange={onChange} disabled={disabled}>
+    <RadioGroup
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={onChange}
+      disabled={disabled}
+    >
       {options.map(({ label, description, value: v }, index) => (
         <XStack py="$2" key={index}>
           <RadioGroup.Item

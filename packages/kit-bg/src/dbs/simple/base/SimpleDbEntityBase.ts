@@ -4,6 +4,7 @@ import { isFunction, isNil, isString } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorageInstance from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
+import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
@@ -21,7 +22,7 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly entityName: string;
 
-  abstract enableCache: boolean;
+  abstract readonly enableCache: boolean;
 
   get entityKey() {
     return `${SIMPLE_DB_KEY_PREFIX}:${this.entityName}`;
@@ -42,6 +43,7 @@ abstract class SimpleDbEntityBase<T> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
+    dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
     const savedDataStr = await this.appStorage.getItem(this.entityKey);
     let updatedAt = 0;
     // @ts-ignore
@@ -104,6 +106,8 @@ abstract class SimpleDbEntityBase<T> {
         data,
         updatedAt,
       };
+
+      dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
       await this.appStorage.setItem(
         this.entityKey,
         appStorageUtils.canSaveAsObject() && !isString(savedData)

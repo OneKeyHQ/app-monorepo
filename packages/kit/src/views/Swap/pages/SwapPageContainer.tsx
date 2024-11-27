@@ -1,5 +1,5 @@
 import { Page } from '@onekeyhq/components';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';

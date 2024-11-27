@@ -5,7 +5,7 @@ import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Di
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
@@ -24,9 +24,7 @@ if (platformEnv.isRuntimeBrowser) {
   globalThis._frameTimestamp = null;
 }
 
-if (process.env.NODE_ENV !== 'production') {
-  appGlobals.$$Toast = Toast;
-}
+appGlobals.$Toast = Toast;
 
 const LastActivityTracker = LazyLoad(
   () => import('../components/LastActivityTracker'),
