@@ -210,7 +210,7 @@ function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
         onChange={setChartViewType}
         title="Chart"
         renderTrigger={({ label }) => (
-          <XStack pb="$4" gap="$1" ai="center">
+          <XStack gap="$1" ai="center" $md={{ mx: '$4' }} $gtMd={{ pb: '$4' }}>
             <SizableText color="$textSubdued" size="$bodyMdMedium">
               {label}
             </SizableText>
