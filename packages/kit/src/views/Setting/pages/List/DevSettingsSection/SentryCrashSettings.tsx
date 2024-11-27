@@ -6,10 +6,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SectionPressItem } from './SectionPressItem';
 
-function a() {
-  throw new Error('Function not implemented.');
-}
-
 export function SentryCrashSettings() {
   const sections = [
     <SectionPressItem
