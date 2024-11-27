@@ -1,10 +1,14 @@
 import wordLists from 'bip39/src/wordlists/english.json';
 
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import type { BrowserOptions } from '@sentry/browser';
 
 // dirty check for common private key formats
 const checkPrivateKey = (errorText: string) =>
   typeof errorText === 'string' && errorText.length > 26;
+
+const lazyLoadWordSet = memoizee(() => new Set(wordLists));
 
 // Check if text contains mnemonic phrases
 const checkAndRedactMnemonicWords = (words: string[]) => {
@@ -12,8 +16,8 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
     return words;
   }
 
-  const wordSet = new Set(wordLists);
-  const result = [...words];
+  const wordSet = lazyLoadWordSet();
+  const result = words.slice();
   let consecutiveCount = 0;
   let maxConsecutiveCount = 0;
 
