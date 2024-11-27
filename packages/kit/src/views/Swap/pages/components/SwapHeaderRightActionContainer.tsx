@@ -225,7 +225,6 @@ const SwapSlippageCustomContent = ({
 const SwapSettingsDialogContent = () => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [, setSettings] = useSettingsAtom();
   const [
     { swapBatchApproveAndSwap, swapEnableRecipientAddress },
     setPersistSettings,
@@ -256,14 +255,14 @@ const SwapSettingsDialogContent = () => {
         }))}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
-          setSettings((s) => ({
+          setNoPersistSettings((s) => ({
             ...s,
             swapSlippagePercentageMode: keyValue,
           }));
         }}
       />
     ),
-    [intl, setSettings, slippageItem.key],
+    [intl, setNoPersistSettings, slippageItem.key],
   );
   return (
     <YStack gap="$5">
