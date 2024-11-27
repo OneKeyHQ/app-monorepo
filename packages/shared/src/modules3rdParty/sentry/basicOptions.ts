@@ -7,14 +7,16 @@ const checkPrivateKey = (errorText: string) => {
   if (
     typeof errorText === 'string' &&
     // Check for common private key formats
-    (/^[0-9a-f]{64}$/i.test(errorText) || // Raw hex private key
+    (errorText.length > 20 ||
+      /^[0-9a-f]{64}$/i.test(errorText) || // Raw hex private key
       /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/.test(errorText) || // WIF format
       /^[a-f0-9]{128}$/i.test(errorText) || // Extended private key
       /^0x[0-9a-f]{64}$/i.test(errorText)) // Ethereum style private key
   ) {
     // If private key detected, redact the event
-    return null;
+    return true;
   }
+  return false;
 };
 
 // Check if text contains mnemonic phrases
@@ -28,21 +30,21 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   let consecutiveCount = 0;
   let maxConsecutiveCount = 0;
 
-  const indexes = [];
+  let startIndex = 0;
   // Check for consecutive mnemonic words and count them
   for (let i = 0; i < words.length; i += 1) {
     if (wordSet.has(words[i].toLowerCase())) {
       consecutiveCount += 1;
       maxConsecutiveCount = Math.max(maxConsecutiveCount, consecutiveCount);
-      indexes.push(i);
     } else {
+      startIndex = i;
       consecutiveCount = 0;
     }
   }
 
   if (maxConsecutiveCount > 10) {
-    for (let i = 0; i < indexes.length; i += 1) {
-      result[indexes[i]] = '****';
+    for (let i = startIndex; i < maxConsecutiveCount; i += 1) {
+      result[i] = '****';
     }
   }
 
@@ -53,7 +55,6 @@ export const basicOptions: BrowserOptions = {
   enabled: true,
   maxBreadcrumbs: 100,
   beforeSend: (event) => {
-    console.log('beforeSend', event.exception);
     if (Array.isArray(event.exception?.values)) {
       for (let index = 0; index < event.exception.values.length; index += 1) {
         const errorText = event.exception.values[index].value;
@@ -74,7 +75,6 @@ export const basicOptions: BrowserOptions = {
         }
       }
     }
-    console.log('beforeSend', event.exception);
     return event;
   },
 };
