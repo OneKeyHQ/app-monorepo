@@ -12,11 +12,27 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketDetailTicker } from '@onekeyhq/shared/types/market';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetailsItem } from './PoolDetailDialog';
+
+// Trust Score is displayed in Green/Yellow/Red or None on under the “Trust Score” column.
+// https://www.coingecko.com/en/methodology
+function renderTrustScore(trustScore: string) {
+  switch (trustScore) {
+    case 'green':
+      return '🟢';
+    case 'yellow':
+      return '🟡';
+    case 'red':
+      return '🔴';
+    default:
+      return '⚪';
+  }
+}
 
 export function PairDetailDialog({
   item: {
@@ -26,6 +42,7 @@ export function PairDetailDialog({
     market,
     last,
     volume,
+    last_updated_at: lastUpdateAt,
     bid_ask_spread_percentage: spread,
     trust_score: trustScore,
     trade_url: tradeUrl,
@@ -94,9 +111,7 @@ export function PairDetailDialog({
           })}
           isNumeric
         >
-          {intl.formatMessage({
-            id: ETranslations.market_last_updated,
-          })}
+          {formatDistanceToNow(new Date(lastUpdateAt))}
         </PoolDetailsItem>
       </XStack>
       <XStack gap="$4">
@@ -106,7 +121,7 @@ export function PairDetailDialog({
           })}
           bordered={false}
         >
-          {trustScore === 'green' ? '🟢' : ''}
+          {renderTrustScore(trustScore)}
         </PoolDetailsItem>
       </XStack>
       <XStack gap="$1.5" ai="center" pt="$2">
