@@ -72,11 +72,15 @@ import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const showTxMessageFaq = () => {
+const showTxMessageFaq = (isContractTo: boolean) => {
   Dialog.show({
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_hex_data,
-    }),
+    title: isContractTo
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_hex_data_default,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.global_hex_data,
+        }),
     icon: 'ConsoleOutline',
     description: appLocale.intl.formatMessage({
       id: ETranslations.global_hex_data_faq_desc,
@@ -285,6 +289,7 @@ function SendDataInputContainer() {
   const toPending = form.watch('to.pending');
   const toResolved = form.watch('to.resolved');
   const nftAmount = form.watch('nftAmount');
+  const toIsContract = form.watch('to.isContract');
 
   const linkedAmount = useMemo(() => {
     let amountBN = new BigNumber(amount ?? 0);
@@ -499,7 +504,7 @@ function SendDataInputContainer() {
               memo: memoValue,
               paymentId: paymentIdValue,
               note: noteValue,
-              hexData: isToContract ? undefined : hexData,
+              hexData: tokenDetails?.info.isNative ? hexData : undefined,
             },
           ];
 
@@ -1003,7 +1008,27 @@ function SendDataInputContainer() {
     [],
   );
 
+  const handleValidateTxMessage = useCallback(
+    (value: string) => {
+      if (!value) return undefined;
+
+      const toAddress = form.getValues('to');
+      if (toAddress.isContract) {
+        if (!utils.isHexString(value)) {
+          return intl.formatMessage({
+            id: ETranslations.global_hex_data_error,
+          });
+        }
+      }
+    },
+    [form, intl],
+  );
+
   const txMessageDescription = useMemo(() => {
+    const toAddress = form.getValues('to');
+    if (toAddress.isContract) {
+      return '';
+    }
     if (form.getValues('txMessage') === '') return '';
     const description = isHexTxMessage
       ? intl.formatMessage(
@@ -1031,40 +1056,53 @@ function SendDataInputContainer() {
       !settings.isCustomTxMessageEnabled ||
       !displayTxMessageForm ||
       !tokenInfo?.isNative ||
-      toAddress.raw === '' ||
-      toAddress.isContract === true
+      toAddress.raw === ''
     ) {
       return null;
     }
+
     return (
       <Form.Field
         label={intl.formatMessage({
-          id: ETranslations.global_hex_data,
+          id: toAddress.isContract
+            ? ETranslations.global_contract_call
+            : ETranslations.global_hex_data,
         })}
         optional
         name="txMessage"
         rules={{
           onChange: handleTxMessageOnChange,
+          validate: handleValidateTxMessage,
         }}
-        description={txMessageDescription}
+        description={toAddress.isContract ? '' : txMessageDescription}
         labelAddon={
           <Button
             size="small"
             variant="tertiary"
-            onPress={() => showTxMessageFaq()}
+            onPress={() => showTxMessageFaq(!!toAddress.isContract)}
           >
-            {intl.formatMessage({
-              id: ETranslations.global_hex_data_faq,
-            })}
+            {toAddress.isContract
+              ? intl.formatMessage({
+                  id: ETranslations.global_hex_data_default_faq,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.global_hex_data_faq,
+                })}
           </Button>
         }
       >
         <TextAreaInput
           numberOfLines={2}
           size={media.gtMd ? 'medium' : 'large'}
-          placeholder={intl.formatMessage({
-            id: ETranslations.global_hex_data_input_default,
-          })}
+          placeholder={
+            toAddress.isContract
+              ? intl.formatMessage({
+                  id: ETranslations.global_hex_data_default,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.global_hex_data_input_default,
+                })
+          }
         />
       </Form.Field>
     );
@@ -1072,6 +1110,7 @@ function SendDataInputContainer() {
     displayTxMessageForm,
     form,
     handleTxMessageOnChange,
+    handleValidateTxMessage,
     intl,
     media.gtMd,
     settings.isCustomTxMessageEnabled,
@@ -1127,6 +1166,10 @@ function SendDataInputContainer() {
       void form.trigger('amount');
     }
   }, [form, tokenDetails?.balance]);
+
+  useEffect(() => {
+    void form.trigger('txMessage');
+  }, [form, toIsContract]);
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>

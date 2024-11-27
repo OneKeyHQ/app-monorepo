@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
@@ -8,6 +8,7 @@ import {
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteIntervalCountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -26,12 +27,12 @@ import type {
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
-// import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
+  useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { useSwapInit } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -56,11 +57,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
+  const { selectFromToken, selectToToken, quoteAction } =
+    useSwapActions().current;
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const swapSlippageRef = useRef(slippageItem);
+  if (swapSlippageRef.current !== slippageItem) {
+    swapSlippageRef.current = slippageItem;
+  }
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -129,6 +138,33 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     [approveTx],
   );
 
+  const refreshAction = useCallback(
+    (manual?: boolean) => {
+      if (manual) {
+        void quoteAction(
+          swapSlippageRef.current,
+          swapFromAddressInfo?.address,
+          swapFromAddressInfo?.accountInfo?.account?.id,
+        );
+      } else {
+        setSwapQuoteIntervalCount((v) => v + 1);
+        void quoteAction(
+          swapSlippageRef.current,
+          swapFromAddressInfo?.address,
+          swapFromAddressInfo?.accountInfo?.account?.id,
+          undefined,
+          true,
+        );
+      }
+    },
+    [
+      quoteAction,
+      swapFromAddressInfo?.accountInfo?.account?.id,
+      swapFromAddressInfo?.address,
+      setSwapQuoteIntervalCount,
+    ],
+  );
+
   const onWrapped = useCallback(async () => {
     await wrappedTx();
   }, [wrappedTx]);
@@ -162,6 +198,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
           />
           <SwapQuoteResult
+            refreshAction={refreshAction}
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
             onOpenRecipient={onToAnotherAddressModal}

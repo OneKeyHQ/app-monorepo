@@ -318,6 +318,7 @@ export const Toast = {
   },
   Close: ShowToasterClose,
 };
+export type IToast = typeof Toast;
 
 export { useToaster } from './ShowCustom';
 export type { IShowToasterProps } from './ShowCustom';

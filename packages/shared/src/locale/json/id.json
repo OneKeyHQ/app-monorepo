@@ -796,6 +796,7 @@
   "global.continue": "Lanjutkan",
   "global.continue_anyway": "Lanjutkan saja",
   "global.contract": "Kontrak",
+  "global.contract_call": "Panggilan kontrak",
   "global.copied": "Disalin",
   "global.copy": "Salin",
   "global.copy_address": "Salin alamat",

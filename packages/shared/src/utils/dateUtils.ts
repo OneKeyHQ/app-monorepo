@@ -217,7 +217,8 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  let formatTemplate = options?.formatTemplate || 'HH:mm:ss';
+  // HH:mm:ss.SSS
+  let formatTemplate = options?.formatTemplate || 'HH:mm:ss.SSS';
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
@@ -238,3 +239,9 @@ export function formatMillisecondsToBlocks(
   const seconds = millisecondsToSeconds(milliseconds);
   return Math.ceil(seconds / blockIntervalSeconds);
 }
+
+export default {
+  formatDate,
+  formatMonth,
+  formatTime,
+};
