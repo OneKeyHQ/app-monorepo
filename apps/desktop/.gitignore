@@ -33,6 +33,3 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
-# Sentry Config File
-.env.sentry-build-plugin
