@@ -54,13 +54,15 @@ import {
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import debugUtils from '@onekeyhq/shared/src/utils/debugUtils';
+import debugUtils, {
+  useDebugHooksDepsChangedChecker,
+} from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import perfUtils, {
+  EPerformanceTimerLogNames,
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
 import {
   EAccountSelectorSceneName,
   type IServerNetwork,
@@ -809,9 +811,9 @@ function WalletAddressPageMainView({
     isLoading,
   } = usePromiseResult(
     async () => {
-      const perf = perfUtils.createPerf(
-        EPerformanceTimerLogNames.allNetwork__walletAddressPage,
-      );
+      const perf = perfUtils.createPerf({
+        name: EPerformanceTimerLogNames.allNetwork__walletAddressPage,
+      });
 
       perf.markStart('getChainSelectorNetworksCompatibleWithAccountId');
       const networks =
@@ -935,8 +937,24 @@ function WalletAddressPageMainView({
     result.networksAccount,
   ]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { checkDeps } = useDebugHooksDepsChangedChecker(
+    'WalletAddressContextCalculate',
+  );
+
   const context = useMemo(() => {
     log('contextCalculate');
+    // checkDeps({
+    //   allNetworksState: result.allNetworksState,
+    //   networksAccount: result.networksAccount,
+    //   accountId,
+    //   indexedAccountId,
+    //   refreshLocalData,
+    //   accountsCreated,
+    //   isAllNetworksEnabled,
+    //   isOnlyOneNetworkVisible,
+    // });
+
     const networkAccountMap: Record<string, IAllNetworkAccountInfo[]> = {};
     const networkDeriveTypeMap: Record<string, IAccountDeriveTypes[]> = {};
     for (let i = 0; i < result.networksAccount.length; i += 1) {
@@ -971,6 +989,7 @@ function WalletAddressPageMainView({
     };
     return contextData;
   }, [
+    // checkDeps,
     result.allNetworksState,
     result.networksAccount,
     accountId,

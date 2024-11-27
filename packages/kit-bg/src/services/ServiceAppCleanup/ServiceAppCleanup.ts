@@ -103,7 +103,9 @@ class ServiceAppCleanup extends ServiceBase {
   async cleanupIndexedAccounts() {
     await this.runCleanupTask(async () => {
       const { indexedAccountsRemoved } =
-        await this.backgroundApi.serviceAccount.getAllIndexedAccounts();
+        await this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+          filterRemoved: true,
+        });
       if (indexedAccountsRemoved.length) {
         await localDb.removeIndexedAccounts({
           indexedAccounts: indexedAccountsRemoved,

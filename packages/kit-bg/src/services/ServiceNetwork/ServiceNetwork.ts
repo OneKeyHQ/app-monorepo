@@ -14,10 +14,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -62,9 +62,9 @@ class ServiceNetwork extends ServiceBase {
       clearCache?: boolean;
     } = {},
   ): Promise<{ networks: IServerNetwork[] }> {
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.serviceNetwork__getAllNetworksWithCache,
-    );
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.serviceNetwork__getAllNetworksWithCache,
+    });
     const { clearCache } = params;
     if (clearCache) {
       await this.getAllNetworksWithCache.clear();
@@ -86,9 +86,9 @@ class ServiceNetwork extends ServiceBase {
         uniqByImpl?: boolean;
       } = {},
     ) => {
-      const perf = perfUtils.createPerf(
-        EPerformanceTimerLogNames.serviceNetwork__getAllNetworks,
-      );
+      const perf = perfUtils.createPerf({
+        name: EPerformanceTimerLogNames.serviceNetwork__getAllNetworks,
+      });
 
       perf.markStart('getPresetNetworks');
       // TODO save to simpleDB

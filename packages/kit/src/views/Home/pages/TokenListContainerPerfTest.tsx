@@ -7,7 +7,7 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -38,9 +38,9 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
-      const perf = perfUtils.createPerf(
-        EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
-      );
+      const perf = perfUtils.createPerf({
+        name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
+      });
 
       perf.markStart('getAccountLocalTokens', {
         networkId,

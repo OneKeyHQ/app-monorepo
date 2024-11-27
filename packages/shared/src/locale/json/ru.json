@@ -796,6 +796,7 @@
   "global.continue": "Продолжить",
   "global.continue_anyway": "Продолжить в любом случае",
   "global.contract": "Контракт",
+  "global.contract_call": "Контрактный звонок",
   "global.copied": "Скопировано",
   "global.copy": "Копировать",
   "global.copy_address": "Скопировать адрес",
