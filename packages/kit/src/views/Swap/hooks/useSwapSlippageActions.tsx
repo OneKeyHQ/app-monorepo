@@ -26,6 +26,7 @@ export function useSwapSlippageActions() {
       if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
         setSettings((v) => ({
           ...v,
+          swapSlippagePercentageMode: item.key,
           swapSlippagePercentageCustomValue: item.value,
         }));
       }
