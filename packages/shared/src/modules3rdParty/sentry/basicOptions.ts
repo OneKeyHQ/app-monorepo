@@ -3,7 +3,6 @@ import wordLists from 'bip39/src/wordlists/english.json';
 import type { BrowserOptions } from '@sentry/browser';
 
 // dirty check for common private key formats
-
 const checkPrivateKey = (errorText: string) =>
   typeof errorText === 'string' && errorText.length > 26;
 
