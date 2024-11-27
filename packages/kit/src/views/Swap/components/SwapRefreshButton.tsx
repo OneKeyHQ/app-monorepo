@@ -16,6 +16,7 @@ const SwapRefreshButton = ({
 }) => {
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
+  const processAnimRef = useRef<Animated.CompositeAnimation>();
   const themeVariant = useThemeVariant();
   const lottieRef = useRef<any>(null);
   const isFocused = useRouteIsFocused();
@@ -52,14 +53,17 @@ const SwapRefreshButton = ({
 
   useEffect(() => {
     if (!isRefreshQuoteRef.current) {
-      Animated.timing(processAnim, {
+      processAnimRef.current = Animated.timing(processAnim, {
         toValue: swapRefreshInterval,
         duration: swapRefreshInterval,
         useNativeDriver: true,
-      }).start();
+      });
+      processAnimRef.current?.reset();
+      processAnimRef.current?.start();
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lottieRef.current?.reset();
+      processAnimRef.current?.reset();
     }
   }, [processAnim, isRefreshQuote]);
 
