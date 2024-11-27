@@ -62,6 +62,7 @@ export const basicOptions: BrowserOptions = {
         }
       }
     }
+    // Filter out duplicate error messages
     if (Array.isArray(event.breadcrumbs)) {
       event.breadcrumbs = event.breadcrumbs.filter(
         (e) => e.category !== 'sentry.event' && e.level !== 'error',
