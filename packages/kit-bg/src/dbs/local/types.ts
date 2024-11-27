@@ -201,6 +201,9 @@ export type IDBGetWalletsParams = {
   ignoreEmptySingletonWalletAccounts?: boolean | undefined;
   includingAccounts?: boolean | undefined;
 };
+export type IDBGetAllWalletsParams = {
+  refillWalletInfo?: boolean;
+};
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;

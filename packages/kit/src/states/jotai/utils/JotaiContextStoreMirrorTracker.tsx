@@ -13,7 +13,8 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
@@ -96,7 +97,7 @@ function JotaiContextRootProvidersAutoMountCmp() {
     //   'JotaiContextRootProvidersAutoMount mapEntries:',
     //   mapEntries,
     //   getJotaiContextTrackerMap(),
-    //   globalThis.$$jotaiContextStore,
+    //   appGlobals.$$jotaiContextStore,
     // );
   }
   return (

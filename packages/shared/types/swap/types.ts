@@ -180,7 +180,7 @@ export interface ISwapApproveTransaction {
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
-  slippagePercentage?: number;
+  slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
 }

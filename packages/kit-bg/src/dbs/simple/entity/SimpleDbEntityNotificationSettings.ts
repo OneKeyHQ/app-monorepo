@@ -28,22 +28,27 @@ export class SimpleDbEntityNotificationSettings extends SimpleDbEntityBase<ISimp
   async saveAccountActivityNotificationSettings(
     settings: IAccountActivityNotificationSettings | undefined,
   ) {
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       ...rawData,
       accountActivity: settings,
     }));
   }
 
   async isAccountActivityEnabled({
+    notificationSettingsRawData,
     walletId,
     accountId,
     indexedAccountId,
   }: {
+    notificationSettingsRawData:
+      | ISimpleDbNotificationSettings
+      | null
+      | undefined;
     walletId?: string;
     accountId?: string;
     indexedAccountId?: string;
   }) {
-    const settings = await this.getRawData();
+    const settings = notificationSettingsRawData || (await this.getRawData());
     const accountIdOrIndexedAccountId = indexedAccountId || accountId;
     if (!walletId || !accountIdOrIndexedAccountId) {
       return false;

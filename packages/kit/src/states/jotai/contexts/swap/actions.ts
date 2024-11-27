@@ -20,7 +20,6 @@ import {
   swapDefaultSetTokens,
   swapHistoryStateFetchRiceIntervalCount,
   swapQuoteFetchInterval,
-  swapQuoteIntervalMaxCount,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapTokenCatchMapMaxCount,
@@ -78,8 +77,6 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
-  swapSlippagePercentageAtom,
-  swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
   swapTokenMetadataAtom,
@@ -100,10 +97,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
       data: sortNetworks,
     });
-  });
-
-  resetSwapSlippage = contextAtomMethod((get, set) => {
-    set(swapSlippagePercentageModeAtom(), ESwapSlippageSegmentKey.AUTO);
   });
 
   cleanManualSelectQuoteProviders = contextAtomMethod((get, set) => {
@@ -239,7 +232,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       this.cleanManualSelectQuoteProviders.call(set);
-      this.resetSwapSlippage.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
       const needChangeToToken = this.needChangeToken({
         token,
@@ -264,7 +256,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     this.cleanManualSelectQuoteProviders.call(set);
-    this.resetSwapSlippage.call(set);
     await this.syncNetworksSort.call(set, token.networkId);
     set(swapSelectToTokenAtom(), token);
   });
@@ -277,7 +268,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
-    this.resetSwapSlippage.call(set);
     this.cleanManualSelectQuoteProviders.call(set);
   });
 
@@ -327,7 +317,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
-      let enableInterval = true;
+      // let enableInterval = true;
       try {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
@@ -358,18 +348,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
           set(swapQuoteFetchingAtom(), false);
-        } else {
-          enableInterval = false;
         }
+        // } else {
+        //   // enableInterval = false;
+        // }
       } finally {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-        if (enableInterval) {
-          const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
-          if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
-            void this.recoverQuoteInterval.call(set, address, accountId, true);
-          }
-          set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
-        }
+        // if (enableInterval) {
+        //   const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
+        //   if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
+        //     void this.recoverQuoteInterval.call(
+        //       set,
+        //       {
+        //         key: autoSlippage
+        //           ? ESwapSlippageSegmentKey.AUTO
+        //           : ESwapSlippageSegmentKey.CUSTOM,
+        //         value: slippagePercentage,
+        //       },
+        //       address,
+        //       accountId,
+        //       true,
+        //     );
+        //   }
+        //   set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
+        // }
       }
     },
   );
@@ -510,16 +512,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         case 'done': {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
-          if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
-            void this.recoverQuoteInterval.call(
-              set,
-              event.params.userAddress,
-              event.accountId,
-              true,
-            );
-          }
-          set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
+          // const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
+          // if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
+          //   void this.recoverQuoteInterval.call(
+          //     set,
+          //     {
+          //       key: event.params.autoSlippage
+          //         ? ESwapSlippageSegmentKey.AUTO
+          //         : ESwapSlippageSegmentKey.CUSTOM,
+          //       value: event.params.slippagePercentage,
+          //     },
+          //     event.params.userAddress,
+          //     event.accountId,
+          //     true,
+          //   );
+          // }
+          // set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
           this.closeQuoteEvent();
           break;
         }
@@ -575,9 +583,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (
       get,
       set,
+      slippageItem: { key: ESwapSlippageSegmentKey; value: number },
       address?: string,
       accountId?: string,
       blockNumber?: number,
+      unResetCount?: boolean,
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -593,10 +603,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }));
       this.cleanQuoteInterval();
       this.closeQuoteEvent();
-      set(swapQuoteIntervalCountAtom(), 0);
+      if (!unResetCount) {
+        set(swapQuoteIntervalCountAtom(), 0);
+      }
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
-      const { slippageItem } = get(swapSlippagePercentageAtom());
       const fromTokenAmountNumber = Number(fromTokenAmount);
       if (
         fromToken &&
@@ -708,6 +719,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (
       get,
       set,
+      slippageItem: { key: ESwapSlippageSegmentKey; value: number },
       address?: string,
       accountId?: string,
       unResetCount?: boolean,
@@ -735,7 +747,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
-      const { slippageItem } = get(swapSlippagePercentageAtom());
       const fromTokenAmountNumber = Number(fromTokenAmount);
       if (
         fromToken &&
@@ -1515,7 +1526,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       set(swapTypeSwitchAtom(), type);
       this.cleanManualSelectQuoteProviders.call(set);
-      this.resetSwapSlippage.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());

@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { EPageType, IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   useSwapActions,
@@ -71,12 +71,12 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
-  // pageType?: EPageType;
+  pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
 }
 
 const SwapHeaderContainer = ({
-  // pageType,
+  pageType,
   defaultSwapType,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
@@ -84,7 +84,6 @@ const SwapHeaderContainer = ({
   const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   const networkIdRef = useRef(networkId);
   if (networkIdRef.current !== networkId) {
     networkIdRef.current = networkId;
@@ -131,7 +130,7 @@ const SwapHeaderContainer = ({
           {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </CustomTabItem>
       </XStack>
-      {headerRight()}
+      <SwapHeaderRightActionContainer pageType={pageType} />
     </XStack>
   );
 };

@@ -8,7 +8,6 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type {
   IBaseSignedMessageContentType,
   IConnectedSite,
@@ -18,6 +17,7 @@ import type {
   ISignedMessage,
   ISignedTransaction,
 } from '@onekeyhq/shared/types/signatureRecord';
+import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -188,6 +188,34 @@ class ServiceSignature extends ServiceBase {
       });
       console.error(errMsg);
     }
+  }
+
+  @backgroundMethod()
+  public async getFirstConnectedSites() {
+    const { records } = await localDb.getAllRecords({
+      name: ELocalDBStoreNames.ConnectedSite,
+    });
+    return records?.[0];
+  }
+
+  @backgroundMethod()
+  public async getAllConnectedSites(query?: {
+    limit?: number;
+    offset?: number;
+  }) {
+    const { records } = await localDb.getAllRecords({
+      name: ELocalDBStoreNames.ConnectedSite,
+      limit: query?.limit,
+      offset: query?.offset,
+    });
+    return records;
+  }
+
+  @backgroundMethod()
+  public async getAllConnectedSitesCount() {
+    return localDb.getRecordsCount({
+      name: ELocalDBStoreNames.ConnectedSite,
+    });
   }
 
   @backgroundMethod()

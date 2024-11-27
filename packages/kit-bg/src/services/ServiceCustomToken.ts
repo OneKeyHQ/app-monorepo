@@ -4,17 +4,14 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IAccountToken,
-  IFetchTokenDetailItem,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountsParamsForApi } from './ServiceAllNetwork/ServiceAllNetwork';
+import type { ICustomTokenDBStruct } from '../dbs/simple/entity/SimpleDbEntityCustomTokens';
 
 @backgroundClass()
 class ServiceCustomToken extends ServiceBase {
@@ -44,15 +41,18 @@ class ServiceCustomToken extends ServiceBase {
     accountId,
     networkId,
     allNetworkAccountId,
+    customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     allNetworkAccountId?: string;
+    customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getCustomTokens({
       accountId,
       networkId,
       allNetworkAccountId,
+      customTokensRawData,
     });
   }
 
@@ -61,15 +61,18 @@ class ServiceCustomToken extends ServiceBase {
     accountId,
     networkId,
     allNetworkAccountId,
+    customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     allNetworkAccountId?: string;
+    customTokensRawData?: ICustomTokenDBStruct;
   }) {
     return this.backgroundApi.simpleDb.customTokens.getHiddenTokens({
       accountId,
       networkId,
       allNetworkAccountId,
+      customTokensRawData,
     });
   }
 

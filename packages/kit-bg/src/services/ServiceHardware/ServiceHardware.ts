@@ -118,7 +118,7 @@ class ServiceHardware extends ServiceBase {
         if (wallet && !accountUtils.isHwHiddenWallet({ wallet })) {
           if (walletName !== label) {
             try {
-              await simpleDb.legacyWalletNames.setRawData(({ rawData }) => {
+              await simpleDb.legacyWalletNames.setRawData((rawData) => {
                 if (rawData?.[walletId]) {
                   return rawData;
                 }

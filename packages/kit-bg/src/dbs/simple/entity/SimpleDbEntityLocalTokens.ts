@@ -8,7 +8,7 @@ import accountUtils, {
 } from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type {
   IAccountToken,
   IToken,
@@ -49,7 +49,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       })),
       '$key',
     );
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: merge({}, rawData?.data, tokenMap),
       tokenList: rawData?.tokenList ?? {},
       smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
@@ -145,21 +145,21 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
 
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.simpleDB__updateAccountTokenList,
-      {
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.simpleDB__updateAccountTokenList,
+      params: {
         networkId,
         accountAddress,
         xpub,
       },
-    );
+    });
 
     perf.markStart('buildAccountLocalAssetsKey');
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('setRawData');
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
       tokenList: {
         ...rawData?.tokenList,
@@ -194,7 +194,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
   }) {
-    await this.setRawData(({ rawData }) => ({
+    await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
       tokenList: {
         ...rawData?.tokenList,
@@ -234,14 +234,14 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
     }
-    const perf = perfUtils.createPerf(
-      EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
-      {
+    const perf = perfUtils.createPerf({
+      name: EPerformanceTimerLogNames.simpleDB__getAccountTokenList,
+      params: {
         networkId,
         accountAddress,
         xpub,
       },
-    );
+    });
 
     perf.markStart('buildAccountLocalAssetsKey');
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });

@@ -69,13 +69,13 @@ export default class ServiceNotification extends ServiceBase {
       // clear cache
       await this.getSupportedNetworks.clear();
       void this.registerClientWithAppendAccounts({
-        dbAccounts: accounts,
+        dbAccounts: accounts, // append
       });
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, (params) => {
       const { accounts } = params;
       void this.registerClientWithAppendAccounts({
-        dbAccounts: accounts,
+        dbAccounts: accounts, // replace
       });
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
@@ -143,6 +143,8 @@ export default class ServiceNotification extends ServiceBase {
     return this.pushClient;
   }
 
+  isFirstTimeAllAccountsRegistered = false;
+
   onPushProviderConnected = async ({
     jpushId,
     socketId,
@@ -157,7 +159,13 @@ export default class ServiceNotification extends ServiceBase {
       socketId,
     });
     defaultLogger.notification.common.pushProviderConnected(this.pushClient);
-    return this.registerClientWithOverrideAllAccounts();
+    if (!this.isFirstTimeAllAccountsRegistered) {
+      this.isFirstTimeAllAccountsRegistered = true;
+      // register when webSocket or jpush established
+      void this.registerClientWithOverrideAllAccounts();
+    } else {
+      void this.updateClientBasicAppInfo();
+    }
   };
 
   onNotificationReceived = async (
@@ -476,6 +484,15 @@ export default class ServiceNotification extends ServiceBase {
     });
 
     const syncAccounts: INotificationPushSyncAccount[] = [];
+
+    const notificationSettingsRawData =
+      await this.backgroundApi.simpleDb.notificationSettings.getRawData();
+
+    const { wallets: allWallets } =
+      await this.backgroundApi.serviceAccount.getAllWallets({
+        refillWalletInfo: true,
+      });
+
     for (const account of dbAccounts) {
       const networks = supportNetworksFiltered.filter(
         (item) =>
@@ -488,6 +505,7 @@ export default class ServiceNotification extends ServiceBase {
           networkAccount = await this.backgroundApi.serviceAccount.getAccount({
             accountId: account.id,
             networkId: network.networkId,
+            dbAccount: account,
           });
         } catch (error) {
           //
@@ -502,12 +520,11 @@ export default class ServiceNotification extends ServiceBase {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: networkAccount.id,
           });
-          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-            walletId,
-          });
+          const wallet = allWallets.find((item) => item.id === walletId);
           const isEnabled =
             await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
               {
+                notificationSettingsRawData,
                 walletId,
                 accountId: account.id,
                 indexedAccountId: account.indexedAccountId,
@@ -540,14 +557,20 @@ export default class ServiceNotification extends ServiceBase {
   async buildSyncAccounts({ accountIds }: { accountIds?: string[] }): Promise<{
     syncAccounts: INotificationPushSyncAccount[];
   }> {
-    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
-      {
+    const { accounts, accountsRemoved } =
+      await this.backgroundApi.serviceAccount.getAllAccounts({
         ids: accountIds,
         filterRemoved: true,
-      },
-    );
+      });
 
     const { syncAccounts } = await this.convertToSyncAccounts(accounts);
+
+    // accountIds is undefined means sync all accounts
+    if (!accountIds) {
+      void this.backgroundApi.serviceAppCleanup.cleanup({
+        accountsRemoved,
+      });
+    }
 
     return {
       syncAccounts,
@@ -587,6 +610,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async updateClientBasicAppInfo() {
+    // update client basic app info: locale, currencyInfo, hideValue
     await this.registerClient({
       client: this.pushClient,
       syncMethod: ENotificationPushSyncMethod.append,

@@ -24,7 +24,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';

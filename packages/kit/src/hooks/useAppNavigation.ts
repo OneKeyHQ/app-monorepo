@@ -108,11 +108,12 @@ function useAppNavigation<
         rootNavigation = rootNavigation.getParent();
       }
 
+      const routeLength = rootNavigation?.getState?.()?.routes?.length ?? 1;
       const existPageIndex = rootNavigation?.getState?.()?.routes?.findIndex(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         (rootRoute) => params?.screen === rootRoute?.params?.params?.screen,
       );
-      if ((existPageIndex ?? -1) !== -1) {
+      if (existPageIndex !== -1 && existPageIndex === routeLength - 1) {
         return;
       }
 
@@ -150,7 +151,7 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.Modal, route, params);
+      pushModalPage(ERootRoutes.Modal, route, params as any);
     },
     [pushModalPage],
   );
@@ -163,7 +164,7 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      pushModalPage(ERootRoutes.iOSFullScreen, route, params);
+      pushModalPage(ERootRoutes.iOSFullScreen, route, params as any);
     },
     [pushModalPage],
   );

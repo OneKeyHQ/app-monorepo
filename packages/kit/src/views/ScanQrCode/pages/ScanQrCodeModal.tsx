@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,13 +31,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
-import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 import type { RouteProp } from '@react-navigation/core';
 
-globalThis.$$scanNavigation = undefined as IAppNavigation | undefined;
+appGlobals.$$scanNavigation = undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
-  globalThis.$$scanNavigation = navigation;
+  appGlobals.$$scanNavigation = navigation;
+
   const [inputText, setInputText] = useState<string>('');
   const [visible, setVisible] = useState(false);
 

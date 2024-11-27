@@ -27,7 +27,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async addCustomToken({ token }: { token: IAccountToken }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomTokenDBStruct = {
         hiddenTokens: { ...(rawData?.hiddenTokens || {}) },
         customTokens: { ...(rawData?.customTokens || {}) },
@@ -52,7 +52,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async addCustomTokensBatch({ tokens }: { tokens: IAccountToken[] }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomTokenDBStruct = {
         hiddenTokens: { ...(rawData?.hiddenTokens || {}) },
         customTokens: { ...(rawData?.customTokens || {}) },
@@ -82,7 +82,7 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async hideToken({ token }: { token: IAccountToken }) {
-    await this.setRawData(({ rawData }) => {
+    await this.setRawData((rawData) => {
       const data: ICustomTokenDBStruct = {
         hiddenTokens: { ...(rawData?.hiddenTokens || {}) },
         customTokens: { ...(rawData?.customTokens || {}) },
@@ -112,15 +112,17 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getHiddenTokens({
+    customTokensRawData,
     accountId,
     networkId,
     allNetworkAccountId,
   }: {
+    customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
     allNetworkAccountId?: string;
   }): Promise<IAccountToken[]> {
-    const rawData = await this.getRawData();
+    const rawData = customTokensRawData || (await this.getRawData());
 
     if (allNetworkAccountId) {
       return Object.values(rawData?.hiddenTokens || {}).filter(
@@ -137,15 +139,17 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getCustomTokens({
+    customTokensRawData,
     accountId,
     networkId,
     allNetworkAccountId,
   }: {
+    customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
     allNetworkAccountId?: string;
   }): Promise<IAccountToken[]> {
-    const rawData = await this.getRawData();
+    const rawData = customTokensRawData || (await this.getRawData());
 
     if (allNetworkAccountId) {
       return Object.values(rawData?.customTokens || {}).filter(

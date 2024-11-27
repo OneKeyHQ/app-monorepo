@@ -801,6 +801,7 @@
   global_continue = 'global.continue',
   global_continue_anyway = 'global.continue_anyway',
   global_contract = 'global.contract',
+  global_contract_call = 'global.contract_call',
   global_copied = 'global.copied',
   global_copy = 'global.copy',
   global_copy_address = 'global.copy_address',

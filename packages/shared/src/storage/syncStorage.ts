@@ -1,109 +1,21 @@
 import { isPlainObject } from 'lodash';
 
+import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
 import resetUtils from '../utils/resetUtils';
 
-import mmkvStorageInstance from './instance/mmkvStorageInstance';
+import { createPrintMethod } from './createPrintMethod';
+import { syncStorage } from './instance/syncStorageInstance';
+import { EAppSyncStorageKeys } from './syncStorageKeys';
 
+import type { ISyncStorage } from './instance/syncStorageInstance';
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
-// sync storage does not support extension background, don't use it in production, but only for development
-export enum EAppSyncStorageKeys {
-  rrt = 'rrt',
-  perf_switch = 'perf_switch',
-  onekey_webembed_config = 'onekey_webembed_config',
-  onekey_disable_bg_api_serializable_checking = 'onekey_disable_bg_api_serializable_checking',
-  onekey_perf_timer_log_config = 'onekey_perf_timer_log_config',
-}
-
-const syncStorageWeb = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number) {
-    resetUtils.checkNotInResetting();
-    mmkvStorageInstance.set(key, value);
-  },
-  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
-    resetUtils.checkNotInResetting();
-    if (!isPlainObject(value)) {
-      throw new Error('value must be a plain object');
-    }
-    mmkvStorageInstance.set(key, JSON.stringify(value));
-  },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-    try {
-      const value = mmkvStorageInstance.getString(key);
-      if (!value) {
-        return undefined;
-      }
-      return JSON.parse(value) as T;
-    } catch (e) {
-      return undefined;
-    }
-  },
-  getString(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getString(key);
-  },
-  getNumber(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getNumber(key);
-  },
-  getBoolean(key: EAppSyncStorageKeys) {
-    return mmkvStorageInstance.getBoolean(key);
-  },
-  delete(key: EAppSyncStorageKeys) {
-    mmkvStorageInstance.delete(key);
-  },
-  clearAll() {
-    mmkvStorageInstance.clearAll();
-  },
-  getAllKeys() {
-    return mmkvStorageInstance.getAllKeys();
-  },
-};
-
-const syncStorageExtBg: typeof syncStorageWeb = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number): void {
-    // do nothing
-  },
-  setObject<T extends Record<string, any>>(
-    key: EAppSyncStorageKeys,
-    value: T,
-  ): void {
-    // do nothing
-  },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-    // do nothing
-    return undefined;
-  },
-  getString(key: EAppSyncStorageKeys): string | undefined {
-    // do nothing
-    return undefined;
-  },
-  getNumber(key: EAppSyncStorageKeys): number | undefined {
-    // do nothing
-    return undefined;
-  },
-  getBoolean(key: EAppSyncStorageKeys): boolean | undefined {
-    // do nothing
-    return undefined;
-  },
-  delete(key: EAppSyncStorageKeys): void {
-    // do nothing
-  },
-  clearAll(): void {
-    // do nothing
-  },
-  getAllKeys(): string[] {
-    // do nothing
-    return [];
-  },
-};
-
-// eslint-disable-next-line import/no-named-as-default-member
-export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
-  ? syncStorageExtBg
-  : syncStorageWeb;
+export { EAppSyncStorageKeys };
 
 export interface IAppStorage extends AsyncStorageStatic {
-  syncStorage: typeof syncStorageWeb;
+  syncStorage: ISyncStorage;
 }
 
 export const buildAppStorageFactory = (
@@ -112,18 +24,33 @@ export const buildAppStorageFactory = (
   const storage = appStorage as IAppStorage;
 
   const originalSetItem = storage.setItem;
+  const originalGetItem = storage.getItem;
   const originalRemoveItem = storage.removeItem;
 
   const setItem: IAppStorage['setItem'] = (key, value, callback) => {
     resetUtils.checkNotInResetting();
+    dbPerfMonitor.logAppStorageCall('setItem', key);
     return originalSetItem.call(storage, key, value, callback);
+  };
+  const getItem: IAppStorage['getItem'] = (key, callback) => {
+    dbPerfMonitor.logAppStorageCall('getItem', key);
+    return originalGetItem.call(storage, key, callback);
   };
   const removeItem: IAppStorage['removeItem'] = (key, callback) =>
     originalRemoveItem.call(storage, key, callback);
 
   storage.setItem = setItem;
+  storage.getItem = getItem;
   storage.removeItem = removeItem;
 
   storage.syncStorage = syncStorage;
+
+  appGlobals.$appStorage = storage;
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // @ts-ignore
+    appGlobals.$appStorage.print = createPrintMethod({ storage: appStorage });
+  }
+
   return storage;
 };

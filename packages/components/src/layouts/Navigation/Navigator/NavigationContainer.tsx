@@ -3,6 +3,8 @@ import { createContext, createRef, useContext, useEffect } from 'react';
 
 import { NavigationContainer as RNNavigationContainer } from '@react-navigation/native';
 
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { GetProps } from 'tamagui';
 
@@ -11,7 +13,7 @@ export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
 export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 
 // for background open modal
-globalThis.$navigationRef = rootNavigationRef;
+appGlobals.$navigationRef = rootNavigationRef;
 
 export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
 const RouterEventContext = createContext<

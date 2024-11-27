@@ -247,6 +247,8 @@ export type IVaultSettings = {
   canEditData?: boolean;
 
   withTxMessage?: boolean;
+
+  fixConfirmedTxEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -536,6 +538,7 @@ export interface IBuildUnsignedTxParams {
   prevNonce?: number;
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
+  isInternalSwap?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

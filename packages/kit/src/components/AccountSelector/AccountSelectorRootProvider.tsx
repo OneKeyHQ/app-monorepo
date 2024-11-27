@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorJotaiProvider } from '../../states/jotai/contexts/accountSelector';

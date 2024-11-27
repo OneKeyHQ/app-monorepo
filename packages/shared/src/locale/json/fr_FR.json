@@ -796,6 +796,7 @@
   "global.continue": "Continuer",
   "global.continue_anyway": "Continuer quand même",
   "global.contract": "Contrat",
+  "global.contract_call": "Appel de contrat",
   "global.copied": "Copié",
   "global.copy": "Copier",
   "global.copy_address": "Copier l'adresse",
