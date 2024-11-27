@@ -5,6 +5,8 @@ import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
+import { DebugRenderTracker } from '../../utils';
+
 import type { StackStyle, Tokens } from '@tamagui/web/types/types';
 import type {
   FlatListProps,
@@ -120,21 +122,23 @@ function BaseListView<T>(
   }, [itemSize]);
 
   return (
-    <FlatList<T>
-      ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
-      ListHeaderComponentStyle={listHeaderStyle}
-      ListFooterComponentStyle={listFooterStyle}
-      contentContainerStyle={contentStyle}
-      data={data}
-      renderItem={renderItem}
-      getItemLayout={getItemLayout}
-      windowSize={5}
-      {...restProps}
-      // we can't set it on web
-      refreshControl={undefined}
-    />
+    <DebugRenderTracker>
+      <FlatList<T>
+        ref={ref}
+        style={style as StyleProp<ViewStyle>}
+        columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
+        ListHeaderComponentStyle={listHeaderStyle}
+        ListFooterComponentStyle={listFooterStyle}
+        contentContainerStyle={contentStyle}
+        data={data}
+        renderItem={renderItem}
+        getItemLayout={getItemLayout}
+        windowSize={5}
+        {...restProps}
+        // we can't set it on web
+        refreshControl={undefined}
+      />
+    </DebugRenderTracker>
   );
 }
 
