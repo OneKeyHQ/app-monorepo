@@ -330,8 +330,6 @@ function handleDeepLinkUrl(
     platform: process.platform,
   };
 
-  console.log('handleDeepLinkUrl >>>> ', eventData);
-
   const sendEventData = () => {
     isAppReady = true;
 
@@ -1023,8 +1021,3 @@ app.on('will-finish-launching', () => {
   // @ts-expect-error
   app.on('open-url', handleDeepLinkUrl);
 });
-
-logger.info(' ========= Desktop main app start!!!!!!!!!!!!!  ========== ');
-const userDataPath = app.getPath('userData');
-console.log(JSON.stringify({ userDataPath }, null, 2));
-logger.info(' =================== ');
