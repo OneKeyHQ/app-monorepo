@@ -1,3 +1,4 @@
+import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export type IToken = {
@@ -52,6 +53,7 @@ export type IFetchAccountTokensParams = {
   allNetworksAccountId?: string;
   allNetworksNetworkId?: string;
   saveToLocal?: boolean;
+  customTokensRawData?: ICustomTokenDBStruct;
 };
 
 export type ITokenData = {
