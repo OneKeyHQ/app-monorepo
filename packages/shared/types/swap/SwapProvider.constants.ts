@@ -37,6 +37,10 @@ export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 10,
 });
 
+export const swapRefreshInterval = timerUtils.getTimeDurationMs({
+  seconds: 15,
+});
+
 export const swapApprovingStateFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 2,
 });

@@ -1,15 +1,19 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
+  Button,
   Dialog,
   Divider,
   EPageType,
+  HeightTransition,
   Icon,
+  SegmentControl,
   SizableText,
   Stack,
   Switch,
@@ -32,16 +36,23 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import {
-  swapSlippageDecimal,
+  swapSlippageCustomDefaultList,
+  swapSlippageItems,
+  swapSlippageMaxValue,
   swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import { SlippageInput } from './SwapSlippageContentContainer';
 
 const SwapSettingsCommonItem = ({
   value,
@@ -91,86 +102,184 @@ const SwapSettingsSlippageItem = ({
   </XStack>
 );
 
-const SwapSettingsDialogContent = ({
-  onSlippageHandleClick,
+const SwapSlippageCustomContent = ({
+  swapSlippage,
 }: {
-  onSlippageHandleClick: () => void;
+  swapSlippage: ISwapSlippageSegmentItem;
 }) => {
   const intl = useIntl();
-  const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [{ swapBatchApproveAndSwap, swapEnableRecipientAddress }, setSettings] =
-    useSettingsPersistAtom();
-  const [, setNoPersistSettings] = useSettingsAtom();
-  const displaySlippage = useMemo(
-    () =>
-      new BigNumber(slippageItem.value)
-        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
-        .toFixed(),
-    [slippageItem.value],
-  );
-  const slippageDisplayValue = useMemo(
-    () =>
-      slippageItem.key === ESwapSlippageSegmentKey.AUTO
-        ? intl.formatMessage({
-            id: ETranslations.global_auto,
-          })
-        : intl.formatMessage(
+  const [, setSettings] = useSettingsAtom();
+  const [customValueState, setCustomValueState] = useState<{
+    status: ESwapSlippageCustomStatus;
+    message: string;
+  }>({ status: ESwapSlippageCustomStatus.NORMAL, message: '' });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleSlippageChange = useCallback(
+    debounce((value: string) => {
+      const valueBN = new BigNumber(value);
+      if (
+        valueBN.isNaN() ||
+        valueBN.isNegative() ||
+        valueBN.gt(swapSlippageMaxValue)
+      ) {
+        setCustomValueState({
+          status: ESwapSlippageCustomStatus.ERROR,
+          message: intl.formatMessage({
+            id: ETranslations.slippage_tolerance_error_message,
+          }),
+        });
+        return;
+      }
+      setSettings((s) => ({
+        ...s,
+        swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+        swapSlippagePercentageCustomValue: valueBN.toNumber(),
+      }));
+      if (valueBN.lte(swapSlippageWillFailMinValue)) {
+        setCustomValueState({
+          status: ESwapSlippageCustomStatus.WRONG,
+          message: intl.formatMessage(
             {
-              id: ETranslations.swap_page_provider_custom,
+              id: ETranslations.slippage_tolerance_warning_message_2,
             },
-            { number: displaySlippage },
+            { number: swapSlippageWillFailMinValue },
           ),
-    [displaySlippage, intl, slippageItem.key],
+        });
+        return;
+      }
+      if (valueBN.gte(swapSlippageWillAheadMinValue)) {
+        setCustomValueState({
+          status: ESwapSlippageCustomStatus.WRONG,
+          message: intl.formatMessage(
+            {
+              id: ETranslations.slippage_tolerance_warning_message_1,
+            },
+            { number: swapSlippageWillAheadMinValue },
+          ),
+        });
+        return;
+      }
+      setCustomValueState({
+        status: ESwapSlippageCustomStatus.NORMAL,
+        message: '',
+      });
+    }, 350),
+    [],
   );
-  const valueComponent = useMemo(
-    () => (
-      <SizableText
-        size="$bodyMd"
-        ml="$0.5"
-        color={
-          slippageItem.value > swapSlippageWillAheadMinValue
-            ? '$textCritical'
-            : '$textSubdued'
-        }
-      >
-        {slippageDisplayValue}
-      </SizableText>
-    ),
-    [slippageDisplayValue, slippageItem.value],
+  return (
+    <YStack gap="$4">
+      <XStack gap="$2.5">
+        <SlippageInput
+          swapSlippage={swapSlippage}
+          onChangeText={handleSlippageChange}
+        />
+        <XStack>
+          {swapSlippageCustomDefaultList.map((item, index) => (
+            <>
+              <Button
+                key={item}
+                variant="secondary"
+                size="medium"
+                borderTopRightRadius={index !== 2 ? 0 : '$2'}
+                borderBottomRightRadius={index !== 2 ? 0 : '$2'}
+                borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+                borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+                onPress={() => {
+                  setCustomValueState({
+                    status: ESwapSlippageCustomStatus.NORMAL,
+                    message: '',
+                  });
+                  setSettings((s) => ({
+                    ...s,
+                    swapSlippagePercentageCustomValue: item,
+                    swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+                  }));
+                }}
+              >{`${item}${
+                index === swapSlippageCustomDefaultList.length - 1 ? '  ' : ''
+              }%`}</Button>
+              {index !== swapSlippageCustomDefaultList.length - 1 ? (
+                <Divider vertical />
+              ) : null}
+            </>
+          ))}
+        </XStack>
+      </XStack>
+      {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
+      customValueState.status !== ESwapSlippageCustomStatus.NORMAL ? (
+        <SizableText
+          size="$bodySmMedium"
+          color={
+            customValueState.status === ESwapSlippageCustomStatus.ERROR
+              ? '$textCritical'
+              : '$textCaution'
+          }
+        >
+          {customValueState.message}
+        </SizableText>
+      ) : null}
+    </YStack>
   );
+};
+
+const SwapSettingsDialogContent = () => {
+  const intl = useIntl();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [, setSettings] = useSettingsAtom();
+  const [
+    { swapBatchApproveAndSwap, swapEnableRecipientAddress },
+    setPersistSettings,
+  ] = useSettingsPersistAtom();
+  const [, setNoPersistSettings] = useSettingsAtom();
+
   const rightTrigger = useMemo(
     () => (
-      <XStack
-        userSelect="none"
-        hoverStyle={{
-          opacity: 0.5,
+      <SegmentControl
+        value={slippageItem.key}
+        options={swapSlippageItems.map((item) => ({
+          label: (
+            <XStack>
+              {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                <Icon name="Ai3StarOutline" size="$5" color="$iconSuccess" />
+              ) : null}
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id:
+                    item.key === ESwapSlippageSegmentKey.AUTO
+                      ? ETranslations.slippage_tolerance_switch_auto
+                      : ETranslations.slippage_tolerance_switch_custom,
+                })}
+              </SizableText>
+            </XStack>
+          ),
+          value: item.key,
+        }))}
+        onChange={(value) => {
+          const keyValue = value as ESwapSlippageSegmentKey;
+          setSettings((s) => ({
+            ...s,
+            swapSlippagePercentageMode: keyValue,
+          }));
         }}
-        alignItems="center"
-        onPress={onSlippageHandleClick}
-        cursor="pointer"
-      >
-        {slippageItem.key === ESwapSlippageSegmentKey.AUTO ? (
-          <Icon name="Ai3StarOutline" size="$5" color="$iconSuccess" />
-        ) : null}
-        {valueComponent}
-        <Icon
-          name="ChevronRightSmallOutline"
-          mr="$-1"
-          size="$5"
-          color="$iconSubdued"
-        />
-      </XStack>
+      />
     ),
-    [onSlippageHandleClick, slippageItem.key, valueComponent],
+    [intl, setSettings, slippageItem.key],
   );
   return (
     <YStack gap="$5">
-      <SwapSettingsSlippageItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_provider_slippage_tolerance,
-        })}
-        rightTrigger={rightTrigger}
-      />
+      <HeightTransition>
+        <YStack gap="$5">
+          <SwapSettingsSlippageItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_provider_slippage_tolerance,
+            })}
+            rightTrigger={rightTrigger}
+          />
+          {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
+            <SwapSlippageCustomContent swapSlippage={slippageItem} />
+          ) : null}
+        </YStack>
+      </HeightTransition>
       <Divider />
       <SwapSettingsCommonItem
         title={intl.formatMessage({
@@ -182,7 +291,7 @@ const SwapSettingsDialogContent = ({
         badgeContent="Beta"
         value={swapBatchApproveAndSwap}
         onChange={(v) => {
-          setSettings((s) => ({
+          setPersistSettings((s) => ({
             ...s,
             swapBatchApproveAndSwap: v,
           }));
@@ -197,7 +306,7 @@ const SwapSettingsDialogContent = ({
         })}
         value={swapEnableRecipientAddress}
         onChange={(v) => {
-          setSettings((s) => ({
+          setPersistSettings((s) => ({
             ...s,
             swapEnableRecipientAddress: v,
           }));
@@ -215,10 +324,8 @@ const SwapSettingsDialogContent = ({
 
 const SwapHeaderRightActionContainer = ({
   pageType,
-  onSlippageHandleClick,
 }: {
   pageType?: EPageType;
-  onSlippageHandleClick: () => void;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -252,16 +359,14 @@ const SwapHeaderRightActionContainer = ({
               : EJotaiContextStoreNames.swap
           }
         >
-          <SwapSettingsDialogContent
-            onSlippageHandleClick={onSlippageHandleClick}
-          />
+          <SwapSettingsDialogContent />
         </SwapProviderMirror>
       ),
       showConfirmButton: false,
       showCancelButton: false,
       showFooter: false,
     });
-  }, [intl, onSlippageHandleClick, pageType]);
+  }, [intl, pageType]);
 
   return (
     <HeaderButtonGroup>
