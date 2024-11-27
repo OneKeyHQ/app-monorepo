@@ -21,6 +21,7 @@ interface IBaseGestureSliderProps extends INonGestureStackStyleProps {
   min: number;
   max: number;
   step: number;
+  defaultValue?: number;
   onSlideStart?: () => void;
   onSlideMove?: (value: number) => void;
   onSlideEnd?: () => void;

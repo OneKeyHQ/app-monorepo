@@ -112,15 +112,17 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getHiddenTokens({
+    customTokensRawData,
     accountId,
     networkId,
     allNetworkAccountId,
   }: {
+    customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
     allNetworkAccountId?: string;
   }): Promise<IAccountToken[]> {
-    const rawData = await this.getRawData();
+    const rawData = customTokensRawData || (await this.getRawData());
 
     if (allNetworkAccountId) {
       return Object.values(rawData?.hiddenTokens || {}).filter(
@@ -137,15 +139,17 @@ export class SimpleDbEntityCustomTokens extends SimpleDbEntityBase<ICustomTokenD
 
   @backgroundMethod()
   async getCustomTokens({
+    customTokensRawData,
     accountId,
     networkId,
     allNetworkAccountId,
   }: {
+    customTokensRawData?: ICustomTokenDBStruct;
     networkId: string;
     accountId: string;
     allNetworkAccountId?: string;
   }): Promise<IAccountToken[]> {
-    const rawData = await this.getRawData();
+    const rawData = customTokensRawData || (await this.getRawData());
 
     if (allNetworkAccountId) {
       return Object.values(rawData?.customTokens || {}).filter(

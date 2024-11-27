@@ -7,7 +7,12 @@ export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
   // enable dev overlay window
-  showDevOverlayWindow?: boolean;
+  showDevOverlayWindow?:
+    | boolean
+    | {
+        top: number;
+        align: 'left' | 'right';
+      };
   // always signOnly send tx
   alwaysSignOnlySendTx?: boolean;
   // show dev export private key
@@ -32,7 +37,7 @@ export const {
     enabled: !!platformEnv.isDev || !!platformEnv.isE2E,
     settings: {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
-      showDevOverlayWindow: !!platformEnv.isE2E,
+      showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       showTradingView: false,
     },
   },
