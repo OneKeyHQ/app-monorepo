@@ -28,6 +28,8 @@ import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import { TxAdvancedSettingsContainer } from './TxAdvancedSettingsContainer';
@@ -35,7 +37,6 @@ import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
-import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 function SendConfirmContainer() {
   const intl = useIntl();
