@@ -32,6 +32,16 @@
       "eas": {
         "projectId": "640c3c38-d160-48c3-b4a3-40d4fc8aeb08"
       }
-    }
+    },
+    "plugins": [
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "onekey-bb"
+        }
+      ]
+    ]
   }
 }
