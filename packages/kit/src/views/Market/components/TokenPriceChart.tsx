@@ -189,7 +189,7 @@ function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
       }
     }
   }, [tickers]);
-  console.log('ticker:', ticker);
+
   if (!ticker) {
     return <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />;
   }
