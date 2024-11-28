@@ -30,6 +30,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -197,26 +198,27 @@ function TokenDetails() {
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
+    if (isLoading)
+      return (
+        <Stack
+          flex={1}
+          height="100%"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Spinner size="large" />
+        </Stack>
+      );
     if (
       vaultSettings?.mergeDeriveAssetsEnabled &&
       isAllNetworks &&
       !accountUtils.isOthersWallet({ walletId })
     ) {
-      if (isLoading)
-        return (
-          <Stack
-            flex={1}
-            height="100%"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Spinner size="large" />
-          </Stack>
-        );
       if (tabs && !isEmpty(tabs)) {
         return (
           <Tab.Page
             data={tabs}
+            contentItemWidth={platformEnv.isNative ? undefined : (640 as any)}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
           />
@@ -253,7 +255,7 @@ function TokenDetails() {
   ]);
 
   return (
-    <Page scrollEnabled safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

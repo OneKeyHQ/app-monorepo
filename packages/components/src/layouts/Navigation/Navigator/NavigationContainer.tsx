@@ -1,9 +1,16 @@
 import type { MutableRefObject } from 'react';
-import { createContext, createRef, useContext, useEffect } from 'react';
+import {
+  createContext,
+  createRef,
+  useCallback,
+  useContext,
+  useEffect,
+} from 'react';
 
 import { NavigationContainer as RNNavigationContainer } from '@react-navigation/native';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { GetProps } from 'tamagui';
@@ -40,5 +47,14 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
 };
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
-  return <RNNavigationContainer {...props} ref={rootNavigationRef} />;
+  const handleReady = useCallback(() => {
+    navigationIntegration.registerNavigationContainer(rootNavigationRef);
+  }, []);
+  return (
+    <RNNavigationContainer
+      {...props}
+      ref={rootNavigationRef}
+      onReady={handleReady}
+    />
+  );
 }
