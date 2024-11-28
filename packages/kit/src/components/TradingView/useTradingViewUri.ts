@@ -57,7 +57,7 @@ export const useTradingViewUri = (
   );
 
   const uri = useMemo(() => {
-    const params = {
+    const params: Record<string, string> = {
       'show_popup_button': 'false',
       'autosize': 'true',
       'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
