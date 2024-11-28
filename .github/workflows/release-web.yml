@@ -63,11 +63,6 @@ jobs:
           github_ref: ${{ github.ref }}
           workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
-      - name: Setup keys secret
-        run: |
-          rm -rf packages/shared/src/analytics/firebase.web.json
-          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
-
       - name: Install Dependency
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,9 +74,13 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_PROJECT: 'web'
+          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+          echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> .env
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env
 
       - name: Build Target
         env:
