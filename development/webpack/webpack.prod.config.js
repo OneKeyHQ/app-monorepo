@@ -13,7 +13,7 @@ module.exports = {
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_TOKEN,
       release: {
-        name: `${process.env.VERSION}-${process.env.BUILD_NUMBER}`,
+        name: `${process.env.VERSION} (${process.env.BUILD_NUMBER})`,
       },
     }),
   ],

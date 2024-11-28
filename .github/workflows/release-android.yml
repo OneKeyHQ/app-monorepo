@@ -95,6 +95,7 @@ jobs:
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
           echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
           echo "NO_FLIPPER=1" >> .env.expo
+          echo "SENTRY_DISABLE_AUTO_UPLOAD=false" >> .env.expo
           echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env.expo
       
       - name: Write .sentry.properties
