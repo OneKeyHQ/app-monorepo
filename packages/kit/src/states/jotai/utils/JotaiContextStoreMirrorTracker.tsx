@@ -22,6 +22,7 @@ import { EarnProvider } from '../../../views/Earn/EarnProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
+import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
 import {
   SwapModalRootProvider,
   SwapRootProvider,
@@ -152,6 +153,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.earn: {
             return <EarnProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.sendConfirm: {
+            return <SendConfirmRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

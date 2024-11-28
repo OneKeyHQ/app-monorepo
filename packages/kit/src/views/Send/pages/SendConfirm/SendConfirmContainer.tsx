@@ -35,6 +35,7 @@ import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 import { TxSpecialInfoContainer } from './TxSpecialInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
+import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 function SendConfirmContainer() {
   const intl = useIntl();
@@ -258,8 +259,12 @@ function SendConfirmContainer() {
   );
 }
 
-const SendConfirmContainerWithProvider = memo(
-  withSendConfirmProvider(SendConfirmContainer),
-);
+const SendConfirmContainerWithProvider = memo(() => (
+  <SendConfirmProviderMirror>
+    <SendConfirmContainer />
+  </SendConfirmProviderMirror>
+));
+SendConfirmContainerWithProvider.displayName =
+  'SendConfirmContainerWithProvider';
 
 export { SendConfirmContainer, SendConfirmContainerWithProvider };
