@@ -61,43 +61,22 @@ function TokenDetailsViews(props: IProps) {
       </Stack>
     );
   }
-  if (platformEnv.isNative) {
-    return (
-      <>
-        <TokenDetailsHistory
+  return (
+    <TokenDetailsHistory
+      {...props}
+      accountId={currentAccountId}
+      setHistoryInit={setHistoryInit}
+      historyInit={historyInit}
+      ListHeaderComponent={
+        <TokenDetailsHeader
           {...props}
           accountId={currentAccountId}
-          setHistoryInit={setHistoryInit}
+          setOverviewInit={setOverviewInit}
+          overviewInit={overviewInit}
           historyInit={historyInit}
-          ListHeaderComponent={
-            <TokenDetailsHeader
-              {...props}
-              accountId={currentAccountId}
-              setOverviewInit={setOverviewInit}
-              overviewInit={overviewInit}
-              historyInit={historyInit}
-            />
-          }
         />
-      </>
-    );
-  }
-  return (
-    <>
-      <TokenDetailsHeader
-        {...props}
-        accountId={currentAccountId}
-        setOverviewInit={setOverviewInit}
-        overviewInit={overviewInit}
-        historyInit={historyInit}
-      />
-      <TokenDetailsHistory
-        {...props}
-        accountId={currentAccountId}
-        setHistoryInit={setHistoryInit}
-        historyInit={historyInit}
-      />
-    </>
+      }
+    />
   );
 }
 
