@@ -5817,6 +5817,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/bitcoinforksjs-lib@npm:7.0.0-rc.0":
+  version: 7.0.0-rc.0
+  resolution: "@onekeyfe/bitcoinforksjs-lib@npm:7.0.0-rc.0"
+  dependencies:
+    "@noble/hashes": "npm:^1.2.0"
+    bech32: "npm:^2.0.0"
+    big-integer: "npm:1.6.51"
+    bip174: "npm:^3.0.0-rc.0"
+    bs58check: "npm:^4.0.0"
+    uint8array-tools: "npm:^0.0.9"
+    valibot: "npm:^0.38.0"
+    varuint-bitcoin: "npm:^2.0.0"
+  checksum: 10/2643605075c47e4a42953e2372e8c8def62ef27177dc38ea175b71b0bdb2564dbb0dd75d99b727348c8b567a84fe98b4950578e4f133c29c0c2e95d65c470f7e
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.1":
   version: 1.1.1
   resolution: "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.1"
@@ -6663,6 +6679,7 @@ __metadata:
     "@mymonero/mymonero-app-bridge": "npm:^3.0.0"
     "@mymonero/mymonero-keyimage-cache": "npm:^3.0.0"
     "@noble/secp256k1": "npm:1.7.1"
+    "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.1"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.1"
@@ -6679,7 +6696,6 @@ __metadata:
     bchaddrjs: "npm:^0.5.2"
     bip32: "npm:^4.0.0"
     bip39: "npm:^3.1.0"
-    bitcoinforkjs: "git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#cashv7"
     bitcoinjs-lib: "npm:7.0.0-rc.0"
     bitcoinjs-message: "npm:2.2.0"
     bs58check: "npm:^3.0.1"
@@ -16964,22 +16980,6 @@ __metadata:
   dependencies:
     safe-buffer: "npm:^5.0.1"
   checksum: 10/6257e90ff2149aa08740ff4009730c1bceb1a3456571d3006a36b39f30044f2973e05f043ea6977046d6ab66e4a8d6f5c9785094f8317f4ff546a325baece1ab
-  languageName: node
-  linkType: hard
-
-"bitcoinforkjs@git+https://github.com/OneKeyHQ/bitcoinjs-lib.git#cashv7":
-  version: 7.0.0-rc.0
-  resolution: "bitcoinforkjs@https://github.com/OneKeyHQ/bitcoinjs-lib.git#commit=cc12116616981d0317b32badaa3a682aafc9379e"
-  dependencies:
-    "@noble/hashes": "npm:^1.2.0"
-    bech32: "npm:^2.0.0"
-    big-integer: "npm:1.6.51"
-    bip174: "npm:^3.0.0-rc.0"
-    bs58check: "npm:^4.0.0"
-    uint8array-tools: "npm:^0.0.9"
-    valibot: "npm:^0.38.0"
-    varuint-bitcoin: "npm:^2.0.0"
-  checksum: 10/a7561a6f0b0b74246c2b17412d594354b7d639cc2a0bc1cab1680fcd1443bcbe4c69753e5b0b456879a50db553630804c2763cf6e7453f58ed1bad4ae91fc4e4
   languageName: node
   linkType: hard
 
