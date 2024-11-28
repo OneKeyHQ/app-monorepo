@@ -111,6 +111,7 @@ export interface IMarketDetailTicker {
     '-2%': string;
   } | null;
   last: number;
+  last_updated_at: string;
   logo: string;
   volume: number;
   trust_score: string;
