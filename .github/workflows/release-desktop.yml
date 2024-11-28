@@ -67,11 +67,6 @@ jobs:
           always-auth: true
           scope: '@onekeyhq'
 
-      - name: Setup keys secret
-        run: |
-          rm -rf packages/shared/src/analytics/firebase.web.json
-          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
-
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
@@ -95,9 +90,13 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_PROJECT: 'desktop'
+          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+          echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> .env
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env
 
       - name: Setup Code Signing file
         run: |
