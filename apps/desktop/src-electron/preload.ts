@@ -115,6 +115,7 @@ export type IDesktopAPI = {
   getNotificationPermission: () => INotificationPermissionDetail;
   callDevOnlyApi: (params: IDesktopMainProcessDevOnlyApiParams) => any;
   openLoggerFile: () => void;
+  testCrash: () => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -272,6 +273,7 @@ const desktopApi = Object.freeze({
   getBundleInfo: () =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
   openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
+  testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
   promptTouchID: async (
     msg: string,
   ): Promise<{ success: boolean; error?: string }> =>

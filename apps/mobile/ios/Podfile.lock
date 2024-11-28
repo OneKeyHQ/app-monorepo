@@ -76,120 +76,8 @@ PODS:
     - React-Core (= 0.73.7)
     - React-jsi (= 0.73.7)
     - ReactCommon/turbomodule/core (= 0.73.7)
-  - Firebase/Analytics (10.27.0):
-    - Firebase/Core
-  - Firebase/Core (10.27.0):
-    - Firebase/CoreOnly
-    - FirebaseAnalytics (~> 10.27.0)
-  - Firebase/CoreOnly (10.27.0):
-    - FirebaseCore (= 10.27.0)
-  - Firebase/Crashlytics (10.27.0):
-    - Firebase/CoreOnly
-    - FirebaseCrashlytics (~> 10.27.0)
-  - FirebaseAnalytics (10.27.0):
-    - FirebaseAnalytics/AdIdSupport (= 10.27.0)
-    - FirebaseCore (~> 10.0)
-    - FirebaseInstallations (~> 10.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
-    - GoogleUtilities/MethodSwizzler (~> 7.11)
-    - GoogleUtilities/Network (~> 7.11)
-    - "GoogleUtilities/NSData+zlib (~> 7.11)"
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-  - FirebaseAnalytics/AdIdSupport (10.27.0):
-    - FirebaseCore (~> 10.0)
-    - FirebaseInstallations (~> 10.0)
-    - GoogleAppMeasurement (= 10.27.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
-    - GoogleUtilities/MethodSwizzler (~> 7.11)
-    - GoogleUtilities/Network (~> 7.11)
-    - "GoogleUtilities/NSData+zlib (~> 7.11)"
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-  - FirebaseCore (10.27.0):
-    - FirebaseCoreInternal (~> 10.0)
-    - GoogleUtilities/Environment (~> 7.12)
-    - GoogleUtilities/Logger (~> 7.12)
-  - FirebaseCoreExtension (10.29.0):
-    - FirebaseCore (~> 10.0)
-  - FirebaseCoreInternal (10.29.0):
-    - "GoogleUtilities/NSData+zlib (~> 7.8)"
-  - FirebaseCrashlytics (10.27.0):
-    - FirebaseCore (~> 10.5)
-    - FirebaseInstallations (~> 10.0)
-    - FirebaseRemoteConfigInterop (~> 10.23)
-    - FirebaseSessions (~> 10.5)
-    - GoogleDataTransport (~> 9.2)
-    - GoogleUtilities/Environment (~> 7.8)
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-    - PromisesObjC (~> 2.1)
-  - FirebaseInstallations (10.29.0):
-    - FirebaseCore (~> 10.0)
-    - GoogleUtilities/Environment (~> 7.8)
-    - GoogleUtilities/UserDefaults (~> 7.8)
-    - PromisesObjC (~> 2.1)
-  - FirebaseRemoteConfigInterop (10.29.0)
-  - FirebaseSessions (10.29.0):
-    - FirebaseCore (~> 10.5)
-    - FirebaseCoreExtension (~> 10.0)
-    - FirebaseInstallations (~> 10.0)
-    - GoogleDataTransport (~> 9.2)
-    - GoogleUtilities/Environment (~> 7.13)
-    - GoogleUtilities/UserDefaults (~> 7.13)
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-    - PromisesSwift (~> 2.1)
   - fmt (6.2.1)
   - glog (0.3.5)
-  - GoogleAppMeasurement (10.27.0):
-    - GoogleAppMeasurement/AdIdSupport (= 10.27.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
-    - GoogleUtilities/MethodSwizzler (~> 7.11)
-    - GoogleUtilities/Network (~> 7.11)
-    - "GoogleUtilities/NSData+zlib (~> 7.11)"
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-  - GoogleAppMeasurement/AdIdSupport (10.27.0):
-    - GoogleAppMeasurement/WithoutAdIdSupport (= 10.27.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
-    - GoogleUtilities/MethodSwizzler (~> 7.11)
-    - GoogleUtilities/Network (~> 7.11)
-    - "GoogleUtilities/NSData+zlib (~> 7.11)"
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-  - GoogleAppMeasurement/WithoutAdIdSupport (10.27.0):
-    - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
-    - GoogleUtilities/MethodSwizzler (~> 7.11)
-    - GoogleUtilities/Network (~> 7.11)
-    - "GoogleUtilities/NSData+zlib (~> 7.11)"
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-  - GoogleDataTransport (9.4.1):
-    - GoogleUtilities/Environment (~> 7.7)
-    - nanopb (< 2.30911.0, >= 2.30908.0)
-    - PromisesObjC (< 3.0, >= 1.2)
-  - GoogleUtilities/AppDelegateSwizzler (7.13.3):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Network
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Environment (7.13.3):
-    - GoogleUtilities/Privacy
-    - PromisesObjC (< 3.0, >= 1.2)
-  - GoogleUtilities/Logger (7.13.3):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/MethodSwizzler (7.13.3):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (7.13.3):
-    - GoogleUtilities/Logger
-    - "GoogleUtilities/NSData+zlib"
-    - GoogleUtilities/Privacy
-    - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (7.13.3)":
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (7.13.3)
-  - GoogleUtilities/Reachability (7.13.3):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/UserDefaults (7.13.3):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
   - hermes-engine (0.73.7):
     - hermes-engine/Pre-built (= 0.73.7)
   - hermes-engine/Pre-built (0.73.7)
@@ -223,11 +111,6 @@ PODS:
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
   - MultiplatformBleAdapter (0.1.9)
-  - nanopb (2.30910.0):
-    - nanopb/decode (= 2.30910.0)
-    - nanopb/encode (= 2.30910.0)
-  - nanopb/decode (2.30910.0)
-  - nanopb/encode (2.30910.0)
   - PromisesObjC (2.3.1)
   - PromisesSwift (2.3.1):
     - PromisesObjC (= 2.3.1)
@@ -1343,18 +1226,6 @@ PODS:
     - React-Core
     - SDWebImage (~> 5.11.1)
     - SDWebImageWebPCoder (~> 0.8.4)
-  - RNFBAnalytics (20.1.0):
-    - Firebase/Analytics (= 10.27.0)
-    - React-Core
-    - RNFBApp
-  - RNFBApp (20.1.0):
-    - Firebase/CoreOnly (= 10.27.0)
-    - React-Core
-  - RNFBCrashlytics (20.1.0):
-    - Firebase/Crashlytics (= 10.27.0)
-    - FirebaseCoreExtension
-    - React-Core
-    - RNFBApp
   - RNFileLogger (0.4.1):
     - CocoaLumberjack
     - React
@@ -1391,6 +1262,13 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
+  - RNSentry (6.2.0):
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
+    - React-hermes
+    - Sentry/HybridSDK (= 8.40.1)
   - RNShare (10.2.1):
     - React-Core
   - RNSVG (13.14.0):
@@ -1411,6 +1289,7 @@ PODS:
   - SDWebImageWebPCoder (0.8.5):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
+  - Sentry/HybridSDK (8.40.1)
   - SocketRocket (0.6.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
@@ -1528,9 +1407,6 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
   - RNDeviceInfo (from `../../../node_modules/react-native-device-info`)
   - RNFastImage (from `../../../node_modules/react-native-fast-image`)
-  - "RNFBAnalytics (from `../../../node_modules/@react-native-firebase/analytics`)"
-  - "RNFBApp (from `../../../node_modules/@react-native-firebase/app`)"
-  - "RNFBCrashlytics (from `../../../node_modules/@react-native-firebase/crashlytics`)"
   - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
   - "RNFlashList (from `../../../node_modules/@shopify/flash-list`)"
   - RNFS (from `../../../node_modules/react-native-fs`)
@@ -1540,6 +1416,7 @@ DEPENDENCIES:
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
+  - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
@@ -1550,19 +1427,7 @@ SPEC REPOS:
   trunk:
     - CocoaAsyncSocket
     - CocoaLumberjack
-    - Firebase
-    - FirebaseAnalytics
-    - FirebaseCore
-    - FirebaseCoreExtension
-    - FirebaseCoreInternal
-    - FirebaseCrashlytics
-    - FirebaseInstallations
-    - FirebaseRemoteConfigInterop
-    - FirebaseSessions
     - fmt
-    - GoogleAppMeasurement
-    - GoogleDataTransport
-    - GoogleUtilities
     - IQKeyboardManagerSwift
     - JXCategoryView
     - JXPagingView
@@ -1572,12 +1437,12 @@ SPEC REPOS:
     - MMKV
     - MMKVCore
     - MultiplatformBleAdapter
-    - nanopb
     - PromisesObjC
     - PromisesSwift
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
+    - Sentry
     - SocketRocket
     - SPAlert
     - SPIndicator
@@ -1789,12 +1654,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-device-info"
   RNFastImage:
     :path: "../../../node_modules/react-native-fast-image"
-  RNFBAnalytics:
-    :path: "../../../node_modules/@react-native-firebase/analytics"
-  RNFBApp:
-    :path: "../../../node_modules/@react-native-firebase/app"
-  RNFBCrashlytics:
-    :path: "../../../node_modules/@react-native-firebase/crashlytics"
   RNFileLogger:
     :path: "../../../node_modules/react-native-file-logger"
   RNFlashList:
@@ -1813,6 +1672,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../../../node_modules/react-native-screens"
+  RNSentry:
+    :path: "../../../node_modules/@sentry/react-native"
   RNShare:
     :path: "../../../node_modules/react-native-share"
   RNSVG:
@@ -1853,20 +1714,8 @@ SPEC CHECKSUMS:
   EXSplashScreen: 6bd596128cd52fac91997ebc64f3d394c843a8f9
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
-  Firebase: 26b040b20866a55f55eb3611b9fcf3ae64816b86
-  FirebaseAnalytics: f9211b719db260cc91aebee8bb539cb367d0dfd1
-  FirebaseCore: a2b95ae4ce7c83ceecfbbbe3b6f1cddc7415a808
-  FirebaseCoreExtension: 705ca5b14bf71d2564a0ddc677df1fc86ffa600f
-  FirebaseCoreInternal: df84dd300b561c27d5571684f389bf60b0a5c934
-  FirebaseCrashlytics: 81ea6ec96519388687f6061beb838a8eec482293
-  FirebaseInstallations: 913cf60d0400ebd5d6b63a28b290372ab44590dd
-  FirebaseRemoteConfigInterop: 6efda51fb5e2f15b16585197e26eaa09574e8a4d
-  FirebaseSessions: dbd14adac65ce996228652c1fc3a3f576bdf3ecc
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
   glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
-  GoogleAppMeasurement: f65fc137531af9ad647f1c0a42f3b6a4d3a98049
-  GoogleDataTransport: 6c09b596d841063d76d4288cc2d2f42cc36e1e2a
-  GoogleUtilities: ea963c370a38a8069cc5f7ba4ca849a60b6d7d15
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1881,7 +1730,6 @@ SPEC CHECKSUMS:
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
-  nanopb: 438bc412db1928dac798aa6fd75726007be04262
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
@@ -1951,9 +1799,6 @@ SPEC CHECKSUMS:
   RNCAsyncStorage: c43e6d71e13bb4748503797784839e0fbbf89d56
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
-  RNFBAnalytics: 3f336502732e51de9f5a5be8b5e3df879bf2eca7
-  RNFBApp: 9acbe359ef3559d6f8ca5c350db471f2b352f98a
-  RNFBCrashlytics: a4a66785997e629313ec8005a0811765738239fd
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
   RNFlashList: 4b4b6b093afc0df60ae08f9cbf6ccd4c836c667a
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
@@ -1963,12 +1808,14 @@ SPEC CHECKSUMS:
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
   RNReanimated: f5cb331578e0c4263050d77ba8bbec209f6b82d7
   RNScreens: 99476adb9f898a77872e67836bbb9d47988788cc
+  RNSentry: 059abcedf78a8f8c177901cf36b2362bb7dcb512
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
+  Sentry: e9215d7b17f7902692b4f8700e061e4f853e3521
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
@@ -1977,6 +1824,6 @@ SPEC CHECKSUMS:
   Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 4507489f08e48a35ee7565565b73ba8be0f7e0a8
+PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb
 
 COCOAPODS: 1.15.2

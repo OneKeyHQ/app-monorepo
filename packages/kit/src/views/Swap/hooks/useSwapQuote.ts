@@ -64,6 +64,7 @@ export function useSwapQuote() {
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
+
   const swapSlippageRef = useRef(slippageItem);
   if (swapQuoteFetchingRef.current !== swapQuoteFetching) {
     swapQuoteFetchingRef.current = swapQuoteFetching;

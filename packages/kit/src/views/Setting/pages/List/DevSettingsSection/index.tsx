@@ -46,11 +46,12 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
-import { CrashDevSettings } from './CrasshDevSettings';
+import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
+import { SentryCrashSettings } from './SentryCrashSettings';
 import { StartTimePanel } from './StartTimePanel';
 
 let correctDevOnlyPwd = '';
@@ -543,6 +544,7 @@ export const DevSettingsSection = () => {
       ) : null}
 
       <AddressBookDevSetting />
+      <SentryCrashSettings />
       <CrashDevSettings />
     </Section>
   );

@@ -5,9 +5,33 @@ apply plugin: "com.facebook.react"
 
 apply plugin: 'com.google.gms.google-services'
 
-apply plugin: 'com.google.firebase.crashlytics'
+apply plugin: "io.sentry.android.gradle"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+
+sentry {
+    // Enables or disables the automatic configuration of Native Symbols
+    // for Sentry. This executes sentry-cli automatically so
+    // you don't need to do it manually.
+    // Default is disabled.
+    uploadNativeSymbols = true
+
+    // Enables or disables the automatic upload of the app's native source code to Sentry.
+    // This executes sentry-cli with the --include-sources param automatically so
+    // you don't need to do it manually.
+    // This option has an effect only when [uploadNativeSymbols] is enabled.
+    // Default is disabled.
+    includeNativeSources = true
+
+    // `@sentry/react-native` ships with compatible `sentry-android`
+    // This option would install the latest version that ships with the SDK or SAGP (Sentry Android Gradle Plugin)
+    // which might be incompatible with the React Native SDK
+    // Enable auto-installation of Sentry components (sentry-android SDK and okhttp, timber and fragment integrations).
+    // Default is enabled.
+    autoInstallation {
+      enabled = false
+    }
+}
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -107,6 +131,7 @@ static def readRootEnvFile(fileName = ".env") {
     return props
 }
 
+apply from: new File(["node", "--print", "require.resolve('@sentry/react-native/package.json')"].execute().text.trim(), "../sentry.gradle")
 android {
     ndkVersion rootProject.ext.ndkVersion
 
