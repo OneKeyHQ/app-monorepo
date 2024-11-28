@@ -1,4 +1,4 @@
-import { Psbt as PsbtBtcFork } from 'bitcoinforkjs';
+import { Psbt as PsbtBtcFork } from '@onekeyfe/bitcoinforksjs-lib';
 
 import CoreChainSoftwareBtc from '../btc/CoreChainSoftware';
 
