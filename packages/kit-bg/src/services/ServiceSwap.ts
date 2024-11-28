@@ -1005,12 +1005,6 @@ export default class ServiceSwap extends ServiceBase {
           )
         : [],
     }));
-    void this.backgroundApi.serviceApp.showToast({
-      method: 'success',
-      title: appLocale.intl.formatMessage({
-        id: ETranslations.settings_clear_successful,
-      }),
-    });
   }
 
   @backgroundMethod()
@@ -1022,12 +1016,6 @@ export default class ServiceSwap extends ServiceBase {
         (item) => item.txInfo.txId !== txId,
       ),
     }));
-    void this.backgroundApi.serviceApp.showToast({
-      method: 'success',
-      title: appLocale.intl.formatMessage({
-        id: ETranslations.settings_clear_successful,
-      }),
-    });
   }
 
   @backgroundMethod()

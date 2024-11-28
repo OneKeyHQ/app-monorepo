@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -37,17 +37,11 @@ interface IProtocolFeeInfo {
   maxFee: number;
 }
 
-const SwapProviderInfoItem = ({
-  fromToken,
-  isBest,
+const SwapProviderInfoItemTitleContent = ({
   onekeyFee,
-  toToken,
-  providerIcon,
-  providerName,
-  showLock,
-  onPress,
-  isLoading,
-}: ISwapProviderInfoItemProps) => {
+}: {
+  onekeyFee?: number;
+}) => {
   const intl = useIntl();
   const protocolFeeInfoList: IProtocolFeeInfo[] = useMemo(
     () => [
@@ -89,46 +83,66 @@ const SwapProviderInfoItem = ({
     [],
   );
   return (
-    <XStack justifyContent="space-between" alignItems="center">
-      <XStack>
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          userSelect="none"
-          mr="$1"
-        >
-          {intl.formatMessage({
-            id: ETranslations.swap_page_provider_provider,
-          })}
-        </SizableText>
-        <Popover
-          title={intl.formatMessage({
-            id: ETranslations.provider_ios_popover_onekey_fee,
-          })}
-          renderTrigger={
-            <IconButton
-              variant="tertiary"
-              size="small"
-              icon="InfoCircleOutline"
-            />
-          }
-          renderContent={
-            <Stack gap="$5" p="$4">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.provider_ios_popover_onekey_fee_content,
-                })}
-              </SizableText>
-              <Stack gap="$2">
-                {protocolFeeInfoList.map((item) =>
-                  renderProtocolFeeListItem(item),
-                )}
-              </Stack>
+    <XStack>
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        userSelect="none"
+        mr="$1"
+      >
+        {intl.formatMessage({
+          id: ETranslations.swap_page_provider_provider,
+        })}
+      </SizableText>
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.provider_ios_popover_onekey_fee,
+        })}
+        renderTrigger={
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="InfoCircleOutline"
+          />
+        }
+        renderContent={
+          <Stack gap="$5" p="$4">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.provider_ios_popover_onekey_fee_content,
+              })}
+            </SizableText>
+            <Stack gap="$2">
+              {protocolFeeInfoList.map((item) =>
+                renderProtocolFeeListItem(item),
+              )}
             </Stack>
-          }
-        />
-      </XStack>
+          </Stack>
+        }
+      />
+    </XStack>
+  );
+};
 
+const SwapProviderInfoItemTitleContentMemo = memo(
+  SwapProviderInfoItemTitleContent,
+);
+
+const SwapProviderInfoItem = ({
+  fromToken,
+  isBest,
+  onekeyFee,
+  toToken,
+  providerIcon,
+  providerName,
+  showLock,
+  onPress,
+  isLoading,
+}: ISwapProviderInfoItemProps) => {
+  const intl = useIntl();
+  return (
+    <XStack justifyContent="space-between" alignItems="center">
+      <SwapProviderInfoItemTitleContentMemo onekeyFee={onekeyFee} />
       {isLoading ? (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />
@@ -179,4 +193,4 @@ const SwapProviderInfoItem = ({
     </XStack>
   );
 };
-export default SwapProviderInfoItem;
+export default memo(SwapProviderInfoItem);
