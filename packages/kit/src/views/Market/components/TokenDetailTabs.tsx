@@ -134,6 +134,17 @@ function BasicTokenDetailTabs({
     () =>
       pools
         ? [
+            md && token
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.global_overview,
+                  }),
+                  // eslint-disable-next-line react/no-unstable-nested-components
+                  page: (props: ITabPageProps) => (
+                    <MarketDetailOverview {...props} token={token} />
+                  ),
+                }
+              : undefined,
             (pools.length || token?.tickers?.length) && token
               ? {
                   title: intl.formatMessage({ id: ETranslations.global_pools }),
@@ -144,17 +155,6 @@ function BasicTokenDetailTabs({
                       pools={pools}
                       tickers={token.tickers}
                     />
-                  ),
-                }
-              : undefined,
-            md && token
-              ? {
-                  title: intl.formatMessage({
-                    id: ETranslations.global_overview,
-                  }),
-                  // eslint-disable-next-line react/no-unstable-nested-components
-                  page: (props: ITabPageProps) => (
-                    <MarketDetailOverview {...props} token={token} />
                   ),
                 }
               : undefined,
