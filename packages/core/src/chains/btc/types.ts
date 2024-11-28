@@ -9,7 +9,7 @@ import type {
   TapBip32Derivation,
   TapInternalKey,
   WitnessUtxo,
-} from 'bip174/src/lib/interfaces';
+} from 'bip174';
 import type { Network, Signer } from 'bitcoinjs-lib';
 
 export interface IBtcForkNetwork extends Network {
