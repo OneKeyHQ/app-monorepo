@@ -100,7 +100,7 @@ function NativeTokenPriceChart({
   return (
     <>
       <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
-        <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 294 }}>
+        <YStack>
           <PriceChart isFetching={isLoading} data={points}>
             {gtLg && !isLoading ? (
               <SegmentControl
@@ -113,13 +113,7 @@ function NativeTokenPriceChart({
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack
-          mt={platformEnv.isNative ? -28 : '$5'}
-          gap="$3"
-          ai="center"
-          px="$1"
-          pr="$5"
-        >
+        <XStack gap="$3" ai="center" px="$1" pr="$5">
           {renderSelectElement}
           <SegmentControl
             fullWidth={!renderSelectElement}
@@ -172,12 +166,12 @@ function TradingViewChart({
   const content = (
     <TradingView
       mode="overview"
-      $gtMd={{ h: 450, pl: '$5' }}
+      h={450}
+      $gtMd={{ pl: '$5' }}
       $md={{ pt: '$6' }}
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}
-      h={450}
       onTouchStart={handlePressIn}
       onTouchEnd={handlePressOut}
     />
@@ -188,9 +182,11 @@ function TradingViewChart({
   ) : (
     <YStack>
       {content}
-      <Stack h={1} width="100%" bg="$bgApp" position="absolute" top={24} />
-      <Stack h={1} width="100%" bg="$bgApp" position="absolute" top={63} />
-      <Stack h={1} width="100%" bg="$bgApp" position="absolute" bottom={0} />
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={24} />
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={63} />
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" bottom={0} />
+      <Stack h="100%" w={1} bg="$bgApp" position="absolute" left={0} />
+      <Stack h="100%" w={1} bg="$bgApp" position="absolute" right={0} />
     </YStack>
   );
 }
