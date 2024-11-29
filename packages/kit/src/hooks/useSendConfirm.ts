@@ -63,6 +63,7 @@ function useSendConfirm(params: IParams) {
         useFeeInTx,
         feeInfoEditable,
         approvesInfo,
+        swapInfo,
         encodedTx,
         transfersInfo,
         ...rest
@@ -96,6 +97,7 @@ function useSendConfirm(params: IParams) {
               accountId,
               encodedTx,
               transfersInfo,
+              swapInfo,
               prevNonce,
               ...rest,
             }),
@@ -106,6 +108,7 @@ function useSendConfirm(params: IParams) {
               networkId,
               accountId,
               approveInfo: approvesInfo?.[0],
+              swapInfo,
               encodedTx,
               transfersInfo,
               ...rest,

@@ -144,7 +144,7 @@ export class KeyringQr extends KeyringQrBase {
 
         const sdk = getAirGapSdk();
         // sdk.btc.generateSignRequest  signMessage
-        return sdk.btc.generatePSBT(unsignedPsbt.toBuffer());
+        return sdk.btc.generatePSBT(Buffer.from(unsignedPsbt.toBuffer()));
       },
       signedResultBuilder: async ({ signatureUr }) => {
         const sdk = getAirGapSdk();
