@@ -7,7 +7,7 @@ export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
 
   return (
     <XStack
-      gap="$6"
+      gap="$5"
       alignItems="center"
       testID="Navigation-HeaderView-ButtonGroup"
       {...rest}

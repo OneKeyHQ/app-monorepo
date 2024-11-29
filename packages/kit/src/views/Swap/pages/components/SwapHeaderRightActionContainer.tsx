@@ -230,7 +230,6 @@ const SwapSettingsDialogContent = () => {
     setPersistSettings,
   ] = useSettingsPersistAtom();
   const [, setNoPersistSettings] = useSettingsAtom();
-
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -330,6 +329,7 @@ const SwapHeaderRightActionContainer = ({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const intl = useIntl();
+  const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
@@ -339,6 +339,21 @@ const SwapHeaderRightActionContainer = ({
       ),
     [swapHistoryPendingList],
   );
+  const slippageTitle = useMemo(() => {
+    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
+      return (
+        <SizableText
+          color={
+            slippageItem.value > swapSlippageWillAheadMinValue
+              ? '$textCaution'
+              : '$text'
+          }
+          size="$bodySmMedium"
+        >{`${slippageItem.value}%`}</SizableText>
+      );
+    }
+    return null;
+  }, [slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
@@ -388,12 +403,26 @@ const SwapHeaderRightActionContainer = ({
           size="medium"
         />
       )}
-      <HeaderIconButton
-        icon="SliderHorOutline"
-        onPress={onOpenSwapSettings}
-        iconProps={{ size: 24 }}
-        size="medium"
-      />
+      {slippageTitle ? (
+        <Button
+          onPress={onOpenSwapSettings}
+          size="medium"
+          variant="tertiary"
+          borderRadius="$3"
+        >
+          <XStack alignItems="center" gap="$1">
+            {slippageTitle}
+            <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+          </XStack>
+        </Button>
+      ) : (
+        <HeaderIconButton
+          icon="SliderHorOutline"
+          onPress={onOpenSwapSettings}
+          iconProps={{ size: 24 }}
+          size="medium"
+        />
+      )}
     </HeaderButtonGroup>
   );
 };
