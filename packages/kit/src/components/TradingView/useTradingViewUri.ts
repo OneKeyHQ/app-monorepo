@@ -69,11 +69,12 @@ export const useTradingViewUri = (
       'hide_legend': 'true',
       'allow_symbol_change': 'true',
       'save_image': 'false',
-      'withdateranges': 'true',
+      'withdateranges': 'false',
       'calendar': 'false',
       'hide_volume': 'true',
       'hide_side_toolbar': hideSideToolbar ? '1' : '0',
       'support_host': 'https://www.tradingview.com',
+      'adaptive_logo': 'false',
       'isTransparent': 'true',
     };
     return `https://www.tradingview-widget.com/embed-widget/advanced-chart/?t=${Date.now()}&locale=${locale}#${JSON.stringify(
