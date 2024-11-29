@@ -186,6 +186,9 @@ function BasicTokenDetailTabs({
     [],
   );
   useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
     appEventBus.on(
       EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
       changeTabVerticalScrollEnabled,
