@@ -27,6 +27,7 @@ import type {
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnAccountToken,
   IEarnAccountTokenResponse,
   IEarnBabylonTrackingItem,
   IEarnEstimateAction,
@@ -501,11 +502,17 @@ class ServiceStaking extends ServiceBase {
       accounts: [],
     };
 
+    const tokensResponse = await client.post<{
+      data: { tokens: IEarnAccountToken[] };
+    }>(`/earn/v1/recommend`, { accounts: params });
+
     for (const account of params) {
       result.accounts.push({
         ...account,
         tokens:
-          resp.tokens?.filter((i) => i.networkId === account.networkId) || [],
+          tokensResponse.data.data.tokens?.filter(
+            (i) => i.networkId === account.networkId,
+          ) || [],
       });
     }
     return result;
