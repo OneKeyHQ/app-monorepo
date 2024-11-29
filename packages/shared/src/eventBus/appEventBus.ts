@@ -84,6 +84,7 @@ export enum EAppEventBusNames {
   SwapQuoteEvent = 'SwapQuoteEvent',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
+  ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -252,6 +253,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowFindInWebPage]: {
     tabId: string;
+  };
+  [EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled]: {
+    enabled: boolean;
   };
 }
 
