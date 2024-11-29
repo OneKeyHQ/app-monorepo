@@ -257,6 +257,7 @@ export function MarketDetailPools({
               <NumberSizeableText
                 userSelect="none"
                 size="$bodyMd"
+                formatterOptions={{ currency }}
                 formatter="marketCap"
                 textAlign="right"
               >
@@ -283,6 +284,7 @@ export function MarketDetailPools({
           <NumberSizeableText
             userSelect="none"
             size="$bodyMd"
+            formatterOptions={{ currency }}
             formatter="marketCap"
             textAlign="right"
           >
@@ -308,6 +310,7 @@ export function MarketDetailPools({
           <NumberSizeableText
             userSelect="none"
             size="$bodyMd"
+            formatterOptions={{ currency }}
             formatter="marketCap"
             textAlign="right"
           >
@@ -428,6 +431,7 @@ export function MarketDetailPools({
             userSelect="none"
             size="$bodyMd"
             formatter="marketCap"
+            formatterOptions={{ currency }}
             textAlign="right"
           >
             {volumeUsdH24}

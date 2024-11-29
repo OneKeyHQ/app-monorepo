@@ -4,4 +4,11 @@ import '@onekeyhq/shared/src/web/index.css';
 
 import { KitProvider } from '@onekeyhq/kit';
 
-export default KitProvider;
+import {
+  initSentry,
+  withSentryHOC,
+} from '@onekeyhq/shared/src/modules3rdParty/sentry';
+
+initSentry();
+
+export default withSentryHOC(KitProvider);

@@ -10,10 +10,9 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
-import { analyticLogEvent } from '@onekeyhq/shared/src/analytics/firebase';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -38,14 +37,9 @@ const LastActivityTracker = () => {
               : 'prod',
         }),
       });
-      analyticLogEvent('initialized', {
+      setSentryUser({
         instanceId,
-        platform: platformEnv.symbol,
-        distribution: platformEnv.appChannel,
-      });
-      setAttributes({
-        instanceId,
-        platform: platformEnv.symbol || '',
+        platform: platformEnv.appPlatform || '',
         appChannel: platformEnv.appChannel || '',
       });
     }, 0);

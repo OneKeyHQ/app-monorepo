@@ -1,25 +1,44 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { TouchableWithoutFeedback } from 'react-native';
 
-import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  SegmentControl,
+  Select,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketDetailTicker,
+  IMarketTokenChart,
+} from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TradingView } from '../../../components/TradingView';
 
 import { PriceChart } from './Chart';
 
+import type { ITradingViewProps } from '../../../components/TradingView';
 import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 interface IChartProps {
   coinGeckoId: string;
   symbol?: string;
   defer: IDeferredPromise<unknown>;
+  tickers?: IMarketDetailTicker[];
 }
 
 function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
@@ -75,54 +94,162 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
   }, [init]);
   const { gtLg } = useMedia();
   return (
-    <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
-      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 294 }}>
-        <PriceChart isFetching={isLoading} data={points}>
-          {gtLg ? (
-            <SegmentControl
-              value={days}
-              onChange={setDays as ISegmentControlProps['onChange']}
-              options={options}
-            />
-          ) : null}
-        </PriceChart>
+    <>
+      <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
+        <YStack>
+          <PriceChart isFetching={isLoading} data={points}>
+            {gtLg && !isLoading ? (
+              <SegmentControl
+                value={days}
+                onChange={setDays as ISegmentControlProps['onChange']}
+                options={options}
+              />
+            ) : null}
+          </PriceChart>
+        </YStack>
       </YStack>
       {gtLg ? null : (
-        <Stack mt={platformEnv.isNative ? -28 : '$5'}>
+        <XStack
+          gap="$3"
+          ai="center"
+          px="$1"
+          pr="$5"
+          $platform-web={{ zIndex: 30 }}
+        >
           <SegmentControl
-            fullWidth
             value={days}
+            jc="space-between"
+            flex={1}
             onChange={setDays as ISegmentControlProps['onChange']}
             options={options}
           />
-        </Stack>
+        </XStack>
       )}
+    </>
+  );
+}
+
+function TradingViewChart({
+  targetToken,
+  identifier,
+  baseToken,
+  defer,
+}: Omit<ITradingViewProps, 'mode'> & {
+  defer: IDeferredPromise<unknown>;
+}) {
+  const { gtMd } = useMedia();
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid) {
+      setTimeout(() => {
+        defer.resolve(null);
+      }, 450);
+    } else {
+      defer.resolve(null);
+    }
+  }, [defer]);
+  const handlePressIn = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    appEventBus.emit(
+      EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
+      { enabled: false },
+    );
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    setTimeout(() => {
+      appEventBus.emit(
+        EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
+        { enabled: true },
+      );
+    }, 50);
+  }, []);
+
+  const content = (
+    <TradingView
+      mode="overview"
+      h={450}
+      $gtMd={{ pl: '$5' }}
+      $md={{ pt: '$6' }}
+      targetToken={targetToken}
+      baseToken={baseToken}
+      identifier={identifier}
+      onTouchStart={handlePressIn}
+      onTouchEnd={handlePressOut}
+    />
+  );
+
+  return gtMd ? (
+    content
+  ) : (
+    <YStack>
+      {content}
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={24} />
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={63} />
+      <Stack h={1} w="100%" bg="$bgApp" position="absolute" bottom={0} />
+      <Stack h="100%" w={1} bg="$bgApp" position="absolute" left={0} />
+      <Stack h="100%" w={1} bg="$bgApp" position="absolute" right={0} />
     </YStack>
   );
 }
 
-function TradingViewChart({ symbol, defer }: IChartProps) {
-  useEffect(() => {
-    defer.resolve(null);
-  }, [defer]);
-  if (!symbol) {
-    return null;
-  }
-  return (
-    <TradingView
-      mode="overview"
-      symbol={symbol}
-      $gtMd={{ h: 450 }}
-      $md={{ px: '$4', pt: '$6' }}
-      h={353}
-    />
-  );
-}
+const identifiers = [
+  'binance',
+  'bybit',
+  'mexc',
+  'bitgit',
+  'coinbase',
+  'bitfinex',
+  'kraken',
+  'okx',
+  'gate',
+];
 
-function BasicTokenPriceChart({ coinGeckoId, defer, symbol }: IChartProps) {
-  const [devSettings] = useDevSettingsPersistAtom();
-  return devSettings.enabled && devSettings.settings?.showTradingView ? (
-    <TradingViewChart coinGeckoId={coinGeckoId} defer={defer} symbol={symbol} />
+const targets = ['USD', 'USDT', 'USDC'];
+const resolveIdentifierName = (name: string) => {
+  if (name === 'gate') {
+    return 'GATEIO';
+  }
+  return name;
+};
+function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
+  const ticker = useMemo(() => {
+    if (!tickers?.length) {
+      return null;
+    }
+    for (let i = 0; i < tickers.length; i += 1) {
+      const t = tickers[i];
+      if (targets.includes(t.target)) {
+        if (identifiers.includes(t.market.identifier)) {
+          return {
+            identifier: resolveIdentifierName(t.market.identifier),
+            baseToken: t.base,
+            targetToken: t.target,
+          };
+        }
+
+        if (identifiers.includes(t.market.name.toLowerCase())) {
+          return {
+            identifier: t.market.name.toLowerCase(),
+            baseToken: t.base,
+            targetToken: t.target,
+          };
+        }
+      }
+    }
+  }, [tickers]);
+
+  return ticker ? (
+    <TradingViewChart
+      defer={defer}
+      identifier={ticker?.identifier}
+      baseToken={ticker?.baseToken}
+      targetToken={ticker?.targetToken}
+    />
   ) : (
     <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
   );

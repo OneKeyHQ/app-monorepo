@@ -143,6 +143,8 @@ export default class ServiceNotification extends ServiceBase {
     return this.pushClient;
   }
 
+  isFirstTimeAllAccountsRegistered = false;
+
   onPushProviderConnected = async ({
     jpushId,
     socketId,
@@ -157,8 +159,13 @@ export default class ServiceNotification extends ServiceBase {
       socketId,
     });
     defaultLogger.notification.common.pushProviderConnected(this.pushClient);
-    // register when webSocket or jpush established
-    return this.registerClientWithOverrideAllAccounts();
+    if (!this.isFirstTimeAllAccountsRegistered) {
+      this.isFirstTimeAllAccountsRegistered = true;
+      // register when webSocket or jpush established
+      void this.registerClientWithOverrideAllAccounts();
+    } else {
+      void this.updateClientBasicAppInfo();
+    }
   };
 
   onNotificationReceived = async (
@@ -477,6 +484,15 @@ export default class ServiceNotification extends ServiceBase {
     });
 
     const syncAccounts: INotificationPushSyncAccount[] = [];
+
+    const notificationSettingsRawData =
+      await this.backgroundApi.simpleDb.notificationSettings.getRawData();
+
+    const { wallets: allWallets } =
+      await this.backgroundApi.serviceAccount.getAllWallets({
+        refillWalletInfo: true,
+      });
+
     for (const account of dbAccounts) {
       const networks = supportNetworksFiltered.filter(
         (item) =>
@@ -489,6 +505,7 @@ export default class ServiceNotification extends ServiceBase {
           networkAccount = await this.backgroundApi.serviceAccount.getAccount({
             accountId: account.id,
             networkId: network.networkId,
+            dbAccount: account,
           });
         } catch (error) {
           //
@@ -503,12 +520,11 @@ export default class ServiceNotification extends ServiceBase {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: networkAccount.id,
           });
-          const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-            walletId,
-          });
+          const wallet = allWallets.find((item) => item.id === walletId);
           const isEnabled =
             await this.backgroundApi.simpleDb.notificationSettings.isAccountActivityEnabled(
               {
+                notificationSettingsRawData,
                 walletId,
                 accountId: account.id,
                 indexedAccountId: account.indexedAccountId,
@@ -549,6 +565,7 @@ export default class ServiceNotification extends ServiceBase {
 
     const { syncAccounts } = await this.convertToSyncAccounts(accounts);
 
+    // accountIds is undefined means sync all accounts
     if (!accountIds) {
       void this.backgroundApi.serviceAppCleanup.cleanup({
         accountsRemoved,

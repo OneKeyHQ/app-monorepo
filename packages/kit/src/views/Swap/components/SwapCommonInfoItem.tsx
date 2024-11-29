@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import {
   Icon,
@@ -20,14 +20,13 @@ interface ISwapCommonInfoItemProps {
   isLoading?: boolean;
 }
 
-const SwapCommonInfoItem = ({
+const SwapCommonInfoItemTitleContent = ({
   title,
-  value,
-  onPress,
-  isLoading,
-  valueComponent,
   questionMarkContent,
-}: ISwapCommonInfoItemProps) => {
+}: {
+  title: string;
+  questionMarkContent?: ReactNode;
+}) => {
   const questionMarkComponent = useMemo(
     () => (
       <Popover
@@ -44,7 +43,31 @@ const SwapCommonInfoItem = ({
     ),
     [questionMarkContent, title],
   );
+  return (
+    <XStack>
+      <SizableText
+        userSelect="none"
+        mr="$1"
+        size="$bodyMd"
+        color="$textSubdued"
+      >
+        {title}
+      </SizableText>
+      {questionMarkContent ? questionMarkComponent : null}
+    </XStack>
+  );
+};
 
+const SwapCommonInfoItemTitleContentMemo = memo(SwapCommonInfoItemTitleContent);
+
+const SwapCommonInfoItem = ({
+  title,
+  value,
+  onPress,
+  isLoading,
+  valueComponent,
+  questionMarkContent,
+}: ISwapCommonInfoItemProps) => {
   const rightTrigger = useMemo(
     () => (
       <XStack
@@ -74,17 +97,10 @@ const SwapCommonInfoItem = ({
 
   return (
     <XStack justifyContent="space-between" alignItems="center">
-      <XStack>
-        <SizableText
-          userSelect="none"
-          mr="$1"
-          size="$bodyMd"
-          color="$textSubdued"
-        >
-          {title}
-        </SizableText>
-        {questionMarkContent ? questionMarkComponent : null}
-      </XStack>
+      <SwapCommonInfoItemTitleContentMemo
+        title={title}
+        questionMarkContent={questionMarkContent}
+      />
 
       <XStack gap="$2">
         {isLoading ? (
@@ -99,4 +115,4 @@ const SwapCommonInfoItem = ({
   );
 };
 
-export default SwapCommonInfoItem;
+export default memo(SwapCommonInfoItem);

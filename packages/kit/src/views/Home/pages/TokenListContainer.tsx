@@ -13,10 +13,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import type {
-  IDBAccount,
-  IDBUtxoAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -41,7 +39,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/perfUtils';
+} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import {
   getEmptyTokenData,
   mergeDeriveTokenList,
@@ -58,6 +56,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
+import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -268,6 +267,9 @@ function TokenListContainer(props: ITabPageProps) {
             });
           }
 
+          perfTokenListView.markEnd(
+            'tokenListRefreshing_tokenListContainerRefreshList',
+          );
           updateTokenListState({
             initialized: true,
             isRefreshing: false,
@@ -356,11 +358,13 @@ function TokenListContainer(props: ITabPageProps) {
       networkId,
       dbAccount,
       allNetworkDataInit,
+      customTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
+      customTokensRawData?: ICustomTokenDBStruct;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
@@ -373,6 +377,7 @@ function TokenListContainer(props: ITabPageProps) {
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
+        customTokensRawData,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -383,6 +388,7 @@ function TokenListContainer(props: ITabPageProps) {
           .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
+        perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
         updateTokenListState({
           initialized: true,
           isRefreshing: false,
@@ -593,9 +599,9 @@ function TokenListContainer(props: ITabPageProps) {
       accountAddress: string;
       simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
-      const perf = perfUtils.createPerf(
-        EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
-      );
+      const perf = perfUtils.createPerf({
+        name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
+      });
 
       perf.markStart('getAccountLocalTokens', {
         networkId,
@@ -655,6 +661,8 @@ function TokenListContainer(props: ITabPageProps) {
       accountId: string;
       networkId: string;
     }) => {
+      perfTokenListView.markStart('handleAllNetworkCacheData');
+
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
       let tokenListMap: {
@@ -744,10 +752,13 @@ function TokenListContainer(props: ITabPageProps) {
           isRefreshing: false,
           initialized: true,
         });
+        perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
           initialized: true,
           isRefreshing: false,
         });
+
+        perfTokenListView.markEnd('handleAllNetworkCacheData');
       }
     },
     [
@@ -1037,6 +1048,7 @@ function TokenListContainer(props: ITabPageProps) {
       });
 
       if (networkId === networkIdsMap.onekeyall) {
+        perfTokenListView.markStart('tokenListRefreshing_1');
         updateTokenListState({
           initialized: false,
           isRefreshing: true,
@@ -1068,6 +1080,7 @@ function TokenListContainer(props: ITabPageProps) {
         isEmpty(smallBalanceTokenList) &&
         isEmpty(riskyTokenList)
       ) {
+        perfTokenListView.markStart('tokenListRefreshing_2');
         updateTokenListState({
           initialized: false,
           isRefreshing: true,
@@ -1129,6 +1142,7 @@ function TokenListContainer(props: ITabPageProps) {
           initialized: true,
         });
 
+        perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
         updateTokenListState({
           initialized: true,
           isRefreshing: false,
@@ -1304,6 +1318,7 @@ function TokenListContainer(props: ITabPageProps) {
 
   useEffect(() => {
     if (isEmptyAccount) {
+      perfTokenListView.markEnd('tokenListRefreshing_emptyAccount');
       updateTokenListState({
         initialized: true,
         isRefreshing: false,

@@ -307,6 +307,8 @@ export const scopeNetworks: Record<
   'polkadot': [IMPL_DOT],
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
   'nostr': [IMPL_NOSTR],
+  // TODO: replace
+  'bfc': undefined,
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,

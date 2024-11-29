@@ -1369,11 +1369,11 @@ export default class VaultBtc extends VaultBase {
       inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
         ...v,
         path: '',
-        value: new BigNumber(v.value).toFixed(),
+        value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
       })),
       outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
         ...v,
-        value: new BigNumber(v.value).toFixed(),
+        value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
         payload: hasChangeAddress
           ? {
               isChange: v.address === account.address,

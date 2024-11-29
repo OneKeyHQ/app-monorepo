@@ -90,13 +90,17 @@ jobs:
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
+          SENTRY_PROJECT: 'chrome-extension'
+          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+          echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> .env
+          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env
 
       - name: Build Ext
         env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
+          NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: 'yarn app:ext:build:all'
 

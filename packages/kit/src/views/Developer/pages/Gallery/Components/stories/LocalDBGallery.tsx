@@ -289,7 +289,7 @@ function LocalDBDemo1() {
           const now = Date.now();
           const { indexedAccounts } =
             await backgroundApiProxy.serviceAccount.getAllIndexedAccounts({
-              noRemovedCheck: true,
+              filterRemoved: true,
             });
           demoLog({
             time: Date.now() - now,

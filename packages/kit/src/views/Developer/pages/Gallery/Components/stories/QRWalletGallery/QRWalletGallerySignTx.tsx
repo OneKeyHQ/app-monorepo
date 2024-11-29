@@ -217,7 +217,7 @@ export function QRWalletGallerySignTx() {
             psbt,
             psbtNetwork: BitcoinJsNetworks.bitcoin,
           });
-          const ur = sdk.btc.generatePSBT(psbt2.toBuffer());
+          const ur = sdk.btc.generatePSBT(Buffer.from(psbt2.toBuffer()));
 
           console.log({
             psbt,

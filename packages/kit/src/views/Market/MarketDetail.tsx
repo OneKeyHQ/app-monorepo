@@ -311,12 +311,13 @@ function MarketDetail({
   const tokenPriceChart = useMemo(
     () => (
       <TokenPriceChart
+        tickers={tokenDetail?.tickers}
         coinGeckoId={coinGeckoId}
         defer={defer}
         symbol={tokenDetail?.symbol}
       />
     ),
-    [coinGeckoId, defer, tokenDetail?.symbol],
+    [coinGeckoId, defer, tokenDetail?.symbol, tokenDetail?.tickers],
   );
 
   return (
@@ -351,7 +352,7 @@ function MarketDetail({
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}
-                {tokenDetail ? tokenPriceChart : null}
+                {tokenDetail ? tokenPriceChart : <YStack h={480} />}
               </YStack>
             }
           />

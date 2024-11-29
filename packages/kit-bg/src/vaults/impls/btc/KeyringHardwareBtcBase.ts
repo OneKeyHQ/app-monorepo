@@ -178,14 +178,14 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       hash: tx.getId(),
       version: tx.version,
       inputs: tx.ins.map((i) => ({
-        prev_hash: i.hash.reverse().toString('hex'),
+        prev_hash: Buffer.from(i.hash.reverse()).toString('hex'),
         prev_index: i.index,
-        script_sig: i.script.toString('hex'),
+        script_sig: Buffer.from(i.script).toString('hex'),
         sequence: i.sequence,
       })),
       bin_outputs: tx.outs.map((o) => ({
-        amount: o.value,
-        script_pubkey: o.script.toString('hex'),
+        amount: o.value.toString(),
+        script_pubkey: Buffer.from(o.script).toString('hex'),
       })),
       lock_time: tx.locktime,
     };

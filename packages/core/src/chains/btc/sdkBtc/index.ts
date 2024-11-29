@@ -6,7 +6,6 @@ import {
   initEccLib,
   payments,
 } from 'bitcoinjs-lib';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 import { cloneDeep, isNil, omit } from 'lodash';
@@ -30,6 +29,7 @@ import {
 } from '../../../secret';
 import { EAddressEncodings } from '../../../types';
 
+import { toXOnly } from './bip371';
 import { getBtcForkNetwork } from './networks';
 
 import type { IBip32ExtendedKey } from '../../../secret';
@@ -41,7 +41,7 @@ import type {
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
-import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
+import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/cjs/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
 
 export * from './networks';
@@ -75,7 +75,7 @@ export function getBitcoinECPair() {
   return ECPair;
 }
 
-function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
+function tapTweakHash(pubKey: Uint8Array, h: Buffer | undefined): Uint8Array {
   return crypto.taggedHash(
     'TapTweak',
     Buffer.concat(h ? [pubKey, h] : [pubKey]),
@@ -182,12 +182,12 @@ export function getInputsToSignFromPsbt({
     let value = 0;
     if (v.witnessUtxo) {
       script = v.witnessUtxo.script;
-      value = v.witnessUtxo.value;
+      value = Number(v.witnessUtxo.value);
     } else if (v.nonWitnessUtxo) {
       const tx = Transaction.fromBuffer(v.nonWitnessUtxo);
       const output = tx.outs[psbt.txInputs[index].index];
       script = output.script;
-      value = output.value;
+      value = Number(output.value);
     }
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 

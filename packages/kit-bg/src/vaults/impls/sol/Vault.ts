@@ -1306,6 +1306,11 @@ export default class Vault extends VaultBase {
 
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
 
+    // check if the tx is partially signed
+    if (nativeTx.signatures && nativeTx.signatures.length > 1) {
+      return '';
+    }
+
     const { instructions } = await parseNativeTxDetail({
       nativeTx,
       client: await this.getClient(),

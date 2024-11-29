@@ -1,11 +1,13 @@
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha256';
 import * as necc from '@noble/secp256k1';
-import { crypto as bcrypto } from 'bitcoinjs-lib';
 
+function bcryptoSha256(buffer: Buffer): Buffer {
+  return Buffer.from(sha256(Uint8Array.from(buffer)));
+}
 necc.utils.sha256Sync = (...messages) => {
   const bufs = messages.map((m) => (Buffer.isBuffer(m) ? m : Buffer.from(m)));
-  return bcrypto.sha256(Buffer.concat(bufs));
+  return bcryptoSha256(Buffer.concat(bufs));
 };
 necc.utils.hmacSha256Sync = (key, ...messages) => {
   const hash = hmac.create(sha256, Buffer.from(key));
