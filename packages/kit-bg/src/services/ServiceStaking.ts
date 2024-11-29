@@ -556,7 +556,7 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountOverview(params: {
+  async fetchAccountOverview(params: {
     accountId: string;
     networkId: string;
     assets: IAvailableAsset[];
