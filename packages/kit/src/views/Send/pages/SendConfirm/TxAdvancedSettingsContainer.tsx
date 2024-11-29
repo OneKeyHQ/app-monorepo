@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
@@ -250,6 +250,10 @@ function TxAdvancedSettingsContainer(props: IProps) {
       updateTxAdvancedSettings,
     ],
   );
+
+  useEffect(() => {
+    form.setValue('data', dataContent);
+  }, [dataContent, form]);
 
   if (
     isInternalStakingTx ||

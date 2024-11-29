@@ -175,8 +175,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       );
     }
     if (
-      (scope === IInjectedProviderNames.$private ||
-        scope === IInjectedProviderNames.$privateExternalAccount) &&
+      scope === IInjectedProviderNames.$private &&
       !isProviderApiPrivateAllowedOrigin(origin) &&
       !isProviderApiPrivateAllowedMethod(payloadData?.method)
     ) {
