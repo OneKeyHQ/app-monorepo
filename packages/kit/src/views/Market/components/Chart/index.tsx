@@ -91,7 +91,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
 
   const emptyView = useMemo(() => {
     if (isFetching) {
-      return <Spinner $platform-native={{ mt: -190 }} />;
+      return <Spinner />;
     }
     return (
       <Empty
@@ -106,7 +106,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
     data && data.length > 0 ? (
       <ChartView
         isFetching={isFetching}
-        height={gtMd ? 298 : 326}
+        height={450}
         data={data}
         onHover={onHover}
       />
@@ -141,15 +141,10 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
   ) : (
     <>
       {priceLabel}
-      <Stack
-        h={190}
-        mt={platformEnv.isNative ? 68 : 24}
-        justifyContent="center"
-        alignItems="center"
-      >
+      <Stack h={410} justifyContent="center" alignItems="center">
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Stack>
-      <Stack mt={8}>{children}</Stack>
+      <Stack>{children}</Stack>
     </>
   );
 }
