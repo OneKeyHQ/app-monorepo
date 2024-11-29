@@ -117,7 +117,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
   const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;
   return gtMd ? (
     <>
-      <XStack justifyContent="space-between">
+      <XStack justifyContent="space-between" h="$10">
         {isFetching ? (
           <YStack gap="$2">
             <Skeleton w="$10" h="$3" />
