@@ -114,7 +114,13 @@ function NativeTokenPriceChart({
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack gap="$3" ai="center" px="$1" pr="$5">
+        <XStack
+          gap="$3"
+          ai="center"
+          px="$1"
+          pr="$5"
+          $platform-web={{ zIndex: 30 }}
+        >
           {renderSelectElement}
           <SegmentControl
             fullWidth={!renderSelectElement}
