@@ -8,6 +8,9 @@ import { buildIntegrations } from './basicOptions';
 export * from '@sentry/electron/renderer';
 
 export const initSentry = () => {
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
   Sentry.init({
     integrations: buildIntegrations(Sentry as any),
   });
