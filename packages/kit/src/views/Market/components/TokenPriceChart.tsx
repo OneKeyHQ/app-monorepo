@@ -143,6 +143,7 @@ function TradingViewChart({
 }: Omit<ITradingViewProps, 'mode'> & {
   defer: IDeferredPromise<unknown>;
 }) {
+  const { gtMd } = useMedia();
   useEffect(() => {
     if (platformEnv.isNativeAndroid) {
       setTimeout(() => {
@@ -167,18 +168,30 @@ function TradingViewChart({
       );
     }, 50);
   }, []);
-  return (
+
+  const content = (
     <TradingView
       mode="overview"
       $gtMd={{ h: 450, pl: '$5' }}
-      $md={{ px: '$4', pt: '$6' }}
+      $md={{ pt: '$6' }}
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}
-      h={353}
+      h={450}
       onTouchStart={handlePressIn}
       onTouchEnd={handlePressOut}
     />
+  );
+
+  return gtMd ? (
+    content
+  ) : (
+    <YStack>
+      {content}
+      <Stack h={1} width="100%" bg="$bgApp" position="absolute" top={24} />
+      <Stack h={1} width="100%" bg="$bgApp" position="absolute" top={63} />
+      <Stack h={1} width="100%" bg="$bgApp" position="absolute" bottom={0} />
+    </YStack>
   );
 }
 
