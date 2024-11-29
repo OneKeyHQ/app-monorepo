@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -34,7 +35,7 @@ import type { ITradingViewProps } from '../../../components/TradingView';
 import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 interface IChartProps {
-  renderSelectElement?: ReactElement;
+  renderSelectElement?: ReactElement | null;
   coinGeckoId: string;
   symbol?: string;
   defer: IDeferredPromise<unknown>;
