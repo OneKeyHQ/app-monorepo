@@ -238,6 +238,7 @@ export interface IQuoteTip {
 
 export interface IFetchQuoteResult {
   quoteId?: string;
+  eventId?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
   fromAmount?: string;
@@ -370,6 +371,7 @@ export interface ISwapQuoteEventAutoSlippage {
   toNetworkId: string;
   fromTokenAddress: string;
   toTokenAddress: string;
+  eventId: string;
 }
 
 export interface ISwapQuoteEventQuoteResult {
@@ -378,6 +380,7 @@ export interface ISwapQuoteEventQuoteResult {
 
 export interface ISwapQuoteEventInfo {
   totalQuoteCount: number;
+  eventId: string;
 }
 
 export type ISwapQuoteEventData =
