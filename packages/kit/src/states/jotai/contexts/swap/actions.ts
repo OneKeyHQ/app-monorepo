@@ -902,16 +902,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
       if (
         fromToken &&
-        ((!swapFromAddressInfo.address &&
-          !accountUtils.isHdWallet({
-            walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-          }) &&
-          !accountUtils.isHwWallet({
-            walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-          })) ||
-          accountUtils.isWatchingWallet({
-            walletId: swapFromAddressInfo.accountInfo.wallet.id,
-          }))
+        !swapFromAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        })
       ) {
         alertsRes = [
           ...alertsRes,
