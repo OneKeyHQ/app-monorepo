@@ -158,17 +158,17 @@ class ServiceSetting extends ServiceBase {
     }));
   }
 
-  _getCurrencyList = memoizee(
+  _getCurrencyMap = memoizee(
     async () => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: ICurrencyItem[] }>(
-        '/utility/v1/currency/exchange-rates',
+      const res = await client.get<{ data: Record<string, ICurrencyItem> }>(
+        '/utility/v1/currency/exchange-rates/map',
       );
       return res.data.data;
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
     },
   );
 
@@ -186,9 +186,9 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async fetchCurrencyList() {
-    const currencyItems = await this._getCurrencyList();
+    const currencyMap = await this._getCurrencyMap();
     await currencyPersistAtom.set({
-      currencyItems,
+      currencyMap,
     });
   }
 
