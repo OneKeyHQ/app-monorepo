@@ -65,6 +65,7 @@ export const useTradingViewUri = (
       'timezone': timezone,
       'theme': theme,
       'style': '1',
+      'gridColor': 'rgba(255, 255, 255, 0)',
       'locale': locale,
       'hide_legend': 'true',
       'allow_symbol_change': 'true',
