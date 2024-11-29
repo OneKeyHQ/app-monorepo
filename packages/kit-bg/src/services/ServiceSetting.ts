@@ -180,11 +180,6 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getCurrencyList(): Promise<ICurrencyItem[]> {
-    return this._getCurrencyList();
-  }
-
-  @backgroundMethod()
   public async fetchCurrencyList() {
     const currencyMap = await this._getCurrencyMap();
     await currencyPersistAtom.set({
