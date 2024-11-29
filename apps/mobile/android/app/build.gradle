@@ -14,7 +14,7 @@ sentry {
     // for Sentry. This executes sentry-cli automatically so
     // you don't need to do it manually.
     // Default is disabled.
-    uploadNativeSymbols = true
+    uploadNativeSymbols = System.getenv("SENTRY_DISABLE_AUTO_UPLOAD") != "true"
 
     // Enables or disables the automatic upload of the app's native source code to Sentry.
     // This executes sentry-cli with the --include-sources param automatically so

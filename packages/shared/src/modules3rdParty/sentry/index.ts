@@ -7,6 +7,9 @@ import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 export * from '@sentry/react';
 
 export const initSentry = () => {
+  if (process.env.NODE_ENV !== 'production') {
+    return;
+  }
   Sentry.init({
     dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
     ...basicOptions,
