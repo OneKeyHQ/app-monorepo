@@ -69,6 +69,9 @@ const SwapActionsState = ({
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
+  if (swapSlippageRef.current !== slippageItem) {
+    swapSlippageRef.current = slippageItem;
+  }
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -258,7 +261,7 @@ const SwapActionsState = ({
     if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
       return null;
     }
-    if (swapRecipientAddressInfo?.showAddress) {
+    if (shouldShowRecipient) {
       return (
         <XStack
           gap="$1"
@@ -313,6 +316,7 @@ const SwapActionsState = ({
     md,
     onOpenRecipientAddress,
     pageType,
+    shouldShowRecipient,
     swapActionState.isApprove,
     swapBatchApproveAndSwap,
     swapRecipientAddressInfo?.accountInfo?.accountName,
