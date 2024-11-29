@@ -129,7 +129,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
         {children}
       </XStack>
       <Stack
-        h={240}
+        h={406}
         mt={32}
         $gtMd={{ mt: '$1' }}
         justifyContent="center"
