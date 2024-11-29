@@ -352,7 +352,7 @@ function MarketDetail({
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}
-                {tokenDetail ? tokenPriceChart : null}
+                {tokenDetail ? tokenPriceChart : <YStack h={480} />}
               </YStack>
             }
           />
