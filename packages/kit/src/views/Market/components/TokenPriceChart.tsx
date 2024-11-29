@@ -155,6 +155,9 @@ function TradingViewChart({
     }
   }, [defer]);
   const handlePressIn = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
     appEventBus.emit(
       EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
       { enabled: false },
@@ -162,6 +165,9 @@ function TradingViewChart({
   }, []);
 
   const handlePressOut = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
     setTimeout(() => {
       appEventBus.emit(
         EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
