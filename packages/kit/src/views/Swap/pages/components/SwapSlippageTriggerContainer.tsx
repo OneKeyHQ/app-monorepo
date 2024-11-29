@@ -53,7 +53,7 @@ const SwapSlippageTriggerContainer = ({
         size="$bodyMdMedium"
         color={
           slippageItem.value > swapSlippageWillAheadMinValue
-            ? '$textCritical'
+            ? '$textCaution'
             : '$text'
         }
       >

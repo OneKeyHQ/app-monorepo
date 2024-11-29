@@ -104,8 +104,8 @@ const SwapRefreshButton = ({
               ? require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_light.json')
               : require('@onekeyhq/kit/assets/animations/lottie_onekey_swap_refresh_dark.json')
           }
-          width={18}
-          height={18}
+          width={20}
+          height={20}
           autoPlay
         />
       </Animated.View>

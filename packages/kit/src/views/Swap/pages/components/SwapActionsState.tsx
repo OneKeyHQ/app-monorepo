@@ -13,7 +13,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  YStack,
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
@@ -46,12 +45,14 @@ interface ISwapActionsStateProps {
     isMax?: boolean,
     shoutResetApprove?: boolean,
   ) => void;
+  onOpenRecipientAddress: () => void;
 }
 
 const SwapActionsState = ({
   onBuildTx,
   onApprove,
   onWrapped,
+  onOpenRecipientAddress,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -64,10 +65,10 @@ const SwapActionsState = ({
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
+  const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
-  const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -98,10 +99,6 @@ const SwapActionsState = ({
   ]);
   const pageType = usePageType();
   const { md } = useMedia();
-
-  if (swapSlippageRef.current !== slippageItem) {
-    swapSlippageRef.current = slippageItem;
-  }
 
   const onActionHandler = useCallback(() => {
     if (swapActionState.isRefreshQuote) {
@@ -192,12 +189,12 @@ const SwapActionsState = ({
     ],
   );
 
-  const approveStepComponent = useMemo(
-    () =>
-      swapActionState.isApprove && !swapBatchApproveAndSwap ? (
+  const approveStepComponent = useMemo(() => {
+    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+      return (
         <XStack
           gap="$1"
-          {...(pageType === EPageType.modal && !md ? {} : { pb: '$5' })}
+          {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_approve })}
@@ -245,21 +242,23 @@ const SwapActionsState = ({
             })}
           </SizableText>
         </XStack>
-      ) : null,
-    [
-      swapActionState.isApprove,
-      swapBatchApproveAndSwap,
-      pageType,
-      md,
-      intl,
-      fromToken?.symbol,
-    ],
-  );
+      );
+    }
+    return null;
+  }, [
+    fromToken?.symbol,
+    intl,
+    md,
+    pageType,
+    swapActionState.isApprove,
+    swapBatchApproveAndSwap,
+  ]);
+
   const recipientComponent = useMemo(() => {
     if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
       return null;
     }
-    if (shouldShowRecipient) {
+    if (swapRecipientAddressInfo?.showAddress) {
       return (
         <XStack
           gap="$1"
@@ -276,7 +275,13 @@ const SwapActionsState = ({
                 id: ETranslations.swap_page_recipient_send_to,
               })}
             </SizableText>
-            <SizableText flexShrink={0} size="$bodyMd">
+            <SizableText
+              flexShrink={0}
+              size="$bodyMd"
+              cursor="pointer"
+              textDecorationLine="underline"
+              onPress={onOpenRecipientAddress}
+            >
               {swapRecipientAddressInfo?.showAddress}
             </SizableText>
 
@@ -304,16 +309,16 @@ const SwapActionsState = ({
     }
     return null;
   }, [
+    intl,
+    md,
+    onOpenRecipientAddress,
+    pageType,
     swapActionState.isApprove,
     swapBatchApproveAndSwap,
-    shouldShowRecipient,
-    pageType,
-    md,
-    intl,
-    swapRecipientAddressInfo?.showAddress,
-    swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.accountInfo?.accountName,
+    swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
+    swapRecipientAddressInfo?.showAddress,
   ]);
 
   const haveTips = useMemo(
@@ -362,7 +367,7 @@ const SwapActionsState = ({
   );
 
   return (
-    <YStack p="$5">
+    <>
       {pageType !== EPageType.modal && !md ? (
         actionComponent
       ) : (
@@ -373,7 +378,7 @@ const SwapActionsState = ({
           confirmButton={actionComponent}
         />
       )}
-    </YStack>
+    </>
   );
 };
 
