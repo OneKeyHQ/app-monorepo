@@ -9,10 +9,6 @@
  * Module:{ code: Bytes }
  */
 
-import { TxnBuilderTypes } from 'aptos';
-
-import type { BCS } from 'aptos';
-
 // TODO: add more types
 export type IPayloadType = 'entry_function_payload';
 
@@ -35,28 +31,6 @@ export type IEncodedTxAptos = {
   forcePendingTx?: boolean;
   payload?: ITxPayload;
 } & ITxPayload;
-
-export class ArgumentABI {
-  public readonly name: string;
-
-  public readonly type_tag: TxnBuilderTypes.TypeTag;
-
-  constructor(name: string, type_tag: TxnBuilderTypes.TypeTag) {
-    this.name = name;
-    this.type_tag = type_tag;
-  }
-
-  serialize(serializer: BCS.Serializer): void {
-    serializer.serializeStr(this.name);
-    this.type_tag.serialize(serializer);
-  }
-
-  static deserialize(deserializer: BCS.Deserializer): ArgumentABI {
-    const name = deserializer.deserializeStr();
-    const typeTag = TxnBuilderTypes.TypeTag.deserialize(deserializer);
-    return new ArgumentABI(name, typeTag);
-  }
-}
 
 export interface ISignMessagePayload {
   address?: boolean; // Should we include the address of the account in the message

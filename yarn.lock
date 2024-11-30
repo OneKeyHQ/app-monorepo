@@ -169,6 +169,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aptos-labs/aptos-cli@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@aptos-labs/aptos-cli@npm:1.0.2"
+  dependencies:
+    commander: "npm:^12.1.0"
+  bin:
+    aptos: dist/aptos.js
+  checksum: 10/83b7e8aa131d26aeeb977cb22b8260259023219dd1c474757bbf4c736f20befa44653f6714d2cc4219877bec6e71ad83d4ec7191b294b34c9d772a54bb928679
+  languageName: node
+  linkType: hard
+
 "@aptos-labs/aptos-client@npm:^0.1.0":
   version: 0.1.0
   resolution: "@aptos-labs/aptos-client@npm:0.1.0"
@@ -176,6 +187,35 @@ __metadata:
     axios: "npm:1.6.2"
     got: "npm:^11.8.6"
   checksum: 10/8cb6330a25f5579acbc6fdca1f293d887ba390f4730248adcc38aa869ede10c9bf29e75aca0d3ab0d74fe82c01520376e91ca899292aff5aa30ccba588dad53d
+  languageName: node
+  linkType: hard
+
+"@aptos-labs/aptos-client@npm:^0.1.1":
+  version: 0.1.1
+  resolution: "@aptos-labs/aptos-client@npm:0.1.1"
+  dependencies:
+    axios: "npm:1.7.4"
+    got: "npm:^11.8.6"
+  checksum: 10/95da0759a3046f02510bdc83d2c4d0c68ae7e73106c7c8939fc043564ebdebf06b9b9ac21c6e270b8955fb6aebaf433aa035c3450a913a68a0e51409fc6e2466
+  languageName: node
+  linkType: hard
+
+"@aptos-labs/ts-sdk@npm:^1.33.0":
+  version: 1.33.0
+  resolution: "@aptos-labs/ts-sdk@npm:1.33.0"
+  dependencies:
+    "@aptos-labs/aptos-cli": "npm:^1.0.2"
+    "@aptos-labs/aptos-client": "npm:^0.1.1"
+    "@noble/curves": "npm:^1.4.0"
+    "@noble/hashes": "npm:^1.4.0"
+    "@scure/bip32": "npm:^1.4.0"
+    "@scure/bip39": "npm:^1.3.0"
+    eventemitter3: "npm:^5.0.1"
+    form-data: "npm:^4.0.0"
+    js-base64: "npm:^3.7.7"
+    jwt-decode: "npm:^4.0.0"
+    poseidon-lite: "npm:^0.2.0"
+  checksum: 10/5b0c7822ab10435020b9e696988d1d1d4dc83a96055e21ffebf5de9bda8380ba32b98ed280374926f1a3b09a71bb9efcbf498f4276a3d562ba9b70afc5aa8441
   languageName: node
   linkType: hard
 
@@ -6590,7 +6630,6 @@ __metadata:
     "@walletconnect/modal": "npm:2.6.2"
     "@walletconnect/universal-provider": "npm:2.11.2"
     "@walletconnect/web3wallet": "npm:1.10.2"
-    aptos: "npm:^1.21.0"
     axios: "npm:^1.7.4"
     babel-loader: "npm:^9.1.3"
     babel-plugin-catch-logger: "npm:0.1.13"
@@ -6742,6 +6781,7 @@ __metadata:
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
     "@alephium/web3": "npm:^1.5.2"
+    "@aptos-labs/ts-sdk": "npm:^1.33.0"
     "@ckb-lumos/ckb-indexer": "npm:^0.23.0"
     "@ckb-lumos/common-scripts": "npm:^0.23.0"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
@@ -16361,7 +16401,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aptos@npm:^1.21.0, aptos@npm:^1.3.17":
+"aptos@npm:^1.3.17":
   version: 1.21.0
   resolution: "aptos@npm:1.21.0"
   dependencies:
@@ -16869,6 +16909,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"axios@npm:1.7.4, axios@npm:^1.7.4":
+  version: 1.7.4
+  resolution: "axios@npm:1.7.4"
+  dependencies:
+    follow-redirects: "npm:^1.15.6"
+    form-data: "npm:^4.0.0"
+    proxy-from-env: "npm:^1.1.0"
+  checksum: 10/7a1429be1e3d0c2e1b96d4bba4d113efbfabc7c724bed107beb535c782c7bea447ff634886b0c7c43395a264d085450d009eb1154b5f38a8bae49d469fdcbc61
+  languageName: node
+  linkType: hard
+
 "axios@npm:^0.21.3":
   version: 0.21.4
   resolution: "axios@npm:0.21.4"
@@ -16914,17 +16965,6 @@ __metadata:
     form-data: "npm:^4.0.0"
     proxy-from-env: "npm:^1.1.0"
   checksum: 10/3f9a79eaf1d159544fca9576261ff867cbbff64ed30017848e4210e49f3b01e97cf416390150e6fdf6633f336cd43dc1151f890bbd09c3c01ad60bb0891eee63
-  languageName: node
-  linkType: hard
-
-"axios@npm:^1.7.4":
-  version: 1.7.4
-  resolution: "axios@npm:1.7.4"
-  dependencies:
-    follow-redirects: "npm:^1.15.6"
-    form-data: "npm:^4.0.0"
-    proxy-from-env: "npm:^1.1.0"
-  checksum: 10/7a1429be1e3d0c2e1b96d4bba4d113efbfabc7c724bed107beb535c782c7bea447ff634886b0c7c43395a264d085450d009eb1154b5f38a8bae49d469fdcbc61
   languageName: node
   linkType: hard
 
@@ -27857,6 +27897,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"js-base64@npm:^3.7.7":
+  version: 3.7.7
+  resolution: "js-base64@npm:3.7.7"
+  checksum: 10/185e34c536a6b1c4e1ad8bd96d25b49a9ea4e6803e259eaaaca95f1b392a0d590b2933c5ca8580c776f7279507944b81ff1faf889d84baa5e31f026e96d676a5
+  languageName: node
+  linkType: hard
+
 "js-conflux-sdk@npm:^2.1.12":
   version: 2.3.0
   resolution: "js-conflux-sdk@npm:2.3.0"
@@ -28310,6 +28357,13 @@ __metadata:
     readable-stream: "npm:~2.3.6"
     setimmediate: "npm:^1.0.5"
   checksum: 10/bfbfbb9b0a27121330ac46ab9cdb3b4812433faa9ba4a54742c87ca441e31a6194ff70ae12acefa5fe25406c432290e68003900541d948a169b23d30c34dd984
+  languageName: node
+  linkType: hard
+
+"jwt-decode@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "jwt-decode@npm:4.0.0"
+  checksum: 10/87b569e4a9a0067fb0d592bcf3b2ac3e638e49beee28620eeb07bef1b4470f4077dea68c15d191dd68e076846c3af8394be3bcaecffedc6e97433b221fdbbcf3
   languageName: node
   linkType: hard
 

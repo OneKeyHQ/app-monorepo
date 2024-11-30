@@ -44,6 +44,10 @@ function SendConfirmFromDApp() {
     _$t: number | undefined;
   }>();
 
+  console.log('SendConfirmFromDApp Start:', {
+    encodedTx,
+  });
+
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,

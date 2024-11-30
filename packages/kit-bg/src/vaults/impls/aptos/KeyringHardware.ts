@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BCS } from 'aptos';
+import { Serializer } from '@aptos-labs/ts-sdk';
 
 import type { ISignMessageRequest } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -133,7 +133,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
-    const serializer = new BCS.Serializer();
+    const serializer = new Serializer();
     rawTxn.serialize(serializer);
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
@@ -141,7 +141,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       sdk.aptosSignTransaction(connectId, deviceId, {
         ...deviceCommonParams,
         path: account.path,
-        rawTx: bufferUtils.bytesToHex(serializer.getBytes()),
+        rawTx: bufferUtils.bytesToHex(serializer.toUint8Array()),
       }),
     );
     const result = await buildSignedTx(

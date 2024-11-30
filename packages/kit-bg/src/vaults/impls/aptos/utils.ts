@@ -1,10 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
-import { get } from 'lodash';
+import {
+  Deserializer,
+  Ed25519PublicKey,
+  Ed25519Signature,
+  SignedTransaction,
+  SimpleTransaction,
+  TransactionAuthenticatorEd25519,
+  TransactionResponseType,
+  TransactionPayloadEntryFunction,
+} from '@aptos-labs/ts-sdk';
+import { get, isEmpty } from 'lodash';
 
-import { ArgumentABI } from '@onekeyhq/core/src/chains/aptos/types';
 import type {
   IEncodedTxAptos,
   ISignMessagePayload,
@@ -21,11 +29,15 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
-import { TypeTagParser } from './builder_utils';
-
 import type { AptosClient } from './sdkAptos/AptosClient';
 import type { IBuildUnsignedTxParams } from '../../types';
-import type { MaybeHexString, Types } from 'aptos';
+import type {
+  AccountAddressInput,
+  AnyNumber,
+  MoveFunction,
+  MoveResource,
+  TransactionResponse,
+} from '@aptos-labs/ts-sdk';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
@@ -81,24 +93,26 @@ export function getTransactionTypeByPayload({
 }
 
 export function getTransactionType(
-  transaction: Types.Transaction,
+  transaction: TransactionResponse,
 ): EDecodedTxActionType {
   // TODO other transaction type
-  if (transaction.type === 'user_transaction') {
-    const tx = transaction as Types.UserTransaction;
+  switch (transaction.type) {
+    case TransactionResponseType.User: {
+      return getTransactionTypeByPayload({
+        type: transaction.payload.type,
+        // @ts-expect-error
+        function_name: transaction.payload.function,
+        // @ts-expect-error
+        type_arguments: transaction.payload.type_arguments,
+        // @ts-expect-error
+        args: transaction.payload.arguments,
+      });
+    }
 
-    return getTransactionTypeByPayload({
-      type: tx.payload.type,
-      // @ts-expect-error
-      function_name: tx.payload.function,
-      // @ts-expect-error
-      type_arguments: tx.payload.type_arguments,
-      // @ts-expect-error
-      args: tx.payload.arguments,
-    });
+    default: {
+      return EDecodedTxActionType.UNKNOWN;
+    }
   }
-
-  return EDecodedTxActionType.UNKNOWN;
 }
 
 export async function getTokenInfo(client: AptosClient, tokenAddress: string) {
@@ -116,88 +130,77 @@ export async function getTokenInfo(client: AptosClient, tokenAddress: string) {
 }
 
 export async function buildSignedTx(
-  rawTxn: TxnBuilderTypes.RawTransaction,
+  rawTxn: SimpleTransaction,
   senderPublicKey: string,
   signature: string,
 ) {
-  const txSignature = new TxnBuilderTypes.Ed25519Signature(
-    bufferUtils.hexToBytes(signature),
-  );
-  const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
-    new TxnBuilderTypes.Ed25519PublicKey(
+  const txSignature = new Ed25519Signature(bufferUtils.hexToBytes(signature));
+  const authenticator = new TransactionAuthenticatorEd25519(
+    new Ed25519PublicKey(
       bufferUtils.hexToBytes(hexUtils.stripHexPrefix(senderPublicKey)),
     ),
     txSignature,
   );
-  const signRawTx = BCS.bcsToBytes(
-    new TxnBuilderTypes.SignedTransaction(rawTxn, authenticator),
-  );
+  const signRawTx = new SignedTransaction(
+    rawTxn.rawTransaction,
+    authenticator,
+  ).bcsToHex();
   return Promise.resolve({
     txid: '',
-    rawTx: bufferUtils.bytesToHex(signRawTx),
+    rawTx: signRawTx.toString(),
   });
-}
-
-export async function signRawTransaction(
-  signer: {
-    sign: (message: Buffer) => Promise<[string, string]>;
-  },
-  senderPublicKey: string,
-  rawTxn: TxnBuilderTypes.RawTransaction,
-) {
-  const signingMessage = TransactionBuilder.getSigningMessage(rawTxn);
-  const [signature] = await signer.sign(
-    Buffer.from(bufferUtils.bytesToHex(signingMessage), 'hex'),
-  );
-
-  const signatureHex = hexUtils.stripHexPrefix(signature);
-
-  return buildSignedTx(rawTxn, senderPublicKey, signatureHex);
 }
 
 export async function generateUnsignedTransaction(
   client: AptosClient,
   unsignedTx: IBuildUnsignedTxParams,
-): Promise<TxnBuilderTypes.RawTransaction> {
+): Promise<SimpleTransaction> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
-  const {
-    sequence_number,
-    max_gas_amount,
-    gas_unit_price,
-    expiration_timestamp_secs,
-    bscTxn,
-    function: func,
-    arguments: args,
-    type_arguments,
-  } = encodedTx;
 
   const { sender } = encodedTx;
   if (!sender) {
     throw new OneKeyHardwareError(Error('sender is required'));
   }
 
-  let rawTxn;
-  if (bscTxn) {
-    const deserializer = new BCS.Deserializer(bufferUtils.hexToBytes(bscTxn));
-    rawTxn = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+  let rawTxn: SimpleTransaction;
+  if (encodedTx.bscTxn && !isEmpty(encodedTx.bscTxn)) {
+    const deserializer = new Deserializer(
+      bufferUtils.hexToBytes(encodedTx.bscTxn),
+    );
+    rawTxn = SimpleTransaction.deserialize(deserializer);
   } else {
+    const {
+      sequence_number,
+      max_gas_amount,
+      gas_unit_price,
+      expiration_timestamp_secs,
+      function: func,
+      arguments: args,
+      type_arguments,
+    } = encodedTx;
+
     if (!func) {
       throw new OneKeyError('generate transaction error: function is empty');
     }
-    rawTxn = await client.generateTransaction(
+
+    rawTxn = await client.aptos.transaction.build.simple({
       sender,
-      {
-        function: func,
-        arguments: args || [],
-        type_arguments: type_arguments || [],
+      data: {
+        function: func as `${string}::${string}::${string}`,
+        functionArguments: args || [],
+        typeArguments: type_arguments || [],
       },
-      {
-        sequence_number,
-        max_gas_amount,
-        gas_unit_price,
-        expiration_timestamp_secs,
+      options: {
+        accountSequenceNumber: sequence_number
+          ? BigInt(sequence_number)
+          : undefined,
+        maxGasAmount: max_gas_amount ? Number(max_gas_amount) : undefined,
+        gasUnitPrice: gas_unit_price ? Number(gas_unit_price) : undefined,
+        expireTimestamp: expiration_timestamp_secs
+          ? Number(expiration_timestamp_secs)
+          : undefined,
       },
-    );
+    });
   }
   return rawTxn;
 }
@@ -236,15 +239,15 @@ export function waitPendingTransaction(
   txHash: string,
   right = true,
   retryCount = 10,
-): Promise<Types.Transaction | undefined> {
+): Promise<TransactionResponse | undefined> {
   let retry = 0;
 
-  const poll: IPollFn<Promise<Types.Transaction | undefined>> = async (
+  const poll: IPollFn<Promise<TransactionResponse | undefined>> = async (
     time = POLL_INTERVAL,
   ) => {
     retry += 1;
 
-    let transaction: Types.Transaction | undefined;
+    let transaction: TransactionResponse | undefined;
     try {
       transaction = await client.getTransactionByHash(txHash);
     } catch (error: any) {
@@ -271,7 +274,7 @@ export function waitPendingTransaction(
     }
 
     return new Promise(
-      (resolve: (p: Promise<Types.Transaction | undefined>) => void) =>
+      (resolve: (p: Promise<TransactionResponse | undefined>) => void) =>
         setTimeout(() => resolve(poll(time)), time),
     );
   };
@@ -282,12 +285,9 @@ export function waitPendingTransaction(
 export async function getAccountResource(
   client: AptosClient,
   address: string,
-): Promise<Types.MoveResource[] | undefined> {
+): Promise<MoveResource[] | undefined> {
   try {
-    const resources = await client.getAccountResources(
-      hexUtils.stripHexPrefix(address),
-    );
-    return await Promise.resolve(resources);
+    return await client.getAccountResources(hexUtils.stripHexPrefix(address));
   } catch (error: any) {
     let err;
     try {
@@ -311,7 +311,7 @@ export async function getAccountCoinResource(
   client: AptosClient,
   address: string,
   tokenAddress?: string | undefined,
-): Promise<Types.MoveResource | undefined> {
+): Promise<MoveResource | undefined> {
   // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
   const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
   const resources = await getAccountResource(
@@ -335,7 +335,7 @@ export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {
         })),
     );
 
-  const abiMap = new Map<string, Types.MoveFunction & { fullName: string }>();
+  const abiMap = new Map<string, MoveFunction & { fullName: string }>();
   abis.forEach((abi) => {
     if (abi) {
       abiMap.set(abi.fullName, abi);
@@ -343,173 +343,6 @@ export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {
   });
 
   return abiMap;
-}
-
-/**
- * 0x1::aptos_coin::AptosCoin
- * // Vectors are in format `vector<other_tag_string>`
- * vector<0x1::aptos_coin::AptosCoin>
- * bool
- * u8
- * u64
- * u128
- * address
- */
-export function decodeTypeArgument(t: TxnBuilderTypes.TypeTag): string {
-  if (t instanceof TxnBuilderTypes.TypeTagStruct) {
-    const { address, module_name, name } = t.value;
-    return `${hexUtils.stripHexZeros(address?.address)}::${
-      module_name?.value
-    }::${name?.value}`;
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagVector) {
-    return `vector<${decodeTypeArgument(t.value)}>`;
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagU8) {
-    return 'u8';
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagU64) {
-    return 'u64';
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagU128) {
-    return 'u128';
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagBool) {
-    return 'bool';
-  }
-  if (t instanceof TxnBuilderTypes.TypeTagAddress) {
-    return 'address';
-  }
-  throw new Error('Invalid type tag.');
-}
-
-export function deserializeVector(
-  deserializer: BCS.Deserializer,
-  cls: any,
-): any[] {
-  const length = deserializer.deserializeUleb128AsU32();
-  const list: Array<typeof cls> = [];
-  for (let i = 0; i < length; i += 1) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      list.push(cls.deserialize(deserializer));
-    } catch (e) {
-      console.log(e);
-    }
-  }
-  return list;
-}
-
-export function decodeArgument(
-  typeTag: TxnBuilderTypes.TypeTag,
-  argument: Uint8Array,
-): any {
-  const deserializer = new BCS.Deserializer(argument);
-
-  if (typeTag instanceof TxnBuilderTypes.TypeTagBool) {
-    return deserializer.deserializeBool();
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagU8) {
-    return deserializer.deserializeU8();
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagU64) {
-    return deserializer.deserializeU64();
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagU128) {
-    return deserializer.deserializeU128();
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagAddress) {
-    const hex = deserializer.deserializeFixedBytes(
-      TxnBuilderTypes.AccountAddress.LENGTH,
-    );
-    return hexUtils.stripHexZeros(hex);
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagVector) {
-    const { value: typeTagValue } = typeTag;
-    const length = deserializer.deserializeUleb128AsU32();
-
-    // leb128 encoded length
-    let value = length;
-    const valueArray = [];
-    // eslint-disable-next-line no-bitwise
-    while (value >>> 7 !== 0) {
-      // eslint-disable-next-line no-bitwise
-      valueArray.push((value & 0x7f) | 0x80);
-      // eslint-disable-next-line no-bitwise
-      value >>>= 7;
-    }
-    valueArray.push(value);
-
-    // element length
-    const vectorLength = (argument.length - valueArray.length) / length;
-
-    const list: any[] = [];
-    for (let i = 0; i < length; i += 1) {
-      const indexValue = deserializer.deserializeFixedBytes(vectorLength);
-      list.push(decodeArgument(typeTagValue, indexValue));
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return list;
-  }
-  if (typeTag instanceof TxnBuilderTypes.TypeTagStruct) {
-    return deserializer.deserializeStr();
-  }
-  throw new Error('Invalid type tag.');
-}
-
-export function decodeArguments(
-  originalArgs: string[] | undefined,
-  args: Uint8Array[],
-): any[] {
-  if (!originalArgs) return [];
-  const typeArgABIs = originalArgs.map(
-    (arg, i) =>
-      new ArgumentABI(`var${i}`, new TypeTagParser(arg).parseTypeTag()),
-  );
-
-  return args.map((argument, index) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return decodeArgument(typeArgABIs[index]?.type_tag, argument);
-    } catch (error) {
-      console.log(error);
-    }
-    return '';
-  });
-}
-
-export async function transactionPayloadToTxPayload(
-  aptosClient: AptosClient,
-  payload: TxnBuilderTypes.TransactionPayload,
-): Promise<ITxPayload> {
-  if (payload instanceof TxnBuilderTypes.EntryFunction) {
-    const { module_name, function_name, ty_args, args } = payload;
-
-    const func = `${hexUtils.stripHexZeros(module_name?.address?.address)}::${
-      module_name?.name?.value
-    }::${function_name?.value}`;
-
-    const type_arguments = ty_args?.map((t) => decodeTypeArgument(t));
-
-    const [addr] = func.split('::');
-
-    const abiMap = await getModuleAbiMap(aptosClient, addr);
-    const funcAbi = abiMap.get(func);
-    const originalArgs = funcAbi?.params?.filter(
-      (param) => param !== 'signer' && param !== '&signer',
-    );
-
-    const values = decodeArguments(originalArgs, args);
-
-    return {
-      type: 'entry_function_payload',
-      function: func,
-      arguments: values,
-      type_arguments,
-    };
-  }
-  // TODO: TxnBuilderTypes.TransactionPayloadScript、TransactionPayloadModuleBundle
-  throw new OneKeyHardwareError(Error('not support'));
 }
 
 export function formatFullMessage(message: ISignMessageRequest): string {
@@ -595,7 +428,7 @@ export function generateTransferCreateCollection(
   name: string,
   description: string,
   uri: string,
-  maxAmount: BCS.AnyNumber = MAX_U64_BIG_INT,
+  maxAmount: AnyNumber = MAX_U64_BIG_INT,
 ): ITxPayload {
   return {
     type: 'entry_function_payload',
@@ -612,8 +445,8 @@ export function generateTransferCreateNft(
   description: string,
   supply: number,
   uri: string,
-  max: BCS.AnyNumber = MAX_U64_BIG_INT,
-  royalty_payee_address: MaybeHexString = account,
+  max: AnyNumber = MAX_U64_BIG_INT,
+  royalty_payee_address: AccountAddressInput = account,
   royalty_points_denominator = 0,
   royalty_points_numerator = 0,
   property_keys: Array<string> = [],
@@ -644,4 +477,40 @@ export function generateTransferCreateNft(
 
 export function getExpirationTimestampSecs(): bigint {
   return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
+}
+
+export function decodeTxByBcsTxn(bcsTxn: string) {
+  const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
+  const simpleTxn = SimpleTransaction.deserialize(deserializer);
+  const rawTx = simpleTxn.rawTransaction;
+
+  let actionType = EDecodedTxActionType.UNKNOWN;
+  const payload = rawTx.payload;
+  switch (true) {
+    case payload instanceof TransactionPayloadEntryFunction:
+      // eslint-disable-next-line no-case-declarations
+      const functionName = payload.entryFunction.function_name.toString();
+      if (
+        functionName === APTOS_NATIVE_TRANSFER_FUNC ||
+        functionName === APTOS_TRANSFER_FUNC
+      ) {
+        actionType = EDecodedTxActionType.ASSET_TRANSFER;
+      }
+      if (functionName === APTOS_TOKEN_REGISTER) {
+        return EDecodedTxActionType.TOKEN_ACTIVATE;
+      }
+
+      break;
+    default:
+      actionType = EDecodedTxActionType.UNKNOWN;
+      break;
+  }
+
+
+
+
+  return {
+    actionType,
+    rawTx,
+  };
 }
