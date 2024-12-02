@@ -103,3 +103,17 @@ export function waitPendingTransaction(
 
   return poll();
 }
+
+export function objectTypeToCoinType(objectType: string): string {
+  if (!objectType) {
+    throw new Error('objectType cannot be empty');
+  }
+
+  // Handle generic Coin type
+  const genericMatch = objectType.match(/0x2::coin::Coin<(.+)>/);
+  if (genericMatch) {
+    return genericMatch[1];
+  }
+
+  return objectType;
+}

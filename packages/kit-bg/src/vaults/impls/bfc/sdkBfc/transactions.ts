@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
 import BigNumber from 'bignumber.js';
 
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { normalizeBfcCoinType } from './utils';
+import { normalizeBfcCoinType, objectTypeToCoinType } from './utils';
 
 import type { OneKeyBfcClient } from './ClientBfc';
 import type { BalanceChange, CoinStruct } from '@benfen/bfc.js/client';
@@ -261,9 +262,82 @@ function parseMoveCall(transaction: TransactionBlock) {
   // };
 }
 
+async function getCoinTypeForHardwareTransfer({
+  client,
+  txBytes,
+}: {
+  client: OneKeyBfcClient;
+  txBytes: Uint8Array;
+}): Promise<string | null> {
+  const tx = TransactionBlock.from(txBytes);
+  const transactions = tx.blockData.transactions;
+
+  const hasMoveCall = transactions.some((cmd) => cmd.kind === 'MoveCall');
+  if (hasMoveCall) {
+    return null;
+  }
+
+  const transferCommands = transactions.filter(
+    (cmd) => cmd.kind === 'TransferObjects',
+  );
+
+  if (transferCommands.length !== 1) {
+    return null;
+  }
+
+  const transferCommand = transferCommands[0];
+
+  const resultObj = transferCommand?.objects?.[0];
+  if (resultObj.kind === 'GasCoin') {
+    return BFC_TYPE_ARG;
+  }
+
+  if (resultObj?.kind !== 'Result' || typeof resultObj.index !== 'number') {
+    return null;
+  }
+
+  // find the command that generates this Result
+  const sourceCommand = transactions[resultObj.index];
+  if (sourceCommand?.kind === 'SplitCoins') {
+    if (sourceCommand.coin?.kind === 'GasCoin') {
+      return BFC_TYPE_ARG;
+    }
+
+    if (sourceCommand.coin?.kind === 'Input') {
+      const inputIndex = sourceCommand.coin.index;
+      const input = tx.blockData.inputs[inputIndex];
+
+      const objectId = input?.value?.Object?.ImmOrOwned?.objectId;
+      if (objectId) {
+        const objectInfo = await client.getObject({
+          id: objectId,
+          options: {
+            showType: true,
+            showOwner: true,
+            showPreviousTransaction: true,
+            showDisplay: false,
+          },
+        });
+        try {
+          const objectType = objectInfo.data?.type;
+          if (!objectType) {
+            return null;
+          }
+          return objectTypeToCoinType(objectType);
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export default {
   createTokenTransaction,
   analyzeTransactionType,
   parseTransferDetails,
   parseMoveCall,
+  getCoinTypeForHardwareTransfer,
 };

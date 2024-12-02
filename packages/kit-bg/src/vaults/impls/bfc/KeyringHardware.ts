@@ -2,8 +2,8 @@ import { toSerializedSignature } from '@benfen/bfc.js/cryptography';
 import { Ed25519PublicKey } from '@benfen/bfc.js/keypairs/ed25519';
 import { toB64 } from '@benfen/bfc.js/utils';
 
+import { handleSignData } from '@onekeyhq/core/src/chains/bfc/CoreChainSoftware';
 import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
-import { handleSignData } from '@onekeyhq/core/src/chains/sui/CoreChainSoftware';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -19,6 +19,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import transactionUtils from './sdkBfc/transactions';
 import { toTransaction } from './sdkBfc/utils';
 
 import type IVaultBfc from './Vault';
@@ -70,7 +71,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
-                publicKey: account.payload?.publicKey || '',
+                publicKey: account.payload?.pub || '',
               }),
             });
             if (allNetworkAccounts) {
@@ -82,7 +83,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             // paths.push(
             //   ...usedIndexes.map((index) => `${pathPrefix}/${index}'/0'/0'`),
             // );
-            // const response = await sdk.suiGetAddress(connectId, deviceId, {
+            // const response = await sdk.benfenGetAddress(connectId, deviceId, {
             //   ...params.deviceParams.deviceCommonParams,
             //   bundle: paths.map((path, arrIndex) => ({
             //     path,
@@ -128,11 +129,24 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.sender,
       encodedTx,
     );
+    const coinType = await transactionUtils.getCoinTypeForHardwareTransfer({
+      client,
+      txBytes: initialTransaction,
+    });
     const signData = handleSignData(initialTransaction);
 
-    const response = await sdk.suiSignTransaction(connectId, deviceId, {
+    const hwParams = {
       path: dbAccount.path,
       rawTx: hexUtils.hexlify(Buffer.from(signData)),
+      coinType: coinType ?? undefined,
+      ...params.deviceParams?.deviceCommonParams,
+    };
+    console.log('tx hw params: ', JSON.stringify(hwParams, null, 2));
+
+    const response = await sdk.benfenSignTransaction(connectId, deviceId, {
+      path: dbAccount.path,
+      rawTx: hexUtils.hexlify(Buffer.from(signData)),
+      coinType: coinType ?? undefined,
       ...params.deviceParams?.deviceCommonParams,
     });
 
@@ -169,11 +183,17 @@ export class KeyringHardware extends KeyringHardwareBase {
     const dbAccount = await this.vault.getAccount();
     const result = await Promise.all(
       params.messages.map(async (payload) => {
-        const response = await HardwareSDK.suiSignMessage(connectId, deviceId, {
-          ...params.deviceParams?.deviceCommonParams,
-          messageHex: hexUtils.hexlify(bufferUtils.hexToBytes(payload.message)),
-          path: dbAccount.path,
-        });
+        const response = await HardwareSDK.benfenSignMessage(
+          connectId,
+          deviceId,
+          {
+            ...params.deviceParams?.deviceCommonParams,
+            messageHex: hexUtils.hexlify(
+              bufferUtils.hexToBytes(payload.message),
+            ),
+            path: dbAccount.path,
+          },
+        );
         if (!response.success) {
           throw convertDeviceError(response.payload);
         }
