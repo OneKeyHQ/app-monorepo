@@ -507,7 +507,7 @@ function BasicMarketHomeList({
     ({ tabIndex: index }: { tabIndex: number }) => {
       setTimeout(
         () => {
-          if (!platformEnv.isNative && containerRef) {
+          if (!platformEnv.isNative && containerRef.current) {
             (containerRef.current as HTMLElement).style.contentVisibility =
               index === tabIndex ? 'visible' : 'hidden';
           }
