@@ -197,6 +197,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
           />
+          <SwapActionsState
+            onBuildTx={onBuildTx}
+            onApprove={onApprove}
+            onWrapped={onWrapped}
+            onOpenRecipientAddress={onToAnotherAddressModal}
+          />
           <SwapQuoteResult
             refreshAction={refreshAction}
             onOpenProviderList={onOpenProviderList}
@@ -215,11 +221,11 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             fromTokenAmount={fromTokenAmount}
           />
         </YStack>
-        <SwapActionsState
+        {/* <SwapActionsState
           onBuildTx={onBuildTx}
           onApprove={onApprove}
           onWrapped={onWrapped}
-        />
+        /> */}
       </YStack>
     </ScrollView>
   );
