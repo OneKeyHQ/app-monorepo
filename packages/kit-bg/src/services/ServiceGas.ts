@@ -10,6 +10,7 @@ import {
 import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
+  IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
@@ -41,12 +42,8 @@ class ServiceGas extends ServiceBase {
 
     const { accountId, networkId, encodedTxs } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const encodedTxList = [];
-    for (const encodedTx of encodedTxs) {
-      encodedTxList.push(await vault.buildEstimateFeeParams({ encodedTx }));
-    }
-    const resp = await client.post(
+
+    const resp = await client.post<IServerBatchEstimateFeeResponse>(
       '/wallet/v1/account/estimate-fee-batch',
       {
         networkId,
@@ -60,11 +57,22 @@ class ServiceGas extends ServiceBase {
       },
     );
 
-    debugger;
-
     this._estimateFeeController = null;
 
-    return resp.data.data;
+    const feeInfo = resp.data.data.data;
+
+    const batchFeeResult = {
+      common: {
+        baseFee: feeInfo.baseFee,
+        feeDecimals: feeInfo.feeDecimals,
+        feeSymbol: feeInfo.feeSymbol,
+        nativeDecimals: feeInfo.nativeDecimals,
+        nativeSymbol: feeInfo.nativeSymbol,
+      },
+      txFees: feeInfo.result,
+    };
+
+    return batchFeeResult;
   }
 
   @backgroundMethod()
