@@ -409,6 +409,8 @@ const SwapHeaderRightActionContainer = ({
           size="medium"
           variant="tertiary"
           borderRadius="$3"
+          bg="$bgSubdued"
+          cursor="pointer"
         >
           <XStack alignItems="center" gap="$1">
             {slippageTitle}

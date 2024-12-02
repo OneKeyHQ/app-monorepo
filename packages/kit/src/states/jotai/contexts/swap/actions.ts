@@ -390,8 +390,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       switch (event.type) {
         case 'open': {
-          set(swapQuoteListAtom(), []);
-          set(swapQuoteEventTotalCountAtom(), 0);
+          // set(swapQuoteListAtom(), []);
+          // set(swapQuoteEventTotalCountAtom(), 0);
           break;
         }
         case 'message': {
@@ -451,6 +451,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     info: { provider: '', providerName: '' },
                     fromTokenInfo: event.tokenPairs.fromToken,
                     toTokenInfo: event.tokenPairs.toToken,
+                    eventId: (dataJson as ISwapQuoteEventInfo).eventId,
                   },
                 ]);
               }
@@ -500,9 +501,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                           oldQuoteRes.info.providerName,
                     ),
                 );
-                newQuoteList = [...newQuoteList, ...newAddQuoteRes].filter(
-                  (quote) => !!quote.info.provider,
-                );
+                newQuoteList = [...newQuoteList, ...newAddQuoteRes]
+                  .filter((quote) => !!quote.info.provider)
+                  ?.filter(
+                    (q) =>
+                      equalTokenNoCaseSensitive({
+                        token1: q.fromTokenInfo,
+                        token2: event.tokenPairs.fromToken,
+                      }) &&
+                      equalTokenNoCaseSensitive({
+                        token1: q.toTokenInfo,
+                        token2: event.tokenPairs.toToken,
+                      }),
+                  )
+                  ?.filter(
+                    (q) =>
+                      !q.eventId ||
+                      (q.eventId &&
+                        quoteResultData?.data?.[0]?.eventId &&
+                        q.eventId === quoteResultData.data[0].eventId),
+                  );
                 set(swapQuoteListAtom(), [...newQuoteList]);
               }
               set(swapQuoteFetchingAtom(), false);
