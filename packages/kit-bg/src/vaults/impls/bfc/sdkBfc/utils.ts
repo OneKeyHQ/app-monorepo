@@ -1,7 +1,7 @@
 import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG, normalizeHexAddress } from '@benfen/bfc.js/utils';
 
-import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
+import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import type { OneKeyBfcClient } from './ClientBfc';
@@ -29,7 +29,7 @@ export function normalizeBfcCoinType(coinType: string): string {
 export async function toTransaction(
   client: OneKeyBfcClient,
   sender: string,
-  tx: IEncodedTxSui | Uint8Array,
+  tx: IEncodedTxBfc | Uint8Array,
 ) {
   let transactionBytes;
   if (tx instanceof Uint8Array) {

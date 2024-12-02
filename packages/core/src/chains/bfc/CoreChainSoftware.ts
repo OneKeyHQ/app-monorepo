@@ -52,7 +52,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       // addressEncoding,
     } = query;
     console.log(
-      'ExportSecretKeys >>>> sui',
+      'ExportSecretKeys >>>> bfc',
       this.baseGetCredentialsType({ credentials }),
     );
 

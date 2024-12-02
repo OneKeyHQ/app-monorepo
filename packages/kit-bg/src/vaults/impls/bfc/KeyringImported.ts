@@ -1,4 +1,4 @@
-import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
+import type { IEncodedTxBfc } from '@onekeyhq/core/src/chains/bfc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
@@ -6,7 +6,7 @@ import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import { toTransaction } from './sdkBfc/utils';
 
-import type IVaultSui from './Vault';
+import type IVaultBfc from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -43,8 +43,8 @@ export class KeyringImported extends KeyringImportedBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
-    const client = await (this.vault as IVaultSui).getClient();
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxBfc;
+    const client = await (this.vault as IVaultBfc).getClient();
     const initialTransaction = await toTransaction(
       client,
       encodedTx.sender,

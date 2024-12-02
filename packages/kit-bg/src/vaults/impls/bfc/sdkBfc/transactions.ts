@@ -254,6 +254,7 @@ function parseMoveCall(transaction: TransactionBlock) {
     return null;
   }
 
+  // @ts-ignore
   const target = firstMoveCallCommand.target;
   if (!target) {
     return null;
@@ -298,6 +299,7 @@ async function getCoinTypeForHardwareTransfer({
 
   const transferCommand = transferCommands[0];
 
+  // @ts-ignore
   const resultObj = transferCommand?.objects?.[0];
   if (resultObj.kind === 'GasCoin') {
     return BFC_TYPE_ARG;
