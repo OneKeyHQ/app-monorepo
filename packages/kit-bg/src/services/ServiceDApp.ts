@@ -166,22 +166,12 @@ class ServiceDApp extends ServiceBase {
             ),
           };
 
-          console.log('openModal routeParams:', {
-            params,
-            routeParams,
-          });
-
           const modalParams = buildModalRouteParams({
             screens: routeNames,
             routeParams,
           });
 
           ensureSerializable(modalParams);
-
-          console.log('openModal routeParams:', {
-            modalParams,
-          });
-
 
           void this._openModalByRouteParamsDebounced({
             routeNames,

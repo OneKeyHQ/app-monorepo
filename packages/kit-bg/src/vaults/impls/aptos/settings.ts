@@ -38,6 +38,8 @@ const settings: IVaultSettings = {
     // ECoreApiExportedSecretKeyType.publicKey,
   ],
 
+  preCheckDappTxFeeInfoRequired: true,
+
   dappInteractionEnabled: true,
 
   defaultFeePresetIndex: 0,
@@ -51,7 +53,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 120,
-  activateTokenRequired: true,
+  activateTokenRequired: false,
 
   customRpcEnabled: true,
 

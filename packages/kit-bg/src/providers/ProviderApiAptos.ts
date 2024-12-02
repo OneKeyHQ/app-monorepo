@@ -386,7 +386,12 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          ...encodeTx,
+          max_gas_amount: rawTxn.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTxn.rawTransaction.gas_unit_price.toString(),
+          notEditTx: true,
+        },
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',

@@ -7,7 +7,6 @@ import type {
   AccountAddressInput,
   MoveModuleBytecode,
   MoveResource,
-  MoveStructId,
   PaginationArgs,
   TransactionResponse,
 } from '@aptos-labs/ts-sdk';
@@ -73,16 +72,6 @@ export class AptosClient {
       accountAddress,
       query,
     ]);
-  }
-
-  getAccountResource(
-    accountAddress: AccountAddressInput,
-    resourceType: string,
-  ): Promise<{ type: string; data: any }> {
-    return this.aptos.getAccountResource({
-      accountAddress,
-      resourceType: resourceType as MoveStructId,
-    });
   }
 
   getAccountResources(

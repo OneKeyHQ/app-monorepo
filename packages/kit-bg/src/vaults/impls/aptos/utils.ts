@@ -8,8 +8,8 @@ import {
   SignedTransaction,
   SimpleTransaction,
   TransactionAuthenticatorEd25519,
-  TransactionResponseType,
   TransactionPayloadEntryFunction,
+  TransactionResponseType,
 } from '@aptos-labs/ts-sdk';
 import { get, isEmpty } from 'lodash';
 
@@ -49,7 +49,18 @@ export const APTOS_COIN_INFO = '0x1::coin::CoinInfo';
 export const APTOS_PUBLISH_MODULE = '0x1::code::publish_package_txn';
 /** Automatic Account Activation */
 export const APTOS_NATIVE_TRANSFER_FUNC = '0x1::aptos_account::transfer';
+// Transfer legacy coin & native coin, not register account
+export const APTOS_NATIVE_TRANSFER_FUNC_LEGACY =
+  '0x1::aptos_account::transfer_coins';
+
+export const APTOS_TRANSFER_FUNGIBLE_FUNC =
+  '0x1::primary_fungible_store::transfer';
+export const APTOS_TRANSFER_FUNGIBLE_FUNC_ARG_TYPE =
+  '0x1::fungible_asset::Metadata';
+
+// Transfer legacy coin
 export const APTOS_TRANSFER_FUNC = '0x1::coin::transfer';
+
 export const APTOS_TOKEN_REGISTER = '0x1::managed_coin::register';
 export const APTOS_NFT_CREATE = '0x3::token::create_token_script';
 export const APTOS_COLLECTION_CREATE = '0x3::token::create_collection_script';
@@ -76,7 +87,9 @@ export function getTransactionTypeByPayload({
   if (type === 'entry_function_payload') {
     if (
       function_name === APTOS_NATIVE_TRANSFER_FUNC ||
-      function_name === APTOS_TRANSFER_FUNC
+      function_name === APTOS_TRANSFER_FUNC ||
+      function_name === APTOS_NATIVE_TRANSFER_FUNC_LEGACY ||
+      function_name === APTOS_TRANSFER_FUNGIBLE_FUNC
     ) {
       return EDecodedTxActionType.ASSET_TRANSFER;
     }
@@ -115,26 +128,14 @@ export function getTransactionType(
   }
 }
 
-export async function getTokenInfo(client: AptosClient, tokenAddress: string) {
-  const [address] = tokenAddress.split('::');
-  const { data } = await client.getAccountResource(
-    address,
-    `${APTOS_COIN_INFO}<${tokenAddress ?? APTOS_NATIVE_COIN}>`,
-  );
-
-  return Promise.resolve({
-    name: get(data, 'name', ''),
-    symbol: get(data, 'symbol', ''),
-    decimals: get(data, 'decimals', 6),
-  });
-}
-
 export async function buildSignedTx(
   rawTxn: SimpleTransaction,
   senderPublicKey: string,
   signature: string,
 ) {
-  const txSignature = new Ed25519Signature(bufferUtils.hexToBytes(signature));
+  const txSignature = new Ed25519Signature(
+    bufferUtils.hexToBytes(hexUtils.stripHexPrefix(signature)),
+  );
   const authenticator = new TransactionAuthenticatorEd25519(
     new Ed25519PublicKey(
       bufferUtils.hexToBytes(hexUtils.stripHexPrefix(senderPublicKey)),
@@ -147,7 +148,7 @@ export async function buildSignedTx(
   ).bcsToHex();
   return Promise.resolve({
     txid: '',
-    rawTx: signRawTx.toString(),
+    rawTx: signRawTx.toStringWithoutPrefix(),
   });
 }
 
@@ -405,20 +406,35 @@ export function generateRegisterToken(tokenAddress: string): ITxPayload {
   };
 }
 
+export function getTokenType(tokenAddress: string): 'legacy' | 'fungible' {
+  if (tokenAddress.indexOf('::') !== -1) {
+    return 'legacy';
+  }
+  return 'fungible';
+}
+
 export function generateTransferCoin(
   to: string,
   amount: string,
   tokenAddress?: string,
 ): ITxPayload {
-  const transferFun = tokenAddress
-    ? APTOS_TRANSFER_FUNC
-    : APTOS_NATIVE_TRANSFER_FUNC;
+  if (tokenAddress) {
+    const tokenType = getTokenType(tokenAddress);
+    if (tokenType === 'fungible') {
+      return {
+        type: 'entry_function_payload',
+        function: APTOS_TRANSFER_FUNGIBLE_FUNC,
+        arguments: [tokenAddress, to, amount],
+        type_arguments: [APTOS_TRANSFER_FUNGIBLE_FUNC_ARG_TYPE],
+      };
+    }
+  }
 
-  const typeArgs = tokenAddress ? [tokenAddress] : [];
+  const typeArgs = tokenAddress ? [tokenAddress] : [APTOS_NATIVE_COIN];
 
   return {
     type: 'entry_function_payload',
-    function: transferFun,
+    function: APTOS_NATIVE_TRANSFER_FUNC_LEGACY,
     arguments: [to, amount],
     type_arguments: typeArgs,
   };
@@ -505,9 +521,6 @@ export function decodeTxByBcsTxn(bcsTxn: string) {
       actionType = EDecodedTxActionType.UNKNOWN;
       break;
   }
-
-
-
 
   return {
     actionType,

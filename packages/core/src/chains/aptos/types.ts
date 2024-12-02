@@ -30,6 +30,9 @@ export type IEncodedTxAptos = {
   bscTxn?: string;
   forcePendingTx?: boolean;
   payload?: ITxPayload;
+
+  // From dApp, not edit tx
+  notEditTx?: boolean;
 } & ITxPayload;
 
 export interface ISignMessagePayload {
@@ -37,7 +40,7 @@ export interface ISignMessagePayload {
   application?: boolean; // Should we include the domain of the dapp
   chainId?: boolean; // Should we include the current chain id the wallet is connected to
   message: string; // The message to be signed and displayed to the user
-  nonce: number; // A nonce the dapp should generate
+  nonce: string; // A nonce the dapp should generate
 }
 
 export interface ISignMessageRequest {
@@ -45,7 +48,7 @@ export interface ISignMessageRequest {
   application?: string;
   chainId?: number;
   message: string; // The message passed in by the user
-  nonce: number;
+  nonce: string;
   fullMessage: string; // The message that was generated to sign
 }
 

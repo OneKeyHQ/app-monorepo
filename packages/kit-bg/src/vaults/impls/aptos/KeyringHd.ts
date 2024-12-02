@@ -49,13 +49,11 @@ export class KeyringHd extends KeyringHdBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
-    const serializer = new Serializer();
-    rawTxn.serialize(serializer);
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {
         ...unsignedTx,
-        rawTxUnsigned: bufferUtils.bytesToHex(serializer.toUint8Array()),
+        rawTxUnsigned: rawTxn.bcsToHex().toStringWithoutPrefix(),
       },
     });
   }

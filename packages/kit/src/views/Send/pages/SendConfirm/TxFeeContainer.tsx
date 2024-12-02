@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -285,6 +286,25 @@ function TxFeeContainer(props: IProps) {
               extraTipInDot: new BigNumber(tip)
                 .shiftedBy(-feeDecimals)
                 .toFixed(),
+            };
+          }
+
+          const {
+            gas_unit_price: aptosGasPrice,
+            max_gas_amount: aptosMaxGasLimit,
+          } = unsignedTxs[0].encodedTx as IEncodedTxAptos;
+          // use dApp fee
+          if (aptosGasPrice && aptosMaxGasLimit && network) {
+            const gasPrice = chainValueUtils.convertChainValueToGwei({
+              value: aptosGasPrice,
+              network,
+            });
+
+            feeInfo.gas = {
+              ...feeInfo.gas,
+              gasLimit: aptosMaxGasLimit,
+              gasPrice,
+              gasLimitForDisplay: aptosMaxGasLimit,
             };
           }
         }

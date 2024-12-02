@@ -54,7 +54,7 @@ async function buildSignedTx(
   ).bcsToHex();
   return Promise.resolve({
     txid: '',
-    rawTx: signRawTx.toString(),
+    rawTx: signRawTx.toStringWithoutPrefix(),
     encodedTx,
   });
 }

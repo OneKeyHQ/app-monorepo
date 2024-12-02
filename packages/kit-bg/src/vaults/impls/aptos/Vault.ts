@@ -8,11 +8,9 @@ import {
   Serializer,
   SignedTransaction,
   SimpleTransaction,
-  postAptosFullNode,
   TransactionPayloadEntryFunction,
-  AccountAddress,
   U64,
-  MoveString,
+  postAptosFullNode,
 } from '@aptos-labs/ts-sdk';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -24,13 +22,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import {
-  InvalidAccount,
-  ManageTokenInsufficientBalanceError,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -44,7 +39,6 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -64,13 +58,13 @@ import { AptosClient } from './sdkAptos/AptosClient';
 import {
   APTOS_NATIVE_COIN,
   APTOS_NATIVE_TRANSFER_FUNC,
+  APTOS_NATIVE_TRANSFER_FUNC_LEGACY,
   APTOS_TOKEN_REGISTER,
   APTOS_TRANSFER_FUNC,
+  APTOS_TRANSFER_FUNGIBLE_FUNC,
   buildSignedTx,
-  generateRegisterToken,
   generateTransferCoin,
   generateUnsignedTransaction,
-  getAccountCoinResource,
   getExpirationTimestampSecs,
   getTransactionTypeByPayload,
 } from './utils';
@@ -89,7 +83,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { PendingTransactionResponse } from '@aptos-labs/ts-sdk';
-import { IServerNetwork } from '@onekeyhq/shared/types';
 
 export default class VaultAptos extends VaultBase {
   override coreApi = coreChainApi.aptos.hd;
@@ -170,15 +163,19 @@ export default class VaultAptos extends VaultBase {
       );
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
+
+      let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
+      if (!encodedTx.notEditTx && rawTx.expiration_timestamp_secs < expect) {
+        expirationTimestampSecs = expect;
+      }
+
       const newRawTx = new RawTransaction(
         rawTx.sender,
         rawTx.sequence_number,
         rawTx.payload,
         rawTx.max_gas_amount,
         rawTx.gas_unit_price,
-        rawTx.expiration_timestamp_secs > expect
-          ? rawTx.expiration_timestamp_secs
-          : expect,
+        expirationTimestampSecs,
         rawTx.chain_id,
       );
 
@@ -206,7 +203,6 @@ export default class VaultAptos extends VaultBase {
   }
 
   private async _decodeTxByBcsTxn(bcsTxn: string, network: IServerNetwork) {
-    console.log('===== _decodeTxByBcsTxn bcsTxn', bcsTxn);
     const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
     const simpleTxn = SimpleTransaction.deserialize(deserializer);
     const rawTx = simpleTxn.rawTransaction;
@@ -216,12 +212,6 @@ export default class VaultAptos extends VaultBase {
 
     const { sender } = rawTx;
     const senderAddress = sender.bcsToHex().toString();
-
-    console.log(
-      '===== _decodeTxByBcsTxn payload is TransactionPayloadEntryFunction',
-      payload instanceof TransactionPayloadEntryFunction,
-    );
-
     const actions: IDecodedTxAction[] = [];
 
     switch (true) {
@@ -236,13 +226,13 @@ export default class VaultAptos extends VaultBase {
         // eslint-disable-next-line no-case-declarations
         const moveFunctionName = `${address}::${moduleName}::${functionName}`;
 
-        console.log('===== _decodeTxByBcsTxn functionName', moveFunctionName);
-
         if (
           moveFunctionName === APTOS_NATIVE_TRANSFER_FUNC ||
-          moveFunctionName === APTOS_TRANSFER_FUNC
+          moveFunctionName === APTOS_TRANSFER_FUNC ||
+          moveFunctionName === APTOS_NATIVE_TRANSFER_FUNC_LEGACY
         ) {
           // https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-framework/doc/aptos_account.md#function-transfer
+          // https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-framework/doc/aptos_account.md#function-transfer_coins
           // https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-framework/doc/coin.md#function-transfer
           actionType = EDecodedTxActionType.ASSET_TRANSFER;
 
@@ -287,6 +277,49 @@ export default class VaultAptos extends VaultBase {
               }),
             );
           }
+        } else if (moveFunctionName === APTOS_TRANSFER_FUNGIBLE_FUNC) {
+          actionType = EDecodedTxActionType.ASSET_TRANSFER;
+          const [tokenAddressArg, toArg, amountValueArg] =
+            payload.entryFunction.args || [];
+          const tokenAddress = tokenAddressArg.bcsToHex().toString();
+          const toAddress = toArg.bcsToHex().toString();
+
+          const amountValue = new BigNumber(
+            U64.deserialize(
+              new Deserializer(amountValueArg.bcsToBytes()),
+            ).value.toString(),
+          );
+
+          const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+            networkId: network.id,
+            accountId: this.accountId,
+            tokenIdOnNetwork: tokenAddress,
+          });
+
+          if (tokenInfo) {
+            const amount = new BigNumber(amountValue)
+              .shiftedBy(-tokenInfo.decimals)
+              .toFixed();
+
+            actions.push(
+              await this.buildTxTransferAssetAction({
+                from: senderAddress,
+                to: toAddress,
+                transfers: [
+                  {
+                    from: senderAddress,
+                    to: toAddress,
+                    amount,
+                    icon: tokenInfo.logoURI ?? '',
+                    name: tokenInfo.symbol,
+                    symbol: tokenInfo.symbol,
+                    tokenIdOnNetwork: tokenAddress,
+                    isNative: false,
+                  },
+                ],
+              }),
+            );
+          }
         } else if (functionName === APTOS_TOKEN_REGISTER) {
           actionType = EDecodedTxActionType.TOKEN_ACTIVATE;
 
@@ -323,7 +356,10 @@ export default class VaultAptos extends VaultBase {
               from: senderAddress,
               to: '',
               functionName: moveFunctionName,
-              args: payload.entryFunction.args?.map((a) => a.bcsToHex()) ?? [],
+              args:
+                payload.entryFunction.args?.map((a) =>
+                  a.bcsToHex().toString(),
+                ) ?? [],
             },
           });
         }
@@ -401,7 +437,40 @@ export default class VaultAptos extends VaultBase {
         function_name: fun,
       });
 
-      if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+      // fungible assets transfer
+      if (fun === APTOS_TRANSFER_FUNGIBLE_FUNC) {
+        const { sender } = encodedTx;
+        const [tokenAddress, to, amountValue] = encodedTx.arguments || [];
+
+        const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+          networkId: network.id,
+          accountId: this.accountId,
+          tokenIdOnNetwork: tokenAddress,
+        });
+
+        if (tokenInfo) {
+          const amount = new BigNumber(amountValue)
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed();
+
+          action = await this.buildTxTransferAssetAction({
+            from: sender,
+            to,
+            transfers: [
+              {
+                from: sender,
+                to,
+                amount,
+                icon: tokenInfo.logoURI ?? '',
+                name: tokenInfo.symbol,
+                symbol: tokenInfo.symbol,
+                tokenIdOnNetwork: tokenAddress,
+                isNative: false,
+              },
+            ],
+          });
+        }
+      } else if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
         const { sender } = encodedTx;
         const [coinType] = encodedTx.type_arguments || [];
         const [to, amountValue] = encodedTx.arguments || [];
@@ -537,8 +606,9 @@ export default class VaultAptos extends VaultBase {
       .shiftedBy(common.feeDecimals)
       .toFixed();
 
-    let { bscTxn } = params.encodedTx;
-    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
+    let { bscTxn, notEditTx: isStandardWalletDApp } = params.encodedTx;
+    // Standard wallet dApp interface not edit fee
+    if (!isStandardWalletDApp && !isNil(bscTxn) && !isEmpty(bscTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bscTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
@@ -551,7 +621,6 @@ export default class VaultAptos extends VaultBase {
         rawTx.expiration_timestamp_secs,
         rawTx.chain_id,
       );
-
       const serializer = new Serializer();
       const newSimpleTxn = new SimpleTransaction(
         newRawTx,
@@ -572,8 +641,8 @@ export default class VaultAptos extends VaultBase {
 
   private _updateExpirationTimestampSecs(encodedTx: IEncodedTxAptos) {
     const expirationTimestampSecs = getExpirationTimestampSecs();
-    const { bscTxn } = encodedTx;
-    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
+    const { bscTxn, notEditTx: isStandardWalletDApp } = encodedTx;
+    if (!isStandardWalletDApp && !isNil(bscTxn) && !isEmpty(bscTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bscTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
@@ -588,7 +657,6 @@ export default class VaultAptos extends VaultBase {
           : expirationTimestampSecs,
         rawTx.chain_id,
       );
-
       const serializer = new Serializer();
       const newSimpleTxn = new SimpleTransaction(
         newRawTx,
@@ -615,9 +683,11 @@ export default class VaultAptos extends VaultBase {
     // max native token transfer update
     if (
       nativeAmountInfo &&
-      [APTOS_NATIVE_TRANSFER_FUNC, APTOS_TRANSFER_FUNC].includes(
-        encodedTx?.function ?? '',
-      ) &&
+      [
+        APTOS_NATIVE_TRANSFER_FUNC,
+        APTOS_TRANSFER_FUNC,
+        APTOS_NATIVE_TRANSFER_FUNC_LEGACY,
+      ].includes(encodedTx?.function ?? '') &&
       unsignedTx.transfersInfo
     ) {
       const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
@@ -737,44 +807,16 @@ export default class VaultAptos extends VaultBase {
     };
   }
 
-  override async activateToken(params: {
-    token: IAccountToken;
-  }): Promise<boolean> {
-    const { token } = params;
-    if (token.address === APTOS_NATIVE_COIN) {
-      return true;
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    // Standard wallet dApp interface not edit fee
+    const unSignedEncodedTx = params.encodedTx as IEncodedTxAptos;
+    if (unSignedEncodedTx.notEditTx && unSignedEncodedTx.bscTxn) {
+      return Promise.resolve('');
     }
-    const account = await this.getAccount();
-    let coin;
-    try {
-      coin = await getAccountCoinResource(
-        this.client,
-        account.address,
-        token.address,
-      );
-    } catch (e) {
-      if (e instanceof InvalidAccount) {
-        throw new ManageTokenInsufficientBalanceError({
-          info: {
-            token: 'APT',
-          },
-        });
-      }
-    }
-    if (coin) {
-      return true;
-    }
-    const unsignedTx = await this.buildUnsignedTx({
-      encodedTx: generateRegisterToken(token.address),
-    });
-    const [signedTx] =
-      await this.backgroundApi.serviceSend.batchSignAndSendTransaction({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        unsignedTxs: [unsignedTx],
-        transferPayload: undefined,
-      });
-    return !!signedTx.signedTx.txid;
+    return unSignedEncodedTx;
   }
 
   override async getCustomRpcEndpointStatus(
