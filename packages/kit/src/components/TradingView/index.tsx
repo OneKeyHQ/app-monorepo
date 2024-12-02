@@ -36,16 +36,12 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { targetToken, identifier, baseToken, ...otherProps } =
     restProps as IBaseTradingViewProps;
-  const { gtMd } = useMedia();
   const [showLoading, changeShowLoading] = useState(true);
-  const uri = useTradingViewUri(
-    {
-      targetToken,
-      identifier,
-      baseToken,
-    },
-    { hideSideToolbar: !gtMd },
-  );
+  const uri = useTradingViewUri({
+    targetToken,
+    identifier,
+    baseToken,
+  });
   const onLoadEnd = useCallback(() => {
     changeShowLoading(false);
   }, []);

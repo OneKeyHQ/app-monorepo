@@ -2,9 +2,11 @@ import { useMemo } from 'react';
 
 import { useCalendars } from 'expo-localization';
 
+import { useThemeValue } from '@onekeyhq/components';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 
 // https://www.tradingview.com/charting-library-docs/latest/core_concepts/Localization/
@@ -31,19 +33,17 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
   'zh-TW': 'zh_TW',
 };
 
-export const useTradingViewUri = (
-  {
-    identifier,
-    baseToken,
-    targetToken,
-  }: {
-    identifier: string;
-    baseToken: string;
-    targetToken: string;
-  },
-  { hideSideToolbar = false }: { hideSideToolbar?: boolean },
-) => {
+export const useTradingViewUri = ({
+  identifier,
+  baseToken,
+  targetToken,
+}: {
+  identifier: string;
+  baseToken: string;
+  targetToken: string;
+}) => {
   const theme = useThemeVariant();
+  const bgAppColor = useThemeValue('$bgApp');
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
     () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
@@ -56,39 +56,55 @@ export const useTradingViewUri = (
     [calendars],
   );
 
-  const uri = useMemo(() => {
-    const params: Record<string, string> = {
-      'show_popup_button': 'false',
-      'autosize': 'true',
-      'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
-      'interval': '60',
-      'timezone': timezone,
-      'theme': theme,
-      'style': '1',
-      'gridColor': 'rgba(255, 255, 255, 0)',
-      'locale': locale,
-      'hide_legend': 'true',
-      'allow_symbol_change': 'true',
-      'save_image': 'false',
-      'withdateranges': 'false',
-      'calendar': 'false',
-      'hide_volume': 'true',
-      'hide_side_toolbar': hideSideToolbar ? '1' : '0',
-      'support_host': 'https://www.tradingview.com',
-      'adaptive_logo': 'false',
-      'isTransparent': 'true',
-    };
-    return `https://www.tradingview-widget.com/embed-widget/advanced-chart/?t=${Date.now()}&locale=${locale}#${JSON.stringify(
-      params,
-    )}`;
-  }, [
-    baseToken,
-    hideSideToolbar,
-    identifier,
-    locale,
-    targetToken,
-    theme,
-    timezone,
-  ]);
-  return uri;
+  const { result: blobUri } = usePromiseResult(
+    async () => {
+      const params: Record<string, string> = {
+        'show_popup_button': 'false',
+        'autosize': 'true',
+        'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
+        'interval': '60',
+        'timezone': timezone,
+        'theme': theme,
+        'style': '1',
+        'gridColor': 'rgba(255, 255, 255, 0)',
+        'locale': locale,
+        'hide_legend': 'true',
+        'allow_symbol_change': 'false',
+        'save_image': 'false',
+        'withdateranges': 'false',
+        'calendar': 'false',
+        'hide_volume': 'true',
+        'hide_side_toolbar': '1',
+        'support_host': 'https://www.tradingview.com',
+        'adaptive_logo': 'false',
+        'isTransparent': 'true',
+      };
+
+      if (theme === 'dark') {
+        params.backgroundColor = 'rgba(27, 27, 27, 1)';
+      }
+      const hash = `#${JSON.stringify(params)}`;
+      const query = `?t=${Date.now()}&locale=${locale}`;
+      const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
+      const res = await fetch(uri);
+      const text = await res.text();
+      const content = text.replace(
+        '</title>',
+        `</title>
+          <style>
+              :root {
+                --tv-color-pane-background: ${bgAppColor} !important;
+              }
+          </style>`,
+      );
+      const blobContent = new Blob([content], { type: 'text/html' });
+      return `${URL.createObjectURL(blobContent)}${hash}`;
+    },
+    [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone],
+    {
+      initResult: '',
+    },
+  );
+
+  return blobUri;
 };

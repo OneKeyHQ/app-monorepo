@@ -14,19 +14,20 @@ export function WebView({
   }) {
   const iframeId = useMemo(() => generateUUID(), []);
   useEffect(() => {
-    const frame = document.getElementById(iframeId);
-    if (frame) {
+    const frame = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (frame && uri) {
       frame.onload = () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 1000);
+        }, 3000);
       };
     }
-  }, [iframeId, onLoadEnd]);
+  }, [uri, iframeId, onLoadEnd]);
   return (
     <div style={style as any}>
       <iframe
         id={iframeId}
+        src={uri}
         style={{
           height: '100%',
           width: '100%',
@@ -34,7 +35,6 @@ export function WebView({
         }}
         frameBorder="0"
         title="TradingView"
-        src={uri}
         sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
       />
     </div>
