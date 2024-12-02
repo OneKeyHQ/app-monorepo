@@ -4,6 +4,7 @@ import { useCalendars } from 'expo-localization';
 
 import { useThemeValue } from '@onekeyhq/components';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -98,12 +99,14 @@ export const useTradingViewUri = ({
           </style>`,
       );
       return {
-        uri: `${URL.createObjectURL(
-          new Blob([htmlCode], { type: 'text/html' }),
-        )}${hash}`,
+        uri: platformEnv.isNative
+          ? ''
+          : `${URL.createObjectURL(
+              new Blob([htmlCode], { type: 'text/html' }),
+            )}${hash}`,
         hash,
         query,
-        htmlCode,
+        htmlCode: platformEnv.isNative ? htmlCode : '',
       };
     },
     [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone],
