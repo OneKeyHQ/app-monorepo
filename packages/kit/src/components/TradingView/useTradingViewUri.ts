@@ -44,7 +44,7 @@ export const useTradingViewUri = ({
   targetToken: string;
 }) => {
   const theme = useThemeVariant();
-  const bgAppColor = useThemeValue('$bgApp');
+  const bgAppColor = useThemeValue('$bgApp', undefined, true);
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
     () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
