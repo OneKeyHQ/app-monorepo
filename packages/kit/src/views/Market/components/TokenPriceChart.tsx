@@ -169,7 +169,7 @@ function TradingViewChart({
     }, 50);
   }, []);
 
-  const content = (
+  return (
     <TradingView
       mode="overview"
       h={450}
@@ -181,19 +181,6 @@ function TradingViewChart({
       onTouchStart={handlePressIn}
       onTouchEnd={handlePressOut}
     />
-  );
-
-  return gtMd ? (
-    content
-  ) : (
-    <YStack>
-      {content}
-      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={24} />
-      <Stack h={1} w="100%" bg="$bgApp" position="absolute" top={63} />
-      <Stack h={1} w="100%" bg="$bgApp" position="absolute" bottom={0} />
-      <Stack h="100%" w={1} bg="$bgApp" position="absolute" left={0} />
-      <Stack h="100%" w={1} bg="$bgApp" position="absolute" right={0} />
-    </YStack>
   );
 }
 

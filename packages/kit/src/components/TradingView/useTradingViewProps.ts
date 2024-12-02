@@ -92,7 +92,15 @@ export const useTradingViewProps = ({
       const style = `
               :root {
                 --tv-color-pane-background: ${bgAppColor} !important;
-              }`;
+                --tv-color-platform-background: ${bgAppColor} !important;
+              }
+              body {
+                border-width: 0px !important;
+              }  
+              html.theme-dark .chart-page {
+                background: ${bgAppColor} !important;
+              }
+      `;
       const htmlCode = text.replace(
         '</title>',
         `</title>
