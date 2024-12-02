@@ -68,6 +68,7 @@ class ServiceGas extends ServiceBase {
         feeSymbol: feeInfo.feeSymbol,
         nativeDecimals: feeInfo.nativeDecimals,
         nativeSymbol: feeInfo.nativeSymbol,
+        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
       },
       txFees: feeInfo.result,
     };

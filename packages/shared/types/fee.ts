@@ -151,10 +151,14 @@ export type IServerBatchEstimateFeeResponse = {
       nativeSymbol: string;
       baseFee?: string;
       computeUnitPrice?: string;
+      nativeTokenPrice?: {
+        price: number;
+        price24h: number;
+      };
       result: {
         gas: IGasLegacy[];
         gasEIP1559: IGasEIP1559[];
-      };
+      }[];
     };
   };
 };
@@ -170,6 +174,14 @@ export type IFeeSelectorItem = {
   icon: string;
   value: number;
   feeInfo: IFeeInfoUnit;
+  type: EFeeType;
+};
+
+export type IMultiTxsFeeSelectorItem = {
+  label: string;
+  icon: string;
+  value: number;
+  feeInfos: IFeeInfoUnit[];
   type: EFeeType;
 };
 
