@@ -24,7 +24,7 @@ export function WebView({
       frame.onload = () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 3000);
+        }, 1200);
       };
     }
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
