@@ -135,14 +135,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
     const signData = handleSignData(initialTransaction);
 
-    const hwParams = {
-      path: dbAccount.path,
-      rawTx: hexUtils.hexlify(Buffer.from(signData)),
-      coinType: coinType ?? undefined,
-      ...params.deviceParams?.deviceCommonParams,
-    };
-    console.log('tx hw params: ', JSON.stringify(hwParams, null, 2));
-
     const response = await sdk.benfenSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
       rawTx: hexUtils.hexlify(Buffer.from(signData)),

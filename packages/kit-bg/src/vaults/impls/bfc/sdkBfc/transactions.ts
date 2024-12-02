@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
@@ -248,18 +250,27 @@ function parseMoveCall(transaction: TransactionBlock) {
   const transactions = transaction.blockData.transactions;
   const firstMoveCallCommand = transactions.find((i) => i.kind === 'MoveCall');
 
-  throw new Error('Not implemented');
+  if (!firstMoveCallCommand) {
+    return null;
+  }
 
-  // if (!firstMoveCallCommand?.MoveCall) {
-  //   return null;
-  // }
+  const target = firstMoveCallCommand.target;
+  if (!target) {
+    return null;
+  }
 
-  // const functionName = firstMoveCallCommand.MoveCall.function;
-  // const moduleName = firstMoveCallCommand.MoveCall.module;
-  // return {
-  //   contractName: functionName,
-  //   contractTo: `${moduleName}::${functionName}`,
-  // };
+  const parts = target.split('::');
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, moduleName, functionName] = parts;
+
+  return {
+    contractName: functionName,
+    contractTo: `${moduleName}::${functionName}`,
+  };
 }
 
 async function getCoinTypeForHardwareTransfer({
