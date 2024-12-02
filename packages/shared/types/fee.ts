@@ -66,6 +66,12 @@ export type IFeeFil = {
   gasLimit: string;
 };
 
+export type IBatchEstimateFeeParams = {
+  accountId: string;
+  networkId: string;
+  encodedTxs: IEncodedTx[];
+};
+
 export type IEstimateGasParams = {
   accountId: string;
   networkId: string;

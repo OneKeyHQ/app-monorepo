@@ -206,6 +206,8 @@ const settings: IVaultSettings = {
   stakingConfig,
 
   withTxMessage: true,
+
+  supportBatchEstimateFee: true,
 };
 
 export default Object.freeze(settings);

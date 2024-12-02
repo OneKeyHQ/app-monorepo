@@ -139,6 +139,26 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Loading,
         });
 
+        if (isMultiTxs && vaultSettings?.supportBatchEstimateFee) {
+          const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
+          const multiTxsFeeResult =
+            await backgroundApiProxy.serviceGas.batchEstimateFee({
+              accountId,
+              networkId,
+              encodedTxs: encodedTxList,
+            });
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          setTxFeeInit(true);
+          return {
+            r: undefined,
+            e: undefined,
+            m: multiTxsFeeResult,
+          };
+        }
+
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             networkId,
@@ -202,6 +222,7 @@ function TxFeeContainer(props: IProps) {
         return {
           r,
           e,
+          m: undefined,
         };
       } catch (e) {
         setTxFeeInit(true);
@@ -219,11 +240,13 @@ function TxFeeContainer(props: IProps) {
     [
       accountId,
       isLastSwapTxWithFeeInfo,
+      isMultiTxs,
       isSecondApproveTxWithFeeInfo,
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
       updateTxAdvancedSettings,
+      vaultSettings?.supportBatchEstimateFee,
     ],
     {
       watchLoading: true,
@@ -239,7 +262,7 @@ function TxFeeContainer(props: IProps) {
     },
   );
 
-  const { r: txFee, e: estimateFeeParams } = result ?? {};
+  const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
