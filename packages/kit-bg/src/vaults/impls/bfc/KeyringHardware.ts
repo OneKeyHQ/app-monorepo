@@ -35,7 +35,7 @@ import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.bfc.hd;
 
-  override hwSdkNetwork: IHwSdkNetwork = 'bfc';
+  override hwSdkNetwork: IHwSdkNetwork = 'benfen';
 
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,
@@ -52,17 +52,10 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const paths: string[] = [];
         const addressesInfo = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
-          sdkGetAddressFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
-            template,
-            showOnOnekeyFn,
-          }) => {
+          sdkGetAddressFn: async ({ template }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
                 template,
@@ -74,7 +67,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               usedIndexes,
               hwSdkNetwork: this.hwSdkNetwork,
               buildPath: buildFullPath,
-              buildResultAccount: ({ account, index }) => ({
+              buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.publicKey || '',
@@ -108,7 +101,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             throw new OneKeyHardwareError('Address is empty');
           }
           const item: ICoreApiGetAddressItem = {
-            address: hexUtils.addHexPrefix(address),
+            address,
             path,
             publicKey: publicKey || '',
           };
