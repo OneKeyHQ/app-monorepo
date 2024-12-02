@@ -87,6 +87,11 @@ export const useTradingViewProps = ({
       const hash = `#${JSON.stringify(params)}`;
       const query = `?t=${Date.now()}&locale=${locale}`;
       const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
+      if (platformEnv.isWeb || platformEnv.isExtension) {
+        return {
+          uri,
+        };
+      }
       const res = await fetch(uri);
       const text = await res.text();
       const style = `
