@@ -6,14 +6,13 @@ import type { ViewStyle } from 'react-native';
 import type { WebViewProps } from 'react-native-webview';
 
 export function WebView({
-  uri,
+  tradingViewProps,
   style,
   onLoadEnd,
 }: {
-  uri: string;
-  hash: string;
-  query: string;
-  htmlCode: string;
+  tradingViewProps: {
+    uri: string;
+  };
   style: ViewStyle;
 } & WebViewProps & {
     onLoadEnd: () => void;
@@ -21,19 +20,19 @@ export function WebView({
   const iframeId = useMemo(() => generateUUID(), []);
   useEffect(() => {
     const frame = document.getElementById(iframeId) as HTMLIFrameElement;
-    if (frame && uri) {
+    if (frame && tradingViewProps.uri) {
       frame.onload = () => {
         setTimeout(() => {
           onLoadEnd();
         }, 3000);
       };
     }
-  }, [uri, iframeId, onLoadEnd]);
+  }, [iframeId, onLoadEnd, tradingViewProps.uri]);
   return (
     <div style={style as any}>
       <iframe
         id={iframeId}
-        src={uri}
+        src={tradingViewProps.uri}
         style={{
           height: '100%',
           width: '100%',

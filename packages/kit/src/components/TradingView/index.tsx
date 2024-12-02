@@ -4,12 +4,11 @@ import {
   AnimatePresence,
   Spinner,
   Stack,
-  useMedia,
   usePropsAndStyle,
 } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 
-import { useTradingViewUri } from './useTradingViewUri';
+import { useTradingViewProps } from './useTradingViewProps';
 import { WebView } from './WebView';
 
 import type { ViewStyle } from 'react-native';
@@ -37,7 +36,7 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   const { targetToken, identifier, baseToken, ...otherProps } =
     restProps as IBaseTradingViewProps;
   const [showLoading, changeShowLoading] = useState(true);
-  const { uri, hash, query, htmlCode } = useTradingViewUri({
+  const tradingViewProps = useTradingViewProps({
     targetToken,
     identifier,
     baseToken,
@@ -48,10 +47,7 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   return (
     <Stack bg="$bgApp" style={style as ViewStyle}>
       <WebView
-        uri={uri}
-        hash={hash}
-        query={query}
-        htmlCode={htmlCode}
+        tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}
         onLoadEnd={onLoadEnd}
         {...otherProps}

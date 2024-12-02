@@ -34,7 +34,7 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
   'zh-TW': 'zh_TW',
 };
 
-export const useTradingViewUri = ({
+export const useTradingViewProps = ({
   identifier,
   baseToken,
   targetToken,
@@ -89,33 +89,36 @@ export const useTradingViewUri = ({
       const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
       const res = await fetch(uri);
       const text = await res.text();
+      const style = `
+              :root {
+                --tv-color-pane-background: ${bgAppColor} !important;
+              }`;
       const htmlCode = text.replace(
         '</title>',
         `</title>
-          <style>
-              :root {
-                --tv-color-pane-background: ${bgAppColor} !important;
-              }
-          </style>`,
+        <style>
+          ${style}
+        </style>`,
       );
       return {
         uri: platformEnv.isNative
-          ? ''
+          ? uri
           : `${URL.createObjectURL(
               new Blob([htmlCode], { type: 'text/html' }),
             )}${hash}`,
-        hash,
-        query,
-        htmlCode: platformEnv.isNative ? htmlCode : '',
+        injectedJavaScript: platformEnv.isNative
+          ? ` const styleNode = document.createElement('style'); 
+        styleNode.type = 'text/css'; 
+        styleNode.textContent = \`${style}\`;
+        document.documentElement.appendChild(styleNode);`
+          : '',
       };
     },
     [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone],
     {
       initResult: {
         uri: '',
-        hash: '',
-        query: '',
-        htmlCode: '',
+        injectedJavaScript: '',
       },
     },
   );
