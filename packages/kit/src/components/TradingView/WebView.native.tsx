@@ -13,6 +13,9 @@ export function WebView({
   ...props
 }: {
   uri: string;
+  hash: string;
+  query: string;
+  htmlCode: string;
   style: ViewStyle;
   onLoadEnd: () => void;
 }) {

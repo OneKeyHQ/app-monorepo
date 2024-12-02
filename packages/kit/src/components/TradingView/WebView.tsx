@@ -9,7 +9,13 @@ export function WebView({
   uri,
   style,
   onLoadEnd,
-}: { uri: string; style: ViewStyle } & WebViewProps & {
+}: {
+  uri: string;
+  hash: string;
+  query: string;
+  htmlCode: string;
+  style: ViewStyle;
+} & WebViewProps & {
     onLoadEnd: () => void;
   }) {
   const iframeId = useMemo(() => generateUUID(), []);

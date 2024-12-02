@@ -37,7 +37,7 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   const { targetToken, identifier, baseToken, ...otherProps } =
     restProps as IBaseTradingViewProps;
   const [showLoading, changeShowLoading] = useState(true);
-  const uri = useTradingViewUri({
+  const { uri, hash, query, htmlCode } = useTradingViewUri({
     targetToken,
     identifier,
     baseToken,
@@ -49,6 +49,9 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
     <Stack bg="$bgApp" style={style as ViewStyle}>
       <WebView
         uri={uri}
+        hash={hash}
+        query={query}
+        htmlCode={htmlCode}
         style={{ flex: 1 }}
         onLoadEnd={onLoadEnd}
         {...otherProps}

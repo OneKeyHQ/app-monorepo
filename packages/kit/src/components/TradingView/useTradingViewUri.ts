@@ -56,7 +56,7 @@ export const useTradingViewUri = ({
     [calendars],
   );
 
-  const { result: blobUri } = usePromiseResult(
+  const { result } = usePromiseResult(
     async () => {
       const params: Record<string, string> = {
         'show_popup_button': 'false',
@@ -88,7 +88,7 @@ export const useTradingViewUri = ({
       const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
       const res = await fetch(uri);
       const text = await res.text();
-      const content = text.replace(
+      const htmlCode = text.replace(
         '</title>',
         `</title>
           <style>
@@ -97,14 +97,25 @@ export const useTradingViewUri = ({
               }
           </style>`,
       );
-      const blobContent = new Blob([content], { type: 'text/html' });
-      return `${URL.createObjectURL(blobContent)}${hash}`;
+      return {
+        uri: `${URL.createObjectURL(
+          new Blob([htmlCode], { type: 'text/html' }),
+        )}${hash}`,
+        hash,
+        query,
+        htmlCode,
+      };
     },
     [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone],
     {
-      initResult: '',
+      initResult: {
+        uri: '',
+        hash: '',
+        query: '',
+        htmlCode: '',
+      },
     },
   );
 
-  return blobUri;
+  return result;
 };
