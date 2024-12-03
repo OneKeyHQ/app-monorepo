@@ -13,7 +13,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
-import { getImportFromToken } from '@onekeyhq/shared/types/market/marketProvider.constants';
+import {
+  getImportFromToken,
+  getNetworkIdBySymbol,
+} from '@onekeyhq/shared/types/market/marketProvider.constants';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -65,9 +68,14 @@ export function MarketTradeButton({
   const isShowStackButton = true;
 
   const handleOnSwap = useCallback(async () => {
-    const { onekeyNetworkId: networkId, contract_address: contractAddress } =
-      network;
+    const { onekeyNetworkId, contract_address: contractAddress } =
+      network || {};
+    const networkId = onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
     if (!networkId) {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {},
+      });
       return;
     }
     const { isSupportSwap } =
@@ -103,7 +111,7 @@ export function MarketTradeButton({
       },
     });
   }, [logoURI, name, navigation, network, symbol]);
-  return network ? (
+  return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
       <XStack gap="$2.5" flex={1}>
         <Button flex={1} variant="primary" onPress={handleOnSwap}>
@@ -133,7 +141,7 @@ export function MarketTradeButton({
         ) : null}
       </XStack>
       <ActionList
-        title={network.coingeckoNetworkId?.toUpperCase() || ''}
+        title={symbol.toUpperCase() || ''}
         renderTrigger={
           <IconButton
             title={intl.formatMessage({ id: ETranslations.global_more })}
@@ -145,5 +153,5 @@ export function MarketTradeButton({
         sections={sections}
       />
     </XStack>
-  ) : null;
+  );
 }
