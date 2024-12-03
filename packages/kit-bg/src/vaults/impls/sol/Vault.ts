@@ -73,6 +73,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -1013,19 +1014,50 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxSol);
+      return this._buildUnsignedTxFromEncodedTx({
+        encodedTx: encodedTx as IEncodedTxSol,
+        swapInfo: params.swapInfo,
+      });
     }
     throw new OneKeyInternalError();
   }
 
-  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxSol) {
+  async _buildUnsignedTxFromEncodedTx({
+    encodedTx,
+    swapInfo,
+  }: {
+    encodedTx: IEncodedTxSol;
+    swapInfo?: ISwapTxInfo;
+  }) {
     const accountAddress = await this.getAccountAddress();
+
+    let newEncodedTx = encodedTx;
+
+    // internal okx sol swap tx need to replace recentBlockhash
+    if (swapInfo && swapInfo.swapBuildResData.OKXTxObject) {
+      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const { recentBlockhash, lastValidBlockHeight } =
+        await this._getRecentBlockHash();
+
+      if (nativeTx instanceof Transaction) {
+        nativeTx.recentBlockhash = recentBlockhash;
+        nativeTx.lastValidBlockHeight = lastValidBlockHeight;
+      } else if (nativeTx instanceof VersionedTransaction) {
+        nativeTx.message.recentBlockhash = recentBlockhash;
+      }
+
+      newEncodedTx = bs58.encode(
+        nativeTx.serialize({
+          requireAllSignatures: false,
+        }),
+      );
+    }
 
     return {
       payload: {
         feePayer: accountAddress,
       },
-      encodedTx,
+      encodedTx: newEncodedTx,
     };
   }
 

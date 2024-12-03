@@ -1004,11 +1004,23 @@ function TokenListContainer(props: ITabPageProps) {
       refreshRiskyTokenListMap({
         tokens: riskyTokenListMap,
       });
+      refreshAllTokenList({
+        keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
+        tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+      });
+      refreshAllTokenListMap({
+        tokens: {
+          ...mergeTokenListMap,
+          ...riskyTokenListMap,
+        },
+      });
     }
   }, [
     account?.createAtNetwork,
     account?.id,
     allNetworksResult,
+    refreshAllTokenList,
+    refreshAllTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
