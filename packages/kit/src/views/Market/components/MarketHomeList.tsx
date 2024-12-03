@@ -817,7 +817,10 @@ function BasicMarketHomeList({
                   </Stack>
                   {showMoreAction ? (
                     <Stack flex={1} ai="center">
-                      <MarketMore coingeckoId={record.coingeckoId} />
+                      <MarketMore
+                        coingeckoId={record.coingeckoId}
+                        symbol={record.symbol}
+                      />
                     </Stack>
                   ) : null}
                 </XStack>
