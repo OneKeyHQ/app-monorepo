@@ -39,13 +39,13 @@ import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBa
 import { MarketStar } from './components/MarketStar';
 import { MarketTokenIcon } from './components/MarketTokenIcon';
 import { MarketTokenPrice } from './components/MarketTokenPrice';
+import { MarketTradeButton } from './components/MarketTradeButton';
 import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
-import { MarketTradeButton } from './components/MarketTradeButton';
 
 function TokenDetailHeader({
   coinGeckoId,
@@ -102,7 +102,7 @@ function TokenDetailHeader({
           {performance.priceChangePercentage24h}
         </PriceChangePercentage>
       </YStack>
-      <MarketTradeButton />
+      <MarketTradeButton coinGeckoId={coinGeckoId} token={token} />
       {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>
   );
