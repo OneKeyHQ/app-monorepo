@@ -108,6 +108,9 @@ const COINTYPE_SCDO = '541';
 const IMPL_ALPH = 'alph';
 const COINTYPE_ALPH = '1234';
 
+const IMPL_BFC = 'bfc';
+const COINTYPE_BFC = '728';
+
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -250,6 +253,7 @@ export {
   COINTYPE_CKB,
   COINTYPE_SCDO,
   COINTYPE_ALPH,
+  COINTYPE_BFC,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -282,6 +286,7 @@ export {
   IMPL_CKB,
   IMPL_SCDO,
   IMPL_ALPH,
+  IMPL_BFC,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

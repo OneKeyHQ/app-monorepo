@@ -3,6 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import ProviderApiAlgo from './ProviderApiAlgo';
 import ProviderApiAlph from './ProviderApiAlph';
 import ProviderApiAptos from './ProviderApiAptos';
+import ProviderApiBfc from './ProviderApiBfc';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
 import ProviderApiConflux from './ProviderApiConflux';
@@ -12,7 +13,6 @@ import ProviderApiNear from './ProviderApiNear';
 import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
-// import ProviderApiPrivateExternalAccount from './ProviderApiPrivateExternalAccount';
 import ProviderApiScdo from './ProviderApiScdo';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
@@ -63,6 +63,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.sui]: new ProviderApiSui({
       backgroundApi,
     }),
+    [IInjectedProviderNames.bfc]: new ProviderApiBfc({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.ton]: new ProviderApiTon({
       backgroundApi,
     }),
@@ -86,15 +89,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.$privateExternalAccount]:
-    //   new ProviderApiPrivateExternalAccount({
-    //     backgroundApi,
-    //   }),
-    // near
     // eslint-disable-next-line spellcheck/spell-checker
     // sollet
   };
-
   return backgroundProviders;
 }
 
