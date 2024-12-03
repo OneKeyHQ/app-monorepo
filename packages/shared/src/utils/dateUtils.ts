@@ -38,6 +38,7 @@ export type IFormatDateOptions = {
   hideTimeForever?: boolean;
   hideSeconds?: boolean;
   formatTemplate?: string;
+  hideMilliseconds?: boolean;
 };
 
 export type IFormatMonthOptions = {
@@ -222,6 +223,10 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
 
   if (options?.hideSeconds) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
+  }
+
+  if (options?.hideMilliseconds) {
+    formatTemplate = formatTemplate.replace('.SSS', '');
   }
 
   return formatDateFns(parsedDate, formatTemplate) ?? '';
