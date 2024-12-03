@@ -1,4 +1,4 @@
-export const enum ESendMode {
+export enum ETonSendMode {
   CARRY_ALL_REMAINING_BALANCE = 128,
   CARRY_ALL_REMAINING_INCOMING_VALUE = 64,
   DESTROY_ACCOUNT_IF_ZERO = 32,

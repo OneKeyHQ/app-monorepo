@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
 import {
-  ESendMode,
+  ETonSendMode,
   genAddressFromAddress,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -123,7 +123,8 @@ export default class Vault extends VaultBase {
         const msg: IEncodedTxTon['messages'][0] = {
           address: transfer.to,
           amount,
-          sendMode: ESendMode.PAY_GAS_SEPARATELY + ESendMode.IGNORE_ERRORS,
+          sendMode:
+            ETonSendMode.PAY_GAS_SEPARATELY + ETonSendMode.IGNORE_ERRORS,
         };
         if (transfer.memo) {
           msg.payload = await encodeComment(transfer.memo);
