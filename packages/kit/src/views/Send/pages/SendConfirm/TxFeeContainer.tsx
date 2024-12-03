@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -41,6 +42,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
@@ -286,6 +288,31 @@ function TxFeeContainer(props: IProps) {
                 .shiftedBy(-feeDecimals)
                 .toFixed(),
             };
+          }
+
+          if (
+            network &&
+            network.impl === IMPL_APTOS &&
+            unsignedTxs.length > 0
+          ) {
+            const {
+              gas_unit_price: aptosGasPrice,
+              max_gas_amount: aptosMaxGasLimit,
+            } = unsignedTxs[0].encodedTx as IEncodedTxAptos;
+            // use dApp fee
+            if (aptosGasPrice && aptosMaxGasLimit) {
+              const gasPrice = chainValueUtils.convertChainValueToGwei({
+                value: aptosGasPrice,
+                network,
+              });
+
+              feeInfo.gas = {
+                ...feeInfo.gas,
+                gasLimit: aptosMaxGasLimit,
+                gasPrice,
+                gasLimitForDisplay: aptosMaxGasLimit,
+              };
+            }
           }
         }
 
