@@ -8,7 +8,6 @@ import {
   SignedTransaction,
   SimpleTransaction,
   TransactionAuthenticatorEd25519,
-  TransactionPayloadEntryFunction,
   TransactionResponseType,
 } from '@aptos-labs/ts-sdk';
 import { get, isEmpty } from 'lodash';
@@ -493,37 +492,4 @@ export function generateTransferCreateNft(
 
 export function getExpirationTimestampSecs(): bigint {
   return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
-}
-
-export function decodeTxByBcsTxn(bcsTxn: string) {
-  const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-  const simpleTxn = SimpleTransaction.deserialize(deserializer);
-  const rawTx = simpleTxn.rawTransaction;
-
-  let actionType = EDecodedTxActionType.UNKNOWN;
-  const payload = rawTx.payload;
-  switch (true) {
-    case payload instanceof TransactionPayloadEntryFunction:
-      // eslint-disable-next-line no-case-declarations
-      const functionName = payload.entryFunction.function_name.toString();
-      if (
-        functionName === APTOS_NATIVE_TRANSFER_FUNC ||
-        functionName === APTOS_TRANSFER_FUNC
-      ) {
-        actionType = EDecodedTxActionType.ASSET_TRANSFER;
-      }
-      if (functionName === APTOS_TOKEN_REGISTER) {
-        return EDecodedTxActionType.TOKEN_ACTIVATE;
-      }
-
-      break;
-    default:
-      actionType = EDecodedTxActionType.UNKNOWN;
-      break;
-  }
-
-  return {
-    actionType,
-    rawTx,
-  };
 }
