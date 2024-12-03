@@ -286,7 +286,7 @@ function AssetProtocolList() {
               : ETranslations.provider_title,
           },
           {
-            symbol,
+            symbol: symbol.toUpperCase(),
           },
         )}
         headerRight={headerRight}
