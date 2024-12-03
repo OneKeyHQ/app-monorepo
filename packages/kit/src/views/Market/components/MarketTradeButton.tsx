@@ -162,7 +162,7 @@ export function MarketTradeButton({
         swapTabSwitchType,
       },
     });
-  }, [logoURI, name, navigation, network, networkId, symbol]);
+  }, [contractAddress, logoURI, name, navigation, networkId, symbol]);
 
   const handleStack = useCallback(() => {
     if (networkId && activeAccount.account) {
