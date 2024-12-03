@@ -35,8 +35,18 @@ const getSwapTokenMap = memoizee(() => {
     },
     [networkIdsMap.sol]: {
       switchType: ESwapTabSwitchType.SWAP,
-      contractAddress: '',
-      default: {},
+      contractAddress: 'So11111111111111111111111111111111111111112',
+      default: {
+        'networkId': 'sol--101',
+        'contractAddress': '',
+        'name': 'Solana',
+        'symbol': 'SOL',
+        'decimals': 9,
+        'logoURI':
+          'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
+        'riskLevel': 1,
+        'isNative': true,
+      },
       usdc: {
         'networkId': 'sol--101',
         'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
