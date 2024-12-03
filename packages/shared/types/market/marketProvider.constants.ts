@@ -6,6 +6,29 @@ import { ESwapTabSwitchType } from '../swap/types';
 const getSwapTokenMap = memoizee(() => {
   const networkIdsMap = getNetworkIdsMap();
   return {
+    [networkIdsMap.btc]: {
+      switchType: ESwapTabSwitchType.BRIDGE,
+      default: {
+        'networkId': 'btc--0',
+        'name': 'Bitcoin',
+        'symbol': 'BTC',
+        'decimals': 8,
+        'logoURI':
+          'https://uni.onekey-asset.com/server-service-indexer/btc--0/tokens/address-.png',
+        'isNative': true,
+      },
+      target: {
+        'networkId': 'evm--1',
+        'contractAddress': '',
+        'name': 'Ethereum',
+        'symbol': 'ETH',
+        'decimals': 18,
+        'logoURI':
+          'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
+        'isNative': true,
+        'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
+      },
+    },
     [networkIdsMap.eth]: {
       switchType: ESwapTabSwitchType.SWAP,
       contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
@@ -20,7 +43,7 @@ const getSwapTokenMap = memoizee(() => {
         'isNative': true,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
       },
-      usdc: {
+      target: {
         'networkId': 'evm--1',
         'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         'name': 'USD Coin',
@@ -47,7 +70,7 @@ const getSwapTokenMap = memoizee(() => {
         'riskLevel': 1,
         'isNative': true,
       },
-      usdc: {
+      target: {
         'networkId': 'sol--101',
         'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         'name': 'USDC',
@@ -73,7 +96,7 @@ const getSwapTokenMap = memoizee(() => {
         'riskLevel': 1,
         'isNative': true,
       },
-      usdc: {
+      target: {
         'networkId': 'evm--56',
         'contractAddress': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
         'name': 'USD Coin',
@@ -85,6 +108,16 @@ const getSwapTokenMap = memoizee(() => {
       },
     },
   };
+});
+
+export const getNetworkIdBySymbol = memoizee((symbol: string) => {
+  const networkIdsMap = getNetworkIdsMap();
+  switch (symbol) {
+    case 'btc':
+      return networkIdsMap.btc;
+    default:
+      return undefined;
+  }
 });
 
 export function getImportFromToken({
@@ -101,7 +134,7 @@ export function getImportFromToken({
   if (item) {
     return {
       importFromToken:
-        item.contractAddress === contractAddress ? item.usdc : item.default,
+        item.contractAddress === contractAddress ? item.target : item.default,
       swapTabSwitchType: item.switchType,
     };
   }
