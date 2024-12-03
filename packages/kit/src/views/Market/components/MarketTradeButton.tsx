@@ -6,8 +6,13 @@ import type {
   IActionListItemProps,
   IPageNavigationProp,
 } from '@onekeyhq/components';
-import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  ActionList,
+  Button,
+  IconButton,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
@@ -15,13 +20,14 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import {
   getImportFromToken,
   getNetworkIdBySymbol,
 } from '@onekeyhq/shared/types/market/marketProvider.constants';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -46,31 +52,10 @@ export function MarketTradeButton({
   );
   const intl = useIntl();
 
-  const networkIdsMap = getNetworkIdsMap();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
-  const sections = useMemo(
-    () => [
-      {
-        items: [
-          {
-            icon: 'PlusLargeSolid',
-            label: intl.formatMessage({ id: ETranslations.global_buy }),
-            onPress: () => {},
-          },
-          {
-            icon: 'MinusLargeSolid',
-            label: intl.formatMessage({ id: ETranslations.global_sell }),
-            onPress: () => {},
-          },
-        ] as IActionListItemProps[],
-      },
-    ],
-    [intl],
-  );
 
   const isShowStakingButton = useMemo(() => isSupportStaking(symbol), [symbol]);
 
@@ -79,8 +64,65 @@ export function MarketTradeButton({
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
 
+  const contractAddress = useMemo(
+    () => network?.contract_address ?? '',
+    [network],
+  );
+
+  const handleBuyOrSell = useCallback(
+    async (type: IFiatCryptoType) => {
+      if (!activeAccount.account || !networkId) {
+        return;
+      }
+
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const dbAccount =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId: activeAccount.account.indexedAccountId,
+          networkId,
+          deriveType,
+        });
+      const { url } =
+        await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+          networkId,
+          tokenAddress: contractAddress,
+          accountId: dbAccount.id,
+          type,
+        });
+      if (!url) {
+        Toast.error({ title: 'Failed to get widget url' });
+        return;
+      }
+      openUrlExternal(url);
+    },
+    [activeAccount.account, contractAddress, networkId],
+  );
+
+  const sections = useMemo(
+    () => [
+      {
+        items: [
+          {
+            icon: 'PlusLargeSolid',
+            label: intl.formatMessage({ id: ETranslations.global_buy }),
+            onPress: () => handleBuyOrSell('buy'),
+          },
+          {
+            icon: 'MinusLargeSolid',
+            label: intl.formatMessage({ id: ETranslations.global_sell }),
+            onPress: () => handleBuyOrSell('sell'),
+          },
+        ] as IActionListItemProps[],
+      },
+    ],
+    [handleBuyOrSell, intl],
+  );
+
   const handleOnSwap = useCallback(async () => {
-    const { contract_address: contractAddress } = network || {};
     if (!networkId) {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
