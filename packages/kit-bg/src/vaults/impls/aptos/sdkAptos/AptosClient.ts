@@ -1,17 +1,22 @@
-import {
-  AptosClient as BaseAptosClient,
-  Network,
-  NetworkToNodeAPI,
-} from 'aptos';
+/* eslint-disable spellcheck/spell-checker */
+import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-import type { MaybeHexString, PaginationArgs, Types } from 'aptos';
+import type {
+  AccountAddressInput,
+  MoveModuleBytecode,
+  MoveResource,
+  PaginationArgs,
+  TransactionResponse,
+} from '@aptos-labs/ts-sdk';
 
-export class AptosClient extends BaseAptosClient {
+export class AptosClient {
   backgroundApi: IBackgroundApi;
 
   networkId: string;
+
+  aptos: Aptos;
 
   constructor({
     backgroundApi,
@@ -20,51 +25,63 @@ export class AptosClient extends BaseAptosClient {
     backgroundApi: any;
     networkId: string;
   }) {
-    super(NetworkToNodeAPI[Network.MAINNET]);
+    const config = new AptosConfig({ network: Network.MAINNET });
+    this.aptos = new Aptos(config);
     this.backgroundApi = backgroundApi;
     this.networkId = networkId;
   }
 
-  override async getAccountModules(
+  async getAccountModules(
     accountAddress: string,
     query?: any,
-  ): Promise<Types.MoveModuleBytecode[]> {
-    const out = await this.proxyRequest<Types.MoveModuleBytecode[]>(
+  ): Promise<MoveModuleBytecode[]> {
+    const out = await this.proxyRequest<MoveModuleBytecode[]>(
       'getAccountModules',
       [accountAddress, query],
     );
     return out;
   }
 
-  override getChainId(): Promise<number> {
+  getChainId(): Promise<number> {
     return this.proxyRequest('getChainId', []);
   }
 
-  override getAccount(
-    accountAddress: MaybeHexString,
+  getAccount(
+    accountAddress: AccountAddressInput,
   ): Promise<{ sequence_number: string; authentication_key: string }> {
     return this.proxyRequest('getAccount', [accountAddress]);
   }
 
-  override getTransactionByHash(txnHash: string): Promise<Types.Transaction> {
-    return this.proxyRequest('getTransactionByHash', [txnHash]);
+  getTransactionByHash(txnHash: string): Promise<TransactionResponse> {
+    return this.proxyRequest<TransactionResponse>('getTransactionByHash', [
+      txnHash,
+    ]);
   }
 
-  override getAccountTransactions(
-    accountAddress: MaybeHexString,
+  getTransactions(
     query?: PaginationArgs | undefined,
-  ): Promise<Types.Transaction[]> {
-    return this.proxyRequest('getAccountTransactions', [accountAddress, query]);
+  ): Promise<TransactionResponse[]> {
+    return this.aptos.transaction.getTransactions({ options: query });
   }
 
-  override getAccountResources(
-    accountAddress: MaybeHexString,
+  getAccountTransactions(
+    accountAddress: AccountAddressInput,
+    query?: PaginationArgs | undefined,
+  ): Promise<TransactionResponse[]> {
+    return this.proxyRequest<TransactionResponse[]>('getAccountTransactions', [
+      accountAddress,
+      query,
+    ]);
+  }
+
+  getAccountResources(
+    accountAddress: AccountAddressInput,
     query?: { ledgerVersion?: (number | bigint) | undefined } | undefined,
-  ): Promise<{ type: string; data: any }[]> {
+  ): Promise<MoveResource[]> {
     return this.proxyRequest('getAccountResources', [accountAddress, query]);
   }
 
-  override getLedgerInfo(): Promise<{
+  getLedgerInfo(): Promise<{
     chain_id: number;
     epoch: string;
     ledger_version: string;

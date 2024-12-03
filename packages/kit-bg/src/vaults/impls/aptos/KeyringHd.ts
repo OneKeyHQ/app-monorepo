@@ -1,4 +1,4 @@
-import { BCS } from 'aptos';
+import { Serializer } from '@aptos-labs/ts-sdk';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -49,13 +49,11 @@ export class KeyringHd extends KeyringHdBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
-    const serializer = new BCS.Serializer();
-    rawTxn.serialize(serializer);
     return this.baseSignTransaction({
       ...params,
       unsignedTx: {
         ...unsignedTx,
-        rawTxUnsigned: bufferUtils.bytesToHex(serializer.getBytes()),
+        rawTxUnsigned: rawTxn.bcsToHex().toStringWithoutPrefix(),
       },
     });
   }
