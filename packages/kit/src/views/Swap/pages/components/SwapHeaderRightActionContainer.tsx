@@ -238,7 +238,12 @@ const SwapSettingsDialogContent = () => {
           label: (
             <XStack>
               {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                <Icon name="Ai3StarOutline" size="$5" color="$iconSuccess" />
+                <Icon
+                  name="Ai3StarOutline"
+                  size="$4.5"
+                  color="$iconSuccess"
+                  mr="$0.5"
+                />
               ) : null}
               <SizableText size="$bodyMdMedium">
                 {intl.formatMessage({
@@ -348,7 +353,7 @@ const SwapHeaderRightActionContainer = ({
               ? '$textCaution'
               : '$text'
           }
-          size="$bodySmMedium"
+          size="$bodyMdMedium"
         >{`${slippageItem.value}%`}</SizableText>
       );
     }
@@ -384,25 +389,6 @@ const SwapHeaderRightActionContainer = ({
 
   return (
     <HeaderButtonGroup>
-      {swapPendingStatusList.length > 0 ? (
-        <Badge badgeSize="lg" badgeType="info" onPress={onOpenHistoryListModal}>
-          <Stack borderRadius="$full" p={3} bg="$borderInfo">
-            <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
-          </Stack>
-          <Badge.Text cursor="pointer" pl="$2">{`${
-            swapPendingStatusList.length
-          } ${intl.formatMessage({
-            id: ETranslations.swap_history_detail_status_pending,
-          })} `}</Badge.Text>
-        </Badge>
-      ) : (
-        <HeaderIconButton
-          icon="ClockTimeHistoryOutline"
-          onPress={onOpenHistoryListModal}
-          iconProps={{ size: 24 }}
-          size="medium"
-        />
-      )}
       {slippageTitle ? (
         <Button
           onPress={onOpenSwapSettings}
@@ -421,6 +407,44 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
+          iconProps={{ size: 24 }}
+          size="medium"
+        />
+      )}
+
+      {swapPendingStatusList.length > 0 ? (
+        <Stack
+          m="$0.5"
+          w="$5"
+          h="$5"
+          userSelect="none"
+          borderRadius="$full"
+          borderColor="$icon"
+          borderWidth="1.2px"
+          alignItems="center"
+          justifyContent="center"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 0,
+          }}
+          onPress={onOpenHistoryListModal}
+        >
+          <SizableText color="$text" size="$bodySm">
+            {`${swapPendingStatusList.length}`}
+          </SizableText>
+        </Stack>
+      ) : (
+        <HeaderIconButton
+          icon="ClockTimeHistoryOutline"
+          onPress={onOpenHistoryListModal}
           iconProps={{ size: 24 }}
           size="medium"
         />
