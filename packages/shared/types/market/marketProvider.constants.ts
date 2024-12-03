@@ -61,8 +61,18 @@ const getSwapTokenMap = memoizee(() => {
     },
     [networkIdsMap.bsc]: {
       switchType: ESwapTabSwitchType.SWAP,
-      contractAddress: '',
-      default: {},
+      contractAddress: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+      default: {
+        'networkId': 'evm--56',
+        'contractAddress': '',
+        'name': 'BNB',
+        'symbol': 'BNB',
+        'decimals': 18,
+        'logoURI':
+          'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-.png',
+        'riskLevel': 1,
+        'isNative': true,
+      },
       usdc: {
         'networkId': 'evm--56',
         'contractAddress': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
