@@ -605,17 +605,27 @@ export default class VaultAptos extends VaultBase {
       .shiftedBy(common.feeDecimals)
       .toFixed();
 
-    let { bcsTxn, disableEditTx } = params.encodedTx;
+    let {
+      bcsTxn,
+      disableEditTx,
+      max_gas_amount: maxGasAmount,
+    } = params.encodedTx;
     // Standard wallet dApp interface not edit fee
     if (!disableEditTx && !isNil(bcsTxn) && !isEmpty(bcsTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
+
+      const newMaxGasAmount =
+        rawTx.max_gas_amount < BigInt(maxGasAmount ?? '0')
+          ? BigInt(maxGasAmount ?? '0')
+          : rawTx.max_gas_amount;
+
       const newRawTx = new RawTransaction(
         rawTx.sender,
         rawTx.sequence_number,
         rawTx.payload,
-        BigInt(gas.gasLimit),
+        newMaxGasAmount,
         BigInt(gasPrice),
         rawTx.expiration_timestamp_secs,
         rawTx.chain_id,
@@ -841,17 +851,26 @@ export default class VaultAptos extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const config = new AptosConfig({ fullnode: rpcUrl });
+
+    const rpcUrlWithoutSeparator = rpcUrl.replace(/\/$/, '');
+    const hasVersion = /\/v\d+$/.test(rpcUrlWithoutSeparator);
+    const rpcUrlFull = hasVersion
+      ? rpcUrlWithoutSeparator
+      : `${rpcUrlWithoutSeparator}/v1`;
+
+    const config = new AptosConfig({ fullnode: rpcUrlFull });
     const deserializer = new Deserializer(
       bufferUtils.hexToBytes(signedTx.rawTx),
     );
-    const signedTransaction = SignedTransaction.deserialize(deserializer);
+    const signedTransactionBscHex = SignedTransaction.deserialize(deserializer)
+      .bcsToHex()
+      .toUint8Array();
     const { data } = await postAptosFullNode<
       Uint8Array,
       PendingTransactionResponse
     >({
       aptosConfig: config,
-      body: signedTransaction,
+      body: signedTransactionBscHex,
       path: 'transactions',
       originMethod: 'submitTransaction',
       contentType: MimeType.BCS_SIGNED_TRANSACTION,
