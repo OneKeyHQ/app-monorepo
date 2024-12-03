@@ -112,6 +112,7 @@ const getSwapTokenMap = memoizee(() => {
       switchType: ESwapTabSwitchType.SWAP,
       contractAddress: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
       default: {
+        'contractAddress': '',
         'networkId': 'evm--137',
         'name': 'Polygon',
         'symbol': 'POL',
@@ -123,6 +124,7 @@ const getSwapTokenMap = memoizee(() => {
         'isNative': true,
       },
       target: {
+        'contractAddress': '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
         'networkId': 'evm--137',
         'name': 'USD Coin',
         'symbol': 'USDC',
