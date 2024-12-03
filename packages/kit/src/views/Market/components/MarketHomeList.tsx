@@ -62,6 +62,7 @@ import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
+import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
@@ -626,6 +627,18 @@ function BasicMarketHomeList({
                     <Skeleton w="$24" h="$3" />
                   </YStack>
                 </XStack>
+              ),
+            },
+            {
+              title: '',
+              dataIndex: 'trade',
+              columnWidth: 180,
+              renderSkeleton: () => <Skeleton w="100%" h="$3" />,
+              render: (_, record: IMarketToken) => (
+                <MarketListTradeButton
+                  coinGeckoId={record.coingeckoId}
+                  symbol={record.symbol}
+                />
               ),
             },
             {

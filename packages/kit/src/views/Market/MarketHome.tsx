@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import useHomePageWidth from '../Home/hooks/useHomePageWidth';
 
@@ -37,6 +38,7 @@ import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeH
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
 function BasicAnimatedIcon(
@@ -182,10 +184,18 @@ function MarketHome() {
 
 export default function MarketHomeWithProvider() {
   return (
-    <MarketWatchListProviderMirror
-      storeName={EJotaiContextStoreNames.marketWatchList}
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
     >
-      <MarketHome />
-    </MarketWatchListProviderMirror>
+      <MarketWatchListProviderMirror
+        storeName={EJotaiContextStoreNames.marketWatchList}
+      >
+        <MarketHome />
+      </MarketWatchListProviderMirror>
+    </AccountSelectorProviderMirror>
   );
 }

@@ -8,6 +8,7 @@ const getSwapTokenMap = memoizee(() => {
   return {
     [networkIdsMap.btc]: {
       switchType: ESwapTabSwitchType.BRIDGE,
+      contractAddress: '',
       default: {
         'contractAddress': '',
         'networkId': 'btc--0',
