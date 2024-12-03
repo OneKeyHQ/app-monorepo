@@ -84,7 +84,7 @@ export function MarketTradeButton({
       tokenSymbol: symbol,
       contractAddress,
     });
-    const { importFromToken = {}, swapTabSwitchType } =
+    const { importFromToken, swapTabSwitchType } =
       importFromTokenResponse || {};
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
