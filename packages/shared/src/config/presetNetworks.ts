@@ -2528,6 +2528,27 @@ const alph: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const benfen: IServerNetwork = {
+  'chainId': 'mainnet',
+  'code': 'bfc',
+  'decimals': 9,
+  'id': 'bfc--mainnet',
+  'impl': 'bfc',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bfc.png',
+  'name': 'BenFen',
+  'shortcode': 'bfc',
+  'shortname': 'BFC',
+  'symbol': 'BFC',
+  'feeMeta': {
+    'code': 'bfc',
+    'decimals': 9,
+    'symbol': 'BFC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2640,6 +2661,7 @@ export const presetNetworksMap = {
   alph,
   ton,
   scdo,
+  benfen,
 };
 
 // top 20 tvl evm networks
@@ -2774,5 +2796,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   alph,
   ton,
   scdo,
+  benfen,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
