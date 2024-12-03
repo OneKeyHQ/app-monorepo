@@ -69,8 +69,9 @@ export default function SettingCurrencyModal() {
     currencyRef.current as ICurrencyItem,
   );
   const intl = useIntl();
-  const [{ currencyItems }] = useCurrencyPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const sections = useMemo(() => {
+    const currencyItems = Object.values(currencyMap);
     if (currencyItems.length === 0) {
       return [];
     }
@@ -102,7 +103,7 @@ export default function SettingCurrencyModal() {
         data: section.fiat,
       },
     ].filter((item) => item.data.length > 0);
-  }, [currencyItems, text, intl]);
+  }, [currencyMap, intl, text]);
 
   const handlePress = useCallback((item: ICurrencyItem) => {
     setCurrency(item);

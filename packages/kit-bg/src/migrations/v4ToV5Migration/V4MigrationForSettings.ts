@@ -88,11 +88,10 @@ export class V4MigrationForSettings extends V4MigrationManagerBase {
     if (v4Settings?.selectedFiatMoneySymbol) {
       await this.v4dbHubs.logger.runAsyncWithCatch(
         async () => {
-          const currencyList =
-            await this.backgroundApi.serviceSetting.getCurrencyList();
-          const existingCurrencyItem = currencyList.find(
-            (i) => i.id === v4Settings.selectedFiatMoneySymbol,
-          );
+          const currencyMap =
+            await this.backgroundApi.serviceSetting.getCurrencyMap();
+          const existingCurrencyItem =
+            currencyMap[v4Settings.selectedFiatMoneySymbol];
           if (existingCurrencyItem) {
             await this.backgroundApi.serviceSetting.setCurrency({
               id: existingCurrencyItem.id,
