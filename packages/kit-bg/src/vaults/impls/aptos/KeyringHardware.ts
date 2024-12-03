@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BCS } from 'aptos';
-
 import type { ISignMessageRequest } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -8,11 +6,9 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -133,15 +129,15 @@ export class KeyringHardware extends KeyringHardwareBase {
       (this.vault as VaultAptos).client,
       params.unsignedTx,
     );
-    const serializer = new BCS.Serializer();
-    rawTxn.serialize(serializer);
+    const rawTx = rawTxn.rawTransaction.bcsToHex().toStringWithoutPrefix();
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
+    // TODO: support feePayerAddress、secondarySignerAddresses
     const res = await convertDeviceResponse(() =>
       sdk.aptosSignTransaction(connectId, deviceId, {
         ...deviceCommonParams,
         path: account.path,
-        rawTx: bufferUtils.bytesToHex(serializer.getBytes()),
+        rawTx,
       }),
     );
     const result = await buildSignedTx(

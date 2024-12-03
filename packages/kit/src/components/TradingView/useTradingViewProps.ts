@@ -79,11 +79,9 @@ export const useTradingViewProps = ({
         'support_host': 'https://www.tradingview.com',
         'adaptive_logo': 'false',
         'isTransparent': 'true',
+        'backgroundColor': bgAppColor,
       };
 
-      if (theme === 'dark') {
-        params.backgroundColor = 'rgba(27, 27, 27, 1)';
-      }
       const hash = `#${JSON.stringify(params)}`;
       const query = `?t=${Date.now()}&locale=${locale}`;
       const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;

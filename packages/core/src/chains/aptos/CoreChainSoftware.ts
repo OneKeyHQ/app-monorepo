@@ -1,4 +1,12 @@
-import { BCS, TransactionBuilder, TxnBuilderTypes } from 'aptos';
+import {
+  Deserializer,
+  Ed25519PublicKey,
+  Ed25519Signature,
+  SignedTransaction,
+  SimpleTransaction,
+  TransactionAuthenticatorEd25519,
+  generateSigningMessageForTransaction,
+} from '@aptos-labs/ts-sdk';
 // eslint-disable-next-line camelcase
 import { sha3_256 } from 'js-sha3';
 
@@ -27,36 +35,26 @@ import { ECoreApiExportedSecretKeyType } from '../../types';
 
 const curveName: ICurveName = 'ed25519';
 
-async function deserializeTransactionAptos(
-  rawTx: string,
-): Promise<TxnBuilderTypes.RawTransaction> {
-  const bytes = bufferUtils.toBuffer(rawTx);
-  const deserializer = new BCS.Deserializer(bytes);
-  const tx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
-  return Promise.resolve(tx);
-}
-
 async function buildSignedTx(
-  rawTxn: TxnBuilderTypes.RawTransaction,
+  rawTxn: SimpleTransaction,
   senderPublicKey: string,
   signature: string,
   encodedTx: any,
 ) {
-  const txSignature = new TxnBuilderTypes.Ed25519Signature(
-    bufferUtils.hexToBytes(signature),
-  );
-  const authenticator = new TxnBuilderTypes.TransactionAuthenticatorEd25519(
-    new TxnBuilderTypes.Ed25519PublicKey(
+  const txSignature = new Ed25519Signature(bufferUtils.hexToBytes(signature));
+  const authenticator = new TransactionAuthenticatorEd25519(
+    new Ed25519PublicKey(
       bufferUtils.hexToBytes(hexUtils.stripHexPrefix(senderPublicKey)),
     ),
     txSignature,
   );
-  const signRawTx = BCS.bcsToBytes(
-    new TxnBuilderTypes.SignedTransaction(rawTxn, authenticator),
-  );
+  const signRawTx = new SignedTransaction(
+    rawTxn.rawTransaction,
+    authenticator,
+  ).bcsToHex();
   return Promise.resolve({
     txid: '',
-    rawTx: bufferUtils.bytesToHex(signRawTx),
+    rawTx: signRawTx.toStringWithoutPrefix(),
     encodedTx,
   });
 }
@@ -114,8 +112,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }
-    const rawTxn = await deserializeTransactionAptos(rawTxUnsigned);
-    const signingMessage = TransactionBuilder.getSigningMessage(rawTxn);
+
+    const rawTxn = SimpleTransaction.deserialize(
+      new Deserializer(Buffer.from(rawTxUnsigned, 'hex')),
+    );
+
+    const signingMessage = generateSigningMessageForTransaction(rawTxn);
     const [signature] = await signer.sign(bufferUtils.toBuffer(signingMessage));
     const signatureHex = hexUtils.hexlify(signature, {
       noPrefix: true,
