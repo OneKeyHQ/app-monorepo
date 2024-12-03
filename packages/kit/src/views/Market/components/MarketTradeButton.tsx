@@ -9,9 +9,13 @@ import type {
 import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EModalStakingRoutes,
+  type IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import {
   getImportFromToken,
@@ -21,6 +25,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export function MarketTradeButton({
   coinGeckoId,
@@ -45,6 +50,8 @@ export function MarketTradeButton({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
   const sections = useMemo(
     () => [
       {
@@ -65,12 +72,15 @@ export function MarketTradeButton({
     [intl],
   );
 
-  const isShowStackButton = true;
+  const isShowStakingButton = useMemo(() => isSupportStaking(symbol), [symbol]);
+
+  const networkId = useMemo(() => {
+    const { onekeyNetworkId } = network || {};
+    return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
+  }, [network, symbol]);
 
   const handleOnSwap = useCallback(async () => {
-    const { onekeyNetworkId, contract_address: contractAddress } =
-      network || {};
-    const networkId = onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
+    const { contract_address: contractAddress } = network || {};
     if (!networkId) {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
@@ -110,32 +120,35 @@ export function MarketTradeButton({
         swapTabSwitchType,
       },
     });
-  }, [logoURI, name, navigation, network, symbol]);
+  }, [logoURI, name, navigation, network, networkId, symbol]);
+
+  const handleStack = useCallback(() => {
+    if (networkId && activeAccount.account) {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.AssetProtocolList,
+        params: {
+          networkId,
+          accountId: activeAccount.account?.id,
+          indexedAccountId: activeAccount.indexedAccount?.id,
+          symbol,
+        },
+      });
+    }
+  }, [
+    activeAccount.account,
+    activeAccount.indexedAccount,
+    navigation,
+    networkId,
+    symbol,
+  ]);
   return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
       <XStack gap="$2.5" flex={1}>
         <Button flex={1} variant="primary" onPress={handleOnSwap}>
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
-        {isShowStackButton ? (
-          <Button
-            flex={1}
-            variant="secondary"
-            onPress={() => {
-              navigation.pushModal(EModalRoutes.SwapModal, {
-                screen: EModalSwapRoutes.SwapMainLand,
-                params: {
-                  importToToken: {
-                    symbol: 'ETH',
-                    networkId: networkIdsMap.eth,
-                    contractAddress:
-                      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-                  },
-                  swapTabSwitchType: ESwapTabSwitchType.SWAP,
-                },
-              });
-            }}
-          >
+        {isShowStakingButton ? (
+          <Button flex={1} variant="secondary" onPress={handleStack}>
             {intl.formatMessage({ id: ETranslations.earn_stake })}
           </Button>
         ) : null}

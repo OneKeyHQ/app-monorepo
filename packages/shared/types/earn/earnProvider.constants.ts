@@ -40,6 +40,11 @@ const earnTradeDefaultSetSOL = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
 };
 
+export const isSupportStaking = (symbol: string) =>
+  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC'].includes(
+    symbol.toUpperCase(),
+  );
+
 export function getImportFromToken({
   networkId,
   tokenSymbol,
