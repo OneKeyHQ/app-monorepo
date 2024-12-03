@@ -224,17 +224,24 @@ export async function createSignedExternalMessage({
   body.bits.writeBytes(Buffer.from(signature, 'hex'));
   body.writeCell(signingMessage);
 
-  let stateInit: Cell | undefined = undefined;
+  let stateInit: Cell | undefined;
   // Activate Contract
   if (encodedTx.sequenceNo === 0) {
+    // call createStateInit() return Promise<StateInit>
+    // not call static method createStateInit()
     // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/await-thenable
     const deploy = (await contract.createStateInit()) as StateInit;
     stateInit = deploy.stateInit;
   }
 
   const selfAddress = encodedTx.from;
   const header = TonWeb.Contract.createExternalMessageHeader(selfAddress);
-  const resultMessage = TonWeb.Contract.createCommonMsgInfo(header, stateInit, body);
+  const resultMessage = TonWeb.Contract.createCommonMsgInfo(
+    header,
+    stateInit,
+    body,
+  );
 
   return {
     address: selfAddress,

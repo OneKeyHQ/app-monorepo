@@ -3,8 +3,8 @@ import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import TonWeb from 'tonweb';
 
 import {
+  ESendMode,
   genAddressFromPublicKey,
-  SendMode,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -165,7 +165,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     encodedTx.messages.forEach((msg) => {
       if (msg.sendMode === null || msg.sendMode === undefined) {
-        msg.sendMode = SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
+        msg.sendMode = ESendMode.PAY_GAS_SEPARATELY + ESendMode.IGNORE_ERRORS;
       }
     });
 
