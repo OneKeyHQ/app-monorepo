@@ -33,6 +33,7 @@ import type { IBuildUnsignedTxParams } from '../../types';
 import type {
   AccountAddressInput,
   AnyNumber,
+  EntryFunctionPayloadResponse,
   MoveFunction,
   MoveResource,
   TransactionResponse,
@@ -110,14 +111,18 @@ export function getTransactionType(
   // TODO other transaction type
   switch (transaction.type) {
     case TransactionResponseType.User: {
+      const payload = transaction.payload;
+      const {
+        type,
+        function: function_name,
+        type_arguments,
+        arguments: args,
+      } = payload as EntryFunctionPayloadResponse;
       return getTransactionTypeByPayload({
-        type: transaction.payload.type,
-        // @ts-expect-error
-        function_name: transaction.payload.function,
-        // @ts-expect-error
-        type_arguments: transaction.payload.type_arguments,
-        // @ts-expect-error
-        args: transaction.payload.arguments,
+        type,
+        function_name,
+        type_arguments,
+        args,
       });
     }
 
