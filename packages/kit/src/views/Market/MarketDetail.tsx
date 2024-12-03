@@ -45,6 +45,7 @@ import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
+import { MarketTradeButton } from './components/MarketTradeButton';
 
 function TokenDetailHeader({
   coinGeckoId,
@@ -101,34 +102,8 @@ function TokenDetailHeader({
           {performance.priceChangePercentage24h}
         </PriceChangePercentage>
       </YStack>
-      {gtMd ? (
-        <MarketDetailOverview token={token} />
-      ) : (
-        <XStack
-          flex={1}
-          ai="center"
-          alignContent="stretch"
-          flexWrap="wrap"
-          gap="$5"
-        >
-          <TextCell
-            title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
-          >
-            {volume24h || '-'}
-          </TextCell>
-          <TextCell
-            title={intl.formatMessage({ id: ETranslations.global_market_cap })}
-            rank={marketCapRank}
-          >
-            {marketCap || '-'}
-          </TextCell>
-          <TextCell
-            title={intl.formatMessage({ id: ETranslations.global_fdv })}
-          >
-            {fdv || '-'}
-          </TextCell>
-        </XStack>
-      )}
+      <MarketTradeButton />
+      {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>
   );
 }
