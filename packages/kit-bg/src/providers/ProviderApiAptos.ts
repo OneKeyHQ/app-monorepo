@@ -250,7 +250,7 @@ class ProviderApiAptos extends ProviderApiBase {
     if (get(payload, 'entryFunction', null)) {
       return {
         type: 'entry_function_payload',
-        bscTxn: hexBcsTxn,
+        bcsTxn: hexBcsTxn,
       };
     }
 
@@ -390,7 +390,7 @@ class ProviderApiAptos extends ProviderApiBase {
           ...encodeTx,
           max_gas_amount: rawTxn.rawTransaction.max_gas_amount.toString(),
           gas_unit_price: rawTxn.rawTransaction.gas_unit_price.toString(),
-          notEditTx: true,
+          disableEditTx: true,
         },
         signOnly: true,
         accountId: account.id,
@@ -642,7 +642,7 @@ class ProviderApiAptos extends ProviderApiBase {
     const { account, accountInfo } = await this._getAccount(request);
     const bcsTxn: Uint8Array = decodeBytesTransaction(params);
     const encodedTx = {
-      bscTxn: bufferUtils.bytesToHex(bcsTxn),
+      bcsTxn: bufferUtils.bytesToHex(bcsTxn),
     } as IEncodedTxAptos;
     const res = await this.backgroundApi.serviceSend.broadcastTransaction({
       signedTx: {

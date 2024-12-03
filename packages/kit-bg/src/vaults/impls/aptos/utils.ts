@@ -168,9 +168,9 @@ export async function generateUnsignedTransaction(
   }
 
   let rawTxn: SimpleTransaction;
-  if (encodedTx.bscTxn && !isEmpty(encodedTx.bscTxn)) {
+  if (encodedTx.bcsTxn && !isEmpty(encodedTx.bcsTxn)) {
     const deserializer = new Deserializer(
-      bufferUtils.hexToBytes(encodedTx.bscTxn),
+      bufferUtils.hexToBytes(encodedTx.bcsTxn),
     );
     rawTxn = SimpleTransaction.deserialize(deserializer);
   } else {
