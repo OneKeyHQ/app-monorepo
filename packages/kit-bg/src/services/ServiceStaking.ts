@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
   backgroundClass,
@@ -27,6 +29,7 @@ import type {
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
+  IEarnAccountToken,
   IEarnAccountTokenResponse,
   IEarnBabylonTrackingItem,
   IEarnEstimateAction,
@@ -491,28 +494,27 @@ class ServiceStaking extends ServiceBase {
     }[],
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const response = await client.post<{
-      data: IEarnAccountResponse;
-    }>(`/earn/v1/account/list`, { accounts: params });
-    const resp = response.data.data;
     const result: IEarnAccountTokenResponse = {
-      totalFiatValue: resp.totalFiatValue,
-      earnings24h: resp.earnings24h,
       accounts: [],
     };
+    const tokensResponse = await client.post<{
+      data: { tokens: IEarnAccountToken[] };
+    }>(`/earn/v1/recommend`, { accounts: params });
 
     for (const account of params) {
       result.accounts.push({
         ...account,
         tokens:
-          resp.tokens?.filter((i) => i.networkId === account.networkId) || [],
+          tokensResponse.data.data.tokens?.filter(
+            (i) => i.networkId === account.networkId,
+          ) || [],
       });
     }
     return result;
   }
 
   @backgroundMethod()
-  async fetchAllNetworkAssets({
+  async getEarnAvailableAccountsParams({
     accountId,
     networkId,
     assets,
@@ -550,7 +552,64 @@ class ServiceStaking extends ServiceBase {
         ]),
       ).values(),
     );
-    return this.getAccountAsset(uniqueAccountParams);
+    return uniqueAccountParams;
+  }
+
+  @backgroundMethod()
+  async fetchAccountOverview(params: {
+    accountId: string;
+    networkId: string;
+    assets: IAvailableAsset[];
+  }) {
+    const accounts = await this.getEarnAvailableAccountsParams(params);
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const overviewData = await Promise.all(
+      accounts.map((account) =>
+        client.get<{
+          data: IEarnAccountResponse;
+        }>(`/earn/v1/overview`, { params: account }),
+      ),
+    );
+
+    const { totalFiatValue, earnings24h } = overviewData.reduce(
+      (prev, item) => {
+        prev.totalFiatValue = prev.totalFiatValue.plus(
+          BigNumber(item.data.data.totalFiatValue || 0),
+        );
+        prev.earnings24h = prev.earnings24h.plus(
+          BigNumber(item.data.data.earnings24h || 0),
+        );
+        return prev;
+      },
+      {
+        totalFiatValue: BigNumber(0),
+        earnings24h: BigNumber(0),
+      },
+    );
+    // const resp = response.data.data;
+
+    return {
+      totalFiatValue: totalFiatValue.toFixed(),
+      earnings24h: earnings24h.toFixed(),
+    };
+  }
+
+  @backgroundMethod()
+  async fetchAllNetworkAssets({
+    accountId,
+    networkId,
+    assets,
+  }: {
+    accountId: string;
+    networkId: string;
+    assets: IAvailableAsset[];
+  }) {
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      assets,
+    });
+    return this.getAccountAsset(accounts);
   }
 
   @backgroundMethod()
