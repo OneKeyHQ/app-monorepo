@@ -79,8 +79,13 @@ export type ICoinSelectResultPro = {
 };
 
 export type IInputsForCoinSelect = ICoinSelectUTXO[];
+export enum EOutputsTypeForCoinSelect {
+  Payment = 'payment',
+  SendMax = 'send-max',
+  OpReturn = 'opreturn',
+}
 export type IOutputsForCoinSelect = {
-  type: 'payment' | 'send-max' | 'opreturn';
+  type: EOutputsTypeForCoinSelect;
   address: string;
   value?: number;
   amount?: string;

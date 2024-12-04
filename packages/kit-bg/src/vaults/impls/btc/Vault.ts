@@ -15,11 +15,12 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
-import type {
-  IBtcInput,
-  ICoinSelectUTXO,
-  IEncodedTxBtc,
-  IOutputsForCoinSelect,
+import {
+  EOutputsTypeForCoinSelect,
+  type IBtcInput,
+  type ICoinSelectUTXO,
+  type IEncodedTxBtc,
+  type IOutputsForCoinSelect,
 } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
@@ -845,7 +846,7 @@ export default class VaultBtc extends VaultBase {
 
     if (isBatchTransfer) {
       outputsForCoinSelect = transfersInfo.map(({ to, amount }) => ({
-        type: 'payment',
+        type: EOutputsTypeForCoinSelect.Payment,
         address: to,
         value: parseInt(
           new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
@@ -875,9 +876,9 @@ export default class VaultBtc extends VaultBase {
 
       outputsForCoinSelect = [
         max
-          ? { address: to, type: 'send-max' }
+          ? { address: to, type: EOutputsTypeForCoinSelect.SendMax }
           : {
-              type: 'payment',
+              type: EOutputsTypeForCoinSelect.Payment,
               address: to,
               value: parseInt(value, 10),
               amount: value,
@@ -894,7 +895,7 @@ export default class VaultBtc extends VaultBase {
           value: 0,
           amount: '0',
           script: transferInfo.opReturn,
-          type: 'opreturn',
+          type: EOutputsTypeForCoinSelect.OpReturn,
           dataHex: Buffer.from(transferInfo.opReturn, 'ascii').toString('hex'),
         });
       }
@@ -965,7 +966,7 @@ export default class VaultBtc extends VaultBase {
         txSize = estimateTxSize(
           selectedInputs ?? [],
           outputs.map((o) => ({
-            type: 'payment',
+            type: EOutputsTypeForCoinSelect.Payment,
             address: o.address,
             value: parseInt(o.value, 10),
           })) ?? [],
