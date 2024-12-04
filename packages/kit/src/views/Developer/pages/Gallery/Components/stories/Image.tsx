@@ -165,7 +165,7 @@ const ImageGallery = () => (
         element: (
           <YStack gap="$4">
             <Image height="$10" width="$10">
-              <Image.Source src="https://onekey-asset.com/assets/btc/bt" />
+              <Image.Source src="https://uni.onekey-asset.com/static/chain/btc.pn" />
               <Image.Skeleton />
             </Image>
             <Image
@@ -178,7 +178,7 @@ const ImageGallery = () => (
             >
               <Image.Source
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/bt',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
                 }}
               />
               <Image.Fallback>
@@ -202,7 +202,7 @@ const ImageGallery = () => (
               <Image.Source
                 delayMs={10 * 1000}
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/bt',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.pn',
                 }}
               />
               <Image.Fallback>
