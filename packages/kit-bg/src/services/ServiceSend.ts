@@ -93,6 +93,7 @@ class ServiceSend extends ServiceBase {
       specifiedFeeRate,
       prevNonce,
       feeInfo,
+      swapInfo,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -103,6 +104,7 @@ class ServiceSend extends ServiceBase {
       specifiedFeeRate,
       prevNonce,
       feeInfo,
+      swapInfo,
     });
   }
 
@@ -527,6 +529,7 @@ class ServiceSend extends ServiceBase {
         approveInfo,
         transfersInfo,
         wrappedInfo,
+        swapInfo,
         specifiedFeeRate,
         prevNonce,
         feeInfo,

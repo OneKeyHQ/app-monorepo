@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import BigNumber from 'bignumber.js';
-import TonWeb from 'tonweb';
+import TonWeb, { type StateInit } from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -162,39 +162,28 @@ export function getWalletContractInstance({
   publicKey,
   backgroundApi,
   networkId,
+  address,
 }: {
   version: string;
-  publicKey: string;
+  publicKey?: string;
   backgroundApi: IBackgroundApi;
   networkId: string;
+  address?: string;
 }) {
   const Contract = getWalletContractClass(version);
   return new Contract(new Provider({ backgroundApi, networkId }), {
-    publicKey: bufferUtils.hexToBytes(publicKey),
+    publicKey: publicKey ? bufferUtils.hexToBytes(publicKey) : undefined,
+    address,
   });
 }
 
 export async function serializeUnsignedTransaction({
-  version,
+  contract,
   encodedTx,
-  backgroundApi,
-  networkId,
 }: {
-  version: string;
+  contract: IWallet;
   encodedTx: IEncodedTxTon;
-  backgroundApi: IBackgroundApi;
-  networkId: string;
 }) {
-  const Contract = getWalletContractClass(version);
-  const contract = new Contract(
-    new Provider({
-      backgroundApi,
-      networkId,
-    }),
-    {
-      address: encodedTx.from,
-    },
-  ) as unknown as IWallet;
   return contract.createTransferMessages(
     new Uint8Array(64),
     encodedTx.sequenceNo || 0,
@@ -208,11 +197,62 @@ export async function serializeUnsignedTransaction({
             )
           : message.payload,
       sendMode: message.sendMode,
-      stateInit: undefined,
+      stateInit:
+        typeof message.stateInit === 'string'
+          ? TonWeb.boc.Cell.oneFromBoc(
+              Buffer.from(message.stateInit, 'base64').toString('hex'),
+            )
+          : message.stateInit,
     })),
     true,
     encodedTx.validUntil,
   );
+}
+
+export async function createSignedExternalMessage({
+  contract,
+  encodedTx,
+  signature,
+  signingMessage,
+}: {
+  contract: IWallet;
+  encodedTx: IEncodedTxTon;
+  signature: string;
+  signingMessage: Cell;
+}) {
+  const body = new TonWeb.boc.Cell();
+  body.bits.writeBytes(Buffer.from(signature, 'hex'));
+  body.writeCell(signingMessage);
+
+  let stateInit: Cell | undefined;
+  // Activate Contract
+  if (encodedTx.sequenceNo === 0) {
+    // call createStateInit() return Promise<StateInit>
+    // not call static method createStateInit()
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/await-thenable
+    const deploy = (await contract.createStateInit()) as StateInit;
+    stateInit = deploy.stateInit;
+  }
+
+  const selfAddress = encodedTx.from;
+  const header = TonWeb.Contract.createExternalMessageHeader(selfAddress);
+  const resultMessage = TonWeb.Contract.createCommonMsgInfo(
+    header,
+    stateInit,
+    body,
+  );
+
+  return {
+    address: selfAddress,
+    message: resultMessage, // old wallet_send_generate_external_message
+
+    body,
+    signature,
+    signingMessage,
+
+    stateInit,
+  };
 }
 
 export function getAccountVersion(accountId: string) {
