@@ -63,7 +63,7 @@ export const useTradingViewProps = ({
         'show_popup_button': 'false',
         'autosize': 'true',
         'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
-        'interval': '60',
+        'range': '3M',
         'timezone': timezone,
         'theme': theme,
         'style': '1',
