@@ -680,7 +680,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx, transferPayload } = params;
+    const { unsignedTx, transferPayload, saveToLocalHistory } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
 
@@ -714,7 +714,10 @@ export default class Vault extends VaultBase {
       });
     }
 
+    // to be consistent with onChain tx,
+    // also filter create token account instruction when saving tx locally
     if (
+      !saveToLocalHistory &&
       !unsignedTx.swapInfo &&
       instructions.some(
         (instruction) =>

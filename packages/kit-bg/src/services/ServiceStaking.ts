@@ -711,8 +711,9 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
-    if (providerConfig.supportedSymbols.includes(symbol as ISupportedSymbol)) {
-      return providerConfig.configs[symbol as ISupportedSymbol];
+    const tokenSymbol = symbol.toUpperCase() as ISupportedSymbol;
+    if (providerConfig.supportedSymbols.includes(tokenSymbol)) {
+      return providerConfig.configs[tokenSymbol];
     }
 
     return null;

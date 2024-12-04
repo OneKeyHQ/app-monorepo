@@ -9,8 +9,6 @@ const earnTradeDefaultSetETH = {
   'name': 'Ethereum',
   'symbol': 'ETH',
   'decimals': 18,
-  'logoURI':
-    'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
   'isNative': true,
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
 };
@@ -21,8 +19,6 @@ const earnTradeDefaultSetUSDC = {
   'name': 'USD Coin',
   'symbol': 'USDC',
   'decimals': 6,
-  'logoURI':
-    'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
   'isNative': false,
   'isPopular': true,
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
@@ -34,11 +30,14 @@ const earnTradeDefaultSetSOL = {
   'name': 'USDC',
   'symbol': 'USDC',
   'decimals': 6,
-  'logoURI':
-    'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v.png',
   'isNative': false,
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
 };
+
+export const isSupportStaking = (symbol: string) =>
+  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC'].includes(
+    symbol.toUpperCase(),
+  );
 
 export function getImportFromToken({
   networkId,
