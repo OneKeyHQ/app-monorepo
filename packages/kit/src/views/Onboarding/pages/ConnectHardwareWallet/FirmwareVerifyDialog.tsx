@@ -355,7 +355,17 @@ function VerifyHashRow({
     if (status === 'init') {
       return (
         <Stack width="$6" height="$6" ai="center" jc="center">
-          <Spinner size="small" color="$textSubdued" />
+          <Stack
+            w="$5"
+            h="$5"
+            bg="$icon"
+            opacity={0.2}
+            borderRadius="$full"
+            ai="center"
+            jc="center"
+          >
+            <Stack w="$4" h="$4" borderRadius="$full" bg="$bgApp" />
+          </Stack>
         </Stack>
       );
     }
