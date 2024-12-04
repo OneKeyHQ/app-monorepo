@@ -376,9 +376,11 @@ function VerifyHashRow({
       return <SizableText size="$bodyMd">In progress</SizableText>;
     }
     if (status === 'success') {
-      <SizableText size="$bodyMd" color="$textSuccess">
-        {result}
-      </SizableText>;
+      return (
+        <SizableText size="$bodyMd" color="$textSuccess">
+          {result}
+        </SizableText>
+      );
     }
     return null;
   }, [result, status]);
