@@ -23,7 +23,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, image: logoURI, symbol = '', name } = token || {};
+  const { detailPlatforms, symbol = '', name } = token || {};
   const network = useMemo(
     () =>
       detailPlatforms
@@ -67,20 +67,20 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           networkId,
           deriveType,
         });
-      const { url } =
+      const { url, build } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
-          tokenAddress: contractAddress,
+          tokenAddress: '',
           accountId: dbAccount.id,
           type,
         });
-      if (!url) {
+      if (!url || !build) {
         Toast.error({ title: 'Failed to get widget url' });
         return;
       }
       openUrlExternal(url);
     },
-    [activeAccount.account, contractAddress, networkId],
+    [activeAccount.account, networkId],
   );
 
   const handleSwap = useCallback(async () => {
@@ -181,13 +181,15 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
   actionsRef.current = actions;
   const compose = useCallback(
     async (actionName: IActionName) => {
-      if (!token) {
+      const showLoading = !token;
+      if (showLoading) {
         setLoadingIndicators((prev) => ({ ...prev, [actionName]: true }));
         await fetchMarketTokenDetail();
-        await timerUtils.wait(50);
-        setLoadingIndicators((prev) => ({ ...prev, [actionName]: false }));
       }
       await actionsRef.current[actionName]();
+      if (showLoading) {
+        setLoadingIndicators((prev) => ({ ...prev, [actionName]: false }));
+      }
     },
     [fetchMarketTokenDetail, token],
   );
