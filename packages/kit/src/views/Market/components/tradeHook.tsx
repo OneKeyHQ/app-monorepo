@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components';
+import { Dialog, SizableText } from '@onekeyhq/components';
 import {
   EModalStakingRoutes,
   type IModalSwapParamList,
@@ -75,7 +75,17 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           type,
         });
       if (!url || !build) {
-        Toast.error({ title: 'Failed to get widget url' });
+        Dialog.confirm({
+          title: 'Unsupported token',
+          tone: 'warning',
+          renderContent: (
+            <SizableText size="$bodyLg">
+              Unfortunately, this token is not currently supported for Buy
+              service.
+            </SizableText>
+          ),
+          onConfirmText: 'Got it!',
+        });
         return;
       }
       openUrlExternal(url);
