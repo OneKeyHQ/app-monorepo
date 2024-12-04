@@ -117,6 +117,27 @@ const getSwapTokenMap = memoizee(() => {
         'isNative': false,
       },
     },
+    [networkIdsMap.apt]: {
+      switchType: ESwapTabSwitchType.BRIDGE,
+      contractAddress: '0x1::aptos_coin::AptosCoin',
+      default: {
+        'networkId': 'aptos--1',
+        'name': 'Aptos Coin',
+        'symbol': 'APT',
+        'decimals': 8,
+        'riskLevel': 0,
+        'isNative': true,
+      },
+      target: {
+        'networkId': 'evm--1',
+        'contractAddress': '',
+        'name': 'Ethereum',
+        'symbol': 'ETH',
+        'decimals': 18,
+        'isNative': true,
+        'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
+      },
+    },
   };
 });
 
