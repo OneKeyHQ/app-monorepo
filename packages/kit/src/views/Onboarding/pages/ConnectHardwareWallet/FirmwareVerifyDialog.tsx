@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -11,6 +12,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
   YStack,
   useDialogInstance,
@@ -19,9 +21,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
-import type {
-  OneKeyError,
-  OneKeyServerApiError,
+import {
+  type OneKeyError,
+  OneKeyHardwareError,
+  type OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -184,13 +187,7 @@ function useNewFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-  const hashInfo = {
-    certificate: 'PRB09B0088A',
-    firmware: '4.0.0 (2c4d945-ff9efe5)',
-    bluetooth: '2.1.0 (deaf294-5206e9d)',
-    bootloader: '2.2.0 (8a5b950-2bbd01c)',
-    securityElement: '',
-  };
+  const [hashInfo, setHashInfo] = useState<IHashInfo>({});
   const [remoteHashInfo, setRemoteHashInfo] = useState({
     certificate: 'PRB09B0088A',
     firmware: '4.0.0 (2c4d945-ff9efe5)',
@@ -220,8 +217,42 @@ function useNewFirmwareVerifyBase({
       );
     };
   }, []);
+  const connectDevice = useCallback(async (deviceInfo: SearchDevice) => {
+    try {
+      return await backgroundApiProxy.serviceHardware.connect({
+        device: deviceInfo,
+        awaitBonded: true,
+      });
+    } catch (error: any) {
+      if (error instanceof OneKeyHardwareError) {
+        const { code, message } = error;
+        // ui prop window handler
+        if (
+          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
+          code === HardwareErrorCode.BlePermissionError ||
+          code === HardwareErrorCode.BleLocationError
+        ) {
+          return;
+        }
+        Toast.error({
+          title: message || 'DeviceConnectError',
+        });
+      } else {
+        console.error('connectDevice error:', get(error, 'message', ''));
+      }
+    }
+  }, []);
   const verify = useCallback(async () => {
     try {
+      const features = await connectDevice(device);
+      // data from features
+      setHashInfo({
+        certificate: 'PRB09B0088A',
+        firmware: '4.0.0 (2c4d945-ff9efe5)',
+        bluetooth: '2.1.0 (deaf294-5206e9d)',
+        bootloader: '2.2.0 (8a5b950-2bbd01c)',
+        securityElement: '',
+      });
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -299,7 +330,7 @@ function useNewFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, dialogInstance, skipDeviceCancel]);
+  }, [connectDevice, device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -809,9 +840,11 @@ export function EnumBasicDialogContentContainer({
     contentType,
     errorObj.code,
     errorObj.message,
+    hashInfo,
     intl,
     onActionPress,
     onContinuePress,
+    remoteHashInfo,
     renderFooter,
   ]);
   return <YStack>{content}</YStack>;
@@ -824,7 +857,6 @@ export function FirmwareAuthenticationDialogContent({
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
-  features: Features;
   skipDeviceCancel?: boolean;
 }) {
   const { result, reset, verify, contentType, setContentType, errorObj } =
@@ -906,12 +938,10 @@ export function FirmwareAuthenticationDialogContent({
 function NewFirmwareAuthenticationDialogContent({
   onContinue,
   device,
-  features,
   skipDeviceCancel,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
-  features: Features;
   skipDeviceCancel?: boolean;
 }) {
   const {
@@ -993,11 +1023,9 @@ export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
-      features,
       onContinue,
     }: {
       device: SearchDevice | IDBDevice;
-      features: Features;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
     }) => {
       const isNewVersion = true;
@@ -1015,7 +1043,6 @@ export function useFirmwareVerifyDialog() {
           <Component
             skipDeviceCancel
             device={device}
-            features={features}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });

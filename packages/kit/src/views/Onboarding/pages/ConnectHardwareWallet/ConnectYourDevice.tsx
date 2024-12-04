@@ -647,7 +647,6 @@ function ConnectByUSBOrBLE({
       ) {
         await showFirmwareVerifyDialog({
           device,
-          features,
           onContinue: async ({ checked }) => {
             if (deviceMode === EOneKeyDeviceMode.notInitialized) {
               handleNotActivatedDevicePress({ deviceType });
