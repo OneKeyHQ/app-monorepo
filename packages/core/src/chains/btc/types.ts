@@ -85,6 +85,7 @@ export type IOutputsForCoinSelect = {
   value?: number;
   amount?: string;
   script?: string;
+  dataHex?: string;
 }[];
 
 export type IEncodedTxBtc = {

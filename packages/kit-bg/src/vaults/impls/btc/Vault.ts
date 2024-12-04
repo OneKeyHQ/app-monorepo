@@ -37,9 +37,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { estimateTxSize, getBIP44Path } from '@onekeyhq/core/src/utils';
-import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
-  coinSelect,
   coinSelectWithWitness,
   getCoinSelectTxType,
 } from '@onekeyhq/core/src/utils/coinSelectUtils';
@@ -897,6 +895,7 @@ export default class VaultBtc extends VaultBase {
           amount: '0',
           script: transferInfo.opReturn,
           type: 'opreturn',
+          dataHex: Buffer.from(transferInfo.opReturn, 'ascii').toString('hex'),
         });
       }
     }
