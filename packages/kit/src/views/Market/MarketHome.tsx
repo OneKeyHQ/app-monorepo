@@ -26,6 +26,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -38,7 +39,6 @@ import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeH
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
 function BasicAnimatedIcon(

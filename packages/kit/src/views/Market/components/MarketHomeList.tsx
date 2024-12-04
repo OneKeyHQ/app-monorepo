@@ -269,6 +269,8 @@ function MarketMdColumn({
     showMoreAction,
     tradeActions.onBuy,
     tradeActions.onSell,
+    tradeActions.onStaking,
+    tradeActions.onSwap,
   ]);
   const pressEvents = useMemo(
     () => ({

@@ -17,7 +17,8 @@ export function MarketTradeButton({
 }) {
   const intl = useIntl();
 
-  const { onSwap, onStaking, onBuy, onSell, canStaking } = useMarketTradeActions(token);
+  const { onSwap, onStaking, onBuy, onSell, canStaking } =
+    useMarketTradeActions(token);
 
   const sections = useMemo(
     () => [
