@@ -17,19 +17,35 @@ export function MarketListTradeButton({
 }) {
   const intl = useIntl();
 
-  const { onStaking, onSwap, onBuy } = useLazyMarketTradeActions(coinGeckoId);
+  const { onStaking, onSwap, onBuy, loadingIndicators } =
+    useLazyMarketTradeActions(coinGeckoId);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
   return (
     <XStack gap="$1.5">
-      <Button variant="secondary" size="small" onPress={onSwap}>
+      <Button
+        loading={loadingIndicators.onSwap}
+        variant="secondary"
+        size="small"
+        onPress={onSwap}
+      >
         {intl.formatMessage({ id: ETranslations.global_trade })}
       </Button>
       {canStaking ? (
-        <Button variant="secondary" size="small" onPress={onStaking}>
+        <Button
+          loading={loadingIndicators.onStaking}
+          variant="secondary"
+          size="small"
+          onPress={onStaking}
+        >
           {intl.formatMessage({ id: ETranslations.earn_stake })}
         </Button>
       ) : null}
-      <Button variant="secondary" size="small" onPress={onBuy}>
+      <Button
+        loading={loadingIndicators.onBuy}
+        variant="secondary"
+        size="small"
+        onPress={onBuy}
+      >
         {intl.formatMessage({ id: ETranslations.global_buy })}
       </Button>
     </XStack>
