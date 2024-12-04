@@ -69,6 +69,7 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
         }
         await showFirmwareVerifyDialog({
           device,
+          features,
           onContinue: async ({ checked }) => {
             console.log(checked);
           },
