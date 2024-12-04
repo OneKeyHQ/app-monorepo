@@ -185,6 +185,8 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
       if (showLoading) {
         setLoadingIndicators((prev) => ({ ...prev, [actionName]: true }));
         await fetchMarketTokenDetail();
+        // wait for token detail loaded and actionsRef updated
+        await timerUtils.wait(80);
       }
       await actionsRef.current[actionName]();
       if (showLoading) {
