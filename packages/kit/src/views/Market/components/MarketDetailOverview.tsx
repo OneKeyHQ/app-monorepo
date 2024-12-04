@@ -134,10 +134,12 @@ function OverviewMarketVOLItem({
   children,
   currency,
   tooltip,
+  formatter = 'marketCap',
 }: {
   title: string;
   rank?: number;
   currency?: boolean;
+  formatter?: INumberSizeableTextProps['formatter'];
   tooltip?: string;
   children: INumberSizeableTextProps['children'];
 }) {
@@ -156,7 +158,7 @@ function OverviewMarketVOLItem({
       <XStack gap="$1" ai="center" pt="$0.5">
         <NumberSizeableText
           size="$bodyMdMedium"
-          formatter="marketCap"
+          formatter={formatter}
           formatterOptions={
             currency ? { currency: settings.currencyInfo.symbol } : undefined
           }
@@ -278,10 +280,11 @@ function OverviewMarketVOL({
         </XStack>
         <XStack gap="$4">
           <OverviewMarketVOLItem
+            currency
             title={intl.formatMessage({
               id: ETranslations.market_all_time_high,
             })}
-            currency
+            formatter="price"
             tooltip={intl.formatMessage(
               { id: ETranslations.market_ath_desc },
               {
@@ -306,10 +309,11 @@ function OverviewMarketVOL({
             {ath.value}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
+            currency
             title={intl.formatMessage({
               id: ETranslations.market_all_time_low,
             })}
-            currency
+            formatter="price"
             tooltip={intl.formatMessage(
               { id: ETranslations.market_atl_desc },
               {
