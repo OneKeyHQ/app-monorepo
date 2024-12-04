@@ -972,9 +972,11 @@ function NewFirmwareAuthenticationDialogContent({
       />
     );
   }, [
-    result,
+    hashInfo,
+    remoteHashInfo,
     errorObj,
     contentType,
+    result,
     handleContinuePress,
     onContinue,
     requestsUrl,
