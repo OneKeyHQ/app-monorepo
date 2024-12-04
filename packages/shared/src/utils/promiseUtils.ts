@@ -133,3 +133,17 @@ export function isPromiseObject(obj: any) {
   }
   return false;
 }
+
+export async function promiseAllSettledEnhanced<T>(
+  promises: Promise<T>[],
+  options?: { continueOnError?: boolean },
+): Promise<(T | null)[]> {
+  if (!options?.continueOnError) {
+    return Promise.all(promises);
+  }
+
+  const results = await Promise.allSettled(promises);
+  return results.map((result) =>
+    result.status === 'fulfilled' ? result.value : null,
+  );
+}

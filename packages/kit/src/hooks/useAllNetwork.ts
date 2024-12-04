@@ -11,6 +11,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
@@ -290,7 +291,11 @@ function useAllNetworkRequests<T>(params: {
         });
 
         try {
-          resp = (await Promise.all(requests)).filter(Boolean);
+          resp = (
+            await promiseAllSettledEnhanced(requests, {
+              continueOnError: true,
+            })
+          ).filter(Boolean);
         } catch (e) {
           console.error(e);
           resp = null;
@@ -298,8 +303,8 @@ function useAllNetworkRequests<T>(params: {
         }
       } else {
         try {
-          await Promise.all(
-            Array.from(accountsInfoBackendIndexed).map((networkDataString) => {
+          const promises = Array.from(accountsInfoBackendIndexed).map(
+            (networkDataString) => {
               const { accountId, networkId, apiAddress } = networkDataString;
               console.log(
                 'accountsBackedIndexedRequests: =====>>>>>: ',
@@ -313,33 +318,37 @@ function useAllNetworkRequests<T>(params: {
                 allNetworkDataInit: allNetworkDataInit.current,
                 customTokensRawData,
               });
-            }),
+            },
           );
+          await promiseAllSettledEnhanced(promises, {
+            continueOnError: true,
+          });
         } catch (e) {
           console.error(e);
           // pass
         }
 
         try {
-          await Promise.all(
-            Array.from(accountsInfoBackendNotIndexed).map(
-              (networkDataString) => {
-                const { accountId, networkId, apiAddress } = networkDataString;
-                console.log(
-                  'accountsBackedNotIndexedRequests: =====>>>>>: ',
-                  accountId,
-                  networkId,
-                  apiAddress,
-                );
-                return allNetworkRequests({
-                  accountId,
-                  networkId,
-                  allNetworkDataInit: allNetworkDataInit.current,
-                  customTokensRawData,
-                });
-              },
-            ),
+          const promises = Array.from(accountsInfoBackendNotIndexed).map(
+            (networkDataString) => {
+              const { accountId, networkId, apiAddress } = networkDataString;
+              console.log(
+                'accountsBackedNotIndexedRequests: =====>>>>>: ',
+                accountId,
+                networkId,
+                apiAddress,
+              );
+              return allNetworkRequests({
+                accountId,
+                networkId,
+                allNetworkDataInit: allNetworkDataInit.current,
+                customTokensRawData,
+              });
+            },
           );
+          await promiseAllSettledEnhanced(promises, {
+            continueOnError: true,
+          });
         } catch (e) {
           console.error(e);
           // pass
