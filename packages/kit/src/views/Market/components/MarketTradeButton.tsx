@@ -25,11 +25,6 @@ export function MarketTradeButton({
       {
         items: [
           {
-            icon: 'PlusLargeSolid',
-            label: intl.formatMessage({ id: ETranslations.global_buy }),
-            onPress: onBuy,
-          },
-          {
             icon: 'MinusLargeSolid',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
             onPress: onSell,
@@ -37,7 +32,7 @@ export function MarketTradeButton({
         ] as IActionListItemProps[],
       },
     ],
-    [intl, onBuy, onSell],
+    [intl, onSell],
   );
 
   return (
@@ -51,6 +46,9 @@ export function MarketTradeButton({
             {intl.formatMessage({ id: ETranslations.earn_stake })}
           </Button>
         ) : null}
+        <Button flex={1} variant="secondary" onPress={onBuy}>
+          {intl.formatMessage({ id: ETranslations.global_buy })}
+        </Button>
       </XStack>
       <ActionList
         title={token.symbol.toUpperCase() || ''}

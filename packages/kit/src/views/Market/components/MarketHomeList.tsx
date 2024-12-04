@@ -860,7 +860,7 @@ function BasicMarketHomeList({
             {
               title: '',
               dataIndex: 'action',
-              columnWidth: showMoreAction ? 88 : 64,
+              columnWidth: 88,
               align: 'center',
               renderSkeleton: () => null,
               render: (_: unknown, record: IMarketToken) => (
@@ -873,14 +873,13 @@ function BasicMarketHomeList({
                       from={EWatchlistFrom.catalog}
                     />
                   </Stack>
-                  {showMoreAction ? (
-                    <Stack flex={1} ai="center">
-                      <MarketMore
-                        coingeckoId={record.coingeckoId}
-                        symbol={record.symbol}
-                      />
-                    </Stack>
-                  ) : null}
+                  <Stack flex={1} ai="center">
+                    <MarketMore
+                      showMoreAction={showMoreAction}
+                      coingeckoId={record.coingeckoId}
+                      symbol={record.symbol}
+                    />
+                  </Stack>
                 </XStack>
               ),
             },
