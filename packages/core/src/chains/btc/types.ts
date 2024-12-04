@@ -60,8 +60,10 @@ export type ICoinSelectUTXO = {
   txId: string;
   vout: number;
   value: number;
+  amount: string;
   address: string;
   path: string;
+  confirmations?: number;
   forceSelect?: boolean;
 };
 
@@ -78,9 +80,10 @@ export type ICoinSelectResultPro = {
 
 export type IInputsForCoinSelect = ICoinSelectUTXO[];
 export type IOutputsForCoinSelect = {
+  type: 'payment' | 'send-max' | 'opreturn';
   address: string;
   value?: number;
-  isMax?: boolean;
+  amount?: string;
   script?: string;
 }[];
 
@@ -93,6 +96,7 @@ export type IEncodedTxBtc = {
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
   disabledCoinSelect?: boolean;
+  txSize: number | undefined;
 };
 
 export type ITxInput = {
