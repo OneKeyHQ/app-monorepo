@@ -15,8 +15,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Bitcoin',
         'symbol': 'BTC',
         'decimals': 8,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/btc--0/tokens/address-.png',
         'isNative': true,
       },
       target: {
@@ -25,8 +23,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Ethereum',
         'symbol': 'ETH',
         'decimals': 18,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
         'isNative': true,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
       },
@@ -40,8 +36,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Ethereum',
         'symbol': 'ETH',
         'decimals': 18,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
         'isNative': true,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
       },
@@ -51,8 +45,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'USD Coin',
         'symbol': 'USDC',
         'decimals': 6,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
         'isNative': false,
         'isPopular': true,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
@@ -67,8 +59,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Solana',
         'symbol': 'SOL',
         'decimals': 9,
-        'logoURI':
-          'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/native.png',
         'riskLevel': 1,
         'isNative': true,
       },
@@ -78,8 +68,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'USDC',
         'symbol': 'USDC',
         'decimals': 6,
-        'logoURI':
-          'https://uni-test.onekey-asset.com/server-service-onchain/sol--101/tokens/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v.png',
         'isNative': false,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
       },
@@ -93,8 +81,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'BNB',
         'symbol': 'BNB',
         'decimals': 18,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-.png',
         'riskLevel': 1,
         'isNative': true,
       },
@@ -104,8 +90,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'USD Coin',
         'symbol': 'USDC',
         'decimals': 18,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--56/tokens/address-0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d-1720669239205.png',
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
       },
     },
@@ -118,9 +102,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Polygon',
         'symbol': 'POL',
         'decimals': 18,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address--1720669850773.png',
-
         'riskLevel': 1,
         'isNative': true,
       },
@@ -130,8 +111,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'USD Coin',
         'symbol': 'USDC',
         'decimals': 6,
-        'logoURI':
-          'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0x3c499c542cef5e3811e1192ce70d8cc03d5c3359-1720669265327.png',
         'networkLogoURI':
           'https://uni.onekey-asset.com/static/chain/polygon.png',
         'riskLevel': 1,
@@ -153,6 +132,7 @@ export const getNetworkIdBySymbol = memoizee((symbol: string) => {
 
 export function getImportFromToken({
   networkId,
+  tokenSymbol,
   contractAddress,
 }: {
   networkId: string;
@@ -163,9 +143,12 @@ export function getImportFromToken({
   const map = getSwapTokenMap();
   const item = map[networkId];
   if (item) {
+    const isNative =
+      tokenSymbol.toUpperCase() === item.default.symbol &&
+      item.contractAddress === contractAddress;
     return {
-      importFromToken:
-        item.contractAddress === contractAddress ? item.target : item.default,
+      isNative,
+      importFromToken: isNative ? item.target : item.default,
       swapTabSwitchType: item.switchType,
     };
   }
