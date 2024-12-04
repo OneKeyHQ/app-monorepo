@@ -525,6 +525,7 @@ export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
+  saveToLocalHistory?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
