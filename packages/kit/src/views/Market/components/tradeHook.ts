@@ -157,8 +157,17 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   );
 };
 
+type IActionName = 'onSwap' | 'onStaking' | 'onBuy' | 'onSell';
 export const useLazyMarketTradeActions = (coinGeckoId: string) => {
   const [token, setToken] = useState<null | IMarketTokenDetail>(null);
+  const [loadingIndicators, setLoadingIndicators] = useState<
+    Record<IActionName, boolean>
+  >({
+    onSwap: false,
+    onStaking: false,
+    onBuy: false,
+    onSell: false,
+  });
   const fetchMarketTokenDetail = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
@@ -171,10 +180,12 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
   const compose = useCallback(
-    async (actionName: 'onSwap' | 'onStaking' | 'onBuy' | 'onSell') => {
+    async (actionName: IActionName) => {
       if (!token) {
+        setLoadingIndicators((prev) => ({ ...prev, [actionName]: true }));
         await fetchMarketTokenDetail();
         await timerUtils.wait(50);
+        setLoadingIndicators((prev) => ({ ...prev, [actionName]: false }));
       }
       await actionsRef.current[actionName]();
     },
@@ -186,7 +197,8 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
       onStaking: () => compose('onStaking'),
       onBuy: () => compose('onBuy'),
       onSell: () => compose('onSell'),
+      loadingIndicators,
     }),
-    [compose],
+    [compose, loadingIndicators],
   );
 };
