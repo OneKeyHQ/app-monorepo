@@ -417,7 +417,7 @@ function VerifyHash({
   const intl = useIntl();
   const checkHash = useCallback(
     async (index = 0) => {
-      if (index > keys.length) {
+      if (index === keys.length) {
         return;
       }
       const key = keys[index] as keyof typeof hashInfo;
