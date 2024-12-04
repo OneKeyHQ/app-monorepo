@@ -105,16 +105,15 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       tokenSymbol: symbol,
       contractAddress,
     });
-    const { importFromToken, swapTabSwitchType } =
+    const { importFromToken, swapTabSwitchType, isNative } =
       importFromTokenResponse || {};
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
         importToToken: {
           ...onekeyNetwork,
-          contractAddress,
+          contractAddress: isNative ? '' : contractAddress,
           networkId,
-          logoURI,
           networkLogoURI: onekeyNetwork.logoURI,
           symbol: symbol.toUpperCase(),
           name,
@@ -123,7 +122,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         swapTabSwitchType,
       },
     });
-  }, [contractAddress, logoURI, name, navigation, networkId, symbol]);
+  }, [contractAddress, name, navigation, networkId, symbol]);
 
   const handleStaking = useCallback(() => {
     if (networkId && activeAccount.account) {
