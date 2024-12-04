@@ -78,6 +78,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         Dialog.confirm({
           title: 'Unsupported token',
           tone: 'warning',
+          icon: 'ErrorOutline',
           renderContent: (
             <SizableText size="$bodyLg">
               Unfortunately, this token is not currently supported for Buy
