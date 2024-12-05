@@ -295,12 +295,10 @@ function TxFeeContainer(props: IProps) {
             network.impl === IMPL_APTOS &&
             unsignedTxs.length > 0
           ) {
-            const {
-              gas_unit_price: aptosGasPrice,
-              max_gas_amount: aptosMaxGasLimit,
-            } = unsignedTxs[0].encodedTx as IEncodedTxAptos;
+            const { gas_unit_price: aptosGasPrice } = unsignedTxs[0]
+              .encodedTx as IEncodedTxAptos;
             // use dApp fee
-            if (aptosGasPrice && aptosMaxGasLimit) {
+            if (aptosGasPrice) {
               const gasPrice = chainValueUtils.convertChainValueToGwei({
                 value: aptosGasPrice,
                 network,
@@ -308,9 +306,8 @@ function TxFeeContainer(props: IProps) {
 
               feeInfo.gas = {
                 ...feeInfo.gas,
-                gasLimit: aptosMaxGasLimit,
                 gasPrice,
-                gasLimitForDisplay: aptosMaxGasLimit,
+                gasLimit: feeInfo.gas?.gasLimit ?? '1',
               };
             }
           }
