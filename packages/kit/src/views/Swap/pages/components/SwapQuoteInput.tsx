@@ -22,7 +22,7 @@ import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../../hooks/useSwapState';
-import { validateAmountInput } from '../../utils/utils';
+import { truncateDecimalPlaces, validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -49,8 +49,15 @@ const SwapQuoteInput = ({
     (stage: number) => {
       const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
       const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
-      if (validateAmountInput(amountBN.toFixed(), fromToken?.decimals)) {
-        setFromInputAmount(amountBN.toFixed());
+      const amountAfterDecimal = amountBN.decimalPlaces(
+        fromToken?.decimals ?? 6,
+        BigNumber.ROUND_DOWN,
+      );
+      if (
+        !amountAfterDecimal.isNaN() &&
+        validateAmountInput(amountAfterDecimal.toFixed(), fromToken?.decimals)
+      ) {
+        setFromInputAmount(amountAfterDecimal.toFixed());
       }
     },
     [fromTokenBalance, fromToken?.decimals, setFromInputAmount],
