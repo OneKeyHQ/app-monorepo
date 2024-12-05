@@ -7,7 +7,13 @@ import {
   Serializer,
   SignedTransaction,
   SimpleTransaction,
+  getFunctionParts,
+  EntryFunctionABI,
 } from '@aptos-labs/ts-sdk';
+import type {
+  AptosSignAndSubmitTransactionInput,
+  AptosSignAndSubmitTransactionOutput,
+} from '@aptos-labs/wallet-standard';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
@@ -30,9 +36,13 @@ import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 import { vaultFactory } from '../vaults/factory';
 import {
   APTOS_SIGN_MESSAGE_PREFIX,
+  buildSimpleTransaction,
+  fetchEntryFunctionAbi,
   formatSignMessageRequest,
   generateTransferCreateCollection,
   generateTransferCreateNft,
+  getExpirationTimestampSecs,
+  getModuleAbiMap,
 } from '../vaults/impls/aptos/utils';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -417,6 +427,41 @@ class ProviderApiAptos extends ProviderApiBase {
       type,
       signature,
       publicKey: account.pub,
+    };
+  }
+
+  @providerApiMethod()
+  public async signAndSubmitTransactionV2(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ): Promise<AptosSignAndSubmitTransactionOutput> {
+    const { account, accountInfo } = await this._getAccount(request);
+
+    const input = JSON.parse(params) as AptosSignAndSubmitTransactionInput;
+    const vault = await this.getAptosVault(request);
+
+    const rawTx = await buildSimpleTransaction(
+      vault.client,
+      account.address,
+      input,
+    );
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: {
+          type: 'entry_function_payload',
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
+        },
+        signOnly: false,
+        accountId: account.id,
+        networkId: accountInfo?.networkId ?? '',
+      });
+
+    return {
+      hash: result.txid,
     };
   }
 

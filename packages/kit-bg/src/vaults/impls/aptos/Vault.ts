@@ -157,18 +157,14 @@ export default class VaultAptos extends VaultBase {
     encodedTx: IEncodedTxAptos,
   ): Promise<IUnsignedTxPro> {
     const expect = getExpirationTimestampSecs();
-    if (!isNil(encodedTx.bcsTxn) && !isEmpty(encodedTx.bcsTxn)) {
-      const deserializer = new Deserializer(
-        bufferUtils.hexToBytes(encodedTx.bcsTxn),
-      );
+    const { bcsTxn, disableEditTx } = encodedTx;
+    if (!isNil(bcsTxn) && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
 
       let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
-      if (
-        !encodedTx.disableEditTx &&
-        rawTx.expiration_timestamp_secs < expect
-      ) {
+      if (!disableEditTx && rawTx.expiration_timestamp_secs < expect) {
         expirationTimestampSecs = expect;
       }
 
@@ -773,10 +769,9 @@ export default class VaultAptos extends VaultBase {
 
     let rawTx: SimpleTransaction;
     const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
-    if (unSignedEncodedTx.bcsTxn && unSignedEncodedTx.bcsTxn?.length > 0) {
-      const deserializer = new Deserializer(
-        bufferUtils.hexToBytes(unSignedEncodedTx.bcsTxn),
-      );
+    const { bcsTxn } = unSignedEncodedTx;
+    if (bcsTxn && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       rawTx = SimpleTransaction.deserialize(deserializer);
     } else {
       rawTx = await generateUnsignedTransaction(this.client, {
