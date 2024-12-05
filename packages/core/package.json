@@ -43,7 +43,7 @@
     "bs58check": "^3.0.1",
     "cardano-crypto.js": "^6.1.2",
     "cip-23": "^0.2.0",
-    "coinselect": "https://github.com/OneKeyHQ/coinselect.git#ec1ec0b0ed81bbafe9318c5f13c67f94a540c35e",
+    "coinselect": "https://github.com/OneKeyHQ/coinselect.git#83f51b5cbab8e8bc06fcbf262b0e3936c171d002",
     "cosmjs-types": "^0.8.0",
     "ecpair": "^2.1.0",
     "elliptic": "^6.6.0",

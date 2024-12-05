@@ -6817,7 +6817,7 @@ __metadata:
     bs58check: "npm:^3.0.1"
     cardano-crypto.js: "npm:^6.1.2"
     cip-23: "npm:^0.2.0"
-    coinselect: "https://github.com/OneKeyHQ/coinselect.git#ec1ec0b0ed81bbafe9318c5f13c67f94a540c35e"
+    coinselect: "https://github.com/OneKeyHQ/coinselect.git#83f51b5cbab8e8bc06fcbf262b0e3936c171d002"
     cosmjs-types: "npm:^0.8.0"
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.6.0"
@@ -13641,44 +13641,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@trezor/utils@npm:9.2.4":
-  version: 9.2.4
-  resolution: "@trezor/utils@npm:9.2.4"
-  dependencies:
-    bignumber.js: "npm:^9.1.2"
-  peerDependencies:
-    tslib: ^2.6.2
-  checksum: 10/653018b96820da8c33a48a26c6fd453ac29fd465f6550b6efa76ee5c1ce95d36a4bc6d2bd5ead27edb43b13f557e88f4612f2ef592691f8e9bc16caa292631cc
-  languageName: node
-  linkType: hard
-
-"@trezor/utxo-lib@npm:^2.2.4":
-  version: 2.2.4
-  resolution: "@trezor/utxo-lib@npm:2.2.4"
-  dependencies:
-    "@trezor/utils": "npm:9.2.4"
-    bchaddrjs: "npm:^0.5.2"
-    bech32: "npm:^2.0.0"
-    bip66: "npm:^2.0.0"
-    bitcoin-ops: "npm:^1.4.1"
-    blake-hash: "npm:^2.0.0"
-    blakejs: "npm:^1.2.1"
-    bn.js: "npm:^5.2.1"
-    bs58: "npm:^6.0.0"
-    bs58check: "npm:^4.0.0"
-    create-hmac: "npm:^1.1.7"
-    int64-buffer: "npm:^1.0.1"
-    pushdata-bitcoin: "npm:^1.0.1"
-    tiny-secp256k1: "npm:^1.1.6"
-    typeforce: "npm:^1.18.0"
-    varuint-bitcoin: "npm:2.0.0"
-    wif: "npm:^5.0.0"
-  peerDependencies:
-    tslib: ^2.6.2
-  checksum: 10/d7f0d8ffda1b6941c72d381e65f445b398e44f727d771985d7cac9b5f0afd7145a98db2c7469cc6603084eeae091429ce7b77683f28e4b42b4edca340a58fe16
-  languageName: node
-  linkType: hard
-
 "@tronweb3/google-protobuf@npm:^3.21.2":
   version: 3.21.2
   resolution: "@tronweb3/google-protobuf@npm:3.21.2"
@@ -17599,7 +17561,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bignumber.js@npm:9.1.2, bignumber.js@npm:^9.0.0, bignumber.js@npm:^9.0.1, bignumber.js@npm:^9.0.2, bignumber.js@npm:^9.1.1, bignumber.js@npm:^9.1.2":
+"bignumber.js@npm:9.1.2, bignumber.js@npm:^9.0.0, bignumber.js@npm:^9.0.1, bignumber.js@npm:^9.0.2, bignumber.js@npm:^9.1.1":
   version: 9.1.2
   resolution: "bignumber.js@npm:9.1.2"
   checksum: 10/d89b8800a987225d2c00dcbf8a69dc08e92aa0880157c851c287b307d31ceb2fc2acb0c62c3e3a3d42b6c5fcae9b004035f13eb4386e56d529d7edac18d5c9d8
@@ -19279,12 +19241,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"coinselect@https://github.com/OneKeyHQ/coinselect.git#ec1ec0b0ed81bbafe9318c5f13c67f94a540c35e":
+"coinselect@https://github.com/OneKeyHQ/coinselect.git#83f51b5cbab8e8bc06fcbf262b0e3936c171d002":
   version: 3.1.13
-  resolution: "coinselect@https://github.com/OneKeyHQ/coinselect.git#commit=ec1ec0b0ed81bbafe9318c5f13c67f94a540c35e"
+  resolution: "coinselect@https://github.com/OneKeyHQ/coinselect.git#commit=83f51b5cbab8e8bc06fcbf262b0e3936c171d002"
   dependencies:
-    "@trezor/utxo-lib": "npm:^2.2.4"
-  checksum: 10/4330629a0e2f028616935f38d7f5a9048d6ec79b2a97136a1972d8596f45145bd8d643fb9b52818b615828a97955833e8410254624a51ebbe2197dcf49aa76a4
+    bchaddrjs: "npm:^0.5.2"
+    bech32: "npm:^2.0.0"
+    bignumber.js: "npm:9.1.2"
+    bip66: "npm:^2.0.0"
+    bitcoin-ops: "npm:^1.4.1"
+    blake-hash: "npm:^2.0.0"
+    blakejs: "npm:^1.2.1"
+    bn.js: "npm:^5.2.1"
+    bs58: "npm:^6.0.0"
+    bs58check: "npm:^4.0.0"
+    create-hmac: "npm:^1.1.7"
+    int64-buffer: "npm:^1.0.1"
+    pushdata-bitcoin: "npm:^1.0.1"
+    tiny-secp256k1: "npm:^1.1.6"
+    typeforce: "npm:^1.18.0"
+    varuint-bitcoin: "npm:2.0.0"
+    wif: "npm:^5.0.0"
+  peerDependencies:
+    tslib: ^2.6.2
+  checksum: 10/29066508aedb7f76968d8b8a730b5be0c34429b245657575301ec9a53cabea4a6f50602309d905d1a1179f02e2e4f27d4e4045ec6c6465c573a31a03a4005231
   languageName: node
   linkType: hard
 
