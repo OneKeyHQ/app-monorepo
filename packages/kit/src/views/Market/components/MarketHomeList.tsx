@@ -62,6 +62,7 @@ import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
+import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
@@ -69,6 +70,7 @@ import { MarketTokenPrice } from './MarketTokenPrice';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
+import { useLazyMarketTradeActions } from './tradeHook';
 import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
 
@@ -155,6 +157,225 @@ const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
 
+function MarketMdColumn({
+  item,
+  currency,
+  mdColumnKeys,
+  showMoreAction,
+}: {
+  item: IMarketToken;
+  currency: string;
+  mdColumnKeys: (keyof IMarketToken)[];
+  showMoreAction: boolean;
+}) {
+  const navigation = useAppNavigation();
+  const actions = useWatchListAction();
+  const isShowActionSheet = useRef(false);
+  const intl = useIntl();
+
+  const toDetailPage = useCallback(() => {
+    if (isShowActionSheet.current) {
+      return;
+    }
+    navigation.push(ETabMarketRoutes.MarketDetail, {
+      token: item.coingeckoId,
+    });
+  }, [item.coingeckoId, navigation]);
+
+  const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
+  const handleMdItemAction = useCallback(async () => {
+    const { coingeckoId, symbol } = item;
+    const isInWatchList = actions.isInWatchList(coingeckoId);
+    const title = symbol.toUpperCase();
+    const onClose = () => {
+      isShowActionSheet.current = false;
+    };
+    isShowActionSheet.current = true;
+    ActionList.show({
+      title,
+      onClose,
+      sections: [
+        {
+          items: [
+            isInWatchList
+              ? {
+                  destructive: true,
+                  icon: 'DeleteOutline' as const,
+                  label: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                  onPress: () => {
+                    actions.removeFormWatchList(coingeckoId);
+                    defaultLogger.market.token.removeFromWatchlist({
+                      tokenSymbol: coingeckoId,
+                      removeWatchlistFrom: EWatchlistFrom.catalog,
+                    });
+                  },
+                }
+              : {
+                  icon: 'StarOutline' as const,
+                  label: intl.formatMessage({
+                    id: ETranslations.market_add_to_watchlist,
+                  }),
+                  onPress: () => {
+                    actions.addIntoWatchList(coingeckoId);
+                    defaultLogger.market.token.addToWatchList({
+                      tokenSymbol: coingeckoId,
+                      addWatchlistFrom: EWatchlistFrom.catalog,
+                    });
+                  },
+                },
+            showMoreAction && {
+              icon: 'ArrowTopOutline' as const,
+              label: intl.formatMessage({
+                id: ETranslations.market_move_to_top,
+              }),
+              onPress: () => {
+                actions.MoveToTop(coingeckoId);
+              },
+            },
+          ].filter(Boolean),
+        },
+        {
+          items: [
+            {
+              icon: 'SwitchHorOutline',
+              label: intl.formatMessage({ id: ETranslations.global_swap }),
+              onPress: tradeActions.onSwap,
+            },
+            {
+              icon: 'CoinsOutline',
+              label: intl.formatMessage({ id: ETranslations.earn_stake }),
+              onPress: tradeActions.onStaking,
+            },
+            {
+              icon: 'PlusLargeSolid',
+              label: intl.formatMessage({ id: ETranslations.global_buy }),
+              onPress: tradeActions.onBuy,
+            },
+            {
+              icon: 'MinusLargeSolid',
+              label: intl.formatMessage({ id: ETranslations.global_sell }),
+              onPress: tradeActions.onSell,
+            },
+          ],
+        },
+      ],
+    });
+  }, [
+    actions,
+    intl,
+    item,
+    showMoreAction,
+    tradeActions.onBuy,
+    tradeActions.onSell,
+    tradeActions.onStaking,
+    tradeActions.onSwap,
+  ]);
+  const pressEvents = useMemo(
+    () => ({
+      onPress: () => toDetailPage(),
+      onLongPress: () => {
+        void handleMdItemAction();
+      },
+      delayLongPress: platformEnv.isNative ? undefined : 300,
+    }),
+    [handleMdItemAction, toDetailPage],
+  );
+  return (
+    <TouchableContainer
+      containerStyle={{ flex: 1 }}
+      style={{ flex: 1 }}
+      {...(platformEnv.isNative ? undefined : pressEvents)}
+    >
+      <XStack
+        height={60}
+        flex={1}
+        justifyContent="space-between"
+        userSelect="none"
+        gap="$2"
+        px="$5"
+        {...listItemPressStyle}
+        {...(platformEnv.isNative ? pressEvents : undefined)}
+      >
+        <XStack gap="$3" ai="center">
+          <MarketTokenIcon uri={item.image} size="$10" />
+          <YStack>
+            <SizableText size="$bodyLgMedium" userSelect="none">
+              {item.symbol.toUpperCase()}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
+              {`VOL `}
+              <NumberSizeableText
+                userSelect="none"
+                size="$bodySm"
+                formatter="marketCap"
+                color="$textSubdued"
+                formatterOptions={{ currency }}
+              >
+                {item.totalVolume}
+              </NumberSizeableText>
+            </SizableText>
+          </YStack>
+        </XStack>
+        <XStack ai="center" gap="$5" flexShrink={1}>
+          {mdColumnKeys[0] === 'price' ? (
+            <MarketTokenPrice
+              numberOfLines={1}
+              flexShrink={1}
+              size="$bodyLgMedium"
+              price={String(item[mdColumnKeys[0]])}
+              tokenName={item.name}
+              tokenSymbol={item.symbol}
+              lastUpdated={item.lastUpdated}
+            />
+          ) : (
+            <NumberSizeableText
+              userSelect="none"
+              flexShrink={1}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+              formatter="marketCap"
+              formatterOptions={{ currency }}
+            >
+              {item[mdColumnKeys[0]] as string}
+            </NumberSizeableText>
+          )}
+          {item[mdColumnKeys[1]] ? (
+            <XStack
+              width="$20"
+              height="$8"
+              jc="center"
+              ai="center"
+              backgroundColor={
+                Number(item.priceChangePercentage24H) > 0
+                  ? '$bgSuccessStrong'
+                  : '$bgCriticalStrong'
+              }
+              borderRadius="$2"
+            >
+              <NumberSizeableText
+                adjustsFontSizeToFit
+                numberOfLines={platformEnv.isNative ? 1 : 2}
+                px="$1"
+                userSelect="none"
+                size="$bodyMdMedium"
+                color="white"
+                formatter="priceChange"
+                formatterOptions={{ showPlusMinusSigns: true }}
+              >
+                {item[mdColumnKeys[1]] as string}
+              </NumberSizeableText>
+            </XStack>
+          ) : (
+            <MdPlaceholder />
+          )}
+        </XStack>
+      </XStack>
+    </TouchableContainer>
+  );
+}
+
 function BasicMarketHomeList({
   category,
   tabIndex = 0,
@@ -237,78 +458,13 @@ function BasicMarketHomeList({
     'priceChangePercentage24H',
   ]);
 
-  const actions = useWatchListAction();
-  const isShowActionSheet = useRef(false);
-
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
-      if (isShowActionSheet.current) {
-        return;
-      }
       navigation.push(ETabMarketRoutes.MarketDetail, {
         token: item.coingeckoId,
       });
     },
     [navigation],
-  );
-
-  const handleMdItemAction = useCallback(
-    async ({ coingeckoId, symbol }: IMarketToken) => {
-      const isInWatchList = actions.isInWatchList(coingeckoId);
-      const title = symbol.toUpperCase();
-      const onClose = () => {
-        isShowActionSheet.current = false;
-      };
-      isShowActionSheet.current = true;
-      ActionList.show({
-        title,
-        onClose,
-        sections: [
-          {
-            items: [
-              isInWatchList
-                ? {
-                    destructive: true,
-                    icon: 'DeleteOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.market_remove_from_watchlist,
-                    }),
-                    onPress: () => {
-                      actions.removeFormWatchList(coingeckoId);
-                      defaultLogger.market.token.removeFromWatchlist({
-                        tokenSymbol: coingeckoId,
-                        removeWatchlistFrom: EWatchlistFrom.catalog,
-                      });
-                    },
-                  }
-                : {
-                    icon: 'StarOutline',
-                    label: intl.formatMessage({
-                      id: ETranslations.market_add_to_watchlist,
-                    }),
-                    onPress: () => {
-                      actions.addIntoWatchList(coingeckoId);
-                      defaultLogger.market.token.addToWatchList({
-                        tokenSymbol: coingeckoId,
-                        addWatchlistFrom: EWatchlistFrom.catalog,
-                      });
-                    },
-                  },
-              showMoreAction && {
-                icon: 'ArrowTopOutline',
-                label: intl.formatMessage({
-                  id: ETranslations.market_move_to_top,
-                }),
-                onPress: () => {
-                  actions.MoveToTop(coingeckoId);
-                },
-              },
-            ].filter(Boolean) as IActionListItemProps[],
-          },
-        ],
-      });
-    },
-    [actions, intl, showMoreAction],
   );
 
   const { width: screenWidth } = useWindowDimensions();
@@ -317,112 +473,15 @@ function BasicMarketHomeList({
   const currency = settings.currencyInfo.symbol;
 
   const renderMdItem = useCallback(
-    (item: IMarketToken) => {
-      const pressEvents = {
-        onPress: () => toDetailPage(item),
-        onLongPress: () => {
-          void handleMdItemAction(item);
-        },
-        delayLongPress: platformEnv.isNative ? undefined : 300,
-      };
-      return (
-        <TouchableContainer
-          containerStyle={{ flex: 1 }}
-          style={{ flex: 1 }}
-          {...(platformEnv.isNative ? undefined : pressEvents)}
-        >
-          <XStack
-            height={60}
-            flex={1}
-            justifyContent="space-between"
-            userSelect="none"
-            gap="$2"
-            px="$5"
-            {...listItemPressStyle}
-            {...(platformEnv.isNative ? pressEvents : undefined)}
-          >
-            <XStack gap="$3" ai="center">
-              <MarketTokenIcon uri={item.image} size="$10" />
-              <YStack>
-                <SizableText size="$bodyLgMedium" userSelect="none">
-                  {item.symbol.toUpperCase()}
-                </SizableText>
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  userSelect="none"
-                >
-                  {`VOL `}
-                  <NumberSizeableText
-                    userSelect="none"
-                    size="$bodySm"
-                    formatter="marketCap"
-                    color="$textSubdued"
-                    formatterOptions={{ currency }}
-                  >
-                    {item.totalVolume}
-                  </NumberSizeableText>
-                </SizableText>
-              </YStack>
-            </XStack>
-            <XStack ai="center" gap="$5" flexShrink={1}>
-              {mdColumnKeys[0] === 'price' ? (
-                <MarketTokenPrice
-                  numberOfLines={1}
-                  flexShrink={1}
-                  size="$bodyLgMedium"
-                  price={String(item[mdColumnKeys[0]])}
-                  tokenName={item.name}
-                  tokenSymbol={item.symbol}
-                  lastUpdated={item.lastUpdated}
-                />
-              ) : (
-                <NumberSizeableText
-                  userSelect="none"
-                  flexShrink={1}
-                  numberOfLines={1}
-                  size="$bodyLgMedium"
-                  formatter="marketCap"
-                  formatterOptions={{ currency }}
-                >
-                  {item[mdColumnKeys[0]] as string}
-                </NumberSizeableText>
-              )}
-              {item[mdColumnKeys[1]] ? (
-                <XStack
-                  width="$20"
-                  height="$8"
-                  jc="center"
-                  ai="center"
-                  backgroundColor={
-                    Number(item.priceChangePercentage24H) > 0
-                      ? '$bgSuccessStrong'
-                      : '$bgCriticalStrong'
-                  }
-                  borderRadius="$2"
-                >
-                  <NumberSizeableText
-                    adjustsFontSizeToFit
-                    numberOfLines={platformEnv.isNative ? 1 : 2}
-                    px="$1"
-                    userSelect="none"
-                    size="$bodyMdMedium"
-                    color="white"
-                    formatter="priceChange"
-                    formatterOptions={{ showPlusMinusSigns: true }}
-                  >
-                    {item[mdColumnKeys[1]] as string}
-                  </NumberSizeableText>
-                </XStack>
-              ) : (
-                <MdPlaceholder />
-              )}
-            </XStack>
-          </XStack>
-        </TouchableContainer>
-      );
-    },
-    [currency, handleMdItemAction, mdColumnKeys, toDetailPage],
+    (item: IMarketToken) => (
+      <MarketMdColumn
+        item={item}
+        currency={currency}
+        mdColumnKeys={mdColumnKeys}
+        showMoreAction={showMoreAction}
+      />
+    ),
+    [currency, mdColumnKeys, showMoreAction],
   );
 
   const renderSelectTrigger = useCallback(
@@ -629,6 +688,18 @@ function BasicMarketHomeList({
               ),
             },
             {
+              title: '',
+              dataIndex: 'trade',
+              columnWidth: 180,
+              renderSkeleton: () => <Skeleton w="100%" h="$3" />,
+              render: (_, record: IMarketToken) => (
+                <MarketListTradeButton
+                  coinGeckoId={record.coingeckoId}
+                  symbol={record.symbol}
+                />
+              ),
+            },
+            {
               title: intl.formatMessage({ id: ETranslations.global_price }),
               dataIndex: 'price',
               align: 'right',
@@ -789,7 +860,7 @@ function BasicMarketHomeList({
             {
               title: '',
               dataIndex: 'action',
-              columnWidth: showMoreAction ? 88 : 64,
+              columnWidth: 88,
               align: 'center',
               renderSkeleton: () => null,
               render: (_: unknown, record: IMarketToken) => (
@@ -802,11 +873,13 @@ function BasicMarketHomeList({
                       from={EWatchlistFrom.catalog}
                     />
                   </Stack>
-                  {showMoreAction ? (
-                    <Stack flex={1} ai="center">
-                      <MarketMore coingeckoId={record.coingeckoId} />
-                    </Stack>
-                  ) : null}
+                  <Stack flex={1} ai="center">
+                    <MarketMore
+                      showMoreAction={showMoreAction}
+                      coingeckoId={record.coingeckoId}
+                      symbol={record.symbol}
+                    />
+                  </Stack>
                 </XStack>
               ),
             },
