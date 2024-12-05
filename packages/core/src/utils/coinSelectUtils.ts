@@ -1,10 +1,10 @@
-import coinSelectAuto from 'coinselect';
-import coinSelectAccumulative from 'coinselect/accumulative';
-import coinSelectBlackjack from 'coinselect/blackjack';
-import coinSelectBreak from 'coinselect/break';
-import coinSelectSplit from 'coinselect/split';
-import coinSelectUtils from 'coinselect/utils';
-import coinSelectWitness from 'coinselect/witness';
+import coinSelectAuto from '@onekeyfe/coinselect';
+import coinSelectAccumulative from '@onekeyfe/coinselect/accumulative';
+import coinSelectBlackjack from '@onekeyfe/coinselect/blackjack';
+import coinSelectBreak from '@onekeyfe/coinselect/break';
+import coinSelectSplit from '@onekeyfe/coinselect/split';
+import coinSelectUtils from '@onekeyfe/coinselect/utils';
+import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
 
 import { EAddressEncodings } from '../types';
@@ -13,16 +13,16 @@ import type {
   IInputsForCoinSelect,
   IOutputsForCoinSelect,
 } from '../chains/btc/types';
-import type { Network } from 'bitcoinjs-lib';
 import type {
   ICoinSelectInput,
   ICoinSelectOutput,
   ICoinSelectResult,
-} from 'coinselect';
+} from '@onekeyfe/coinselect';
 import type {
   ICoinSelectResult as ICoinSelectResultWitness,
   IUtxo,
-} from 'coinselect/witness';
+} from '@onekeyfe/coinselect/witness';
+import type { Network } from 'bitcoinjs-lib';
 
 export type ICoinSelectAlgorithm =
   | 'auto'

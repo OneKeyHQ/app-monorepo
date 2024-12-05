@@ -5966,6 +5966,33 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/coinselect@npm:3.1.13":
+  version: 3.1.13
+  resolution: "@onekeyfe/coinselect@npm:3.1.13"
+  dependencies:
+    bchaddrjs: "npm:^0.5.2"
+    bech32: "npm:^2.0.0"
+    bignumber.js: "npm:9.1.2"
+    bip66: "npm:^2.0.0"
+    bitcoin-ops: "npm:^1.4.1"
+    blake-hash: "npm:^2.0.0"
+    blakejs: "npm:^1.2.1"
+    bn.js: "npm:^5.2.1"
+    bs58: "npm:^6.0.0"
+    bs58check: "npm:^4.0.0"
+    create-hmac: "npm:^1.1.7"
+    int64-buffer: "npm:^1.0.1"
+    pushdata-bitcoin: "npm:^1.0.1"
+    tiny-secp256k1: "npm:^1.1.6"
+    typeforce: "npm:^1.18.0"
+    varuint-bitcoin: "npm:2.0.0"
+    wif: "npm:^5.0.0"
+  peerDependencies:
+    tslib: ^2.6.2
+  checksum: 10/88d1fc5b9390dcaa20cfc9ad4d633af2de077970a7d735b45852d5dafb17ce0d57479fb16689c0aea0e6d90d8ffe4e75177dd42c0f35cfe1a150a88bf315272d
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/cross-inpage-provider-core@npm:2.1.19":
   version: 2.1.19
   resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.1.19"
@@ -6798,6 +6825,7 @@ __metadata:
     "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.1"
+    "@onekeyfe/coinselect": "npm:3.1.13"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.1"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
@@ -6817,7 +6845,6 @@ __metadata:
     bs58check: "npm:^3.0.1"
     cardano-crypto.js: "npm:^6.1.2"
     cip-23: "npm:^0.2.0"
-    coinselect: "https://github.com/OneKeyHQ/coinselect.git#83f51b5cbab8e8bc06fcbf262b0e3936c171d002"
     cosmjs-types: "npm:^0.8.0"
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.6.0"
@@ -19238,33 +19265,6 @@ __metadata:
   version: 1.1.0
   resolution: "code-point-at@npm:1.1.0"
   checksum: 10/17d5666611f9b16d64fdf48176d9b7fb1c7d1c1607a189f7e600040a11a6616982876af148230336adb7d8fe728a559f743a4e29db3747e3b1a32fa7f4529681
-  languageName: node
-  linkType: hard
-
-"coinselect@https://github.com/OneKeyHQ/coinselect.git#83f51b5cbab8e8bc06fcbf262b0e3936c171d002":
-  version: 3.1.13
-  resolution: "coinselect@https://github.com/OneKeyHQ/coinselect.git#commit=83f51b5cbab8e8bc06fcbf262b0e3936c171d002"
-  dependencies:
-    bchaddrjs: "npm:^0.5.2"
-    bech32: "npm:^2.0.0"
-    bignumber.js: "npm:9.1.2"
-    bip66: "npm:^2.0.0"
-    bitcoin-ops: "npm:^1.4.1"
-    blake-hash: "npm:^2.0.0"
-    blakejs: "npm:^1.2.1"
-    bn.js: "npm:^5.2.1"
-    bs58: "npm:^6.0.0"
-    bs58check: "npm:^4.0.0"
-    create-hmac: "npm:^1.1.7"
-    int64-buffer: "npm:^1.0.1"
-    pushdata-bitcoin: "npm:^1.0.1"
-    tiny-secp256k1: "npm:^1.1.6"
-    typeforce: "npm:^1.18.0"
-    varuint-bitcoin: "npm:2.0.0"
-    wif: "npm:^5.0.0"
-  peerDependencies:
-    tslib: ^2.6.2
-  checksum: 10/29066508aedb7f76968d8b8a730b5be0c34429b245657575301ec9a53cabea4a6f50602309d905d1a1179f02e2e4f27d4e4045ec6c6465c573a31a03a4005231
   languageName: node
   linkType: hard
 
