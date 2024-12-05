@@ -22,7 +22,7 @@ import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../../hooks/useSwapState';
-import { truncateDecimalPlaces, validateAmountInput } from '../../utils/utils';
+import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
