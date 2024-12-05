@@ -7,6 +7,8 @@ import coinSelectUtils from '@onekeyfe/coinselect/utils';
 import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { EAddressEncodings } from '../types';
 
 import type {
@@ -167,9 +169,16 @@ export const getCoinSelectTxType = (
   }
 };
 
+export interface ICoinSelectFailedResult {
+  inputs: undefined;
+  outputs: undefined;
+  fee: undefined;
+  bytes: undefined;
+}
+
 export function coinSelectWithWitness(
   params: ICoinSelectWithWitnessOptions,
-): ICoinSelectResultWitness {
+): ICoinSelectResultWitness | ICoinSelectFailedResult {
   const {
     inputsForCoinSelect,
     outputsForCoinSelect,
@@ -178,8 +187,7 @@ export function coinSelectWithWitness(
     changeAddress,
     txType,
   } = params;
-
-  const result = coinSelectWitness({
+  const coinselectParams = {
     utxos: inputsForCoinSelect.map((u) => ({
       ...u,
       own: true,
@@ -191,8 +199,16 @@ export function coinSelectWithWitness(
     network,
     changeAddress,
     txType,
-  });
-
-  console.log('=======>>>> coinSelectWithWitness response: ', result);
-  return result;
+  };
+  try {
+    return coinSelectWitness(coinselectParams);
+  } catch (error) {
+    defaultLogger.transaction.coinSelect.coinSelectFailed(coinselectParams);
+    return {
+      inputs: undefined,
+      outputs: undefined,
+      fee: undefined,
+      bytes: undefined,
+    };
+  }
 }
